@@ -2,9 +2,9 @@
 
 ## Ownership and identity
 
-Product achievements are VectorQuake product-domain facts. They are separate from store-specific achievement transport and configuration. The first canonical product ID is `campaign.complete`, exposed as `GameAchievementIds.NormalCampaignComplete`; it is not a Steam API Name.
+Product achievements are VectorQuake product-domain facts. They are separate from store-specific achievement transport and configuration. The canonical product IDs are `campaign.complete`, `campaign.stage-1-2.clear`, and `campaign.stage-1-2.push-flip-within-25`; none is a Steam API Name.
 
-The code-defined `GameAchievementCatalog` currently contains one one-shot definition. The catalog intentionally has no localized copy, icon, progress rule, AppID, provider metadata, or store mapping.
+The code-defined `GameAchievementCatalog` currently contains three one-shot definitions. The catalog intentionally has no localized copy, icon, AppID, provider metadata, or store mapping. Stage and action-count eligibility is owned by the Campaign integration rule catalog rather than embedded in the product ledger.
 
 ## Product-global durable state
 
@@ -38,13 +38,21 @@ Version 1 remains readable under its original persisted contract: canonical `Com
 
 `CampaignCompleted = true` and the first eligible receipt are assigned inside the same Campaign slot mutation and durable save invocation. A save failure leaves neither change durable. A valid existing receipt is preserved without overwrite, and an invalid existing receipt is retained but is not eligible and is not silently repaired. New Game starts with no receipt, Delete Slot removes that slot fact, and neither operation changes the product-global achievement document. Older schema-v1 profiles that omit the optional field load with a null receipt; the profile schema version remains 1 and unsupported forward versions remain fail-closed.
 
+## Durable normal stage performance records
+
+Each Campaign slot may contain versioned `NormalStagePerformanceRecords`. A record stores only a canonical `StageId` and that slot's best (lowest) combined Push+Flip use count for a normal Objective clear. It contains no achievement ID, Steam name, AppID, or publication status. Duplicate records normalize to the lowest count and deterministic Stage order. New Game starts empty; retry and death reset only the in-memory attempt tracker, while a later successful clear updates the durable best without replacing a better historical value.
+
+The attempt tracker consumes canonical player-action presentation signals by `(player entity, active action sequence)`. Only executed, non-cancelled Push or Flip signals resolved as `Success` or `Impact` count. Blocked, cancelled, non-executed, fake-attempt, other-action, and other-entity signals do not count. Player death or respawn resets the attempt, and a recreated retry scene starts with a fresh tracker. The threshold is inclusive: a normal `stage-1-2` Objective clear at 25 combined uses qualifies; 26 does not.
+
+`CampaignGameplayFlowController` persists a stage performance record only for the same normal accepted Victory boundary used for achievement eligibility: a real `TickResult`, `ObjectiveResult.ClearedThisTick`, matching Stage/final tick, serialized sequence membership, and no Editor DirectPlay mode. Force Clear, every DirectPlay mode, rejected or same-tick-losing Victory, and defeat write no record. The committed record is loaded before stage-achievement earning, so a failed Campaign save cannot create an achievement detached from its recovery fact.
+
 ## Production application composition
 
 The canonical `ApplicationPersistentDataSavePathProvider.SaveRootPath` owns both `profile.json` and `achievements.json` under the product-global `Saves` directory. Product achievement composition does not read slot roots or Editor DirectPlay temporary namespaces.
 
 `ProductAchievementRuntimeBootstrap` creates one plain-C# `ProductAchievementApplicationLifetimeOwner` before the first scene, initializes one `ProductAchievementApplicationHost`, and disposes it at application quit. Scene transitions and Stage retries do not recreate it. The coordinator references a store-neutral `SwitchableAchievementPublicationSink`, whose initial target is `UnavailableAchievementPublicationSink`; missing-file initialization keeps an in-memory empty document without eagerly creating `achievements.json`.
 
-The application composition has no shared constructor root with the stage-backed scene composition. A single achievement-specific internal `ProductAchievementEarningSinkHandoff` therefore carries only `IProductAchievementEarningSink` across that boundary. The application owner registers one exact sink, a different second registration fails closed, subsystem registration and application disposal clear it, and only scene composition consumes it. Gameplay runtime logic receives a plain `INormalCampaignCompletionAchievementIntegration` constructor dependency and never performs a static lookup or owns/disposes the application sink.
+The application composition has no shared constructor root with the stage-backed scene composition. A single achievement-specific internal `ProductAchievementEarningSinkHandoff` therefore carries only `IProductAchievementEarningSink` across that boundary. The application owner registers one exact sink, a different second registration fails closed, subsystem registration and application disposal clear it, and only scene composition consumes it. Gameplay runtime logic receives plain `INormalCampaignCompletionAchievementIntegration` and `ICampaignStageAchievementIntegration` constructor dependencies and never performs a static lookup or owns/disposes the application sink.
 
 ## Receipt-based earning and recovery
 
@@ -54,17 +62,23 @@ The application composition has no shared constructor root with the stage-backed
 
 After resolver acquisition, reconciliation obtains the canonical production Campaign store through `CampaignSaveCompositionProvider`, whose factory completes profile migration before the read, and uses `LoadAllWithReport` rather than reading `profile.json` or backup files. Missing/empty profiles are a no-op; blocked or failed load states earn nothing. A backup-recovered canonical result is eligible. Version-1 and version-2 receipts must still name a serialized-sequence final Stage. Multiple valid slot receipts collapse to one product-ledger earn, and bare `CampaignCompleted` never earns.
 
-Every `EditorDirectPlayMode` skips startup profile reading and immediate current-completion earning, including `CampaignProductionSlot`. Product persistence failures, unavailable state, invalid configuration results, and unexpected earning exceptions are contained after the Campaign save; they do not roll back Campaign completion or block terminal/GameClear flow. The durable receipt remains the next normal startup's recovery source.
+The same one-shot startup profile scan replays eligible normal stage performance records for all slots. `campaign.stage-1-2.clear` requires any persisted normal `stage-1-2` clear record; `campaign.stage-1-2.push-flip-within-25` additionally requires a best combined count no greater than 25. Product-ledger idempotence collapses records across slots. Every `EditorDirectPlayMode` skips startup profile reading and immediate earning, including `CampaignProductionSlot`. Product persistence failures, unavailable state, invalid configuration results, and unexpected earning exceptions are contained after the Campaign save; they do not roll back Campaign completion or block terminal/GameClear flow. Durable receipts and performance records remain the next normal startup's recovery sources.
 
 ## Expected Steam mapping and publication session
 
-The optional Steam Product Achievement integration owns the canonical expected mapping `campaign.complete` → `VQ_CAMPAIGN_COMPLETE`. Its status is `EXPECTED_NOT_PUBLISHED`: the repository requires that exact ordinal API Name, but no actual Steamworks App Admin achievement or published schema is configured or verified by this milestone. The Product Achievement Domain, Gameplay, Campaign receipt, ledger, and save schema do not know the Steam API Name.
+The optional Steam Product Achievement integration owns these canonical expected mappings:
+
+- `campaign.complete` → `VQ_CAMPAIGN_COMPLETE`
+- `campaign.stage-1-2.clear` → `VQ_STAGE_1_2_CLEAR`
+- `campaign.stage-1-2.push-flip-within-25` → `VQ_STAGE_1_2_PUSH_FLIP_LE_25`
+
+Their status is `EXPECTED_NOT_PUBLISHED`: the repository requires those exact ordinal API Names, but no actual Steamworks App Admin achievement or published schema is configured or verified by this milestone. The Product Achievement Domain, Gameplay, Campaign records, ledger, and save schema do not know the Steam API Names.
 
 After the canonical Steam runtime has initialized with a nonzero observed AppID, valid SteamID, logged-on state, and one active achievement callback pair, a strongly typed achievement-only handoff attaches `SteamAchievementPublisher` to the switchable sink. Product-first and Steam-first startup orders converge on the same attach. The same Steam runtime session is idempotent; detach followed by a new Steam runtime session opens one new reconciliation opportunity. Scene reload, Main Menu entry, and Steam ticks do not create publication sessions.
 
 Each new attached publication session reconciles every catalog-known earned product ID once, whether or not it is currently pending. Existing per-ID in-flight protection remains active, and there is no per-frame retry. Accepted and already-satisfied results remove pending through the existing atomic repository save; unavailable, deferred, rejected, failed, and shutdown completion leave pending durable.
 
-The first Steam publisher slice is single-flight because the production catalog contains one achievement. It validates exact runtime schema presence before mutation, performs a pre-read, calls Set then Store once, accepts either callback order only after matching AppID plus successful stats and exact full-unlock achievement callbacks, and performs an unlocked post-read. Its callback wait uses a 30-second J2M monotonic timeout policy. Multi-achievement StoreStats batching is deferred until the catalog expands.
+The Steam publisher executes one mutation at a time and queues concurrent product publications in FIFO order for the attached session. Each item validates exact runtime schema presence before mutation, performs a pre-read, calls Set then Store once, accepts either callback order only after matching AppID plus successful stats and exact full-unlock achievement callbacks, and performs an unlocked post-read. Completion reserves the next queued item before invoking observers, preventing reentrant publication from overtaking the queue. Disposal completes both the active and queued items as unavailable. A 30-second J2M monotonic callback timeout or non-OK stats-store callback quarantines the attached publisher session: the active item fails, queued items become unavailable immediately, callback handles are disposed, and the same process does not auto-register a replacement session. Durable pending IDs remain for the next attached Steam publication session. Multi-achievement StoreStats batching remains deferred.
 
 `SteamPlatformRuntime.Tick` remains the sole timeout tick owner after its canonical callback pump. The publisher never initializes, pumps, or shuts down Steam. Publisher callbacks are disposed and the product session is detached before overlay callback disposal and native shutdown. `-j2mSteamAchievementSmoke` exclusively selects the Spacewar smoke callback owner and prevents Product publisher creation; base `-j2mSteamSmoke` alone does not own achievement callbacks and does not exclude Product publication.
 

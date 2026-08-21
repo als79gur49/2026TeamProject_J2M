@@ -38,14 +38,23 @@ The exporter reads the `steam-windows` contract, `SteamAchievementMapping.Produc
 
 This is a repository expectation. It does not mean the Steamworks General Installation launch option has been configured or published.
 
-### Product achievement
+### Product achievements
 
-- Product Achievement ID: `campaign.complete`
-- Expected Steam API Name: `VQ_CAMPAIGN_COMPLETE`
-- Current status: `EXPECTED_NOT_PUBLISHED`
-- Unlock condition: normal Campaign final Objective clear
-- Excluded paths: DirectPlay and Force Clear
-- Hidden recommendation: `false`
+| Product Achievement ID | Expected Steam API Name | Unlock condition | Status |
+| --- | --- | --- | --- |
+| `campaign.complete` | `VQ_CAMPAIGN_COMPLETE` | Normal Campaign final Objective clear | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.stage-1-2.clear` | `VQ_STAGE_1_2_CLEAR` | Normal `stage-1-2` Objective clear | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.stage-1-2.push-flip-within-25` | `VQ_STAGE_1_2_PUSH_FLIP_LE_25` | Normal `stage-1-2` Objective clear with combined Push+Flip uses <= 25 | `EXPECTED_NOT_PUBLISHED` |
+
+All three exclude DirectPlay and Force Clear. The action threshold counts only executed, non-cancelled Push/Flip outcomes resolved as Success or Impact, resets on death/respawn/retry, and is inclusive at 25. Hidden recommendation is `false` for owner review.
+
+The runtime records qualifying normal-stage performance in the campaign save before it
+attempts Product Achievement earning. Steam publication is serialized FIFO. If a Steam
+statistics callback times out or returns a non-OK result, the current publisher session is
+quarantined instead of starting the next queued item under callback ambiguity. The active
+publication fails, queued publications become unavailable, and no replacement session is
+registered in the same process. Pending records remain durable for startup recovery when a
+later process/session attaches a healthy Steam publisher.
 
 Owner-review copy drafts:
 
@@ -132,8 +141,8 @@ grant upload authority. Credentials, SteamID, account details, branch activation
 
 1. Confirm the Actual VectorQuake AppID.
 2. Confirm App Admin access for the authorized owner account.
-3. Create the `VQ_CAMPAIGN_COMPLETE` achievement.
-4. Review and enter Display Name, Description, Locked/Unlocked icons, and Hidden setting.
+3. Create `VQ_CAMPAIGN_COMPLETE`, `VQ_STAGE_1_2_CLEAR`, and `VQ_STAGE_1_2_PUSH_FLIP_LE_25` with exact ordinal API Names.
+4. Review and enter Display Name, Description, Locked/Unlocked icons, and Hidden setting for each achievement.
 5. Publish the Steamworks changes.
 6. Register the Windows launch option for `VectorQuake.exe` with `-j2mPlatformProvider steam`.
 7. Confirm or create the Windows Depot.
@@ -144,8 +153,9 @@ grant upload authority. Credentials, SteamID, account details, branch activation
 12. Perform an actual SteamPipe preview only after separate approval.
 13. Upload only after separate explicit approval.
 14. Install the resulting private branch build from the Steam Library.
-15. Complete the Campaign normally.
-16. Verify the actual achievement unlock and pending-publication removal behavior.
+15. Complete `stage-1-2` normally once at 25 combined Push+Flip uses and once at 26 to verify the inclusive boundary and non-qualification case.
+16. Complete the Campaign normally.
+17. Verify all actual achievement unlocks and pending-publication removal behavior.
 
 ## Inputs required after AppID assignment
 

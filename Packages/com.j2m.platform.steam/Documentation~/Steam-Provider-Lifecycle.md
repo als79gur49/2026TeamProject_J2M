@@ -31,13 +31,20 @@ invalid, and conflicting requests also fail closed. With no provider argument, L
 the default even when the Steam factory is registered.
 
 Normal Product Achievement publication uses the optional mapping owned under
-`Runtime/ProductAchievements`. The current repository expectation is
-`campaign.complete` → `VQ_CAMPAIGN_COMPLETE`, with status `EXPECTED_NOT_PUBLISHED` until
-an actual AppID schema is created and published in Steamworks App Admin. Publication is
+`Runtime/ProductAchievements`. The current repository expectations are
+`campaign.complete` → `VQ_CAMPAIGN_COMPLETE`, `campaign.stage-1-2.clear` →
+`VQ_STAGE_1_2_CLEAR`, and `campaign.stage-1-2.push-flip-within-25` →
+`VQ_STAGE_1_2_PUSH_FLIP_LE_25`, all with status `EXPECTED_NOT_PUBLISHED` until an actual
+AppID schema is created and published in Steamworks App Admin. Publication is
 gated by initialized session observations, exact runtime schema presence, pre-read state,
 Set/Store results, both correlated callback kinds, and a final unlocked post-read. The
-publisher is single-flight with a 30-second monotonic callback timeout and no automatic
-mutation retry.
+publisher runs one mutation at a time, queues concurrent publications in FIFO order, and
+uses a 30-second monotonic callback timeout with no automatic mutation retry. A timeout or
+non-OK `UserStatsStored_t` result quarantines that publisher session: the active item fails,
+queued items become unavailable, callback handles are disposed, and later callbacks cannot
+be attributed to a newer item. The same process does not automatically register a replacement
+publisher session. Durable Product Achievement pending records remain available for a later
+process/session.
 
 Achievement smoke mutation still requires explicit Steam selection plus both
 `-j2mSteamSmoke` and `-j2mSteamAchievementSmoke`. That flag pair selects the provider-local
