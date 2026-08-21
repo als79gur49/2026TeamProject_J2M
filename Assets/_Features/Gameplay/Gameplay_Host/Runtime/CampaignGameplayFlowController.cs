@@ -128,6 +128,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly EditorDirectPlayContext _editorDirectPlayContext;
         private readonly INormalCampaignCompletionAchievementIntegration
             _normalCampaignCompletionAchievementIntegration;
+        private readonly ICampaignStageAchievementIntegration
+            _campaignStageAchievementIntegration;
         private readonly TerminalArbitrationOwner _terminalArbiter = new();
         private GameplayHostPresentationFeed _presentationFeed;
         private bool _handledClear;
@@ -143,7 +145,8 @@ namespace Game.Feature.Gameplay.Host
             ITerminalTransitionPort terminalTransitionPort,
             EditorDirectPlayContext? editorDirectPlayContext = null,
             INormalCampaignCompletionAchievementIntegration
-                normalCampaignCompletionAchievementIntegration = null)
+                normalCampaignCompletionAchievementIntegration = null,
+            ICampaignStageAchievementIntegration campaignStageAchievementIntegration = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
@@ -158,6 +161,9 @@ namespace Game.Feature.Gameplay.Host
             _normalCampaignCompletionAchievementIntegration =
                 normalCampaignCompletionAchievementIntegration ??
                 UnavailableNormalCampaignCompletionAchievementIntegration.Instance;
+            _campaignStageAchievementIntegration =
+                campaignStageAchievementIntegration ??
+                UnavailableCampaignStageAchievementIntegration.Instance;
             _retryChanceTracker = new StageRetryChanceTracker(_sequenceResolver);
         }
 
@@ -187,11 +193,11 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void HandleTerminalClaimAccepted(
-            TickResult result,
-            MinimalStageCompletionReadModel readModel,
-            TerminalClaimResult claim)
+        private void HandleTerminalClaimAccepted(TerminalClaimAcceptedContext context)
         {
+            var result = context.Result;
+            var readModel = context.StageCompletion;
+            var claim = context.Claim;
             if (!claim.Accepted)
             {
                 return;
@@ -209,7 +215,11 @@ namespace Game.Feature.Gameplay.Host
 
             if (!_handledClear)
             {
-                HandleAcceptedStageClear(result, readModel, claim);
+                HandleAcceptedStageClear(
+                    result,
+                    readModel,
+                    claim,
+                    context.AttemptMetrics);
             }
         }
 
@@ -220,7 +230,11 @@ namespace Game.Feature.Gameplay.Host
             var claim = _terminalArbiter.Arbitrate(result, _host.InputHost.PlayerEntityId);
             if (claim.Accepted)
             {
-                HandleTerminalClaimAccepted(result, null, claim);
+                HandleTerminalClaimAccepted(new TerminalClaimAcceptedContext(
+                    result,
+                    stageCompletion: null,
+                    claim,
+                    new StageAttemptMetricsSnapshot(0)));
             }
         }
 
@@ -231,7 +245,11 @@ namespace Game.Feature.Gameplay.Host
             var claim = _terminalArbiter.Arbitrate(result, _host.InputHost.PlayerEntityId);
             if (claim.Accepted)
             {
-                HandleTerminalClaimAccepted(result, readModel, claim);
+                HandleTerminalClaimAccepted(new TerminalClaimAcceptedContext(
+                    result,
+                    readModel,
+                    claim,
+                    new StageAttemptMetricsSnapshot(0)));
             }
         }
 
@@ -242,7 +260,11 @@ namespace Game.Feature.Gameplay.Host
             var claim = _terminalArbiter.ClaimVictory();
             if (claim.Accepted)
             {
-                HandleAcceptedStageClear(result, readModel, claim);
+                HandleAcceptedStageClear(
+                    result,
+                    readModel,
+                    claim,
+                    new StageAttemptMetricsSnapshot(0));
             }
         }
 
@@ -446,7 +468,8 @@ namespace Game.Feature.Gameplay.Host
         private void HandleAcceptedStageClear(
             TickResult result,
             MinimalStageCompletionReadModel readModel,
-            TerminalClaimResult claim)
+            TerminalClaimResult claim,
+            StageAttemptMetricsSnapshot attemptMetrics)
         {
             _handledClear = true;
             _host.InputHost.EnterTerminalHold(claim.Token);
@@ -468,6 +491,15 @@ namespace Game.Feature.Gameplay.Host
                 out var completionFact)
                 ? completionFact
                 : (NormalCampaignCompletionFact?)null;
+            var normalStageClear = TryCreateNormalCampaignStageClearFact(
+                result,
+                readModel,
+                claim,
+                completedStageId,
+                attemptMetrics,
+                out var normalStageClearFact)
+                ? normalStageClearFact
+                : (NormalCampaignStageClearFact?)null;
             if (_sequenceResolver.IsFinal(completedStageId))
             {
                 if (!TerminalSessionRegistry.Authority.TrySetDestinationKind(
@@ -496,6 +528,7 @@ namespace Game.Feature.Gameplay.Host
                         }
 
                         mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
+                        ApplyNormalStagePerformanceRecord(mutableSlot, normalStageClear);
                     });
                 if (normalCompletion.HasValue)
                 {
@@ -544,6 +577,7 @@ namespace Game.Feature.Gameplay.Host
                         mutableSlot.CurrentStageId = nextStageId;
                         mutableSlot.CurrentLevelGroupId = nextLevelGroupId;
                         mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
+                        ApplyNormalStagePerformanceRecord(mutableSlot, normalStageClear);
                     });
                 if (restoresChances)
                 {
@@ -554,7 +588,72 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            if (normalStageClear.HasValue)
+            {
+                TryEarnCampaignStageAchievements(runningSlotNumber);
+            }
+
             BeginVictoryTerminal(claim);
+        }
+
+        private static void ApplyNormalStagePerformanceRecord(
+            SaveSlotData mutableSlot,
+            NormalCampaignStageClearFact? normalStageClear)
+        {
+            if (!normalStageClear.HasValue)
+            {
+                return;
+            }
+
+            mutableSlot.NormalStagePerformanceRecords =
+                NormalStagePerformanceRecordPolicy.UpsertBest(
+                    mutableSlot.NormalStagePerformanceRecords,
+                    normalStageClear.Value.StageId,
+                    normalStageClear.Value.CombinedPushFlipUses);
+        }
+
+        private void TryEarnCampaignStageAchievements(int runningSlotNumber)
+        {
+            try
+            {
+                var committedSlot = _saveSlotStore.LoadSlot(runningSlotNumber);
+                _campaignStageAchievementIntegration.TryEarnFromCommittedSlot(
+                    committedSlot,
+                    _sequenceResolver);
+            }
+            catch
+            {
+                // Durable performance records remain the startup recovery source.
+            }
+        }
+
+        private bool TryCreateNormalCampaignStageClearFact(
+            TickResult result,
+            MinimalStageCompletionReadModel readModel,
+            TerminalClaimResult claim,
+            StageId completedStageId,
+            StageAttemptMetricsSnapshot metrics,
+            out NormalCampaignStageClearFact completion)
+        {
+            completion = default;
+            if (!claim.Accepted ||
+                claim.TerminalKind != TerminalTransitionKind.Victory ||
+                result == null ||
+                result.ObjectiveResult == null ||
+                !result.ObjectiveResult.ClearedThisTick ||
+                readModel == null ||
+                !readModel.StageId.Equals(completedStageId) ||
+                readModel.FinalTickIndex != result.TickIndex ||
+                _editorDirectPlayContext.Mode != EditorDirectPlayMode.None ||
+                !_sequenceResolver.Contains(completedStageId))
+            {
+                return false;
+            }
+
+            completion = new NormalCampaignStageClearFact(
+                completedStageId,
+                metrics.CombinedPushFlipUses);
+            return true;
         }
 
         private void TryEarnNormalCampaignCompletionAchievement(

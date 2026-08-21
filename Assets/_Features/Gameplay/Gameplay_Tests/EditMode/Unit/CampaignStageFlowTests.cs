@@ -13,8 +13,10 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
+using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Feature.Stages;
 using Game.Product.Achievements;
 using Game.Product.Achievements.CampaignIntegration;
@@ -890,6 +892,147 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void NormalStage1_2Clear_CommitsAttemptRecordBeforeEarningBothStageAchievements()
+        {
+            var store = RecordingCampaignSaveSlotStore.WithSlot(
+                CreateCampaignSlot(1, "stage-1-2"));
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew,
+                () => store.SaveCount == 1);
+            var hostObject = new GameObject("normal-stage-1-2-achievement-host");
+            try
+            {
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
+
+                InvokeStageClear(
+                    controller,
+                    CreateMinimalStageCompletionReadModel(
+                        "stage-1-2",
+                        tickIndex: 110));
+
+                var records = store.LoadSlot(1).NormalStagePerformanceRecords;
+                Assert.That(records, Has.Length.EqualTo(1));
+                Assert.That(records[0].StageId.Value, Is.EqualTo("stage-1-2"));
+                Assert.That(records[0].BestCombinedPushFlipUses, Is.Zero);
+                Assert.That(earningSink.EarnCount, Is.EqualTo(2));
+                Assert.That(earningSink.SaveWasCommittedAtEarn, Is.True);
+                Assert.That(
+                    earningSink.LastAchievementId,
+                    Is.EqualTo(GameAchievementIds.CampaignStage1_2PushFlipWithin25));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [TestCase(24, 2)]
+        [TestCase(25, 2)]
+        [TestCase(26, 1)]
+        [Category("Core")]
+        public void NormalStage1_2Clear_ProductionFeedPersistsExactPushFlipBoundaryBeforeEarning(
+            int combinedPushFlipUses,
+            int expectedEarnCount)
+        {
+            var store = RecordingCampaignSaveSlotStore.WithSlot(
+                CreateCampaignSlot(1, "stage-1-2"));
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew,
+                () => store.SaveCount == 1);
+            var hostObject = new GameObject(
+                $"normal-stage-1-2-production-feed-{combinedPushFlipUses}");
+            var entry = CreateEntry("stage-1-2");
+            var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(
+                presentationDefinition,
+                "displayNameKey",
+                StageDisplayNameKeys.ForStage(entry.StageId));
+            entry.AssignPresentationDefinition(presentationDefinition);
+            CampaignGameplayFlowController controller = null;
+            GameplayHostUiAccessContext uiAccess = null;
+
+            try
+            {
+                var resolver = CreateResolver();
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var host = CreateHostWithInput(
+                    hostObject,
+                    playerEntityId: 10,
+                    respawnDelayTicks: 3,
+                    presenter);
+                var feed = new GameplayHostPresentationFeed(
+                    host.InputHost,
+                    presenter,
+                    entry,
+                    campaignStageSequenceResolver: resolver);
+                uiAccess = new GameplayHostUiAccessContext(
+                    new NoOpGameplayCommandGateway(),
+                    new NoOpGameplayQueryFacade(),
+                    feed,
+                    new NoOpGameplayPauseService(),
+                    campaignStageSequenceResolver: resolver);
+                AttachUiAccess(host, presenter, uiAccess, respawnDelayTicks: 3);
+                controller = new CampaignGameplayFlowController(
+                    host,
+                    store,
+                    new CampaignRunningSlotContext(1),
+                    resolver,
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort(),
+                    campaignStageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
+                controller.Bind();
+
+                for (var useIndex = 1; useIndex <= combinedPushFlipUses; useIndex++)
+                {
+                    RaiseInputHostTickCompleted(
+                        host.InputHost,
+                        CreateCountedPushFlipTickResult(
+                            tickIndex: useIndex,
+                            actionSequence: useIndex,
+                            actionKind: useIndex % 2 == 0
+                                ? PlayerActionKind.Flip
+                                : PlayerActionKind.Push,
+                            resolutionKind: useIndex % 2 == 0
+                                ? TickPlayerActionResolutionKind.Impact
+                                : TickPlayerActionResolutionKind.Success,
+                            objectiveCleared: useIndex == combinedPushFlipUses));
+                }
+
+                var records = store.LoadSlot(1).NormalStagePerformanceRecords;
+                Assert.That(records, Has.Length.EqualTo(1));
+                Assert.That(records[0].StageId.Value, Is.EqualTo("stage-1-2"));
+                Assert.That(records[0].BestCombinedPushFlipUses, Is.EqualTo(combinedPushFlipUses));
+                Assert.That(store.SaveCount, Is.EqualTo(1));
+                Assert.That(earningSink.SaveWasCommittedAtEarn, Is.True);
+                Assert.That(earningSink.EarnCount, Is.EqualTo(expectedEarnCount));
+                Assert.That(
+                    earningSink.EarnedAchievementIds,
+                    Does.Contain(GameAchievementIds.CampaignStage1_2Clear));
+                Assert.That(
+                    earningSink.EarnedAchievementIds.Contains(
+                        GameAchievementIds.CampaignStage1_2PushFlipWithin25),
+                    Is.EqualTo(combinedPushFlipUses <= 25));
+            }
+            finally
+            {
+                controller?.Dispose();
+                uiAccess?.Dispose();
+                UnityEngine.Object.DestroyImmediate(presentationDefinition);
+                UnityEngine.Object.DestroyImmediate(entry);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FinalClear_SaveFailureLeavesNoDurableCampaignCompletionOrReceipt()
         {
             var store = RecordingCampaignSaveSlotStore.WithSlot(
@@ -952,6 +1095,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(store.LoadSlot(1).NormalStagePerformanceRecords, Is.Empty);
                 Assert.That(earningSink.EarnCount, Is.Zero);
             }
             finally
@@ -994,6 +1138,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(store.LoadSlot(1).NormalStagePerformanceRecords, Is.Empty);
                 Assert.That(earningSink.EarnCount, Is.Zero);
             }
             finally
@@ -2407,9 +2552,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetPrivateField(controller, "_presentationFeed", feed);
                 var arbiter = ReadPrivateField<TerminalArbitrationOwner>(controller, "_terminalArbiter");
                 feed.ConfigureTerminalArbiter(arbiter);
-                var acceptedHandler = (Action<TickResult, MinimalStageCompletionReadModel, TerminalClaimResult>)
+                var acceptedHandler = (Action<TerminalClaimAcceptedContext>)
                     Delegate.CreateDelegate(
-                        typeof(Action<TickResult, MinimalStageCompletionReadModel, TerminalClaimResult>),
+                        typeof(Action<TerminalClaimAcceptedContext>),
                         controller,
                         typeof(CampaignGameplayFlowController).GetMethod(
                             "HandleTerminalClaimAccepted",
@@ -3042,7 +3187,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             ICampaignSaveSlotStore store,
             int slotNumber,
             EditorDirectPlayContext? editorDirectPlayContext = null,
-            INormalCampaignCompletionAchievementIntegration achievementIntegration = null)
+            INormalCampaignCompletionAchievementIntegration achievementIntegration = null,
+            ICampaignStageAchievementIntegration stageAchievementIntegration = null)
         {
             var host = CreateHostWithInput(
                 hostObject,
@@ -3057,7 +3203,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 chanceDisplayOverride: null,
                 terminalTransitionPort: new FakeTerminalTransitionPort(),
                 editorDirectPlayContext: editorDirectPlayContext,
-                normalCampaignCompletionAchievementIntegration: achievementIntegration);
+                normalCampaignCompletionAchievementIntegration: achievementIntegration,
+                campaignStageAchievementIntegration: stageAchievementIntegration);
         }
 
         private static void InvokeStageClear(
@@ -3277,6 +3424,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return host;
         }
 
+        private static void AttachUiAccess(
+            GameplaySceneHost host,
+            GameplayTickViewPresenter presenter,
+            GameplayHostUiAccessContext uiAccess,
+            int respawnDelayTicks)
+        {
+            SetPrivateField(
+                host,
+                "_runtime",
+                new GameplayHostRuntimeContext(
+                    null,
+                    null,
+                    null,
+                    host.InputHost,
+                    presenter,
+                    GameplayTimingProfile.CreateDefault(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    uiAccess,
+                    respawnDelayTicks));
+        }
+
+        private static void RaiseInputHostTickCompleted(
+            GameplayInputHost inputHost,
+            TickResult result)
+        {
+            var handlers = ReadPrivateField<Action<TickResult>>(inputHost, "TickCompleted");
+            Assert.That(handlers, Is.Not.Null, "Production presentation feed must subscribe to TickCompleted.");
+            handlers(result);
+        }
+
         private static MethodInfo GetHandleTickCompletedMethod()
         {
             var method = typeof(CampaignGameplayFlowController).GetMethod(
@@ -3447,6 +3633,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 string.Empty,
                 TickTrace.Empty,
                 CreateClearedObjectiveResult());
+        }
+
+        private static TickResult CreateCountedPushFlipTickResult(
+            int tickIndex,
+            int actionSequence,
+            PlayerActionKind actionKind,
+            TickPlayerActionResolutionKind resolutionKind,
+            bool objectiveCleared)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: actionKind,
+                        activeActionSequence: actionSequence,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: resolutionKind),
+                },
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>());
+
+            return CreateTickResult(
+                tickIndex,
+                presentationData,
+                Array.Empty<string>(),
+                objectiveCleared
+                    ? CreateClearedObjectiveResult()
+                    : StageObjectiveTickResult.NoObjective);
         }
 
         private static StageObjectiveTickResult CreateClearedObjectiveResult()
@@ -3718,10 +3947,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public bool SaveWasCommittedAtEarn { get; private set; }
 
+            public List<GameAchievementId> EarnedAchievementIds { get; } = new();
+
             public AchievementEarnResult Earn(GameAchievementId achievementId)
             {
                 EarnCount++;
                 LastAchievementId = achievementId;
+                EarnedAchievementIds.Add(achievementId);
                 SaveWasCommittedAtEarn = _saveCommittedProbe?.Invoke() ?? true;
                 if (_exception != null)
                 {
@@ -3729,6 +3961,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 return _result;
+            }
+        }
+
+        private sealed class NoOpGameplayCommandGateway : IGameplayCommandGateway
+        {
+            public GameplayCommandAcceptance SetHeldMoveDirection(GameplayUiDirection direction)
+            {
+                return GameplayCommandAcceptance.Accept();
+            }
+
+            public GameplayCommandAcceptance ClearHeldMoveDirection()
+            {
+                return GameplayCommandAcceptance.Accept();
+            }
+        }
+
+        private sealed class NoOpGameplayQueryFacade : IGameplayQueryFacade
+        {
+            public IGameplaySessionQuery Session => null;
+
+            public IGameplayStageQuery Stage => null;
+
+            public IGameplayPlayerHudQuery PlayerHud => null;
+
+            public IGameplayObjectiveQuery Objectives => null;
+
+            public IGameplaySurfaceButtonRemainderQuery SurfaceButtonRemainders => null;
+        }
+
+        private sealed class NoOpGameplayPauseService : IGameplayPauseService
+        {
+            public event Action<bool> PauseChanged;
+
+            public bool IsPaused { get; private set; }
+
+            public void Pause()
+            {
+                SetPaused(true);
+            }
+
+            public void Resume()
+            {
+                SetPaused(false);
+            }
+
+            public void Toggle()
+            {
+                SetPaused(!IsPaused);
+            }
+
+            private void SetPaused(bool isPaused)
+            {
+                if (IsPaused == isPaused)
+                {
+                    return;
+                }
+
+                IsPaused = isPaused;
+                PauseChanged?.Invoke(IsPaused);
             }
         }
 

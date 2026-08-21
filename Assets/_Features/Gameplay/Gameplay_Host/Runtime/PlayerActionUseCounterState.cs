@@ -144,23 +144,7 @@ namespace Game.Feature.Gameplay.Host
 
         internal bool IsCountable(in TickPlayerActionPresentationSignal signal)
         {
-            if (_playerEntityId <= 0 ||
-                signal.EntityId != _playerEntityId ||
-                signal.ActiveActionSequence <= 0 ||
-                !signal.ExecutedThisTick ||
-                signal.CanceledThisTick)
-            {
-                return false;
-            }
-
-            if (signal.ActiveActionKind != PlayerActionKind.Push &&
-                signal.ActiveActionKind != PlayerActionKind.Flip)
-            {
-                return false;
-            }
-
-            return signal.ResolutionKind == TickPlayerActionResolutionKind.Success ||
-                   signal.ResolutionKind == TickPlayerActionResolutionKind.Impact;
+            return CombinedPushFlipUsePolicy.IsCountable(_playerEntityId, signal);
         }
 
         private readonly struct PlayerActionUseKey : IEquatable<PlayerActionUseKey>
@@ -190,6 +174,142 @@ namespace Game.Feature.Gameplay.Host
                 unchecked
                 {
                     return (EntityId * 397) ^ ActionSequence;
+                }
+            }
+        }
+    }
+
+    internal static class CombinedPushFlipUsePolicy
+    {
+        internal static bool IsCountable(
+            int playerEntityId,
+            in TickPlayerActionPresentationSignal signal)
+        {
+            if (playerEntityId <= 0 ||
+                signal.EntityId != playerEntityId ||
+                signal.ActiveActionSequence <= 0 ||
+                !signal.ExecutedThisTick ||
+                signal.CanceledThisTick)
+            {
+                return false;
+            }
+
+            if (signal.ActiveActionKind != PlayerActionKind.Push &&
+                signal.ActiveActionKind != PlayerActionKind.Flip)
+            {
+                return false;
+            }
+
+            return signal.ResolutionKind == TickPlayerActionResolutionKind.Success ||
+                   signal.ResolutionKind == TickPlayerActionResolutionKind.Impact;
+        }
+    }
+
+    internal readonly struct StageAttemptMetricsSnapshot
+    {
+        internal StageAttemptMetricsSnapshot(int combinedPushFlipUses)
+        {
+            CombinedPushFlipUses = combinedPushFlipUses;
+        }
+
+        internal int CombinedPushFlipUses { get; }
+    }
+
+    internal sealed class StageAttemptPushFlipTracker
+    {
+        private readonly HashSet<ActionUseKey> _consumedActions = new();
+        private int _playerEntityId;
+
+        internal StageAttemptMetricsSnapshot Snapshot => new(CombinedPushFlipUses);
+
+        internal int CombinedPushFlipUses { get; private set; }
+
+        internal void Observe(TickResult result, int playerEntityId)
+        {
+            if (result == null || playerEntityId <= 0)
+            {
+                return;
+            }
+
+            if (_playerEntityId != playerEntityId)
+            {
+                _playerEntityId = playerEntityId;
+                Reset();
+            }
+
+            var presentationData = result.PresentationData;
+            var deathSignals = presentationData.PlayerDeathSignals;
+            for (var i = 0; i < deathSignals.Count; i++)
+            {
+                if (deathSignals[i].EntityId == playerEntityId &&
+                    deathSignals[i].DidDieThisTick)
+                {
+                    Reset();
+                    return;
+                }
+            }
+
+            var spawnSignals = presentationData.EntitySpawnSignals;
+            for (var i = 0; i < spawnSignals.Count; i++)
+            {
+                if (spawnSignals[i].EntityId == playerEntityId &&
+                    spawnSignals[i].EntityKind == EntityPresentationKind.Player &&
+                    spawnSignals[i].Reason == EntitySpawnPresentationReason.PlayerRespawn)
+                {
+                    Reset();
+                    return;
+                }
+            }
+
+            var actionSignals = presentationData.PlayerActionSignals;
+            for (var i = 0; i < actionSignals.Count; i++)
+            {
+                var signal = actionSignals[i];
+                if (!CombinedPushFlipUsePolicy.IsCountable(playerEntityId, signal) ||
+                    !_consumedActions.Add(new ActionUseKey(
+                        signal.EntityId,
+                        signal.ActiveActionSequence)))
+                {
+                    continue;
+                }
+
+                CombinedPushFlipUses++;
+            }
+        }
+
+        internal void Reset()
+        {
+            _consumedActions.Clear();
+            CombinedPushFlipUses = 0;
+        }
+
+        private readonly struct ActionUseKey : IEquatable<ActionUseKey>
+        {
+            internal ActionUseKey(int entityId, int sequence)
+            {
+                EntityId = entityId;
+                Sequence = sequence;
+            }
+
+            private int EntityId { get; }
+
+            private int Sequence { get; }
+
+            public bool Equals(ActionUseKey other)
+            {
+                return EntityId == other.EntityId && Sequence == other.Sequence;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is ActionUseKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (EntityId * 397) ^ Sequence;
                 }
             }
         }

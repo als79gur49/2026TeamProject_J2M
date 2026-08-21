@@ -1,7 +1,9 @@
+using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 
@@ -137,6 +139,30 @@ namespace Game.Feature.Gameplay.Tests.Core
             AssertReset(state);
         }
 
+        [Test]
+        public void StageAttemptTracker_DeduplicatesAndResetsAcrossDeath()
+        {
+            var tracker = new StageAttemptPushFlipTracker();
+            var push = CreateActionSignal(
+                PlayerEntityId,
+                PlayerActionKind.Push,
+                1,
+                TickPlayerActionResolutionKind.Success);
+
+            tracker.Observe(CreateTick(push), PlayerEntityId);
+            tracker.Observe(CreateTick(push), PlayerEntityId);
+            Assert.That(tracker.CombinedPushFlipUses, Is.EqualTo(1));
+
+            tracker.Observe(CreateTick(death: CreateDeathSignal(PlayerEntityId)), PlayerEntityId);
+            Assert.That(tracker.CombinedPushFlipUses, Is.Zero);
+
+            tracker.Observe(CreateTick(push), PlayerEntityId);
+            Assert.That(
+                tracker.Snapshot.CombinedPushFlipUses,
+                Is.EqualTo(1),
+                "A new attempt may reuse an action sequence after death.");
+        }
+
         private static PlayerActionUseCounterState CreateState()
         {
             var state = new PlayerActionUseCounterState();
@@ -189,6 +215,41 @@ namespace Game.Feature.Gameplay.Tests.Core
                 new CubeTopologyState(FaceId.Floor),
                 Direction.Right,
                 sourceTileFeature: null);
+        }
+
+        private static TickResult CreateTick(
+            TickPlayerActionPresentationSignal? action = null,
+            TickPlayerDeathPresentationSignal? death = null)
+        {
+            return new TickResult(
+                1,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                Array.Empty<EntityState>(),
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    action.HasValue
+                        ? new[] { action.Value }
+                        : Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    death.HasValue
+                        ? new[] { death.Value }
+                        : Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>()),
+                string.Empty,
+                TickTrace.Empty);
         }
 
         private static void AssertReset(PlayerActionUseCounterState state)

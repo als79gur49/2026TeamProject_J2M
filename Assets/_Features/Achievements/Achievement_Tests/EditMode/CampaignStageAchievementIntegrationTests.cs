@@ -1,0 +1,197 @@
+using System;
+using System.Collections.Generic;
+using Game.Feature.Stages;
+using Game.Product.Achievements.CampaignIntegration;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace Game.Product.Achievements.Tests
+{
+    [TestFixture]
+    [Category("ProductAchievement")]
+    public sealed class CampaignStageAchievementIntegrationTests
+    {
+        private CampaignStageSequenceDefinition _definition;
+        private CampaignStageSequenceResolver _resolver;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
+            var entry = new CampaignStageSequenceEntry();
+            entry.Set(StageId.CreateOrThrow("stage-1-2"), "level-1");
+            _definition.SetEntries(new[] { entry });
+            _resolver = new CampaignStageSequenceResolver(_definition);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            UnityEngine.Object.DestroyImmediate(_definition);
+        }
+
+        [TestCase(24, true)]
+        [TestCase(25, true)]
+        [TestCase(26, false)]
+        public void PushFlipRule_UsesInclusiveTwentyFiveBoundary(
+            int combinedUses,
+            bool expected)
+        {
+            var rule = new CampaignStageAchievementRule(
+                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                StageId.CreateOrThrow("stage-1-2"),
+                maxCombinedPushFlipUses: 25);
+
+            Assert.That(
+                rule.IsSatisfiedBy(CreateRecord("stage-1-2", combinedUses)),
+                Is.EqualTo(expected));
+        }
+
+        [TestCase(25, 2)]
+        [TestCase(26, 1)]
+        public void CommittedStageRecord_EarnsClearAndEligibleThresholdAchievements(
+            int combinedUses,
+            int expectedEarnCount)
+        {
+            var sink = new RecordingSink();
+            var integration = new CampaignStageAchievementIntegration(sink);
+            var slot = SaveSlotData.CreateEmpty(1);
+            slot.NormalStagePerformanceRecords = new[]
+            {
+                CreateRecord("stage-1-2", combinedUses),
+            };
+
+            integration.TryEarnFromCommittedSlot(slot, _resolver);
+
+            Assert.That(sink.Ids, Has.Count.EqualTo(expectedEarnCount));
+            Assert.That(sink.Ids, Does.Contain(GameAchievementIds.CampaignStage1_2Clear));
+            Assert.That(
+                sink.Ids.Contains(GameAchievementIds.CampaignStage1_2PushFlipWithin25),
+                Is.EqualTo(combinedUses <= 25));
+        }
+
+        [Test]
+        public void StartupReconciliation_ReplaysPersistedStageRecordsWithoutSlotMutation()
+        {
+            var sink = new RecordingSink();
+            var stageIntegration = new CampaignStageAchievementIntegration(sink);
+            var reconciler = new NormalCampaignCompletionAchievementStartupReconciler(
+                new NormalCampaignCompletionAchievementIntegration(sink),
+                stageIntegration);
+            var slot = SaveSlotData.CreateEmpty(1);
+            slot.NormalStagePerformanceRecords = new[]
+            {
+                CreateRecord("stage-1-2", 25),
+            };
+            var store = new ReadOnlyCampaignStore(slot);
+
+            var result = reconciler.Reconcile(
+                store,
+                _resolver,
+                EditorDirectPlayContext.None);
+
+            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.NotAttempted));
+            Assert.That(sink.Ids, Is.EquivalentTo(new[]
+            {
+                GameAchievementIds.CampaignStage1_2Clear,
+                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+            }));
+            Assert.That(store.LoadCount, Is.EqualTo(1));
+            Assert.That(store.MutationCount, Is.Zero);
+        }
+
+        private static NormalStagePerformanceRecord CreateRecord(
+            string stageId,
+            int combinedUses)
+        {
+            return new NormalStagePerformanceRecord
+            {
+                Version = NormalStagePerformanceRecord.CurrentVersion,
+                StageId = StageId.CreateOrThrow(stageId),
+                BestCombinedPushFlipUses = combinedUses,
+            };
+        }
+
+        private sealed class RecordingSink : IProductAchievementEarningSink
+        {
+            internal List<GameAchievementId> Ids { get; } = new();
+
+            public AchievementEarnResult Earn(GameAchievementId achievementId)
+            {
+                Ids.Add(achievementId);
+                return AchievementEarnResult.EarnedNew;
+            }
+        }
+
+        private sealed class ReadOnlyCampaignStore : ICampaignSaveSlotStore
+        {
+            private readonly SaveSlotData _slot;
+
+            internal ReadOnlyCampaignStore(SaveSlotData slot)
+            {
+                _slot = slot;
+            }
+
+            public string DiagnosticsKey => nameof(ReadOnlyCampaignStore);
+
+            public CampaignSaveLoadReport LastCampaignLoadReport => CreateReport();
+
+            internal int LoadCount { get; private set; }
+
+            internal int MutationCount { get; private set; }
+
+            public SaveSlotData[] LoadAll()
+            {
+                return LoadAllWithReport().Slots;
+            }
+
+            public CampaignSaveLoadResult LoadAllWithReport()
+            {
+                LoadCount++;
+                return new CampaignSaveLoadResult(new[] { _slot.Clone() }, CreateReport());
+            }
+
+            public SaveSlotData LoadSlot(int slotNumber)
+            {
+                return _slot.Clone();
+            }
+
+            public void SaveSlot(SaveSlotData slot)
+            {
+                MutationCount++;
+            }
+
+            public SaveSlotData InitializeNewGame(
+                int slotNumber,
+                CampaignStageSequenceResolver sequenceResolver,
+                string lastPlayedAt)
+            {
+                MutationCount++;
+                return SaveSlotData.CreateEmpty(slotNumber);
+            }
+
+            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
+            {
+                MutationCount++;
+            }
+
+            public void DeleteSlot(int slotNumber)
+            {
+                MutationCount++;
+            }
+
+            public void ClearAll()
+            {
+                MutationCount++;
+            }
+
+            private static CampaignSaveLoadReport CreateReport()
+            {
+                return new CampaignSaveLoadReport(
+                    CampaignSaveLoadStatus.Loaded,
+                    "loaded",
+                    nameof(ReadOnlyCampaignStore));
+            }
+        }
+    }
+}

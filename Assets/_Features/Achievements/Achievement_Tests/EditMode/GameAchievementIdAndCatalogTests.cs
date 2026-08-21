@@ -50,7 +50,7 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void ProductionCatalog_ContainsCanonicalNormalCampaignCompletion()
+        public void ProductionCatalog_ContainsCanonicalCampaignAchievements()
         {
             var catalog = GameAchievementCatalog.Production;
 
@@ -59,7 +59,21 @@ namespace Game.Product.Achievements.Tests
                 Is.True);
             Assert.That(definition.Id.Value, Is.EqualTo("campaign.complete"));
             Assert.That(definition.Kind, Is.EqualTo(GameAchievementKind.OneShot));
-            Assert.That(catalog.Definitions.Count, Is.EqualTo(1));
+            Assert.That(
+                catalog.TryGet(GameAchievementIds.CampaignStage1_2Clear, out var clear),
+                Is.True);
+            Assert.That(clear.Id.Value, Is.EqualTo("campaign.stage-1-2.clear"));
+            Assert.That(clear.Kind, Is.EqualTo(GameAchievementKind.OneShot));
+            Assert.That(
+                catalog.TryGet(
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                    out var efficient),
+                Is.True);
+            Assert.That(
+                efficient.Id.Value,
+                Is.EqualTo("campaign.stage-1-2.push-flip-within-25"));
+            Assert.That(efficient.Kind, Is.EqualTo(GameAchievementKind.OneShot));
+            Assert.That(catalog.Definitions.Count, Is.EqualTo(3));
         }
 
         [Test]

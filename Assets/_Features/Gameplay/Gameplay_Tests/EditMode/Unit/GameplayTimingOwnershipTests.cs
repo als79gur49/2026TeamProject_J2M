@@ -1296,7 +1296,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var feed = new GameplayHostPresentationFeed(inputHost, presenter, stageContentEntry);
                 feed.ConfigureTerminalArbiter(new TerminalArbitrationOwner());
                 TerminalSessionToken acceptedToken = default;
-                feed.TerminalClaimAccepted += (_, _, claim) => acceptedToken = claim.Token;
+                feed.TerminalClaimAccepted += context =>
+                    acceptedToken = context.Claim.Token;
                 var frames = new List<GameplayPresentationFrame>();
                 feed.FramePublished += frames.Add;
                 var result = CreateStageClearVictoryTickResult(tickIndex: 7);
@@ -1359,7 +1360,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var frames = new List<GameplayPresentationFrame>();
                 TerminalSessionToken acceptedToken = default;
                 feed.FramePublished += frames.Add;
-                feed.TerminalClaimAccepted += (_, _, claim) => acceptedToken = claim.Token;
+                feed.TerminalClaimAccepted += context =>
+                    acceptedToken = context.Claim.Token;
 
                 InvokePresentationFeedTickCompleted(
                     feed,
@@ -1417,7 +1419,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var bridge = new GameplayHostDemoStageControlCompletionBridge(feed);
                 var acceptedClaims = 0;
                 var rejectedClaims = 0;
-                feed.TerminalClaimAccepted += (_, _, _) => acceptedClaims++;
+                feed.TerminalClaimAccepted += _ => acceptedClaims++;
                 feed.TerminalClaimRejected += _ => rejectedClaims++;
 
                 var result = bridge.ForceClearCurrentStage();
@@ -1463,7 +1465,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var accepted = new List<TerminalClaimResult>();
                 var rejected = new List<TerminalClaimResult>();
                 var frames = new List<GameplayPresentationFrame>();
-                feed.TerminalClaimAccepted += (_, _, claim) => accepted.Add(claim);
+                feed.TerminalClaimAccepted += context => accepted.Add(context.Claim);
                 feed.TerminalClaimRejected += claim => rejected.Add(claim);
                 feed.FramePublished += frames.Add;
 
