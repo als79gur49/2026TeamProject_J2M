@@ -26,6 +26,30 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(gameAchievementId, Is.EqualTo(GameAchievementIds.NormalCampaignComplete));
         }
 
+        [TestCase("clear", "VQ_STAGE_1_2_CLEAR")]
+        [TestCase("efficient", "VQ_STAGE_1_2_PUSH_FLIP_LE_25")]
+        public void ProductionMapping_MapsStage1_2AchievementsExactly(
+            string kind,
+            string expectedApiName)
+        {
+            var achievementId = kind == "clear"
+                ? GameAchievementIds.CampaignStage1_2Clear
+                : GameAchievementIds.CampaignStage1_2PushFlipWithin25;
+
+            Assert.That(
+                SteamAchievementMapping.Production.TryGetExpectedSteamApiName(
+                    achievementId,
+                    out var expectedName),
+                Is.True);
+            Assert.That(expectedName.Value, Is.EqualTo(expectedApiName));
+            Assert.That(
+                SteamAchievementMapping.Production.TryGetGameAchievementId(
+                    expectedName,
+                    out var reverseId),
+                Is.True);
+            Assert.That(reverseId, Is.EqualTo(achievementId));
+        }
+
         [TestCase(null)]
         [TestCase("")]
         [TestCase(" ")]
