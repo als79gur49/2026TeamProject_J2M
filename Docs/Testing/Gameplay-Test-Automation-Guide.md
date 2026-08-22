@@ -306,6 +306,7 @@
 - approved sentence template:
   - `Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved.`
 - v1 ownership continuity와 single-source FadeOutIn support는 true Crossfade support completion과 동일하지 않다.
+- presentation-exclusive playback suppression evidence는 router가 suppression 중 최신 request selection을 유지하면서 playback을 보류하는지, source-scene 종료에서 현재 selection을 복원하는지, 동기 승인된 transition handoff에서 이전 BGM을 재시작하지 않는지를 함께 검증해야 한다.
 
 ### English Original
 - Persistent BGM flow v1 reporting must stay scoped to ownership continuity and the transition effects actually validated; it must not imply completed Crossfade support.
@@ -321,6 +322,8 @@
 - Approved sentence template:
   - `Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved.`
 - v1 ownership continuity plus single-source FadeOutIn support is not equivalent to completed Crossfade support.
+- Presentation-exclusive playback-suppression evidence must jointly verify that the router keeps the latest request selection without playback while suppressed, restores the current selection when the source scene remains, and does not restart the previous BGM after a synchronously accepted transition handoff.
+
 ## Targeted gameplay-audio integration validation / 타겟 게임플레이 오디오 통합 검증
 ### 한국어
 - 이 pass는 gameplay audio host-orchestration이 인접 presentation/runtime boundary와 정상적으로 합성되는지 검증하는 targeted integration validation이다.
