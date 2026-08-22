@@ -1,6 +1,7 @@
 using System;
 using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
+using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -248,6 +249,44 @@ namespace Game.Feature.UI.Tests
                 UnityEngine.Object.DestroyImmediate(overlayObject);
                 UnityEngine.Object.DestroyImmediate(withoutAudio);
             }
+        }
+
+        [Test]
+        public void AudioFocus_PlaybackVolume_CombinesMasterBgmAndComicFade()
+        {
+            var snapshot = AudioSettingsSnapshot.Default
+                .WithChannelState(
+                    AudioChannel.Master,
+                    new AudioChannelState(0.8f, false))
+                .WithChannelState(
+                    AudioChannel.Bgm,
+                    new AudioChannelState(0.25f, false));
+
+            Assert.That(
+                ComicSequenceAudioFocusController.ResolvePlaybackVolume(snapshot, 0.5f),
+                Is.EqualTo(0.1f).Within(0.0001f));
+        }
+
+        [Test]
+        public void AudioFocus_PlaybackMute_FollowsMasterOrBgmMute()
+        {
+            var masterMuted = AudioSettingsSnapshot.Default.WithChannelState(
+                AudioChannel.Master,
+                new AudioChannelState(1f, true));
+            var bgmMuted = AudioSettingsSnapshot.Default.WithChannelState(
+                AudioChannel.Bgm,
+                new AudioChannelState(1f, true));
+
+            Assert.That(
+                ComicSequenceAudioFocusController.ResolvePlaybackMuted(masterMuted),
+                Is.True);
+            Assert.That(
+                ComicSequenceAudioFocusController.ResolvePlaybackMuted(bgmMuted),
+                Is.True);
+            Assert.That(
+                ComicSequenceAudioFocusController.ResolvePlaybackMuted(
+                    AudioSettingsSnapshot.Default),
+                Is.False);
         }
 
         [Test]

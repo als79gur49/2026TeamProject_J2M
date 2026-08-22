@@ -48,6 +48,20 @@ namespace Game.Feature.UI.Composition
             ApplyCurrentSettings();
         }
 
+        internal static bool ResolvePlaybackMuted(AudioSettingsSnapshot snapshot)
+        {
+            return snapshot.Master.IsMuted || snapshot.Bgm.IsMuted;
+        }
+
+        internal static float ResolvePlaybackVolume(
+            AudioSettingsSnapshot snapshot,
+            float comicSequenceFadeGain)
+        {
+            return snapshot.Master.EffectiveFactor *
+                   snapshot.Bgm.EffectiveFactor *
+                   Mathf.Clamp01(comicSequenceFadeGain);
+        }
+
         private void Update()
         {
             if (_isFocused)
@@ -98,9 +112,10 @@ namespace Game.Feature.UI.Composition
             var snapshot = _audioSettingsService != null
                 ? _audioSettingsService.ReadSettings()
                 : AudioSettingsSnapshot.Default;
-            var master = snapshot.Master;
-            _activeAudioSource.mute = master.IsMuted;
-            _activeAudioSource.volume = master.EffectiveFactor * _comicSequenceFadeGain;
+            _activeAudioSource.mute = ResolvePlaybackMuted(snapshot);
+            _activeAudioSource.volume = ResolvePlaybackVolume(
+                snapshot,
+                _comicSequenceFadeGain);
         }
     }
 }
