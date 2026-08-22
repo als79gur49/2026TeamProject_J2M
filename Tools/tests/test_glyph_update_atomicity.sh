@@ -20,7 +20,7 @@ if [ "${1:-}" = "--child" ]; then
         TEST_MONOTONIC_MS=$((TEST_MONOTONIC_MS + $1))
     }
     capture_guarded_paths() {
-        printf '%s\n' "Climate.asset" "Nanum.asset"
+        printf '%s\n' "Climate2000.asset" "Climate2019.asset"
     }
     visual_guard_iter_unity_process_records() {
         return 0
@@ -46,8 +46,8 @@ if [ "${1:-}" = "--child" ]; then
         after-climate-failure)
             command_status=0
             if visual_guard_run_command bash -c \
-                'printf "climate-mutated\n" > "$1"; exit 41' \
-                _ "$PROJECT_PATH_WSL/Climate.asset"; then
+                'printf "climate-2000-mutated\n" > "$1"; exit 41' \
+                _ "$PROJECT_PATH_WSL/Climate2000.asset"; then
                 command_status=0
             else
                 command_status=$?
@@ -62,23 +62,23 @@ if [ "${1:-}" = "--child" ]; then
                 signal_name="TERM"
             fi
             (
-                while [ "$(cat "$PROJECT_PATH_WSL/Climate.asset")" != "climate-mutated" ]; do
+                while [ "$(cat "$PROJECT_PATH_WSL/Climate2000.asset")" != "climate-2000-mutated" ]; do
                     sleep 0.02
                 done
                 kill "-$signal_name" "$runner_pid"
             ) &
             visual_guard_run_command bash -c \
-                'printf "climate-mutated\n" > "$1"; printf "nanum-mutated\n" > "$2"; exec sleep 300' \
+                'printf "climate-2000-mutated\n" > "$1"; printf "climate-2019-mutated\n" > "$2"; exec sleep 300' \
                 _ \
-                "$PROJECT_PATH_WSL/Climate.asset" \
-                "$PROJECT_PATH_WSL/Nanum.asset"
+                "$PROJECT_PATH_WSL/Climate2000.asset" \
+                "$PROJECT_PATH_WSL/Climate2019.asset"
             ;;
         success)
             visual_guard_run_command bash -c \
-                'printf "climate-updated\n" > "$1"; printf "nanum-updated\n" > "$2"' \
+                'printf "climate-2000-updated\n" > "$1"; printf "climate-2019-updated\n" > "$2"' \
                 _ \
-                "$PROJECT_PATH_WSL/Climate.asset" \
-                "$PROJECT_PATH_WSL/Nanum.asset"
+                "$PROJECT_PATH_WSL/Climate2000.asset" \
+                "$PROJECT_PATH_WSL/Climate2019.asset"
             visual_guard_cleanup_process_once
             VISUAL_GUARD_RESTORE_ON_SUCCESS=0
             visual_guard_mark_observation_complete "PASS"
@@ -110,16 +110,16 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 run_scenario() {
     local scenario="$1"
     local expected_status="$2"
-    local expected_climate="$3"
-    local expected_nanum="$4"
+    local expected_climate_2000="$3"
+    local expected_climate_2019="$4"
     local scenario_root="$TEST_ROOT/$scenario"
     local status=0
 
     mkdir -p "$scenario_root/project" "$scenario_root/baseline"
-    printf 'climate-baseline\n' > "$scenario_root/project/Climate.asset"
-    printf 'nanum-baseline\n' > "$scenario_root/project/Nanum.asset"
-    cp "$scenario_root/project/Climate.asset" "$scenario_root/baseline/Climate.asset"
-    cp "$scenario_root/project/Nanum.asset" "$scenario_root/baseline/Nanum.asset"
+    printf 'climate-2000-baseline\n' > "$scenario_root/project/Climate2000.asset"
+    printf 'climate-2019-baseline\n' > "$scenario_root/project/Climate2019.asset"
+    cp "$scenario_root/project/Climate2000.asset" "$scenario_root/baseline/Climate2000.asset"
+    cp "$scenario_root/project/Climate2019.asset" "$scenario_root/baseline/Climate2019.asset"
 
     if bash "$0" --child "$scenario" "$scenario_root"; then
         status=0
@@ -128,17 +128,17 @@ run_scenario() {
     fi
 
     assert_equal "$expected_status" "$status" "$scenario exit status"
-    assert_equal "$expected_climate" "$(cat "$scenario_root/project/Climate.asset")" "$scenario Climate state"
-    assert_equal "$expected_nanum" "$(cat "$scenario_root/project/Nanum.asset")" "$scenario Nanum state"
+    assert_equal "$expected_climate_2000" "$(cat "$scenario_root/project/Climate2000.asset")" "$scenario Climate 2000 state"
+    assert_equal "$expected_climate_2019" "$(cat "$scenario_root/project/Climate2019.asset")" "$scenario Climate 2019 state"
     assert_equal "1" "$(sed -n 's/^cleanup_effective_count=//p' "$scenario_root/lifecycle.log")" "$scenario cleanup one-shot"
     assert_equal "1" "$(sed -n 's/^process_cleanup_effective_count=//p' "$scenario_root/lifecycle.log")" "$scenario process cleanup one-shot"
     assert_equal "0" "$(sed -n 's/^final_survivor_count=//p' "$scenario_root/lifecycle.log")" "$scenario survivor count"
 }
 
-run_scenario command-failure 37 climate-baseline nanum-baseline
-run_scenario after-climate-failure 41 climate-baseline nanum-baseline
-run_scenario int 130 climate-baseline nanum-baseline
-run_scenario term 143 climate-baseline nanum-baseline
-run_scenario success 0 climate-updated nanum-updated
+run_scenario command-failure 37 climate-2000-baseline climate-2019-baseline
+run_scenario after-climate-failure 41 climate-2000-baseline climate-2019-baseline
+run_scenario int 130 climate-2000-baseline climate-2019-baseline
+run_scenario term 143 climate-2000-baseline climate-2019-baseline
+run_scenario success 0 climate-2000-updated climate-2019-updated
 
 echo "glyph update atomicity fixtures passed"

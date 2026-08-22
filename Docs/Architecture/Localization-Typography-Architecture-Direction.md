@@ -25,7 +25,8 @@ historical baseline/decision sequence, not current runtime mapping.
   lines without clipping.
 - Pause title width is `160` with visual center preserved; Settings audio value
   effective width is `140`.
-- Nanum assets remain tracked, but no current Climate role resolves to Nanum.
+- Retired Nanum assets and preservation-only automation were removed after the
+  Climate migration completed; no current role depends on them.
 - Managed ko-KR String Tables require 127/127 native Climate glyphs and zero
   fallback dependency.
 - Climate committed source identity is a pre-Unity `HEAD` Git-blob contract.
@@ -58,7 +59,7 @@ Current baseline captured for this cleanup pass:
 | `UI` String Table | Done | `UI` collection has `en-US` and `ko-KR` tables for Settings, Pause, and Main Menu shell entries. |
 | `Stage` String Table | Done | `Stage` collection has `en-US` and `ko-KR` entries for active stage display-name keys. Korean display names use localized facility naming such as `연구실-01`, `A병동-01`, and `영안실-01`; the catalog-only archived stage uses `레거시 5-1`. |
 | Localization Settings active registration | Done | Active Localization Settings and its serialized SmartFormat source/formatter graph load successfully and are validated by production integration tests. |
-| TMP Settings fallback unchanged | Done | `TMP Settings.asset` does not include `NanumGothic SDF` as a global fallback. |
+| TMP Settings fallback unchanged | Done | `TMP Settings.asset` keeps an empty global fallback list. |
 
 ### Production Resolver
 
@@ -114,7 +115,7 @@ Current baseline captured for this cleanup pass:
 | Pause / Main Menu typography migration | Done | Pause Heading roles resolve to Climate 2019. Main Menu Start/Settings/Quit use `MainMenuCommand`; en-US preserves authored Orbitron, ko-KR Display remains Climate 2000, and generic en-US `Button` remains SciFiSoldier. |
 | Gameplay Stage Name typography | Done | The in-game Stage Name is theme-owned in both locales through `HeaderLarge`: en-US resolves Orbitron ExtraBold with the theme style and ko-KR resolves Climate Crisis KR 2000, while authored auto-size and layout remain preserved. The target adds TMP `UpperCase` presentation without mutating localized source strings. The shared World Guide and transition-label default-locale restoration policy is unchanged. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. Locale-invariant bindings still receive structural enum validation, null-theme preview classifies invariant skips before theme resolution, and nested Scene selections are normalized per preview call. |
-| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, Nanum preservation, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
+| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, guarded Climate asset restoration, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
 | Climate glyph coverage | Done | Managed ko-KR tables resolve natively in both `ClimateCrisisKR-2000 SDF` and `ClimateCrisisKR-2019 SDF` with fallback dependency 0. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
 | Pause progression strip | Done | The pause popup uses authored marker templates as a conventional horizontal stepper: group starts are larger diamond nodes, previous/current/upcoming stages have distinct states, and the current stage keeps a dedicated ring. The strip is informational and automatically frames the current stage; horizontal input remains owned by command navigation rather than creating a second cursor. |
