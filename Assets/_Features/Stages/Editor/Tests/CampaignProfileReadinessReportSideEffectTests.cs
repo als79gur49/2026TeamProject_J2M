@@ -11,23 +11,11 @@ namespace Game.Feature.Stages.Editor.Tests
         private const string ReportBuilderPath =
             "Assets/_Features/Stages/Editor/Validation/CampaignProfileReadinessReportBuilder.cs";
 
-        [TearDown]
-        public void TearDown()
-        {
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportDisabledKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportedSourceHashKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
-            PlayerPrefs.Save();
-        }
-
         [TestCase("WriteAllText")]
         [TestCase("File.Move")]
         [TestCase("TryRestoreBackup")]
         [TestCase("TryQuarantine")]
-        [TestCase("CampaignSaveMigrationCoordinator")]
         [TestCase("CampaignSaveService")]
-        [TestCase("CampaignLegacyImportMarkerStore")]
         [TestCase("PlayerPrefs.Set")]
         [TestCase("PlayerPrefs.Delete")]
         public void ReportBuilder_SourceDoesNotContainWriteRestoreQuarantineMarkerOrMigrationPath(string forbiddenToken)
@@ -80,26 +68,6 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void ReportBuilder_DoesNotWritePlayerPrefsMarkers()
-        {
-            using var harness = new ProfileHarness();
-            harness.WriteProfile(CreateProfile(2));
-            PlayerPrefs.SetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey, 1);
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.ImportedSourceHashKey, "marker-source");
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey, "2026-07-08T01:02:03.0000000Z");
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey, "marker-guards");
-            PlayerPrefs.Save();
-
-            var report = harness.BuildReport();
-
-            Assert.That(report.MetadataLoadStatus, Is.EqualTo(CampaignProfileMetadataProbeStatus.Loaded));
-            Assert.That(PlayerPrefs.GetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey), Is.EqualTo(1));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ImportedSourceHashKey), Is.EqualTo("marker-source"));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey), Is.EqualTo("2026-07-08T01:02:03.0000000Z"));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey), Is.EqualTo("marker-guards"));
-        }
-
-        [Test]
         public void ReportBuilder_DoesNotRewriteProfileSchema()
         {
             using var harness = new ProfileHarness();
@@ -130,18 +98,13 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void ReportWriter_CiArtifactGeneration_DoesNotMutateProfileBackupQuarantineOrMarkers()
+        public void ReportWriter_CiArtifactGeneration_DoesNotMutateProfileBackupOrQuarantine()
         {
             using var harness = new ProfileHarness();
             harness.WriteProfile(CreateProfile(1));
             Directory.CreateDirectory(harness.SaveRootPath);
             File.WriteAllText(harness.BackupPath, "backup-content");
             File.WriteAllText(Path.Combine(harness.SaveRootPath, "profile.json.corrupt.20260708"), "quarantine-content");
-            PlayerPrefs.SetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey, 1);
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.ImportedSourceHashKey, "marker-source");
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey, "2026-07-08T01:02:03.0000000Z");
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey, "marker-guards");
-            PlayerPrefs.Save();
             var beforeFiles = harness.SnapshotFileNames();
             var beforeProfile = harness.ReadRawProfile();
             var beforeBackup = File.ReadAllText(harness.BackupPath);
@@ -149,7 +112,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var report = harness.BuildReport();
             var outputDirectory = Path.Combine(
                 CampaignProfileReadinessReportOptions.DefaultOutputDirectory,
-                nameof(ReportWriter_CiArtifactGeneration_DoesNotMutateProfileBackupQuarantineOrMarkers),
+                nameof(ReportWriter_CiArtifactGeneration_DoesNotMutateProfileBackupOrQuarantine),
                 Guid.NewGuid().ToString("N"));
             var outputPath = CampaignProfileReadinessReportWriter.Write(report, outputDirectory);
 
@@ -157,11 +120,6 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(harness.SnapshotFileNames(), Is.EquivalentTo(beforeFiles));
             Assert.That(harness.ReadRawProfile(), Is.EqualTo(beforeProfile));
             Assert.That(File.ReadAllText(harness.BackupPath), Is.EqualTo(beforeBackup));
-            Assert.That(PlayerPrefs.GetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey), Is.EqualTo(1));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ImportedSourceHashKey), Is.EqualTo("marker-source"));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey), Is.EqualTo("2026-07-08T01:02:03.0000000Z"));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey), Is.EqualTo("marker-guards"));
-
             Directory.Delete(Path.GetDirectoryName(outputPath), recursive: true);
         }
 
@@ -186,7 +144,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedAtUtc = "2026-07-08T00:00:00.0000000Z",
                 ProfileId = "profile-tests",
                 LastPlayedSlotNumber = lastPlayedSlotNumber,
-                LegacyImport = new CampaignLegacyImportDocument(),
                 Slots = new[]
                 {
                     new CampaignSlotDocument

@@ -2,22 +2,19 @@ using System;
 
 namespace Game.Feature.Stages
 {
-    public sealed class SaveSlotStoreCompatibilityAdapter : ICampaignSaveSlotStore
+    public sealed class CampaignSaveSlotStoreAdapter : ICampaignSaveSlotStore
     {
         private readonly CampaignSaveService _campaignSaveService;
         private readonly ICampaignSaveRecoveryPort _recoveryPort;
 
-        public SaveSlotStoreCompatibilityAdapter(
+        public CampaignSaveSlotStoreAdapter(
             CampaignSaveService campaignSaveService,
             ICampaignSaveRecoveryPort recoveryPort = null)
         {
             _campaignSaveService = campaignSaveService ?? throw new ArgumentNullException(nameof(campaignSaveService));
             _recoveryPort = recoveryPort;
-            LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
             LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Load has not run.");
         }
-
-        public StageClearSaveLoadReport LastLoadReport { get; private set; }
 
         public string DiagnosticsKey => CampaignSaveServiceResultStatusToken;
 
@@ -25,35 +22,26 @@ namespace Game.Feature.Stages
 
         public SaveSlotData[] LoadAll()
         {
-            return LoadAllWithReport().Slots;
+            var result = LoadAllWithReport();
+            ThrowIfCampaignAccessBlocked(result.Report);
+            return result.Slots;
         }
 
         public CampaignSaveLoadResult LoadAllWithReport()
         {
             if (IsRecoveryPending())
             {
-                LastCampaignLoadReport = new CampaignSaveLoadReport(
-                    CampaignSaveLoadStatus.RecoveryPending,
-                    "Campaign save reset is pending.",
-                    CampaignSaveServiceResultStatusToken);
+                LastCampaignLoadReport = CreateRecoveryPendingReport();
                 return new CampaignSaveLoadResult(CreateEmptySlots(), LastCampaignLoadReport);
             }
 
             var result = _campaignSaveService.GetSlots();
             if (!result.Succeeded)
             {
-                LastLoadReport = new StageClearSaveLoadReport(
-                    StageClearSavePayloadStatus.InvalidRejected,
-                    result.Message,
-                    string.Empty);
                 LastCampaignLoadReport = ToCampaignLoadReport(result);
                 return new CampaignSaveLoadResult(CreateEmptySlots(), LastCampaignLoadReport);
             }
 
-            LastLoadReport = new StageClearSaveLoadReport(
-                StageClearSavePayloadStatus.Current,
-                "Campaign profile loaded successfully.",
-                CampaignSaveServiceResultStatusToken);
             LastCampaignLoadReport = result.HasProfileLoadStatus
                 ? ToCampaignLoadReport(result)
                 : CampaignSaveLoadReport.Loaded(
@@ -64,7 +52,7 @@ namespace Game.Feature.Stages
 
         public SaveSlotData LoadSlot(int slotNumber)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             return LoadAll()[slotNumber - 1].Clone();
         }
 
@@ -76,7 +64,13 @@ namespace Game.Feature.Stages
                 throw new ArgumentNullException(nameof(slot));
             }
 
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slot.SlotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slot.SlotNumber);
+            if (slot.IsEmpty)
+            {
+                DeleteSlot(slot.SlotNumber);
+                return;
+            }
+
             ThrowIfFailed(_campaignSaveService.UpdateSlot(slot.SlotNumber, ToUpdate(slot)));
         }
 
@@ -86,7 +80,7 @@ namespace Game.Feature.Stages
             string lastPlayedAt)
         {
             ThrowIfRecoveryPending();
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             if (sequenceResolver == null)
             {
                 throw new ArgumentNullException(nameof(sequenceResolver));
@@ -107,7 +101,7 @@ namespace Game.Feature.Stages
         public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
         {
             ThrowIfRecoveryPending();
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             if (mutation == null)
             {
                 throw new ArgumentNullException(nameof(mutation));
@@ -122,7 +116,7 @@ namespace Game.Feature.Stages
         public void DeleteSlot(int slotNumber)
         {
             ThrowIfRecoveryPending();
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             var result = _campaignSaveService.DeleteSlot(slotNumber);
             if (result.Status == CampaignSaveCommandStatus.SlotNotFound)
             {
@@ -136,7 +130,7 @@ namespace Game.Feature.Stages
         {
             ThrowIfRecoveryPending();
             ThrowIfFailed(_campaignSaveService.ClearAll());
-            LastLoadReport = StageClearSaveLoadReport.Empty("Campaign profile was cleared.");
+            LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Campaign profile was cleared.");
         }
 
         private const string CampaignSaveServiceResultStatusToken = "CampaignProfileDocument";
@@ -150,9 +144,28 @@ namespace Game.Feature.Stages
         {
             if (IsRecoveryPending())
             {
-                throw new InvalidOperationException(
-                    "Campaign save reset is pending; campaign save writes are blocked.");
+                LastCampaignLoadReport = CreateRecoveryPendingReport();
+                ThrowIfCampaignAccessBlocked(LastCampaignLoadReport);
             }
+        }
+
+        private static CampaignSaveLoadReport CreateRecoveryPendingReport()
+        {
+            return new CampaignSaveLoadReport(
+                CampaignSaveLoadStatus.RecoveryPending,
+                "Campaign save reset is pending.",
+                CampaignSaveServiceResultStatusToken);
+        }
+
+        private static void ThrowIfCampaignAccessBlocked(CampaignSaveLoadReport report)
+        {
+            if (!report.BlocksCampaignAccess)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Campaign save access is blocked ({report.Status}): {report.Reason}");
         }
 
         private static CampaignSaveLoadReport ToCampaignLoadReport(CampaignSaveServiceResult result)
@@ -238,15 +251,24 @@ namespace Game.Feature.Stages
         private static SaveSlotData[] ToSaveSlotDataArray(CampaignProfileDocument document)
         {
             var slots = CreateEmptySlots();
+            var seenSlotNumbers = new bool[CampaignSaveSlotPolicy.SlotCount];
             var documentSlots = document?.Slots ?? Array.Empty<CampaignSlotDocument>();
             for (var i = 0; i < documentSlots.Length; i++)
             {
                 var slot = documentSlots[i];
-                if (slot == null || !SaveSlotStore.IsValidSlotNumber(slot.SlotNumber))
+                if (slot == null || !CampaignSaveSlotPolicy.IsValidSlotNumber(slot.SlotNumber))
                 {
-                    continue;
+                    throw new InvalidOperationException(
+                        "Campaign profile repository returned an invalid slot document.");
                 }
 
+                if (seenSlotNumbers[slot.SlotNumber - 1])
+                {
+                    throw new InvalidOperationException(
+                        $"Campaign profile repository returned duplicate slot '{slot.SlotNumber}'.");
+                }
+
+                seenSlotNumbers[slot.SlotNumber - 1] = true;
                 slots[slot.SlotNumber - 1] = ToSaveSlotData(slot);
             }
 
@@ -265,7 +287,7 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = slot.LevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances > 0
                     ? slot.RemainingChances
-                    : SaveSlotStore.DefaultRemainingChances,
+                    : CampaignSaveSlotPolicy.DefaultRemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =
                     slot.HasNormalCampaignCompletionReceipt,
@@ -322,7 +344,7 @@ namespace Game.Feature.Stages
 
         private static SaveSlotData[] CreateEmptySlots()
         {
-            var slots = new SaveSlotData[SaveSlotStore.SlotCount];
+            var slots = new SaveSlotData[CampaignSaveSlotPolicy.SlotCount];
             for (var i = 0; i < slots.Length; i++)
             {
                 slots[i] = SaveSlotData.CreateEmpty(i + 1);
@@ -336,15 +358,21 @@ namespace Game.Feature.Stages
             return (string[])(values ?? Array.Empty<string>()).Clone();
         }
 
-        private static void ThrowIfFailed(CampaignSaveServiceResult result)
+        private void ThrowIfFailed(CampaignSaveServiceResult result)
         {
             if (result == null)
             {
+                LastCampaignLoadReport = ToCampaignLoadReport(null);
                 throw new InvalidOperationException("Campaign save command did not return a result.");
             }
 
             if (!result.Succeeded)
             {
+                if (result.Status == CampaignSaveCommandStatus.LoadFailed)
+                {
+                    LastCampaignLoadReport = ToCampaignLoadReport(result);
+                }
+
                 throw new InvalidOperationException(result.Message);
             }
         }

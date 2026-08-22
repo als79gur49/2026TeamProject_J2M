@@ -183,7 +183,7 @@ namespace Game.Feature.UI.Composition
         {
             return expected != null &&
                    expected.Token != Guid.Empty &&
-                   SaveSlotStore.IsValidSlotNumber(expected.SlotNumber) &&
+                   CampaignSaveSlotPolicy.IsValidSlotNumber(expected.SlotNumber) &&
                    expected.StageId.IsValid &&
                    expected.NavigationKind != StageNavigationKind.None &&
                    !string.IsNullOrWhiteSpace(expected.Source) &&

@@ -690,10 +690,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var installerObject = new GameObject(
                 "StageBackedGameplaySceneInstaller_CommittedActiveRetryWithoutPending_InjectsChanceReadSource");
-            var saveKey = CreatePrefsKey(nameof(StageBackedGameplaySceneInstaller_CommittedActiveRetryWithoutPending_InjectsChanceReadSource));
+            var saveKey = CreateTransientNamespace(nameof(StageBackedGameplaySceneInstaller_CommittedActiveRetryWithoutPending_InjectsChanceReadSource));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
 
             try
@@ -749,11 +749,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var installerObject = new GameObject(
                 "StageBackedGameplaySceneInstaller_ValidatedPendingLaunch_CommitsActiveAndPinsRunningContext");
-            var saveKey = CreatePrefsKey(
+            var saveKey = CreateTransientNamespace(
                 nameof(StageBackedGameplaySceneInstaller_ValidatedPendingLaunch_CommitsActiveAndPinsRunningContext));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
             var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
 
@@ -812,11 +812,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var installerObject = new GameObject(
                 "StageBackedGameplaySceneInstaller_PendingStageMismatch_DoesNotCommitActiveOrRunningContext");
-            var saveKey = CreatePrefsKey(
+            var saveKey = CreateTransientNamespace(
                 nameof(StageBackedGameplaySceneInstaller_PendingStageMismatch_DoesNotCommitActiveOrRunningContext));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
             var mismatchedStageId = StageId.CreateOrThrow("stage-0-1");
             var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
@@ -1241,7 +1241,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void CampaignLaunchCommitTransaction_PendinglessRetry_UsesActiveAndConsumesContext()
         {
             var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
-            var saveStore = new SaveSlotStore(CreatePrefsKey("pendingless-transaction"));
+            var saveStore = new TransientCampaignSaveSlotStore(CreateTransientNamespace("pendingless-transaction"));
             saveStore.SaveSlot(new SaveSlotData
             {
                 SlotNumber = 1,
@@ -1374,7 +1374,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var harness = CreatePendinglessHarness(
                 StageNavigationKind.Retry,
                 "stage-result-retry",
-                activeSlot: SaveSlotStore.SlotCount + 1);
+                activeSlot: CampaignSaveSlotPolicy.SlotCount + 1);
 
             Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
                 harness.Context,
@@ -1555,13 +1555,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StageBackedGameplaySceneInstaller_StaleCampaignTempDirectPlayContext_SkipsProductionChanceSource()
+        public void StageBackedGameplaySceneInstaller_CampaignTempContextWithoutTempState_SkipsChanceSource()
         {
             var installerObject = new GameObject(
-                "StageBackedGameplaySceneInstaller_StaleCampaignTempDirectPlayContext_SkipsProductionChanceSource");
-            var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
-            var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
-            var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
+                "StageBackedGameplaySceneInstaller_CampaignTempContextWithoutTempState_SkipsChanceSource");
             var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
 
             try
@@ -1569,24 +1566,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CampaignChanceHudDiagnostics.Clear();
                 CampaignChanceHudDiagnostics.IsEnabled = true;
 
-                var productionSaveStore = new SaveSlotStore();
-                var productionActiveSlotProvider = new ActiveSlotProvider();
-                productionSaveStore.ClearAll();
-                productionActiveSlotProvider.ClearActiveSlot();
-                productionSaveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = launchStageId,
-                    CurrentLevelGroupId = "level-01",
-                    RemainingChances = 2,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
-                productionActiveSlotProvider.SetActiveSlot(1);
-
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntryForProductionLaunch(installer, launchStageId);
                 AssignTimingPresets(installer);
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                EditorDirectPlayContextStore.ClearTemporaryCampaignState();
                 EditorDirectPlayContextStore.SetCurrent(
                     EditorDirectPlayContext.CreateCampaignTempSlot(launchStageId, remainingChances: 2));
 
@@ -1598,12 +1581,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .LastOrDefault(record => record.Kind == CampaignChanceHudDiagnosticKind.Installer);
                 Assert.That(installerRecord, Is.Not.Null);
                 Assert.That(installerRecord.EditorDirectPlayMode, Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
-                Assert.That(installerRecord.HasCustomSaveNamespace, Is.True);
-                Assert.That(installerRecord.HasActiveSlot, Is.False);
+                Assert.That(installerRecord.UsesTemporaryCampaignState, Is.True);
                 Assert.That(installerRecord.CampaignRuntimeActive, Is.False);
                 Assert.That(installerRecord.SourceIsNull, Is.True);
                 Assert.That(installerRecord.FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.NoActiveSlot));
-                Assert.That(installerRecord.ActiveSlotProviderKey, Is.EqualTo(EditorDirectPlayContextStore.TempActiveSlotProviderKey));
+                Assert.That(installerRecord.ActiveSlotDiagnosticsKey, Is.EqualTo(CampaignLocalLaunchStateRepository.FileName));
             }
             finally
             {
@@ -1611,9 +1593,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CampaignChanceHudDiagnostics.Clear();
                 StageLaunchContextStore.Clear();
                 EditorDirectPlayContextStore.Clear();
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-                saveBackup.Restore();
-                activeBackup.Restore();
+                EditorDirectPlayContextStore.ClearTemporaryCampaignState();
                 DestroyAssignedStageContent(installerObject);
                 Object.DestroyImmediate(installerObject);
             }
@@ -1621,33 +1601,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StageBackedGameplaySceneInstaller_StaleNonCampaignDirectPlayContext_SuppressesProductionChanceSource()
+        public void StageBackedGameplaySceneInstaller_NonCampaignDirectPlayContext_SuppressesChanceSource()
         {
             var installerObject = new GameObject(
-                "StageBackedGameplaySceneInstaller_StaleNonCampaignDirectPlayContext_SuppressesProductionChanceSource");
-            var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
-            var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
-            var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
+                "StageBackedGameplaySceneInstaller_NonCampaignDirectPlayContext_SuppressesChanceSource");
             var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
 
             try
             {
                 CampaignChanceHudDiagnostics.Clear();
                 CampaignChanceHudDiagnostics.IsEnabled = true;
-
-                var productionSaveStore = new SaveSlotStore();
-                var productionActiveSlotProvider = new ActiveSlotProvider();
-                productionSaveStore.ClearAll();
-                productionActiveSlotProvider.ClearActiveSlot();
-                productionSaveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = launchStageId,
-                    CurrentLevelGroupId = "level-01",
-                    RemainingChances = 2,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
-                productionActiveSlotProvider.SetActiveSlot(1);
 
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntryForProductionLaunch(installer, launchStageId);
@@ -1663,8 +1626,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(installerRecord, Is.Not.Null);
                 Assert.That(installerRecord.EditorDirectPlayMode, Is.EqualTo(EditorDirectPlayMode.NonCampaign));
                 Assert.That(installerRecord.SuppressCampaignFlow, Is.True);
-                Assert.That(installerRecord.HasCustomSaveNamespace, Is.False);
-                Assert.That(installerRecord.HasActiveSlot, Is.True);
+                Assert.That(installerRecord.UsesTemporaryCampaignState, Is.False);
                 Assert.That(installerRecord.CampaignRuntimeActive, Is.False);
                 Assert.That(installerRecord.SourceIsNull, Is.True);
                 Assert.That(installerRecord.FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.EditorDirectPlaySuppressed));
@@ -1675,9 +1637,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CampaignChanceHudDiagnostics.Clear();
                 StageLaunchContextStore.Clear();
                 EditorDirectPlayContextStore.Clear();
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-                saveBackup.Restore();
-                activeBackup.Restore();
+                EditorDirectPlayContextStore.ClearTemporaryCampaignState();
                 DestroyAssignedStageContent(installerObject);
                 Object.DestroyImmediate(installerObject);
             }
@@ -2091,7 +2051,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssignProductionCampaignSequence(installer);
 
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             StageLaunchContextStore.Clear();
             if (CampaignLaunchHandoffSessionStore.Instance.TryPeek(out var handoff))
             {
@@ -2112,7 +2072,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssignCampaignStores(
             StageBackedGameplaySceneInstaller installer,
-            SaveSlotStore saveStore,
+            TransientCampaignSaveSlotStore saveStore,
             ActiveSlotProvider activeSlotProvider)
         {
             var saveStoreField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
@@ -2229,10 +2189,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
 
-            var saveStore = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
-            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var activeSlotProvider = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData
@@ -2240,7 +2200,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SlotNumber = 1,
                 CurrentStageId = launchStageId,
                 CurrentLevelGroupId = "level-01",
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
                 LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
             });
             activeSlotProvider.SetActiveSlot(1);
@@ -2248,7 +2208,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EditorDirectPlayContextStore.SetCurrent(
                 EditorDirectPlayContext.CreateCampaignTempSlot(
                     launchStageId,
-                    SaveSlotStore.DefaultRemainingChances));
+                    CampaignSaveSlotPolicy.DefaultRemainingChances));
             StageLaunchContextStore.SetCurrent(launchStageId);
         }
 
@@ -2256,7 +2216,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
         }
 
         private static object BuildInitialGameplayState(StageBackedGameplaySceneInstaller installer)
@@ -2365,81 +2325,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return false;
         }
 
-        private static string CreatePrefsKey(string suffix)
+        private static string CreateTransientNamespace(string suffix)
         {
             return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
-        }
-
-        private readonly struct PlayerPrefsStringBackup
-        {
-            private readonly bool _hadValue;
-            private readonly string _key;
-            private readonly string _value;
-
-            private PlayerPrefsStringBackup(string key, bool hadValue, string value)
-            {
-                _key = key;
-                _hadValue = hadValue;
-                _value = value;
-            }
-
-            public static PlayerPrefsStringBackup Capture(string key)
-            {
-                return new PlayerPrefsStringBackup(
-                    key,
-                    PlayerPrefs.HasKey(key),
-                    PlayerPrefs.GetString(key, string.Empty));
-            }
-
-            public void Restore()
-            {
-                if (_hadValue)
-                {
-                    PlayerPrefs.SetString(_key, _value);
-                }
-                else
-                {
-                    PlayerPrefs.DeleteKey(_key);
-                }
-
-                PlayerPrefs.Save();
-            }
-        }
-
-        private readonly struct PlayerPrefsIntBackup
-        {
-            private readonly bool _hadValue;
-            private readonly string _key;
-            private readonly int _value;
-
-            private PlayerPrefsIntBackup(string key, bool hadValue, int value)
-            {
-                _key = key;
-                _hadValue = hadValue;
-                _value = value;
-            }
-
-            public static PlayerPrefsIntBackup Capture(string key)
-            {
-                return new PlayerPrefsIntBackup(
-                    key,
-                    PlayerPrefs.HasKey(key),
-                    PlayerPrefs.GetInt(key, 0));
-            }
-
-            public void Restore()
-            {
-                if (_hadValue)
-                {
-                    PlayerPrefs.SetInt(_key, _value);
-                }
-                else
-                {
-                    PlayerPrefs.DeleteKey(_key);
-                }
-
-                PlayerPrefs.Save();
-            }
         }
 
         private static bool HasPushableBoxAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)
@@ -2461,7 +2349,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static CommitTransactionHarness CreateCommitTransactionHarness(bool hasPreviousActive)
         {
             var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
-            var saveStore = new SaveSlotStore(CreatePrefsKey("commit-transaction"));
+            var saveStore = new TransientCampaignSaveSlotStore(CreateTransientNamespace("commit-transaction"));
             saveStore.SaveSlot(new SaveSlotData
             {
                 SlotNumber = 1,
@@ -2533,7 +2421,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             ICampaignSaveSlotStore saveSlotStore = null)
         {
             var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
-            var store = saveSlotStore ?? new SaveSlotStore(CreatePrefsKey("pendingless-matrix"));
+            var store = saveSlotStore ?? new TransientCampaignSaveSlotStore(CreateTransientNamespace("pendingless-matrix"));
             if (saveActiveSlot && saveSlotStore == null)
             {
                 store.SaveSlot(new SaveSlotData
@@ -2661,7 +2549,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 slotNumber = CurrentSlot;
-                return SaveSlotStore.IsValidSlotNumber(slotNumber);
+                return CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber);
             }
 
             public void SetActiveSlot(int slotNumber)

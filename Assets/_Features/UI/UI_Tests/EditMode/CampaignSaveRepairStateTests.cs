@@ -98,7 +98,6 @@ namespace Game.Feature.UI.Tests
 
         [TestCase(CampaignSaveLoadStatus.Missing, SaveSlotFailurePresentationKind.None)]
         [TestCase(CampaignSaveLoadStatus.Loaded, SaveSlotFailurePresentationKind.None)]
-        [TestCase(CampaignSaveLoadStatus.ImportedLegacy, SaveSlotFailurePresentationKind.None)]
         [TestCase(CampaignSaveLoadStatus.BackupRecovered, SaveSlotFailurePresentationKind.None)]
         [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired, SaveSlotFailurePresentationKind.CorruptedData)]
         [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired, SaveSlotFailurePresentationKind.UnsupportedVersion)]
@@ -355,6 +354,26 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void BlockingLoad_ResetProfileConfirmationAfterDisposeDoesNotMutate()
+        {
+            var store = new RecordingSaveSlotStore(
+                BlockedReport(CampaignSaveLoadStatus.SchemaInvalidRepairRequired));
+            var confirmPort = new RecordingConfirmPopupPort();
+            var recoveryPort = new RecordingSaveRecoveryPort();
+            var controller = CreateController(
+                store,
+                confirmPopupPort: confirmPort,
+                saveRecoveryPort: recoveryPort);
+
+            controller.RequestResetBlockedSave();
+            controller.Dispose();
+            confirmPort.Complete(true);
+
+            Assert.That(recoveryPort.ResetCount, Is.Zero);
+            Assert.That(store.ProfileWriteCount, Is.Zero);
+        }
+
+        [Test]
         public void BlockingLoad_ResetProfileCancellation_DoesNotMutate()
         {
             var store = new RecordingSaveSlotStore(
@@ -502,7 +521,7 @@ namespace Game.Feature.UI.Tests
                 SlotNumber = slotNumber,
                 CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
                 CurrentLevelGroupId = "level-1",
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
                 LastPlayedAt = "2026-07-10T00:00:00Z",
                 StageClearProfileSnapshot = new StageClearProfileSnapshot(),
             };
@@ -510,7 +529,7 @@ namespace Game.Feature.UI.Tests
 
         private sealed class RecordingSaveSlotStore : ICampaignSaveSlotStore
         {
-            private readonly SaveSlotData[] _slots = new SaveSlotData[SaveSlotStore.SlotCount];
+            private readonly SaveSlotData[] _slots = new SaveSlotData[CampaignSaveSlotPolicy.SlotCount];
 
             public RecordingSaveSlotStore(CampaignSaveLoadReport report)
             {
@@ -546,7 +565,7 @@ namespace Game.Feature.UI.Tests
 
             public void SetSlot(SaveSlotData slot)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slot.SlotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slot.SlotNumber);
                 _slots[slot.SlotNumber - 1] = slot;
             }
 
@@ -563,7 +582,7 @@ namespace Game.Feature.UI.Tests
 
             public SaveSlotData LoadSlot(int slotNumber)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
                 LoadSlotCount++;
                 return _slots[slotNumber - 1];
             }
@@ -579,7 +598,7 @@ namespace Game.Feature.UI.Tests
                 CampaignStageSequenceResolver sequenceResolver,
                 string lastPlayedAt)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
                 InitializeNewGameCount++;
                 var slot = CreateExistingSlot(slotNumber);
                 slot.LastPlayedAt = lastPlayedAt;
@@ -589,14 +608,14 @@ namespace Game.Feature.UI.Tests
 
             public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
                 UpdateSlotCount++;
                 mutation?.Invoke(_slots[slotNumber - 1]);
             }
 
             public void DeleteSlot(int slotNumber)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
                 DeleteSlotCount++;
                 _slots[slotNumber - 1] = SaveSlotData.CreateEmpty(slotNumber);
             }

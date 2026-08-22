@@ -1,582 +1,105 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Reflection;
 using NUnit.Framework;
-using UnityEngine;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class SaveArchitectureV2ProductionReadinessTests
     {
-        private const string PolicyDocPath = "Docs/Architecture/Steam-Cloud-File-Inventory-Policy.md";
+        private const string CompositionPath =
+            "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs";
+        private const string FactoryPath =
+            "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveServiceFactory.cs";
+        private const string PolicyPath =
+            "Docs/Architecture/Pre-Release-Save-Baseline-Policy.md";
 
-        private static readonly string[] ProductionCompositionFiles =
+        [Test]
+        public void ProductionComposition_UsesCurrentJsonRepositories()
         {
-            "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs",
-            "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
-            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs",
-            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs",
-            "Assets/_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
-        };
+            var source = File.ReadAllText(CompositionPath);
 
-        [TearDown]
-        public void TearDown()
-        {
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-            PlayerPrefs.Save();
-        }
-
-        [TestCase("CampaignProfileReadinessReport")]
-        [TestCase("CampaignProfileReadinessReportWriter")]
-        [TestCase("CampaignProfileMetadataProbe")]
-        [TestCase("SaveSlotStoreCompatibilityAdapter")]
-        [TestCase("CampaignSaveMigrationCoordinator")]
-        [TestCase("FileCampaignProfileRepository")]
-        [TestCase("profile.json")]
-        public void ProductionComposition_DoesNotReferenceProfileInternalsDirectly(string forbiddenToken)
-        {
-            foreach (var path in EnumerateProductionReadinessSourceFiles())
-            {
-                Assert.That(File.ReadAllText(path), Does.Not.Contain(forbiddenToken), path);
-            }
-        }
-
-        [TestCase("CampaignSaveServiceFactory")]
-        [TestCase("FileCampaignProfileRepository")]
-        [TestCase("ICampaignProfileRepository")]
-        [TestCase("CampaignProfileDocument")]
-        [TestCase("profile.json")]
-        [TestCase("LastPlayedSlotNumber")]
-        public void MainMenuProductionPath_DoesNotReferenceV2MetadataTruthTokens(string forbiddenToken)
-        {
-            Assert.That(
-                File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs"),
-                Does.Not.Contain(forbiddenToken),
-                forbiddenToken);
-            Assert.That(
-                File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Not.Contain(forbiddenToken),
-                forbiddenToken);
+            Assert.That(source, Does.Contain("CampaignSaveFacadeFactory.Create"));
+            Assert.That(source, Does.Contain("FileCampaignLocalLaunchStateRepository"));
+            Assert.That(source, Does.Contain("AtomicTextFileStore"));
+            Assert.That(source, Does.Not.Contain("new PlayerPrefsActiveSlotStorage"));
         }
 
         [Test]
-        public void MainMenuProductionPath_UsesProfileBackedProviderAsUxSource()
+        public void ProductionOptions_ExposeNoLegacyOrRollbackControls()
         {
-            var controller = File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
-            var installer = File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
-
-            Assert.That(controller, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
-            Assert.That(installer, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(installer, Does.Contain("CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore)"));
-            Assert.That(installer, Does.Not.Contain("ProfileJsonExplicit"));
-            Assert.That(installer, Does.Not.Contain("EnableProfileWrite"));
-            Assert.That(installer, Does.Contain("CampaignLaunchHandoffSessionStore.Instance"));
-            Assert.That(installer, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
-        }
-
-        [Test]
-        public void SaveSlotStorePublicConstructor_DefaultStillUsesPlayerPrefsBackend()
-        {
-            var store = new SaveSlotStore();
-
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
-
-            Assert.That(store.PlayerPrefsKey, Is.EqualTo(SaveSlotStore.DefaultPlayerPrefsKey));
-            Assert.That(SaveSlotStore.DefaultPlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
-        }
-
-        [Test]
-        public void CampaignSaveMigrationOptions_DefaultEnableProfileWriteIsFalse()
-        {
-            var options = new CampaignSaveMigrationOptions();
-
-            Assert.That(options.EnableProfileWrite, Is.False);
-            Assert.That(CampaignSaveMigrationOptions.Default.EnableProfileWrite, Is.False);
-        }
-
-        [Test]
-        public void V2RuntimeSources_DoNotCallSteamApis()
-        {
-            foreach (var path in Directory.GetFiles(
-                         "Assets/_Features/Stages/Runtime/Campaign/Save",
-                         "*.cs"))
-            {
-                var source = File.ReadAllText(path);
-                Assert.That(source, Does.Not.Contain("Steamworks"), path);
-                Assert.That(source, Does.Not.Contain("ISteamRemoteStorage"), path);
-                Assert.That(source, Does.Not.Contain("SteamRemoteStorage"), path);
-            }
-        }
-
-        [Test]
-        public void PlayerPrefsInventoryPolicy_DocumentsRequiredKeysAndTargets()
-        {
-            var doc = File.ReadAllText(PolicyDocPath);
-
-            foreach (var entry in PlayerPrefsInventoryEntries())
-            {
-                Assert.That(doc, Does.Contain($"`{PolicyDocTokenForEntry(entry)}`"), entry.KeyOrPrefix);
-                Assert.That(doc, Does.Contain($"`{entry.Target}`"), entry.KeyOrPrefix);
-            }
-        }
-
-        [TestCase(SaveSlotPrefsKeys.SaveSlotsKey, JsonTargetClassification.CampaignProfileJson)]
-        [TestCase(SaveSlotPrefsKeys.ActiveSaveSlotKey, JsonTargetClassification.LocalLaunchStateJson)]
-        [TestCase(SaveSlotPrefsKeys.LegacySaveSlotsKey, JsonTargetClassification.DeleteOnlyLegacy)]
-        [TestCase(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey, JsonTargetClassification.DeleteOnlyLegacy)]
-        [TestCase(EditorDirectPlayContextStore.TempSaveSlotStoreKey, JsonTargetClassification.EditorOnlyJson)]
-        [TestCase(EditorDirectPlayContextStore.TempActiveSlotProviderKey, JsonTargetClassification.EditorOnlyJson)]
-        [TestCase(CampaignLegacyImportMarkerStore.ImportDisabledKey, JsonTargetClassification.CampaignProfileJson)]
-        [TestCase(CampaignLegacyImportMarkerStore.ImportedSourceHashKey, JsonTargetClassification.CampaignProfileJson)]
-        [TestCase(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey, JsonTargetClassification.CampaignProfileJson)]
-        [TestCase(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey, JsonTargetClassification.CampaignProfileJson)]
-        [TestCase("settings.audio.master.volume", JsonTargetClassification.LocalSettingsJson)]
-        [TestCase("settings.display.width", JsonTargetClassification.LocalSettingsJson)]
-        [TestCase("Game.Feature.Input.KeyboardMovementScheme", JsonTargetClassification.LocalSettingsJson)]
-        [TestCase("Game.Feature.Input.KeyboardBindingOverridesJson", JsonTargetClassification.LocalSettingsJson)]
-        [TestCase("All1ShaderMaterials", JsonTargetClassification.EditorOnlyJson)]
-        [TestCase("allIn1DefaultShader", JsonTargetClassification.EditorOnlyJson)]
-        [TestCase("Game.Feature.Stages.Editor.Tests.SomeFixture.abc123", JsonTargetClassification.Remove)]
-        public void PlayerPrefsInventory_ClassifiesKnownKeysAndPrefixes(
-            string key,
-            JsonTargetClassification expectedTarget)
-        {
-            var entry = FindInventoryEntryForKey(key);
-
-            Assert.That(entry, Is.Not.Null, key);
-            Assert.That(entry.Target, Is.EqualTo(expectedTarget), key);
-        }
-
-        [Test]
-        public void PlayerPrefsInventory_SourceScanFindsNoUnclassifiedPlayerPrefsKeys()
-        {
-            var discovered = DiscoverPlayerPrefsKeyTokensFromSource().ToArray();
-            var unclassified = discovered
-                .Where(token => FindInventoryEntryForKey(token) == null)
-                .OrderBy(token => token, StringComparer.Ordinal)
+            var properties = typeof(CampaignSaveCompositionOptions)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(property => property.Name)
+                .OrderBy(name => name, StringComparer.Ordinal)
                 .ToArray();
 
-            Assert.That(discovered, Is.Not.Empty);
-            Assert.That(
-                unclassified,
-                Is.Empty,
-                "Unclassified PlayerPrefs key/prefix tokens: " + string.Join(", ", unclassified));
+            Assert.That(properties, Is.EqualTo(new[]
+            {
+                "PathProvider",
+                "ProductVersion",
+                "ProfileId",
+                "UtcNow",
+            }));
         }
 
         [Test]
-        public void PlayerPrefsInventory_SourceScannerTracksInvocationOwnedKeysAndRejectsUnrelatedLiterals()
+        public void Factory_HasNoBackendSwitchOrPlayerPrefsDependency()
         {
-            const string source = @"
-                private const string IllegalKey = ""Game.Feature.Stages.IllegalProductionKey"";
-                private const string UnrelatedNamespace = ""Game.Feature.Stages."";
-                private void Save()
-                {
-                    PlayerPrefs.SetString(IllegalKey, string.Empty);
-                    var typeName = UnrelatedNamespace + ""CampaignSaveService"";
-                }";
+            var source = File.ReadAllText(FactoryPath);
 
-            var discovered = DiscoverPlayerPrefsKeyTokensFromSource(source).ToArray();
-
-            Assert.That(discovered, Does.Contain("Game.Feature.Stages.IllegalProductionKey"));
-            Assert.That(discovered, Does.Not.Contain("Game.Feature.Stages."));
-            Assert.That(
-                discovered.Where(token => FindInventoryEntryForKey(token) == null),
-                Is.Not.Empty,
-                "An invocation-owned illegal PlayerPrefs key must remain visible to the inventory guard.");
+            Assert.That(source, Does.Not.Contain("PlayerPrefs"));
+            Assert.That(source, Does.Not.Contain("BackendMode"));
+            Assert.That(source, Does.Not.Contain("Migration"));
+            Assert.That(source, Does.Not.Contain("Rollback"));
         }
 
         [Test]
-        public void PlayerPrefsInventory_TargetClassificationGuardMatchesPolicyBoundaries()
+        public void ProductionEntryPoints_UseProfileBackedProvider()
         {
-            Assert.That(FindInventoryEntryForKey(SaveSlotPrefsKeys.SaveSlotsKey).Target, Is.EqualTo(JsonTargetClassification.CampaignProfileJson));
-            Assert.That(FindInventoryEntryForKey(SaveSlotPrefsKeys.ActiveSaveSlotKey).Target, Is.EqualTo(JsonTargetClassification.LocalLaunchStateJson));
-            Assert.That(FindInventoryEntryForKey("settings.audio.sfx.volume").Target, Is.EqualTo(JsonTargetClassification.LocalSettingsJson));
-            Assert.That(FindInventoryEntryForKey("settings.display.refreshNumerator").Target, Is.EqualTo(JsonTargetClassification.LocalSettingsJson));
-            Assert.That(FindInventoryEntryForKey("Game.Feature.Input.KeyboardBindingOverridesJson").Target, Is.EqualTo(JsonTargetClassification.LocalSettingsJson));
-            Assert.That(FindInventoryEntryForKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey).Target, Is.EqualTo(JsonTargetClassification.EditorOnlyJson));
-            Assert.That(FindInventoryEntryForKey(SaveSlotPrefsKeys.LegacySaveSlotsKey).Target, Is.EqualTo(JsonTargetClassification.DeleteOnlyLegacy));
-            Assert.That(FindInventoryEntryForKey(CampaignLegacyImportMarkerStore.ImportedSourceHashKey).Target, Is.EqualTo(JsonTargetClassification.CampaignProfileJson));
+            var entryPoints = new[]
+            {
+                "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs",
+            };
+
+            foreach (var path in entryPoints)
+            {
+                Assert.That(
+                    File.ReadAllText(path),
+                    Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"),
+                    path);
+            }
         }
 
         [Test]
-        public void ProductionStorageSwitch_UsesProviderAndKeepsLowLevelDefaultsLegacy()
+        public void GameplayHost_DirectPlayUsesTemporaryJsonComposition()
         {
-            Assert.That(SaveSlotStore.DefaultPlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
-            Assert.That(new SaveSlotStore().PlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
-            Assert.That(CampaignSaveMigrationOptions.Default.EnableProfileWrite, Is.False);
+            var source = File.ReadAllText(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
+            var directPlayStore = source.IndexOf(
+                "CampaignSaveCompositionProvider.CreateTemporaryProfileBacked()",
+                StringComparison.Ordinal);
+            var productionStore = source.IndexOf(
+                "CampaignSaveCompositionProvider.CreateProductionProfileBacked()",
+                StringComparison.Ordinal);
 
-            foreach (var path in EnumerateProductionReadinessSourceFiles())
-            {
-                var source = File.ReadAllText(path);
-                Assert.That(source, Does.Not.Contain("CampaignSaveServiceFactory"), path);
-                Assert.That(source, Does.Not.Contain("CampaignSaveService"), path);
-                Assert.That(source, Does.Not.Contain("FileCampaignProfileRepository"), path);
-                Assert.That(source, Does.Not.Contain("profile.json"), path);
-            }
-
-            Assert.That(
-                File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(
-                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+            Assert.That(directPlayStore, Is.GreaterThanOrEqualTo(0));
+            Assert.That(productionStore, Is.GreaterThan(directPlayStore));
+            Assert.That(source, Does.Not.Contain("TransientCampaignSaveSlotStore"));
+            Assert.That(source, Does.Not.Contain("PlayerPrefs"));
         }
 
-        private static IEnumerable<string> EnumerateProductionReadinessSourceFiles()
+        [Test]
+        public void CurrentPolicy_DeclaresJsonOnlyProductionTruth()
         {
-            foreach (var path in ProductionCompositionFiles)
-            {
-                yield return path;
-            }
+            var policy = File.ReadAllText(PolicyPath);
 
-            foreach (var path in Directory.GetFiles(
-                         "Assets/_Features/Stages/Runtime/Load",
-                         "*.cs",
-                         SearchOption.AllDirectories))
-            {
-                yield return path;
-            }
+            Assert.That(policy, Does.Contain("`Saves/profile.json`"));
+            Assert.That(policy, Does.Contain("`Saves/local-launch-state.json`"));
+            Assert.That(policy, Does.Contain("PlayerPrefs campaign progression import is unsupported"));
+            Assert.That(policy, Does.Contain("Unknown save schemas fail closed"));
         }
-
-        private static PlayerPrefsInventoryEntry FindInventoryEntryForKey(string key)
-        {
-            return PlayerPrefsInventoryEntries()
-                .FirstOrDefault(entry => entry.Covers(key));
-        }
-
-        private static IEnumerable<PlayerPrefsInventoryEntry> PlayerPrefsInventoryEntries()
-        {
-            yield return PlayerPrefsInventoryEntry.Exact(
-                SaveSlotPrefsKeys.SaveSlotsKey,
-                "SaveSlotStore / CampaignLegacySourceReader",
-                productionReadWrite: true,
-                JsonTargetClassification.CampaignProfileJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                SaveSlotPrefsKeys.ActiveSaveSlotKey,
-                "ActiveSlotProvider / PendingLaunchSlotProvider",
-                productionReadWrite: true,
-                JsonTargetClassification.LocalLaunchStateJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                SaveSlotPrefsKeys.LegacySaveSlotsKey,
-                "legacy stage clear cleanup",
-                productionReadWrite: false,
-                JsonTargetClassification.DeleteOnlyLegacy);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                SaveSlotPrefsKeys.LegacyActiveSaveSlotKey,
-                "legacy active slot cleanup",
-                productionReadWrite: false,
-                JsonTargetClassification.DeleteOnlyLegacy);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                "EditorDirectPlayContextStore",
-                productionReadWrite: false,
-                JsonTargetClassification.EditorOnlyJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey,
-                "EditorDirectPlayContextStore",
-                productionReadWrite: false,
-                JsonTargetClassification.EditorOnlyJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                CampaignLegacyImportMarkerStore.ImportDisabledKey,
-                "CampaignLegacyImportMarkerStore",
-                productionReadWrite: false,
-                JsonTargetClassification.CampaignProfileJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                CampaignLegacyImportMarkerStore.ImportedSourceHashKey,
-                "CampaignLegacyImportMarkerStore",
-                productionReadWrite: false,
-                JsonTargetClassification.CampaignProfileJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey,
-                "CampaignLegacyImportMarkerStore",
-                productionReadWrite: false,
-                JsonTargetClassification.CampaignProfileJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey,
-                "CampaignLegacyImportMarkerStore",
-                productionReadWrite: false,
-                JsonTargetClassification.CampaignProfileJson);
-            yield return PlayerPrefsInventoryEntry.Prefix(
-                "settings.audio.",
-                "PlayerPrefsAudioSettingsStore",
-                productionReadWrite: true,
-                JsonTargetClassification.LocalSettingsJson);
-            yield return PlayerPrefsInventoryEntry.Prefix(
-                "settings.display.",
-                "PlayerPrefsDisplaySettingsStore",
-                productionReadWrite: true,
-                JsonTargetClassification.LocalSettingsJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                "Game.Feature.Input.KeyboardMovementScheme",
-                "PlayerPrefsKeyboardBindingStore",
-                productionReadWrite: true,
-                JsonTargetClassification.LocalSettingsJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                "Game.Feature.Input.KeyboardBindingOverridesJson",
-                "PlayerPrefsKeyboardBindingStore",
-                productionReadWrite: true,
-                JsonTargetClassification.LocalSettingsJson);
-            yield return PlayerPrefsInventoryEntry.Prefix(
-                "All1Shader",
-                "All In 1 Sprite Shader editor tooling",
-                productionReadWrite: false,
-                JsonTargetClassification.EditorOnlyJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                "allIn1DefaultShader",
-                "All In 1 Sprite Shader editor tooling",
-                productionReadWrite: false,
-                JsonTargetClassification.EditorOnlyJson);
-            yield return PlayerPrefsInventoryEntry.Exact(
-                "Assets/",
-                "All In 1 Sprite Shader editor tooling",
-                productionReadWrite: false,
-                JsonTargetClassification.UnknownNeedsDecision);
-            yield return PlayerPrefsInventoryEntry.Prefix(
-                "Game.Feature.Stages.Editor.Tests.",
-                "test-only dynamic keys",
-                productionReadWrite: false,
-                JsonTargetClassification.Remove);
-            yield return PlayerPrefsInventoryEntry.Prefix(
-                "Game.Feature.Stages.Tests.",
-                "test-only dynamic keys",
-                productionReadWrite: false,
-                JsonTargetClassification.Remove);
-            yield return PlayerPrefsInventoryEntry.Prefix(
-                "Game.Feature.UI.Tests.",
-                "test-only dynamic keys",
-                productionReadWrite: false,
-                JsonTargetClassification.Remove);
-            yield return PlayerPrefsInventoryEntry.Prefix(
-                "Game.Feature.Tests.",
-                "test-only dynamic keys",
-                productionReadWrite: false,
-                JsonTargetClassification.Remove);
-            yield return PlayerPrefsInventoryEntry.Prefix(
-                "pending-launch-slot-provider-tests-",
-                "test-only dynamic keys",
-                productionReadWrite: false,
-                JsonTargetClassification.Remove);
-        }
-
-        private static IEnumerable<string> DiscoverPlayerPrefsKeyTokensFromSource()
-        {
-            foreach (var path in Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories))
-            {
-                var normalizedPath = path.Replace('\\', '/');
-                if (normalizedPath.Contains("/obj/", StringComparison.Ordinal) ||
-                    normalizedPath.Contains("/Library/", StringComparison.Ordinal) ||
-                    normalizedPath.Contains("/Temp/", StringComparison.Ordinal) ||
-                    normalizedPath.EndsWith(
-                        "Assets/_Features/Stages/Editor/Tests/SaveArchitectureV2ProductionReadinessTests.cs",
-                        StringComparison.Ordinal) ||
-                    normalizedPath.EndsWith(
-                        "/Assets/_Features/Stages/Editor/Tests/SaveArchitectureV2ProductionReadinessTests.cs",
-                        StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var source = File.ReadAllText(path);
-                foreach (var token in DiscoverPlayerPrefsKeyTokensFromSource(source))
-                {
-                    yield return token;
-                }
-            }
-        }
-
-        private static IEnumerable<string> DiscoverPlayerPrefsKeyTokensFromSource(string source)
-        {
-            var stringLiteralRegex = new Regex(@"""(?:\\.|[^""])*""", RegexOptions.Compiled);
-            var invocationRegex = new Regex(
-                @"PlayerPrefs\.(?:GetString|SetString|GetInt|SetInt|GetFloat|SetFloat|HasKey|DeleteKey)\s*\(\s*(?<argument>""(?:\\.|[^""])*""|[A-Za-z_][A-Za-z0-9_\.]*)",
-                RegexOptions.Compiled);
-            var stringDeclarationRegex = new Regex(
-                @"(?:const|static\s+readonly|readonly)\s+string\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?<expression>[^;]+);",
-                RegexOptions.Compiled);
-            var declarations = stringDeclarationRegex.Matches(source)
-                .Cast<Match>()
-                .GroupBy(match => match.Groups["name"].Value, StringComparer.Ordinal)
-                .ToDictionary(
-                    group => group.Key,
-                    group => group.Last().Groups["expression"].Value,
-                    StringComparer.Ordinal);
-            var discovered = new HashSet<string>(StringComparer.Ordinal);
-
-            foreach (Match invocation in invocationRegex.Matches(source))
-            {
-                var argument = invocation.Groups["argument"].Value;
-                if (argument.StartsWith("\"", StringComparison.Ordinal))
-                {
-                    AddCandidate(discovered, DecodeStringLiteral(argument));
-                    continue;
-                }
-
-                var identifier = argument.Split('.').Last();
-                AddDeclarationCandidates(
-                    identifier,
-                    declarations,
-                    stringLiteralRegex,
-                    discovered,
-                    new HashSet<string>(StringComparer.Ordinal));
-
-                if (identifier == "BuildVolumeKey" || identifier == "BuildMutedKey")
-                {
-                    foreach (Match literal in stringLiteralRegex.Matches(source))
-                    {
-                        AddCandidate(discovered, DecodeStringLiteral(literal.Value));
-                    }
-                }
-            }
-
-            return discovered;
-        }
-
-        private static void AddDeclarationCandidates(
-            string identifier,
-            IReadOnlyDictionary<string, string> declarations,
-            Regex stringLiteralRegex,
-            ISet<string> discovered,
-            ISet<string> visited)
-        {
-            if (!visited.Add(identifier) || !declarations.TryGetValue(identifier, out var expression))
-            {
-                return;
-            }
-
-            foreach (Match literal in stringLiteralRegex.Matches(expression))
-            {
-                AddCandidate(discovered, DecodeStringLiteral(literal.Value));
-            }
-
-            foreach (Match referencedIdentifier in Regex.Matches(expression, @"\b[A-Za-z_][A-Za-z0-9_]*\b"))
-            {
-                AddDeclarationCandidates(
-                    referencedIdentifier.Value,
-                    declarations,
-                    stringLiteralRegex,
-                    discovered,
-                    visited);
-            }
-        }
-
-        private static void AddCandidate(ISet<string> discovered, string token)
-        {
-            if (IsPlayerPrefsInventoryCandidate(token))
-            {
-                discovered.Add(token);
-            }
-        }
-
-        private static bool IsPlayerPrefsInventoryCandidate(string token)
-        {
-            return token.StartsWith("Game.Feature.Stages.", StringComparison.Ordinal) ||
-                   token.StartsWith("Game.Feature.Input.", StringComparison.Ordinal) ||
-                   token.StartsWith("Game.Feature.UI.Tests.", StringComparison.Ordinal) ||
-                   token.StartsWith("Game.Feature.Tests.", StringComparison.Ordinal) ||
-                   token.StartsWith("settings.audio.", StringComparison.Ordinal) ||
-                   token.StartsWith("settings.display.", StringComparison.Ordinal) ||
-                   token.StartsWith("All1Shader", StringComparison.Ordinal) ||
-                   token.StartsWith("pending-launch-slot-provider-tests-", StringComparison.Ordinal) ||
-                   string.Equals(token, "allIn1DefaultShader", StringComparison.Ordinal) ||
-                   string.Equals(token, "Assets/", StringComparison.Ordinal);
-        }
-
-        private static string DecodeStringLiteral(string literal)
-        {
-            if (literal.Length < 2)
-            {
-                return string.Empty;
-            }
-
-            return literal.Substring(1, literal.Length - 2)
-                .Replace("\\\"", "\"")
-                .Replace("\\\\", "\\");
-        }
-
-        private static string PolicyDocTokenForEntry(PlayerPrefsInventoryEntry entry)
-        {
-            if (!entry.IsPrefix)
-            {
-                return entry.KeyOrPrefix;
-            }
-
-            return entry.KeyOrPrefix.EndsWith(".", StringComparison.Ordinal) ||
-                   entry.KeyOrPrefix.EndsWith("-", StringComparison.Ordinal)
-                ? entry.KeyOrPrefix + "*"
-                : entry.KeyOrPrefix + "*";
-        }
-
-        private sealed class PlayerPrefsInventoryEntry
-        {
-            private PlayerPrefsInventoryEntry(
-                string keyOrPrefix,
-                bool isPrefix,
-                string owner,
-                bool productionReadWrite,
-                JsonTargetClassification target)
-            {
-                KeyOrPrefix = keyOrPrefix;
-                IsPrefix = isPrefix;
-                Owner = owner;
-                ProductionReadWrite = productionReadWrite;
-                Target = target;
-            }
-
-            public string KeyOrPrefix { get; }
-
-            public bool IsPrefix { get; }
-
-            public string Owner { get; }
-
-            public bool ProductionReadWrite { get; }
-
-            public JsonTargetClassification Target { get; }
-
-            public static PlayerPrefsInventoryEntry Exact(
-                string key,
-                string owner,
-                bool productionReadWrite,
-                JsonTargetClassification target)
-            {
-                return new PlayerPrefsInventoryEntry(key, isPrefix: false, owner, productionReadWrite, target);
-            }
-
-            public static PlayerPrefsInventoryEntry Prefix(
-                string prefix,
-                string owner,
-                bool productionReadWrite,
-                JsonTargetClassification target)
-            {
-                return new PlayerPrefsInventoryEntry(prefix, isPrefix: true, owner, productionReadWrite, target);
-            }
-
-            public bool Covers(string key)
-            {
-                return IsPrefix
-                    ? key.StartsWith(KeyOrPrefix, StringComparison.Ordinal)
-                    : string.Equals(key, KeyOrPrefix, StringComparison.Ordinal);
-            }
-        }
-    }
-
-    public enum JsonTargetClassification
-    {
-        CampaignProfileJson = 0,
-        LocalSettingsJson = 1,
-        LocalLaunchStateJson = 2,
-        EditorOnlyJson = 3,
-        DeleteOnlyLegacy = 4,
-        ImportOnlyLegacy = 5,
-        Remove = 6,
-        UnknownNeedsDecision = 7,
     }
 }

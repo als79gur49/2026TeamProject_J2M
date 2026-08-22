@@ -71,7 +71,9 @@ namespace Game.Feature.UI.Composition
                 launchContext = StageLaunchContext.CreatePendinglessReload(request);
             }
 
-            ConsumeInitialDirectPlayBootstrapContext(continuingDirectPlayContext);
+            var previousDirectPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
+            var consumedBootstrapContext =
+                ConsumeInitialDirectPlayBootstrapContext(continuingDirectPlayContext);
             if (continuingDirectPlayContext.Mode == EditorDirectPlayMode.None)
             {
                 EditorDirectPlayContextStore.Clear();
@@ -80,11 +82,7 @@ namespace Game.Feature.UI.Composition
             {
                 EditorDirectPlayContextStore.SetCurrent(continuingDirectPlayContext);
             }
-
-            if (continuingDirectPlayContext.Mode != EditorDirectPlayMode.CampaignTempSlot)
-            {
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            }
+            var directPlayOwnershipGeneration = EditorDirectPlayContextStore.OwnershipGeneration;
 
             if (_sceneLoadPort != null)
             {
@@ -122,7 +120,11 @@ namespace Game.Feature.UI.Composition
                             {
                                 if (terminal.CompleteFailure(exception))
                                 {
-                                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+                                    TryRestoreRejectedLaunchState(
+                                        previousDirectPlayContext,
+                                        continuingDirectPlayContext,
+                                        consumedBootstrapContext,
+                                        directPlayOwnershipGeneration);
                                 }
                             });
                     }
@@ -142,7 +144,11 @@ namespace Game.Feature.UI.Composition
                         }
                     }
 
-                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+                    TryRestoreRejectedLaunchState(
+                        previousDirectPlayContext,
+                        continuingDirectPlayContext,
+                        consumedBootstrapContext,
+                        directPlayOwnershipGeneration);
 
                     throw;
                 }
@@ -166,7 +172,11 @@ namespace Game.Feature.UI.Composition
                 }
                 catch
                 {
-                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+                    TryRestoreRejectedLaunchState(
+                        previousDirectPlayContext,
+                        continuingDirectPlayContext,
+                        consumedBootstrapContext,
+                        directPlayOwnershipGeneration);
                     throw;
                 }
 
@@ -207,20 +217,24 @@ namespace Game.Feature.UI.Composition
                     }
                 }
 
-                TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+                TryRestoreRejectedLaunchState(
+                    previousDirectPlayContext,
+                    continuingDirectPlayContext,
+                    consumedBootstrapContext,
+                    directPlayOwnershipGeneration);
 
                 throw;
             }
         }
 
-        private static void ConsumeInitialDirectPlayBootstrapContext(
+        private static StageLaunchContext ConsumeInitialDirectPlayBootstrapContext(
             EditorDirectPlayContext continuingDirectPlayContext)
         {
             if (continuingDirectPlayContext.Mode == EditorDirectPlayMode.None ||
                 !StageLaunchContextStore.TryPeek(out var current) ||
                 !current.IsEditorDirectPlayBootstrap)
             {
-                return;
+                return null;
             }
 
             if (!StageLaunchContextStore.TryConsume(current, out var consumed) ||
@@ -229,17 +243,50 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException(
                     "Configured gameplay launch could not consume its initial DirectPlay bootstrap context.");
             }
+
+            return consumed;
         }
 
-        private static void TryRestoreContinuingDirectPlayContext(EditorDirectPlayContext context)
+        private static void TryRestoreRejectedLaunchState(
+            EditorDirectPlayContext previousContext,
+            EditorDirectPlayContext attemptedContext,
+            StageLaunchContext consumedBootstrapContext,
+            long expectedDirectPlayOwnershipGeneration)
         {
-            if (context.Mode == EditorDirectPlayMode.None ||
-                EditorDirectPlayContextStore.GetCurrentOrNone().Mode != EditorDirectPlayMode.None)
+            if (EditorDirectPlayContextStore.OwnershipGeneration !=
+                expectedDirectPlayOwnershipGeneration)
             {
                 return;
             }
 
-            EditorDirectPlayContextStore.SetCurrent(context);
+            if (consumedBootstrapContext != null &&
+                StageLaunchContextStore.TryPeekPendingEditorDirectPlayContext(out _))
+            {
+                return;
+            }
+
+            var currentContext = EditorDirectPlayContextStore.GetCurrentOrNone();
+            if (currentContext.Mode != EditorDirectPlayMode.None &&
+                !currentContext.Equals(attemptedContext))
+            {
+                return;
+            }
+
+            if (previousContext.Mode == EditorDirectPlayMode.None)
+            {
+                EditorDirectPlayContextStore.Clear();
+            }
+            else
+            {
+                EditorDirectPlayContextStore.SetCurrent(previousContext);
+            }
+
+            if (consumedBootstrapContext != null &&
+                !StageLaunchContextStore.TryPeek(out _) &&
+                !StageLaunchContextStore.TryPeekPendingEditorDirectPlayContext(out _))
+            {
+                StageLaunchContextStore.TrySetCurrent(consumedBootstrapContext);
+            }
         }
     }
 }

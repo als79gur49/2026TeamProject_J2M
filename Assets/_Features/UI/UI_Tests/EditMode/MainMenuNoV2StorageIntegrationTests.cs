@@ -17,13 +17,6 @@ namespace Game.Feature.UI.Tests
         private const string SaveSlotModelsPath =
             "Assets/_Features/Stages/Runtime/Campaign/SaveSlotModels.cs";
 
-        [TearDown]
-        public void TearDown()
-        {
-            PlayerPrefs.DeleteKey(SaveSlotStore.DefaultPlayerPrefsKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-            PlayerPrefs.Save();
-        }
 
         [Test]
         public void MainMenuProductionPath_ReferencesProviderButNotProfileInternals()
@@ -97,44 +90,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Contain("ICampaignLaunchHandoffStore"));
             Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Contain("CampaignLaunchHandoffSessionStore"));
             Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
-        }
-
-        [Test]
-        public void SaveSlotStorePublicConstructor_DefaultRemainsPlayerPrefs()
-        {
-            var store = new SaveSlotStore();
-
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
-
-            Assert.That(store.PlayerPrefsKey, Is.EqualTo(SaveSlotStore.DefaultPlayerPrefsKey));
-            Assert.That(SaveSlotStore.DefaultPlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
-            Assert.That(PlayerPrefs.HasKey(SaveSlotStore.DefaultPlayerPrefsKey), Is.True);
-        }
-
-        [Test]
-        public void SaveSlotModels_DefaultStoreAndRunningSlotSlices_DoNotUseLastPlayedAsRuntimeSlot()
-        {
-            var source = ReadRepoFile(SaveSlotModelsPath);
-            var saveSlotStoreSource = ExtractSourceRange(
-                source,
-                "public sealed class SaveSlotStore",
-                "public sealed class SaveSlotStageClearProfileStore");
-            var runningSlotStoreSource = ExtractSourceRange(
-                source,
-                "public sealed class SaveSlotStageClearProfileStore",
-                "[Serializable]");
-
-            Assert.That(saveSlotStoreSource, Does.Contain("new PlayerPrefsSaveSlotStorageBackend"));
-            Assert.That(saveSlotStoreSource, Does.Not.Contain("CampaignSaveServiceFactory"));
-            Assert.That(saveSlotStoreSource, Does.Not.Contain("FileCampaignProfileRepository"));
-            Assert.That(runningSlotStoreSource, Does.Contain("CampaignRunningSlotContext"));
-            Assert.That(runningSlotStoreSource, Does.Not.Contain("LastPlayedSlotNumber"));
-            Assert.That(runningSlotStoreSource, Does.Not.Contain("CampaignProfileDocument"));
         }
 
         private static void AssertSourceDoesNotContain(string path, params string[] forbiddenTokens)

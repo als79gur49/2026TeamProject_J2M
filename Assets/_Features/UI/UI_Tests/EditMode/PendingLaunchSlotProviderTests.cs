@@ -12,21 +12,19 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class PendingLaunchSlotProviderTests
     {
-        private string _saveKey;
+        private string _saveNamespace;
 
         [SetUp]
         public void SetUp()
         {
-            _saveKey = CreatePrefsKey("saves");
-            PlayerPrefs.DeleteKey(_saveKey);
+            _saveNamespace = CreateTransientNamespace("saves");
             CampaignChanceHudDiagnostics.Clear();
         }
 
         [TearDown]
         public void TearDown()
         {
-            PlayerPrefs.DeleteKey(_saveKey);
-            PlayerPrefs.Save();
+            new TransientCampaignSaveSlotStore(_saveNamespace).ClearAll();
             CampaignChanceHudDiagnostics.IsEnabled = false;
             CampaignChanceHudDiagnostics.Clear();
         }
@@ -34,7 +32,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenu_NewGame_CreatesHandoffBeforeRouting()
         {
-            var saveStore = new SaveSlotStore(_saveKey);
+            var saveStore = new TransientCampaignSaveSlotStore(_saveNamespace);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             var confirmPort = new FakeConfirmPopupPort();
             var router = new FakeStageLaunchRouter(() =>
@@ -66,7 +64,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenu_Continue_UsesExplicitSelectedSlot()
         {
-            var saveStore = new SaveSlotStore(_saveKey);
+            var saveStore = new TransientCampaignSaveSlotStore(_saveNamespace);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             var router = new FakeStageLaunchRouter();
             var selectedStage = StageId.CreateOrThrow("stage-3-1");
@@ -94,7 +92,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenu_SecondRequest_CannotOverwriteAcceptedHandoff()
         {
-            var saveStore = new SaveSlotStore(_saveKey);
+            var saveStore = new TransientCampaignSaveSlotStore(_saveNamespace);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             var router = new FakeStageLaunchRouter();
             saveStore.SaveSlot(CreateExistingSlot(1, "stage-1-1"));
@@ -119,7 +117,7 @@ namespace Game.Feature.UI.Tests
         public void TryBeginFailure_LeavesProfileAndLastPlayedUnchanged()
         {
             var repository = new CloningCampaignProfileRepository();
-            var saveStore = new SaveSlotStoreCompatibilityAdapter(
+            var saveStore = new CampaignSaveSlotStoreAdapter(
                 new CampaignSaveService(
                     repository,
                     utcNowProvider: () => "2026-07-21T00:00:00Z"));
@@ -157,7 +155,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SecondRestartRequest_WhenPendingExists_DoesNotResetProfile()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
             var saveStore = new RecordingCampaignSaveSlotStore(inner);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
@@ -190,7 +188,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void EmptyContinue_WhenPendingExists_DoesNotInitializeSlot()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             var saveStore = new RecordingCampaignSaveSlotStore(inner);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             handoffStore.TryBegin(
@@ -219,7 +217,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CancelledConfirmation_ReleasesOnlyMatchingReservation()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
             var saveStore = new RecordingCampaignSaveSlotStore(inner);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
@@ -247,7 +245,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void LateOverwriteConfirmation_DoesNotMutateAfterNewerLaunchOperation()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
             var saveStore = new RecordingCampaignSaveSlotStore(inner);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
@@ -279,7 +277,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void LateRestartConfirmation_DoesNotResetAfterOperationInvalidated()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
             var saveStore = new RecordingCampaignSaveSlotStore(inner);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
@@ -311,7 +309,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void DuplicateConfirmationCallback_MutatesProfileAtMostOnce()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
             var saveStore = new RecordingCampaignSaveSlotStore(inner);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
@@ -333,9 +331,64 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ConfirmationAfterControllerDispose_DoesNotInitializeOrRouteAndReleasesReservation()
+        {
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
+            inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+
+            controller.RequestRestart(1);
+            Assert.That(handoffStore.TryPeek(out _), Is.True);
+            controller.Dispose();
+            confirmPort.CompleteRequest(0, true);
+
+            Assert.That(saveStore.InitializeNewGameCount, Is.Zero);
+            Assert.That(router.Requests, Is.Empty);
+            Assert.That(handoffStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        public void PublicCommandsAfterControllerDispose_DoNotMutateOrRoute()
+        {
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+
+            controller.Dispose();
+            controller.Continue(1);
+            controller.RequestRestart(1);
+            controller.RequestDelete(1);
+            controller.RetryBlockedSave();
+            controller.RequestResetBlockedSave();
+
+            Assert.That(saveStore.InitializeNewGameCount, Is.Zero);
+            Assert.That(inner.LoadSlot(1).IsEmpty, Is.True);
+            Assert.That(handoffStore.TryPeek(out _), Is.False);
+            Assert.That(router.Requests, Is.Empty);
+            Assert.That(confirmPort.RequestCount, Is.Zero);
+        }
+
+        [Test]
         public void WrongConfirmationToken_DoesNotClearCurrentOperation()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             var confirmPort = new FakeConfirmPopupPort();
@@ -366,7 +419,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SuccessfulNewGame_DoesNotWritePersistentActive()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             var activeStorage = new RecordingActiveSlotStorage(3);
             var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
@@ -394,7 +447,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void InitializeNewGameFailure_ClearsMatchingReservationAndDoesNotRoute()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             var saveStore = new RecordingCampaignSaveSlotStore(inner)
             {
                 ThrowOnInitializeNewGame = true,
@@ -419,7 +472,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void RoutingFailure_ClearsMatchingOwnership()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             var saveStore = new RecordingCampaignSaveSlotStore(inner);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             var router = new FakeStageLaunchRouter
@@ -443,7 +496,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void RoutingPreparationFailure_ClearsMatchingOwnership()
         {
-            var inner = new SaveSlotStore(_saveKey);
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
             var saveStore = new RecordingCampaignSaveSlotStore(inner)
             {
                 LoadedStageOverrideAfterInitialize = StageId.CreateOrThrow("stage-2-1"),
@@ -465,16 +518,16 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenu_Delete_ClearsOnlyMatchingPendingHandoff()
+        public void MainMenu_Delete_WhenLaunchIsPending_DoesNotRequestConfirmationOrMutate()
         {
-            var saveStore = new SaveSlotStore(_saveKey);
+            var saveStore = new TransientCampaignSaveSlotStore(_saveNamespace);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             handoffStore.TryBegin(
                 1,
                 StageId.CreateOrThrow("stage-1-1"),
                 StageNavigationKind.Continue,
                 "delete-test",
-                out _);
+                out var existing);
             saveStore.SaveSlot(CreateExistingSlot(1, "stage-1-1"));
             var confirmPort = new FakeConfirmPopupPort();
             var controller = CreateController(
@@ -486,9 +539,88 @@ namespace Game.Feature.UI.Tests
             controller.RequestDelete(1);
             confirmPort.Complete(true);
 
-            Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.True);
-            Assert.That(handoffStore.TryPeek(out _), Is.False);
-            Assert.That(handoffStore.ClearCount, Is.EqualTo(1));
+            Assert.That(confirmPort.RequestCount, Is.Zero);
+            Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.False);
+            Assert.That(handoffStore.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.SameAs(existing));
+            Assert.That(handoffStore.ClearCount, Is.Zero);
+        }
+
+        [Test]
+        public void ContinueThenDelete_DoesNotDeleteAcceptedLaunchOwner()
+        {
+            var saveStore = new TransientCampaignSaveSlotStore(_saveNamespace);
+            saveStore.SaveSlot(CreateExistingSlot(1, "stage-1-1"));
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+
+            controller.Continue(1);
+            controller.RequestDelete(1);
+
+            Assert.That(confirmPort.RequestCount, Is.Zero);
+            Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.False);
+            Assert.That(handoffStore.TryPeek(out var current), Is.True);
+            Assert.That(current.SlotNumber, Is.EqualTo(1));
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void DeleteConfirmationAfterContinue_DoesNotDeleteLaunchedSlotOrHandoff()
+        {
+            var saveStore = new TransientCampaignSaveSlotStore(_saveNamespace);
+            saveStore.SaveSlot(CreateExistingSlot(1, "stage-1-1"));
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+
+            controller.RequestDelete(1);
+            controller.Continue(1);
+            confirmPort.CompleteRequest(0, true);
+
+            Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.False);
+            Assert.That(handoffStore.TryPeek(out var current), Is.True);
+            Assert.That(current.SlotNumber, Is.EqualTo(1));
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void NoneAndInvalidIntent_DoNotCancelExistingRestartConfirmation()
+        {
+            var inner = new TransientCampaignSaveSlotStore(_saveNamespace);
+            inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+
+            controller.RequestRestart(1);
+            controller.HandleIntent(new SaveSlotIntent(0, SaveSlotIntentKind.None));
+            Assert.Throws<ArgumentOutOfRangeException>(() => controller.RequestDelete(0));
+            confirmPort.CompleteRequest(0, true);
+
+            Assert.That(saveStore.InitializeNewGameCount, Is.EqualTo(1));
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
+            Assert.That(handoffStore.TryPeek(out var current), Is.True);
+            Assert.That(current.SlotNumber, Is.EqualTo(1));
         }
 
         [Test]
@@ -518,7 +650,7 @@ namespace Game.Feature.UI.Tests
         }
 
         private static MainMenuController CreateController(
-            SaveSlotStore saveStore,
+            TransientCampaignSaveSlotStore saveStore,
             ICampaignLaunchHandoffStore handoffStore,
             CampaignStageSequenceResolver resolver,
             IStageLaunchRouter router = null,
@@ -547,7 +679,7 @@ namespace Game.Feature.UI.Tests
             };
         }
 
-        private static string CreatePrefsKey(string suffix)
+        private static string CreateTransientNamespace(string suffix)
         {
             return
                 "Game.Feature.UI.Tests.PendingLaunchSlotProviderTests." +
@@ -727,6 +859,11 @@ namespace Game.Feature.UI.Tests
                 CurrentDocument = Clone(document);
             }
 
+            public void SaveDestructive(CampaignProfileDocument document)
+            {
+                Save(document);
+            }
+
             public void ResetSaveCount()
             {
                 SaveCount = 0;
@@ -756,12 +893,12 @@ namespace Game.Feature.UI.Tests
             public bool TryGetActiveSlot(out int slotNumber)
             {
                 slotNumber = _slotNumber;
-                return SaveSlotStore.IsValidSlotNumber(slotNumber);
+                return CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber);
             }
 
             public void SetActiveSlot(int slotNumber)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
                 SetCount++;
                 _slotNumber = slotNumber;
             }

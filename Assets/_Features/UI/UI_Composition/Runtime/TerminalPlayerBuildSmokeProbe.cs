@@ -338,7 +338,7 @@ namespace Game.Feature.UI.Composition
                         CultureInfo.InvariantCulture,
                         out var initialChances) ||
                     initialChances < 1 ||
-                    initialChances > SaveSlotStore.DefaultRemainingChances)
+                    initialChances > CampaignSaveSlotPolicy.DefaultRemainingChances)
                 {
                     Fail($"defeat scenario remaining chances are invalid: '{ReadArgumentValue(ChancesArgument)}'");
                     yield break;
@@ -435,10 +435,7 @@ namespace Game.Feature.UI.Composition
                 host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion;
             var savedSlot = normalGameClearScenario
                 ? CampaignSaveCompositionProvider.CreateProductionProfileBacked().LoadSlot(1)
-                : new SaveSlotStore(
-                        EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                        EditorDirectPlayContextStore.TempActiveSlotProviderKey)
-                    .LoadSlot(1);
+                : CampaignSaveCompositionProvider.CreateTemporaryProfileBacked().LoadSlot(1);
             var achievementAfter = File.Exists(achievementPath)
                 ? File.ReadAllText(achievementPath)
                 : null;
@@ -1854,9 +1851,8 @@ namespace Game.Feature.UI.Composition
             var finalStage = host.UiAccess?.QueryFacade.Stage.Read() ?? default;
             var finalReadModel =
                 host.UiAccess?.PresentationFeed.CurrentMinimalStageCompletion;
-            var finalSavedSlot = new SaveSlotStore(
-                    EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                    EditorDirectPlayContextStore.TempActiveSlotProviderKey)
+            var finalSavedSlot = CampaignSaveCompositionProvider
+                .CreateTemporaryProfileBacked()
                 .LoadSlot(1);
             if (finalResolver == null ||
                 !finalResolver.IsFinal(finalStage.StageId) ||
@@ -1928,9 +1924,7 @@ namespace Game.Feature.UI.Composition
             int initialChances,
             bool restartAfterLevelFailed)
         {
-            var saveStore = new SaveSlotStore(
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
             var initialSlot = saveStore.LoadSlot(1);
             if (initialSlot.RemainingChances != initialChances)
             {
@@ -2130,7 +2124,7 @@ namespace Game.Feature.UI.Composition
             var expectedChanceLossCueCount = initialChances > 1 ? 1 : 0;
             var expectedLevelFailedCueCount = initialChances == 1 ? 1 : 0;
             var expectedSavedChances = initialChances == 1
-                ? SaveSlotStore.DefaultRemainingChances
+                ? CampaignSaveSlotPolicy.DefaultRemainingChances
                 : expectedRemainingChances;
             if (savedSlot.RemainingChances != expectedSavedChances ||
                 chanceLossCueCount != expectedChanceLossCueCount ||
@@ -2297,9 +2291,8 @@ namespace Game.Feature.UI.Composition
                     candidate.GetInstanceID() != sourceHostId);
             var destinationStage =
                 destinationHost?.UiAccess?.QueryFacade.Stage.Read() ?? default;
-            var savedSlot = new SaveSlotStore(
-                    EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                    EditorDirectPlayContextStore.TempActiveSlotProviderKey)
+            var savedSlot = CampaignSaveCompositionProvider
+                .CreateTemporaryProfileBacked()
                 .LoadSlot(1);
             if (destinationHost == null ||
                 !destinationStage.StageId.Equals(expectedRetryStageId) ||

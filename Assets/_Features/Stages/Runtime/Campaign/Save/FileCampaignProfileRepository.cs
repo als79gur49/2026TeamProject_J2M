@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -22,10 +23,7 @@ namespace Game.Feature.Stages
                 _textFileStore.CleanupTempFiles(ProfileFileName);
                 if (!_textFileStore.Exists(ProfileFileName))
                 {
-                    return new CampaignProfileLoadResult(
-                        CampaignProfileLoadStatus.Missing,
-                        null,
-                        "profile.json is missing.");
+                    return LoadWithoutCanonical();
                 }
 
                 var rawProfile = _textFileStore.ReadAllText(ProfileFileName);
@@ -48,7 +46,14 @@ namespace Game.Feature.Stages
 
                 if (TryLoadBackup(out var backupDocument))
                 {
-                    _textFileStore.TryRestoreBackup(ProfileFileName);
+                    if (!_textFileStore.TryRestoreBackup(ProfileFileName))
+                    {
+                        return new CampaignProfileLoadResult(
+                            CampaignProfileLoadStatus.IoFailed,
+                            null,
+                            "profile.json.bak could not restore the invalid canonical profile.");
+                    }
+
                     return new CampaignProfileLoadResult(
                         CampaignProfileLoadStatus.BackupRecovered,
                         backupDocument,
@@ -86,26 +91,161 @@ namespace Game.Feature.Stages
 
         public void Save(CampaignProfileDocument document)
         {
+            Save(document, destructive: false);
+        }
+
+        public void SaveDestructive(CampaignProfileDocument document)
+        {
+            Save(document, destructive: true);
+        }
+
+        private void Save(CampaignProfileDocument document, bool destructive)
+        {
             if (Validate(document) != CampaignProfileLoadStatus.Loaded)
             {
                 throw new ArgumentException("Campaign profile document is invalid.", nameof(document));
             }
 
             var json = JsonUtility.ToJson(document);
-            _textFileStore.WriteAllTextAtomic(ProfileFileName, json);
+            if (!destructive)
+            {
+                _textFileStore.WriteAllTextAtomic(ProfileFileName, json);
+                return;
+            }
+
+            const string backupFileName = ProfileFileName + ".bak";
+            _textFileStore.RecoverInterruptedWrite(backupFileName);
+            _textFileStore.RecoverInterruptedWrite(ProfileFileName);
+            var hadPreviousCanonical = _textFileStore.Exists(ProfileFileName);
+            var previousCanonical = hadPreviousCanonical
+                ? _textFileStore.ReadAllText(ProfileFileName)
+                : null;
+            var hadPreviousBackup = _textFileStore.Exists(backupFileName);
+            var previousBackup = hadPreviousBackup
+                ? _textFileStore.ReadAllText(backupFileName)
+                : null;
+            _textFileStore.WriteAllTextAtomicWithoutBackup(backupFileName, json);
+            try
+            {
+                _textFileStore.WriteAllTextAtomicWithoutBackup(ProfileFileName, json);
+            }
+            catch (Exception saveException)
+            {
+                var failures = new List<Exception> { saveException };
+                var canonicalCompensated = false;
+                try
+                {
+                    RestoreFileState(
+                        ProfileFileName,
+                        hadPreviousCanonical,
+                        previousCanonical);
+                    canonicalCompensated = true;
+                }
+                catch (Exception canonicalCompensationException)
+                {
+                    failures.Add(canonicalCompensationException);
+                }
+
+                if (canonicalCompensated || hadPreviousBackup)
+                {
+                    try
+                    {
+                        RestoreFileState(
+                            backupFileName,
+                            hadPreviousBackup,
+                            previousBackup);
+                    }
+                    catch (Exception backupCompensationException)
+                    {
+                        failures.Add(backupCompensationException);
+                    }
+                }
+
+                if (failures.Count > 1)
+                {
+                    throw new AggregateException(
+                        "Destructive profile save compensation did not fully restore the previous file state.",
+                        failures);
+                }
+
+                throw;
+            }
         }
 
-        private bool TryLoadBackup(out CampaignProfileDocument document)
+        private void RestoreFileState(
+            string fileName,
+            bool previouslyExisted,
+            string previousContents)
+        {
+            if (previouslyExisted)
+            {
+                _textFileStore.WriteAllTextAtomicWithoutBackup(fileName, previousContents);
+                return;
+            }
+
+            if (!_textFileStore.Delete(fileName) && _textFileStore.Exists(fileName))
+            {
+                throw new IOException($"'{fileName}' could not be removed during save compensation.");
+            }
+        }
+
+        private CampaignProfileLoadResult LoadWithoutCanonical()
+        {
+            var backupResult = ReadBackup(out var backupDocument);
+            switch (backupResult)
+            {
+                case ProfileReadResult.Missing:
+                    return new CampaignProfileLoadResult(
+                        CampaignProfileLoadStatus.Missing,
+                        null,
+                        "profile.json and profile.json.bak are missing.");
+                case ProfileReadResult.Valid:
+                    if (!_textFileStore.TryRestoreBackup(ProfileFileName))
+                    {
+                        return new CampaignProfileLoadResult(
+                            CampaignProfileLoadStatus.IoFailed,
+                            null,
+                            "profile.json.bak could not restore the missing canonical profile.");
+                    }
+
+                    return new CampaignProfileLoadResult(
+                        CampaignProfileLoadStatus.BackupRecovered,
+                        backupDocument,
+                        "profile.json.bak recovered the missing profile.json.");
+                case ProfileReadResult.UnsupportedVersion:
+                    return new CampaignProfileLoadResult(
+                        CampaignProfileLoadStatus.UnsupportedVersion,
+                        null,
+                        "profile.json.bak was created with an unsupported schema version.");
+                case ProfileReadResult.InvalidDocument:
+                    return new CampaignProfileLoadResult(
+                        CampaignProfileLoadStatus.InvalidDocument,
+                        null,
+                        "profile.json.bak does not satisfy the current profile contract.");
+                default:
+                    return new CampaignProfileLoadResult(
+                        CampaignProfileLoadStatus.CorruptNoFallback,
+                        null,
+                        "profile.json is missing and profile.json.bak is corrupt.");
+            }
+        }
+
+        private ProfileReadResult ReadBackup(out CampaignProfileDocument document)
         {
             document = null;
             const string backupFileName = ProfileFileName + ".bak";
             if (!_textFileStore.Exists(backupFileName))
             {
-                return false;
+                return ProfileReadResult.Missing;
             }
 
             var rawBackup = _textFileStore.ReadAllText(backupFileName);
-            return TryDeserializeAndValidate(rawBackup, out document) == ProfileReadResult.Valid;
+            return TryDeserializeAndValidate(rawBackup, out document);
+        }
+
+        private bool TryLoadBackup(out CampaignProfileDocument document)
+        {
+            return ReadBackup(out document) == ProfileReadResult.Valid;
         }
 
         private static ProfileReadResult TryDeserializeAndValidate(
@@ -140,17 +280,13 @@ namespace Game.Feature.Stages
 
         private static CampaignProfileLoadStatus Validate(CampaignProfileDocument document)
         {
-            if (document == null)
-            {
-                return CampaignProfileLoadStatus.InvalidDocument;
-            }
-
-            if (document.SchemaVersion != CampaignProfileDocument.CurrentSchemaVersion)
+            var validation = CampaignProfileDocumentValidator.Validate(document);
+            if (validation == CampaignProfileDocumentValidationResult.UnsupportedVersion)
             {
                 return CampaignProfileLoadStatus.UnsupportedVersion;
             }
 
-            if (string.IsNullOrWhiteSpace(document.ProfileId))
+            if (validation != CampaignProfileDocumentValidationResult.Valid)
             {
                 return CampaignProfileLoadStatus.InvalidDocument;
             }
@@ -161,9 +297,6 @@ namespace Game.Feature.Stages
                 Normalize(document.Slots[i]);
             }
 
-            document.LegacyImport ??= new CampaignLegacyImportDocument();
-            document.LegacyImport.DeletedSlotGuards ??=
-                Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
             return CampaignProfileLoadStatus.Loaded;
         }
 
@@ -197,6 +330,7 @@ namespace Game.Feature.Stages
 
         private enum ProfileReadResult
         {
+            Missing,
             Valid,
             Corrupt,
             UnsupportedVersion,

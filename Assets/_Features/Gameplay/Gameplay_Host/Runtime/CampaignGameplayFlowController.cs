@@ -276,7 +276,7 @@ namespace Game.Feature.Gameplay.Host
             var slot = _saveSlotStore.LoadSlot(runningSlotNumber);
             var route = _retryChanceTracker.ResolveDeathRoute(slot);
             var previousRemainingChances = slot.RemainingChances <= 0
-                ? SaveSlotStore.DefaultRemainingChances
+                ? CampaignSaveSlotPolicy.DefaultRemainingChances
                 : slot.RemainingChances;
             var deathCount = slot.TotalDeaths + 1;
             var routeLevelGroupId = _sequenceResolver.GetLevelGroupId(route.NextStageId);
@@ -296,7 +296,7 @@ namespace Game.Feature.Gameplay.Host
                 route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage
                     ? 0
                     : route.RemainingChances,
-                SaveSlotStore.DefaultRemainingChances,
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
                 GameplayChanceAudioPolicy.SuppressChanceChangeCue);
             if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
             {
@@ -317,7 +317,7 @@ namespace Game.Feature.Gameplay.Host
                 StageTransitionHint.ForChanceLost(new StageTransitionChanceLostPayload(
                     previousRemainingChances,
                     route.RemainingChances,
-                    SaveSlotStore.DefaultRemainingChances,
+                    CampaignSaveSlotPolicy.DefaultRemainingChances,
                     slot.CurrentStageId,
                     route.NextStageId,
                     deathCount,
@@ -559,7 +559,7 @@ namespace Game.Feature.Gameplay.Host
                     completedLevelGroupId,
                     nextLevelGroupId,
                     StringComparison.Ordinal);
-                var currentSceneRemainingChances = SaveSlotStore.DefaultRemainingChances;
+                var currentSceneRemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances;
                 _saveSlotStore.UpdateSlot(
                     runningSlotNumber,
                     mutableSlot =>
@@ -567,11 +567,11 @@ namespace Game.Feature.Gameplay.Host
                         if (restoresChances)
                         {
                             currentSceneRemainingChances = mutableSlot.RemainingChances <= 0
-                                ? SaveSlotStore.DefaultRemainingChances
+                                ? CampaignSaveSlotPolicy.DefaultRemainingChances
                                 : Math.Min(
                                     mutableSlot.RemainingChances,
-                                    SaveSlotStore.DefaultRemainingChances);
-                            mutableSlot.RemainingChances = SaveSlotStore.DefaultRemainingChances;
+                                    CampaignSaveSlotPolicy.DefaultRemainingChances);
+                            mutableSlot.RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances;
                         }
 
                         mutableSlot.CurrentStageId = nextStageId;
@@ -583,7 +583,7 @@ namespace Game.Feature.Gameplay.Host
                 {
                     _chanceDisplayOverride?.Set(
                         currentSceneRemainingChances,
-                        SaveSlotStore.DefaultRemainingChances,
+                        CampaignSaveSlotPolicy.DefaultRemainingChances,
                         GameplayChanceAudioPolicy.SuppressChanceChangeCue);
                 }
             }

@@ -41,7 +41,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "CampaignSaveService",
                 "CampaignSaveServiceFactory",
                 "CampaignSaveMigrationCoordinator",
-                "SaveSlotStoreCompatibilityAdapter",
+                "CampaignSaveSlotStoreAdapter",
                 ".Migrate");
         }
 

@@ -27,11 +27,6 @@ namespace Game.Feature.Stages.Editor
                 probeResult.SchemaVersion,
                 probeResult.SavedAtUtc,
                 probeResult.LastPlayedSlotNumber,
-                !string.IsNullOrWhiteSpace(probeResult.ImportedSourceHash),
-                probeResult.ImportedSourceHash,
-                probeResult.ImportDisabled,
-                probeResult.HasResetTombstone,
-                probeResult.DeletedSlotGuardCount,
                 probeResult.SlotDocumentCount,
                 probeResult.ValidSlotDocumentCount,
                 probeResult.Message,
@@ -45,19 +40,13 @@ namespace Game.Feature.Stages.Editor
             if (probeResult.Status != CampaignProfileMetadataProbeStatus.Loaded)
             {
                 warnings.Add(
-                    $"Diagnostics/readiness only: metadata load status is {probeResult.Status}; current PlayerPrefs UX is not blocked by this report.");
+                    $"Diagnostics/readiness only: metadata load status is {probeResult.Status}; the current profile runtime contract is not changed by this report.");
             }
 
             if (probeResult.SlotDocumentCount != probeResult.ValidSlotDocumentCount)
             {
                 warnings.Add(
                     "Diagnostics/readiness only: profile slot document count differs from valid profile slot document count.");
-            }
-
-            if (probeResult.ImportDisabled || probeResult.HasResetTombstone)
-            {
-                warnings.Add(
-                    "Diagnostics/readiness only: import/reset marker metadata is inventory, not a PlayerPrefs UX decision.");
             }
 
             return warnings;

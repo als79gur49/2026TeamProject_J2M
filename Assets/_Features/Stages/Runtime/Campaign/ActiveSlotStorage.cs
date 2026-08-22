@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace Game.Feature.Stages
 {
@@ -14,65 +13,16 @@ namespace Game.Feature.Stages
         void ClearActiveSlot();
     }
 
-    public sealed class PlayerPrefsActiveSlotStorage : IActiveSlotStorage
-    {
-        private readonly string _playerPrefsKey;
-
-        public PlayerPrefsActiveSlotStorage(string playerPrefsKey)
-        {
-            _playerPrefsKey = string.IsNullOrWhiteSpace(playerPrefsKey)
-                ? SaveSlotPrefsKeys.ActiveSaveSlotKey
-                : playerPrefsKey;
-        }
-
-        public string DiagnosticsKey => _playerPrefsKey;
-
-        public bool TryGetActiveSlot(out int slotNumber)
-        {
-            slotNumber = PlayerPrefs.GetInt(_playerPrefsKey, 0);
-            if (SaveSlotStore.IsValidSlotNumber(slotNumber))
-            {
-                return true;
-            }
-
-            slotNumber = 0;
-            return false;
-        }
-
-        public void SetActiveSlot(int slotNumber)
-        {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
-            PlayerPrefs.SetInt(_playerPrefsKey, slotNumber);
-            PlayerPrefs.Save();
-        }
-
-        public void ClearActiveSlot()
-        {
-            if (string.Equals(_playerPrefsKey, SaveSlotPrefsKeys.ActiveSaveSlotKey, StringComparison.Ordinal))
-            {
-                PlayerPrefs.SetInt(_playerPrefsKey, 0);
-                PlayerPrefs.Save();
-                return;
-            }
-
-            PlayerPrefs.DeleteKey(_playerPrefsKey);
-            PlayerPrefs.Save();
-        }
-    }
-
     public sealed class LocalStateActiveSlotStorage : IActiveSlotStorage
     {
         private readonly ICampaignLocalLaunchStateRepository _repository;
-        private readonly IActiveSlotStorage _legacyImportSource;
         private readonly ICampaignSaveSlotStore _profileSlots;
 
         public LocalStateActiveSlotStorage(
             ICampaignLocalLaunchStateRepository repository,
-            IActiveSlotStorage legacyImportSource,
             ICampaignSaveSlotStore profileSlots)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-            _legacyImportSource = legacyImportSource ?? throw new ArgumentNullException(nameof(legacyImportSource));
             _profileSlots = profileSlots ?? throw new ArgumentNullException(nameof(profileSlots));
         }
 
@@ -86,22 +36,25 @@ namespace Game.Feature.Stages
                 return TryUseLoadedDocument(loadResult.Document, out slotNumber);
             }
 
-            if (loadResult.AllowsPlayerPrefsImport)
-            {
-                return TryImportLegacyActiveSlot(out slotNumber);
-            }
-
             slotNumber = 0;
             return false;
         }
 
         public void SetActiveSlot(int slotNumber)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
-            if (!IsProfileSlotAvailable(slotNumber))
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            var availability = ResolveProfileSlotAvailability(slotNumber, out var loadStatus);
+            if (availability == ProfileSlotAvailability.DefinitelyAbsent)
             {
                 throw new InvalidOperationException(
                     $"Cannot set active campaign slot '{slotNumber}' because the profile slot is empty or missing.");
+            }
+
+            if (availability == ProfileSlotAvailability.Indeterminate)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot set active campaign slot '{slotNumber}' because profile availability could not be verified " +
+                    $"(status={loadStatus}).");
             }
 
             _repository.SaveActiveSlot(slotNumber);
@@ -117,51 +70,71 @@ namespace Game.Feature.Stages
             out int slotNumber)
         {
             slotNumber = document?.campaign?.activeSlotNumber ?? 0;
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 slotNumber = 0;
                 return false;
             }
 
-            if (IsProfileSlotAvailable(slotNumber))
+            var availability = ResolveProfileSlotAvailability(slotNumber, out _);
+            if (availability == ProfileSlotAvailability.Available)
             {
                 return true;
             }
 
-            _repository.ClearActiveSlot();
+            if (availability == ProfileSlotAvailability.DefinitelyAbsent)
+            {
+                _repository.ClearActiveSlot();
+            }
+
             slotNumber = 0;
             return false;
         }
 
-        private bool TryImportLegacyActiveSlot(out int slotNumber)
+        private ProfileSlotAvailability ResolveProfileSlotAvailability(
+            int slotNumber,
+            out CampaignSaveLoadStatus loadStatus)
         {
-            if (!_legacyImportSource.TryGetActiveSlot(out var legacySlotNumber) ||
-                !IsProfileSlotAvailable(legacySlotNumber))
+            loadStatus = CampaignSaveLoadStatus.IoFailed;
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
-                slotNumber = 0;
-                return false;
-            }
-
-            _repository.SaveActiveSlot(legacySlotNumber);
-            slotNumber = legacySlotNumber;
-            return true;
-        }
-
-        private bool IsProfileSlotAvailable(int slotNumber)
-        {
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
-            {
-                return false;
+                return ProfileSlotAvailability.DefinitelyAbsent;
             }
 
             try
             {
-                return !_profileSlots.LoadSlot(slotNumber).IsEmpty;
+                var result = _profileSlots.LoadAllWithReport();
+                loadStatus = result.Report.Status;
+                switch (result.Report.Status)
+                {
+                    case CampaignSaveLoadStatus.Loaded:
+                    case CampaignSaveLoadStatus.BackupRecovered:
+                        if (result.Slots == null || result.Slots.Length < slotNumber)
+                        {
+                            return ProfileSlotAvailability.Indeterminate;
+                        }
+
+                        var slot = result.Slots[slotNumber - 1];
+                        return slot == null || slot.IsEmpty
+                            ? ProfileSlotAvailability.DefinitelyAbsent
+                            : ProfileSlotAvailability.Available;
+                    case CampaignSaveLoadStatus.Missing:
+                        return ProfileSlotAvailability.DefinitelyAbsent;
+                    default:
+                        return ProfileSlotAvailability.Indeterminate;
+                }
             }
             catch
             {
-                return false;
+                return ProfileSlotAvailability.Indeterminate;
             }
+        }
+
+        private enum ProfileSlotAvailability
+        {
+            Available,
+            DefinitelyAbsent,
+            Indeterminate,
         }
     }
 
@@ -202,6 +175,18 @@ namespace Game.Feature.Stages
 
         public void SaveSlot(SaveSlotData slot)
         {
+            if (slot == null)
+            {
+                throw new ArgumentNullException(nameof(slot));
+            }
+
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slot.SlotNumber);
+            if (slot.IsEmpty)
+            {
+                DeleteSlot(slot.SlotNumber);
+                return;
+            }
+
             _inner.SaveSlot(slot);
         }
 
@@ -215,7 +200,48 @@ namespace Game.Feature.Stages
 
         public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
         {
-            _inner.UpdateSlot(slotNumber, mutation);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (mutation == null)
+            {
+                throw new ArgumentNullException(nameof(mutation));
+            }
+
+            var updatedSlotIsEmpty = false;
+            var updatedSlotWasActive = false;
+            var updatedSlotWasPending = false;
+            CampaignLaunchHandoff pendingHandoff = null;
+            _inner.UpdateSlot(slotNumber, slot =>
+            {
+                mutation(slot);
+                slot.SlotNumber = slotNumber;
+                updatedSlotIsEmpty = slot.IsEmpty;
+                if (!updatedSlotIsEmpty)
+                {
+                    return;
+                }
+
+                updatedSlotWasActive =
+                    _activeSlotStorage.TryGetActiveSlot(out var activeSlotNumber) &&
+                    activeSlotNumber == slotNumber;
+                updatedSlotWasPending =
+                    _launchHandoffStore.TryPeek(out pendingHandoff) &&
+                    pendingHandoff.SlotNumber == slotNumber;
+            });
+
+            if (!updatedSlotIsEmpty)
+            {
+                return;
+            }
+
+            if (updatedSlotWasPending)
+            {
+                _launchHandoffStore.TryClear(pendingHandoff.Token);
+            }
+
+            if (updatedSlotWasActive)
+            {
+                _activeSlotStorage.ClearActiveSlot();
+            }
         }
 
         public void DeleteSlot(int slotNumber)

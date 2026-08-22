@@ -50,11 +50,6 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(report.SchemaVersion, Is.EqualTo(14));
             Assert.That(report.SavedAtUtc, Is.EqualTo("2026-07-08T01:02:03.0000000Z"));
             Assert.That(report.DiagnosticLastPlayedSlotNumber, Is.EqualTo(2));
-            Assert.That(report.HasImportedSourceHash, Is.True);
-            Assert.That(report.ImportedSourceHash, Is.EqualTo("legacy-source"));
-            Assert.That(report.ImportDisabledMarkerMetadata, Is.True);
-            Assert.That(report.HasResetTombstoneMarkerMetadata, Is.True);
-            Assert.That(report.DeletedSlotGuardCount, Is.EqualTo(1));
             Assert.That(report.ProfileSlotDocumentCount, Is.EqualTo(3));
             Assert.That(report.ValidSlotDocumentCount, Is.EqualTo(2));
         }
@@ -78,22 +73,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedAtUtc = "2026-07-08T01:02:03.0000000Z",
                 ProfileId = "profile-tests",
                 LastPlayedSlotNumber = 2,
-                LegacyImport = new CampaignLegacyImportDocument
-                {
-                    ImportedSourceHash = "legacy-source",
-                    ImportDisabled = true,
-                    ResetTombstoneUtc = "2026-07-08T02:03:04.0000000Z",
-                    DeletedSlotGuards = new[]
-                    {
-                        new CampaignLegacyDeletedSlotGuardDocument
-                        {
-                            SlotNumber = 1,
-                            ImportedSourceHash = "legacy-source",
-                            DeletedAtUtc = "2026-07-08T03:04:05.0000000Z",
-                            Reason = "delete-slot",
-                        },
-                    },
-                },
                 Slots = new[]
                 {
                     CreateSlot(1),

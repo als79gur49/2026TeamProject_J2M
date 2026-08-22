@@ -45,8 +45,6 @@ namespace Game.Feature.Stages
         public string Message { get; }
 
         public bool HasDocument => Document != null;
-
-        public bool AllowsPlayerPrefsImport => Status == CampaignLocalLaunchStateLoadStatus.Missing;
     }
 
     public interface ICampaignLocalLaunchStateRepository

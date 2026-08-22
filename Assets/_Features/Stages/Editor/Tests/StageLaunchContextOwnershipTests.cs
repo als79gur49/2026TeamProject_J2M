@@ -145,8 +145,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 StageLaunchContextStore.TryConsume(original.ExpectedRuntimeContext, out _),
                 Is.True);
-            UnityEngine.PlayerPrefs.SetString(EditorDirectPlayContextStore.TempSaveSlotStoreKey, "temp-slot");
-            UnityEngine.PlayerPrefs.SetInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey, 1);
+            CreateTemporaryCampaignFiles();
             var nextStageId = StageId.CreateOrThrow("stage-0-2");
 
             EditorDirectPlayContextStore.SetCurrent(
@@ -162,8 +161,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
             Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.False);
-            Assert.That(UnityEngine.PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
-            Assert.That(UnityEngine.PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
+            AssertTemporaryCampaignFilesCleared();
         }
 
         [Test]
@@ -175,12 +173,11 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 StageLaunchContextStore.TryConsume(original.ExpectedRuntimeContext, out _),
                 Is.True);
-            UnityEngine.PlayerPrefs.SetString(EditorDirectPlayContextStore.TempSaveSlotStoreKey, "temp-slot");
-            UnityEngine.PlayerPrefs.SetInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey, 1);
+            CreateTemporaryCampaignFiles();
             var nextStageId = StageId.CreateOrThrow("stage-0-2");
             var continuingContext = EditorDirectPlayContext.CreateCampaignTempSlot(
                 nextStageId,
-                SaveSlotStore.DefaultRemainingChances);
+                CampaignSaveSlotPolicy.DefaultRemainingChances);
             EditorDirectPlayContextStore.SetCurrent(continuingContext);
             var request = new StageNavigationRequest(
                 nextStageId,
@@ -205,8 +202,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
             Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
             Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.False);
-            Assert.That(UnityEngine.PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
-            Assert.That(UnityEngine.PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
+            AssertTemporaryCampaignFilesCleared();
         }
 
         [Test]
@@ -532,7 +528,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 StageEditorDirectPlayLauncher.LaunchStage(
                     StageId.CreateOrThrow("stage-1-1"),
                     EditorDirectPlayMode.NonCampaign,
-                    SaveSlotStore.DefaultRemainingChances));
+                    CampaignSaveSlotPolicy.DefaultRemainingChances));
 
             Assert.That(exception?.Message, Does.Contain("rejected"));
             Assert.That(SceneManager.GetActiveScene().handle, Is.EqualTo(sceneBeforeDuplicate.handle));
@@ -582,8 +578,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var directPlayContext = new EditorDirectPlayContext(
                 EditorDirectPlayMode.CampaignProductionSlot,
                 completedStageId,
-                string.Empty,
-                string.Empty,
                 remainingChances: 2,
                 suppressCampaignFlow: false);
             var request = new StageNavigationRequest(
@@ -882,19 +876,40 @@ namespace Game.Feature.Stages.Editor.Tests
                     return new EditorDirectPlayContext(
                         mode,
                         stageId,
-                        string.Empty,
-                        string.Empty,
-                        SaveSlotStore.DefaultRemainingChances,
+                        CampaignSaveSlotPolicy.DefaultRemainingChances,
                         suppressCampaignFlow: false);
                 case EditorDirectPlayMode.CampaignTempSlot:
                     return EditorDirectPlayContext.CreateCampaignTempSlot(
                         stageId,
-                        SaveSlotStore.DefaultRemainingChances);
+                        CampaignSaveSlotPolicy.DefaultRemainingChances);
                 case EditorDirectPlayMode.NonCampaign:
                     return EditorDirectPlayContext.CreateNonCampaign(stageId);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported DirectPlay mode.");
             }
+        }
+
+        private static void CreateTemporaryCampaignFiles()
+        {
+            var pathProvider = new TemporaryCampaignSavePathProvider();
+            System.IO.Directory.CreateDirectory(pathProvider.SaveRootPath);
+            System.IO.File.WriteAllText(
+                pathProvider.GetSaveFilePath(FileCampaignProfileRepository.ProfileFileName),
+                "{}");
+            System.IO.File.WriteAllText(
+                pathProvider.GetSaveFilePath(CampaignLocalLaunchStateRepository.FileName),
+                "{}");
+        }
+
+        private static void AssertTemporaryCampaignFilesCleared()
+        {
+            var pathProvider = new TemporaryCampaignSavePathProvider();
+            Assert.That(
+                System.IO.File.Exists(pathProvider.GetSaveFilePath(FileCampaignProfileRepository.ProfileFileName)),
+                Is.False);
+            Assert.That(
+                System.IO.File.Exists(pathProvider.GetSaveFilePath(CampaignLocalLaunchStateRepository.FileName)),
+                Is.False);
         }
 
         private sealed class RecordingHandoffStore : ICampaignLaunchHandoffStore

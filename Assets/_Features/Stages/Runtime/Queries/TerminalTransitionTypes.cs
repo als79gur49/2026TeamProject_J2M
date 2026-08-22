@@ -2096,7 +2096,7 @@ namespace Game.Feature.Stages
                 !destinationStageId.IsValid ||
                 sourceSceneGeneration <= 0 ||
                 launchSlotNumber < 0 ||
-                launchSlotNumber > SaveSlotStore.SlotCount)
+                launchSlotNumber > CampaignSaveSlotPolicy.SlotCount)
             {
                 return false;
             }

@@ -23,6 +23,7 @@ namespace Game.Feature.UI.Application
         private readonly IMainMenuSaveDiagnosticPort _saveDiagnosticPort;
         private readonly ICampaignSaveRecoveryPort _saveRecoveryPort;
         private LaunchConfirmationOperation _currentLaunchConfirmation;
+        private int _confirmationGeneration;
         private bool _isDisposed;
 
         public MainMenuController(
@@ -78,13 +79,15 @@ namespace Game.Feature.UI.Application
 
         public void HandleIntent(SaveSlotIntent intent)
         {
+            if (_isDisposed)
+            {
+                return;
+            }
+
             switch (intent.IntentKind)
             {
                 case SaveSlotIntentKind.NewGame:
-                    StartNewGame(
-                        intent.SlotNumber,
-                        MainMenuLaunchOperationKind.NewGame,
-                        confirmIfOccupied: true);
+                    RequestNewGame(intent.SlotNumber);
                     break;
 
                 case SaveSlotIntentKind.Continue:
@@ -103,7 +106,17 @@ namespace Game.Feature.UI.Application
 
         public void Continue(int slotNumber)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!TryBeginCommand())
+            {
+                return;
+            }
+
             if (IsCampaignAccessBlocked())
             {
                 RefreshViewModel();
@@ -154,7 +167,17 @@ namespace Game.Feature.UI.Application
 
         public void RequestRestart(int slotNumber)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!TryBeginCommand())
+            {
+                return;
+            }
+
             if (IsCampaignAccessBlocked())
             {
                 RefreshViewModel();
@@ -169,19 +192,41 @@ namespace Game.Feature.UI.Application
 
         public void RequestDelete(int slotNumber)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!TryBeginCommand())
+            {
+                return;
+            }
+
             if (IsCampaignAccessBlocked())
             {
                 RefreshViewModel();
                 return;
             }
 
+            if (_launchHandoffStore.TryPeek(out _))
+            {
+                RefreshViewModel();
+                return;
+            }
+
+            var confirmationGeneration = BeginConfirmation();
             _confirmPopupPort.Request(
                 MainMenuLocalization.CreateConfirmationPayload(
                     MainMenuConfirmationKind.DeleteSlot,
                     slotNumber),
                 confirmed =>
                 {
+                    if (!TryClaimConfirmation(confirmationGeneration))
+                    {
+                        return;
+                    }
+
                     try
                     {
                         if (!confirmed)
@@ -190,6 +235,11 @@ namespace Game.Feature.UI.Application
                         }
 
                         if (IsCampaignAccessBlocked())
+                        {
+                            return;
+                        }
+
+                        if (_launchHandoffStore.TryPeek(out _))
                         {
                             return;
                         }
@@ -208,8 +258,32 @@ namespace Game.Feature.UI.Application
                 });
         }
 
+        private void RequestNewGame(int slotNumber)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!TryBeginCommand())
+            {
+                return;
+            }
+
+            StartNewGame(
+                slotNumber,
+                MainMenuLaunchOperationKind.NewGame,
+                confirmIfOccupied: true);
+        }
+
         public void RetryBlockedSave()
         {
+            if (!TryBeginCommand())
+            {
+                return;
+            }
+
             if (_saveRecoveryPort?.HasPendingReset == true)
             {
                 _saveRecoveryPort.RetryPendingReset();
@@ -220,6 +294,11 @@ namespace Game.Feature.UI.Application
 
         public void RequestResetBlockedSave()
         {
+            if (!TryBeginCommand())
+            {
+                return;
+            }
+
             var report = _saveSlotStore.LoadAllWithReport().Report;
             var actions = CampaignSaveRecoveryPolicy.GetActions(report.Status);
             if (_saveRecoveryPort == null ||
@@ -229,11 +308,17 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
+            var confirmationGeneration = BeginConfirmation();
             _confirmPopupPort.Request(
                 MainMenuLocalization.CreateConfirmationPayload(
                     MainMenuConfirmationKind.ResetBlockedProfile),
                 confirmed =>
                 {
+                    if (!TryClaimConfirmation(confirmationGeneration))
+                    {
+                        return;
+                    }
+
                     try
                     {
                         if (!confirmed)
@@ -255,7 +340,12 @@ namespace Game.Feature.UI.Application
             MainMenuLaunchOperationKind operationKind,
             bool confirmIfOccupied)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             if (IsCampaignAccessBlocked())
             {
                 RefreshViewModel();
@@ -308,6 +398,7 @@ namespace Game.Feature.UI.Application
             CampaignLaunchHandoff handoff,
             MainMenuLaunchOperationKind operationKind)
         {
+            var confirmationGeneration = BeginConfirmation();
             var operation = new LaunchConfirmationOperation(handoff, operationKind);
             _currentLaunchConfirmation = operation;
             var payload = operationKind == MainMenuLaunchOperationKind.Restart
@@ -322,7 +413,11 @@ namespace Game.Feature.UI.Application
             {
                 _confirmPopupPort.Request(
                     payload,
-                    confirmed => CompleteLaunchConfirmation(operation, operationKind, confirmed));
+                    confirmed => CompleteLaunchConfirmation(
+                        operation,
+                        operationKind,
+                        confirmationGeneration,
+                        confirmed));
             }
             catch
             {
@@ -340,9 +435,11 @@ namespace Game.Feature.UI.Application
         private void CompleteLaunchConfirmation(
             LaunchConfirmationOperation operation,
             MainMenuLaunchOperationKind expectedKind,
+            int confirmationGeneration,
             bool confirmed)
         {
-            if (!ReferenceEquals(_currentLaunchConfirmation, operation))
+            if (!ReferenceEquals(_currentLaunchConfirmation, operation) ||
+                !TryClaimConfirmation(confirmationGeneration))
             {
                 return;
             }
@@ -367,7 +464,7 @@ namespace Game.Feature.UI.Application
 
         private void InitializeAndRouteNewGame(CampaignLaunchHandoff handoff)
         {
-            if (!IsCurrentHandoff(handoff))
+            if (_isDisposed || !IsCurrentHandoff(handoff))
             {
                 return;
             }
@@ -445,7 +542,7 @@ namespace Game.Feature.UI.Application
                 HasLaunchHandoff = true,
                 HandoffSlotNumber = handoff.SlotNumber,
                 HandoffToken = handoff.Token.ToString("N"),
-                SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
+                SaveStoreDiagnosticsKey = _saveSlotStore.DiagnosticsKey,
             });
             try
             {
@@ -507,7 +604,46 @@ namespace Game.Feature.UI.Application
 
         private void RefreshViewModel()
         {
+            if (_isDisposed)
+            {
+                return;
+            }
+
             ViewModelChanged?.Invoke(BuildViewModel());
+        }
+
+        private int BeginConfirmation()
+        {
+            _confirmationGeneration++;
+            if (_currentLaunchConfirmation != null)
+            {
+                _launchHandoffStore.TryClear(_currentLaunchConfirmation.Handoff.Token);
+                _currentLaunchConfirmation = null;
+            }
+
+            return _confirmationGeneration;
+        }
+
+        private bool TryBeginCommand()
+        {
+            if (_isDisposed)
+            {
+                return false;
+            }
+
+            BeginConfirmation();
+            return true;
+        }
+
+        private bool TryClaimConfirmation(int confirmationGeneration)
+        {
+            if (_isDisposed || confirmationGeneration != _confirmationGeneration)
+            {
+                return false;
+            }
+
+            _confirmationGeneration++;
+            return true;
         }
 
         public void Dispose()
@@ -517,8 +653,15 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
             _isDisposed = true;
+            _confirmationGeneration++;
+            if (_currentLaunchConfirmation != null)
+            {
+                _launchHandoffStore.TryClear(_currentLaunchConfirmation.Handoff.Token);
+                _currentLaunchConfirmation = null;
+            }
+
+            _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
         }
 
         private void HandleLocaleChanged()

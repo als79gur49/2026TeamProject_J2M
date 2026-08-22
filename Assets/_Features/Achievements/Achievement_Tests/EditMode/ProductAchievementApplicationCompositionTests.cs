@@ -206,8 +206,6 @@ namespace Game.Product.Achievements.Tests
                 directPlayContextProvider: () => new EditorDirectPlayContext(
                     mode,
                     StageId.CreateOrThrow("stage-4-3"),
-                    "direct-play-save",
-                    "direct-play-active",
                     3,
                     suppressCampaignFlow: false),
                 sequenceResolverFactory: () =>

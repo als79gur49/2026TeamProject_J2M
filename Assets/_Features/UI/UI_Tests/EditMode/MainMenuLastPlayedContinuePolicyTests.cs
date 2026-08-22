@@ -15,25 +15,19 @@ namespace Game.Feature.UI.Tests
         private const string MainMenuControllerPath =
             "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs";
 
-        private string _activeKey;
-        private string _saveKey;
+        private string _saveNamespace;
 
         [SetUp]
         public void SetUp()
         {
-            _activeKey = CreatePrefsKey("active");
-            _saveKey = CreatePrefsKey("saves");
-            PlayerPrefs.DeleteKey(_activeKey);
-            PlayerPrefs.DeleteKey(_saveKey);
+            _saveNamespace = CreateTransientNamespace("saves");
             CampaignChanceHudDiagnostics.Clear();
         }
 
         [TearDown]
         public void TearDown()
         {
-            PlayerPrefs.DeleteKey(_activeKey);
-            PlayerPrefs.DeleteKey(_saveKey);
-            PlayerPrefs.Save();
+            new TransientCampaignSaveSlotStore(_saveNamespace).ClearAll();
             CampaignChanceHudDiagnostics.IsEnabled = false;
             CampaignChanceHudDiagnostics.Clear();
         }
@@ -53,7 +47,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenuContinue_RemainsExplicitSelectedSlotIntent()
         {
-            var saveStore = new SaveSlotStore(_saveKey);
+            var saveStore = new TransientCampaignSaveSlotStore(_saveNamespace);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             var router = new RecordingStageLaunchRouter();
             var selectedStage = StageId.CreateOrThrow("stage-1-2");
@@ -74,7 +68,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenuSlotList_RemainsSaveSlotStoreLoadAllBased()
         {
-            var saveStore = new SaveSlotStore(_saveKey);
+            var saveStore = new TransientCampaignSaveSlotStore(_saveNamespace);
             var controller = CreateController(
                 saveStore,
                 new RecordingCampaignLaunchHandoffStore(),
@@ -83,7 +77,7 @@ namespace Game.Feature.UI.Tests
 
             var viewModel = controller.BuildViewModel();
 
-            Assert.That(viewModel.SlotCards.Count, Is.EqualTo(SaveSlotStore.SlotCount));
+            Assert.That(viewModel.SlotCards.Count, Is.EqualTo(CampaignSaveSlotPolicy.SlotCount));
             Assert.That(viewModel.SlotCards[0].State, Is.EqualTo(SaveSlotCardState.Empty));
             Assert.That(viewModel.SlotCards[1].State, Is.EqualTo(SaveSlotCardState.Existing));
             Assert.That(ReadRepoFile(MainMenuControllerPath), Does.Contain("_saveSlotStore.LoadAllWithReport()"));
@@ -118,7 +112,7 @@ namespace Game.Feature.UI.Tests
         }
 
         private MainMenuController CreateController(
-            SaveSlotStore saveStore,
+            TransientCampaignSaveSlotStore saveStore,
             ICampaignLaunchHandoffStore handoffStore,
             IStageLaunchRouter router)
         {
@@ -140,7 +134,7 @@ namespace Game.Feature.UI.Tests
             };
         }
 
-        private static string CreatePrefsKey(string suffix)
+        private static string CreateTransientNamespace(string suffix)
         {
             return "Game.Feature.UI.Tests.MainMenuLastPlayedContinuePolicyTests." +
                 suffix +

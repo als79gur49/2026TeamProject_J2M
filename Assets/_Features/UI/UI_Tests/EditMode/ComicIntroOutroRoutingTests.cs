@@ -280,7 +280,7 @@ namespace Game.Feature.UI.Tests
                 SlotNumber = slotNumber,
                 CurrentStageId = stageId,
                 CurrentLevelGroupId = "test-group",
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
             };
         }
 
@@ -374,7 +374,7 @@ namespace Game.Feature.UI.Tests
             public IntroHarness(string testName)
             {
                 _keys = TestKeys.Create(testName);
-                SaveStore = new SaveSlotStore(_keys.SaveKey);
+                SaveStore = new TransientCampaignSaveSlotStore(_keys.SaveKey);
                 HandoffStore = new TestHandoffStore();
                 Route = new RecordingStageLaunchRouter();
                 ComicFlow = new ManualComicFlow();
@@ -400,7 +400,7 @@ namespace Game.Feature.UI.Tests
                     ComicFlow);
             }
 
-            public SaveSlotStore SaveStore { get; }
+            public TransientCampaignSaveSlotStore SaveStore { get; }
             public TestHandoffStore HandoffStore { get; }
             public RecordingStageLaunchRouter Route { get; }
             public ManualComicFlow ComicFlow { get; }
@@ -420,8 +420,8 @@ namespace Game.Feature.UI.Tests
             public OutroHarness(string testName, bool isFinalClearMainReturn = true)
             {
                 _keys = TestKeys.Create(testName);
-                SaveStore = new SaveSlotStore(_keys.SaveKey);
-                var activeSlot = new ActiveSlotProvider(_keys.ActiveKey);
+                SaveStore = new TransientCampaignSaveSlotStore(_keys.SaveKey);
+                var activeSlot = new ActiveSlotProvider(new TransientActiveSlotStorage(_keys.ActiveKey));
                 SaveStore.SaveSlot(CreateSlot(1, StageId.CreateOrThrow("stage-4-1")));
                 activeSlot.SetActiveSlot(1);
                 Route = new RecordingMainMenuReturnRouter();
@@ -434,7 +434,7 @@ namespace Game.Feature.UI.Tests
                     () => isFinalClearMainReturn);
             }
 
-            public SaveSlotStore SaveStore { get; }
+            public TransientCampaignSaveSlotStore SaveStore { get; }
             public RecordingMainMenuReturnRouter Route { get; }
             public ManualComicFlow ComicFlow { get; }
             public ComicOutroMainMenuReturnRouter Router { get; }

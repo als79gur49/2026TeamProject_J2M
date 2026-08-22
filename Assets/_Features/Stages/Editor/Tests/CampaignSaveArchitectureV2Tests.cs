@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using UnityEngine;
@@ -13,7 +14,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var document = new CampaignProfileDocument();
 
             Assert.That(document.SchemaVersion, Is.EqualTo(0));
-            Assert.That(document.LegacyImport, Is.Not.Null);
             Assert.That(document.Slots, Is.Not.Null);
             Assert.That(document.Slots, Is.Empty);
         }
@@ -28,22 +28,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedAtUtc = "2026-07-06T09:00:00Z",
                 ProfileId = "profile-a",
                 LastPlayedSlotNumber = 2,
-                LegacyImport = new CampaignLegacyImportDocument
-                {
-                    ImportedSourceHash = "legacy-hash",
-                    ImportDisabled = true,
-                    ResetTombstoneUtc = "2026-07-06T10:00:00Z",
-                    DeletedSlotGuards = new[]
-                    {
-                        new CampaignLegacyDeletedSlotGuardDocument
-                        {
-                            SlotNumber = 2,
-                            ImportedSourceHash = "legacy-hash",
-                            DeletedAtUtc = "2026-07-06T10:30:00Z",
-                            Reason = "DeleteSlot",
-                        },
-                    },
-                },
                 Slots = new[]
                 {
                     new CampaignSlotDocument
@@ -86,14 +70,6 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(roundTripped.SavedAtUtc, Is.EqualTo("2026-07-06T09:00:00Z"));
             Assert.That(roundTripped.ProfileId, Is.EqualTo("profile-a"));
             Assert.That(roundTripped.LastPlayedSlotNumber, Is.EqualTo(2));
-            Assert.That(roundTripped.LegacyImport.ImportedSourceHash, Is.EqualTo("legacy-hash"));
-            Assert.That(roundTripped.LegacyImport.ImportDisabled, Is.True);
-            Assert.That(roundTripped.LegacyImport.ResetTombstoneUtc, Is.EqualTo("2026-07-06T10:00:00Z"));
-            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards, Has.Length.EqualTo(1));
-            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards[0].SlotNumber, Is.EqualTo(2));
-            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards[0].ImportedSourceHash, Is.EqualTo("legacy-hash"));
-            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards[0].DeletedAtUtc, Is.EqualTo("2026-07-06T10:30:00Z"));
-            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards[0].Reason, Is.EqualTo("DeleteSlot"));
             Assert.That(roundTripped.Slots, Has.Length.EqualTo(1));
             Assert.That(roundTripped.Slots[0].SlotNumber, Is.EqualTo(2));
             Assert.That(roundTripped.Slots[0].StageId, Is.EqualTo("stage-1-1"));
@@ -199,7 +175,6 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(document.SavedAtUtc, Is.EqualTo("2026-07-06T13:00:00Z"));
             Assert.That(document.ProfileId, Is.EqualTo("profile-lossless"));
             Assert.That(document.LastPlayedSlotNumber, Is.EqualTo(slot.SlotNumber));
-            Assert.That(document.LegacyImport, Is.Not.Null);
             Assert.That(document.Slots, Has.Length.EqualTo(1));
             AssertSlotMatchesLegacySlot(document.Slots[0], slot);
         }
@@ -254,59 +229,6 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(document.ProcessedStageRunIds, Is.Empty);
             Assert.That(document.ProcessedClearAttemptIds, Is.Not.Null);
             Assert.That(document.ProcessedClearAttemptIds, Is.Empty);
-        }
-
-        [Test]
-        public void CampaignLegacyImportDocument_RoundTripsThroughJsonUtility()
-        {
-            var document = new CampaignLegacyImportDocument
-            {
-                ImportedSourceHash = "source-hash",
-                ImportDisabled = true,
-                ResetTombstoneUtc = "2026-07-06T12:00:00Z",
-                DeletedSlotGuards = new[]
-                {
-                    new CampaignLegacyDeletedSlotGuardDocument
-                    {
-                        SlotNumber = 1,
-                        ImportedSourceHash = "source-hash",
-                        DeletedAtUtc = "2026-07-06T12:30:00Z",
-                        Reason = "DeleteSlot",
-                    },
-                },
-            };
-
-            var json = JsonUtility.ToJson(document);
-            var roundTripped = JsonUtility.FromJson<CampaignLegacyImportDocument>(json);
-
-            Assert.That(roundTripped.ImportedSourceHash, Is.EqualTo("source-hash"));
-            Assert.That(roundTripped.ImportDisabled, Is.True);
-            Assert.That(roundTripped.ResetTombstoneUtc, Is.EqualTo("2026-07-06T12:00:00Z"));
-            Assert.That(roundTripped.DeletedSlotGuards, Has.Length.EqualTo(1));
-            Assert.That(roundTripped.DeletedSlotGuards[0].SlotNumber, Is.EqualTo(1));
-            Assert.That(roundTripped.DeletedSlotGuards[0].ImportedSourceHash, Is.EqualTo("source-hash"));
-            Assert.That(roundTripped.DeletedSlotGuards[0].DeletedAtUtc, Is.EqualTo("2026-07-06T12:30:00Z"));
-            Assert.That(roundTripped.DeletedSlotGuards[0].Reason, Is.EqualTo("DeleteSlot"));
-        }
-
-        [Test]
-        public void CampaignLegacyDeletedSlotGuardDocument_RoundTripsThroughJsonUtility()
-        {
-            var document = new CampaignLegacyDeletedSlotGuardDocument
-            {
-                SlotNumber = 3,
-                ImportedSourceHash = "source-hash",
-                DeletedAtUtc = "2026-07-06T13:00:00Z",
-                Reason = "DeleteSlot",
-            };
-
-            var json = JsonUtility.ToJson(document);
-            var roundTripped = JsonUtility.FromJson<CampaignLegacyDeletedSlotGuardDocument>(json);
-
-            Assert.That(roundTripped.SlotNumber, Is.EqualTo(3));
-            Assert.That(roundTripped.ImportedSourceHash, Is.EqualTo("source-hash"));
-            Assert.That(roundTripped.DeletedAtUtc, Is.EqualTo("2026-07-06T13:00:00Z"));
-            Assert.That(roundTripped.Reason, Is.EqualTo("DeleteSlot"));
         }
 
         [Test]
@@ -411,6 +333,119 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void AtomicTextFileStore_MissingCanonicalRecoversDurableRollbackBeforeTempCleanup()
+        {
+            using var harness = CreateHarness();
+            const string previousPayload = "{\"value\":1}";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.RollbackPath, previousPayload);
+            File.WriteAllText(harness.LeftoverTempPath, "{\"value\":999}");
+
+            harness.Store.CleanupTempFiles(FileCampaignProfileRepository.ProfileFileName);
+
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(previousPayload));
+            Assert.That(File.Exists(harness.RollbackPath), Is.False);
+            Assert.That(File.Exists(harness.LeftoverTempPath), Is.False);
+        }
+
+        [Test]
+        public void AtomicTextFileStore_RecoverInterruptedBackupWriteRestoresLogicalBackup()
+        {
+            using var harness = CreateHarness();
+            const string previousBackup = "{\"value\":\"previous-backup\"}";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.BackupRollbackPath, previousBackup);
+
+            harness.Store.RecoverInterruptedWrite(
+                FileCampaignProfileRepository.ProfileFileName + ".bak");
+
+            Assert.That(File.ReadAllText(harness.BackupPath), Is.EqualTo(previousBackup));
+            Assert.That(File.Exists(harness.BackupRollbackPath), Is.False);
+        }
+
+        [Test]
+        public void AtomicTextFileStore_ProfileCleanupDoesNotDeleteBackupWriteOrRollbackFiles()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.LeftoverTempPath, "profile-temp");
+            File.WriteAllText(harness.BackupTempPath, "backup-temp");
+            File.WriteAllText(harness.BackupRollbackPath, "backup-rollback");
+
+            harness.Store.CleanupTempFiles(FileCampaignProfileRepository.ProfileFileName);
+
+            Assert.That(File.Exists(harness.LeftoverTempPath), Is.False);
+            Assert.That(File.Exists(harness.BackupTempPath), Is.True);
+            Assert.That(File.Exists(harness.BackupRollbackPath), Is.True);
+        }
+
+        [Test]
+        public void AtomicTextFileStore_DeleteActiveFileArtifacts_RemovesCanonicalBackupAndWriteResidueOnly()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, "profile");
+            File.WriteAllText(harness.BackupPath, "backup");
+            File.WriteAllText(harness.RollbackPath, "profile-rollback");
+            File.WriteAllText(harness.BackupRollbackPath, "backup-rollback");
+            File.WriteAllText(harness.LeftoverTempPath, "profile-temp");
+            File.WriteAllText(harness.BackupTempPath, "backup-temp");
+            var corruptPath = harness.ProfilePath + ".corrupt.audit";
+            var rejectedPath = harness.BackupPath + ".rejected.audit";
+            var unrelatedPath = Path.Combine(harness.SaveRootPath, "unrelated.json");
+            File.WriteAllText(corruptPath, "corrupt-evidence");
+            File.WriteAllText(rejectedPath, "rejected-evidence");
+            File.WriteAllText(unrelatedPath, "unrelated");
+
+            harness.Store.DeleteActiveFileArtifacts(FileCampaignProfileRepository.ProfileFileName);
+
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(File.Exists(harness.BackupPath), Is.False);
+            Assert.That(File.Exists(harness.RollbackPath), Is.False);
+            Assert.That(File.Exists(harness.BackupRollbackPath), Is.False);
+            Assert.That(File.Exists(harness.LeftoverTempPath), Is.False);
+            Assert.That(File.Exists(harness.BackupTempPath), Is.False);
+            Assert.That(File.Exists(corruptPath), Is.True);
+            Assert.That(File.Exists(rejectedPath), Is.True);
+            Assert.That(File.Exists(unrelatedPath), Is.True);
+        }
+
+        [Test]
+        public void CampaignSaveCompositionProvider_ClearTemporaryCampaignState_DoesNotRecoverRollbackResidue()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            var governedFileNames = new[]
+            {
+                FileCampaignProfileRepository.ProfileFileName,
+                CampaignLocalLaunchStateRepository.FileName,
+                CampaignSaveRecoveryService.PendingResetFileName,
+            };
+
+            for (var i = 0; i < governedFileNames.Length; i++)
+            {
+                var fileName = governedFileNames[i];
+                File.WriteAllText(Path.Combine(harness.SaveRootPath, fileName + ".rollback"), "rollback");
+                File.WriteAllText(Path.Combine(harness.SaveRootPath, fileName + ".bak.rollback"), "backup-rollback");
+                File.WriteAllText(Path.Combine(harness.SaveRootPath, fileName + ".write.audit.tmp"), "temp");
+                File.WriteAllText(Path.Combine(harness.SaveRootPath, fileName + ".bak.write.audit.tmp"), "backup-temp");
+            }
+
+            CampaignSaveCompositionProvider.ClearTemporaryCampaignState(
+                new TemporarySavePathProvider(harness.SaveRootPath));
+
+            for (var i = 0; i < governedFileNames.Length; i++)
+            {
+                var fileName = governedFileNames[i];
+                Assert.That(File.Exists(Path.Combine(harness.SaveRootPath, fileName)), Is.False);
+                Assert.That(Directory.GetFiles(harness.SaveRootPath, fileName + ".write.*.tmp"), Is.Empty);
+                Assert.That(Directory.GetFiles(harness.SaveRootPath, fileName + ".bak.write.*.tmp"), Is.Empty);
+                Assert.That(File.Exists(Path.Combine(harness.SaveRootPath, fileName + ".rollback")), Is.False);
+                Assert.That(File.Exists(Path.Combine(harness.SaveRootPath, fileName + ".bak.rollback")), Is.False);
+            }
+        }
+
+        [Test]
         public void AtomicTextFileStore_QuarantineCorruptFileCreatesTimestampedCorruptFile()
         {
             using var harness = CreateHarness();
@@ -440,6 +475,52 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignProfileRepository_MissingCanonicalWithValidBackupRecoversBackup()
+        {
+            using var harness = CreateHarness();
+            var backupDocument = CreateDocument("profile-backup-only");
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.BackupPath, JsonUtility.ToJson(backupDocument));
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.BackupRecovered));
+            Assert.That(result.Document.ProfileId, Is.EqualTo("profile-backup-only"));
+            Assert.That(File.Exists(harness.ProfilePath), Is.True);
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(File.ReadAllText(harness.BackupPath)));
+        }
+
+        [Test]
+        public void CampaignProfileRepository_MissingCanonicalWithUnsupportedBackupFailsClosed()
+        {
+            using var harness = CreateHarness();
+            const string unsupported = "{\"SchemaVersion\":3,\"Slots\":[]}";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.BackupPath, unsupported);
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.UnsupportedVersion));
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(File.ReadAllText(harness.BackupPath), Is.EqualTo(unsupported));
+        }
+
+        [Test]
+        public void CampaignProfileRepository_MissingCanonicalWithCorruptBackupIsNotMissing()
+        {
+            using var harness = CreateHarness();
+            const string corrupt = "{\"SchemaVersion\":";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.BackupPath, corrupt);
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.CorruptNoFallback));
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(File.ReadAllText(harness.BackupPath), Is.EqualTo(corrupt));
+        }
+
+        [Test]
         public void CampaignProfileRepository_ValidProfileReturnsLoaded()
         {
             using var harness = CreateHarness();
@@ -450,6 +531,108 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
             Assert.That(result.Document.ProfileId, Is.EqualTo("profile-loaded"));
+        }
+
+        [TestCase("slot-stage-noncanonical")]
+        [TestCase("slot-chances-negative")]
+        [TestCase("slot-deaths-negative")]
+        [TestCase("performance-null")]
+        [TestCase("performance-version")]
+        [TestCase("performance-stage")]
+        [TestCase("performance-duplicate")]
+        [TestCase("performance-negative")]
+        [TestCase("snapshot-version")]
+        [TestCase("clear-null")]
+        [TestCase("clear-stage")]
+        [TestCase("clear-duplicate")]
+        [TestCase("clear-negative")]
+        [TestCase("profile-run-empty")]
+        [TestCase("profile-run-duplicate")]
+        [TestCase("profile-attempt-empty")]
+        [TestCase("record-run-empty")]
+        [TestCase("record-run-duplicate")]
+        public void CampaignProfileRepository_MalformedPersistedSlotDataFailsClosedWithoutMutation(
+            string malformedCase)
+        {
+            using var harness = CreateHarness();
+            var document = CreateMalformedPersistedSlotDocument(malformedCase);
+            var original = JsonUtility.ToJson(document);
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, original);
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.InvalidDocument));
+            Assert.That(result.HasDocument, Is.False);
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(original));
+        }
+
+        [TestCase("performance-duplicate")]
+        [TestCase("slot-chances-negative")]
+        [TestCase("slot-deaths-negative")]
+        public void CampaignProfileRepository_MalformedCanonicalRecoversValidBackup(
+            string malformedCase)
+        {
+            using var harness = CreateHarness();
+            var malformed = CreateMalformedPersistedSlotDocument(malformedCase);
+            var backup = CreateDocument("valid-backup");
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, JsonUtility.ToJson(malformed));
+            File.WriteAllText(harness.BackupPath, JsonUtility.ToJson(backup));
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.BackupRecovered));
+            Assert.That(result.Document.ProfileId, Is.EqualTo("valid-backup"));
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(File.ReadAllText(harness.BackupPath)));
+        }
+
+        [Test]
+        public void CampaignProfileRepository_NullNestedContainersNormalizeToEmpty()
+        {
+            using var harness = CreateHarness();
+            var document = CreateDocument("null-nested-containers");
+            document.Slots[0].NormalStagePerformanceRecords = null;
+            document.Slots[0].StageClearProfileSnapshot = null;
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, JsonUtility.ToJson(document));
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
+            Assert.That(result.Document.Slots[0].NormalStagePerformanceRecords, Is.Empty);
+            Assert.That(result.Document.Slots[0].StageClearProfileSnapshot, Is.Not.Null);
+            Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Records, Is.Empty);
+        }
+
+        [Test]
+        public void CampaignProfileRepository_ZeroRemainingChancesRemainsValid()
+        {
+            using var harness = CreateHarness();
+            var document = CreateDocument("zero-remaining-chances");
+            document.Slots[0].RemainingChances = 0;
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, JsonUtility.ToJson(document));
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
+            Assert.That(result.Document.Slots[0].RemainingChances, Is.Zero);
+        }
+
+        [TestCase("clear-negative")]
+        [TestCase("slot-chances-negative")]
+        [TestCase("slot-deaths-negative")]
+        public void CampaignProfileRepository_SaveRejectsMalformedPersistedSlotDataBeforeWriting(
+            string malformedCase)
+        {
+            using var harness = CreateHarness();
+            var document = CreateMalformedPersistedSlotDocument(malformedCase);
+
+            Assert.Throws<ArgumentException>(() => harness.Repository.Save(document));
+
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(Directory.Exists(harness.SaveRootPath), Is.False);
         }
 
         [Test]
@@ -522,6 +705,167 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignProfileRepository_FutureSchemaWithoutProfileIdDoesNotRestoreOlderBackup()
+        {
+            using var harness = CreateHarness();
+            const string futureCanonical = "{\"SchemaVersion\":3,\"Slots\":[]}";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, futureCanonical);
+            File.WriteAllText(
+                harness.BackupPath,
+                JsonUtility.ToJson(CreateDocument("profile-current-backup")));
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.UnsupportedVersion));
+            Assert.That(result.HasDocument, Is.False);
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(futureCanonical));
+        }
+
+        [Test]
+        public void CampaignProfileRepository_DestructiveSaveKeepsBackupAtCommittedState()
+        {
+            using var harness = CreateHarness();
+            harness.Repository.Save(CreateDocument("profile-before-delete"));
+            var cleared = CreateDocument("profile-after-delete");
+            cleared.Slots = Array.Empty<CampaignSlotDocument>();
+            cleared.LastPlayedSlotNumber = 0;
+
+            harness.Repository.SaveDestructive(cleared);
+            File.WriteAllText(harness.ProfilePath, "{\"SchemaVersion\":");
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.BackupRecovered));
+            Assert.That(result.Document.ProfileId, Is.EqualTo("profile-after-delete"));
+            Assert.That(result.Document.Slots, Is.Empty);
+            Assert.That(result.Document.LastPlayedSlotNumber, Is.Zero);
+        }
+
+        [Test]
+        public void CampaignProfileRepository_DestructiveCanonicalFailureRestoresPreviousFiles()
+        {
+            var previousCanonical = JsonUtility.ToJson(CreateDocument("profile-before"));
+            var previousBackup = JsonUtility.ToJson(CreateDocument("profile-older"));
+            var store = new FaultInjectingTextFileStore(previousCanonical, previousBackup)
+            {
+                CanonicalWriteFailuresRemaining = 1,
+            };
+            var repository = new FileCampaignProfileRepository(store);
+
+            Assert.Throws<InvalidOperationException>(
+                () => repository.SaveDestructive(CreateDocument("profile-after")));
+
+            Assert.That(store.ReadAllText(FileCampaignProfileRepository.ProfileFileName),
+                Is.EqualTo(previousCanonical));
+            Assert.That(store.ReadAllText(FileCampaignProfileRepository.ProfileFileName + ".bak"),
+                Is.EqualTo(previousBackup));
+        }
+
+        [Test]
+        public void CampaignProfileRepository_DestructiveFailureRestoresRecoveredBackupRollback()
+        {
+            var previousCanonical = JsonUtility.ToJson(CreateDocument("profile-before"));
+            var previousBackup = JsonUtility.ToJson(CreateDocument("profile-older"));
+            var store = new FaultInjectingTextFileStore(previousCanonical, backup: null)
+            {
+                CanonicalWriteFailuresRemaining = 1,
+            };
+            store.SetFile(
+                FileCampaignProfileRepository.ProfileFileName + ".bak.rollback",
+                previousBackup);
+            var repository = new FileCampaignProfileRepository(store);
+
+            Assert.Throws<InvalidOperationException>(
+                () => repository.SaveDestructive(CreateDocument("profile-after")));
+
+            Assert.That(store.ReadAllText(FileCampaignProfileRepository.ProfileFileName),
+                Is.EqualTo(previousCanonical));
+            Assert.That(store.ReadAllText(FileCampaignProfileRepository.ProfileFileName + ".bak"),
+                Is.EqualTo(previousBackup));
+            Assert.That(store.Exists(FileCampaignProfileRepository.ProfileFileName + ".bak.rollback"),
+                Is.False);
+        }
+
+        [Test]
+        public void CampaignProfileRepository_NormalizationFailureWritesNothing()
+        {
+            var previousCanonical = JsonUtility.ToJson(CreateDocument("profile-before"));
+            var store = new FaultInjectingTextFileStore(previousCanonical, backup: null)
+            {
+                RecoverFailureFileName = FileCampaignProfileRepository.ProfileFileName + ".bak",
+            };
+            store.SetFile(
+                FileCampaignProfileRepository.ProfileFileName + ".bak.rollback",
+                JsonUtility.ToJson(CreateDocument("profile-older")));
+            var repository = new FileCampaignProfileRepository(store);
+
+            Assert.Throws<IOException>(
+                () => repository.SaveDestructive(CreateDocument("profile-after")));
+
+            Assert.That(store.TotalWriteCount, Is.Zero);
+            Assert.That(store.ReadAllText(FileCampaignProfileRepository.ProfileFileName),
+                Is.EqualTo(previousCanonical));
+            Assert.That(store.Exists(FileCampaignProfileRepository.ProfileFileName + ".bak"), Is.False);
+            Assert.That(store.Exists(FileCampaignProfileRepository.ProfileFileName + ".bak.rollback"), Is.True);
+        }
+
+        [Test]
+        public void CampaignProfileRepository_DestructiveCompensationFailurePreservesNewRecoveryBackup()
+        {
+            var previousCanonical = JsonUtility.ToJson(CreateDocument("profile-before"));
+            var replacement = CreateDocument("profile-after");
+            var replacementJson = JsonUtility.ToJson(replacement);
+            var store = new FaultInjectingTextFileStore(previousCanonical, backup: null)
+            {
+                CanonicalWriteFailuresRemaining = 2,
+            };
+            var repository = new FileCampaignProfileRepository(store);
+
+            Assert.Throws<AggregateException>(() => repository.SaveDestructive(replacement));
+
+            Assert.That(store.ReadAllText(FileCampaignProfileRepository.ProfileFileName),
+                Is.EqualTo(previousCanonical));
+            Assert.That(store.ReadAllText(FileCampaignProfileRepository.ProfileFileName + ".bak"),
+                Is.EqualTo(replacementJson));
+        }
+
+        [Test]
+        public void CampaignProfileRepository_DestructiveBackupCleanupFailureIsReported()
+        {
+            var previousCanonical = JsonUtility.ToJson(CreateDocument("profile-before"));
+            var replacement = CreateDocument("profile-after");
+            var store = new FaultInjectingTextFileStore(previousCanonical, backup: null)
+            {
+                CanonicalWriteFailuresRemaining = 1,
+                FailBackupDelete = true,
+            };
+            var repository = new FileCampaignProfileRepository(store);
+
+            Assert.Throws<AggregateException>(() => repository.SaveDestructive(replacement));
+
+            Assert.That(store.ReadAllText(FileCampaignProfileRepository.ProfileFileName),
+                Is.EqualTo(previousCanonical));
+            Assert.That(store.Exists(FileCampaignProfileRepository.ProfileFileName + ".bak"), Is.True);
+        }
+
+        [Test]
+        public void CampaignProfileRepository_ValidBackupThatCannotRestoreReturnsIoFailed()
+        {
+            var store = new FaultInjectingTextFileStore(
+                "{\"SchemaVersion\":",
+                JsonUtility.ToJson(CreateDocument("profile-backup")))
+            {
+                RestoreBackupResult = false,
+            };
+            var repository = new FileCampaignProfileRepository(store);
+
+            var result = repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.IoFailed));
+            Assert.That(result.HasDocument, Is.False);
+        }
+
+        [Test]
         public void CampaignProfileRepository_MissingSlotsArrayNormalizesToEmptyArray()
         {
             using var harness = CreateHarness();
@@ -538,19 +882,17 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignProfileRepository_CurrentProfileWithoutDeletedSlotGuardsLoadsSuccessfully()
+        public void CampaignProfileRepository_CurrentProfileWithoutCompatibilityMetadataLoadsSuccessfully()
         {
             using var harness = CreateHarness();
             Directory.CreateDirectory(harness.SaveRootPath);
             File.WriteAllText(
                 harness.ProfilePath,
-                $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"profile-current\",\"LegacyImport\":{{\"ImportedSourceHash\":\"source-hash\"}}}}");
+                $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"profile-current\"}}");
 
             var result = harness.Repository.Load();
 
             Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
-            Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Not.Null);
-            Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Empty);
             Assert.That(result.Document.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
         }
 
@@ -570,7 +912,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignProfileRepository_NullDeletedSlotGuardsNormalizesToEmptyArray()
+        public void CampaignProfileRepository_UnknownPreReleaseCompatibilityMetadataIsIgnored()
         {
             using var harness = CreateHarness();
             Directory.CreateDirectory(harness.SaveRootPath);
@@ -581,8 +923,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var result = harness.Repository.Load();
 
             Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
-            Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Not.Null);
-            Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Empty);
+            Assert.That(typeof(CampaignProfileDocument).GetField("LegacyImport"), Is.Null);
         }
 
         [Test]
@@ -639,11 +980,9 @@ namespace Game.Feature.Stages.Editor.Tests
             const string unsupported = "{\"SchemaVersion\":1,\"ProfileId\":\"legacy-profile\",\"Slots\":[]}";
             File.WriteAllText(harness.ProfilePath, unsupported);
             File.WriteAllText(harness.BackupPath, unsupported);
-            var marker = new RecordingResetMarkerPort();
             var recovery = new CampaignSaveRecoveryService(
                 harness.Repository,
                 harness.Store,
-                marker,
                 () => new DateTime(2026, 8, 20, 1, 2, 3, DateTimeKind.Utc),
                 "campaign-profile",
                 "test-product");
@@ -655,11 +994,122 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(result, Is.EqualTo(CampaignSaveResetResult.Completed));
             Assert.That(loaded.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
             Assert.That(loaded.Document.Slots, Is.Empty);
-            Assert.That(loaded.Document.LegacyImport.ImportDisabled, Is.True);
-            Assert.That(loaded.Document.LegacyImport.ResetTombstoneUtc, Is.EqualTo(marker.ResetTombstoneUtc));
+            Assert.That(loaded.Document.SavedAtUtc, Is.EqualTo("2026-08-20T01:02:03.0000000Z"));
             Assert.That(Directory.GetFiles(harness.SaveRootPath, "profile.json.rejected.*"), Has.Length.EqualTo(1));
             Assert.That(Directory.GetFiles(harness.SaveRootPath, "profile.json.bak.rejected.*"), Has.Length.EqualTo(1));
             Assert.That(harness.Store.Exists(CampaignSaveRecoveryService.PendingResetFileName), Is.False);
+        }
+
+        [Test]
+        public void CampaignSaveRecovery_BackupQuarantineFailureLeavesCanonicalForSafeRetry()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            const string unsupported = "{\"SchemaVersion\":1,\"ProfileId\":\"legacy-profile\",\"Slots\":[]}";
+            File.WriteAllText(harness.ProfilePath, unsupported);
+            File.WriteAllText(harness.BackupPath, JsonUtility.ToJson(CreateDocument("old-backup")));
+            var recovery = new CampaignSaveRecoveryService(
+                harness.Repository,
+                harness.Store,
+                () => new DateTime(2026, 8, 20, 1, 2, 3, DateTimeKind.Utc),
+                "campaign-profile",
+                "test-product");
+
+            CampaignSaveResetResult firstResult;
+            using (new FileStream(harness.BackupPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                firstResult = recovery.ResetBlockedProfile(
+                    CampaignSaveLoadStatus.SchemaInvalidRepairRequired);
+
+                Assert.That(firstResult, Is.EqualTo(CampaignSaveResetResult.Failed));
+                Assert.That(File.Exists(harness.ProfilePath), Is.True);
+                Assert.That(File.Exists(harness.BackupPath), Is.True);
+                Assert.That(recovery.HasPendingReset, Is.True);
+                Assert.That(Directory.GetFiles(harness.SaveRootPath, "profile.json.rejected.*"), Is.Empty);
+            }
+
+            var retryResult = recovery.RetryPendingReset();
+            var loaded = harness.Repository.Load();
+
+            Assert.That(retryResult, Is.EqualTo(CampaignSaveResetResult.Completed));
+            Assert.That(loaded.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
+            Assert.That(loaded.Document.ProfileId, Is.EqualTo("campaign-profile"));
+            Assert.That(loaded.Document.Slots, Is.Empty);
+            Assert.That(Directory.GetFiles(harness.SaveRootPath, "profile.json.rejected.*"), Has.Length.EqualTo(1));
+            Assert.That(Directory.GetFiles(harness.SaveRootPath, "profile.json.bak.rejected.*"), Has.Length.EqualTo(1));
+            Assert.That(recovery.HasPendingReset, Is.False);
+        }
+
+        [Test]
+        public void CampaignSaveRecovery_CanonicalQuarantineFailureAfterBackupArchiveResumes()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            const string unsupported = "{\"SchemaVersion\":1,\"ProfileId\":\"legacy-profile\",\"Slots\":[]}";
+            File.WriteAllText(harness.ProfilePath, unsupported);
+            File.WriteAllText(harness.BackupPath, JsonUtility.ToJson(CreateDocument("old-backup")));
+            var recovery = new CampaignSaveRecoveryService(
+                harness.Repository,
+                harness.Store,
+                () => new DateTime(2026, 8, 20, 1, 2, 3, DateTimeKind.Utc),
+                "campaign-profile",
+                "test-product");
+
+            using (new FileStream(harness.ProfilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                var firstResult = recovery.ResetBlockedProfile(
+                    CampaignSaveLoadStatus.SchemaInvalidRepairRequired);
+
+                Assert.That(firstResult, Is.EqualTo(CampaignSaveResetResult.Failed));
+                Assert.That(File.Exists(harness.ProfilePath), Is.True);
+                Assert.That(File.Exists(harness.BackupPath), Is.False);
+                Assert.That(Directory.GetFiles(harness.SaveRootPath, "profile.json.bak.rejected.*"), Has.Length.EqualTo(1));
+                Assert.That(recovery.HasPendingReset, Is.True);
+            }
+
+            var retryResult = recovery.RetryPendingReset();
+
+            Assert.That(retryResult, Is.EqualTo(CampaignSaveResetResult.Completed));
+            Assert.That(harness.Repository.Load().Document.Slots, Is.Empty);
+            Assert.That(Directory.GetFiles(harness.SaveRootPath, "profile.json.bak.rejected.*"), Has.Length.EqualTo(1));
+            Assert.That(Directory.GetFiles(harness.SaveRootPath, "profile.json.rejected.*"), Has.Length.EqualTo(1));
+            Assert.That(recovery.HasPendingReset, Is.False);
+        }
+
+        [Test]
+        public void CampaignSaveRecovery_RollbackSourcesAreNormalizedBeforeQuarantine()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            const string unsupportedCanonical =
+                "{\"SchemaVersion\":1,\"ProfileId\":\"rollback-canonical\",\"Slots\":[]}";
+            const string unsupportedBackup =
+                "{\"SchemaVersion\":1,\"ProfileId\":\"rollback-backup\",\"Slots\":[]}";
+            File.WriteAllText(harness.RollbackPath, unsupportedCanonical);
+            File.WriteAllText(harness.BackupRollbackPath, unsupportedBackup);
+            File.WriteAllText(harness.LeftoverTempPath, "temporary-canonical");
+            File.WriteAllText(harness.BackupTempPath, "temporary-backup");
+            var recovery = new CampaignSaveRecoveryService(
+                harness.Repository,
+                harness.Store,
+                () => new DateTime(2026, 8, 20, 1, 2, 3, DateTimeKind.Utc),
+                "campaign-profile",
+                "test-product");
+
+            var result = recovery.ResetBlockedProfile(
+                CampaignSaveLoadStatus.SchemaInvalidRepairRequired);
+
+            Assert.That(result, Is.EqualTo(CampaignSaveResetResult.Completed));
+            Assert.That(File.Exists(harness.RollbackPath), Is.False);
+            Assert.That(File.Exists(harness.BackupRollbackPath), Is.False);
+            Assert.That(File.Exists(harness.LeftoverTempPath), Is.False);
+            Assert.That(File.Exists(harness.BackupTempPath), Is.False);
+            Assert.That(
+                File.ReadAllText(Directory.GetFiles(harness.SaveRootPath, "profile.json.rejected.*")[0]),
+                Is.EqualTo(unsupportedCanonical));
+            Assert.That(
+                File.ReadAllText(Directory.GetFiles(harness.SaveRootPath, "profile.json.bak.rejected.*")[0]),
+                Is.EqualTo(unsupportedBackup));
         }
 
         [Test]
@@ -670,7 +1120,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var recovery = new CampaignSaveRecoveryService(
                 harness.Repository,
                 harness.Store,
-                new RecordingResetMarkerPort(),
                 () => new DateTime(2026, 8, 20, 1, 2, 3, DateTimeKind.Utc),
                 "campaign-profile",
                 "test-product");
@@ -684,7 +1133,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignSaveRecovery_PendingReset_ResumesBeforeLegacyImportCanObserveMissingProfile()
+        public void CampaignSaveRecovery_PendingReset_ResumesWithoutCompatibilityImport()
         {
             using var harness = CreateHarness();
             Directory.CreateDirectory(harness.SaveRootPath);
@@ -694,11 +1143,9 @@ namespace Game.Feature.Stages.Editor.Tests
             harness.Store.WriteAllTextAtomic(
                 CampaignSaveRecoveryService.PendingResetFileName,
                 "{\"ResetId\":\"202608200102030000000\",\"StartedAtUtc\":\"2026-08-20T01:02:03.0000000Z\"}");
-            var marker = new RecordingResetMarkerPort();
             var recovery = new CampaignSaveRecoveryService(
                 harness.Repository,
                 harness.Store,
-                marker,
                 () => new DateTime(2026, 8, 20, 1, 2, 4, DateTimeKind.Utc),
                 "campaign-profile",
                 "test-product");
@@ -707,7 +1154,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(result, Is.EqualTo(CampaignSaveResetResult.Completed));
             Assert.That(harness.Repository.Load().Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
-            Assert.That(marker.ResetTombstoneUtc, Is.EqualTo("2026-08-20T01:02:03.0000000Z"));
+            Assert.That(
+                harness.Repository.Load().Document.SavedAtUtc,
+                Is.EqualTo("2026-08-20T01:02:03.0000000Z"));
             Assert.That(harness.Store.Exists(CampaignSaveRecoveryService.PendingResetFileName), Is.False);
         }
 
@@ -722,7 +1171,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var recovery = new CampaignSaveRecoveryService(
                 harness.Repository,
                 harness.Store,
-                new RecordingResetMarkerPort(),
                 () => new DateTime(2026, 8, 20, 1, 2, 4, DateTimeKind.Utc),
                 "campaign-profile",
                 "test-product");
@@ -745,7 +1193,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var recovery = new CampaignSaveRecoveryService(
                 harness.Repository,
                 harness.Store,
-                new RecordingResetMarkerPort(),
                 () => new DateTime(2026, 8, 20, 1, 2, 4, DateTimeKind.Utc),
                 "campaign-profile",
                 "test-product");
@@ -772,7 +1219,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var recovery = new CampaignSaveRecoveryService(
                 harness.Repository,
                 harness.Store,
-                new RecordingResetMarkerPort(),
                 () => new DateTime(2026, 8, 20, 1, 2, 4, DateTimeKind.Utc),
                 "campaign-profile",
                 "test-product");
@@ -799,7 +1245,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var recovery = new CampaignSaveRecoveryService(
                 harness.Repository,
                 harness.Store,
-                new RecordingResetMarkerPort(),
                 () => new DateTime(2026, 8, 20, 1, 2, 4, DateTimeKind.Utc),
                 "campaign-profile",
                 "test-product");
@@ -825,7 +1270,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var recovery = new CampaignSaveRecoveryService(
                 harness.Repository,
                 harness.Store,
-                new RecordingResetMarkerPort(),
                 () => new DateTime(2026, 8, 20, 1, 2, 4, DateTimeKind.Utc),
                 "campaign-profile",
                 "test-product");
@@ -848,25 +1292,23 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void Phase4PolicyCloseout_DocumentsDeleteSlotAndActiveSlotDeferrals()
+        public void PreReleasePolicy_DocumentsJsonOnlyDeletionAndActiveSlotContract()
         {
             var source = File.ReadAllText(
-                "Docs/Architecture/Save-Architecture-V2-Phase4-Policy-Closeout.md");
+                "Docs/Architecture/Pre-Release-Save-Baseline-Policy.md");
 
-            Assert.That(source, Does.Contain("DeleteSlot"));
-            Assert.That(source, Does.Contain("records a deleted-slot legacy guard"));
-            Assert.That(source, Does.Contain("`CampaignLegacyDeletedSlotGuardDocument`"));
-            Assert.That(source, Does.Contain("Same imported source hash"));
-            Assert.That(source, Does.Contain("Changed imported source hash"));
-            Assert.That(source, Does.Contain("`MigrationDeferred`"));
-            Assert.That(source, Does.Contain("source-agnostic guard"));
-            Assert.That(source, Does.Contain("`LastPlayedSlotNumber` and pending launch slot are separate concepts"));
-            Assert.That(source, Does.Contain("ActiveSlotProvider"));
-            Assert.That(source, Does.Contain("production-local until an explicit active slot split phase"));
+            Assert.That(source, Does.Contain("`Saves/profile.json`"));
+            Assert.That(source, Does.Contain("`Saves/local-launch-state.json`"));
+            Assert.That(source, Does.Contain("PlayerPrefs campaign progression import is unsupported"));
+            Assert.That(source, Does.Contain("deleting a current profile slot must still clear matching committed active state"));
+            Assert.That(source, Does.Contain("validated before normalization"));
+            Assert.That(source, Does.Contain("persisted slot counters"));
+            Assert.That(source, Does.Contain("archives the backup before the"));
+            Assert.That(source, Does.Contain("rollbacks are normalized before"));
         }
 
         [Test]
-        public void ArchitectureReadme_SeparatesProcessedIdSchemaSemanticUseAndCompatibilityPolicy()
+        public void ArchitectureReadme_DocumentsJsonOnlyProductionAndRetainedProcessedIdSchema()
         {
             var readme = File.ReadAllText("Docs/Architecture/README.md");
             const string sectionHeading = "## Stage clear save/profile boundary";
@@ -883,21 +1325,39 @@ namespace Game.Feature.Stages.Editor.Tests
                 section,
                 Does.Contain("`CampaignProfileDocument`의 `SchemaVersion = 2`"));
             Assert.That(section, Does.Contain("Records[]"));
-            Assert.That(section, Does.Contain("Game.Feature.Stages.StageClearSaveSlots"));
-            Assert.That(section, Does.Contain("PlayerPrefs DTO는 `SchemaId = StageClearSaveSlots`, `SchemaVersion = 3`"));
-            Assert.That(section, Does.Contain("ClearRecordsByStageId[]"));
+            Assert.That(section, Does.Contain("PlayerPrefs progression import는 지원하지 않는다"));
+            Assert.That(section, Does.Contain("<file>.rollback"));
+            Assert.That(section, Does.Contain("별도 save schema가 아니다"));
+            Assert.That(section, Does.Contain("Saves/local-launch-state.json"));
+            Assert.That(section, Does.Contain("PlayerPrefs fallback을 사용하지 않는다"));
+            Assert.That(section, Does.Contain("production read/write/delete path에 사용하지 않는다"));
+            Assert.That(section, Does.Contain("Library/J2M/DirectPlayCampaign/Saves"));
             Assert.That(section, Does.Contain("Profile `ProcessedStageRunIds`"));
             Assert.That(section, Does.Contain("`ProcessedClearAttemptIds`"));
             Assert.That(section, Does.Contain("Record `ProcessedStageRunIds`"));
             Assert.That(section, Does.Contain("Current Production semantic use"));
             Assert.That(section, Does.Contain("| 없음 |"));
             Assert.That(section, Does.Contain("active idempotency mechanism"));
-            Assert.That(section, Does.Contain("compatibility freeze"));
+            Assert.That(section, Does.Contain("first-public schema freeze"));
             Assert.That(section, Does.Contain("release exposure"));
-            Assert.That(section, Does.Contain("rollback compatibility"));
-            Assert.That(section, Does.Contain("legacy import / retention"));
             Assert.That(section, Does.Contain("ApplyStageClear"));
             Assert.That(section, Does.Contain("current Production caller"));
+            Assert.That(section, Does.Contain("normalization 전에 검증"));
+            Assert.That(section, Does.Contain("음수 slot counter"));
+            Assert.That(section, Does.Contain("`LoadAllWithReport`만 blocked profile"));
+            Assert.That(section, Does.Contain("backup을 canonical보다 먼저"));
+        }
+
+        [Test]
+        public void ProductAchievementFoundation_DistinguishesRuntimeAndPersistedPerformanceDuplicates()
+        {
+            var source = File.ReadAllText(
+                "Docs/Architecture/Product-Achievement-Foundation.md");
+
+            Assert.That(source, Does.Contain("Runtime upsert and in-memory normalization"));
+            Assert.That(source, Does.Contain("persisted current-schema profile"));
+            Assert.That(source, Does.Contain("duplicate `StageId` performance records is invalid"));
+            Assert.That(source, Does.Contain("fails closed before normalization"));
         }
 
         private static CampaignProfileDocument CreateDocument(string profileId)
@@ -909,7 +1369,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedAtUtc = "2026-07-06T09:00:00Z",
                 ProfileId = profileId,
                 LastPlayedSlotNumber = 1,
-                LegacyImport = new CampaignLegacyImportDocument(),
                 Slots = new[]
                 {
                     new CampaignSlotDocument
@@ -942,6 +1401,104 @@ namespace Game.Feature.Stages.Editor.Tests
                     },
                 },
             };
+        }
+
+        private static CampaignProfileDocument CreateMalformedPersistedSlotDocument(string malformedCase)
+        {
+            var document = CreateDocument("malformed-persisted-slot");
+            var slot = document.Slots[0];
+            slot.NormalStagePerformanceRecords = new[]
+            {
+                new NormalStagePerformanceRecordDocument
+                {
+                    Version = NormalStagePerformanceRecord.CurrentVersion,
+                    StageId = "stage-1-1",
+                    BestCombinedPushFlipUses = 4,
+                },
+            };
+
+            switch (malformedCase)
+            {
+                case "slot-stage-noncanonical":
+                    slot.StageId = " Stage_1_1 ";
+                    break;
+                case "slot-chances-negative":
+                    slot.RemainingChances = -1;
+                    break;
+                case "slot-deaths-negative":
+                    slot.TotalDeaths = -1;
+                    break;
+                case "performance-null":
+                    slot.NormalStagePerformanceRecords = new NormalStagePerformanceRecordDocument[] { null };
+                    break;
+                case "performance-version":
+                    slot.NormalStagePerformanceRecords[0].Version++;
+                    break;
+                case "performance-stage":
+                    slot.NormalStagePerformanceRecords[0].StageId = " Stage_1_1 ";
+                    break;
+                case "performance-duplicate":
+                    slot.NormalStagePerformanceRecords = new[]
+                    {
+                        slot.NormalStagePerformanceRecords[0],
+                        new NormalStagePerformanceRecordDocument
+                        {
+                            Version = NormalStagePerformanceRecord.CurrentVersion,
+                            StageId = "stage-1-1",
+                            BestCombinedPushFlipUses = 3,
+                        },
+                    };
+                    break;
+                case "performance-negative":
+                    slot.NormalStagePerformanceRecords[0].BestCombinedPushFlipUses = -1;
+                    break;
+                case "snapshot-version":
+                    slot.StageClearProfileSnapshot.Version = -1;
+                    break;
+                case "clear-null":
+                    slot.StageClearProfileSnapshot.Records = new PlayerStageClearRecordDocument[] { null };
+                    break;
+                case "clear-stage":
+                    slot.StageClearProfileSnapshot.Records[0].StageId = " Stage_1_1 ";
+                    break;
+                case "clear-duplicate":
+                    slot.StageClearProfileSnapshot.Records = new[]
+                    {
+                        slot.StageClearProfileSnapshot.Records[0],
+                        new PlayerStageClearRecordDocument
+                        {
+                            StageId = "stage-1-1",
+                            HasAttempted = true,
+                            HasCleared = true,
+                            ClearCount = 2,
+                            ProcessedStageRunIds = new[] { "run-duplicate" },
+                        },
+                    };
+                    break;
+                case "clear-negative":
+                    slot.StageClearProfileSnapshot.Records[0].ClearCount = -1;
+                    break;
+                case "profile-run-empty":
+                    slot.StageClearProfileSnapshot.ProcessedStageRunIds = new[] { " " };
+                    break;
+                case "profile-run-duplicate":
+                    slot.StageClearProfileSnapshot.ProcessedStageRunIds = new[] { "run-a", "run-a" };
+                    break;
+                case "profile-attempt-empty":
+                    slot.StageClearProfileSnapshot.ProcessedClearAttemptIds = new string[] { null };
+                    break;
+                case "record-run-empty":
+                    slot.StageClearProfileSnapshot.Records[0].ProcessedStageRunIds = new[] { string.Empty };
+                    break;
+                case "record-run-duplicate":
+                    slot.StageClearProfileSnapshot.Records[0].ProcessedStageRunIds =
+                        new[] { "run-a", "run-a" };
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(malformedCase), malformedCase, null);
+            }
+
+            return document;
         }
 
         private static SaveSlotData CreateLegacySlotFixture()
@@ -1067,6 +1624,11 @@ namespace Game.Feature.Stages.Editor.Tests
                 throw new NotSupportedException();
             }
 
+            public void WriteAllTextAtomicWithoutBackup(string fileName, string contents)
+            {
+                throw new NotSupportedException();
+            }
+
             public bool Delete(string fileName)
             {
                 return false;
@@ -1093,18 +1655,143 @@ namespace Game.Feature.Stages.Editor.Tests
                 return false;
             }
 
+            public void RecoverInterruptedWrite(string fileName)
+            {
+            }
+
             public void CleanupTempFiles(string fileName)
             {
             }
         }
 
-        private sealed class RecordingResetMarkerPort : ICampaignSaveResetMarkerPort
+        private sealed class FaultInjectingTextFileStore : IAtomicTextFileStore
         {
-            public string ResetTombstoneUtc { get; private set; } = string.Empty;
+            private readonly Dictionary<string, string> _files =
+                new Dictionary<string, string>(StringComparer.Ordinal);
 
-            public void MarkResetImportDisabled(string resetTombstoneUtc)
+            public FaultInjectingTextFileStore(string canonical, string backup)
             {
-                ResetTombstoneUtc = resetTombstoneUtc;
+                if (canonical != null)
+                {
+                    _files[FileCampaignProfileRepository.ProfileFileName] = canonical;
+                }
+
+                if (backup != null)
+                {
+                    _files[FileCampaignProfileRepository.ProfileFileName + ".bak"] = backup;
+                }
+            }
+
+            public int CanonicalWriteFailuresRemaining { get; set; }
+
+            public bool FailBackupDelete { get; set; }
+
+            public bool RestoreBackupResult { get; set; } = true;
+
+            public string RecoverFailureFileName { get; set; }
+
+            public int TotalWriteCount { get; private set; }
+
+            public void SetFile(string fileName, string contents)
+            {
+                _files[fileName] = contents;
+            }
+
+            public bool Exists(string fileName)
+            {
+                return _files.ContainsKey(fileName);
+            }
+
+            public string ReadAllText(string fileName)
+            {
+                return _files[fileName];
+            }
+
+            public void WriteAllTextAtomic(string fileName, string contents)
+            {
+                WriteAllTextAtomicWithoutBackup(fileName, contents);
+            }
+
+            public void WriteAllTextAtomicWithoutBackup(string fileName, string contents)
+            {
+                TotalWriteCount++;
+                if (string.Equals(
+                        fileName,
+                        FileCampaignProfileRepository.ProfileFileName,
+                        StringComparison.Ordinal) &&
+                    CanonicalWriteFailuresRemaining > 0)
+                {
+                    CanonicalWriteFailuresRemaining--;
+                    throw new InvalidOperationException("Injected canonical write failure.");
+                }
+
+                _files[fileName] = contents;
+            }
+
+            public bool Delete(string fileName)
+            {
+                if (FailBackupDelete &&
+                    string.Equals(
+                        fileName,
+                        FileCampaignProfileRepository.ProfileFileName + ".bak",
+                        StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                return _files.Remove(fileName);
+            }
+
+            public void EnsureDirectory()
+            {
+            }
+
+            public bool TryRestoreBackup(string fileName)
+            {
+                var backupFileName = fileName + ".bak";
+                if (!RestoreBackupResult || !_files.TryGetValue(backupFileName, out var backup))
+                {
+                    return false;
+                }
+
+                _files[fileName] = backup;
+                return true;
+            }
+
+            public bool TryQuarantine(string fileName, out string quarantinePath)
+            {
+                return TryQuarantine(fileName, "corrupt", out quarantinePath);
+            }
+
+            public bool TryQuarantine(string fileName, string suffix, out string quarantinePath)
+            {
+                quarantinePath = string.Empty;
+                return false;
+            }
+
+            public void RecoverInterruptedWrite(string fileName)
+            {
+                if (string.Equals(fileName, RecoverFailureFileName, StringComparison.Ordinal))
+                {
+                    throw new IOException("Injected interrupted-write recovery failure.");
+                }
+
+                var rollbackFileName = fileName + ".rollback";
+                if (!_files.TryGetValue(rollbackFileName, out var rollback))
+                {
+                    return;
+                }
+
+                if (!_files.ContainsKey(fileName))
+                {
+                    _files[fileName] = rollback;
+                }
+
+                _files.Remove(rollbackFileName);
+            }
+
+            public void CleanupTempFiles(string fileName)
+            {
             }
         }
 
@@ -1130,7 +1817,17 @@ namespace Game.Feature.Stages.Editor.Tests
 
             public string BackupPath => ProfilePath + ".bak";
 
-            public string LeftoverTempPath => Path.Combine(SaveRootPath, "profile.leftover.tmp");
+            public string LeftoverTempPath => Path.Combine(
+                SaveRootPath,
+                "profile.json.write.leftover.tmp");
+
+            public string RollbackPath => ProfilePath + ".rollback";
+
+            public string BackupTempPath => Path.Combine(
+                SaveRootPath,
+                "profile.json.bak.write.leftover.tmp");
+
+            public string BackupRollbackPath => BackupPath + ".rollback";
 
             public void Dispose()
             {
@@ -1144,6 +1841,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 catch
                 {
                 }
+            }
+        }
+
+        private sealed class TemporarySavePathProvider : SavePathProviderBase
+        {
+            public TemporarySavePathProvider(string saveRootPath)
+                : base(saveRootPath)
+            {
             }
         }
     }

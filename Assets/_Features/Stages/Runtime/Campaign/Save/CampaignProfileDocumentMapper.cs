@@ -31,7 +31,6 @@ namespace Game.Feature.Stages
                 SavedAtUtc = savedAtUtc ?? string.Empty,
                 ProfileId = profileId ?? string.Empty,
                 LastPlayedSlotNumber = lastPlayedSlotNumber,
-                LegacyImport = new CampaignLegacyImportDocument(),
                 Slots = slotDocuments.ToArray(),
             };
         }

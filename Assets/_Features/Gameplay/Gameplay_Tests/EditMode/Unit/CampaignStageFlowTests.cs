@@ -33,14 +33,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void SetUp()
         {
             TerminalSessionRegistry.ResetForTests();
-            StageSaveSlotTestReset.ClearDefaultPlayerPrefs();
         }
 
         [TearDown]
         public void TearDown()
         {
             TerminalSessionRegistry.ResetForTests();
-            StageSaveSlotTestReset.ClearDefaultPlayerPrefs();
         }
 
         [Test]
@@ -95,517 +93,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SaveSlotStore_PersistsThreeSlotsIndependently_WithSaveVersion()
-        {
-            var key = CreatePrefsKey(nameof(SaveSlotStore_PersistsThreeSlotsIndependently_WithSaveVersion));
-            var store = new SaveSlotStore(key);
-            store.ClearAll();
-
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-                RemainingChances = 2,
-            });
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 2,
-                CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
-                CurrentLevelGroupId = "level-2",
-                RemainingChances = 1,
-                TotalDeaths = 4,
-            });
-
-            var reloaded = new SaveSlotStore(key).LoadAll();
-            Assert.That(reloaded[0].CurrentStageId.Value, Is.EqualTo("stage-1-1"));
-            Assert.That(reloaded[0].RemainingChances, Is.EqualTo(2));
-            Assert.That(reloaded[1].CurrentStageId.Value, Is.EqualTo("stage-2-1"));
-            Assert.That(reloaded[1].TotalDeaths, Is.EqualTo(4));
-            Assert.That(reloaded[2].IsEmpty, Is.True);
-
-            var dto = JsonUtility.FromJson<SaveSlotStoreDto>(PlayerPrefs.GetString(key));
-            Assert.That(dto.SchemaId, Is.EqualTo(SaveSlotStore.SchemaId));
-            Assert.That(dto.SchemaVersion, Is.EqualTo(SaveSlotStore.SchemaVersion));
-            Assert.That(dto.SaveVersion, Is.EqualTo(SaveSlotStore.SaveVersion));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_FacadePlayerPrefsBackend_PreservesLoadDeleteAndClearBehavior()
-        {
-            var key = CreatePrefsKey(nameof(SaveSlotStore_FacadePlayerPrefsBackend_PreservesLoadDeleteAndClearBehavior));
-            var store = new SaveSlotStore(key);
-            store.ClearAll();
-
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-                RemainingChances = 2,
-            });
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 2,
-                CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
-                CurrentLevelGroupId = "level-2",
-                RemainingChances = 1,
-            });
-
-            var reloaded = new SaveSlotStore(key);
-            var loaded = reloaded.LoadAll();
-            Assert.That(loaded[0].CurrentStageId.Value, Is.EqualTo("stage-1-1"));
-            Assert.That(loaded[1].CurrentStageId.Value, Is.EqualTo("stage-2-1"));
-            Assert.That(PlayerPrefs.HasKey(key), Is.True);
-
-            reloaded.DeleteSlot(1);
-            var afterDelete = new SaveSlotStore(key).LoadAll();
-            Assert.That(afterDelete[0].IsEmpty, Is.True);
-            Assert.That(afterDelete[1].CurrentStageId.Value, Is.EqualTo("stage-2-1"));
-            Assert.That(PlayerPrefs.HasKey(key), Is.True);
-
-            reloaded.ClearAll();
-
-            Assert.That(PlayerPrefs.HasKey(key), Is.False);
-            Assert.That(new SaveSlotStore(key).LoadAll().All(slot => slot.IsEmpty), Is.True);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StageClearSavePayloadGuard_Empty_ReturnsEmpty()
-        {
-            var result = StageClearSavePayloadGuard.Inspect(" ");
-
-            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.Empty));
-            Assert.That(result.ShouldReset, Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StageClearSavePayloadGuard_CurrentSchema_ReturnsCurrent()
-        {
-            var result = StageClearSavePayloadGuard.Inspect(BuildCurrentSaveJson());
-
-            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.Current));
-            Assert.That(result.MatchedToken, Is.EqualTo(SaveSlotStore.SchemaId));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StageClearSavePayloadGuard_LegacyToken_ReturnsLegacyRejected()
-        {
-            foreach (var legacyToken in StageClearSavePayloadGuard.LegacyTokens)
-            {
-                var result = StageClearSavePayloadGuard.Inspect("{\"" + legacyToken + "\":true}");
-
-                Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected), legacyToken);
-                Assert.That(result.MatchedToken, Is.EqualTo(legacyToken));
-                Assert.That(result.ShouldReset, Is.True);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StageClearSavePayloadGuard_InvalidJson_ReturnsInvalidRejected()
-        {
-            var result = StageClearSavePayloadGuard.Inspect(
-                "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":2,");
-
-            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
-            Assert.That(result.ShouldReset, Is.True);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StageClearSavePayloadGuard_MissingSchemaMarker_ReturnsInvalidRejected()
-        {
-            var result = StageClearSavePayloadGuard.Inspect("{\"SaveVersion\":1,\"Slots\":[]}");
-
-            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
-            Assert.That(result.MatchedToken, Is.EqualTo("SchemaId"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StageClearSavePayloadGuard_WrongSchemaVersion_ReturnsInvalidRejected()
-        {
-            var result = StageClearSavePayloadGuard.Inspect(
-                "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":1,\"SaveVersion\":1,\"Slots\":[]}");
-
-            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
-            Assert.That(result.MatchedToken, Is.EqualTo("SchemaVersion"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_CurrentKeyWithLegacyPayload_IsRejectedAndReset()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            var slots = store.LoadAll();
-
-            Assert.That(slots.All(slot => slot.IsEmpty), Is.True);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
-            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.EqualTo(1));
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_CurrentKeyWithLegacyPayload_IsNotExposed()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            var slot = store.LoadSlot(1);
-
-            Assert.That(slot.CurrentStageId.IsValid, Is.False);
-            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_CurrentKeyWithLegacyPayload_DoesNotMigrateToClearRecords()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            var slot = store.LoadSlot(1);
-
-            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId.ContainsKey(StageId.CreateOrThrow("stage-0-1")), Is.False);
-            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_CurrentKeyWithLegacyPayload_DeletesCurrentAndActivePrefs()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 2);
-            PlayerPrefs.Save();
-
-            _ = new SaveSlotStore().LoadAll();
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
-            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.EqualTo(2));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_InvalidPayload_DoesNotCrashAndResets()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":2,");
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            Assert.DoesNotThrow(() => store.LoadAll());
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_InvalidPayload_IsNotExposed()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":99,\"Slots\":[]}");
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            var slots = store.LoadAll();
-
-            Assert.That(slots.All(slot => slot.IsEmpty), Is.True);
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_EmptyPayload_ReturnsEmptyDatabase()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, string.Empty);
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            var slots = store.LoadAll();
-
-            Assert.That(slots.All(slot => slot.IsEmpty), Is.True);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.Empty));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_CurrentPayload_LoadsNormally()
-        {
-            var store = new SaveSlotStore();
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
-            var reloaded = new SaveSlotStore();
-
-            var slot = reloaded.LoadSlot(1);
-
-            Assert.That(slot.CurrentStageId.Value, Is.EqualTo("stage-1-1"));
-            Assert.That(reloaded.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.Current));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_LoadReport_RecordsLegacyRejection()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            _ = store.LoadAll();
-
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected));
-            Assert.That(store.LastLoadReport.MatchedToken, Is.EqualTo("ProgressByStageId"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_LoadReport_RecordsInvalidRejection()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "{\"SchemaId\":\"Wrong\",\"SchemaVersion\":2}");
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            _ = store.LoadAll();
-
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
-            Assert.That(store.LastLoadReport.MatchedToken, Is.EqualTo("SchemaId"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_LoadReport_RecordsCurrentPayload()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildCurrentSaveJson());
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            _ = store.LoadAll();
-
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.Current));
-            Assert.That(store.LastLoadReport.MatchedToken, Is.EqualTo(SaveSlotStore.SchemaId));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_CustomKeyLegacyPayload_DoesNotResetProductionKeys()
-        {
-            var customKey = CreatePrefsKey(nameof(SaveSlotStore_CustomKeyLegacyPayload_DoesNotResetProductionKeys));
-            var customActiveKey = customKey + ".active";
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildCurrentSaveJson());
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
-            PlayerPrefs.SetString(customKey, BuildLegacyPayloadJson());
-            PlayerPrefs.SetInt(customActiveKey, 2);
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore(customKey, customActiveKey);
-
-            _ = store.LoadAll();
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(customKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(customActiveKey), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_DirectPlayTempKeyLegacyPayload_DoesNotResetProductionKeys()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildCurrentSaveJson());
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
-            PlayerPrefs.SetString(EditorDirectPlayContextStore.TempSaveSlotStoreKey, BuildLegacyPayloadJson());
-            PlayerPrefs.SetInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey, 1);
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
-
-            _ = store.LoadAll();
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_DirectPlayTempKeyInvalidPayload_ResetsOnlyTempKeys()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildCurrentSaveJson());
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
-            PlayerPrefs.SetString(EditorDirectPlayContextStore.TempSaveSlotStoreKey, "{\"SchemaId\":\"StageClearSaveSlots\"}");
-            PlayerPrefs.SetInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey, 1);
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
-
-            _ = store.LoadAll();
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotStore_LegacyPayload_DoesNotMigrateToClearRecords()
-        {
-            var stageId = StageId.CreateOrThrow("stage-0-1");
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
-            PlayerPrefs.Save();
-            var store = new SaveSlotStore();
-
-            var slot = store.LoadSlot(1);
-
-            Assert.That(slot.IsEmpty, Is.True);
-            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId.ContainsKey(stageId), Is.False);
-            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
-            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.EqualTo(1));
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotProfileDto_RoundTripsStageClearProfileSnapshot()
-        {
-            var stageId = StageId.CreateOrThrow("stage-3-1");
-            var snapshot = new StageClearProfileSnapshot
-            {
-                Version = 7,
-            };
-            snapshot.ClearRecordsByStageId[stageId] = new PlayerStageClearRecord
-            {
-                StageId = stageId,
-                HasAttempted = true,
-                HasCleared = true,
-                ClearCount = 2,
-                ProcessedStageRunIds = new[] { "run-a" },
-            };
-            snapshot.ProcessedStageRunIds.Add("run-a");
-            snapshot.ProcessedClearAttemptIds.Add("attempt-a");
-
-            var roundTripped = SaveSlotDtoMapper.FromDto(SaveSlotDtoMapper.ToDto(snapshot));
-
-            Assert.That(roundTripped.Version, Is.EqualTo(7));
-            Assert.That(roundTripped.ClearRecordsByStageId[stageId].HasAttempted, Is.True);
-            Assert.That(roundTripped.ClearRecordsByStageId[stageId].HasCleared, Is.True);
-            Assert.That(roundTripped.ClearRecordsByStageId[stageId].ClearCount, Is.EqualTo(2));
-            Assert.That(roundTripped.ClearRecordsByStageId[stageId].ProcessedStageRunIds, Does.Contain("run-a"));
-            Assert.That(roundTripped.ProcessedStageRunIds, Does.Contain("run-a"));
-            Assert.That(roundTripped.ProcessedClearAttemptIds, Does.Contain("attempt-a"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotProfileDto_WritesOnlyClearProfileVocabulary()
-        {
-            var stageId = StageId.CreateOrThrow("stage-3-1");
-            var slot = SaveSlotData.CreateEmpty(1);
-            slot.StageClearProfileSnapshot.Version = 2;
-            slot.StageClearProfileSnapshot.ClearRecordsByStageId[stageId] = new PlayerStageClearRecord
-            {
-                StageId = stageId,
-                HasAttempted = true,
-                HasCleared = true,
-                ClearCount = 3,
-            };
-            slot.StageClearProfileSnapshot.ProcessedClearAttemptIds.Add("attempt-clear");
-
-            var json = JsonUtility.ToJson(SaveSlotDtoMapper.ToDto(new[] { slot }));
-
-            Assert.That(json, Does.Contain("StageClearProfileSnapshot"));
-            Assert.That(json, Does.Contain("ClearRecordsByStageId"));
-            Assert.That(json, Does.Contain("HasAttempted"));
-            Assert.That(json, Does.Contain("ProcessedClearAttemptIds"));
-            Assert.That(json, Does.Not.Contain("Stage" + "Completion" + "Profile" + "Snapshot"));
-            Assert.That(json, Does.Not.Contain("Progress" + "By" + "StageId"));
-            Assert.That(json, Does.Not.Contain("Has" + "Started"));
-            Assert.That(json, Does.Not.Contain("Processed" + "Completion" + "AttemptIds"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SaveSlotProfileDto_DoesNotWriteLegacyCompletionProgressRewardFields()
-        {
-            var slot = SaveSlotData.CreateEmpty(1);
-            var json = JsonUtility.ToJson(SaveSlotDtoMapper.ToDto(new[] { slot }));
-            var legacyFields = new[]
-            {
-                "Stage" + "Completion" + "Profile" + "Snapshot",
-                "Progress" + "By" + "StageId",
-                "Processed" + "Completion" + "AttemptIds",
-                "Consumed" + "Reward" + "RuleIds",
-                "Applied" + "Reward" + "GrantIds",
-                "Inventory" + "Balances",
-                "Best" + "Score",
-                "Best" + "Stars",
-                "Best" + "RankId",
-                "Completed" + "ChallengeIds",
-            };
-
-            foreach (var legacyField in legacyFields)
-            {
-                Assert.That(json, Does.Not.Contain(legacyField));
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void RunningSlotStageClearProfileStore_LoadSave_StaysOnRunningSlotAfterActiveSlotChanges()
-        {
-            var saveKey = CreatePrefsKey(nameof(RunningSlotStageClearProfileStore_LoadSave_StaysOnRunningSlotAfterActiveSlotChanges));
-            var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
-            saveStore.ClearAll();
-            activeSlotProvider.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData { SlotNumber = 1, CurrentStageId = StageId.CreateOrThrow("stage-1-1") });
-            saveStore.SaveSlot(new SaveSlotData { SlotNumber = 2, CurrentStageId = StageId.CreateOrThrow("stage-2-1") });
-            activeSlotProvider.SetActiveSlot(2);
-
-            var profileStore = new SaveSlotStageClearProfileStore(saveStore, new CampaignRunningSlotContext(2));
-            activeSlotProvider.SetActiveSlot(1);
-            var snapshot = new StageClearProfileSnapshot();
-            snapshot.ClearRecordsByStageId[StageId.CreateOrThrow("stage-2-1")] =
-                new PlayerStageClearRecord
-                {
-                    StageId = StageId.CreateOrThrow("stage-2-1"),
-                    HasAttempted = true,
-                    HasCleared = true,
-                    ClearCount = 1,
-                };
-
-            profileStore.Save(snapshot);
-
-            Assert.That(saveStore.LoadSlot(1).StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
-            var loadedSnapshot = profileStore.Load();
-            var activeRecord = loadedSnapshot
-                .ClearRecordsByStageId[StageId.CreateOrThrow("stage-2-1")];
-            Assert.That(activeRecord.HasCleared, Is.True);
-            Assert.That(activeRecord.ClearCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void Architecture_SaveProfileProductionSymbolsUseClearVocabulary()
         {
             var source = ReadSaveProfileProductionSources();
@@ -625,7 +112,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("PlayerStageClearRecord"));
             Assert.That(source, Does.Contain("StageClearProfileSnapshot"));
             Assert.That(source, Does.Contain("IStageClearProfileStore"));
-            Assert.That(source, Does.Contain("SaveSlotStageClearProfileStore"));
+            Assert.That(source, Does.Contain("ICampaignSaveSlotStore"));
         }
 
         [Test]
@@ -685,7 +172,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var last = tracker.ResolveDeathRoute(slot);
             Assert.That(last.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
             Assert.That(last.NextStageId.Value, Is.EqualTo("stage-2-1"));
-            Assert.That(last.RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+            Assert.That(last.RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
         }
 
         [TestCase("stage-0-3", "level-0", "stage-1-1", "level-1")]
@@ -706,7 +193,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 completedLevelGroupId,
                 expectedNextStageId,
                 expectedNextLevelGroupId,
-                expectedSavedChances: SaveSlotStore.DefaultRemainingChances,
+                expectedSavedChances: CampaignSaveSlotPolicy.DefaultRemainingChances,
                 expectedDisplayedChances: 1,
                 expectedAudioPolicy: GameplayChanceAudioPolicy.SuppressChanceChangeCue);
         }
@@ -741,8 +228,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void DivergentSequence_ClearAlignsResultNextSavedCursorAndRetryGroupFirst()
         {
-            var saveKey = CreatePrefsKey(nameof(DivergentSequence_ClearAlignsResultNextSavedCursorAndRetryGroupFirst));
-            var saveStore = new SaveSlotStore(saveKey);
+            var saveKey = CreateTransientNamespace(nameof(DivergentSequence_ClearAlignsResultNextSavedCursorAndRetryGroupFirst));
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
             var hostObject = new GameObject("divergent-sequence-clear-host");
             var resolver = CreateDivergentResolver(out var definition);
             try
@@ -797,8 +284,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void DivergentSequence_FinalClearAlignsReadModelSaveAndTerminalDestination()
         {
-            var saveKey = CreatePrefsKey(nameof(DivergentSequence_FinalClearAlignsReadModelSaveAndTerminalDestination));
-            var saveStore = new SaveSlotStore(saveKey);
+            var saveKey = CreateTransientNamespace(nameof(DivergentSequence_FinalClearAlignsReadModelSaveAndTerminalDestination));
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
             var hostObject = new GameObject("divergent-sequence-final-host");
             var resolver = CreateDivergentResolver(out var definition);
             try
@@ -1120,8 +607,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var context = new EditorDirectPlayContext(
                     mode,
                     StageId.CreateOrThrow("stage-4-3"),
-                    string.Empty,
-                    string.Empty,
                     3,
                     suppressCampaignFlow: false);
                 var controller = CreateReceiptController(
@@ -1411,8 +896,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var owner = new GameObject("campaign-missing-terminal-port");
             var hostObject = new GameObject("campaign-null-terminal-controller");
-            var saveKey = CreatePrefsKey(nameof(CampaignBootstrap_MissingTerminalPortFailsFastAndControllerRejectsNull));
-            var saveStore = new SaveSlotStore(saveKey);
+            var saveKey = CreateTransientNamespace(nameof(CampaignBootstrap_MissingTerminalPortFailsFastAndControllerRejectsNull));
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
             try
             {
                 var createPort = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
@@ -1449,10 +934,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignClear_UsesRunningSlotAfterActiveSlotChanges()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignClear_UsesRunningSlotAfterActiveSlotChanges));
+            var saveKey = CreateTransientNamespace(nameof(CampaignClear_UsesRunningSlotAfterActiveSlotChanges));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-clear-running-slot-host");
 
             try
@@ -1513,10 +998,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_UsesRunningSlotAfterActiveSlotChanges()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_UsesRunningSlotAfterActiveSlotChanges));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_UsesRunningSlotAfterActiveSlotChanges));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-running-slot-host");
 
             try
@@ -1571,10 +1056,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void SaveSlotCampaignChancesReadSource_UsesRunningSlotAfterActiveSlotChanges()
         {
-            var saveKey = CreatePrefsKey(nameof(SaveSlotCampaignChancesReadSource_UsesRunningSlotAfterActiveSlotChanges));
+            var saveKey = CreateTransientNamespace(nameof(SaveSlotCampaignChancesReadSource_UsesRunningSlotAfterActiveSlotChanges));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
 
             try
             {
@@ -1607,7 +1092,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(read, Is.True);
                 Assert.That(remainingChances, Is.EqualTo(2));
-                Assert.That(maxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(maxChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
             }
             finally
             {
@@ -1817,8 +1302,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void GameplayInstaller_NoActiveSlot_DoesNotBindCampaignController_AndDoesNotDisableRespawn()
         {
-            var activeKey = CreatePrefsKey(nameof(GameplayInstaller_NoActiveSlot_DoesNotBindCampaignController_AndDoesNotDisableRespawn));
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var activeKey = CreateTransientNamespace(nameof(GameplayInstaller_NoActiveSlot_DoesNotBindCampaignController_AndDoesNotDisableRespawn));
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             try
             {
                 activeSlotProvider.ClearActiveSlot();
@@ -1841,8 +1326,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void GameplayInstaller_ActiveSlot_BindsCampaignController_AndDisablesRespawn()
         {
-            var activeKey = CreatePrefsKey(nameof(GameplayInstaller_ActiveSlot_BindsCampaignController_AndDisablesRespawn));
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var activeKey = CreateTransientNamespace(nameof(GameplayInstaller_ActiveSlot_BindsCampaignController_AndDisablesRespawn));
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             try
             {
                 activeSlotProvider.SetActiveSlot(1);
@@ -1865,8 +1350,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void NonCampaignDirectPlay_SuppressesCampaign_EvenWithStaleActiveSlot()
         {
-            var activeKey = CreatePrefsKey(nameof(NonCampaignDirectPlay_SuppressesCampaign_EvenWithStaleActiveSlot));
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var activeKey = CreateTransientNamespace(nameof(NonCampaignDirectPlay_SuppressesCampaign_EvenWithStaleActiveSlot));
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             try
             {
                 activeSlotProvider.SetActiveSlot(1);
@@ -1891,7 +1376,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDirectPlay_TempSlotMode_EnablesCampaignRuntime()
         {
-            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var activeSlotProvider = new ActiveSlotProvider(
+                new TransientActiveSlotStorage("campaign-direct-play-temp-test"));
             try
             {
                 activeSlotProvider.ClearActiveSlot();
@@ -1906,8 +1392,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     context);
 
                 Assert.That(activation.IsActive, Is.True);
-                Assert.That(context.SaveSlotStoreKey, Is.EqualTo(EditorDirectPlayContextStore.TempSaveSlotStoreKey));
-                Assert.That(context.ActiveSlotProviderKey, Is.EqualTo(EditorDirectPlayContextStore.TempActiveSlotProviderKey));
+                Assert.That(context.UsesTemporaryCampaignState, Is.True);
             }
             finally
             {
@@ -1930,17 +1415,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(route.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
             Assert.That(route.NextStageId.Value, Is.EqualTo("stage-2-1"));
-            Assert.That(route.RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+            Assert.That(route.RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
         }
 
         [Test]
         [Category("Extended")]
         public void CampaignDeath_RetryNavigationLaunchesBeforeDeathRecoveryHold()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryNavigationLaunchesBeforeDeathRecoveryHold));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_RetryNavigationLaunchesBeforeDeathRecoveryHold));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-host");
             var router = new FakeStageLaunchRouter();
 
@@ -1977,7 +1462,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(router.LastRequest.TransitionHint.HasChanceLostPayload, Is.True);
                 Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.PreviousRemainingChances, Is.EqualTo(2));
                 Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.CurrentRemainingChances, Is.EqualTo(1));
-                Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.TotalChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.TotalChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
                 Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(1));
 
@@ -2003,10 +1488,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int totalDeathsBefore,
             int remainingAfter)
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryableMutationPublishesHudAudioSuppression));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_RetryableMutationPublishesHudAudioSuppression));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-chance-audio-policy-host");
             var router = new FakeStageLaunchRouter();
             var chanceDisplayOverride = new CampaignChanceDisplayOverride();
@@ -2052,7 +1537,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         out var audioPolicy),
                     Is.True);
                 Assert.That(observedRemaining, Is.EqualTo(remainingAfter));
-                Assert.That(observedMaximum, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(observedMaximum, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
                 Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
                 Assert.That(router.LaunchCount, Is.EqualTo(1));
                 Assert.That(router.LastRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.DeathRetryChanceLost));
@@ -2073,10 +1558,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_RetryTerminalHold_NotifiesPresentationTerminalExtensions()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryTerminalHold_NotifiesPresentationTerminalExtensions));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_RetryTerminalHold_NotifiesPresentationTerminalExtensions));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-terminal-vfx-host");
 
             try
@@ -2125,10 +1610,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_LevelFailedClaimsTerminalImmediatelyWithoutEligibleTick()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedClaimsTerminalImmediatelyWithoutEligibleTick));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_LevelFailedClaimsTerminalImmediatelyWithoutEligibleTick));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-level-failed-host");
 
             try
@@ -2184,10 +1669,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_LevelFailedPublishesOnlyAfterDefeatIrisBlackReached()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedPublishesOnlyAfterDefeatIrisBlackReached));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_LevelFailedPublishesOnlyAfterDefeatIrisBlackReached));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-level-failed-iris-host");
 
             try
@@ -2245,10 +1730,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_LevelFailedTerminalHold_NotifiesPresentationTerminalExtensions()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedTerminalHold_NotifiesPresentationTerminalExtensions));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_LevelFailedTerminalHold_NotifiesPresentationTerminalExtensions));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-level-failed-terminal-vfx-host");
 
             try
@@ -2304,10 +1789,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_LevelFailedDisplaysZeroChancesWhileSaveSlotIsRecovered()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedDisplaysZeroChancesWhileSaveSlotIsRecovered));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_LevelFailedDisplaysZeroChancesWhileSaveSlotIsRecovered));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-level-failed-zero-chances-host");
             var chanceDisplayOverride = new CampaignChanceDisplayOverride();
             var chancesReadSource = new SaveSlotCampaignChancesReadSource(
@@ -2335,7 +1820,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
 
-                Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
                 Assert.That(
                     chancesReadSource.TryReadChances(
                         out var remainingChances,
@@ -2343,7 +1828,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         out var audioPolicy),
                     Is.True);
                 Assert.That(remainingChances, Is.EqualTo(0));
-                Assert.That(maxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(maxChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
                 Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
                 presentationFeed.Dispose();
             }
@@ -2359,10 +1844,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_RetryLaunch_IgnoresLaterStageClear()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryLaunch_IgnoresLaterStageClear));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_RetryLaunch_IgnoresLaterStageClear));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-pending-retry-clear-host");
             var router = new FakeStageLaunchRouter();
 
@@ -2412,10 +1897,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-iris-setup-fallback-host");
             var router = new FakeStageLaunchRouter();
             var setupException = new InvalidOperationException("defeat iris setup failed");
@@ -2460,10 +1945,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback));
+            var saveKey = CreateTransientNamespace(nameof(CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-level-failed-iris-setup-fallback-host");
             var setupException = new InvalidOperationException("level-failed iris setup failed");
 
@@ -2516,10 +2001,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome));
+            var saveKey = CreateTransientNamespace(nameof(CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-victory-iris-setup-fallback-host");
             var setupException = new InvalidOperationException("victory iris setup failed");
             var entry = CreateEntry("stage-1-1");
@@ -2619,10 +2104,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_ClaimedLevelFailed_IgnoresLaterStageClear()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_ClaimedLevelFailed_IgnoresLaterStageClear));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_ClaimedLevelFailed_IgnoresLaterStageClear));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-pending-level-failed-clear-host");
 
             try
@@ -2654,7 +2139,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var pendingSlot = saveStore.LoadSlot(1);
                 Assert.That(pendingSlot.CurrentStageId.Value, Is.EqualTo("stage-2-1"));
                 Assert.That(pendingSlot.CurrentLevelGroupId, Is.EqualTo("level-2"));
-                Assert.That(pendingSlot.RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(pendingSlot.RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
                 Assert.That(pendingSlot.TotalDeaths, Is.EqualTo(1));
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Null);
                 Assert.That(router.LaunchCount, Is.EqualTo(0));
@@ -2677,10 +2162,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeathAndClearSameTick_DeathWins_StageClearIgnored()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeathAndClearSameTick_DeathWins_StageClearIgnored));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeathAndClearSameTick_DeathWins_StageClearIgnored));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-clear-same-tick-host");
             var router = new FakeStageLaunchRouter();
             var earningSink = new RecordingProductAchievementEarningSink(
@@ -2738,10 +2223,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_DuplicateSameTickSignal_DoesNotDuplicateRouteOrSave()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_DuplicateSameTickSignal_DoesNotDuplicateRouteOrSave));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_DuplicateSameTickSignal_DoesNotDuplicateRouteOrSave));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-duplicate-same-tick-host");
             var router = new FakeStageLaunchRouter();
 
@@ -2784,10 +2269,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_DuplicateConsecutiveSignal_DoesNotDuplicateRouteOrSave()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_DuplicateConsecutiveSignal_DoesNotDuplicateRouteOrSave));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_DuplicateConsecutiveSignal_DoesNotDuplicateRouteOrSave));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-duplicate-consecutive-host");
             var router = new FakeStageLaunchRouter();
 
@@ -2830,10 +2315,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeath_DuplicateElapsedTick_DoesNotDuplicateLaunch()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_DuplicateElapsedTick_DoesNotDuplicateLaunch));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_DuplicateElapsedTick_DoesNotDuplicateLaunch));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-duplicate-elapsed-host");
             var router = new FakeStageLaunchRouter();
 
@@ -2902,10 +2387,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeathRetry_PauseResume_DoesNotDuplicateRoute()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeathRetry_PauseResume_DoesNotDuplicateRoute));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeathRetry_PauseResume_DoesNotDuplicateRoute));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-pause-resume-host");
             var router = new FakeStageLaunchRouter();
 
@@ -2950,10 +2435,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeathElapsed_EnterTerminalHold_BlocksFurtherTicks()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeathElapsed_EnterTerminalHold_BlocksFurtherTicks));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeathElapsed_EnterTerminalHold_BlocksFurtherTicks));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-terminal-hold-host");
             var router = new FakeStageLaunchRouter();
 
@@ -2990,10 +2475,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CampaignDeathElapsed_LaunchOccursAfterSuppressedElapsedResult()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeathElapsed_LaunchOccursAfterSuppressedElapsedResult));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeathElapsed_LaunchOccursAfterSuppressedElapsedResult));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-death-suppressed-elapsed-host");
             var router = new FakeStageLaunchRouter();
 
@@ -3035,10 +2520,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void RuntimeBootstrap_FailsIfCampaignActiveSlotStageAndLaunchStageMismatch()
         {
-            var saveKey = CreatePrefsKey(nameof(RuntimeBootstrap_FailsIfCampaignActiveSlotStageAndLaunchStageMismatch));
+            var saveKey = CreateTransientNamespace(nameof(RuntimeBootstrap_FailsIfCampaignActiveSlotStageAndLaunchStageMismatch));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var installerObject = new GameObject("installer");
             try
             {
@@ -3236,7 +2721,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SlotNumber = slotNumber,
                 CurrentStageId = StageId.CreateOrThrow(stageId),
                 CurrentLevelGroupId = "level-4",
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
             };
         }
 
@@ -3250,10 +2735,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int expectedDisplayedChances,
             GameplayChanceAudioPolicy expectedAudioPolicy)
         {
-            var saveKey = CreatePrefsKey(testKey);
+            var saveKey = CreateTransientNamespace(testKey);
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             var hostObject = new GameObject("campaign-clear-chance-policy-host");
 
             try
@@ -3304,7 +2789,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         out var audioPolicy),
                     Is.True);
                 Assert.That(displayedChances, Is.EqualTo(expectedDisplayedChances));
-                Assert.That(maxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(maxChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
                 Assert.That(audioPolicy, Is.EqualTo(expectedAudioPolicy));
             }
             finally
@@ -3371,7 +2856,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static void SeedSaveSlot(
-            SaveSlotStore saveStore,
+            TransientCampaignSaveSlotStore saveStore,
             ActiveSlotProvider activeSlotProvider,
             string stageId,
             string levelGroupId,
@@ -3689,32 +3174,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<StageConditionStatus>());
         }
 
-        private static string CreatePrefsKey(string suffix)
+        private static string CreateTransientNamespace(string suffix)
         {
             return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
-        }
-
-        private static string BuildCurrentSaveJson()
-        {
-            return JsonUtility.ToJson(SaveSlotDtoMapper.CreateEmptyDto());
-        }
-
-        private static string BuildLegacyPayloadJson()
-        {
-            return
-                "{" +
-                "\"SaveVersion\":1," +
-                "\"Slots\":[{" +
-                "\"SlotNumber\":1," +
-                "\"CurrentStageId\":\"stage-0-1\"," +
-                "\"ProgressByStageId\":[{" +
-                "\"StageId\":\"stage-0-1\"," +
-                "\"HasStarted\":true," +
-                "\"HasCleared\":true," +
-                "\"ClearCount\":99" +
-                "}]" +
-                "}]" +
-                "}";
         }
 
         private static string ReadSaveProfileProductionSources()
@@ -3731,35 +3193,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs",
             };
 
-            return StripStageClearSavePayloadGuardSource(string.Join(Environment.NewLine, paths.Select(File.ReadAllText)));
-        }
-
-        private static string StripStageClearSavePayloadGuardSource(string source)
-        {
-            const string startToken = "internal static class StageClearSavePayloadGuard";
-            const string endToken = "internal readonly struct StageClearSavePrefsScope";
-            var start = source.IndexOf(startToken, StringComparison.Ordinal);
-            var end = source.IndexOf(endToken, StringComparison.Ordinal);
-            if (start < 0 || end <= start)
-            {
-                return source;
-            }
-
-            return source.Remove(start, end - start);
-        }
-
-        private static class StageSaveSlotTestReset
-        {
-            public static void ClearDefaultPlayerPrefs()
-            {
-                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
-                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
-                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
-                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-                PlayerPrefs.DeleteKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
-                PlayerPrefs.DeleteKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
-                PlayerPrefs.Save();
-            }
+            return string.Join(Environment.NewLine, paths.Select(File.ReadAllText));
         }
 
         private sealed class FakeBgmFlowCoordinator : IBgmFlowCoordinator
@@ -3814,7 +3248,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 foreach (var slot in slots ?? Array.Empty<SaveSlotData>())
                 {
-                    if (slot != null && SaveSlotStore.IsValidSlotNumber(slot.SlotNumber))
+                    if (slot != null && CampaignSaveSlotPolicy.IsValidSlotNumber(slot.SlotNumber))
                     {
                         _slots[slot.SlotNumber - 1] = slot.Clone();
                     }
@@ -3857,7 +3291,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public SaveSlotData LoadSlot(int slotNumber)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
                 return _slots[slotNumber - 1].Clone();
             }
 
@@ -3868,7 +3302,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     throw new ArgumentNullException(nameof(slot));
                 }
 
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slot.SlotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slot.SlotNumber);
                 _slots[slot.SlotNumber - 1] = slot.Clone();
                 SaveCount++;
             }
@@ -3888,7 +3322,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
                 if (mutation == null)
                 {
                     throw new ArgumentNullException(nameof(mutation));
@@ -3911,7 +3345,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void DeleteSlot(int slotNumber)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
                 _slots[slotNumber - 1] = SaveSlotData.CreateEmpty(slotNumber);
             }
 

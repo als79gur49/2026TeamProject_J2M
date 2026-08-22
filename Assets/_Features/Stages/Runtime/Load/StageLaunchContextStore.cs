@@ -22,7 +22,7 @@ namespace Game.Feature.Stages
                 throw new ArgumentException("Stage launch context requires a unique token.", nameof(token));
             }
 
-            if (slotNumber < 0 || slotNumber > SaveSlotStore.SlotCount)
+            if (slotNumber < 0 || slotNumber > CampaignSaveSlotPolicy.SlotCount)
             {
                 throw new ArgumentOutOfRangeException(nameof(slotNumber), slotNumber, "Stage launch context slot is out of range.");
             }
@@ -69,7 +69,7 @@ namespace Game.Feature.Stages
 
         public EditorDirectPlayContext EditorDirectPlayContext { get; }
 
-        public bool HasCampaignSlot => SaveSlotStore.IsValidSlotNumber(SlotNumber);
+        public bool HasCampaignSlot => CampaignSaveSlotPolicy.IsValidSlotNumber(SlotNumber);
 
         public bool IsEditorDirectPlayBootstrap =>
             SlotNumber == 0 &&

@@ -213,6 +213,8 @@ namespace Game.Feature.UI.Composition
             Guid? campaignLaunchToken,
             StageLaunchContext launchContext)
         {
+            var directPlayOwnershipGeneration =
+                EditorDirectPlayContextStore.OwnershipGeneration;
             if (string.IsNullOrWhiteSpace(targetSceneName))
             {
                 throw new InvalidOperationException("Scene transition requires a target scene name.");
@@ -433,14 +435,17 @@ namespace Game.Feature.UI.Composition
                     profile,
                     routePolicy,
                     campaignLaunchToken,
-                    launchContext));
+                    launchContext,
+                    directPlayOwnershipGeneration));
                 AcceptedTransitionCount++;
                 return true;
             }
             catch
             {
                 ClearFailedCampaignLaunch(launchContext, campaignLaunchToken);
-                TryRestoreDirectPlayContextAfterFailure(request);
+                TryRestoreDirectPlayContextAfterFailure(
+                    request,
+                    directPlayOwnershipGeneration);
                 const string failureReason =
                     "Scene transition failed before its scene load routine started.";
                 var holdingCover = HandleSceneEntryPreCoroutineFailure(
@@ -473,7 +478,8 @@ namespace Game.Feature.UI.Composition
             StageTransitionProfile profile,
             SceneTransitionRoutePolicy routePolicy,
             Guid? campaignLaunchToken,
-            StageLaunchContext launchContext)
+            StageLaunchContext launchContext,
+            long directPlayOwnershipGeneration)
         {
             var state = new TransitionExecutionState
             {
@@ -521,7 +527,9 @@ namespace Game.Feature.UI.Composition
                 if (failure != null ||
                     state.Phase != SceneTransitionLifecycleState.Completed)
                 {
-                    TryRestoreDirectPlayContextAfterFailure(request);
+                    TryRestoreDirectPlayContextAfterFailure(
+                        request,
+                        directPlayOwnershipGeneration);
                 }
 
                 if (failure != null && profile.RequiresExplicitContentCompletion)
@@ -1517,10 +1525,13 @@ namespace Game.Feature.UI.Composition
         }
 
         internal static void TryRestoreDirectPlayContextAfterFailure(
-            StageNavigationRequest request)
+            StageNavigationRequest request,
+            long expectedOwnershipGeneration)
         {
             var context = request.EditorDirectPlayContext;
-            if (context.Mode == EditorDirectPlayMode.None ||
+            if (EditorDirectPlayContextStore.OwnershipGeneration !=
+                    expectedOwnershipGeneration ||
+                context.Mode == EditorDirectPlayMode.None ||
                 EditorDirectPlayContextStore.GetCurrentOrNone().Mode !=
                 EditorDirectPlayMode.None)
             {

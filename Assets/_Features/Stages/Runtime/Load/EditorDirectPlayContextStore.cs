@@ -16,15 +16,11 @@ namespace Game.Feature.Stages
         public EditorDirectPlayContext(
             EditorDirectPlayMode mode,
             StageId stageId,
-            string saveSlotStoreKey,
-            string activeSlotProviderKey,
             int remainingChances,
             bool suppressCampaignFlow)
         {
             Mode = mode;
             StageId = stageId;
-            SaveSlotStoreKey = saveSlotStoreKey ?? string.Empty;
-            ActiveSlotProviderKey = activeSlotProviderKey ?? string.Empty;
             RemainingChances = remainingChances;
             SuppressCampaignFlow = suppressCampaignFlow;
         }
@@ -33,17 +29,11 @@ namespace Game.Feature.Stages
 
         public StageId StageId { get; }
 
-        public string SaveSlotStoreKey { get; }
-
-        public string ActiveSlotProviderKey { get; }
-
         public int RemainingChances { get; }
 
         public bool SuppressCampaignFlow { get; }
 
-        public bool HasCustomSaveNamespace =>
-            !string.IsNullOrWhiteSpace(SaveSlotStoreKey) &&
-            !string.IsNullOrWhiteSpace(ActiveSlotProviderKey);
+        public bool UsesTemporaryCampaignState => Mode == EditorDirectPlayMode.CampaignTempSlot;
 
         public bool IsCampaignMode =>
             Mode == EditorDirectPlayMode.CampaignTempSlot ||
@@ -56,8 +46,6 @@ namespace Game.Feature.Stages
                 : new EditorDirectPlayContext(
                     Mode,
                     stageId,
-                    SaveSlotStoreKey,
-                    ActiveSlotProviderKey,
                     RemainingChances,
                     SuppressCampaignFlow);
         }
@@ -66,8 +54,6 @@ namespace Game.Feature.Stages
         {
             return Mode == other.Mode &&
                    StageId.Equals(other.StageId) &&
-                   string.Equals(SaveSlotStoreKey, other.SaveSlotStoreKey, StringComparison.Ordinal) &&
-                   string.Equals(ActiveSlotProviderKey, other.ActiveSlotProviderKey, StringComparison.Ordinal) &&
                    RemainingChances == other.RemainingChances &&
                    SuppressCampaignFlow == other.SuppressCampaignFlow;
         }
@@ -83,8 +69,6 @@ namespace Game.Feature.Stages
             {
                 var hash = (int)Mode;
                 hash = (hash * 397) ^ StageId.GetHashCode();
-                hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(SaveSlotStoreKey ?? string.Empty);
-                hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(ActiveSlotProviderKey ?? string.Empty);
                 hash = (hash * 397) ^ RemainingChances;
                 hash = (hash * 397) ^ SuppressCampaignFlow.GetHashCode();
                 return hash;
@@ -92,15 +76,13 @@ namespace Game.Feature.Stages
         }
 
         public static EditorDirectPlayContext None =>
-            new(EditorDirectPlayMode.None, StageId.None, string.Empty, string.Empty, 0, suppressCampaignFlow: false);
+            new(EditorDirectPlayMode.None, StageId.None, 0, suppressCampaignFlow: false);
 
         public static EditorDirectPlayContext CreateNonCampaign(StageId stageId)
         {
             return new EditorDirectPlayContext(
                 EditorDirectPlayMode.NonCampaign,
                 stageId,
-                string.Empty,
-                string.Empty,
                 0,
                 suppressCampaignFlow: true);
         }
@@ -110,8 +92,6 @@ namespace Game.Feature.Stages
             return new EditorDirectPlayContext(
                 EditorDirectPlayMode.CampaignTempSlot,
                 stageId,
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey,
                 remainingChances,
                 suppressCampaignFlow: false);
         }
@@ -119,8 +99,7 @@ namespace Game.Feature.Stages
 
     public static class EditorDirectPlayContextStore
     {
-        public const string TempSaveSlotStoreKey = "Game.Feature.Stages.DirectPlay.TempSaveSlots";
-        public const string TempActiveSlotProviderKey = "Game.Feature.Stages.DirectPlay.TempActiveSaveSlot";
+        private const int SchemaVersion = 2;
 
         private static Func<string> readCurrentJson;
         private static Action<string> writeCurrentJson;
@@ -128,6 +107,9 @@ namespace Game.Feature.Stages
         private static Action<EditorDirectPlayContext> contextUpdated;
         private static EditorDirectPlayContext fallbackContext = EditorDirectPlayContext.None;
         private static bool hasFallbackContext;
+        private static long ownershipGeneration;
+
+        public static long OwnershipGeneration => ownershipGeneration;
 
         public static EditorDirectPlayContext GetCurrentOrNone()
         {
@@ -146,7 +128,7 @@ namespace Game.Feature.Stages
             if (!string.IsNullOrWhiteSpace(json))
             {
                 var dto = JsonUtility.FromJson<EditorDirectPlayContextDto>(json);
-                if (dto != null)
+                if (dto != null && dto.SchemaVersion == SchemaVersion)
                 {
                     context = FromDto(dto);
                     return context.Mode != EditorDirectPlayMode.None;
@@ -159,6 +141,11 @@ namespace Game.Feature.Stages
 
         public static void SetCurrent(EditorDirectPlayContext context)
         {
+            unchecked
+            {
+                ownershipGeneration++;
+            }
+
             if (writeCurrentJson != null)
             {
                 writeCurrentJson(JsonUtility.ToJson(ToDto(context)));
@@ -172,6 +159,11 @@ namespace Game.Feature.Stages
 
         public static void Clear()
         {
+            unchecked
+            {
+                ownershipGeneration++;
+            }
+
             if (clearCurrentJson != null)
             {
                 clearCurrentJson();
@@ -181,21 +173,18 @@ namespace Game.Feature.Stages
             hasFallbackContext = false;
         }
 
-        public static void ClearTempDirectPlaySave()
+        public static void ClearTemporaryCampaignState()
         {
-            PlayerPrefs.DeleteKey(TempSaveSlotStoreKey);
-            PlayerPrefs.DeleteKey(TempActiveSlotProviderKey);
-            PlayerPrefs.Save();
+            CampaignSaveCompositionProvider.ClearTemporaryCampaignState();
         }
 
         private static EditorDirectPlayContextDto ToDto(EditorDirectPlayContext context)
         {
             return new EditorDirectPlayContextDto
             {
+                SchemaVersion = SchemaVersion,
                 Mode = (int)context.Mode,
                 StageId = context.StageId.IsValid ? context.StageId.Value : string.Empty,
-                SaveSlotStoreKey = context.SaveSlotStoreKey,
-                ActiveSlotProviderKey = context.ActiveSlotProviderKey,
                 RemainingChances = context.RemainingChances,
                 SuppressCampaignFlow = context.SuppressCampaignFlow,
             };
@@ -212,8 +201,6 @@ namespace Game.Feature.Stages
             return new EditorDirectPlayContext(
                 mode,
                 stageId,
-                dto.SaveSlotStoreKey,
-                dto.ActiveSlotProviderKey,
                 dto.RemainingChances,
                 dto.SuppressCampaignFlow);
         }
@@ -240,10 +227,9 @@ namespace Game.Feature.Stages
         [Serializable]
         private sealed class EditorDirectPlayContextDto
         {
+            public int SchemaVersion;
             public int Mode;
             public string StageId;
-            public string SaveSlotStoreKey;
-            public string ActiveSlotProviderKey;
             public int RemainingChances;
             public bool SuppressCampaignFlow;
         }

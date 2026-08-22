@@ -11,7 +11,7 @@ namespace Game.Feature.Stages.Editor
         private readonly List<string> _stageLabels = new();
         private EditorDirectPlayMode _mode = EditorDirectPlayMode.NonCampaign;
         private int _productionSlot = 1;
-        private int _remainingChances = SaveSlotStore.DefaultRemainingChances;
+        private int _remainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances;
         private int _selectedStageIndex;
 
         [MenuItem("Tools/Stages/Direct Play/Launch Stage...")]
@@ -42,7 +42,7 @@ namespace Game.Feature.Stages.Editor
             _mode = (EditorDirectPlayMode)EditorGUILayout.EnumPopup("Mode", _mode);
             _remainingChances = EditorGUILayout.IntPopup(
                 "Remaining Chances",
-                Mathf.Clamp(_remainingChances, 1, SaveSlotStore.DefaultRemainingChances),
+                Mathf.Clamp(_remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances),
                 new[] { "3", "2", "1" },
                 new[] { 3, 2, 1 });
 
@@ -77,7 +77,7 @@ namespace Game.Feature.Stages.Editor
 
                 if (GUILayout.Button("Clear Temp Direct Play Save"))
                 {
-                    StageEditorDirectPlayLauncher.ClearTempDirectPlaySave();
+                    StageEditorDirectPlayLauncher.ClearTemporaryCampaignState();
                 }
             }
 

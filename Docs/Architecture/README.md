@@ -165,32 +165,36 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 ## Stage clear save/profile boundary
 
 - Stage clear profile은 save/profile boundary의 current vocabulary다.
-- 저장 모델은 `StageClearProfileSnapshot`, `PlayerStageClearRecord`, `IStageClearProfileStore`, `SaveSlotStageClearProfileStore`를 사용한다.
-- Production campaign progression save truth는 `Saves/profile.json`이며, retained PlayerPrefs rollback/import source는 `Game.Feature.Stages.StageClearSaveSlots`이다.
+- 저장 모델은 `StageClearProfileSnapshot`, `PlayerStageClearRecord`를 사용하며 profile slot mutation은 `ICampaignSaveSlotStore.UpdateSlot` 경계로 수행한다. `IStageClearProfileStore`는 clear-flow domain seam이며 별도 campaign persistence 구현을 두지 않는다.
+- Production campaign progression save truth는 `Saves/profile.json` 하나다. PlayerPrefs progression import는 지원하지 않는다. Atomic writer의 `<file>.rollback`은 replace fallback 중단 복구용 구현 artifact이며 legacy progression rollback이나 별도 save schema가 아니다.
 - Physical — current `Saves/profile.json`은 `CampaignProfileDocument`의 `SchemaVersion = 2`이다. 각 `Slots[]`의 `StageClearProfileSnapshot`은 `CampaignStageClearProfileDocument`이고 `Records[]`를 사용하며, record에는 `StageId`, `HasAttempted`, `HasCleared`, `ClearCount`, record-level `ProcessedStageRunIds : string[]`가 저장된다. profile snapshot에는 이와 별개인 profile-level `ProcessedStageRunIds : string[]`와 `ProcessedClearAttemptIds : string[]`가 저장된다. 이전 profile `SchemaVersion = 1`은 읽거나 승격하지 않는다.
-- Physical — retained `Game.Feature.Stages.StageClearSaveSlots` PlayerPrefs DTO는 `SchemaId = StageClearSaveSlots`, `SchemaVersion = 3`이다. 이 current-only schema의 profile snapshot은 `ClearRecordsByStageId[]`를 사용하며, record-level `ProcessedStageRunIds : string[]`, profile-level `ProcessedStageRunIds : string[]`, `ProcessedClearAttemptIds : string[]`를 저장한다. 이전 SchemaVersion 2의 `IntroPlayed`/`OutroPlayed` payload는 읽거나 `IntroComicCompleted`/`OutroComicCompleted`로 승격하지 않는다. 과거 필드명은 이 정책 기록에만 남기며 런타임·직렬화 alias·테스트 fixture에는 유지하지 않는다. `StageClearProfileSnapshot.Version`은 profile snapshot version이며 두 root schema marker와 다른 개념이다.
+- `StageClearProfileSnapshot.Version`은 profile snapshot version이며 root `CampaignProfileDocument.SchemaVersion`과 다른 개념이다.
 
-| Processed-ID surface | `profile.json` | Retained PlayerPrefs | Current Production semantic use | Policy |
-| --- | --- | --- | --- | --- |
-| Profile `ProcessedStageRunIds` | yes | yes | 없음 | compatibility freeze |
-| `ProcessedClearAttemptIds` | yes | yes | 없음 | compatibility freeze |
-| Record `ProcessedStageRunIds` | yes | yes | 없음 | compatibility freeze |
+| Processed-ID surface | `profile.json` | Current Production semantic use | Policy |
+| --- | --- | --- | --- |
+| Profile `ProcessedStageRunIds` | yes | 없음 | first-public schema freeze |
+| `ProcessedClearAttemptIds` | yes | 없음 | first-public schema freeze |
+| Record `ProcessedStageRunIds` | yes | 없음 | first-public schema freeze |
 
-- Semantic — current Production clear path는 `GameplayHostPresentationFeed -> CampaignGameplayFlowController -> ICampaignSaveSlotStore.UpdateSlot -> CampaignLaunchStateRepairingCampaignSaveSlotStore -> SaveSlotStoreCompatibilityAdapter -> CampaignSaveService.UpdateSlot -> FileCampaignProfileRepository.Save -> Saves/profile.json`이다. 이 path는 stage cursor, level group, completion state, chances, timestamp를 갱신하지만 processed run/attempt ID를 생성하거나 active idempotency mechanism으로 검사하지 않는다.
-- Preservation — `SaveSlotStoreCompatibilityAdapter`, mapper, repository는 existing processed-ID collections를 load/map/round-trip/save하며 보존한다. `LegacyPlayerPrefsCampaignImporter`도 non-empty legacy processed-ID value를 current profile schema로 복사할 수 있다. 두 동작은 compatibility preservation이지 current gameplay-generated idempotency state의 active consumption이 아니다.
-- Compatibility — 세 processed-ID field는 persisted compatibility surface이므로 compatibility freeze를 유지한다. ordinary dead-code cleanup으로 제거할 수 없으며, removal에는 `release exposure`, `rollback compatibility`, `legacy import / retention`의 explicit review가 필요하다. 이는 새 active business requirement 또는 semantic endorsement가 아니다.
+- Semantic — current Production clear path는 `GameplayHostPresentationFeed -> CampaignGameplayFlowController -> ICampaignSaveSlotStore.UpdateSlot -> CampaignLaunchStateRepairingCampaignSaveSlotStore -> CampaignSaveSlotStoreAdapter -> CampaignSaveService.UpdateSlot -> FileCampaignProfileRepository.Save -> Saves/profile.json`이다. 이 path는 stage cursor, level group, completion state, chances, timestamp를 갱신하지만 processed run/attempt ID를 생성하거나 active idempotency mechanism으로 검사하지 않는다.
+- Preservation — `CampaignSaveSlotStoreAdapter`, mapper, repository는 existing processed-ID collections를 load/map/round-trip/save하며 보존한다. 이는 first-public schema preservation이지 current gameplay-generated idempotency state의 active consumption이 아니다.
+- Compatibility — 세 processed-ID field는 first-public persisted surface이므로 ordinary dead-code cleanup으로 제거할 수 없다. removal에는 별도 schema/release exposure review가 필요하며, 이는 새 active business requirement 또는 semantic endorsement가 아니다.
 - Persisted processed-ID 이름은 plain string field이며 active typed runtime identity에서 persisted ID로 이어지는 current flow를 뜻하지 않는다.
 - `CampaignSaveService.ApplyStageClear`는 reference/legacy idempotent command semantics를 유지하지만 current Production caller가 없고 current Production gameplay clear entry path가 아니다. current Production composition에서는 dormant이며 별도 ownership/compatibility cleanup review 전까지 dead API로 단정하지 않는다.
-- Production active launch pointer는 non-Cloud `Saves/local-launch-state.json`이며, `Game.Feature.Stages.ActiveStageClearSaveSlot`은 profile-slot validation 후 import source로만 보존한다.
+- Production active launch pointer는 non-Cloud `Saves/local-launch-state.json` 하나다. 파일 missing은 committed active 없음으로 처리하며 PlayerPrefs fallback을 사용하지 않는다. Profile canonical missing은 valid current-schema backup을 먼저 복구한 뒤에만 no-save로 분류하고, unknown schema canonical은 older backup으로 덮지 않는다.
 - Local active는 gameplay installer가 non-empty profile slot과 request/context/resolved/profile stage identity를 검증한 뒤 commit한 slot이다. MainMenu NewGame/Restart/Continue는 active를 쓰지 않는다.
 - Pending launch는 slot/stage/navigation/source/token을 묶는 application-session `CampaignLaunchHandoffSessionStore`가 소유하며 first accepted request wins와 matching-token clear/consume을 적용한다. MainMenu NewGame/Restart/empty Continue는 profile mutation 전에 complete handoff를 reservation으로 선점하고, confirmation callback은 captured token/slot/operation kind가 current일 때 한 번만 실행된다. Intro comic terminal callback도 token/slot/stage/navigation/source exact match를 재검증하고 operation당 한 번만 처리한다. stale callback은 profile/progress/routing/context/active/pending에 영향을 주지 않는 no-op이며 reservation 성공은 persistent active commit이 아니다.
-- Pending은 intro comic sequence와 scene transition을 통과하지만 failure/cancel/rejection/load/installer validation failure에서 exact request만 clear되고, process restart에서는 복원되지 않는다. `StageLaunchContext`는 token/slot/stage/navigation/source full identity를 가진 in-memory owner이며 동일 exact identity의 중복 등록도 거절하는 strict first-owner-wins와 exact clear/consume을 적용한다. Async callback은 captured context ownership을 재검증하고 late callback은 newer operation을 변경하지 않는다. Installer는 active-write attempt 이후 예외에도 previous active를 복원하며 active/running/pending/context를 하나의 commit transaction으로 처리하고 성공 시 pending/context를 finalize한다. Pending 없는 active fallback은 명시된 Retry/NextStage reload source에만 허용된다. CurrentScene/Configured route guard rejection은 immediate failure로 surface되고 기존 owner를 보존한다. Subsystem registration은 runtime context만 reset하며 Editor DirectPlay SessionState prime은 consume 또는 explicit editor cleanup까지 유지된다. Comic sequence Completed의 `IntroComicCompleted`는 gameplay route의 immediate acceptance 이후에만 기록되고, rejection/exception에는 기록되지 않는다. Comic sequence callback은 persistent active를 쓰지 않는다.
+- Pending은 intro comic sequence와 scene transition을 통과하지만 failure/cancel/rejection/load/installer validation failure에서 exact request만 clear되고, process restart에서는 복원되지 않는다. `StageLaunchContext`는 token/slot/stage/navigation/source full identity를 가진 in-memory owner이며 동일 exact identity의 중복 등록도 거절하는 strict first-owner-wins와 exact clear/consume을 적용한다. Async callback은 captured context ownership을 재검증하고 late callback은 newer operation을 변경하지 않는다. Installer는 active-write attempt 이후 예외에도 previous active를 복원하며 active/running/pending/context를 하나의 commit transaction으로 처리하고 성공 시 pending/context를 finalize한다. Pending 없는 active fallback은 명시된 Retry/NextStage reload source에만 허용된다. CurrentScene/Configured route guard rejection은 immediate failure로 surface되고 기존 owner를 보존한다. Coordinator의 asynchronous DirectPlay 복구도 transition 시작 시 captured ownership generation이 그대로일 때만 수행하며 newer set/clear 뒤에는 no-op이다. Subsystem registration은 runtime context만 reset하며 Editor DirectPlay SessionState prime은 consume 또는 explicit editor cleanup까지 유지된다. Comic sequence Completed의 `IntroComicCompleted`는 gameplay route의 immediate acceptance 이후에만 기록되고, rejection/exception에는 기록되지 않는다. Comic sequence callback은 persistent active를 쓰지 않는다.
 - `CampaignRunningSlotContext`는 active commit 직후 생성되는 scene-local mutation identity이며 이후 active 변경과 무관하게 고정된다.
-- Old PlayerPrefs key `Game.Feature.Stages.SaveSlots` / `Game.Feature.Stages.ActiveSaveSlot`은 delete-only cleanup 대상이며 production read/write path에 사용하지 않는다.
-- Direct-play temp key `Game.Feature.Stages.DirectPlay.TempSaveSlots` / `Game.Feature.Stages.DirectPlay.TempActiveSaveSlot`은 production key split 대상이 아닌 별도 임시 namespace다.
+- Old PlayerPrefs campaign progression/active key는 production read/write/delete path에 사용하지 않는다. 기존 값은 무시하며 broad cleanup은 별도 승인 없이는 금지한다.
+- Schema-3 `SaveSlotStore` DTO, campaign PlayerPrefs backend, active-slot PlayerPrefs backend, key 기반 DirectPlay context는 제거되었다. 런타임 campaign 저장 구현은 schema-2 profile과 schema-1 local state만 가진다.
+- Campaign temp DirectPlay는 같은 canonical JSON 계약을 격리된 root에서 사용한다. Editor root는 `<project>/Library/J2M/DirectPlayCampaign/Saves`, Player diagnostics root는 process-lifetime GUID를 포함한 `Application.temporaryCachePath/J2M/PlayerCaptureCampaign/<process-guid>/Saves`다.
 - Production Campaign DirectPlay의 explicit active overwrite/prime은 editor launch exception으로 유지되며 normal production handoff를 생성하거나 소비하지 않는다.
-- Retained PlayerPrefs key contamination 또는 invalid payload는 `SaveSlotStore.LoadDto()` raw JSON read 직후 검사한다. retained schema version 2 import/explicit rollback compatibility는 지원하지만 arbitrary unsupported older schema와 corrupt payload는 rejected/reset되며 store/API에 노출되지 않는다.
-- Rejected arbitrary-old/corrupt payload reset은 non-crash path이고 empty current database로 닫힌다. `StageClearSaveLoadReport`는 logic-level report로만 남기며 Diagnostics overlay 연결은 이번 PR 범위가 아니다.
+- DirectPlay context는 저장 키를 운반하지 않고 `CampaignTempSlot` mode만으로 temporary composition을 선택한다. 정상 Player 종료 cleanup은 containment와 GUID leaf를 검증한 자기 process scope만 제거하며 다른 run directory는 건드리지 않는다.
+- Campaign file store는 save root당 단일 in-process writer를 전제로 한다. Cross-process writer coordination과 transaction commit-marker schema는 current contract가 아니다.
+- Current-schema profile load는 음수 slot counter와 persisted nested performance/stage-clear record를 normalization 전에 검증한다. 음수 counter, invalid/non-canonical/duplicate record와 invalid processed ID는 `InvalidDocument`로 fail-closed하며 unrelated mutation에서 조용히 clamp·축약 저장하지 않는다. `RemainingChances == 0`의 current sentinel 의미는 유지한다.
+- `LoadAllWithReport`만 blocked profile을 UI 진단용 empty placeholder로 투영한다. report를 반환하지 않는 `LoadAll`/`LoadSlot`과 모든 campaign mutation 경계는 blocked status에서 예외로 중단하고 repository write를 수행하지 않는다.
+- Destructive profile commit은 canonical과 backup의 interrupted-write rollback을 snapshot 전에 정규화한다. Blocked reset은 backup을 canonical보다 먼저 정규화·격리하고 empty reset profile의 durable write 뒤에만 pending marker를 제거한다.
 - UI notification, HUD banner, popup, screen 표시도 이번 PR 범위가 아니다.
 - Progression unlock graph와 player clear record는 다른 개념이다. Stage objective clear와 `MinimalStageCompletionReadModel` 기반 StageResult continue/retry flow는 runtime/UI canonical path로 유지한다.
 - Transient terminal completion boundary는 `StageClearResult = StageId + FinalTickIndex`로 제한한다.
@@ -203,14 +207,14 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 
 ## Campaign save architecture V2 policy closeout
 
+- [Pre-Release-Save-Baseline-Policy.md](./Pre-Release-Save-Baseline-Policy.md)
+  - current canonical truth for first-public `profile.json` schema 2 and `local-launch-state.json` schema 1, unsupported PlayerPrefs campaign compatibility, and exact-scope pre-release QA reset boundary
 - [Save-Architecture-V2-Phase4-Policy-Closeout.md](./Save-Architecture-V2-Phase4-Policy-Closeout.md)
-  - current supporting truth for Phase 4 policy closeout before Phase 5 SaveSlotStore call-site migration / adapter production integration investigation
-  - records that `DeleteSlot` removes V2 profile slots and records a deleted-slot legacy guard, while production SaveSlotStore migration / adapter wiring remains deferred until a separate production switch decision
-  - historical phase-close record for `LastPlayedSlotNumber` metadata and the pre-split active/pending state; the current split contract is `Campaign-LocalState-Launch-State.md`
+  - historical phase-close provenance; it is not current save compatibility policy
 - [Steam-Cloud-File-Inventory-Policy.md](./Steam-Cloud-File-Inventory-Policy.md)
   - current supporting truth for Steam Release Phase B Cloud inventory policy, Auto-Cloud defer status, future exact `profile.json` include rule, Cloud/SteamPipe exclusions, Company/Product path guard, and no-Steam-API guard
 - [Campaign-Save-Rollback-Retention-Policy.md](./Campaign-Save-Rollback-Retention-Policy.md)
-  - current supporting truth for retained `Game.Feature.Stages.StageClearSaveSlots` rollback/import policy, retained read/read-disable gate, 2 profile-backed public releases retention window, cleanup/delete evidence gate, operator/dev rollback semantics, and marker removal defer status
+  - historical superseded rollback/retention provenance; no production rollback or retention obligation remains
 - [Campaign-LocalState-Launch-State.md](./Campaign-LocalState-Launch-State.md)
   - current supporting truth for committed LocalState active ownership and active commit point, application-session pending handoff, scene-local running context, matching-token failure policy, restart reset, and DirectPlay exception
 - [Campaign-Stage-Sequence-Authority.md](./Campaign-Stage-Sequence-Authority.md)

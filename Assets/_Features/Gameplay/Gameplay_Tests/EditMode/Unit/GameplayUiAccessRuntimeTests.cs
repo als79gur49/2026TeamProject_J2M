@@ -63,10 +63,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplayPlayerHudQuery_PlayerMissing_PreservesCampaignChances()
         {
             var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerMissing_PreservesCampaignChances");
-            var saveKey = CreatePrefsKey(nameof(GameplayPlayerHudQuery_PlayerMissing_PreservesCampaignChances));
+            var saveKey = CreateTransientNamespace(nameof(GameplayPlayerHudQuery_PlayerMissing_PreservesCampaignChances));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
 
             try
             {
@@ -93,7 +93,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(playerHud.IsAvailable, Is.False);
                 Assert.That(playerHud.HasRemainingChances, Is.True);
                 Assert.That(playerHud.RemainingChances, Is.EqualTo(2));
-                Assert.That(playerHud.MaxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(playerHud.MaxChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
             }
             finally
             {
@@ -108,10 +108,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances()
         {
             var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances");
-            var saveKey = CreatePrefsKey(nameof(GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances));
+            var saveKey = CreateTransientNamespace(nameof(GameplayPlayerHudQuery_PlayerAlive_PreservesCampaignChances));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
 
             try
             {
@@ -138,7 +138,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(playerHud.IsAvailable, Is.True);
                 Assert.That(playerHud.HasRemainingChances, Is.True);
                 Assert.That(playerHud.RemainingChances, Is.EqualTo(2));
-                Assert.That(playerHud.MaxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(playerHud.MaxChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
             }
             finally
             {
@@ -1208,7 +1208,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .SpeedUnitsPerTick;
         }
 
-        private static string CreatePrefsKey(string suffix)
+        private static string CreateTransientNamespace(string suffix)
         {
             return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
         }

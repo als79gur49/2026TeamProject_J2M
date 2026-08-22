@@ -1,967 +1,282 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
+    internal static class RemovedCampaignPlayerPrefsKeys
+    {
+        public const string LegacySaveSlotsKey = "Game.Feature.Stages.SaveSlots";
+        public const string LegacyActiveSaveSlotKey = "Game.Feature.Stages.ActiveSaveSlot";
+        public const string SaveSlotsKey = "Game.Feature.Stages.StageClearSaveSlots";
+        public const string ActiveSaveSlotKey = "Game.Feature.Stages.ActiveStageClearSaveSlot";
+    }
+
     public sealed class CampaignPlayerPrefsWriteRemovalTests
     {
-        private const string RollbackRetentionPolicyPath =
-            "Docs/Architecture/Campaign-Save-Rollback-Retention-Policy.md";
+        private PlayerPrefsTestStateScope _playerPrefsState;
 
-        private static readonly DateTime FixedNowUtc =
-            new DateTime(2026, 7, 11, 0, 0, 0, DateTimeKind.Utc);
+        [SetUp]
+        public void SetUp()
+        {
+            _playerPrefsState = PlayerPrefsTestStateScope.Capture(
+                PlayerPrefsKeySpec.String(RemovedCampaignPlayerPrefsKeys.SaveSlotsKey),
+                PlayerPrefsKeySpec.Int(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey));
+        }
 
         [TearDown]
         public void TearDown()
         {
-            CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
-            EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            _playerPrefsState?.Dispose();
+            _playerPrefsState = null;
         }
 
         [Test]
-        public void ProductionCampaignPaths_DoNotWriteStageClearSaveSlotsPlayerPrefs()
+        public void ProductionCompositionTypes_DoNotExposeCompatibilityDependencies()
         {
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Application/Runtime/MainMenuController.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs");
-            AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs");
+            var assembly = typeof(CampaignSaveCompositionProvider).Assembly;
+            var optionProperties = typeof(CampaignSaveCompositionOptions)
+                .GetProperties()
+                .Select(property => property.Name)
+                .ToArray();
+
+            Assert.That(assembly.GetType(
+                "Game.Feature.Stages.LegacyPlayerPrefsCampaignImporter"), Is.Null);
+            Assert.That(assembly.GetType(
+                "Game.Feature.Stages.CampaignSaveMigrationCoordinator"), Is.Null);
+            Assert.That(assembly.GetType(
+                "Game.Feature.Stages.CampaignLegacyImportDocument"), Is.Null);
+            Assert.That(optionProperties, Does.Not.Contain("AllowLegacyImport"));
+            Assert.That(optionProperties, Does.Not.Contain("BackendMode"));
+            Assert.That(optionProperties, Does.Not.Contain("LegacyImportMarkerStore"));
         }
 
         [Test]
-        public void ProductionCampaignPaths_DoNotDeleteStageClearSaveSlotsPlayerPrefs()
+        public void ProductionCampaignSources_DoNotUsePlayerPrefsOrRemovedCompatibilityTypes()
         {
-            var directPlayProduction = ExtractSourceRange(
-                File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs"),
-                "private static void PrimeCampaignProductionSlot",
-                "private static void ValidateCampaignStage");
-
-            Assert.That(directPlayProduction, Does.Not.Contain("PlayerPrefs.DeleteKey"));
-            Assert.That(directPlayProduction, Does.Not.Contain("PlayerPrefs.Save"));
-            Assert.That(directPlayProduction, Does.Not.Contain("SaveSlotPrefsKeys.SaveSlotsKey"));
-            Assert.That(directPlayProduction, Does.Not.Contain("Game.Feature.Stages.StageClearSaveSlots"));
-        }
-
-        [Test]
-        public void ProductionCampaignPaths_DoNotInstantiatePlayerPrefsBackendOrDirectDefaultStore()
-        {
-            var productionFiles = new[]
+            var productionFiles = Directory
+                .GetFiles(
+                    Path.Combine("Assets", "_Features"),
+                    "*.cs",
+                    SearchOption.AllDirectories)
+                .Where(path => path.Replace('\\', '/').Contains("/Runtime/", StringComparison.Ordinal))
+                .ToArray();
+            var removedTokens = new[]
             {
-                "_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs",
-                "_Features/UI/UI_Application/Runtime/MainMenuController.cs",
-                "_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
-                "_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
-                "_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs",
-                "_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs",
-                "_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
-                "_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
-                "_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs",
-                "_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
+                "LegacyPlayerPrefsCampaignImporter",
+                "CampaignSaveMigrationCoordinator",
+                "SaveSlotStoreCompatibilityAdapter",
+                RemovedCampaignPlayerPrefsKeys.LegacySaveSlotsKey,
+                RemovedCampaignPlayerPrefsKeys.LegacyActiveSaveSlotKey,
+                RemovedCampaignPlayerPrefsKeys.SaveSlotsKey,
+                RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey,
             };
 
             foreach (var path in productionFiles)
             {
-                var source = ReadAssetText(path);
-                CampaignSaveSourceContractGuard.AssertForbiddenTokensAbsent(
-                    path,
-                    source,
-                    "new PlayerPrefsSaveSlotStorageBackend",
-                    "new SaveSlotStore()",
-                    "new SaveSlotStore(");
-            }
-
-            var ensureCampaignStores = CampaignSaveSourceContractGuard.ExtractMethod(
-                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                "private void EnsureCampaignStores");
-            Assert.That(ensureCampaignStores, Does.Contain("directPlayContext.HasCustomSaveNamespace"));
-            Assert.That(ensureCampaignStores, Does.Contain("new SaveSlotStore("));
-
-            var stageBackedProductionBranch = CampaignSaveSourceContractGuard.ExtractTailFromToken(
-                ensureCampaignStores,
-                "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();");
-            CampaignSaveSourceContractGuard.AssertForbiddenTokensAbsent(
-                "Stage-backed production save composition",
-                stageBackedProductionBranch,
-                "new PlayerPrefsSaveSlotStorageBackend",
-                "new SaveSlotStore()",
-                "new SaveSlotStore(");
-        }
-
-        [Test]
-        public void ProductionCampaignPaths_UseProviderBackedStore()
-        {
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Contain("var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Contain("ImportStandaloneCampaignSaveSeed(saveSlotStore"));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
-                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(
-                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                Does.Contain("_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-            Assert.That(
-                ExtractSourceRange(
-                    File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs"),
-                    "private static void PrimeCampaignProductionSlot",
-                    "private static void ValidateCampaignStage"),
-                Does.Contain("var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-        }
-
-        [Test]
-        public void LegacyCampaignPlayerPrefsRead_IsImporterOnlyForProfileSwitch()
-        {
-            var sourceReader = ExtractSourceRange(
-                ReadAssetText("_Features/Stages/Runtime/Campaign/Save/LegacyPlayerPrefsCampaignImporter.cs"),
-                "public sealed class CampaignLegacySourceReader",
-                "public interface ICampaignLegacyImportMarkerStore");
-
-            Assert.That(sourceReader, Does.Contain("PlayerPrefs.HasKey"));
-            Assert.That(sourceReader, Does.Contain("PlayerPrefs.GetString"));
-            Assert.That(sourceReader, Does.Contain("PlayerPrefs.GetInt"));
-            Assert.That(sourceReader, Does.Contain("SaveSlotPrefsKeys.SaveSlotsKey"));
-            Assert.That(sourceReader, Does.Not.Contain("PlayerPrefs.SetString"));
-            Assert.That(sourceReader, Does.Not.Contain("PlayerPrefs.DeleteKey"));
-            Assert.That(sourceReader, Does.Not.Contain("PlayerPrefs.Save"));
-        }
-
-        [Test]
-        public void CampaignLegacyMarkerWrites_RemainExplicitAllowlist()
-        {
-            var markerStore = ExtractSourceRange(
-                ReadAssetText("_Features/Stages/Runtime/Campaign/Save/LegacyPlayerPrefsCampaignImporter.cs"),
-                "public sealed class CampaignLegacyImportMarkerStore",
-                "public sealed class LegacyPlayerPrefsCampaignImporter");
-
-            Assert.That(markerStore, Does.Contain("LegacyImportDisabled"));
-            Assert.That(markerStore, Does.Contain("LegacyImportedSourceHash"));
-            Assert.That(markerStore, Does.Contain("LegacyResetTombstoneUtc"));
-            Assert.That(markerStore, Does.Contain("LegacyDeletedSlotGuards"));
-            Assert.That(markerStore, Does.Contain("PlayerPrefs.SetInt"));
-            Assert.That(markerStore, Does.Contain("PlayerPrefs.SetString"));
-        }
-
-        [Test]
-        public void CampaignLegacyMarkerWrites_AreNotCountedAsStageClearSaveSlotsWrites()
-        {
-            var markerStore = ExtractSourceRange(
-                ReadAssetText("_Features/Stages/Runtime/Campaign/Save/LegacyPlayerPrefsCampaignImporter.cs"),
-                "public sealed class CampaignLegacyImportMarkerStore",
-                "public sealed class LegacyPlayerPrefsCampaignImporter");
-
-            Assert.That(markerStore, Does.Not.Contain("SaveSlotPrefsKeys.SaveSlotsKey"));
-            Assert.That(markerStore, Does.Not.Contain("Game.Feature.Stages.StageClearSaveSlots"));
-            Assert.That(markerStore, Does.Not.Contain("CampaignSourceKey"));
-            Assert.That(markerStore, Does.Not.Contain("ActiveSlotKey"));
-        }
-
-        [Test]
-        public void RollbackProvider_IsOnlyExplicitPlayerPrefsLegacyPath()
-        {
-            var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
-            var factory = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveServiceFactory.cs");
-            var rollbackOptions = CampaignSaveSourceContractGuard.ExtractMethod(
-                provider,
-                "CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()");
-
-            Assert.That(rollbackOptions, Does.Contain("BackendMode = CampaignSaveBackendMode.PlayerPrefsLegacy"));
-            Assert.That(rollbackOptions, Does.Not.Contain("ProfileJsonExplicit"));
-            Assert.That(factory, Does.Contain("case CampaignSaveBackendMode.PlayerPrefsLegacy:"));
-            Assert.That(factory, Does.Contain("new SaveSlotStore()"));
-        }
-
-        [Test]
-        public void RollbackRetentionPolicy_DocumentsHybridWindowAndCleanupGate()
-        {
-            var policy = ReadRollbackRetentionPolicy();
-
-            Assert.That(policy, Does.Contain("profile.json"));
-            Assert.That(policy, Does.Contain("StageClearSaveSlots"));
-            Assert.That(policy, Does.Contain("legacy import source"));
-            Assert.That(policy, Does.Contain("2 profile-backed public releases"));
-            Assert.That(policy, Does.Contain("evidence gate"));
-            Assert.That(policy, Does.Contain("cleanup/delete"));
-            Assert.That(policy, Does.Contain("future investigation"));
-            Assert.That(policy, Does.Contain("operator/dev fallback"));
-            Assert.That(policy, Does.Contain("not user-facing continuity"));
-        }
-
-        [Test]
-        public void ReadDisablePolicy_DocumentsRetainedReadUntilGate()
-        {
-            var policy = ReadRollbackRetentionPolicy();
-
-            Assert.That(policy, Does.Contain("retained read"));
-            Assert.That(policy, Does.Contain("read-disable"));
-            Assert.That(policy, Does.Contain("not currently enabled"));
-            Assert.That(policy, Does.Contain("missing profile"));
-            Assert.That(policy, Does.Contain("valid legacy"));
-            Assert.That(policy, Does.Contain("production behavior change"));
-            Assert.That(policy, Does.Contain("gate-controlled"));
-            Assert.That(policy, Does.Contain("2 profile-backed public releases"));
-            Assert.That(policy, Does.Contain("operator/dev fallback"));
-            Assert.That(policy, Does.Contain("marker cleanup"));
-            Assert.That(policy, Does.Contain("future slice"));
-        }
-
-        [Test]
-        public void ReadDisablePolicy_DoesNotDeleteStageClearSaveSlots()
-        {
-            var policy = ReadRollbackRetentionPolicy();
-
-            Assert.That(policy, Does.Contain("Do not delete the `Game.Feature.Stages.StageClearSaveSlots` PlayerPrefs key"));
-            Assert.That(policy, Does.Contain("Invalid legacy payloads are not deleted"));
-            Assert.That(policy, Does.Contain("Do not implement read-disable before a"));
-        }
-
-        [Test]
-        public void ReadDisablePolicy_KeepsExplicitRollbackLegacyView()
-        {
-            var policy = ReadRollbackRetentionPolicy();
-
-            Assert.That(policy, Does.Contain("Production auto-import read-disable and the explicit rollback provider are"));
-            Assert.That(policy, Does.Contain("separate policies"));
-            Assert.That(policy, Does.Contain("CreateProductionLegacyRollback"));
-            Assert.That(policy, Does.Contain("retained PlayerPrefs legacy"));
-            Assert.That(policy, Does.Contain("operator/dev fallback"));
-            Assert.That(policy, Does.Contain("Rollback provider decommission is a separate"));
-            Assert.That(policy, Does.Contain("future slice"));
-        }
-
-        [Test]
-        public void ReadDisablePolicy_KeepsMarkersUntilPayloadCleanup()
-        {
-            var policy = ReadRollbackRetentionPolicy();
-
-            Assert.That(policy, Does.Contain("Read-disable does not mean marker cleanup"));
-            Assert.That(policy, Does.Contain("CampaignProfile.Legacy*"));
-            Assert.That(policy, Does.Contain("marker"));
-            Assert.That(policy, Does.Contain("payload"));
-            Assert.That(policy, Does.Contain("ClearAll remigration"));
-            Assert.That(policy, Does.Contain("DeleteSlot resurrection"));
-        }
-
-        [Test]
-        public void RollbackProvider_IsOperatorDevFallback_NotUserFacingContinuity()
-        {
-            var policy = ReadRollbackRetentionPolicy();
-            var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
-            var rollbackOptions = CampaignSaveSourceContractGuard.ExtractMethod(
-                provider,
-                "CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()");
-
-            Assert.That(policy, Does.Contain("Rollback provider may show stale legacy data"));
-            Assert.That(policy, Does.Contain("It must not be presented as a user-facing save continuity path"));
-            Assert.That(policy, Does.Contain("operator/dev fallback"));
-            Assert.That(rollbackOptions, Does.Contain("BackendMode = CampaignSaveBackendMode.PlayerPrefsLegacy"));
-            Assert.That(rollbackOptions, Does.Not.Contain("PathProvider"));
-            Assert.That(rollbackOptions, Does.Not.Contain("ProfileJsonExplicit"));
-            Assert.That(rollbackOptions, Does.Not.Contain("EnableProfileWrite = true"));
-        }
-
-        [Test]
-        public void MissingProfileValidLegacy_WithAllowLegacyImportTrue_ImportsProfileAndRetainsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            WriteLegacyPayload(
-                harness.LegacySourceKey,
-                harness.LegacyActiveSlotKey,
-                CreateSlot(1, "stage-0-1", "level-0"));
-            var retainedLegacy = PlayerPrefs.GetString(harness.LegacySourceKey);
-
-            var result = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true,
-                allowLegacyImport: true));
-
-            Assert.That(result.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.ImportSucceeded));
-            Assert.That(result.MigrationResult.LegacyImportResult.Status, Is.EqualTo(CampaignLegacyImportStatus.Importable));
-            Assert.That(result.CampaignSaveSlots.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-1"));
-            Assert.That(ReadProfile(harness).Slots[0].StageId, Is.EqualTo("stage-0-1"));
-            Assert.That(PlayerPrefs.GetString(harness.LegacySourceKey), Is.EqualTo(retainedLegacy));
-        }
-
-        [Test]
-        public void ValidProfileExists_IgnoresRetainedLegacy()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.SaveSlot(CreateSlot(1, "stage-0-2", "level-0"));
-            WriteLegacyPayload(
-                harness.LegacySourceKey,
-                harness.LegacyActiveSlotKey,
-                CreateSlot(1, "stage-0-1", "level-0"));
-
-            var result = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true,
-                allowLegacyImport: true));
-
-            Assert.That(result.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.FileLoaded));
-            Assert.That(result.MigrationResult.LegacyImportResult, Is.Null);
-            Assert.That(result.CampaignSaveSlots.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-2"));
-        }
-
-        [Test]
-        public void CorruptProfile_WithValidLegacy_DoesNotFallbackToLegacy()
-        {
-            using var harness = new Harness();
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(harness.ProfilePath, "{\"value\":");
-            WriteLegacyPayload(
-                harness.LegacySourceKey,
-                harness.LegacyActiveSlotKey,
-                CreateSlot(1, "stage-0-1", "level-0"));
-
-            var result = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true,
-                allowLegacyImport: true));
-
-            Assert.That(result.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.RepairRequired));
-            Assert.That(result.MigrationResult.LegacyImportResult, Is.Null);
-            Assert.That(result.MigrationResult.ProfileWriteAttempted, Is.False);
-            Assert.That(result.MigrationResult.RequiresRepair, Is.True);
-        }
-
-        [Test]
-        public void MainMenu_NewGame_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(MainMenu_NewGame_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-            var store = CreateProfileBackedStore(harness);
-
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-
-            var profile = ReadProfile(harness);
-            Assert.That(profile.Slots[0].SlotNumber, Is.EqualTo(1));
-            Assert.That(profile.Slots[0].StageId, Is.EqualTo("stage-0-1"));
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void MainMenuNewGame_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
-        {
-            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var harness = new Harness();
-            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(MainMenuNewGame_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
-            var store = CreateProfileBackedStore(harness);
-
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-
-            var profile = ReadProfile(harness);
-            Assert.That(profile.Slots[0].SlotNumber, Is.EqualTo(1));
-            Assert.That(profile.Slots[0].StageId, Is.EqualTo("stage-0-1"));
-            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
-        }
-
-        [Test]
-        public void MainMenu_DeleteSlot_WritesProfileJsonGuard_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(MainMenu_DeleteSlot_WritesProfileJsonGuard_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            store.DeleteSlot(1);
-
-            var profile = ReadProfile(harness);
-            Assert.That(profile.Slots, Is.Empty);
-            Assert.That(profile.LegacyImport.DeletedSlotGuards, Has.Length.EqualTo(1));
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void MainMenuDeleteSlot_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
-        {
-            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(MainMenuDeleteSlot_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
-
-            store.DeleteSlot(1);
-
-            var profile = ReadProfile(harness);
-            Assert.That(profile.Slots, Is.Empty);
-            Assert.That(profile.LegacyImport.DeletedSlotGuards, Has.Length.EqualTo(1));
-            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
-        }
-
-        [Test]
-        public void MainMenu_ClearAll_WritesProfileTombstone_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(MainMenu_ClearAll_WritesProfileTombstone_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            store.ClearAll();
-
-            var profile = ReadProfile(harness);
-            Assert.That(profile.Slots, Is.Empty);
-            Assert.That(profile.LegacyImport.ImportDisabled, Is.True);
-            Assert.That(profile.LegacyImport.ResetTombstoneUtc, Is.Not.Empty);
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void MainMenuClearAll_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
-        {
-            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(MainMenuClearAll_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
-
-            store.ClearAll();
-
-            var profile = ReadProfile(harness);
-            Assert.That(profile.Slots, Is.Empty);
-            Assert.That(profile.LegacyImport.ImportDisabled, Is.True);
-            Assert.That(profile.LegacyImport.ResetTombstoneUtc, Is.Not.Empty);
-            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
-        }
-
-        [Test]
-        public void GameplayDeath_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(GameplayDeath_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            store.UpdateSlot(1, slot =>
-            {
-                slot.RemainingChances = 2;
-                slot.TotalDeaths += 1;
-                slot.LastPlayedAt = "2026-07-11T00:01:00Z";
-            });
-
-            var slot = ReadProfile(harness).Slots[0];
-            Assert.That(slot.RemainingChances, Is.EqualTo(2));
-            Assert.That(slot.TotalDeaths, Is.EqualTo(1));
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void GameplayChanceUpdate_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(GameplayChanceUpdate_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            store.UpdateSlot(1, slot => slot.RemainingChances = 1);
-
-            Assert.That(ReadProfile(harness).Slots[0].RemainingChances, Is.EqualTo(1));
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void GameplayStageClear_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(GameplayStageClear_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            store.UpdateSlot(1, slot =>
-            {
-                slot.CurrentStageId = StageId.CreateOrThrow("stage-0-2");
-                slot.CurrentLevelGroupId = "level-0";
-                slot.LastPlayedAt = "2026-07-11T00:02:00Z";
-            });
-
-            var slot = ReadProfile(harness).Slots[0];
-            Assert.That(slot.StageId, Is.EqualTo("stage-0-2"));
-            Assert.That(slot.LevelGroupId, Is.EqualTo("level-0"));
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void GameplayStageClear_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
-        {
-            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(GameplayStageClear_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
-
-            store.UpdateSlot(1, slot =>
-            {
-                slot.CurrentStageId = StageId.CreateOrThrow("stage-0-2");
-                slot.CurrentLevelGroupId = "level-0";
-                slot.LastPlayedAt = "2026-07-11T00:02:00Z";
-            });
-
-            var slot = ReadProfile(harness).Slots[0];
-            Assert.That(slot.StageId, Is.EqualTo("stage-0-2"));
-            Assert.That(slot.LevelGroupId, Is.EqualTo("level-0"));
-            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
-        }
-
-        [Test]
-        public void IntroComicCompletion_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(IntroComicCompletion_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            store.UpdateSlot(1, slot => slot.IntroComicCompleted = true);
-
-            Assert.That(ReadProfile(harness).Slots[0].IntroComicCompleted, Is.True);
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void OutroComicCompletion_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(OutroComicCompletion_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            store.UpdateSlot(1, slot => slot.OutroComicCompleted = true);
-
-            Assert.That(ReadProfile(harness).Slots[0].OutroComicCompleted, Is.True);
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void SaveSlotValidationSync_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            using var provider = CreateProvider("stage-0-1");
-            var store = CreateProfileBackedStore(harness);
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
-                CurrentLevelGroupId = "stale-level",
-                RemainingChances = 3,
-            });
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(SaveSlotValidationSync_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-            var validation = new SaveSlotValidationService(CreateResolver(), provider.Provider);
-
-            var result = validation.ValidateAndSync(store, 1);
-
-            Assert.That(result.Status, Is.EqualTo(SaveSlotValidationStatus.Valid));
-            Assert.That(ReadProfile(harness).Slots[0].LevelGroupId, Is.EqualTo("level-0"));
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void SeedImport_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            using var provider = CreateProvider("stage-0-1");
-            var seedPath = Path.Combine(harness.SaveRootPath, "seed.json");
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(
-                seedPath,
-                StandaloneCampaignSaveSeedImporter.BuildSeedJson(
-                    StageId.CreateOrThrow("stage-0-1"),
-                    2,
-                    2));
-            var store = CreateProfileBackedStore(harness);
-            var activeSlotProvider = new ActiveSlotProvider(harness.ActiveSlotKey);
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(SeedImport_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            var imported = StandaloneCampaignSaveSeedImporter.TryImportSeedFile(
-                seedPath,
-                store,
-                activeSlotProvider,
-                CreateResolver(),
-                provider.Provider,
-                deleteAfterImport: false,
-                out var result);
-
-            Assert.That(imported, Is.True);
-            Assert.That(result.Status, Is.EqualTo(StandaloneCampaignSaveSeedImportStatus.Imported));
-            var slot = ReadProfile(harness).Slots[0];
-            Assert.That(slot.SlotNumber, Is.EqualTo(2));
-            Assert.That(slot.StageId, Is.EqualTo("stage-0-1"));
-            Assert.That(slot.RemainingChances, Is.EqualTo(2));
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void SeedImport_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
-        {
-            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var harness = new Harness();
-            using var provider = CreateProvider("stage-0-1");
-            var seedPath = Path.Combine(harness.SaveRootPath, "seed.json");
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(
-                seedPath,
-                StandaloneCampaignSaveSeedImporter.BuildSeedJson(
-                    StageId.CreateOrThrow("stage-0-1"),
-                    2,
-                    2));
-            var store = CreateProfileBackedStore(harness);
-            var activeSlotProvider = new ActiveSlotProvider(harness.ActiveSlotKey);
-            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(SeedImport_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
-
-            var imported = StandaloneCampaignSaveSeedImporter.TryImportSeedFile(
-                seedPath,
-                store,
-                activeSlotProvider,
-                CreateResolver(),
-                provider.Provider,
-                deleteAfterImport: false,
-                out var result);
-
-            Assert.That(imported, Is.True);
-            Assert.That(result.Status, Is.EqualTo(StandaloneCampaignSaveSeedImportStatus.Imported));
-            var slot = ReadProfile(harness).Slots[0];
-            Assert.That(slot.SlotNumber, Is.EqualTo(2));
-            Assert.That(slot.StageId, Is.EqualTo("stage-0-1"));
-            Assert.That(slot.RemainingChances, Is.EqualTo(2));
-            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
-        }
-
-        [Test]
-        public void DirectPlayProductionOverwrite_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var harness = new Harness();
-            var store = CreateProfileBackedStore(harness);
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(DirectPlayProductionOverwrite_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 3,
-                CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
-                CurrentLevelGroupId = "level-0",
-                RemainingChances = 2,
-                LastPlayedAt = "2026-07-11T00:03:00Z",
-            });
-
-            var slot = ReadProfile(harness).Slots[0];
-            Assert.That(slot.SlotNumber, Is.EqualTo(3));
-            Assert.That(slot.StageId, Is.EqualTo("stage-0-1"));
-            Assert.That(slot.RemainingChances, Is.EqualTo(2));
-            AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
-        }
-
-        [Test]
-        public void DirectPlayTemp_WritesOnlyTempKeys_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
-        {
-            using var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var activeBackup = PlayerPrefsIntBackup.Capture(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-            try
-            {
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-                var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(DirectPlayTemp_WritesOnlyTempKeys_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
-                var tempStore = new SaveSlotStore(
-                    EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                    EditorDirectPlayContextStore.TempActiveSlotProviderKey);
-                var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
-
-                tempStore.SaveSlot(new SaveSlotData
+                var source = File.ReadAllText(path);
+                foreach (var token in removedTokens)
                 {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
-                    CurrentLevelGroupId = "level-0",
-                    RemainingChances = 2,
-                });
-                activeSlotProvider.SetActiveSlot(1);
+                    Assert.That(source, Does.Not.Contain(token), path);
+                }
 
-                Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.True);
-                Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.True);
-                AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
+                var normalizedPath = path.Replace('\\', '/');
+                if (source.Contains("PlayerPrefs.", StringComparison.Ordinal))
+                {
+                    Assert.That(
+                        normalizedPath,
+                        Does.EndWith("/UI/UI_Composition/Runtime/UiSettingsBridgeAssembly.cs"),
+                        $"Unexpected PlayerPrefs production owner: {path}");
+                }
             }
-            finally
-            {
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            }
-        }
 
-        [Test]
-        public void RollbackProvider_UsesRetainedPlayerPrefsLegacyView()
-        {
-            using var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var activeBackup = PlayerPrefsIntBackup.Capture(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-
-            WriteLegacyPayload(
-                SaveSlotPrefsKeys.SaveSlotsKey,
-                SaveSlotPrefsKeys.ActiveSaveSlotKey,
-                CreateSlot(1, "stage-0-1", "level-0"));
-
-            var rollback = CampaignSaveCompositionProvider.CreateProductionLegacyRollback();
-
-            Assert.That(rollback, Is.TypeOf<SaveSlotStore>());
-            Assert.That(rollback.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-1"));
-        }
-
-        [Test]
-        public void RollbackProvider_DoesNotBackfillProfileProgressIntoPlayerPrefs()
-        {
-            using var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var activeBackup = PlayerPrefsIntBackup.Capture(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-            using var harness = new Harness();
-            WriteLegacyPayload(
-                SaveSlotPrefsKeys.SaveSlotsKey,
-                SaveSlotPrefsKeys.ActiveSaveSlotKey,
-                CreateSlot(1, "stage-0-1", "level-0"));
-            var retainedLegacy = PlayerPrefs.GetString(SaveSlotPrefsKeys.SaveSlotsKey);
-            var profileStore = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true,
-                legacySourceKey: SaveSlotPrefsKeys.SaveSlotsKey,
-                legacyActiveSlotKey: SaveSlotPrefsKeys.ActiveSaveSlotKey)).CampaignSaveSlots;
-
-            profileStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-0-2"),
-                CurrentLevelGroupId = "level-0",
-                RemainingChances = 2,
-            });
-
-            Assert.That(ReadProfile(harness).Slots[0].StageId, Is.EqualTo("stage-0-2"));
-            Assert.That(PlayerPrefs.GetString(SaveSlotPrefsKeys.SaveSlotsKey), Is.EqualTo(retainedLegacy));
+            var sharedPlayerPrefsOwners = Directory
+                .GetFiles(
+                    Path.Combine("Assets", "_Shared"),
+                    "*.cs",
+                    SearchOption.AllDirectories)
+                .Where(path => File.ReadAllText(path).Contains("PlayerPrefs.", StringComparison.Ordinal))
+                .Select(path => path.Replace('\\', '/'))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
             Assert.That(
-                CampaignSaveCompositionProvider.CreateProductionLegacyRollback().LoadSlot(1).CurrentStageId.Value,
-                Is.EqualTo("stage-0-1"));
+                sharedPlayerPrefsOwners,
+                Is.EqualTo(new[]
+                {
+                    "Assets/_Shared/Audio/Runtime/PlayerPrefsAudioSettingsStore.cs",
+                    "Assets/_Shared/Display/Runtime/PlayerPrefsDisplaySettingsStore.cs",
+                    "Assets/_Shared/Input/Runtime/PlayerPrefsKeyboardBindingStore.cs",
+                }));
         }
 
         [Test]
-        public void RollbackProvider_DoesNotDeleteOrModifyProfileJson()
+        public void PlayerPrefsTestStateScope_RestoresTypedValuesAndOriginalAbsence()
         {
-            using var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
-            using var activeBackup = PlayerPrefsIntBackup.Capture(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-            using var harness = new Harness();
-            var profileStore = CreateProfileBackedStore(harness);
-            profileStore.SaveSlot(CreateSlot(1, "stage-0-2", "level-0"));
-            var before = File.ReadAllText(harness.ProfilePath);
-
-            var rollback = CampaignSaveCompositionProvider.CreateProductionLegacyRollback();
-            rollback.SaveSlot(CreateSlot(1, "stage-0-1", "level-0"));
-
-            Assert.That(rollback.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-1"));
-            Assert.That(File.Exists(harness.ProfilePath), Is.True);
-            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(before));
-        }
-
-        [Test]
-        public void RollbackProvider_MayShowRetainedLegacyView()
-        {
-            var policy = ReadRollbackRetentionPolicy();
-
-            Assert.That(policy, Does.Contain("Rollback provider may show stale legacy data"));
-            Assert.That(policy, Does.Contain("This is expected"));
-            Assert.That(policy, Does.Contain("Does not backfill profile-era progress into PlayerPrefs"));
-        }
-
-        [Test]
-        public void RollbackProvider_IsOperatorFallbackNotDataContinuityPath()
-        {
-            var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
-
-            Assert.That(provider, Does.Contain("CreateProductionLegacyRollback"));
-            Assert.That(provider, Does.Not.Contain("profile.json"));
-            Assert.That(provider, Does.Not.Contain("DeleteKey"));
-            Assert.That(provider, Does.Not.Contain("migrate"));
-        }
-
-        [Test]
-        public void MarkerRemoval_IsNotAllowedBeforeRetentionWindow()
-        {
-            var policy = ReadRollbackRetentionPolicy();
-
-            Assert.That(policy, Does.Contain("CampaignProfile.Legacy*"));
-            Assert.That(policy, Does.Contain("Game.Feature.Stages.CampaignProfile.LegacyImportDisabled"));
-            Assert.That(policy, Does.Contain("Game.Feature.Stages.CampaignProfile.LegacyImportedSourceHash"));
-            Assert.That(policy, Does.Contain("Game.Feature.Stages.CampaignProfile.LegacyResetTombstoneUtc"));
-            Assert.That(policy, Does.Contain("Game.Feature.Stages.CampaignProfile.LegacyDeletedSlotGuards"));
-            Assert.That(policy, Does.Contain("Marker removal is not ready"));
-            Assert.That(policy, Does.Contain("ClearAll remigration"));
-            Assert.That(policy, Does.Contain("DeleteSlot resurrection"));
-            Assert.That(policy, Does.Contain("separate future slice"));
-        }
-
-        private static void AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(string relativeAssetPath)
-        {
-            var source = ReadAssetText(relativeAssetPath);
-            Assert.That(source, Does.Not.Contain("PlayerPrefs.SetString"), relativeAssetPath);
-            Assert.That(source, Does.Not.Contain("PlayerPrefs.DeleteKey"), relativeAssetPath);
-            Assert.That(source, Does.Not.Contain("PlayerPrefs.Save"), relativeAssetPath);
-            Assert.That(source, Does.Not.Contain("PlayerPrefsSaveSlotStorageBackend"), relativeAssetPath);
-            Assert.That(source, Does.Not.Contain("SaveSlotPrefsKeys.SaveSlotsKey"), relativeAssetPath);
-            Assert.That(source, Does.Not.Contain("Game.Feature.Stages.StageClearSaveSlots"), relativeAssetPath);
-        }
-
-        private static void WriteLegacyPayload(string saveKey, string activeKey, params SaveSlotData[] slots)
-        {
-            PlayerPrefs.SetString(saveKey, JsonUtility.ToJson(SaveSlotDtoMapper.ToDto(slots)));
-            PlayerPrefs.SetInt(activeKey, slots[0].SlotNumber);
+            const string stringKey = "Game.Feature.Stages.Tests.PlayerPrefsState.String";
+            const string intKey = "Game.Feature.Stages.Tests.PlayerPrefsState.Int";
+            const string floatKey = "Game.Feature.Stages.Tests.PlayerPrefsState.Float";
+            const string absentKey = "Game.Feature.Stages.Tests.PlayerPrefsState.Absent";
+            using var originalState = PlayerPrefsTestStateScope.Capture(
+                PlayerPrefsKeySpec.String(stringKey),
+                PlayerPrefsKeySpec.Int(intKey),
+                PlayerPrefsKeySpec.Float(floatKey),
+                PlayerPrefsKeySpec.String(absentKey));
+            PlayerPrefs.SetString(stringKey, "before");
+            PlayerPrefs.SetInt(intKey, 7);
+            PlayerPrefs.SetFloat(floatKey, 0.75f);
+            PlayerPrefs.DeleteKey(absentKey);
             PlayerPrefs.Save();
+            var scope = PlayerPrefsTestStateScope.Capture(
+                PlayerPrefsKeySpec.String(stringKey),
+                PlayerPrefsKeySpec.Int(intKey),
+                PlayerPrefsKeySpec.Float(floatKey),
+                PlayerPrefsKeySpec.String(absentKey));
+            PlayerPrefs.SetString(stringKey, "after");
+            PlayerPrefs.SetInt(intKey, 99);
+            PlayerPrefs.SetFloat(floatKey, 0.1f);
+            PlayerPrefs.SetString(absentKey, "temporary");
+
+            scope.Dispose();
+            scope.Dispose();
+
+            Assert.That(PlayerPrefs.GetString(stringKey), Is.EqualTo("before"));
+            Assert.That(PlayerPrefs.GetInt(intKey), Is.EqualTo(7));
+            Assert.That(PlayerPrefs.GetFloat(floatKey), Is.EqualTo(0.75f));
+            Assert.That(PlayerPrefs.HasKey(absentKey), Is.False);
         }
 
-        private static SaveSlotData CreateSlot(int slotNumber, string stageId, string levelGroupId)
+        [Test]
+        public void MissingProfile_DoesNotReadProgressionPlayerPrefs()
+        {
+            using var harness = new SaveHarness();
+            PlayerPrefs.SetString(
+                RemovedCampaignPlayerPrefsKeys.SaveSlotsKey,
+                "{\"removedSchema\":true}");
+            PlayerPrefs.Save();
+
+            var facade = CampaignSaveFacadeFactory.Create(harness.Options());
+            var load = facade.CampaignSaveSlots.LoadAllWithReport();
+
+            Assert.That(load.Slots, Has.Length.EqualTo(CampaignSaveSlotPolicy.SlotCount));
+            Assert.That(load.Slots.All(slot => slot.IsEmpty), Is.True);
+            Assert.That(load.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.Missing));
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(PlayerPrefs.HasKey(RemovedCampaignPlayerPrefsKeys.SaveSlotsKey), Is.True);
+        }
+
+        [Test]
+        public void ProfileWrites_DoNotWriteOrDeleteProgressionPlayerPrefs()
+        {
+            using var harness = new SaveHarness();
+            PlayerPrefs.SetString(RemovedCampaignPlayerPrefsKeys.SaveSlotsKey, "sentinel");
+            PlayerPrefs.SetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey, 3);
+            PlayerPrefs.Save();
+            var facade = CampaignSaveFacadeFactory.Create(harness.Options());
+
+            facade.CampaignSaveSlots.SaveSlot(CreateSlot(1));
+            facade.CampaignSaveSlots.DeleteSlot(1);
+            facade.CampaignSaveSlots.ClearAll();
+
+            Assert.That(PlayerPrefs.GetString(RemovedCampaignPlayerPrefsKeys.SaveSlotsKey),
+                Is.EqualTo("sentinel"));
+            Assert.That(PlayerPrefs.GetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey),
+                Is.EqualTo(3));
+        }
+
+        [Test]
+        public void MissingLocalState_DoesNotReadActiveSlotPlayerPrefs()
+        {
+            using var harness = new SaveHarness();
+            var profileDocument = CampaignProfileDocumentMapper.ToDocument(
+                new[] { CreateSlot(2) },
+                "profile",
+                2,
+                string.Empty,
+                "product");
+            var profileStore = new CampaignSaveSlotStoreAdapter(
+                new CampaignSaveService(new LoadedRepository(profileDocument)));
+            var localRepository = new FileCampaignLocalLaunchStateRepository(
+                new AtomicTextFileStore(harness.SaveRootPath));
+            var storage = new LocalStateActiveSlotStorage(localRepository, profileStore);
+            PlayerPrefs.SetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey, 2);
+            PlayerPrefs.Save();
+
+            var loaded = storage.TryGetActiveSlot(out var slotNumber);
+
+            Assert.That(loaded, Is.False);
+            Assert.That(slotNumber, Is.Zero);
+            Assert.That(File.Exists(harness.LocalStatePath), Is.False);
+            Assert.That(PlayerPrefs.GetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey),
+                Is.EqualTo(2));
+        }
+
+        [Test]
+        public void DeleteSlot_UsesCurrentLaunchStateRepairWithoutCompatibilityMetadata()
+        {
+            var profile = new RecordingSaveSlotStore(CreateSlot(1));
+            var active = new RecordingActiveSlotStorage(1);
+            var pending = new RecordingLaunchHandoffStore(
+                new CampaignLaunchHandoff(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    StageNavigationKind.Continue,
+                    "test",
+                    Guid.NewGuid()));
+            var repairing = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                profile,
+                active,
+                pending);
+
+            repairing.DeleteSlot(1);
+
+            Assert.That(profile.DeleteCount, Is.EqualTo(1));
+            Assert.That(active.ClearCount, Is.EqualTo(1));
+            Assert.That(pending.ClearCount, Is.EqualTo(1));
+        }
+
+        private static SaveSlotData CreateSlot(int slotNumber)
         {
             return new SaveSlotData
             {
                 SlotNumber = slotNumber,
-                CurrentStageId = StageId.CreateOrThrow(stageId),
-                CurrentLevelGroupId = levelGroupId,
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
-                LastPlayedAt = "2026-07-11T00:00:00Z",
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+                RemainingChances = 3,
                 StageClearProfileSnapshot = new StageClearProfileSnapshot(),
             };
         }
 
-        private static ICampaignSaveSlotStore CreateProfileBackedStore(Harness harness)
-        {
-            return CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true)).CampaignSaveSlots;
-        }
-
-        private static CampaignStageSequenceResolver CreateResolver()
-        {
-            return CampaignStageSequenceTestAsset.LoadProductionResolver();
-        }
-
-        private static CampaignProfileDocument ReadProfile(Harness harness)
-        {
-            Assert.That(File.Exists(harness.ProfilePath), Is.True, harness.ProfilePath);
-            return JsonUtility.FromJson<CampaignProfileDocument>(File.ReadAllText(harness.ProfilePath));
-        }
-
-        private static string WriteStageClearSentinel(string key, string scope)
-        {
-            var sentinel = "stage-clear-sentinel:" + scope + ":" + Guid.NewGuid().ToString("N");
-            PlayerPrefs.SetString(key, sentinel);
-            PlayerPrefs.Save();
-            AssertStageClearSentinelUnchanged(key, sentinel);
-            return sentinel;
-        }
-
-        private static void AssertStageClearSentinelUnchanged(string key, string sentinel)
-        {
-            Assert.That(PlayerPrefs.GetString(key, string.Empty), Is.EqualTo(sentinel), key);
-        }
-
-        private static ProviderHarness CreateProvider(params string[] stageIds)
-        {
-            var catalog = ScriptableObject.CreateInstance<StageCatalog>();
-            var provider = ScriptableObject.CreateInstance<ScriptableObjectStageCatalogProvider>();
-            var entries = new StageContentEntry[stageIds.Length];
-            for (var i = 0; i < stageIds.Length; i++)
-            {
-                entries[i] = ScriptableObject.CreateInstance<StageContentEntry>();
-                entries[i].AssignStageId(StageId.CreateOrThrow(stageIds[i]));
-            }
-
-            catalog.SetEntries(entries);
-            provider.AssignCatalog(catalog);
-            return new ProviderHarness(provider, catalog, entries);
-        }
-
-        private static string ReadAssetText(string relativeAssetPath)
-        {
-            return File.ReadAllText(Path.Combine(Application.dataPath, relativeAssetPath));
-        }
-
-        private static string ReadRollbackRetentionPolicy()
-        {
-            Assert.That(File.Exists(RollbackRetentionPolicyPath), Is.True, RollbackRetentionPolicyPath);
-            return File.ReadAllText(RollbackRetentionPolicyPath);
-        }
-
-        private static string ExtractSourceRange(string source, string startToken, string endToken)
-        {
-            var start = source.IndexOf(startToken, StringComparison.Ordinal);
-            Assert.That(start, Is.GreaterThanOrEqualTo(0), startToken);
-            var end = source.IndexOf(endToken, start, StringComparison.Ordinal);
-            Assert.That(end, Is.GreaterThan(start), endToken);
-            return source.Substring(start, end - start);
-        }
-
-        private sealed class Harness : IDisposable
+        private sealed class SaveHarness : IDisposable
         {
             private readonly TemporarySavePathProvider _pathProvider;
-            private readonly string _importDisabledKey;
-            private readonly string _importedSourceHashKey;
-            private readonly string _resetTombstoneUtcKey;
-            private readonly string _deletedSlotGuardsKey;
 
-            public Harness()
+            public SaveHarness()
             {
-                var id = Guid.NewGuid().ToString("N");
-                SaveRootPath = Path.Combine("Temp", "CampaignPlayerPrefsWriteRemovalTests", id);
+                SaveRootPath = Path.Combine(
+                    "Temp",
+                    "CampaignPlayerPrefsWriteRemovalTests",
+                    Guid.NewGuid().ToString("N"));
                 _pathProvider = new TemporarySavePathProvider(SaveRootPath);
-                LegacySourceKey = "CampaignPlayerPrefsWriteRemovalTests.SaveSlots." + id;
-                LegacyActiveSlotKey = "CampaignPlayerPrefsWriteRemovalTests.ActiveSlot." + id;
-                ActiveSlotKey = "CampaignPlayerPrefsWriteRemovalTests.ActiveSlotProvider." + id;
-                _importDisabledKey = "CampaignPlayerPrefsWriteRemovalTests.ImportDisabled." + id;
-                _importedSourceHashKey = "CampaignPlayerPrefsWriteRemovalTests.ImportedSourceHash." + id;
-                _resetTombstoneUtcKey = "CampaignPlayerPrefsWriteRemovalTests.ResetTombstoneUtc." + id;
-                _deletedSlotGuardsKey = "CampaignPlayerPrefsWriteRemovalTests.DeletedSlotGuards." + id;
-                LegacyMarkerStore = new CampaignLegacyImportMarkerStore(
-                    _importDisabledKey,
-                    _importedSourceHashKey,
-                    _resetTombstoneUtcKey,
-                    _deletedSlotGuardsKey);
             }
 
             public string SaveRootPath { get; }
 
-            public string ProfilePath => Path.Combine(SaveRootPath, FileCampaignProfileRepository.ProfileFileName);
+            public string ProfilePath =>
+                Path.Combine(SaveRootPath, FileCampaignProfileRepository.ProfileFileName);
 
-            public string LegacySourceKey { get; }
+            public string LocalStatePath =>
+                Path.Combine(SaveRootPath, CampaignLocalLaunchStateRepository.FileName);
 
-            public string LegacyActiveSlotKey { get; }
-
-            public string ActiveSlotKey { get; }
-
-            public CampaignLegacyImportMarkerStore LegacyMarkerStore { get; }
-
-            public CampaignSaveCompositionOptions Options(
-                CampaignSaveBackendMode backendMode,
-                bool enableProfileWrite = false,
-                bool allowLegacyImport = true,
-                string legacySourceKey = null,
-                string legacyActiveSlotKey = null)
+            public CampaignSaveCompositionOptions Options()
             {
                 return new CampaignSaveCompositionOptions
                 {
-                    BackendMode = backendMode,
                     PathProvider = _pathProvider,
-                    ProductVersion = "write-removal-test-product",
-                    ProfileId = "write-removal-test-profile",
-                    UtcNow = () => FixedNowUtc,
-                    EnableProfileWrite = enableProfileWrite,
-                    AllowLegacyImport = allowLegacyImport,
-                    LegacyCampaignSourceKey = legacySourceKey ?? LegacySourceKey,
-                    LegacyActiveSlotKey = legacyActiveSlotKey ?? LegacyActiveSlotKey,
-                    LegacyImportMarkerStore = LegacyMarkerStore,
+                    ProductVersion = "product",
+                    ProfileId = "profile",
                 };
             }
 
@@ -971,15 +286,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 {
                     Directory.Delete(SaveRootPath, recursive: true);
                 }
-
-                PlayerPrefs.DeleteKey(LegacySourceKey);
-                PlayerPrefs.DeleteKey(LegacyActiveSlotKey);
-                PlayerPrefs.DeleteKey(ActiveSlotKey);
-                PlayerPrefs.DeleteKey(_importDisabledKey);
-                PlayerPrefs.DeleteKey(_importedSourceHashKey);
-                PlayerPrefs.DeleteKey(_resetTombstoneUtcKey);
-                PlayerPrefs.DeleteKey(_deletedSlotGuardsKey);
-                PlayerPrefs.Save();
             }
         }
 
@@ -991,98 +297,349 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
-        private sealed class ProviderHarness : IDisposable
+        private sealed class LoadedRepository : ICampaignProfileRepository
         {
-            private readonly StageCatalog _catalog;
-            private readonly StageContentEntry[] _entries;
+            private CampaignProfileDocument _document;
 
-            public ProviderHarness(
-                ScriptableObjectStageCatalogProvider provider,
-                StageCatalog catalog,
-                StageContentEntry[] entries)
+            public LoadedRepository(CampaignProfileDocument document)
             {
-                Provider = provider;
-                _catalog = catalog;
-                _entries = entries;
+                _document = document;
             }
 
-            public ScriptableObjectStageCatalogProvider Provider { get; }
-
-            public void Dispose()
+            public CampaignProfileLoadResult Load()
             {
-                for (var i = 0; i < _entries.Length; i++)
-                {
-                    UnityEngine.Object.DestroyImmediate(_entries[i]);
-                }
+                return new CampaignProfileLoadResult(
+                    CampaignProfileLoadStatus.Loaded,
+                    _document,
+                    "loaded");
+            }
 
-                UnityEngine.Object.DestroyImmediate(Provider);
-                UnityEngine.Object.DestroyImmediate(_catalog);
+            public void Save(CampaignProfileDocument document)
+            {
+                _document = document;
+            }
+
+            public void SaveDestructive(CampaignProfileDocument document)
+            {
+                Save(document);
             }
         }
 
-        private sealed class PlayerPrefsStringBackup : IDisposable
+        private sealed class RecordingSaveSlotStore : ICampaignSaveSlotStore
         {
-            private readonly string _key;
-            private readonly bool _hadValue;
-            private readonly string _value;
+            private SaveSlotData _slot;
 
-            private PlayerPrefsStringBackup(string key)
+            public RecordingSaveSlotStore(SaveSlotData slot)
             {
-                _key = key;
-                _hadValue = PlayerPrefs.HasKey(key);
-                _value = _hadValue ? PlayerPrefs.GetString(key, string.Empty) : string.Empty;
+                _slot = slot;
             }
 
-            public static PlayerPrefsStringBackup Capture(string key)
+            public int DeleteCount { get; private set; }
+
+            public string DiagnosticsKey => "recording";
+
+            public CampaignSaveLoadReport LastCampaignLoadReport =>
+                CampaignSaveLoadReport.Loaded("loaded", string.Empty);
+
+            public SaveSlotData[] LoadAll() => _slot == null
+                ? Array.Empty<SaveSlotData>()
+                : new[] { _slot };
+
+            public CampaignSaveLoadResult LoadAllWithReport() =>
+                new CampaignSaveLoadResult(LoadAll(), LastCampaignLoadReport);
+
+            public SaveSlotData LoadSlot(int slotNumber) =>
+                _slot != null && _slot.SlotNumber == slotNumber
+                    ? _slot
+                    : SaveSlotData.CreateEmpty(slotNumber);
+
+            public void SaveSlot(SaveSlotData slot) => _slot = slot;
+
+            public SaveSlotData InitializeNewGame(
+                int slotNumber,
+                CampaignStageSequenceResolver sequenceResolver,
+                string lastPlayedAt) => throw new NotSupportedException();
+
+            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation) =>
+                mutation(_slot);
+
+            public void DeleteSlot(int slotNumber)
             {
-                return new PlayerPrefsStringBackup(key);
+                DeleteCount++;
+                _slot = null;
             }
 
-            public void Dispose()
-            {
-                if (_hadValue)
-                {
-                    PlayerPrefs.SetString(_key, _value);
-                }
-                else
-                {
-                    PlayerPrefs.DeleteKey(_key);
-                }
+            public void ClearAll() => _slot = null;
+        }
 
-                PlayerPrefs.Save();
+        private sealed class RecordingActiveSlotStorage : IActiveSlotStorage
+        {
+            private int _slotNumber;
+
+            public RecordingActiveSlotStorage(int slotNumber)
+            {
+                _slotNumber = slotNumber;
+            }
+
+            public int ClearCount { get; private set; }
+
+            public string DiagnosticsKey => "active";
+
+            public bool TryGetActiveSlot(out int slotNumber)
+            {
+                slotNumber = _slotNumber;
+                return slotNumber > 0;
+            }
+
+            public void SetActiveSlot(int slotNumber) => _slotNumber = slotNumber;
+
+            public void ClearActiveSlot()
+            {
+                ClearCount++;
+                _slotNumber = 0;
             }
         }
 
-        private sealed class PlayerPrefsIntBackup : IDisposable
+        private sealed class RecordingLaunchHandoffStore : ICampaignLaunchHandoffStore
         {
-            private readonly string _key;
-            private readonly bool _hadValue;
-            private readonly int _value;
+            private CampaignLaunchHandoff _handoff;
 
-            private PlayerPrefsIntBackup(string key)
+            public RecordingLaunchHandoffStore(CampaignLaunchHandoff handoff)
             {
-                _key = key;
-                _hadValue = PlayerPrefs.HasKey(key);
-                _value = _hadValue ? PlayerPrefs.GetInt(key, 0) : 0;
+                _handoff = handoff;
             }
 
-            public static PlayerPrefsIntBackup Capture(string key)
+            public int ClearCount { get; private set; }
+
+            public bool TryBegin(
+                int slotNumber,
+                StageId stageId,
+                StageNavigationKind navigationKind,
+                string source,
+                out CampaignLaunchHandoff handoff)
             {
-                return new PlayerPrefsIntBackup(key);
+                handoff = _handoff;
+                return false;
             }
 
-            public void Dispose()
+            public bool TryPeek(out CampaignLaunchHandoff handoff)
             {
-                if (_hadValue)
+                handoff = _handoff;
+                return handoff != null;
+            }
+
+            public bool TryConsume(Guid token, out CampaignLaunchHandoff handoff)
+            {
+                handoff = null;
+                return false;
+            }
+
+            public bool TryClear(Guid token)
+            {
+                if (_handoff == null || _handoff.Token != token)
                 {
-                    PlayerPrefs.SetInt(_key, _value);
-                }
-                else
-                {
-                    PlayerPrefs.DeleteKey(_key);
+                    return false;
                 }
 
+                ClearCount++;
+                _handoff = null;
+                return true;
+            }
+        }
+    }
+
+    internal enum PlayerPrefsValueKind
+    {
+        String,
+        Int,
+        Float,
+    }
+
+    internal readonly struct PlayerPrefsKeySpec
+    {
+        private PlayerPrefsKeySpec(string key, PlayerPrefsValueKind kind)
+        {
+            Key = key;
+            Kind = kind;
+        }
+
+        public string Key { get; }
+
+        public PlayerPrefsValueKind Kind { get; }
+
+        public static PlayerPrefsKeySpec String(string key) =>
+            new PlayerPrefsKeySpec(key, PlayerPrefsValueKind.String);
+
+        public static PlayerPrefsKeySpec Int(string key) =>
+            new PlayerPrefsKeySpec(key, PlayerPrefsValueKind.Int);
+
+        public static PlayerPrefsKeySpec Float(string key) =>
+            new PlayerPrefsKeySpec(key, PlayerPrefsValueKind.Float);
+    }
+
+    internal sealed class PlayerPrefsTestStateScope : IDisposable
+    {
+        private readonly Entry[] _entries;
+        private bool _disposed;
+
+        private PlayerPrefsTestStateScope(PlayerPrefsKeySpec[] specs)
+        {
+            if (specs == null)
+            {
+                throw new ArgumentNullException(nameof(specs));
+            }
+
+            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+            _entries = new Entry[specs.Length];
+            for (var index = 0; index < specs.Length; index++)
+            {
+                var spec = specs[index];
+                if (string.IsNullOrWhiteSpace(spec.Key) || !seenKeys.Add(spec.Key))
+                {
+                    throw new ArgumentException(
+                        $"PlayerPrefs test key '{spec.Key}' is empty or duplicated.",
+                        nameof(specs));
+                }
+
+                _entries[index] = Entry.Capture(spec);
+            }
+        }
+
+        public static PlayerPrefsTestStateScope Capture(params PlayerPrefsKeySpec[] specs) =>
+            new PlayerPrefsTestStateScope(specs);
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            List<Exception> failures = null;
+            for (var index = 0; index < _entries.Length; index++)
+            {
+                try
+                {
+                    _entries[index].Restore();
+                }
+                catch (Exception exception)
+                {
+                    failures ??= new List<Exception>();
+                    failures.Add(exception);
+                }
+            }
+
+            try
+            {
                 PlayerPrefs.Save();
+            }
+            catch (Exception exception)
+            {
+                failures ??= new List<Exception>();
+                failures.Add(exception);
+            }
+
+            if (failures?.Count == 1)
+            {
+                throw failures[0];
+            }
+
+            if (failures?.Count > 1)
+            {
+                throw new AggregateException(
+                    "PlayerPrefs test state could not be fully restored.",
+                    failures);
+            }
+        }
+
+        private readonly struct Entry
+        {
+            private Entry(
+                string key,
+                PlayerPrefsValueKind kind,
+                bool hadValue,
+                string stringValue,
+                int intValue,
+                float floatValue)
+            {
+                Key = key;
+                Kind = kind;
+                HadValue = hadValue;
+                StringValue = stringValue;
+                IntValue = intValue;
+                FloatValue = floatValue;
+            }
+
+            private string Key { get; }
+            private PlayerPrefsValueKind Kind { get; }
+            private bool HadValue { get; }
+            private string StringValue { get; }
+            private int IntValue { get; }
+            private float FloatValue { get; }
+
+            public static Entry Capture(PlayerPrefsKeySpec spec)
+            {
+                var hadValue = PlayerPrefs.HasKey(spec.Key);
+                switch (spec.Kind)
+                {
+                    case PlayerPrefsValueKind.String:
+                        return new Entry(
+                            spec.Key,
+                            spec.Kind,
+                            hadValue,
+                            hadValue ? PlayerPrefs.GetString(spec.Key, string.Empty) : string.Empty,
+                            0,
+                            0f);
+                    case PlayerPrefsValueKind.Int:
+                        return new Entry(
+                            spec.Key,
+                            spec.Kind,
+                            hadValue,
+                            string.Empty,
+                            hadValue ? PlayerPrefs.GetInt(spec.Key, 0) : 0,
+                            0f);
+                    case PlayerPrefsValueKind.Float:
+                        return new Entry(
+                            spec.Key,
+                            spec.Kind,
+                            hadValue,
+                            string.Empty,
+                            0,
+                            hadValue ? PlayerPrefs.GetFloat(spec.Key, 0f) : 0f);
+                    default:
+                        throw new ArgumentOutOfRangeException(
+                            nameof(spec),
+                            spec.Kind,
+                            "Unknown PlayerPrefs value kind.");
+                }
+            }
+
+            public void Restore()
+            {
+                if (!HadValue)
+                {
+                    PlayerPrefs.DeleteKey(Key);
+                    return;
+                }
+
+                switch (Kind)
+                {
+                    case PlayerPrefsValueKind.String:
+                        PlayerPrefs.SetString(Key, StringValue);
+                        break;
+                    case PlayerPrefsValueKind.Int:
+                        PlayerPrefs.SetInt(Key, IntValue);
+                        break;
+                    case PlayerPrefsValueKind.Float:
+                        PlayerPrefs.SetFloat(Key, FloatValue);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(
+                            nameof(Kind),
+                            Kind,
+                            "Unknown PlayerPrefs value kind.");
+                }
             }
         }
     }

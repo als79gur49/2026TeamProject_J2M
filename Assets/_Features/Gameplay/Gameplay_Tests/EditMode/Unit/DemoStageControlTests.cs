@@ -13,15 +13,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class DemoStageControlTests
     {
         private readonly List<UnityEngine.Object> _createdObjects = new();
-        private string _activeSlotKey;
-        private string _saveSlotKey;
+        private string _activeSlotNamespace;
+        private string _saveSlotNamespace;
 
         [SetUp]
         public void SetUp()
         {
-            _saveSlotKey = $"{nameof(DemoStageControlTests)}.Save.{Guid.NewGuid():N}";
-            _activeSlotKey = $"{nameof(DemoStageControlTests)}.Active.{Guid.NewGuid():N}";
-            ClearDefaultSaveSlotPlayerPrefs();
+            _saveSlotNamespace = $"{nameof(DemoStageControlTests)}.Save.{Guid.NewGuid():N}";
+            _activeSlotNamespace = $"{nameof(DemoStageControlTests)}.Active.{Guid.NewGuid():N}";
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
         }
@@ -31,15 +30,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            ClearDefaultSaveSlotPlayerPrefs();
-            if (!string.IsNullOrWhiteSpace(_saveSlotKey))
+            if (!string.IsNullOrWhiteSpace(_saveSlotNamespace))
             {
-                PlayerPrefs.DeleteKey(_saveSlotKey);
+                new TransientCampaignSaveSlotStore(_saveSlotNamespace).ClearAll();
             }
 
-            if (!string.IsNullOrWhiteSpace(_activeSlotKey))
+            if (!string.IsNullOrWhiteSpace(_activeSlotNamespace))
             {
-                PlayerPrefs.DeleteKey(_activeSlotKey);
+                new TransientActiveSlotStorage(_activeSlotNamespace).ClearActiveSlot();
             }
 
             for (var i = 0; i < _createdObjects.Count; i++)
@@ -48,15 +46,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             _createdObjects.Clear();
-        }
-
-        private static void ClearDefaultSaveSlotPlayerPrefs()
-        {
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-            PlayerPrefs.Save();
         }
 
         [Test]
@@ -79,7 +68,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var service = CreateService(new[] { first, selected }, out var saveStore, out var router);
             var directPlayContext = EditorDirectPlayContext.CreateCampaignTempSlot(
                 first.StageId,
-                SaveSlotStore.DefaultRemainingChances);
+                CampaignSaveSlotPolicy.DefaultRemainingChances);
             EditorDirectPlayContextStore.SetCurrent(directPlayContext);
 
             var result = service.StartStage(selected.StageId);
@@ -180,15 +169,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var first = CreateEntry("stage-0-1");
             var extra = CreateEntry("catalog-stage-b");
-            var saveStore = new SaveSlotStore(_saveSlotKey);
-            var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
+            var saveStore = new TransientCampaignSaveSlotStore(_saveSlotNamespace);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(_activeSlotNamespace));
             activeSlotProvider.SetActiveSlot(1);
             saveStore.SaveSlot(new SaveSlotData
             {
                 SlotNumber = 1,
                 CurrentStageId = first.StageId,
                 CurrentLevelGroupId = "level-0",
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
                 StageClearProfileSnapshot = new StageClearProfileSnapshot(),
             });
             var bridge = new DemoStageControlCampaignBridge(
@@ -292,7 +281,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = File.ReadAllText("Assets/_Features/DemoStageControl/Runtime/DemoGameplayOverrides.cs");
 
             Assert.That(source, Does.Not.Contain("SaveSlotData"));
-            Assert.That(source, Does.Not.Contain("SaveSlotStore"));
+            Assert.That(source, Does.Not.Contain("TransientCampaignSaveSlotStore"));
             Assert.That(source, Does.Not.Contain("Stage" + "Completion" + "Profile" + "Snapshot"));
         }
 
@@ -357,7 +346,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private DemoStageControlService CreateService(
             IReadOnlyList<StageContentEntry> entries,
-            out SaveSlotStore saveStore,
+            out TransientCampaignSaveSlotStore saveStore,
             out RecordingStageLaunchRouter router,
             IDemoStageControlLaunchBridge launchBridge = null,
             CampaignStageSequenceResolver sequenceResolver = null)
@@ -368,15 +357,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             var provider = new TestStageCatalogProvider(entries);
-            saveStore = new SaveSlotStore(_saveSlotKey);
-            var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
+            saveStore = new TransientCampaignSaveSlotStore(_saveSlotNamespace);
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(_activeSlotNamespace));
             activeSlotProvider.SetActiveSlot(1);
             saveStore.SaveSlot(new SaveSlotData
             {
                 SlotNumber = 1,
                 CurrentStageId = entries[0].StageId,
                 CurrentLevelGroupId = "level-0",
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
                 StageClearProfileSnapshot = new StageClearProfileSnapshot(),
             });
             var campaignBridge = new DemoStageControlCampaignBridge(

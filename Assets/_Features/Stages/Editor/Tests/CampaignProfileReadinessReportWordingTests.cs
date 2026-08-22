@@ -83,7 +83,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(guide, Does.Contain("Use the report as a Steam Cloud canonical source."));
             Assert.That(
                 guide,
-                Does.Contain("Profile missing, corrupt, stale, mismatch, `LastPlayedSlotNumber` mismatch, or `importedSourceHash` mismatch is not a release blocker."));
+                Does.Contain("Profile missing, corrupt, stale, mismatch, or `LastPlayedSlotNumber` mismatch is not a release blocker"));
             Assert.That(guide, Does.Not.Contain("Steam Cloud canonical file"));
             Assert.That(guide, Does.Not.Contain("ISteamRemoteStorage"));
             Assert.That(guide, Does.Not.Contain("SteamRemoteStorage"));
@@ -109,7 +109,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedAtUtc = "2026-07-08T00:00:00.0000000Z",
                 ProfileId = "profile-tests",
                 LastPlayedSlotNumber = 3,
-                LegacyImport = new CampaignLegacyImportDocument(),
                 Slots = Array.Empty<CampaignSlotDocument>(),
             };
         }

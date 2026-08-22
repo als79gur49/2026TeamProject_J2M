@@ -47,8 +47,8 @@ namespace Game.Feature.UI.Application
                 throw new ArgumentNullException(nameof(localizedTextResolver));
             }
 
-            var cards = new List<SaveSlotCardViewModel>(SaveSlotStore.SlotCount);
-            for (var slotNumber = 1; slotNumber <= SaveSlotStore.SlotCount; slotNumber++)
+            var cards = new List<SaveSlotCardViewModel>(CampaignSaveSlotPolicy.SlotCount);
+            for (var slotNumber = 1; slotNumber <= CampaignSaveSlotPolicy.SlotCount; slotNumber++)
             {
                 var slot = ResolveSlot(slots, slotNumber);
                 var validation = validationService != null

@@ -10,24 +10,28 @@ namespace Game.Feature.Stages.Editor.Tests
         private const string FixedNowUtc = "2026-07-07T00:00:00Z";
         private const string ProfileId = "campaign-save-service-test-profile";
         private const string ProductVersion = "campaign-save-service-test-product";
+        private PlayerPrefsTestStateScope _playerPrefsState;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _playerPrefsState = PlayerPrefsTestStateScope.Capture(
+                PlayerPrefsKeySpec.String(RemovedCampaignPlayerPrefsKeys.SaveSlotsKey),
+                PlayerPrefsKeySpec.Int(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey),
+                PlayerPrefsKeySpec.String(RemovedCampaignPlayerPrefsKeys.LegacySaveSlotsKey),
+                PlayerPrefsKeySpec.Int(RemovedCampaignPlayerPrefsKeys.LegacyActiveSaveSlotKey),
+                PlayerPrefsKeySpec.Float("settings.audio.master.volume"),
+                PlayerPrefsKeySpec.Int("settings.audio.master.muted"),
+                PlayerPrefsKeySpec.Int("settings.display.width"),
+                PlayerPrefsKeySpec.Int("settings.display.height"),
+                PlayerPrefsKeySpec.String("Game.Feature.Input.KeyboardMovementScheme"));
+        }
 
         [TearDown]
         public void TearDown()
         {
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportDisabledKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportedSourceHashKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
-            PlayerPrefs.DeleteKey("settings.audio.master.volume");
-            PlayerPrefs.DeleteKey("settings.audio.master.muted");
-            PlayerPrefs.DeleteKey("settings.display.width");
-            PlayerPrefs.DeleteKey("settings.display.height");
-            PlayerPrefs.DeleteKey("Game.Feature.Input.KeyboardMovementScheme");
-            PlayerPrefs.Save();
+            _playerPrefsState?.Dispose();
+            _playerPrefsState = null;
         }
 
         [Test]
@@ -39,13 +43,14 @@ namespace Game.Feature.Stages.Editor.Tests
             var result = service.InitializeNewGame(1, "stage-1-1", "level-1");
 
             Assert.That(result.Succeeded, Is.True);
-            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(repository.DestructiveSaveCount, Is.EqualTo(1));
             Assert.That(repository.SavedDocument.ProfileId, Is.EqualTo(ProfileId));
             Assert.That(repository.SavedDocument.SavedAtUtc, Is.EqualTo(FixedNowUtc));
             Assert.That(repository.SavedDocument.LastPlayedSlotNumber, Is.EqualTo(1));
             Assert.That(repository.SavedDocument.Slots[0].StageId, Is.EqualTo("stage-1-1"));
             Assert.That(repository.SavedDocument.Slots[0].LevelGroupId, Is.EqualTo("level-1"));
-            Assert.That(repository.SavedDocument.Slots[0].RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+            Assert.That(repository.SavedDocument.Slots[0].RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
             Assert.That(repository.SavedDocument.Slots[0].LastPlayedAtUtc, Is.EqualTo(FixedNowUtc));
         }
 
@@ -79,6 +84,8 @@ namespace Game.Feature.Stages.Editor.Tests
             });
 
             Assert.That(result.Succeeded, Is.True);
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            Assert.That(repository.DestructiveSaveCount, Is.Zero);
             Assert.That(repository.SavedDocument.Slots[0].StageId, Is.EqualTo("stage-1-2"));
             Assert.That(repository.SavedDocument.Slots[0].RemainingChances, Is.EqualTo(2));
             Assert.That(repository.SavedDocument.Slots[0].LastPlayedAtUtc, Is.EqualTo(FixedNowUtc));
@@ -191,6 +198,8 @@ namespace Game.Feature.Stages.Editor.Tests
             var result = service.DeleteSlot(1);
 
             Assert.That(result.Succeeded, Is.True);
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(repository.DestructiveSaveCount, Is.EqualTo(1));
             Assert.That(repository.SavedDocument.Slots, Has.Length.EqualTo(1));
             Assert.That(repository.SavedDocument.Slots[0].SlotNumber, Is.EqualTo(2));
             Assert.That(repository.SavedDocument.Slots[0].StageId, Is.EqualTo("stage-2-1"));
@@ -198,47 +207,25 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void ClearAll_WritesEmptyValidProfileAndResetMarker()
+        public void ClearAll_WritesEmptyValidProfileWithoutTouchingPlayerPrefs()
         {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "legacy-stays");
+            PlayerPrefs.SetString(RemovedCampaignPlayerPrefsKeys.SaveSlotsKey, "unsupported-source-stays");
             PlayerPrefs.Save();
-            var marker = new RecordingResetMarkerPort();
             var repository = new RecordingRepository(CreateDocument(
                 CreateSlot(1, "stage-1-1", "level-1", remainingChances: 3)));
-            var service = CreateService(repository, marker);
+            var service = CreateService(repository);
 
             var result = service.ClearAll();
 
             Assert.That(result.Succeeded, Is.True);
-            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(repository.DestructiveSaveCount, Is.EqualTo(1));
             Assert.That(repository.SavedDocument.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
             Assert.That(repository.SavedDocument.ProfileId, Is.EqualTo(ProfileId));
             Assert.That(repository.SavedDocument.LastPlayedSlotNumber, Is.Zero);
             Assert.That(repository.SavedDocument.Slots, Is.Empty);
-            Assert.That(repository.SavedDocument.LegacyImport.ImportDisabled, Is.True);
-            Assert.That(repository.SavedDocument.LegacyImport.ResetTombstoneUtc, Is.EqualTo(FixedNowUtc));
-            Assert.That(marker.MarkCount, Is.EqualTo(1));
-            Assert.That(marker.ResetTombstoneUtc, Is.EqualTo(FixedNowUtc));
-            Assert.That(PlayerPrefs.GetString(SaveSlotPrefsKeys.SaveSlotsKey), Is.EqualTo("legacy-stays"));
-        }
-
-        [Test]
-        public void ClearAll_WithLegacyResetMarkerPort_WritesRemigrationGuardMarkers()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "legacy-stays");
-            PlayerPrefs.Save();
-            var repository = new RecordingRepository(CreateDocument(
-                CreateSlot(1, "stage-1-1", "level-1", remainingChances: 3)));
-            var service = CreateService(repository, new CampaignLegacyImportResetMarkerPort());
-
-            var result = service.ClearAll();
-
-            Assert.That(result.Succeeded, Is.True);
-            Assert.That(PlayerPrefs.GetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey), Is.EqualTo(1));
-            Assert.That(
-                PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey),
-                Is.EqualTo(FixedNowUtc));
-            Assert.That(PlayerPrefs.GetString(SaveSlotPrefsKeys.SaveSlotsKey), Is.EqualTo("legacy-stays"));
+            Assert.That(PlayerPrefs.GetString(RemovedCampaignPlayerPrefsKeys.SaveSlotsKey),
+                Is.EqualTo("unsupported-source-stays"));
         }
 
         [Test]
@@ -272,7 +259,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(result.Succeeded, Is.True);
             Assert.That(repository.LoadCount, Is.EqualTo(1));
-            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(repository.DestructiveSaveCount, Is.EqualTo(1));
             Assert.That(PlayerPrefs.GetFloat("settings.audio.master.volume"), Is.EqualTo(0.25f));
             Assert.That(PlayerPrefs.GetInt("settings.audio.master.muted"), Is.EqualTo(1));
             Assert.That(PlayerPrefs.GetInt("settings.display.width"), Is.EqualTo(1600));
@@ -306,13 +294,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(source, Does.Not.Contain("SteamRemoteStorage"));
         }
 
-        private static CampaignSaveService CreateService(
-            RecordingRepository repository,
-            ICampaignSaveResetMarkerPort resetMarkerPort = null)
+        private static CampaignSaveService CreateService(RecordingRepository repository)
         {
             return new CampaignSaveService(
                 repository,
-                resetMarkerPort,
                 () => FixedNowUtc,
                 ProfileId,
                 ProductVersion);
@@ -327,7 +312,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedAtUtc = "2026-07-06T00:00:00Z",
                 ProfileId = ProfileId,
                 LastPlayedSlotNumber = slots.Length > 0 ? slots[0].SlotNumber : 0,
-                LegacyImport = new CampaignLegacyImportDocument(),
                 Slots = slots,
             };
         }
@@ -366,6 +350,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
             public int SaveCount { get; private set; }
 
+            public int DestructiveSaveCount { get; private set; }
+
             public CampaignProfileLoadResult Load()
             {
                 LoadCount++;
@@ -386,19 +372,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedDocument = document;
                 CurrentDocument = document;
             }
-        }
 
-        private sealed class RecordingResetMarkerPort : ICampaignSaveResetMarkerPort
-        {
-            public int MarkCount { get; private set; }
-
-            public string ResetTombstoneUtc { get; private set; }
-
-            public void MarkResetImportDisabled(string resetTombstoneUtc)
+            public void SaveDestructive(CampaignProfileDocument document)
             {
-                MarkCount++;
-                ResetTombstoneUtc = resetTombstoneUtc;
+                DestructiveSaveCount++;
+                SavedDocument = document;
+                CurrentDocument = document;
             }
         }
+
     }
 }

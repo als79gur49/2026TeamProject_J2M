@@ -50,7 +50,7 @@ namespace Game.Feature.UI.Tests
             ResultTransitionVisualSnapshotRegistry.ResetForTests();
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             CampaignLaunchHandoffSessionStore.ResetForTests();
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
             CampaignChanceHudDiagnostics.IsEnabled = false;
@@ -208,7 +208,7 @@ namespace Game.Feature.UI.Tests
             {
                 saveHarness.PrepareDefaultSlot(
                     StageId.CreateOrThrow("stage-0-1"),
-                    SaveSlotStore.DefaultRemainingChances);
+                    CampaignSaveSlotPolicy.DefaultRemainingChances);
                 CampaignSaveCompositionProvider.SetProductionCompositionForTests(
                     saveHarness.SaveStore,
                     saveHarness.RecoveryPort,
@@ -364,10 +364,10 @@ namespace Game.Feature.UI.Tests
         {
             var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
             var provider = CreateProvider("fixture-a", "fixture-c", "fixture-b");
-            var saveKey = CreatePrefsKey("divergent-menu-saves");
-            var activeKey = CreatePrefsKey("divergent-menu-active");
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeStorage = new PlayerPrefsActiveSlotStorage(activeKey);
+            var saveKey = CreateTransientNamespace("divergent-menu-saves");
+            var activeKey = CreateTransientNamespace("divergent-menu-active");
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeStorage = new TransientActiveSlotStorage(activeKey);
             var handoffStore = new RecordingCampaignLaunchHandoffStore();
             try
             {
@@ -724,8 +724,6 @@ namespace Game.Feature.UI.Tests
             var directPlayContext = new EditorDirectPlayContext(
                 EditorDirectPlayMode.CampaignProductionSlot,
                 completedStageId,
-                string.Empty,
-                string.Empty,
                 remainingChances: 2,
                 suppressCampaignFlow: false);
             try
@@ -772,8 +770,6 @@ namespace Game.Feature.UI.Tests
                 : new EditorDirectPlayContext(
                     EditorDirectPlayMode.CampaignProductionSlot,
                     stageId,
-                    string.Empty,
-                    string.Empty,
                     remainingChances: 2,
                     suppressCampaignFlow: false);
             var request = new StageNavigationRequest(
@@ -792,16 +788,25 @@ namespace Game.Feature.UI.Tests
                     throw new InvalidOperationException("Injected first retry rejection.");
                 }
             });
+            var initialBootstrap = StageLaunchContext.CreateDirectPlay(stageId);
+            var temporaryPathProvider = new TemporaryCampaignSavePathProvider();
+            var temporaryProfilePath = temporaryPathProvider.GetSaveFilePath(
+                FileCampaignProfileRepository.ProfileFileName);
             try
             {
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 EditorDirectPlayContextStore.SetCurrent(directPlayContext);
+                Assert.That(StageLaunchContextStore.TrySetCurrent(initialBootstrap), Is.True);
+                Directory.CreateDirectory(temporaryPathProvider.SaveRootPath);
+                File.WriteAllText(temporaryProfilePath, "temporary-campaign-marker");
                 var router = new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader);
 
                 Assert.Throws<InvalidOperationException>(() => router.Launch(request));
 
                 Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(directPlayContext));
-                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+                Assert.That(StageLaunchContextStore.TryPeek(out var restoredBootstrap), Is.True);
+                Assert.That(restoredBootstrap, Is.SameAs(initialBootstrap));
+                Assert.That(File.Exists(temporaryProfilePath), Is.True);
 
                 Assert.DoesNotThrow(() => router.Launch(request));
 
@@ -811,6 +816,55 @@ namespace Game.Feature.UI.Tests
                     Is.EqualTo(directPlayContext));
                 Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
                 Assert.That(current.EditorDirectPlayContext, Is.EqualTo(directPlayContext));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        [Test]
+        public void ConfiguredGameplayStageLaunchRouter_OldFailurePreservesNewerDirectPlayOwners()
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var attemptedStageId = StageId.CreateOrThrow("stage-0-1");
+            var newerStageId = StageId.CreateOrThrow("stage-0-2");
+            var attemptedDirectPlay = EditorDirectPlayContext.CreateCampaignTempSlot(
+                attemptedStageId,
+                remainingChances: 2);
+            var newerDirectPlay = EditorDirectPlayContext.CreateCampaignTempSlot(
+                newerStageId,
+                remainingChances: 3);
+            var request = new StageNavigationRequest(
+                attemptedStageId,
+                StageNavigationKind.Retry,
+                "pause-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.ManualRetry,
+                attemptedDirectPlay);
+            StageLaunchContext newerPrime = null;
+            var sceneLoader = new FakeSceneLoadPort(_ =>
+            {
+                EditorDirectPlayContextStore.SetCurrent(newerDirectPlay);
+                newerPrime = StageLaunchContextStore.PrimePendingEditorDirectPlay(newerStageId);
+                throw new InvalidOperationException("Injected stale launch failure.");
+            });
+            var initialBootstrap = StageLaunchContext.CreateDirectPlay(attemptedStageId);
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                EditorDirectPlayContextStore.SetCurrent(attemptedDirectPlay);
+                Assert.That(StageLaunchContextStore.TrySetCurrent(initialBootstrap), Is.True);
+
+                Assert.Throws<InvalidOperationException>(() =>
+                    new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader).Launch(request));
+
+                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(newerDirectPlay));
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+                Assert.That(
+                    StageLaunchContextStore.TryPeekPendingEditorDirectPlayContext(out var pending),
+                    Is.True);
+                Assert.That(pending, Is.EqualTo(newerPrime));
             }
             finally
             {
@@ -829,8 +883,6 @@ namespace Game.Feature.UI.Tests
                 : new EditorDirectPlayContext(
                     EditorDirectPlayMode.CampaignProductionSlot,
                     stageId,
-                    string.Empty,
-                    string.Empty,
                     remainingChances: 2,
                     suppressCampaignFlow: false);
             var request = new StageNavigationRequest(
@@ -842,14 +894,27 @@ namespace Game.Feature.UI.Tests
                 directPlayContext);
 
             EditorDirectPlayContextStore.Clear();
-            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(request);
+            var attemptedOwnershipGeneration =
+                EditorDirectPlayContextStore.OwnershipGeneration;
+            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(
+                request,
+                attemptedOwnershipGeneration);
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(directPlayContext));
 
             var newerContext = EditorDirectPlayContext.CreateNonCampaign(
                 StageId.CreateOrThrow("stage-0-2"));
             EditorDirectPlayContextStore.SetCurrent(newerContext);
-            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(request);
+            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(
+                request,
+                attemptedOwnershipGeneration);
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(newerContext));
+
+            EditorDirectPlayContextStore.Clear();
+            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(
+                request,
+                attemptedOwnershipGeneration);
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(),
+                Is.EqualTo(EditorDirectPlayContext.None));
         }
 
         [Test]
@@ -862,8 +927,6 @@ namespace Game.Feature.UI.Tests
             var directPlayContext = new EditorDirectPlayContext(
                 EditorDirectPlayMode.CampaignProductionSlot,
                 stageId,
-                string.Empty,
-                string.Empty,
                 remainingChances: 2,
                 suppressCampaignFlow: false);
             var request = new StageNavigationRequest(
@@ -912,8 +975,6 @@ namespace Game.Feature.UI.Tests
                 : new EditorDirectPlayContext(
                     EditorDirectPlayMode.CampaignProductionSlot,
                     stageId,
-                    string.Empty,
-                    string.Empty,
                     remainingChances: 2,
                     suppressCampaignFlow: false);
             var initialLaunchContext = StageLaunchContext.CreateDirectPlay(stageId);
@@ -982,12 +1043,6 @@ namespace Game.Feature.UI.Tests
                     ProductVersion = options.ProductVersion,
                     ProfileId = options.ProfileId,
                     UtcNow = options.UtcNow,
-                    EnableProfileWrite = options.EnableProfileWrite,
-                    AllowLegacyImport = options.AllowLegacyImport,
-                    LegacyCampaignSourceKey = options.LegacyCampaignSourceKey,
-                    LegacyActiveSlotKey = options.LegacyActiveSlotKey,
-                    LegacyImportMarkerStore = options.LegacyImportMarkerStore,
-                    CreateCompatibilityAdapter = true,
                 });
             var localStateRepository = new FileCampaignLocalLaunchStateRepository(
                 new AtomicTextFileStore(options.PathProvider.SaveRootPath));
@@ -1042,8 +1097,8 @@ namespace Game.Feature.UI.Tests
         {
             var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
             var sceneLoader = new FakeSceneLoadPort();
-            var activeKey = CreatePrefsKey("return-active");
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var activeKey = CreateTransientNamespace("return-active");
+            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
             try
             {
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
@@ -1825,10 +1880,10 @@ namespace Game.Feature.UI.Tests
         private static ControllerHarness CreateControllerHarness(params string[] catalogStageIds)
         {
             var provider = CreateProvider(catalogStageIds);
-            var saveKey = CreatePrefsKey("saves");
-            var activeKey = CreatePrefsKey("active");
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotStorage = new PlayerPrefsActiveSlotStorage(activeKey);
+            var saveKey = CreateTransientNamespace("saves");
+            var activeKey = CreateTransientNamespace("active");
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotStorage = new TransientActiveSlotStorage(activeKey);
             var activeSlotProvider = new ActiveSlotProvider(activeSlotStorage);
             var launchHandoffStore = new RecordingCampaignLaunchHandoffStore();
             var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
@@ -1936,7 +1991,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(expectedType.IsInstanceOfType(property.objectReferenceValue), Is.True, propertyName);
         }
 
-        private static string CreatePrefsKey(string suffix)
+        private static string CreateTransientNamespace(string suffix)
         {
             return "Game.Feature.UI.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
         }
@@ -2056,7 +2111,7 @@ namespace Game.Feature.UI.Tests
                 CampaignLaunchHandoffSessionStore.ResetForTests();
                 StageLaunchContextStore.Clear();
                 EditorDirectPlayContextStore.Clear();
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                EditorDirectPlayContextStore.ClearTemporaryCampaignState();
                 UnityEngine.Object.DestroyImmediate(installerObject);
                 UnityEngine.Object.DestroyImmediate(routeConfig);
                 saveHarness.Dispose();
@@ -2313,7 +2368,6 @@ namespace Game.Feature.UI.Tests
         private sealed class TemporaryProductionSaveHarness : IDisposable
         {
             private readonly IAtomicTextFileStore _localStateTextFileStore;
-            private readonly string[] _playerPrefsKeys;
             private readonly IAtomicTextFileStore _profileTextFileStore;
 
             public TemporaryProductionSaveHarness()
@@ -2321,27 +2375,8 @@ namespace Game.Feature.UI.Tests
                 var id = Guid.NewGuid().ToString("N");
                 TestRootPath = Path.Combine("Temp", "CampaignProductionEntryTests", id);
                 SaveRootPath = Path.Combine(TestRootPath, "Saves");
-                var keyPrefix = "Game.Feature.UI.Tests.CampaignProductionEntry." + id;
-                _playerPrefsKeys = new[]
-                {
-                    keyPrefix + ".LegacyCampaign",
-                    keyPrefix + ".LegacyActive",
-                    keyPrefix + ".ImportDisabled",
-                    keyPrefix + ".ImportedSourceHash",
-                    keyPrefix + ".ResetTombstoneUtc",
-                    keyPrefix + ".DeletedSlotGuards",
-                };
-
                 var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
                 options.PathProvider = new TemporarySavePathProvider(SaveRootPath);
-                options.AllowLegacyImport = false;
-                options.LegacyCampaignSourceKey = _playerPrefsKeys[0];
-                options.LegacyActiveSlotKey = _playerPrefsKeys[1];
-                options.LegacyImportMarkerStore = new CampaignLegacyImportMarkerStore(
-                    _playerPrefsKeys[2],
-                    _playerPrefsKeys[3],
-                    _playerPrefsKeys[4],
-                    _playerPrefsKeys[5]);
 
                 var facade = CampaignSaveFacadeFactory.Create(options);
                 SaveStore = facade.CampaignSaveSlots;
@@ -2349,7 +2384,6 @@ namespace Game.Feature.UI.Tests
                 _localStateTextFileStore = new AtomicTextFileStore(SaveRootPath);
                 ActiveSlotStorage = new LocalStateActiveSlotStorage(
                     new FileCampaignLocalLaunchStateRepository(_localStateTextFileStore),
-                    new PlayerPrefsActiveSlotStorage(_playerPrefsKeys[1]),
                     SaveStore);
                 ActiveSlotProvider = new ActiveSlotProvider(ActiveSlotStorage);
                 RecoveryPort = new CampaignLaunchStateRepairingCampaignSaveRecoveryPort(
@@ -2415,12 +2449,6 @@ namespace Game.Feature.UI.Tests
 
             public void Dispose()
             {
-                for (var i = 0; i < _playerPrefsKeys.Length; i++)
-                {
-                    PlayerPrefs.DeleteKey(_playerPrefsKeys[i]);
-                }
-
-                PlayerPrefs.Save();
                 if (Directory.Exists(TestRootPath))
                 {
                     Directory.Delete(TestRootPath, recursive: true);
@@ -2461,7 +2489,7 @@ namespace Game.Feature.UI.Tests
 
             public ControllerHarness(
                 ProviderHarness provider,
-                SaveSlotStore saveStore,
+                TransientCampaignSaveSlotStore saveStore,
                 ActiveSlotProvider activeSlotProvider,
                 RecordingCampaignLaunchHandoffStore launchHandoffStore,
                 FakeConfirmPopupPort confirmPort,
@@ -2477,7 +2505,7 @@ namespace Game.Feature.UI.Tests
                 Controller = controller;
             }
 
-            public SaveSlotStore SaveStore { get; }
+            public TransientCampaignSaveSlotStore SaveStore { get; }
 
             public ActiveSlotProvider ActiveSlotProvider { get; }
 

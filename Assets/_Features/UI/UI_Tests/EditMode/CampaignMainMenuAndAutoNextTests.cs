@@ -69,10 +69,10 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenuController_DeleteMutatesOnlyWhenConfirmed()
         {
-            var saveKey = CreatePrefsKey(nameof(MainMenuController_DeleteMutatesOnlyWhenConfirmed));
+            var saveKey = CreateTransientNamespace(nameof(MainMenuController_DeleteMutatesOnlyWhenConfirmed));
             var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotStorage = new PlayerPrefsActiveSlotStorage(activeKey);
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var activeSlotStorage = new TransientActiveSlotStorage(activeKey);
             var activeSlotProvider = new ActiveSlotProvider(activeSlotStorage);
             var launchHandoffStore = new RecordingCampaignLaunchHandoffStore();
             var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
@@ -105,6 +105,35 @@ namespace Game.Feature.UI.Tests
             confirmPort.Complete(true);
             Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.True);
             Assert.That(activeSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
+        }
+
+        [Test]
+        public void MainMenuController_DeleteConfirmationAfterDisposeDoesNotMutateOrRefresh()
+        {
+            var saveStore = new TransientCampaignSaveSlotStore(
+                CreateTransientNamespace(nameof(MainMenuController_DeleteConfirmationAfterDisposeDoesNotMutateOrRefresh)));
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+            });
+            var confirmPort = new FakeConfirmPopupPort();
+            var controller = new MainMenuController(
+                saveStore,
+                new RecordingCampaignLaunchHandoffStore(),
+                CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                new FakeStageLaunchRouter(),
+                confirmPort);
+            var refreshCount = 0;
+            controller.ViewModelChanged += _ => refreshCount++;
+
+            controller.RequestDelete(1);
+            controller.Dispose();
+            confirmPort.Complete(true);
+
+            Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.False);
+            Assert.That(refreshCount, Is.Zero);
         }
 
         [Test]
@@ -190,7 +219,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(driver.LaunchCount, Is.EqualTo(1));
         }
 
-        private static string CreatePrefsKey(string suffix)
+        private static string CreateTransientNamespace(string suffix)
         {
             return "Game.Feature.UI.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
         }

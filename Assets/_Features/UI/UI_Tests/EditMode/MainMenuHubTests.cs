@@ -752,7 +752,7 @@ namespace Game.Feature.UI.Tests
         {
             var source = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/MainMenuScreenView.cs");
 
-            Assert.That(source, Does.Not.Contain("SaveSlotStore"));
+            Assert.That(source, Does.Not.Contain("TransientCampaignSaveSlotStore"));
             Assert.That(source, Does.Not.Contain("ActiveSlotProvider"));
             Assert.That(source, Does.Not.Contain("StageLaunchContextStore"));
         }
@@ -762,7 +762,7 @@ namespace Game.Feature.UI.Tests
         {
             var source = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SaveSlotPanelView.cs");
 
-            Assert.That(source, Does.Not.Contain("SaveSlotStore"));
+            Assert.That(source, Does.Not.Contain("TransientCampaignSaveSlotStore"));
             Assert.That(source, Does.Not.Contain("ActiveSlotProvider"));
             Assert.That(source, Does.Not.Contain("SceneManager"));
             Assert.That(source, Does.Not.Contain("StageLaunchContextStore"));
@@ -783,7 +783,7 @@ namespace Game.Feature.UI.Tests
         {
             var source = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/MainMenuHubController.cs");
 
-            Assert.That(source, Does.Not.Contain("SaveSlotStore"));
+            Assert.That(source, Does.Not.Contain("TransientCampaignSaveSlotStore"));
             Assert.That(source, Does.Not.Contain("ActiveSlotProvider"));
             Assert.That(source, Does.Not.Contain("IStageLaunchRouter"));
             Assert.That(source, Does.Not.Contain("StageNavigationRequest"));

@@ -1066,9 +1066,7 @@ namespace Game.Feature.UI.Tests
             var directPlayContext = new EditorDirectPlayContext(
                 EditorDirectPlayMode.CampaignProductionSlot,
                 stageId,
-                string.Empty,
-                string.Empty,
-                SaveSlotStore.DefaultRemainingChances,
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
                 suppressCampaignFlow: false);
             var callSequence = new List<string>();
             stageLaunchRouter.AfterLaunch = _ => callSequence.Add("route-accepted");

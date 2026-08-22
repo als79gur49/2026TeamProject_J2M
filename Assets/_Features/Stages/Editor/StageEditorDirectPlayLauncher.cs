@@ -82,7 +82,7 @@ namespace Game.Feature.Stages.Editor
                 throw new InvalidOperationException("No stage id has been launched yet in this editor session. Use Tools/Stages/Direct Play/Launch Stage... first.");
             }
 
-            LaunchStage(stageId, EditorDirectPlayMode.NonCampaign, SaveSlotStore.DefaultRemainingChances);
+            LaunchStage(stageId, EditorDirectPlayMode.NonCampaign, CampaignSaveSlotPolicy.DefaultRemainingChances);
         }
 
         [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/stage-0-1")]
@@ -91,7 +91,7 @@ namespace Game.Feature.Stages.Editor
             LaunchStage(
                 StageId.CreateOrThrow(Stage0_1StageId),
                 EditorDirectPlayMode.NonCampaign,
-                SaveSlotStore.DefaultRemainingChances);
+                CampaignSaveSlotPolicy.DefaultRemainingChances);
         }
 
         [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/stage-1-1")]
@@ -100,7 +100,7 @@ namespace Game.Feature.Stages.Editor
             LaunchStage(
                 StageId.CreateOrThrow(Stage1_1StageId),
                 EditorDirectPlayMode.NonCampaign,
-                SaveSlotStore.DefaultRemainingChances);
+                CampaignSaveSlotPolicy.DefaultRemainingChances);
         }
 
         public static void LaunchStage(
@@ -178,7 +178,7 @@ namespace Game.Feature.Stages.Editor
                 {
                     if (mode == EditorDirectPlayMode.CampaignTempSlot)
                     {
-                        EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                        EditorDirectPlayContextStore.ClearTemporaryCampaignState();
                     }
 
                     EditorDirectPlayContextStore.Clear();
@@ -205,9 +205,9 @@ namespace Game.Feature.Stages.Editor
                 "Direct Play launch was rejected because Play Mode entry or another stage transition is already in progress.");
         }
 
-        public static void ClearTempDirectPlaySave()
+        public static void ClearTemporaryCampaignState()
         {
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
         }
 
         public static void PrimeNonCampaignForTests(StageId stageId)
@@ -256,7 +256,7 @@ namespace Game.Feature.Stages.Editor
                 throw new ArgumentException("Standalone campaign seed requires a valid StageId.", nameof(stageId));
             }
 
-            SaveSlotStore.ThrowIfInvalidSlotNumber(productionSlotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(productionSlotNumber);
             if (string.IsNullOrWhiteSpace(seedPath))
             {
                 throw new ArgumentException("Standalone campaign seed path is required.", nameof(seedPath));
@@ -435,7 +435,7 @@ namespace Game.Feature.Stages.Editor
             {
                 if (ownership.Mode == EditorDirectPlayMode.CampaignTempSlot)
                 {
-                    EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                    EditorDirectPlayContextStore.ClearTemporaryCampaignState();
                 }
 
                 EditorDirectPlayContextStore.Clear();
@@ -466,12 +466,11 @@ namespace Game.Feature.Stages.Editor
             CampaignStageSequenceResolver sequenceResolver,
             int remainingChances)
         {
-            remainingChances = Mathf.Clamp(remainingChances, 1, SaveSlotStore.DefaultRemainingChances);
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            var saveStore = new SaveSlotStore(
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
-            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            remainingChances = Mathf.Clamp(remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances);
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var activeSlotProvider = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(
+                saveStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData
@@ -493,8 +492,8 @@ namespace Game.Feature.Stages.Editor
             int remainingChances,
             int productionSlotNumber)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(productionSlotNumber);
-            remainingChances = Mathf.Clamp(remainingChances, 1, SaveSlotStore.DefaultRemainingChances);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(productionSlotNumber);
+            remainingChances = Mathf.Clamp(remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances);
             if (!EditorUtility.DisplayDialog(
                     "Overwrite Production Campaign Slot",
                     $"Overwrite production campaign slot {productionSlotNumber} for Direct Play?",
@@ -533,8 +532,8 @@ namespace Game.Feature.Stages.Editor
                 throw new ArgumentNullException(nameof(activeSlotProvider));
             }
 
-            SaveSlotStore.ThrowIfInvalidSlotNumber(productionSlotNumber);
-            remainingChances = Mathf.Clamp(remainingChances, 1, SaveSlotStore.DefaultRemainingChances);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(productionSlotNumber);
+            remainingChances = Mathf.Clamp(remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances);
             saveStore.SaveSlot(new SaveSlotData
             {
                 SlotNumber = productionSlotNumber,
@@ -547,8 +546,6 @@ namespace Game.Feature.Stages.Editor
             EditorDirectPlayContextStore.SetCurrent(new EditorDirectPlayContext(
                 EditorDirectPlayMode.CampaignProductionSlot,
                 stageId,
-                string.Empty,
-                string.Empty,
                 remainingChances,
                 suppressCampaignFlow: false));
         }

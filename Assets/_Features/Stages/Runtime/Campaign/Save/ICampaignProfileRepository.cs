@@ -5,5 +5,7 @@ namespace Game.Feature.Stages
         CampaignProfileLoadResult Load();
 
         void Save(CampaignProfileDocument document);
+
+        void SaveDestructive(CampaignProfileDocument document);
     }
 }

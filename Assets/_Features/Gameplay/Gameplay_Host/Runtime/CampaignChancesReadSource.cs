@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.Host
             out GameplayChanceAudioPolicy audioPolicy)
         {
             remainingChances = 0;
-            maxChances = SaveSlotStore.DefaultRemainingChances;
+            maxChances = CampaignSaveSlotPolicy.DefaultRemainingChances;
             audioPolicy = GameplayChanceAudioPolicy.Default;
             if (_displayOverride != null &&
                 _displayOverride.TryRead(
@@ -95,7 +95,7 @@ namespace Game.Feature.Gameplay.Host
                     FailureReason = maxChances > 0
                         ? CampaignChanceReadFailureReason.None
                         : CampaignChanceReadFailureReason.MaxChancesZero,
-                    SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
+                    SaveStoreDiagnosticsKey = _saveSlotStore.DiagnosticsKey,
                     ActiveSlotNumber = _runningSlotContext.SlotNumber,
                 });
                 return true;
@@ -105,7 +105,7 @@ namespace Game.Feature.Gameplay.Host
             var slot = _saveSlotStore.LoadSlot(runningSlotNumber);
             var launchStageId = StageLaunchContextStore.CurrentStageId;
             var normalizedRemainingChances = slot.RemainingChances <= 0
-                ? SaveSlotStore.DefaultRemainingChances
+                ? CampaignSaveSlotPolicy.DefaultRemainingChances
                 : slot.RemainingChances;
             remainingChances = Clamp(normalizedRemainingChances, 0, maxChances);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.SourceRead)
@@ -125,7 +125,7 @@ namespace Game.Feature.Gameplay.Host
                 ActiveSlotNumber = runningSlotNumber,
                 RemainingChances = remainingChances,
                 MaxChances = maxChances,
-                SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
+                SaveStoreDiagnosticsKey = _saveSlotStore.DiagnosticsKey,
             });
             return true;
         }

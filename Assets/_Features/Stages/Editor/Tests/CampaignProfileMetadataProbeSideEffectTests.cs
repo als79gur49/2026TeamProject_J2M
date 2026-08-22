@@ -8,16 +8,6 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignProfileMetadataProbeSideEffectTests
     {
-        [TearDown]
-        public void TearDown()
-        {
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportDisabledKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportedSourceHashKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
-            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
-            PlayerPrefs.Save();
-        }
-
         [Test]
         public void Probe_MissingProfile_DoesNotCreateFileOrDirectory()
         {
@@ -62,26 +52,6 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void Probe_DoesNotWriteMarkers()
-        {
-            using var harness = new ProfileHarness();
-            harness.WriteProfile(CreateProfile(2));
-            PlayerPrefs.SetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey, 1);
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.ImportedSourceHashKey, "marker-source");
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey, "2026-07-08T01:02:03.0000000Z");
-            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey, "marker-guards");
-            PlayerPrefs.Save();
-
-            var result = harness.Probe.Probe();
-
-            Assert.That(result.Status, Is.EqualTo(CampaignProfileMetadataProbeStatus.Loaded));
-            Assert.That(PlayerPrefs.GetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey), Is.EqualTo(1));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ImportedSourceHashKey), Is.EqualTo("marker-source"));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey), Is.EqualTo("2026-07-08T01:02:03.0000000Z"));
-            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey), Is.EqualTo("marker-guards"));
-        }
-
-        [Test]
         public void Probe_DoesNotCreateTempFilesOrDeleteExistingTempFiles()
         {
             using var harness = new ProfileHarness();
@@ -105,7 +75,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedAtUtc = "2026-07-08T00:00:00.0000000Z",
                 ProfileId = "profile-tests",
                 LastPlayedSlotNumber = lastPlayedSlotNumber,
-                LegacyImport = new CampaignLegacyImportDocument(),
                 Slots = new[]
                 {
                     new CampaignSlotDocument

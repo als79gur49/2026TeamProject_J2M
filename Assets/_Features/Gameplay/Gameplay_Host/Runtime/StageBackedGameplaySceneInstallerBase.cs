@@ -194,7 +194,7 @@ namespace Game.Feature.Gameplay.Host
                             : string.Empty,
                         EditorDirectPlayMode = directPlayContext.Mode,
                         SuppressCampaignFlow = directPlayContext.SuppressCampaignFlow,
-                        HasCustomSaveNamespace = directPlayContext.HasCustomSaveNamespace,
+                        UsesTemporaryCampaignState = directPlayContext.UsesTemporaryCampaignState,
                         EnableCampaignFlow = enableCampaignFlow,
                         CampaignRuntimeActive = false,
                         HasActiveSlot = hasActiveSlot,
@@ -204,8 +204,8 @@ namespace Game.Feature.Gameplay.Host
                         HasLaunchHandoff = hasPendingLaunch,
                         HandoffSlotNumber = hasPendingLaunch ? capturedHandoff.SlotNumber : 0,
                         HandoffToken = hasPendingLaunch ? capturedHandoff.Token.ToString("N") : string.Empty,
-                        SaveSlotStoreKey = _saveSlotStore != null ? _saveSlotStore.DiagnosticsKey : string.Empty,
-                        ActiveSlotProviderKey = _activeSlotProvider != null ? _activeSlotProvider.PlayerPrefsKey : string.Empty,
+                        SaveStoreDiagnosticsKey = _saveSlotStore != null ? _saveSlotStore.DiagnosticsKey : string.Empty,
+                        ActiveSlotDiagnosticsKey = _activeSlotProvider != null ? _activeSlotProvider.DiagnosticsKey : string.Empty,
                         SourceIsNull = true,
                         FailureReason = !hasActiveSlot && !hasPendingLaunch
                             ? CampaignChanceReadFailureReason.NoActiveSlot
@@ -237,7 +237,7 @@ namespace Game.Feature.Gameplay.Host
                     ResolvedStageId = resolvedStageId.IsValid ? resolvedStageId.Value : string.Empty,
                     EditorDirectPlayMode = directPlayContext.Mode,
                     SuppressCampaignFlow = directPlayContext.SuppressCampaignFlow,
-                    HasCustomSaveNamespace = directPlayContext.HasCustomSaveNamespace,
+                    UsesTemporaryCampaignState = directPlayContext.UsesTemporaryCampaignState,
                     EnableCampaignFlow = enableCampaignFlow,
                     CampaignRuntimeActive = true,
                     HasActiveSlot = _activeSlotProvider.HasActiveSlot,
@@ -245,8 +245,8 @@ namespace Game.Feature.Gameplay.Host
                     HasLaunchHandoff = hasPendingLaunch,
                     HandoffSlotNumber = hasPendingLaunch ? capturedHandoff.SlotNumber : 0,
                     HandoffToken = hasPendingLaunch ? capturedHandoff.Token.ToString("N") : string.Empty,
-                    SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
-                    ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
+                    SaveStoreDiagnosticsKey = _saveSlotStore.DiagnosticsKey,
+                    ActiveSlotDiagnosticsKey = _activeSlotProvider.DiagnosticsKey,
                     SourceType = configuration.CampaignChancesReadSource.GetType().Name,
                     SourceIsNull = false,
                 });
@@ -488,12 +488,11 @@ namespace Game.Feature.Gameplay.Host
 
         private void EnsureCampaignStores(EditorDirectPlayContext directPlayContext)
         {
-            if (directPlayContext.HasCustomSaveNamespace)
+            if (directPlayContext.UsesTemporaryCampaignState)
             {
-                _saveSlotStore ??= new SaveSlotStore(
-                    directPlayContext.SaveSlotStoreKey,
-                    directPlayContext.ActiveSlotProviderKey);
-                _activeSlotProvider ??= new ActiveSlotProvider(directPlayContext.ActiveSlotProviderKey);
+                _saveSlotStore ??= CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+                _activeSlotProvider ??= CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(
+                    _saveSlotStore);
                 return;
             }
 

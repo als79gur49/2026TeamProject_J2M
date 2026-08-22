@@ -15,11 +15,6 @@ namespace Game.Feature.Stages
             return GetOrCreateProductionComposition().RecoveryPort;
         }
 
-        public static ICampaignSaveSlotStore CreateProductionLegacyRollback()
-        {
-            return Create(CreateProductionLegacyRollbackOptions());
-        }
-
         internal static ICampaignSaveSlotStore Create(CampaignSaveCompositionOptions options)
         {
             return CampaignSaveFacadeFactory.Create(options).CampaignSaveSlots;
@@ -36,29 +31,63 @@ namespace Game.Feature.Stages
             var production = GetOrCreateProductionComposition();
             var storage = ReferenceEquals(profileSlots, production.SlotStore)
                 ? production.ActiveSlotStorage
-                : CreateProductionLocalStateActiveSlotStorage(
+                : CreateLocalStateActiveSlotStorage(
                     profileSlots,
                     CreateProductionProfileBackedOptions().PathProvider);
             return new ActiveSlotProvider(storage);
+        }
+
+        public static ICampaignSaveSlotStore CreateTemporaryProfileBacked()
+        {
+            return Create(CreateTemporaryProfileBackedOptions());
+        }
+
+        public static ActiveSlotProvider CreateTemporaryActiveSlotProvider(
+            ICampaignSaveSlotStore profileSlots)
+        {
+            if (profileSlots == null)
+            {
+                throw new System.ArgumentNullException(nameof(profileSlots));
+            }
+
+            return new ActiveSlotProvider(
+                CreateLocalStateActiveSlotStorage(
+                    profileSlots,
+                    CreateTemporaryProfileBackedOptions().PathProvider));
+        }
+
+        public static void ClearTemporaryCampaignState()
+        {
+            ClearTemporaryCampaignState(new TemporaryCampaignSavePathProvider());
+        }
+
+        internal static void ClearTemporaryCampaignState(ISavePathProvider pathProvider)
+        {
+            if (pathProvider == null)
+            {
+                throw new System.ArgumentNullException(nameof(pathProvider));
+            }
+
+            var textFileStore = new AtomicTextFileStore(pathProvider.SaveRootPath);
+            textFileStore.DeleteActiveFileArtifacts(FileCampaignProfileRepository.ProfileFileName);
+            textFileStore.DeleteActiveFileArtifacts(CampaignLocalLaunchStateRepository.FileName);
+            textFileStore.DeleteActiveFileArtifacts(CampaignSaveRecoveryService.PendingResetFileName);
         }
 
         internal static CampaignSaveCompositionOptions CreateProductionProfileBackedOptions()
         {
             return new CampaignSaveCompositionOptions
             {
-                BackendMode = CampaignSaveBackendMode.ProfileJsonExplicit,
-                EnableProfileWrite = true,
-                AllowLegacyImport = true,
-                PreservePlayerPrefsSource = true,
                 PathProvider = new ApplicationPersistentDataSavePathProvider(),
             };
         }
 
-        internal static CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()
+        internal static CampaignSaveCompositionOptions CreateTemporaryProfileBackedOptions()
         {
             return new CampaignSaveCompositionOptions
             {
-                BackendMode = CampaignSaveBackendMode.PlayerPrefsLegacy,
+                PathProvider = new TemporaryCampaignSavePathProvider(),
+                ProfileId = "direct-play-campaign-profile",
             };
         }
 
@@ -94,7 +123,7 @@ namespace Game.Feature.Stages
 
             var options = CreateProductionProfileBackedOptions();
             var facade = CampaignSaveFacadeFactory.Create(options);
-            var activeSlotStorage = CreateProductionLocalStateActiveSlotStorage(
+            var activeSlotStorage = CreateLocalStateActiveSlotStorage(
                 facade.CampaignSaveSlots,
                 options.PathProvider);
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
@@ -118,7 +147,7 @@ namespace Game.Feature.Stages
             return productionComposition;
         }
 
-        private static IActiveSlotStorage CreateProductionLocalStateActiveSlotStorage(
+        private static IActiveSlotStorage CreateLocalStateActiveSlotStorage(
             ICampaignSaveSlotStore profileSlots,
             ISavePathProvider pathProvider)
         {
@@ -126,7 +155,6 @@ namespace Game.Feature.Stages
             return new LocalStateActiveSlotStorage(
                 new FileCampaignLocalLaunchStateRepository(
                     new AtomicTextFileStore(pathProvider.SaveRootPath)),
-                new PlayerPrefsActiveSlotStorage(SaveSlotPrefsKeys.ActiveSaveSlotKey),
                 profileSlots);
         }
 

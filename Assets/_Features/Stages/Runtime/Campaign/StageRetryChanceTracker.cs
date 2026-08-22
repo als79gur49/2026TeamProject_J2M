@@ -50,7 +50,7 @@ namespace Game.Feature.Stages
             }
 
             var remainingChances = slot.RemainingChances <= 0
-                ? SaveSlotStore.DefaultRemainingChances
+                ? CampaignSaveSlotPolicy.DefaultRemainingChances
                 : slot.RemainingChances;
 
             if (remainingChances > 1)
@@ -71,7 +71,7 @@ namespace Game.Feature.Stages
             return new StageRetryRouteResult(
                 StageRetryRouteKind.ReturnToLevelGroupFirstStage,
                 firstStageId,
-                SaveSlotStore.DefaultRemainingChances);
+                CampaignSaveSlotPolicy.DefaultRemainingChances);
         }
     }
 }

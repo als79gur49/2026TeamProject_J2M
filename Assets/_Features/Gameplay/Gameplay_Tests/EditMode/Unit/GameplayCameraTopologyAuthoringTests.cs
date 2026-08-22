@@ -1330,10 +1330,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(launchStageId.IsValid, Is.True);
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
 
-            var saveStore = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
-            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var activeSlotProvider = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData
@@ -1341,7 +1341,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SlotNumber = 1,
                 CurrentStageId = launchStageId,
                 CurrentLevelGroupId = "level-01",
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
                 LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
             });
             activeSlotProvider.SetActiveSlot(1);
@@ -1349,7 +1349,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EditorDirectPlayContextStore.SetCurrent(
                 EditorDirectPlayContext.CreateCampaignTempSlot(
                     launchStageId,
-                    SaveSlotStore.DefaultRemainingChances));
+                    CampaignSaveSlotPolicy.DefaultRemainingChances));
             StageLaunchContextStore.SetCurrent(launchStageId);
         }
 
@@ -1357,7 +1357,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
         }
 
         private static string ReadSceneComponentBlock(string sceneText, string marker)

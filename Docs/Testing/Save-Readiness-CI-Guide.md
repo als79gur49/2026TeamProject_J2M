@@ -125,9 +125,7 @@ CI and release must not fail for valid diagnostics findings:
 - Profile corrupt.
 - Profile stale.
 - `LastPlayedSlotNumber` mismatch.
-- `importedSourceHash` mismatch.
-- Reset tombstone present.
-- Deleted guards present.
+- informational metadata mismatch.
 - Any valid diagnostics warning emitted by the readiness report.
 
 Non-blocking policy:
@@ -135,7 +133,7 @@ Non-blocking policy:
 - Report findings are diagnostics/readiness-only.
 - Findings must not fail release, build, or Steam packaging.
 - Compile, test, contract, and generation failures may fail CI.
-- Profile missing, corrupt, stale, mismatch, `LastPlayedSlotNumber` mismatch, or `importedSourceHash` mismatch is not a release blocker.
+- Profile missing, corrupt, stale, mismatch, or `LastPlayedSlotNumber` mismatch is not a release blocker for this read-only readiness report.
 
 The readiness report is not:
 
@@ -194,6 +192,6 @@ This phase does not:
 - Decide Steam Cloud upload/source file selection.
 - Use the report as a Steam Cloud canonical source.
 - Wire the report into MainMenu, Gameplay, DemoStageControl, runtime UI, or production composition.
-- Change `SaveSlotStore()` default PlayerPrefs behavior.
+- Change runtime campaign save composition or persistence behavior.
 - Add `.github/workflows` files.
 - Add a new `run_tests.sh` lane.

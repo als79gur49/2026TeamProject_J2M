@@ -12,7 +12,7 @@ namespace Game.Feature.Stages
             string source,
             Guid token)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             if (!stageId.IsValid)
             {
                 throw new ArgumentException("Campaign launch handoff requires a canonical StageId.", nameof(stageId));
@@ -205,7 +205,7 @@ namespace Game.Feature.Stages
     {
         public CampaignRunningSlotContext(int slotNumber)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             SlotNumber = slotNumber;
         }
 

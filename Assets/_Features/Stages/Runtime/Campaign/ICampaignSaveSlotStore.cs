@@ -8,7 +8,6 @@ namespace Game.Feature.Stages
     {
         Missing = 0,
         Loaded = 1,
-        ImportedLegacy = 2,
         BackupRecovered = 3,
         CorruptRepairRequired = 4,
         SchemaInvalidRepairRequired = 5,
@@ -159,7 +158,6 @@ namespace Game.Feature.Stages
 
         private readonly ICampaignProfileRepository _repository;
         private readonly IAtomicTextFileStore _textFileStore;
-        private readonly ICampaignSaveResetMarkerPort _resetMarkerPort;
         private readonly Func<DateTime> _utcNow;
         private readonly string _profileId;
         private readonly string _productVersion;
@@ -167,14 +165,12 @@ namespace Game.Feature.Stages
         public CampaignSaveRecoveryService(
             ICampaignProfileRepository repository,
             IAtomicTextFileStore textFileStore,
-            ICampaignSaveResetMarkerPort resetMarkerPort,
             Func<DateTime> utcNow,
             string profileId,
             string productVersion)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _textFileStore = textFileStore ?? throw new ArgumentNullException(nameof(textFileStore));
-            _resetMarkerPort = resetMarkerPort ?? throw new ArgumentNullException(nameof(resetMarkerPort));
             _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
             _profileId = string.IsNullOrWhiteSpace(profileId) ? "campaign-profile" : profileId;
             _productVersion = productVersion ?? string.Empty;
@@ -280,14 +276,8 @@ namespace Game.Feature.Stages
                 if (current.Status == CampaignProfileLoadStatus.Loaded ||
                     current.Status == CampaignProfileLoadStatus.BackupRecovered)
                 {
-                    if (current.Document?.LegacyImport != null &&
-                        current.Document.LegacyImport.ImportDisabled &&
-                        string.Equals(
-                            current.Document.LegacyImport.ResetTombstoneUtc,
-                            pending.StartedAtUtc,
-                            StringComparison.Ordinal))
+                    if (IsCompletedResetProfile(current.Document, pending.StartedAtUtc))
                     {
-                        _resetMarkerPort.MarkResetImportDisabled(pending.StartedAtUtc);
                         return DeletePendingResetArtifacts()
                             ? CampaignSaveResetResult.Completed
                             : CampaignSaveResetResult.Failed;
@@ -383,10 +373,13 @@ namespace Game.Feature.Stages
         {
             try
             {
-                _resetMarkerPort.MarkResetImportDisabled(pending.StartedAtUtc);
                 var suffix = $"rejected.{pending.ResetId}";
-                if (!TryQuarantineIfPresent(FileCampaignProfileRepository.ProfileFileName, suffix) ||
-                    !TryQuarantineIfPresent(FileCampaignProfileRepository.ProfileFileName + ".bak", suffix))
+                if (!TryNormalizeAndQuarantineIfPresent(
+                        FileCampaignProfileRepository.ProfileFileName + ".bak",
+                        suffix) ||
+                    !TryNormalizeAndQuarantineIfPresent(
+                        FileCampaignProfileRepository.ProfileFileName,
+                        suffix))
                 {
                     return CampaignSaveResetResult.Failed;
                 }
@@ -402,6 +395,12 @@ namespace Game.Feature.Stages
             }
         }
 
+        private bool TryNormalizeAndQuarantineIfPresent(string fileName, string suffix)
+        {
+            _textFileStore.CleanupTempFiles(fileName);
+            return TryQuarantineIfPresent(fileName, suffix);
+        }
+
         private bool TryQuarantineIfPresent(string fileName, string suffix)
         {
             return !_textFileStore.Exists(fileName) ||
@@ -415,22 +414,29 @@ namespace Game.Feature.Stages
             return deletedCanonical;
         }
 
-        private CampaignProfileDocument CreateEmptyProfile(string resetTombstoneUtc)
+        private CampaignProfileDocument CreateEmptyProfile(string resetAtUtc)
         {
             return new CampaignProfileDocument
             {
                 SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
                 ProductVersion = _productVersion,
-                SavedAtUtc = resetTombstoneUtc,
+                SavedAtUtc = resetAtUtc,
                 ProfileId = _profileId,
                 LastPlayedSlotNumber = 0,
-                LegacyImport = new CampaignLegacyImportDocument
-                {
-                    ImportDisabled = true,
-                    ResetTombstoneUtc = resetTombstoneUtc,
-                },
                 Slots = Array.Empty<CampaignSlotDocument>(),
             };
+        }
+
+        private bool IsCompletedResetProfile(
+            CampaignProfileDocument document,
+            string resetAtUtc)
+        {
+            return document != null &&
+                   document.SchemaVersion == CampaignProfileDocument.CurrentSchemaVersion &&
+                   string.Equals(document.ProfileId, _profileId, StringComparison.Ordinal) &&
+                   string.Equals(document.SavedAtUtc, resetAtUtc, StringComparison.Ordinal) &&
+                   document.LastPlayedSlotNumber == 0 &&
+                   (document.Slots == null || document.Slots.Length == 0);
         }
 
         private static CampaignSaveLoadStatus MapStatus(CampaignProfileLoadStatus status)

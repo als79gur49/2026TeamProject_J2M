@@ -97,7 +97,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             CampaignChanceHudDiagnostics.Clear();
             CampaignChanceHudDiagnostics.IsEnabled = false;
             CampaignChanceHudDiagnostics.LogToUnityConsole = false;
@@ -369,11 +369,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator TerminalProductionBootstrap_CampaignActive_RequiresAuthorityPortAndArbiter()
         {
             var stageId = StageId.CreateOrThrow("stage-1-1");
-            var saveStore = new SaveSlotStore(
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
-            var activeSlot = new ActiveSlotProvider(
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var activeSlot = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlot.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData
@@ -3814,11 +3811,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static void PrepareCampaignStage(StageId stageId)
         {
-            var saveStore = new SaveSlotStore(
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
-            var activeSlot = new ActiveSlotProvider(
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var activeSlot = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlot.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData

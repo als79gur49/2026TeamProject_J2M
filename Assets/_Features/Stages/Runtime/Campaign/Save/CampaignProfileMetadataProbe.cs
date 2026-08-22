@@ -23,10 +23,6 @@ namespace Game.Feature.Stages
             int lastPlayedSlotNumber,
             int slotDocumentCount,
             int validSlotDocumentCount,
-            string importedSourceHash,
-            bool importDisabled,
-            bool hasResetTombstone,
-            int deletedSlotGuardCount,
             string message)
         {
             Status = status;
@@ -35,10 +31,6 @@ namespace Game.Feature.Stages
             LastPlayedSlotNumber = lastPlayedSlotNumber;
             SlotDocumentCount = slotDocumentCount;
             ValidSlotDocumentCount = validSlotDocumentCount;
-            ImportedSourceHash = importedSourceHash ?? string.Empty;
-            ImportDisabled = importDisabled;
-            HasResetTombstone = hasResetTombstone;
-            DeletedSlotGuardCount = deletedSlotGuardCount;
             Message = message ?? string.Empty;
         }
 
@@ -53,14 +45,6 @@ namespace Game.Feature.Stages
         public int SlotDocumentCount { get; }
 
         public int ValidSlotDocumentCount { get; }
-
-        public string ImportedSourceHash { get; }
-
-        public bool ImportDisabled { get; }
-
-        public bool HasResetTombstone { get; }
-
-        public int DeletedSlotGuardCount { get; }
 
         public string Message { get; }
 
@@ -138,15 +122,11 @@ namespace Game.Feature.Stages
             var validSlotDocumentCount = 0;
             for (var i = 0; i < slots.Length; i++)
             {
-                if (slots[i] != null && SaveSlotStore.IsValidSlotNumber(slots[i].SlotNumber))
+                if (slots[i] != null && CampaignSaveSlotPolicy.IsValidSlotNumber(slots[i].SlotNumber))
                 {
                     validSlotDocumentCount++;
                 }
             }
-
-            var legacyImport = document.LegacyImport;
-            var deletedSlotGuards = legacyImport?.DeletedSlotGuards ??
-                                    Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
 
             return new CampaignProfileMetadataProbeResult(
                 CampaignProfileMetadataProbeStatus.Loaded,
@@ -155,32 +135,13 @@ namespace Game.Feature.Stages
                 document.LastPlayedSlotNumber,
                 slots.Length,
                 validSlotDocumentCount,
-                legacyImport?.ImportedSourceHash,
-                legacyImport?.ImportDisabled ?? false,
-                !string.IsNullOrWhiteSpace(legacyImport?.ResetTombstoneUtc),
-                CountValidDeletedSlotGuards(deletedSlotGuards),
                 "profile.json metadata loaded for diagnostics.");
-        }
-
-        private static int CountValidDeletedSlotGuards(CampaignLegacyDeletedSlotGuardDocument[] guards)
-        {
-            var count = 0;
-            for (var i = 0; i < guards.Length; i++)
-            {
-                if (guards[i] != null && SaveSlotStore.IsValidSlotNumber(guards[i].SlotNumber))
-                {
-                    count++;
-                }
-            }
-
-            return count;
         }
 
         private static bool IsSchemaValid(CampaignProfileDocument document)
         {
-            return document != null &&
-                   document.SchemaVersion > 0 &&
-                   !string.IsNullOrWhiteSpace(document.ProfileId);
+            return CampaignProfileDocumentValidator.Validate(document) ==
+                   CampaignProfileDocumentValidationResult.Valid;
         }
 
         private static bool LooksLikeJsonObject(string rawProfile)
@@ -209,10 +170,6 @@ namespace Game.Feature.Stages
                 string.Empty,
                 0,
                 0,
-                0,
-                string.Empty,
-                false,
-                false,
                 0,
                 message);
         }

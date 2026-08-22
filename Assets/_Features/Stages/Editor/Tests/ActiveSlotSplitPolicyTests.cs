@@ -129,8 +129,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(launcher, Does.Contain("PrimeCampaignProductionSlotCore"));
             Assert.That(launcher, Does.Contain("activeSlotProvider.SetActiveSlot(productionSlotNumber)"));
-            Assert.That(launcher, Does.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
-            Assert.That(context, Does.Contain("Game.Feature.Stages.DirectPlay.TempActiveSaveSlot"));
+            Assert.That(launcher, Does.Contain("CreateTemporaryActiveSlotProvider"));
+            Assert.That(context, Does.Contain("UsesTemporaryCampaignState"));
             Assert.That(launcher, Does.Not.Contain("CampaignLaunchHandoff"));
             Assert.That(context, Does.Not.Contain("CampaignLaunchHandoff"));
         }
@@ -149,7 +149,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(localStatePolicy, Does.Contain("CampaignRunningSlotContext"));
             Assert.That(localStatePolicy, Does.Contain("first accepted"));
             Assert.That(architectureIndex, Does.Contain("active commit point"));
-            Assert.That(cloudPolicy, Does.Contain("not written to any file or PlayerPrefs key"));
+            Assert.That(cloudPolicy, Does.Contain("Pending launch: application-session memory only"));
         }
 
         private static string Read(string relativePath)

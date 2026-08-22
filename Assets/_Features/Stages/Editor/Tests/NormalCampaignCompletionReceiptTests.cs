@@ -225,15 +225,11 @@ namespace Game.Feature.Stages.Editor.Tests
             slot.NormalCampaignCompletionReceipt = receipt;
 
             var clone = slot.Clone().NormalCampaignCompletionReceipt;
-            var compatibility = SaveSlotDtoMapper.FromDto(
-                SaveSlotDtoMapper.ToDto(new[] { slot }))[0]
-                .NormalCampaignCompletionReceipt;
             var profile = CampaignProfileDocumentMapper.ToReceipt(
                 CampaignProfileDocumentMapper.ToSlotDocument(slot)
                     .NormalCampaignCompletionReceipt);
 
             AssertPhysicalEquality(receipt, clone);
-            AssertPhysicalEquality(receipt, compatibility);
             AssertPhysicalEquality(receipt, profile);
         }
 

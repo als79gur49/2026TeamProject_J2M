@@ -1,5 +1,10 @@
 # Save Architecture V2 Phase 4 Policy Closeout
 
+Status: historical, superseded by
+[Pre-Release-Save-Baseline-Policy.md](./Pre-Release-Save-Baseline-Policy.md).
+The implementation and retention statements below preserve phase-close
+provenance only and are not current runtime or release policy.
+
 This note closes the Phase 1-4 policy audit gaps before Phase 5 investigation.
 It is a policy handoff only. It does not switch production storage, enable
 profile.json writes in production, migrate production call sites, or add Steam

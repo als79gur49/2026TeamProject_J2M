@@ -175,7 +175,7 @@ namespace Game.Feature.Stages
                 throw new ArgumentNullException(nameof(saveSlotStore));
             }
 
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             var result = Validate(saveSlotStore.LoadSlot(slotNumber));
             if (result.RequiresSaveSync)
             {

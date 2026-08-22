@@ -14,8 +14,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            ClearStageSavePrefsForTests();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
         }
 
         [Test]
@@ -34,346 +33,130 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignTempDirectPlay_UsesTempSaveAndActiveKeys_NotProductionKeys()
+        public void CampaignTempDirectPlay_UsesIsolatedJsonProfileAndLocalState()
         {
-            ClearStageSavePrefsForTests();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var stageId = StageId.CreateOrThrow("stage-2-2");
+            var pathProvider = new TemporaryCampaignSavePathProvider();
 
             StageEditorDirectPlayLauncher.PrimeCampaignTempSlotForTests(stageId, resolver, remainingChances: 2);
 
-            Assert.That(PlayerPrefs.HasKey(SaveSlotStore.DefaultPlayerPrefsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.True);
+            Assert.That(File.Exists(pathProvider.GetSaveFilePath(FileCampaignProfileRepository.ProfileFileName)), Is.True);
+            Assert.That(File.Exists(pathProvider.GetSaveFilePath(CampaignLocalLaunchStateRepository.FileName)), Is.True);
             Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out var context), Is.True);
-            Assert.That(context.SaveSlotStoreKey, Is.EqualTo(EditorDirectPlayContextStore.TempSaveSlotStoreKey));
-            Assert.That(context.ActiveSlotProviderKey, Is.EqualTo(EditorDirectPlayContextStore.TempActiveSlotProviderKey));
+            Assert.That(context.UsesTemporaryCampaignState, Is.True);
         }
 
         [Test]
-        public void SaveSlotStore_NewWrite_UsesStageClearSaveSlotsKey()
+        public void TemporaryCampaignPath_EditorUsesWorktreePrivateLibraryRoot()
         {
-            ClearStageSavePrefsForTests();
-            var store = new SaveSlotStore();
+            var projectRoot = Path.Combine("Temp", "TemporaryCampaignPathTests", "Project");
+            var dataPath = Path.Combine(projectRoot, "Assets");
 
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
-
-            Assert.That(SaveSlotStore.DefaultPlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
-            var dto = JsonUtility.FromJson<SaveSlotStoreDto>(PlayerPrefs.GetString(SaveSlotPrefsKeys.SaveSlotsKey));
-            Assert.That(dto.SchemaId, Is.EqualTo(SaveSlotStore.SchemaId));
-            Assert.That(dto.SchemaVersion, Is.EqualTo(SaveSlotStore.SchemaVersion));
-            Assert.That(dto.Slots[0].CurrentStageId, Is.EqualTo("stage-1-1"));
-        }
-
-        [Test]
-        public void ActiveSlotStageClearProfileStore_UsesActiveStageClearSaveSlotKey()
-        {
-            ClearStageSavePrefsForTests();
-            var activeSlotProvider = new ActiveSlotProvider();
-
-            activeSlotProvider.SetActiveSlot(2);
-
-            Assert.That(activeSlotProvider.PlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.ActiveSaveSlotKey));
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
-            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.EqualTo(2));
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.False);
-        }
-
-        [Test]
-        public void SavePathProvider_DefaultProvider_UsesPersistentDataSavesRoot()
-        {
-            var provider = new ApplicationPersistentDataSavePathProvider();
+            var resolved = TemporaryCampaignSavePathProvider.ResolveSaveRootPath(
+                isEditor: true,
+                dataPath,
+                Path.Combine("Temp", "unused-cache"),
+                Guid.NewGuid().ToString("N"));
 
             Assert.That(
-                provider.SaveRootPath,
-                Is.EqualTo(Path.Combine(Application.persistentDataPath, ApplicationPersistentDataSavePathProvider.SavesDirectoryName)));
-            Assert.That(
-                provider.GetSaveFilePath("profile.json"),
-                Is.EqualTo(Path.Combine(Application.persistentDataPath, "Saves", "profile.json")));
+                Path.GetFullPath(resolved),
+                Is.EqualTo(Path.GetFullPath(Path.Combine(
+                    projectRoot,
+                    "Library",
+                    "J2M",
+                    "DirectPlayCampaign",
+                    ApplicationPersistentDataSavePathProvider.SavesDirectoryName))));
         }
 
         [Test]
-        public void SavePathProvider_TempRootProvider_CanBeInjectedByTests()
+        public void TemporaryCampaignPath_PlayerScopeIsStablePerProcessIdAndIsolatedAcrossIds()
         {
-            var tempRoot = Path.Combine("Temp", "SavePathProviderTests", Guid.NewGuid().ToString("N"));
-            ISavePathProvider provider = new TemporarySavePathProvider(tempRoot);
+            var cacheRoot = Path.Combine("Temp", "TemporaryCampaignPathTests", "Cache");
+            var firstScope = Guid.NewGuid().ToString("N");
+            var secondScope = Guid.NewGuid().ToString("N");
 
-            Assert.That(provider.SaveRootPath, Is.EqualTo(tempRoot));
-            Assert.That(provider.GetSaveFilePath("profile.json"), Is.EqualTo(Path.Combine(tempRoot, "profile.json")));
+            var first = TemporaryCampaignSavePathProvider.ResolveSaveRootPath(
+                isEditor: false,
+                string.Empty,
+                cacheRoot,
+                firstScope);
+            var sameProcess = TemporaryCampaignSavePathProvider.ResolveSaveRootPath(
+                isEditor: false,
+                string.Empty,
+                cacheRoot,
+                firstScope);
+            var nextProcess = TemporaryCampaignSavePathProvider.ResolveSaveRootPath(
+                isEditor: false,
+                string.Empty,
+                cacheRoot,
+                secondScope);
+
+            Assert.That(sameProcess, Is.EqualTo(first));
+            Assert.That(nextProcess, Is.Not.EqualTo(first));
+            Assert.That(first, Does.Contain(Path.Combine("J2M", "PlayerCaptureCampaign", firstScope)));
         }
 
         [Test]
-        public void FileSaveSlotStorageBackend_NoFile_ReturnsDefaultAndCreatesNoFile()
+        public void TemporaryCampaignPath_PlayerRejectsNonGuidScope()
         {
-            using var harness = CreateSaveFileHarness();
-
-            Assert.That(harness.Backend.HasPayload(), Is.False);
-            Assert.That(harness.Backend.LoadPayload("default-payload"), Is.EqualTo("default-payload"));
-            Assert.That(File.Exists(harness.ProfilePath), Is.False);
-            Assert.That(Directory.Exists(harness.SaveRootPath), Is.False);
+            Assert.Throws<ArgumentException>(() =>
+                TemporaryCampaignSavePathProvider.ResolveSaveRootPath(
+                    isEditor: false,
+                    string.Empty,
+                    Path.Combine("Temp", "TemporaryCampaignPathTests", "Cache"),
+                    ".."));
         }
 
         [Test]
-        public void FileSaveSlotStorageBackend_SaveCreatesProfileAndDirectory()
+        public void TemporaryCampaignPath_PlayerCleanupDeletesOnlyExactGuidScope()
         {
-            using var harness = CreateSaveFileHarness();
-            const string payload = "{\"value\":1}";
+            var cacheRoot = Path.GetFullPath(Path.Combine(
+                "Temp",
+                "TemporaryCampaignPathTests",
+                Guid.NewGuid().ToString("N"),
+                "Cache"));
+            var scope = Guid.NewGuid().ToString("N");
+            var saveRoot = TemporaryCampaignSavePathProvider.ResolveSaveRootPath(
+                isEditor: false,
+                string.Empty,
+                cacheRoot,
+                scope);
+            Directory.CreateDirectory(saveRoot);
+            File.WriteAllText(Path.Combine(saveRoot, "marker.json"), "marker");
 
-            harness.Backend.SavePayload(payload);
+            var deleted = TemporaryCampaignSavePathProvider.TryDeletePlayerProcessScope(
+                saveRoot,
+                cacheRoot);
 
-            Assert.That(Directory.Exists(harness.SaveRootPath), Is.True);
-            Assert.That(File.Exists(harness.ProfilePath), Is.True);
-            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(payload));
+            Assert.That(deleted, Is.True);
+            Assert.That(Directory.Exists(Directory.GetParent(saveRoot).FullName), Is.False);
         }
 
         [Test]
-        public void FileSaveSlotStorageBackend_SaveThenLoad_ReturnsIdenticalRawPayload()
+        public void TemporaryCampaignPath_PlayerCleanupRejectsNonGuidOrEscapingRoot()
         {
-            using var harness = CreateSaveFileHarness();
-            const string payload = "{\"items\":[1,true,null],\"name\":\"profile\"}";
+            var cacheRoot = Path.GetFullPath(Path.Combine(
+                "Temp",
+                "TemporaryCampaignPathTests",
+                Guid.NewGuid().ToString("N"),
+                "Cache"));
+            var outsideRoot = Path.Combine(
+                cacheRoot,
+                "J2M",
+                "outside",
+                Guid.NewGuid().ToString("N"),
+                ApplicationPersistentDataSavePathProvider.SavesDirectoryName);
+            Directory.CreateDirectory(outsideRoot);
 
-            harness.Backend.SavePayload(payload);
+            var deleted = TemporaryCampaignSavePathProvider.TryDeletePlayerProcessScope(
+                outsideRoot,
+                cacheRoot);
 
-            Assert.That(harness.Backend.HasPayload(), Is.True);
-            Assert.That(harness.Backend.LoadPayload(string.Empty), Is.EqualTo(payload));
-        }
-
-        [Test]
-        public void FileSaveSlotStorageBackend_ReplacingExistingProfile_UpdatesBackup()
-        {
-            using var harness = CreateSaveFileHarness();
-            const string firstPayload = "{\"value\":1}";
-            const string secondPayload = "{\"value\":2}";
-
-            harness.Backend.SavePayload(firstPayload);
-            harness.Backend.SavePayload(secondPayload);
-
-            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(secondPayload));
-            Assert.That(File.Exists(harness.BackupPath), Is.True);
-            Assert.That(File.ReadAllText(harness.BackupPath), Is.EqualTo(firstPayload));
-        }
-
-        [Test]
-        public void FileSaveSlotStorageBackend_CorruptCanonicalWithValidBackup_RestoresBackupPayload()
-        {
-            using var harness = CreateSaveFileHarness();
-            const string backupPayload = "{\"value\":1}";
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(harness.ProfilePath, "{\"value\":");
-            File.WriteAllText(harness.BackupPath, backupPayload);
-
-            var loaded = harness.Backend.LoadPayload("default-payload");
-
-            Assert.That(loaded, Is.EqualTo(backupPayload));
-            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(backupPayload));
-        }
-
-        [Test]
-        public void FileSaveSlotStorageBackend_CorruptCanonicalWithoutValidBackup_QuarantinesWithoutEmptyReset()
-        {
-            using var harness = CreateSaveFileHarness();
-            const string corruptPayload = "{\"value\":";
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(harness.ProfilePath, corruptPayload);
-            File.WriteAllText(harness.BackupPath, "{\"backup\":");
-
-            var loaded = harness.Backend.LoadPayload("default-payload");
-            var corruptFiles = Directory.GetFiles(harness.SaveRootPath, "profile.json.corrupt.*");
-
-            Assert.That(loaded, Is.EqualTo("default-payload"));
-            Assert.That(File.Exists(harness.ProfilePath), Is.False);
-            Assert.That(corruptFiles.Length, Is.EqualTo(1));
-            Assert.That(File.ReadAllText(corruptFiles[0]), Is.EqualTo(corruptPayload));
-        }
-
-        [Test]
-        public void FileSaveSlotStorageBackend_LeftoverTempIgnoredAndCleanedOnLoad()
-        {
-            using var harness = CreateSaveFileHarness();
-            const string payload = "{\"value\":1}";
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(harness.ProfilePath, payload);
-            var tempPath = Path.Combine(harness.SaveRootPath, "profile.leftover.tmp");
-            File.WriteAllText(tempPath, "{\"value\":999}");
-
-            var loaded = harness.Backend.LoadPayload(string.Empty);
-
-            Assert.That(loaded, Is.EqualTo(payload));
-            Assert.That(File.Exists(tempPath), Is.False);
-        }
-
-        [Test]
-        public void FileSaveSlotStorageBackend_EmptyAndWhitespacePayloads_ReturnRawPayload()
-        {
-            using var harness = CreateSaveFileHarness();
-            Directory.CreateDirectory(harness.SaveRootPath);
-
-            File.WriteAllText(harness.ProfilePath, string.Empty);
-            Assert.That(harness.Backend.LoadPayload("default-payload"), Is.EqualTo(string.Empty));
-
-            const string whitespacePayload = " \r\n\t ";
-            File.WriteAllText(harness.ProfilePath, whitespacePayload);
-            Assert.That(harness.Backend.LoadPayload("default-payload"), Is.EqualTo(whitespacePayload));
-        }
-
-        [Test]
-        public void SaveSlotStore_FileBackend_SaveSlotThenLoadAll_RoundTripsThroughProfileFile()
-        {
-            using var harness = CreateSaveFileHarness();
-            var store = harness.CreateStore();
-
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-                RemainingChances = 2,
-            });
-
-            var reloaded = harness.CreateStore().LoadAll();
-            Assert.That(File.Exists(harness.ProfilePath), Is.True);
-            Assert.That(reloaded[0].CurrentStageId.Value, Is.EqualTo("stage-1-1"));
-            Assert.That(reloaded[0].RemainingChances, Is.EqualTo(2));
-            Assert.That(reloaded[1].IsEmpty, Is.True);
-        }
-
-        [Test]
-        public void SaveSlotStore_FileBackend_DeleteSlot_RewritesProfilePayload()
-        {
-            using var harness = CreateSaveFileHarness();
-            var store = harness.CreateStore();
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 2,
-                CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
-                CurrentLevelGroupId = "level-2",
-            });
-
-            store.DeleteSlot(1);
-
-            var reloaded = harness.CreateStore().LoadAll();
-            Assert.That(reloaded[0].IsEmpty, Is.True);
-            Assert.That(reloaded[1].CurrentStageId.Value, Is.EqualTo("stage-2-1"));
-            Assert.That(File.ReadAllText(harness.ProfilePath), Does.Not.Contain("stage-1-1"));
-            Assert.That(File.ReadAllText(harness.ProfilePath), Does.Contain("stage-2-1"));
-        }
-
-        [Test]
-        public void SaveSlotStore_FileBackend_ClearAll_ClearsProfilePayload()
-        {
-            using var harness = CreateSaveFileHarness();
-            var store = harness.CreateStore();
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
-
-            store.ClearAll();
-
-            Assert.That(File.Exists(harness.ProfilePath), Is.False);
-            Assert.That(File.Exists(harness.BackupPath), Is.False);
-            Assert.That(harness.CreateStore().LoadAll()[0].IsEmpty, Is.True);
-        }
-
-        [Test]
-        public void SaveSlotStore_FileBackend_InvalidPayload_UsesGuardResetWithoutSilentEmptyOverwrite()
-        {
-            using var harness = CreateSaveFileHarness();
-            const string invalidPayload = "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":99,\"SaveVersion\":1,\"Slots\":[]}";
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(harness.ProfilePath, invalidPayload);
-            var store = harness.CreateStore();
-
-            var slots = store.LoadAll();
-            var corruptFiles = Directory.GetFiles(harness.SaveRootPath, "profile.json.corrupt.*");
-
-            Assert.That(slots[0].IsEmpty, Is.True);
-            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
-            Assert.That(File.Exists(harness.ProfilePath), Is.False);
-            Assert.That(corruptFiles.Length, Is.EqualTo(1));
-            Assert.That(File.ReadAllText(corruptFiles[0]), Is.EqualTo(invalidPayload));
-        }
-
-        [Test]
-        public void SaveSlotStore_PublicConstructor_StillUsesPlayerPrefsBackendByDefault()
-        {
-            using var harness = CreateSaveFileHarness();
-            ClearStageSavePrefsForTests();
-            var store = new SaveSlotStore();
-
-            store.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotStore.DefaultPlayerPrefsKey), Is.True);
-            Assert.That(File.Exists(harness.ProfilePath), Is.False);
-            Assert.That(Directory.Exists(harness.SaveRootPath), Is.False);
-        }
-
-        [Test]
-        public void SaveSlotStore_OldPrefsKey_IsDeletedOnInitialize()
-        {
-            ClearStageSavePrefsForTests();
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.LegacySaveSlotsKey, "{\"SaveVersion\":1}");
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey, 1);
-            PlayerPrefs.Save();
-
-            _ = new SaveSlotStore();
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.False);
-        }
-
-        [Test]
-        public void SaveSlotStore_CustomKey_DoesNotDeleteLegacyPrefs()
-        {
-            ClearStageSavePrefsForTests();
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.LegacySaveSlotsKey, "{\"SaveVersion\":1}");
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey, 1);
-            PlayerPrefs.Save();
-            var customKey = CreatePrefsKey(nameof(SaveSlotStore_CustomKey_DoesNotDeleteLegacyPrefs));
-
-            _ = new SaveSlotStore(customKey);
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.True);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.True);
-        }
-
-        [Test]
-        public void SaveSlotTestScope_ClearsOldAndNewPrefsKeys()
-        {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.LegacySaveSlotsKey, "old-save");
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey, 1);
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "new-save");
-            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 2);
-            PlayerPrefs.Save();
-
-            ClearStageSavePrefsForTests();
-
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
+            Assert.That(deleted, Is.False);
+            Assert.That(Directory.Exists(outsideRoot), Is.True);
+            Directory.Delete(Path.Combine(cacheRoot, "J2M"), recursive: true);
         }
 
         [Test]
@@ -384,8 +167,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
             StageEditorDirectPlayLauncher.PrimeCampaignTempSlotForTests(stageId, resolver, remainingChances: 1);
 
-            var store = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
-            var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var store = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var activeSlotProvider = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(store);
             var slot = store.LoadSlot(1);
             Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(1));
             Assert.That(slot.CurrentStageId, Is.EqualTo(stageId));
@@ -402,15 +185,12 @@ namespace Game.Feature.Stages.Editor.Tests
             var saveRootPath = Path.Combine("Temp", "StandaloneCampaignSeedProfileTests", Guid.NewGuid().ToString("N"));
             var saveStore = CampaignSaveCompositionProvider.Create(new CampaignSaveCompositionOptions
             {
-                BackendMode = CampaignSaveBackendMode.ProfileJsonExplicit,
                 PathProvider = new TemporarySavePathProvider(saveRootPath),
-                EnableProfileWrite = true,
-                AllowLegacyImport = false,
                 ProductVersion = "seed-import-test",
                 ProfileId = "seed-import-test-profile",
-                LegacyImportMarkerStore = CreateMarkerStore("SeedImport"),
             });
-            var activeSlotProvider = new ActiveSlotProvider(CreatePrefsKey("seed-active"));
+            var activeSlotProvider = new ActiveSlotProvider(
+                new TransientActiveSlotStorage(CreateTransientNamespace("seed-active")));
             activeSlotProvider.ClearActiveSlot();
             try
             {
@@ -436,7 +216,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(result.Status, Is.EqualTo(StandaloneCampaignSaveSeedImportStatus.Imported));
                 Assert.That(File.Exists(seedPath), Is.False);
                 Assert.That(File.Exists(Path.Combine(saveRootPath, FileCampaignProfileRepository.ProfileFileName)), Is.True);
-                Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
                 Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(2));
                 Assert.That(slot.CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-2-2")));
                 Assert.That(slot.CurrentLevelGroupId, Is.EqualTo("level-2"));
@@ -461,8 +240,9 @@ namespace Game.Feature.Stages.Editor.Tests
             var seedPath = CreateTempSeedPath();
             var provider = CreateProvider("stage-0-1");
             var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
-            var saveStore = new SaveSlotStore();
-            var activeSlotProvider = new ActiveSlotProvider();
+            var saveStore = new TransientCampaignSaveSlotStore(CreateTransientNamespace("seed-missing-catalog"));
+            var activeSlotProvider = new ActiveSlotProvider(
+                new TransientActiveSlotStorage(CreateTransientNamespace("seed-missing-catalog-active")));
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             try
@@ -530,22 +310,16 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void DirectPlayTemp_RemainsTempPlayerPrefsAndProductionOverwriteUsesProvider()
+        public void DirectPlayTempAndProduction_UseDedicatedJsonCompositions()
         {
             var source = File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs");
             var tempMethod = ExtractSourceRange(source, "private static void PrimeCampaignTempSlot", "private static void PrimeCampaignProductionSlot");
             var productionMethod = ExtractSourceRange(source, "private static void PrimeCampaignProductionSlot", "private static void ValidateCampaignStage");
 
-            Assert.That(tempMethod, Does.Contain("EditorDirectPlayContextStore.TempSaveSlotStoreKey"));
-            Assert.That(tempMethod, Does.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
-            Assert.That(tempMethod, Does.Contain("new SaveSlotStore("));
-            Assert.That(tempMethod, Does.Contain("new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey)"));
-            Assert.That(tempMethod, Does.Not.Contain("CampaignSaveCompositionProvider"));
+            Assert.That(tempMethod, Does.Contain("CampaignSaveCompositionProvider.CreateTemporaryProfileBacked()"));
+            Assert.That(tempMethod, Does.Contain("CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider("));
             Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
             Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore)"));
-            Assert.That(productionMethod, Does.Not.Contain("new SaveSlotStore()"));
-            Assert.That(productionMethod, Does.Not.Contain("new ActiveSlotProvider()"));
-            Assert.That(productionMethod, Does.Not.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
         }
 
         [Test]
@@ -629,7 +403,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void SaveSlotValidation_MigratesRetiredStageFiveOne_ToCompletedFinalStage()
         {
             var provider = CreateProvider("stage-4-3");
-            var saveStore = new SaveSlotStore();
+            var saveStore = new TransientCampaignSaveSlotStore();
             saveStore.ClearAll();
             try
             {
@@ -702,18 +476,9 @@ namespace Game.Feature.Stages.Editor.Tests
             return Path.Combine(directory, Guid.NewGuid().ToString("N") + ".json");
         }
 
-        private static string CreatePrefsKey(string suffix)
+        private static string CreateTransientNamespace(string suffix)
         {
             return "Game.Feature.Stages.Editor.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
-        }
-
-        private static CampaignLegacyImportMarkerStore CreateMarkerStore(string suffix)
-        {
-            return new CampaignLegacyImportMarkerStore(
-                CreatePrefsKey(suffix + ".ImportDisabled"),
-                CreatePrefsKey(suffix + ".ImportedSourceHash"),
-                CreatePrefsKey(suffix + ".ResetTombstoneUtc"),
-                CreatePrefsKey(suffix + ".DeletedSlotGuards"));
         }
 
         private static string ExtractSourceRange(string source, string startToken, string endToken)
@@ -723,21 +488,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var end = source.IndexOf(endToken, start, StringComparison.Ordinal);
             Assert.That(end, Is.GreaterThan(start), endToken);
             return source.Substring(start, end - start);
-        }
-
-        private static SaveFileHarness CreateSaveFileHarness()
-        {
-            return new SaveFileHarness(
-                Path.Combine("Temp", "FileSaveSlotStorageBackendTests", Guid.NewGuid().ToString("N")));
-        }
-
-        private static void ClearStageSavePrefsForTests()
-        {
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
-            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
-            PlayerPrefs.Save();
         }
 
         private static void DeleteFileIfExists(string path)
@@ -753,50 +503,6 @@ namespace Game.Feature.Stages.Editor.Tests
             public TemporarySavePathProvider(string saveRootPath)
                 : base(saveRootPath)
             {
-            }
-        }
-
-        private sealed class SaveFileHarness : IDisposable
-        {
-            private readonly string _testRootPath;
-            private readonly TemporarySavePathProvider _provider;
-
-            public SaveFileHarness(string testRootPath)
-            {
-                _testRootPath = testRootPath;
-                SaveRootPath = Path.Combine(testRootPath, "Saves");
-                _provider = new TemporarySavePathProvider(SaveRootPath);
-                Backend = new FileSaveSlotStorageBackend(_provider);
-                StoreKey = "Game.Feature.Stages.Editor.Tests.FileBackend." + Guid.NewGuid().ToString("N");
-            }
-
-            public string SaveRootPath { get; }
-
-            public string StoreKey { get; }
-
-            public FileSaveSlotStorageBackend Backend { get; }
-
-            public string ProfilePath => Path.Combine(SaveRootPath, FileSaveSlotStorageBackend.ProfileFileName);
-
-            public string BackupPath => Path.Combine(SaveRootPath, FileSaveSlotStorageBackend.BackupFileName);
-
-            public SaveSlotStore CreateStore()
-            {
-                return new SaveSlotStore(new FileSaveSlotStorageBackend(_provider), StoreKey);
-            }
-
-            public void Dispose()
-            {
-                try
-                {
-                    if (Directory.Exists(_testRootPath))
-                    {
-                        Directory.Delete(_testRootPath, recursive: true);
-                    }
-                }
-                catch
-                {
-                }
             }
         }
 

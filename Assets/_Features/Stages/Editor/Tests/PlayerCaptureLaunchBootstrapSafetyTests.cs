@@ -14,7 +14,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
         }
 
         [TearDown]
@@ -22,7 +22,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
         }
 
         [Test]

@@ -55,7 +55,6 @@ namespace Game.Product.Achievements.CampaignIntegration
                     return NormalCampaignCompletionAchievementResult.NotAttempted;
 
                 case CampaignSaveLoadStatus.Loaded:
-                case CampaignSaveLoadStatus.ImportedLegacy:
                 case CampaignSaveLoadStatus.BackupRecovered:
                     break;
 

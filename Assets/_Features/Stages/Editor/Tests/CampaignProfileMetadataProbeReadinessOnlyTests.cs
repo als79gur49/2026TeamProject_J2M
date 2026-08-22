@@ -34,11 +34,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(properties, Is.EquivalentTo(new[]
             {
-                "DeletedSlotGuardCount",
                 "HasProfileMetadata",
-                "HasResetTombstone",
-                "ImportedSourceHash",
-                "ImportDisabled",
                 "LastPlayedSlotNumber",
                 "Message",
                 "SavedAtUtc",
@@ -54,49 +50,23 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             using var harness = new ProfileHarness();
             harness.WriteProfile(CreateProfile(
-                schemaVersion: 9,
+                schemaVersion: CampaignProfileDocument.CurrentSchemaVersion,
                 savedAtUtc: "2026-07-08T02:03:04.0000000Z",
                 lastPlayedSlotNumber: 3,
-                importedSourceHash: "legacy-hash",
-                importDisabled: true,
-                resetTombstoneUtc: "2026-07-08T05:06:07.0000000Z",
-                deletedSlotGuards: new[]
-                {
-                    new CampaignLegacyDeletedSlotGuardDocument
-                    {
-                        SlotNumber = 2,
-                        ImportedSourceHash = "legacy-hash",
-                        DeletedAtUtc = "2026-07-08T08:09:10.0000000Z",
-                        Reason = "delete-slot",
-                    },
-                    new CampaignLegacyDeletedSlotGuardDocument
-                    {
-                        SlotNumber = 99,
-                        ImportedSourceHash = "legacy-hash",
-                        DeletedAtUtc = "2026-07-08T08:09:10.0000000Z",
-                        Reason = "invalid-slot-ignored",
-                    },
-                },
                 slots: new[]
                 {
                     CreateSlot(1, "stage-1-1"),
                     CreateSlot(3, "stage-3-1"),
-                    CreateSlot(99, "stage-invalid"),
-                    null,
                 }));
 
             var result = harness.Probe.Probe();
 
             Assert.That(result.Status, Is.EqualTo(CampaignProfileMetadataProbeStatus.Loaded));
             Assert.That(result.HasProfileMetadata, Is.True);
-            Assert.That(result.SchemaVersion, Is.EqualTo(9));
+            Assert.That(result.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
             Assert.That(result.SavedAtUtc, Is.EqualTo("2026-07-08T02:03:04.0000000Z"));
             Assert.That(result.LastPlayedSlotNumber, Is.EqualTo(3));
-            Assert.That(result.ImportedSourceHash, Is.EqualTo("legacy-hash"));
-            Assert.That(result.ImportDisabled, Is.True);
-            Assert.That(result.HasResetTombstone, Is.True);
-            Assert.That(result.DeletedSlotGuardCount, Is.EqualTo(1));
-            Assert.That(result.SlotDocumentCount, Is.EqualTo(4));
+            Assert.That(result.SlotDocumentCount, Is.EqualTo(2));
             Assert.That(result.ValidSlotDocumentCount, Is.EqualTo(2));
         }
 
@@ -118,10 +88,6 @@ namespace Game.Feature.Stages.Editor.Tests
             int schemaVersion,
             string savedAtUtc,
             int lastPlayedSlotNumber,
-            string importedSourceHash,
-            bool importDisabled,
-            string resetTombstoneUtc,
-            CampaignLegacyDeletedSlotGuardDocument[] deletedSlotGuards,
             CampaignSlotDocument[] slots)
         {
             return new CampaignProfileDocument
@@ -131,13 +97,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 SavedAtUtc = savedAtUtc,
                 ProfileId = "profile-tests",
                 LastPlayedSlotNumber = lastPlayedSlotNumber,
-                LegacyImport = new CampaignLegacyImportDocument
-                {
-                    ImportedSourceHash = importedSourceHash,
-                    ImportDisabled = importDisabled,
-                    ResetTombstoneUtc = resetTombstoneUtc,
-                    DeletedSlotGuards = deletedSlotGuards ?? Array.Empty<CampaignLegacyDeletedSlotGuardDocument>(),
-                },
                 Slots = slots ?? Array.Empty<CampaignSlotDocument>(),
             };
         }

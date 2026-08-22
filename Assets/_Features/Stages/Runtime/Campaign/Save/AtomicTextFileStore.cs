@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -34,12 +35,26 @@ namespace Game.Feature.Stages
 
         public void WriteAllTextAtomic(string fileName, string contents)
         {
+            WriteAllTextAtomic(fileName, contents, preservePreviousAsBackup: true);
+        }
+
+        public void WriteAllTextAtomicWithoutBackup(string fileName, string contents)
+        {
+            WriteAllTextAtomic(fileName, contents, preservePreviousAsBackup: false);
+        }
+
+        private void WriteAllTextAtomic(
+            string fileName,
+            string contents,
+            bool preservePreviousAsBackup)
+        {
             if (contents == null)
             {
                 throw new ArgumentNullException(nameof(contents));
             }
 
             EnsureDirectory();
+            RecoverInterruptedWrite(fileName);
             var canonicalPath = GetPath(fileName);
             var tempPath = CreateTempPath(fileName);
 
@@ -53,18 +68,61 @@ namespace Game.Feature.Stages
                     stream.Flush(true);
                 }
 
-                CommitTempFile(tempPath, canonicalPath, GetBackupPath(fileName));
+                if (preservePreviousAsBackup)
+                {
+                    CommitTempFile(tempPath, canonicalPath, GetBackupPath(fileName));
+                }
+                else
+                {
+                    CommitTempFileWithoutBackup(tempPath, canonicalPath);
+                }
             }
             finally
             {
                 DeleteFileBestEffort(tempPath);
-                CleanupTempFiles(fileName);
+                CleanupWriteTempFilesBestEffort(fileName);
             }
         }
 
         public bool Delete(string fileName)
         {
             return DeleteFileBestEffort(GetPath(fileName));
+        }
+
+        internal void DeleteActiveFileArtifacts(string fileName)
+        {
+            var activeFileNames = new[]
+            {
+                fileName,
+                fileName + ".bak",
+            };
+
+            for (var i = 0; i < activeFileNames.Length; i++)
+            {
+                var activeFileName = activeFileNames[i];
+                DeleteFileBestEffort(GetPath(activeFileName));
+                DeleteFileBestEffort(GetRollbackPath(activeFileName));
+                CleanupWriteTempFilesBestEffort(activeFileName);
+            }
+
+            var remainingArtifacts = new List<string>();
+            for (var i = 0; i < activeFileNames.Length; i++)
+            {
+                var activeFileName = activeFileNames[i];
+                AddIfPresent(remainingArtifacts, GetPath(activeFileName));
+                AddIfPresent(remainingArtifacts, GetRollbackPath(activeFileName));
+                if (Directory.Exists(_rootDirectory))
+                {
+                    remainingArtifacts.AddRange(
+                        Directory.GetFiles(_rootDirectory, CreateTempSearchPattern(activeFileName)));
+                }
+            }
+
+            if (remainingArtifacts.Count > 0)
+            {
+                throw new IOException(
+                    $"Active save artifacts could not be fully removed: {string.Join(", ", remainingArtifacts)}");
+            }
         }
 
         public void EnsureDirectory()
@@ -123,6 +181,36 @@ namespace Game.Feature.Stages
         }
 
         public void CleanupTempFiles(string fileName)
+        {
+            RecoverInterruptedWrite(fileName);
+            CleanupWriteTempFilesBestEffort(fileName);
+        }
+
+        public void RecoverInterruptedWrite(string fileName)
+        {
+            var rollbackPath = GetRollbackPath(fileName);
+            if (!File.Exists(rollbackPath))
+            {
+                return;
+            }
+
+            var canonicalPath = GetPath(fileName);
+            if (File.Exists(canonicalPath))
+            {
+                if (!DeleteFileBestEffort(rollbackPath) && File.Exists(rollbackPath))
+                {
+                    throw new IOException(
+                        $"Interrupted-write rollback '{rollbackPath}' could not be removed.");
+                }
+
+                return;
+            }
+
+            EnsureDirectory();
+            File.Move(rollbackPath, canonicalPath);
+        }
+
+        private void CleanupWriteTempFilesBestEffort(string fileName)
         {
             try
             {
@@ -189,15 +277,57 @@ namespace Game.Feature.Stages
             }
         }
 
+        private static void CommitTempFileWithoutBackup(string tempPath, string canonicalPath)
+        {
+            if (!File.Exists(canonicalPath))
+            {
+                File.Move(tempPath, canonicalPath);
+                return;
+            }
+
+            try
+            {
+                File.Replace(tempPath, canonicalPath, null, ignoreMetadataErrors: true);
+                return;
+            }
+            catch (PlatformNotSupportedException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            var rollbackPath = canonicalPath + ".rollback";
+            File.Move(canonicalPath, rollbackPath);
+            try
+            {
+                File.Move(tempPath, canonicalPath);
+                DeleteFileBestEffort(rollbackPath);
+            }
+            catch
+            {
+                if (!File.Exists(canonicalPath) && File.Exists(rollbackPath))
+                {
+                    File.Move(rollbackPath, canonicalPath);
+                }
+
+                throw;
+            }
+        }
+
         private string CreateTempPath(string fileName)
         {
-            var prefix = Path.GetFileNameWithoutExtension(fileName);
-            return Path.Combine(_rootDirectory, $"{prefix}.{Guid.NewGuid():N}.tmp");
+            return Path.Combine(
+                _rootDirectory,
+                $"{fileName}.write.{Guid.NewGuid():N}.tmp");
         }
 
         private static string CreateTempSearchPattern(string fileName)
         {
-            return $"{Path.GetFileNameWithoutExtension(fileName)}.*.tmp";
+            return $"{fileName}.write.*.tmp";
         }
 
         private string GetPath(string fileName)
@@ -213,6 +343,19 @@ namespace Game.Feature.Stages
         private string GetBackupPath(string fileName)
         {
             return GetPath(fileName + ".bak");
+        }
+
+        private string GetRollbackPath(string fileName)
+        {
+            return GetPath(fileName + ".rollback");
+        }
+
+        private static void AddIfPresent(ICollection<string> paths, string path)
+        {
+            if (File.Exists(path))
+            {
+                paths.Add(path);
+            }
         }
 
         private static bool DeleteFileBestEffort(string path)

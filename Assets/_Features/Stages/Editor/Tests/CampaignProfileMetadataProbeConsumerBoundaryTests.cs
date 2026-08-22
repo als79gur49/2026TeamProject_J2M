@@ -40,7 +40,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(source, Does.Not.Contain("CampaignSaveService"));
             Assert.That(source, Does.Not.Contain("CampaignSaveServiceFactory"));
-            Assert.That(source, Does.Not.Contain("SaveSlotStoreCompatibilityAdapter"));
+            Assert.That(source, Does.Not.Contain("CampaignSaveSlotStoreAdapter"));
         }
 
         [Test]

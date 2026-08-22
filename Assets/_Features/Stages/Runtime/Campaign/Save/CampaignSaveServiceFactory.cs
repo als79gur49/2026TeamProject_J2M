@@ -3,16 +3,8 @@ using System.Globalization;
 
 namespace Game.Feature.Stages
 {
-    internal enum CampaignSaveBackendMode
-    {
-        PlayerPrefsLegacy = 0,
-        ProfileJsonExplicit = 1,
-    }
-
     internal sealed class CampaignSaveCompositionOptions
     {
-        public CampaignSaveBackendMode BackendMode { get; set; } = CampaignSaveBackendMode.PlayerPrefsLegacy;
-
         public ISavePathProvider PathProvider { get; set; }
 
         internal IAtomicTextFileStore TextFileStore { get; set; }
@@ -22,95 +14,49 @@ namespace Game.Feature.Stages
         public string ProfileId { get; set; } = "campaign-profile";
 
         public Func<DateTime> UtcNow { get; set; }
-
-        public bool EnableProfileWrite { get; set; }
-
-        public bool AllowLegacyImport { get; set; } = true;
-
-        public bool PreservePlayerPrefsSource { get; set; } = true;
-
-        public string LegacyCampaignSourceKey { get; set; }
-
-        public string LegacyActiveSlotKey { get; set; }
-
-        public CampaignLegacyImportMarkerStore LegacyImportMarkerStore { get; set; }
     }
 
     internal sealed class CampaignSaveFacadeFactoryResult
     {
         internal CampaignSaveFacadeFactoryResult(
-            CampaignSaveBackendMode backendMode,
             ICampaignSaveSlotStore campaignSaveSlots,
             CampaignSaveServiceFactoryResult profileServices,
-            CampaignSaveMigrationResult migrationResult,
-            CampaignSaveResetResult recoveryResumeResult = CampaignSaveResetResult.NotAllowed)
+            CampaignSaveResetResult recoveryResumeResult)
         {
-            BackendMode = backendMode;
-            CampaignSaveSlots = campaignSaveSlots ?? throw new ArgumentNullException(nameof(campaignSaveSlots));
-            ProfileServices = profileServices;
-            MigrationResult = migrationResult;
+            CampaignSaveSlots = campaignSaveSlots ??
+                                throw new ArgumentNullException(nameof(campaignSaveSlots));
+            ProfileServices = profileServices ??
+                              throw new ArgumentNullException(nameof(profileServices));
             RecoveryResumeResult = recoveryResumeResult;
         }
-
-        public CampaignSaveBackendMode BackendMode { get; }
 
         public ICampaignSaveSlotStore CampaignSaveSlots { get; }
 
         internal CampaignSaveServiceFactoryResult ProfileServices { get; }
-
-        public CampaignSaveMigrationResult MigrationResult { get; }
 
         public CampaignSaveResetResult RecoveryResumeResult { get; }
     }
 
     internal static class CampaignSaveFacadeFactory
     {
-        internal static CampaignSaveFacadeFactoryResult Create(CampaignSaveCompositionOptions options = null)
+        internal static CampaignSaveFacadeFactoryResult Create(
+            CampaignSaveCompositionOptions options = null)
         {
             options ??= new CampaignSaveCompositionOptions();
-            switch (options.BackendMode)
-            {
-                case CampaignSaveBackendMode.PlayerPrefsLegacy:
-                    return new CampaignSaveFacadeFactoryResult(
-                        options.BackendMode,
-                        new SaveSlotStore(),
-                        null,
-                        null);
-
-                case CampaignSaveBackendMode.ProfileJsonExplicit:
-                    var profileServices = CampaignSaveServiceFactory.Create(
-                        new CampaignSaveServiceFactoryOptions
-                        {
-                            PathProvider = options.PathProvider,
-                            TextFileStore = options.TextFileStore,
-                            ProductVersion = options.ProductVersion,
-                            ProfileId = options.ProfileId,
-                            UtcNow = options.UtcNow,
-                            EnableProfileWrite = options.EnableProfileWrite,
-                            AllowLegacyImport = options.AllowLegacyImport,
-                            LegacyCampaignSourceKey = options.LegacyCampaignSourceKey,
-                            LegacyActiveSlotKey = options.LegacyActiveSlotKey,
-                            LegacyImportMarkerStore = options.LegacyImportMarkerStore,
-                            CreateCompatibilityAdapter = true,
-                        });
-                    var recoveryResumeResult = profileServices.Recovery.RetryPendingReset();
-                    var migrationResult = recoveryResumeResult == CampaignSaveResetResult.Failed &&
-                                          profileServices.Recovery.HasPendingReset
-                        ? null
-                        : profileServices.Coordinator.Run();
-                    return new CampaignSaveFacadeFactoryResult(
-                        options.BackendMode,
-                        profileServices.CompatibilityAdapter,
-                        profileServices,
-                        migrationResult,
-                        recoveryResumeResult);
-
-                default:
-                    throw new ArgumentOutOfRangeException(
-                        nameof(options),
-                        options.BackendMode,
-                        "Unsupported campaign save backend mode.");
-            }
+            var profileServices = CampaignSaveServiceFactory.Create(
+                new CampaignSaveServiceFactoryOptions
+                {
+                    PathProvider = options.PathProvider,
+                    TextFileStore = options.TextFileStore,
+                    ProductVersion = options.ProductVersion,
+                    ProfileId = options.ProfileId,
+                    UtcNow = options.UtcNow,
+                });
+            var recoveryResumeResult = profileServices.Recovery.RetryPendingReset();
+            return new CampaignSaveFacadeFactoryResult(
+                profileServices.SlotStore,
+                profileServices,
+                recoveryResumeResult);
         }
     }
 
@@ -126,17 +72,6 @@ namespace Game.Feature.Stages
 
         public Func<DateTime> UtcNow { get; set; }
 
-        public bool EnableProfileWrite { get; set; }
-
-        public bool AllowLegacyImport { get; set; } = true;
-
-        public string LegacyCampaignSourceKey { get; set; }
-
-        public string LegacyActiveSlotKey { get; set; }
-
-        public CampaignLegacyImportMarkerStore LegacyImportMarkerStore { get; set; }
-
-        public bool CreateCompatibilityAdapter { get; set; }
     }
 
     internal sealed class CampaignSaveServiceFactoryResult
@@ -145,22 +80,16 @@ namespace Game.Feature.Stages
             ISavePathProvider pathProvider,
             IAtomicTextFileStore textFileStore,
             FileCampaignProfileRepository repository,
-            LegacyPlayerPrefsCampaignImporter legacyImporter,
-            CampaignSaveMigrationCoordinator coordinator,
             CampaignSaveService service,
             CampaignSaveRecoveryService recovery,
-            SaveSlotStoreCompatibilityAdapter compatibilityAdapter,
-            CampaignSaveMigrationOptions migrationOptions)
+            CampaignSaveSlotStoreAdapter slotStore)
         {
             PathProvider = pathProvider ?? throw new ArgumentNullException(nameof(pathProvider));
             TextFileStore = textFileStore ?? throw new ArgumentNullException(nameof(textFileStore));
             Repository = repository ?? throw new ArgumentNullException(nameof(repository));
-            LegacyImporter = legacyImporter ?? throw new ArgumentNullException(nameof(legacyImporter));
-            Coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
             Service = service ?? throw new ArgumentNullException(nameof(service));
             Recovery = recovery ?? throw new ArgumentNullException(nameof(recovery));
-            CompatibilityAdapter = compatibilityAdapter;
-            MigrationOptions = migrationOptions ?? throw new ArgumentNullException(nameof(migrationOptions));
+            SlotStore = slotStore ?? throw new ArgumentNullException(nameof(slotStore));
         }
 
         public ISavePathProvider PathProvider { get; }
@@ -169,17 +98,11 @@ namespace Game.Feature.Stages
 
         public FileCampaignProfileRepository Repository { get; }
 
-        public LegacyPlayerPrefsCampaignImporter LegacyImporter { get; }
-
-        public CampaignSaveMigrationCoordinator Coordinator { get; }
-
         public CampaignSaveService Service { get; }
 
         public CampaignSaveRecoveryService Recovery { get; }
 
-        public SaveSlotStoreCompatibilityAdapter CompatibilityAdapter { get; }
-
-        public CampaignSaveMigrationOptions MigrationOptions { get; }
+        public CampaignSaveSlotStoreAdapter SlotStore { get; }
     }
 
     internal static class CampaignSaveServiceFactory
@@ -202,76 +125,29 @@ namespace Game.Feature.Stages
                 return utcNow().ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
             }
 
-            var textFileStore = options.TextFileStore ?? new AtomicTextFileStore(pathProvider.SaveRootPath);
+            var textFileStore = options.TextFileStore ??
+                                new AtomicTextFileStore(pathProvider.SaveRootPath);
             var repository = new FileCampaignProfileRepository(textFileStore);
-            var markerStore = options.LegacyImportMarkerStore ?? new CampaignLegacyImportMarkerStore();
-            var legacyImporter = new LegacyPlayerPrefsCampaignImporter(
-                new CampaignLegacySourceReader(
-                    options.LegacyCampaignSourceKey ?? CampaignLegacySourceReader.CampaignSourceKey,
-                    options.LegacyActiveSlotKey ?? CampaignLegacySourceReader.ActiveSlotKey),
-                markerStore,
+            var service = new CampaignSaveService(
+                repository,
                 UtcNowString,
                 options.ProfileId,
                 options.ProductVersion);
-            var legacySource = options.AllowLegacyImport
-                ? (ICampaignLegacyImportCandidateSource)legacyImporter
-                : DisabledLegacyImportCandidateSource.Instance;
-            var migrationOptions = new CampaignSaveMigrationOptions
-            {
-                EnableProfileWrite = options.EnableProfileWrite,
-            };
-            var coordinator = new CampaignSaveMigrationCoordinator(
-                repository,
-                legacySource,
-                markerStore,
-                migrationOptions);
-            var resetMarkerPort = new CampaignLegacyImportResetMarkerPort(markerStore);
-            var service = new CampaignSaveService(
-                repository,
-                resetMarkerPort,
-                UtcNowString,
-                options.ProfileId,
-                options.ProductVersion,
-                new CampaignLegacyDeletedSlotGuardMarkerPort(markerStore));
             var recovery = new CampaignSaveRecoveryService(
                 repository,
                 textFileStore,
-                resetMarkerPort,
                 utcNow,
                 options.ProfileId,
                 options.ProductVersion);
-            var adapter = options.CreateCompatibilityAdapter
-                ? new SaveSlotStoreCompatibilityAdapter(service, recovery)
-                : null;
+            var slotStore = new CampaignSaveSlotStoreAdapter(service, recovery);
 
             return new CampaignSaveServiceFactoryResult(
                 pathProvider,
                 textFileStore,
                 repository,
-                legacyImporter,
-                coordinator,
                 service,
                 recovery,
-                adapter,
-                migrationOptions);
-        }
-
-        private sealed class DisabledLegacyImportCandidateSource : ICampaignLegacyImportCandidateSource
-        {
-            public static readonly DisabledLegacyImportCandidateSource Instance =
-                new DisabledLegacyImportCandidateSource();
-
-            public CampaignLegacyImportResult BuildImportCandidate()
-            {
-                return new CampaignLegacyImportResult(
-                    CampaignLegacyImportStatus.ImportDisabled,
-                    null,
-                    string.Empty,
-                    "Legacy campaign import is disabled by factory options.",
-                    sourceFound: false,
-                    importDisabled: true);
-            }
+                slotStore);
         }
     }
-
 }

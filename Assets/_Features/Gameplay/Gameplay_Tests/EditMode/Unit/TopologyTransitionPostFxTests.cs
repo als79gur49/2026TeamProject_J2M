@@ -420,7 +420,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             var stageId = StageId.CreateOrThrow(stageIdValue);
             StageLaunchContextStore.SetCurrent(stageId);
             EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
@@ -436,7 +436,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 StageLaunchContextStore.Clear();
                 EditorDirectPlayContextStore.Clear();
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             }
         }
 

@@ -214,8 +214,6 @@ namespace Game.Product.Achievements.Tests
             var context = new EditorDirectPlayContext(
                 mode,
                 StageId.CreateOrThrow("stage-4-3"),
-                "direct-play-save",
-                "direct-play-active",
                 3,
                 suppressCampaignFlow: false);
 
@@ -337,7 +335,7 @@ namespace Game.Product.Achievements.Tests
         [Test]
         public void Startup_CanonicalCampaignProfile_CrashRecoveryUsesPublicSaveBoundary()
         {
-            var campaignStore = new SaveSlotStoreCompatibilityAdapter(
+            var campaignStore = new CampaignSaveSlotStoreAdapter(
                 new CampaignSaveService(
                     new FileCampaignProfileRepository(
                         new AtomicTextFileStore(_saveRoot))));

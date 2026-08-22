@@ -26,7 +26,7 @@ namespace Game.Feature.Stages.Editor.Tests
             provider.AssignCatalog(catalog);
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
         }
 
         [TearDown]
@@ -34,7 +34,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             UnityEngine.Object.DestroyImmediate(entry);
             UnityEngine.Object.DestroyImmediate(provider);
             UnityEngine.Object.DestroyImmediate(catalog);
@@ -154,9 +154,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 logErrors: false,
                 out var error);
 
-            var store = new SaveSlotStore(
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var store = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
             Assert.That(primed, Is.True, error);
             Assert.That(store.LoadSlot(1).RemainingChances, Is.EqualTo(remainingChances));
             Assert.That(

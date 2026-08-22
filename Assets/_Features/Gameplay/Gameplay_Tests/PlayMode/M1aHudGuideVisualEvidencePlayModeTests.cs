@@ -125,8 +125,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var preferenceBackups = new[]
             {
                 PlayerPrefsBackup.CaptureString(LocalePreferenceKey),
-                PlayerPrefsBackup.CaptureString(EditorDirectPlayContextStore.TempSaveSlotStoreKey),
-                PlayerPrefsBackup.CaptureInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey),
             };
             var errors = new List<string>();
             var captures = new List<LocaleCapture>();
@@ -295,7 +293,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 gameViewResolutionScope?.Dispose();
                 StageLaunchContextStore.Clear();
                 EditorDirectPlayContextStore.Clear();
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                EditorDirectPlayContextStore.ClearTemporaryCampaignState();
                 for (var i = 0; i < preferenceBackups.Length; i++)
                 {
                     preferenceBackups[i].Restore();
@@ -750,14 +748,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             PlayerPrefs.SetString(LocalePreferenceKey, locale);
 
-            var saveStore = new SaveSlotStore(
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
-            var activeSlot = new ActiveSlotProvider(
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var activeSlot = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlot.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData

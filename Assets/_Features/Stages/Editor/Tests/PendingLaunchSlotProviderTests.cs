@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using UnityEngine;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
@@ -10,29 +9,28 @@ namespace Game.Feature.Stages.Editor.Tests
     {
         private const string PendingLaunchProviderSourcePath =
             "Assets/_Features/Stages/Runtime/Campaign/PendingLaunchSlotProvider.cs";
-        private readonly string _activeSlotKey =
+        private readonly string _activeSlotNamespace =
             $"pending-launch-slot-provider-tests-{Guid.NewGuid():N}";
 
         [SetUp]
         public void SetUp()
         {
             CampaignLaunchHandoffSessionStore.ResetForTests();
-            PlayerPrefs.DeleteKey(_activeSlotKey);
-            PlayerPrefs.Save();
+            new TransientActiveSlotStorage(_activeSlotNamespace).ClearActiveSlot();
         }
 
         [TearDown]
         public void TearDown()
         {
             CampaignLaunchHandoffSessionStore.ResetForTests();
-            PlayerPrefs.DeleteKey(_activeSlotKey);
-            PlayerPrefs.Save();
+            new TransientActiveSlotStorage(_activeSlotNamespace).ClearActiveSlot();
         }
 
         [Test]
         public void PendingBegin_DoesNotModifyPersistentActiveSlot()
         {
-            var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
+            var activeSlotProvider = new ActiveSlotProvider(
+                new TransientActiveSlotStorage(_activeSlotNamespace));
             var store = CampaignLaunchHandoffSessionStore.Instance;
 
             Assert.That(
@@ -46,7 +44,6 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(handoff.SlotNumber, Is.EqualTo(2));
             Assert.That(activeSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
-            Assert.That(PlayerPrefs.HasKey(_activeSlotKey), Is.False);
         }
 
         [Test]
@@ -102,7 +99,8 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void PendingClear_DoesNotClearPersistentActiveSlot()
         {
-            var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
+            var activeSlotProvider = new ActiveSlotProvider(
+                new TransientActiveSlotStorage(_activeSlotNamespace));
             activeSlotProvider.SetActiveSlot(3);
             var store = CampaignLaunchHandoffSessionStore.Instance;
             Assert.That(

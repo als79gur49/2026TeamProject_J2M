@@ -133,7 +133,7 @@ namespace Game.Feature.Stages
                     persistenceFactory.CreateNormalCampaignSlot(),
                     stageId,
                     "player-capture-bootstrap",
-                    SaveSlotStore.DefaultRemainingChances);
+                    CampaignSaveSlotPolicy.DefaultRemainingChances);
             }
             catch
             {
@@ -305,11 +305,11 @@ namespace Game.Feature.Stages
                 if (i + 1 >= args.Length ||
                     !int.TryParse(args[i + 1], out remainingChances) ||
                     remainingChances < 1 ||
-                    remainingChances > SaveSlotStore.DefaultRemainingChances)
+                    remainingChances > CampaignSaveSlotPolicy.DefaultRemainingChances)
                 {
                     error =
                         $"{CampaignTempSlotChancesArgument} must be between 1 and " +
-                        $"{SaveSlotStore.DefaultRemainingChances}.";
+                        $"{CampaignSaveSlotPolicy.DefaultRemainingChances}.";
                     return false;
                 }
 
@@ -517,11 +517,9 @@ namespace Game.Feature.Stages
 
         public IPlayerCaptureFixturePersistence CreateTempCampaignSlot()
         {
-            var saveStore = new SaveSlotStore(
-                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
-            var activeSlot = new ActiveSlotProvider(
-                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var activeSlot = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(
+                saveStore);
             return new PlayerCaptureFixturePersistence(saveStore, activeSlot);
         }
     }

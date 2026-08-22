@@ -339,7 +339,7 @@ namespace Game.Feature.UI.Tests
                 "StageDefinition",
                 "StageContentEntry",
                 "StageLaunchContextStore",
-                "SaveSlotStore",
+                "TransientCampaignSaveSlotStore",
                 ".Details",
                 "ConditionStatus.Details",
             };
@@ -1351,7 +1351,7 @@ namespace Game.Feature.UI.Tests
                     "Game.Feature.Stages",
                     "StageNavigationRequest",
                     "SaveSlotData",
-                    "SaveSlotStore",
+                    "TransientCampaignSaveSlotStore",
                     "ActiveSlotProvider",
                     "SaveSlotValidationService",
                     "SaveSlotValidationResult",

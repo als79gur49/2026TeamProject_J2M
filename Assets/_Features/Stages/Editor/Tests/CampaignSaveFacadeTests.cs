@@ -8,716 +8,175 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignSaveFacadeTests
     {
-        private static readonly DateTime FixedNowUtc =
-            new DateTime(2026, 7, 9, 0, 0, 0, DateTimeKind.Utc);
-
         [Test]
-        public void DefaultFactoryCreatesPlayerPrefsLegacyFacade()
+        public void Factory_CreatesProfileRepositoryServiceAndSlotFacade()
         {
-            var result = CampaignSaveFacadeFactory.Create();
+            using var harness = new FacadeHarness();
 
-            Assert.That(result.BackendMode, Is.EqualTo(CampaignSaveBackendMode.PlayerPrefsLegacy));
-            Assert.That(result.CampaignSaveSlots, Is.TypeOf<SaveSlotStore>());
-            Assert.That(result.CampaignSaveSlots.DiagnosticsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
-            Assert.That(result.ProfileServices, Is.Null);
-            Assert.That(result.MigrationResult, Is.Null);
+            var result = CampaignSaveFacadeFactory.Create(harness.Options());
+
+            Assert.That(result.CampaignSaveSlots, Is.TypeOf<CampaignSaveSlotStoreAdapter>());
+            Assert.That(result.ProfileServices.Repository, Is.Not.Null);
+            Assert.That(result.ProfileServices.Service, Is.Not.Null);
+            Assert.That(result.ProfileServices.SlotStore,
+                Is.SameAs(result.CampaignSaveSlots));
         }
 
         [Test]
-        public void ExplicitProfileModeCreatesProfileBackedFacade()
+        public void MissingProfile_ReturnsNormalEmptyStateWithoutCreatingAFile()
         {
-            using var harness = new Harness();
+            using var harness = new FacadeHarness();
+            var result = CampaignSaveFacadeFactory.Create(harness.Options());
 
-            var result = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit));
-
-            Assert.That(result.BackendMode, Is.EqualTo(CampaignSaveBackendMode.ProfileJsonExplicit));
-            Assert.That(result.CampaignSaveSlots, Is.TypeOf<SaveSlotStoreCompatibilityAdapter>());
-            Assert.That(result.ProfileServices, Is.Not.Null);
-            Assert.That(result.ProfileServices.MigrationOptions.EnableProfileWrite, Is.False);
-        }
-
-        [Test]
-        public void ProductionProvider_DefaultsToProfileJsonExplicit()
-        {
-            var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
-
-            Assert.That(options.BackendMode, Is.EqualTo(CampaignSaveBackendMode.ProfileJsonExplicit));
-            Assert.That(options.EnableProfileWrite, Is.True);
-            Assert.That(options.AllowLegacyImport, Is.True);
-            Assert.That(options.PreservePlayerPrefsSource, Is.True);
-        }
-
-        [Test]
-        public void ProductionProvider_EnablesProfileWriteAndLegacyImportRetention()
-        {
-            var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
-
-            Assert.That(options.EnableProfileWrite, Is.True);
-            Assert.That(options.AllowLegacyImport, Is.True);
-            Assert.That(options.PreservePlayerPrefsSource, Is.True);
-        }
-
-        [Test]
-        public void ProductionProvider_UsesApplicationPersistentDataSavesProfileJson()
-        {
-            var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
-
-            Assert.That(options.PathProvider, Is.TypeOf<ApplicationPersistentDataSavePathProvider>());
-            Assert.That(
-                options.PathProvider.GetSaveFilePath(FileCampaignProfileRepository.ProfileFileName),
-                Is.EqualTo(Path.Combine(Application.persistentDataPath, "Saves", "profile.json")));
-        }
-
-        [Test]
-        public void ProductionProvider_PathProviderRejectsArbitraryProductionPath()
-        {
-            var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
-
-            Assert.That(options.PathProvider, Is.Not.TypeOf<TemporarySavePathProvider>());
-            Assert.That(
-                options.PathProvider.GetSaveFilePath(FileCampaignProfileRepository.ProfileFileName),
-                Does.Not.StartWith("Temp"));
-        }
-
-        [Test]
-        public void RollbackProvider_CanCreatePlayerPrefsLegacy()
-        {
-            var options = CampaignSaveCompositionProvider.CreateProductionLegacyRollbackOptions();
-            var store = CampaignSaveCompositionProvider.CreateProductionLegacyRollback();
-
-            Assert.That(options.BackendMode, Is.EqualTo(CampaignSaveBackendMode.PlayerPrefsLegacy));
-            Assert.That(store, Is.TypeOf<SaveSlotStore>());
-            Assert.That(store.DiagnosticsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
-        }
-
-        [Test]
-        public void ProductionRollbackProvider_UsesPlayerPrefsLegacyOnly()
-        {
-            var options = CampaignSaveCompositionProvider.CreateProductionLegacyRollbackOptions();
-
-            Assert.That(options.BackendMode, Is.EqualTo(CampaignSaveBackendMode.PlayerPrefsLegacy));
-            Assert.That(options.PathProvider, Is.Null);
-            Assert.That(options.EnableProfileWrite, Is.False);
-        }
-
-        [Test]
-        public void ExplicitProfileModeImportsLegacyOnlyWhenProfileWriteEnabled()
-        {
-            using var harness = new Harness();
-            WriteLegacyPayload(harness, CreateSlot(1, "stage-1-1", "level-1"));
-
-            var deferred = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: false));
-
-            Assert.That(deferred.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.MigrationDeferred));
-            Assert.That(File.Exists(harness.ProfilePath), Is.False);
-            Assert.That(PlayerPrefs.HasKey(harness.LegacySourceKey), Is.True);
-
-            var imported = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true));
-
-            Assert.That(imported.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.ImportSucceeded));
-            Assert.That(File.Exists(harness.ProfilePath), Is.True);
-            Assert.That(imported.CampaignSaveSlots.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-1-1"));
-            Assert.That(PlayerPrefs.HasKey(harness.LegacySourceKey), Is.True);
-        }
-
-        [Test]
-        public void ValidProfileWinsOverStaleLegacyPlayerPrefs()
-        {
-            using var harness = new Harness();
-            harness.Repository.Save(CampaignProfileDocumentMapper.ToDocument(
-                new[] { CreateSlot(1, "stage-2-1", "level-2") },
-                "facade-test-profile",
-                1,
-                "2026-07-09T00:00:00Z",
-                "facade-test-product"));
-            WriteLegacyPayload(harness, CreateSlot(1, "stage-1-1", "level-1"));
-
-            var result = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true));
-
-            Assert.That(result.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.FileLoaded));
-            Assert.That(result.CampaignSaveSlots.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-2-1"));
-            Assert.That(PlayerPrefs.HasKey(harness.LegacySourceKey), Is.True);
-        }
-
-        [Test]
-        public void PendingResetResumeFailure_SkipsMigrationAndExposesRecoveryPendingGate()
-        {
-            using var harness = new Harness();
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(
-                harness.ProfilePath,
-                "{\"SchemaVersion\":1,\"ProfileId\":\"blocked-profile\",\"Slots\":[]}");
-            harness.TextFileStore.WriteAllTextAtomic(
-                CampaignSaveRecoveryService.PendingResetFileName,
-                "{\"ResetId\":\"202608200102030000000\",\"StartedAtUtc\":\"2026-08-20T01:02:03.0000000Z\"}");
-            var options = harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true,
-                allowLegacyImport: false);
-            options.TextFileStore = new ProfileWriteFailingTextFileStore(harness.TextFileStore);
-
-            var result = CampaignSaveFacadeFactory.Create(options);
             var load = result.CampaignSaveSlots.LoadAllWithReport();
 
-            Assert.That(result.RecoveryResumeResult, Is.EqualTo(CampaignSaveResetResult.Failed));
-            Assert.That(result.MigrationResult, Is.Null);
-            Assert.That(load.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.RecoveryPending));
-            Assert.That(load.Report.BlocksCampaignAccess, Is.True);
-            Assert.Throws<InvalidOperationException>(() => result.CampaignSaveSlots.ClearAll());
-        }
-
-        [Test]
-        public void InvalidLegacyImportIsPreservedAndNotDeleted()
-        {
-            using var harness = new Harness();
-            PlayerPrefs.SetString(harness.LegacySourceKey, "{not-json");
-            PlayerPrefs.Save();
-
-            var result = CampaignSaveFacadeFactory.Create(harness.Options(
-                CampaignSaveBackendMode.ProfileJsonExplicit,
-                enableProfileWrite: true));
-
-            Assert.That(result.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.LegacyInvalid));
+            Assert.That(load.Slots, Has.Length.EqualTo(CampaignSaveSlotPolicy.SlotCount));
+            Assert.That(load.Slots.All(slot => slot.IsEmpty), Is.True);
+            Assert.That(load.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.Missing));
             Assert.That(File.Exists(harness.ProfilePath), Is.False);
-            Assert.That(PlayerPrefs.HasKey(harness.LegacySourceKey), Is.True);
-        }
-
-        [TestCase(CampaignProfileLoadStatus.CorruptNoFallback, CampaignSaveLoadStatus.CorruptRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.InvalidDocument, CampaignSaveLoadStatus.CorruptRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.UnsupportedVersion, CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
-        public void ProfileBackedFacadeReportsRepairRequiredInsteadOfFreshEmpty(
-            CampaignProfileLoadStatus profileStatus,
-            CampaignSaveLoadStatus expectedStatus)
-        {
-            var adapter = new SaveSlotStoreCompatibilityAdapter(new CampaignSaveService(
-                new StatusRepository(profileStatus),
-                new NoOpResetMarkerPort(),
-                () => "2026-07-09T00:00:00Z",
-                "repair-test-profile",
-                "repair-test-product"));
-
-            var result = adapter.LoadAllWithReport();
-
-            Assert.That(result.Report.Status, Is.EqualTo(expectedStatus));
-            Assert.That(result.Report.RequiresRepair, Is.True);
-            Assert.That(result.Report.BlocksCampaignAccess, Is.True);
-            Assert.That(result.Slots, Has.Length.EqualTo(SaveSlotStore.SlotCount));
-            Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
-        }
-
-        [TestCase(CampaignProfileLoadStatus.CorruptNoFallback, CampaignSaveLoadStatus.CorruptRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.InvalidDocument, CampaignSaveLoadStatus.CorruptRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.UnsupportedVersion, CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.IoFailed, CampaignSaveLoadStatus.IoFailed)]
-        [TestCase(CampaignProfileLoadStatus.Unauthorized, CampaignSaveLoadStatus.Unauthorized)]
-        public void ProfileBackedFacadeReportsCampaignAccessBlocked(
-            CampaignProfileLoadStatus profileStatus,
-            CampaignSaveLoadStatus expectedStatus)
-        {
-            var adapter = new SaveSlotStoreCompatibilityAdapter(new CampaignSaveService(
-                new StatusRepository(profileStatus),
-                new NoOpResetMarkerPort(),
-                () => "2026-07-09T00:00:00Z",
-                "repair-test-profile",
-                "repair-test-product"));
-
-            var result = adapter.LoadAllWithReport();
-
-            Assert.That(result.Report.Status, Is.EqualTo(expectedStatus));
-            Assert.That(result.Report.BlocksCampaignAccess, Is.True);
-            Assert.That(result.Slots, Has.Length.EqualTo(SaveSlotStore.SlotCount));
-            Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
         }
 
         [Test]
-        public void MissingNoLegacy_RemainsFreshEmptyReport()
+        public void CorruptProfile_FailsClosedAndDoesNotCreateANewProfile()
         {
-            var adapter = new SaveSlotStoreCompatibilityAdapter(new CampaignSaveService(
-                new StatusRepository(CampaignProfileLoadStatus.Missing),
-                new NoOpResetMarkerPort(),
-                () => "2026-07-09T00:00:00Z",
-                "repair-test-profile",
-                "repair-test-product"));
+            using var harness = new FacadeHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, "{not-json");
+            var result = CampaignSaveFacadeFactory.Create(harness.Options());
 
-            var result = adapter.LoadAllWithReport();
+            var load = result.CampaignSaveSlots.LoadAllWithReport();
 
-            Assert.That(result.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.Missing));
-            Assert.That(result.Report.RequiresRepair, Is.False);
-            Assert.That(result.Report.BlocksCampaignAccess, Is.False);
-            Assert.That(result.Slots, Has.Length.EqualTo(SaveSlotStore.SlotCount));
-            Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
+            Assert.That(load.Slots, Has.Length.EqualTo(CampaignSaveSlotPolicy.SlotCount));
+            Assert.That(load.Slots.All(slot => slot.IsEmpty), Is.True);
+            Assert.That(load.Report.Status,
+                Is.EqualTo(CampaignSaveLoadStatus.CorruptRepairRequired));
+            Assert.That(load.Report.BlocksCampaignAccess, Is.True);
         }
 
-        [Test]
-        public void PendingReset_ReportsBlockedInsteadOfFreshEmpty()
+        [TestCase("duplicate-slot")]
+        [TestCase("invalid-stage")]
+        [TestCase("orphan-last-played")]
+        public void StructurallyInvalidCurrentProfile_FailsClosedAcrossRepositoryAndMetadataProbe(
+            string invalidShape)
         {
-            var recovery = new StubRecoveryPort { HasPendingReset = true };
-            var adapter = new SaveSlotStoreCompatibilityAdapter(
-                new CampaignSaveService(
-                    new StatusRepository(CampaignProfileLoadStatus.Missing),
-                    new NoOpResetMarkerPort(),
-                    () => "2026-07-09T00:00:00Z",
-                    "repair-test-profile",
-                    "repair-test-product"),
-                recovery);
-
-            var result = adapter.LoadAllWithReport();
-
-            Assert.That(result.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.RecoveryPending));
-            Assert.That(result.Report.BlocksCampaignAccess, Is.True);
-            Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
-        }
-
-        [Test]
-        public void PendingReset_BlocksEveryCompatibilityWrite()
-        {
-            var recovery = new StubRecoveryPort { HasPendingReset = true };
-            var adapter = new SaveSlotStoreCompatibilityAdapter(
-                new CampaignSaveService(
-                    new StatusRepository(CampaignProfileLoadStatus.Missing),
-                    new NoOpResetMarkerPort(),
-                    () => "2026-07-09T00:00:00Z",
-                    "repair-test-profile",
-                    "repair-test-product"),
-                recovery);
-
-            Assert.Throws<InvalidOperationException>(() => adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1")));
-            Assert.Throws<InvalidOperationException>(() => adapter.InitializeNewGame(1, null, string.Empty));
-            Assert.Throws<InvalidOperationException>(() => adapter.UpdateSlot(1, _ => { }));
-            Assert.Throws<InvalidOperationException>(() => adapter.DeleteSlot(1));
-            Assert.Throws<InvalidOperationException>(() => adapter.ClearAll());
-        }
-
-        [Test]
-        public void BackupRecovered_IsNotBlockingReport()
-        {
-            var document = CampaignProfileDocumentMapper.ToDocument(
-                new[] { CreateSlot(1, "stage-1-1", "level-1") },
-                "backup-profile",
-                1,
-                "2026-07-09T00:00:00Z",
-                "facade-test-product");
-            var adapter = new SaveSlotStoreCompatibilityAdapter(new CampaignSaveService(
-                new StatusRepository(CampaignProfileLoadStatus.BackupRecovered, document),
-                new NoOpResetMarkerPort(),
-                () => "2026-07-09T00:00:00Z",
-                "repair-test-profile",
-                "repair-test-product"));
-
-            var result = adapter.LoadAllWithReport();
-
-            Assert.That(result.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.BackupRecovered));
-            Assert.That(result.Report.RequiresRepair, Is.False);
-            Assert.That(result.Report.BlocksCampaignAccess, Is.False);
-            Assert.That(result.Slots[0].IsEmpty, Is.False);
-        }
-
-        [Test]
-        public void CampaignProfileDocumentDoesNotSerializePendingLaunchOrSettings()
-        {
-            var fields = typeof(CampaignProfileDocument)
-                .GetFields()
-                .Select(field => field.Name)
-                .ToArray();
-
-            Assert.That(fields, Does.Not.Contain("PendingLaunchSlotNumber"));
-            Assert.That(fields, Does.Not.Contain("ActiveStageClearSaveSlot"));
-            Assert.That(fields, Does.Not.Contain("AudioSettings"));
-            Assert.That(fields, Does.Not.Contain("DisplaySettings"));
-            Assert.That(fields, Does.Not.Contain("KeyboardBindingOverridesJson"));
-            Assert.That(fields, Does.Not.Contain("DirectPlayTempSaveSlots"));
-        }
-
-        [Test]
-        public void ProductionCallSitesAcceptCampaignSaveFacadeContract()
-        {
-            var facade = CampaignSaveCompositionProvider.CreateProductionLegacyRollback();
-            Assert.That(facade, Is.InstanceOf<ICampaignSaveSlotStore>());
-
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Application/Runtime/MainMenuController.cs"),
-                Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(
-                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(
-                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs"),
-                Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs"),
-                Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs"),
-                Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs"),
-                Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(
-                ReadAssetText("_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs"),
-                Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
-                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(
-                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-        }
-
-        [Test]
-        public void MainMenuGameplayComicFlowAndValidationUseProviderBackedStore()
-        {
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Contain("var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Contain("new ComicIntroStageLaunchRouter("));
-            Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
-                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(
-                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                Does.Contain("_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-            Assert.That(
-                ReadAssetText("_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs"),
-                Does.Contain("ValidateAndSync(ICampaignSaveSlotStore saveSlotStore"));
-        }
-
-        [Test]
-        public void ProductionConsumers_UseCampaignSaveCompositionProvider()
-        {
-            var mainMenuInstaller = ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
-            var mainMenuController = ReadAssetText("_Features/UI/UI_Application/Runtime/MainMenuController.cs");
-            var gameplayInstaller = ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
-            var gameplayFlow = ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs");
-            var chancesReadSource = ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs");
-            var gameplayUiInstaller = ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
-            var comicIntroLaunch = ReadAssetText("_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs");
-            var comicOutroReturn = ReadAssetText("_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs");
-            var directPlayLauncher = File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs");
-            var gameplayProductionBranch = CampaignSaveSourceContractGuard.ExtractTailFromToken(
-                CampaignSaveSourceContractGuard.ExtractMethod(
-                    gameplayInstaller,
-                    "private void EnsureCampaignStores"),
-                "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();");
-            var directPlayProduction = CampaignSaveSourceContractGuard.ExtractMethod(
-                directPlayLauncher,
-                "private static void PrimeCampaignProductionSlot");
-            var serviceFactoryCreateToken = "CampaignSaveServiceFactory" + ".Create(";
-
-            Assert.That(mainMenuInstaller, Does.Contain("var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-            Assert.That(mainMenuController, Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(gameplayProductionBranch, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(gameplayFlow, Does.Contain("ICampaignSaveSlotStore"));
-            Assert.That(chancesReadSource, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
-
-            Assert.That(gameplayUiInstaller, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(comicIntroLaunch, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
-            Assert.That(comicOutroReturn, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
-            Assert.That(directPlayProduction, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-
-            var productionConsumers = new[]
+            using var harness = new FacadeHarness();
+            var document = CreateValidProfileDocument();
+            switch (invalidShape)
             {
-                ("MainMenu composition", mainMenuInstaller),
-                ("MainMenu controller", mainMenuController),
-                ("Gameplay scene production composition", gameplayProductionBranch),
-                ("Gameplay campaign flow", gameplayFlow),
-                ("Gameplay chances source", chancesReadSource),
-                ("Gameplay UI composition", gameplayUiInstaller),
-                ("Comic intro launch", comicIntroLaunch),
-                ("Comic outro return", comicOutroReturn),
-                ("Editor production-slot overwrite", directPlayProduction),
+                case "duplicate-slot":
+                    document.Slots = new[]
+                    {
+                        CreateSlotDocument(1, "stage-1-1"),
+                        CreateSlotDocument(1, "stage-1-2"),
+                    };
+                    break;
+                case "invalid-stage":
+                    document.Slots = new[] { CreateSlotDocument(1, string.Empty) };
+                    break;
+                case "orphan-last-played":
+                    document.LastPlayedSlotNumber = 2;
+                    break;
+                default:
+                    Assert.Fail($"Unknown invalid profile shape '{invalidShape}'.");
+                    break;
+            }
+
+            harness.WriteProfile(document);
+            var facade = CampaignSaveFacadeFactory.Create(harness.Options());
+
+            Assert.That(
+                facade.CampaignSaveSlots.LoadAllWithReport().Report.Status,
+                Is.EqualTo(CampaignSaveLoadStatus.CorruptRepairRequired));
+            Assert.That(
+                new CampaignProfileMetadataProbe(harness.SaveRootPath).Probe().Status,
+                Is.EqualTo(CampaignProfileMetadataProbeStatus.SchemaInvalid));
+        }
+
+        [Test]
+        public void ProductionOptions_UseApplicationPersistentDataSavePathProvider()
+        {
+            var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
+
+            Assert.That(options.PathProvider,
+                Is.TypeOf<ApplicationPersistentDataSavePathProvider>());
+        }
+
+        [Test]
+        public void ProductionComposition_ReusesProfileBackedRepairingStore()
+        {
+            CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
+            try
+            {
+                var first = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
+                var second = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
+
+                Assert.That(first,
+                    Is.TypeOf<CampaignLaunchStateRepairingCampaignSaveSlotStore>());
+                Assert.That(second, Is.SameAs(first));
+            }
+            finally
+            {
+                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
+            }
+        }
+
+        private static CampaignProfileDocument CreateValidProfileDocument()
+        {
+            return new CampaignProfileDocument
+            {
+                SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
+                ProductVersion = "facade-test-product",
+                SavedAtUtc = "2026-08-23T00:00:00Z",
+                ProfileId = "facade-test-profile",
+                LastPlayedSlotNumber = 1,
+                Slots = new[] { CreateSlotDocument(1, "stage-1-1") },
             };
-            foreach (var (consumerName, source) in productionConsumers)
-            {
-                CampaignSaveSourceContractGuard.AssertForbiddenTokensAbsent(
-                    consumerName,
-                    source,
-                    serviceFactoryCreateToken,
-                    "CampaignSaveFacadeFactory.Create(",
-                    "new PlayerPrefsSaveSlotStorageBackend",
-                    "new SaveSlotStore()",
-                    "new SaveSlotStore(");
-            }
-
-            var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
-            var facadeFactory = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveServiceFactory.cs");
-            Assert.That(provider, Does.Contain("CampaignSaveFacadeFactory.Create("));
-            Assert.That(facadeFactory, Does.Contain(serviceFactoryCreateToken));
         }
 
-        [Test]
-        public void ProductionCampaignPaths_DoNotWriteStageClearSaveSlotsPlayerPrefs()
+        private static CampaignSlotDocument CreateSlotDocument(int slotNumber, string stageId)
         {
-            AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
-                "MainMenu production save-slot composition",
-                ExtractSourceRange(
-                    ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                    "private void BuildSaveSlotModule()",
-                    "private void ImportStandaloneCampaignSaveSeed("));
-            AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
-                "MainMenu standalone seed import caller",
-                ExtractSourceRange(
-                    ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                    "private void ImportStandaloneCampaignSaveSeed(",
-                    "private void BuildHubModule()"));
-            var ensureCampaignStores = CampaignSaveSourceContractGuard.ExtractMethod(
-                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                "private void EnsureCampaignStores");
-            Assert.That(ensureCampaignStores, Does.Contain("directPlayContext.HasCustomSaveNamespace"));
-            Assert.That(ensureCampaignStores, Does.Contain("new SaveSlotStore("));
-            AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
-                "Gameplay production store branch",
-                CampaignSaveSourceContractGuard.ExtractTailFromToken(
-                    ensureCampaignStores,
-                    "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-            AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
-                "Gameplay comic outro return router",
-                ExtractSourceRange(
-                    ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
-                    "private IMainMenuReturnRouter CreateMainMenuReturnRouter()",
-                    "private ComicSequenceFlowCoordinator EnsureComicSequenceFlowCoordinator()"));
-            AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
-                "DirectPlay production overwrite branch",
-                CampaignSaveSourceContractGuard.ExtractMethod(
-                    File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs"),
-                    "private static void PrimeCampaignProductionSlot"));
-        }
-
-        [Test]
-        public void ProductionCampaignPaths_DoNotInstantiatePlayerPrefsBackendOrDirectDefaultStore()
-        {
-            var productionFiles = new[]
-            {
-                "_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs",
-                "_Features/UI/UI_Application/Runtime/MainMenuController.cs",
-                "_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
-                "_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
-                "_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
-                "_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs",
-                "_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
-                "_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs",
-            };
-
-            foreach (var path in productionFiles)
-            {
-                var source = ReadAssetText(path);
-                Assert.That(source, Does.Not.Contain("new PlayerPrefsSaveSlotStorageBackend"), path);
-                Assert.That(source, Does.Not.Contain("new SaveSlotStore()"), path);
-                Assert.That(source, Does.Not.Contain("PlayerPrefs.SetString"), path);
-                Assert.That(source, Does.Not.Contain("PlayerPrefs.DeleteKey"), path);
-                Assert.That(source, Does.Not.Contain("SaveSlotPrefsKeys.SaveSlotsKey"), path);
-            }
-        }
-
-        [Test]
-        public void DirectPlayTemp_RemainsTempPlayerPrefsAllowlist()
-        {
-            var source = File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs");
-            var tempMethod = ExtractSourceRange(
-                source,
-                "private static void PrimeCampaignTempSlot",
-                "private static void PrimeCampaignProductionSlot");
-            var productionMethod = ExtractSourceRange(
-                source,
-                "private static void PrimeCampaignProductionSlot",
-                "private static void ValidateCampaignStage");
-
-            Assert.That(tempMethod, Does.Contain("EditorDirectPlayContextStore.TempSaveSlotStoreKey"));
-            Assert.That(tempMethod, Does.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
-            Assert.That(tempMethod, Does.Contain("new SaveSlotStore("));
-            Assert.That(tempMethod, Does.Not.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore)"));
-            Assert.That(productionMethod, Does.Not.Contain("EditorDirectPlayContextStore.TempSaveSlotStoreKey"));
-            Assert.That(productionMethod, Does.Not.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
-            Assert.That(productionMethod, Does.Not.Contain("new SaveSlotStore("));
-            Assert.That(productionMethod, Does.Not.Contain("new ActiveSlotProvider()"));
-        }
-
-        [Test]
-        public void LegacyCampaignPlayerPrefsRead_IsImporterOnlyForProfileSwitch()
-        {
-            var importer = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/LegacyPlayerPrefsCampaignImporter.cs");
-            var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
-
-            Assert.That(importer, Does.Contain("PlayerPrefs.GetString"));
-            Assert.That(importer, Does.Contain("SaveSlotPrefsKeys.SaveSlotsKey"));
-            Assert.That(importer, Does.Not.Contain("PlayerPrefs.DeleteKey"));
-            Assert.That(provider, Does.Contain("AllowLegacyImport = true"));
-            Assert.That(provider, Does.Contain("PreservePlayerPrefsSource = true"));
-        }
-
-        [Test]
-        public void CampaignProfileDocument_DoesNotSerializePendingLaunchSettingsInputOrDirectPlayKeys()
-        {
-            var document = CampaignProfileDocumentMapper.ToDocument(
-                new[] { CreateSlot(1, "stage-1-1", "level-1") },
-                "profile-exclusion",
-                1,
-                "2026-07-09T00:00:00Z",
-                "facade-test-product");
-
-            var json = JsonUtility.ToJson(document, prettyPrint: true);
-
-            Assert.That(json, Does.Not.Contain("ActiveStageClearSaveSlot"));
-            Assert.That(json, Does.Not.Contain("PendingLaunch"));
-            Assert.That(json, Does.Not.Contain("settings.audio"));
-            Assert.That(json, Does.Not.Contain("settings.display"));
-            Assert.That(json, Does.Not.Contain("Game.Feature.Input"));
-            Assert.That(json, Does.Not.Contain("DirectPlay.TempSaveSlots"));
-            Assert.That(json, Does.Not.Contain("DirectPlay.TempActiveSaveSlot"));
-            Assert.That(json, Does.Not.Contain("Game.Feature.Stages.SaveSlots"));
-            Assert.That(json, Does.Not.Contain("Game.Feature.Stages.ActiveSaveSlot"));
-            Assert.That(json, Does.Not.Contain("All1Shader"));
-            Assert.That(json, Does.Not.Contain("Steam"));
-            Assert.That(json, Does.Not.Contain("Cloud"));
-            Assert.That(json, Does.Not.Contain("VDF"));
-        }
-
-        [Test]
-        public void SteamApiCloudVdf_RemainAbsentFromProductionCampaignSaveSources()
-        {
-            foreach (var path in Directory.GetFiles(
-                         "Assets/_Features/Stages/Runtime/Campaign",
-                         "*.cs",
-                         SearchOption.AllDirectories))
-            {
-                var source = File.ReadAllText(path);
-                Assert.That(source, Does.Not.Contain("Steamworks"), path);
-                Assert.That(source, Does.Not.Contain("ISteamRemoteStorage"), path);
-                Assert.That(source, Does.Not.Contain("SteamRemoteStorage"), path);
-                Assert.That(source, Does.Not.Contain("RemoteStorage"), path);
-                Assert.That(source, Does.Not.Contain(".vdf"), path);
-            }
-        }
-
-        [Test]
-        public void ProductionProviderSource_DoesNotDeleteLegacyPlayerPrefsCampaignKey()
-        {
-            var source = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
-
-            Assert.That(source, Does.Not.Contain("PlayerPrefs.DeleteKey"));
-            Assert.That(source, Does.Not.Contain("PlayerPrefs.SetString"));
-        }
-
-        private static void WriteLegacyPayload(Harness harness, params SaveSlotData[] slots)
-        {
-            PlayerPrefs.SetString(
-                harness.LegacySourceKey,
-                JsonUtility.ToJson(SaveSlotDtoMapper.ToDto(slots)));
-            PlayerPrefs.SetInt(harness.LegacyActiveSlotKey, slots[0].SlotNumber);
-            PlayerPrefs.Save();
-        }
-
-        private static SaveSlotData CreateSlot(
-            int slotNumber,
-            string stageId,
-            string levelGroupId)
-        {
-            return new SaveSlotData
+            return new CampaignSlotDocument
             {
                 SlotNumber = slotNumber,
-                CurrentStageId = StageId.CreateOrThrow(stageId),
-                CurrentLevelGroupId = levelGroupId,
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
-                LastPlayedAt = "2026-07-09T00:00:00Z",
-                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
+                StageId = stageId,
+                LevelGroupId = "level-1",
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
+                StageClearProfileSnapshot = new CampaignStageClearProfileDocument(),
             };
         }
 
-        private static string ReadAssetText(string relativeAssetPath)
-        {
-            return File.ReadAllText(Path.Combine(Application.dataPath, relativeAssetPath));
-        }
-
-        private static string ExtractSourceRange(string source, string startToken, string endToken)
-        {
-            var start = source.IndexOf(startToken, StringComparison.Ordinal);
-            Assert.That(start, Is.GreaterThanOrEqualTo(0), startToken);
-            var end = source.IndexOf(endToken, start, StringComparison.Ordinal);
-            Assert.That(end, Is.GreaterThan(start), endToken);
-            return source.Substring(start, end - start);
-        }
-
-        private static void AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
-            string branchName,
-            string source)
-        {
-            CampaignSaveSourceContractGuard.AssertForbiddenTokensAbsent(
-                branchName,
-                source,
-                "PlayerPrefs.SetString",
-                "PlayerPrefs.Save",
-                "PlayerPrefs.DeleteKey",
-                "PlayerPrefsSaveSlotStorageBackend",
-                "new SaveSlotStore()",
-                "SaveSlotPrefsKeys.SaveSlotsKey",
-                "Game.Feature.Stages.StageClearSaveSlots");
-        }
-
-        private sealed class Harness : IDisposable
+        private sealed class FacadeHarness : IDisposable
         {
             private readonly TemporarySavePathProvider _pathProvider;
 
-            public Harness()
+            public FacadeHarness()
             {
-                var id = Guid.NewGuid().ToString("N");
-                SaveRootPath = Path.Combine("Temp", "CampaignSaveFacadeTests", id);
+                SaveRootPath = Path.Combine(
+                    "Temp",
+                    "CampaignSaveFacadeTests",
+                    Guid.NewGuid().ToString("N"));
                 _pathProvider = new TemporarySavePathProvider(SaveRootPath);
-                TextFileStore = new AtomicTextFileStore(SaveRootPath);
-                Repository = new FileCampaignProfileRepository(TextFileStore);
-                LegacySourceKey = "CampaignSaveFacadeTests.SaveSlots." + id;
-                LegacyActiveSlotKey = "CampaignSaveFacadeTests.ActiveSlot." + id;
-                LegacyMarkerStore = new CampaignLegacyImportMarkerStore(
-                    "CampaignSaveFacadeTests.ImportDisabled." + id,
-                    "CampaignSaveFacadeTests.ImportedSourceHash." + id,
-                    "CampaignSaveFacadeTests.ResetTombstoneUtc." + id,
-                    "CampaignSaveFacadeTests.DeletedSlotGuards." + id);
             }
 
             public string SaveRootPath { get; }
 
-            public string ProfilePath => Path.Combine(SaveRootPath, FileCampaignProfileRepository.ProfileFileName);
+            public string ProfilePath =>
+                Path.Combine(SaveRootPath, FileCampaignProfileRepository.ProfileFileName);
 
-            public FileCampaignProfileRepository Repository { get; }
-
-            public AtomicTextFileStore TextFileStore { get; }
-
-            public string LegacySourceKey { get; }
-
-            public string LegacyActiveSlotKey { get; }
-
-            public CampaignLegacyImportMarkerStore LegacyMarkerStore { get; }
-
-            public CampaignSaveCompositionOptions Options(
-                CampaignSaveBackendMode backendMode,
-                bool enableProfileWrite = false,
-                bool allowLegacyImport = true)
+            public CampaignSaveCompositionOptions Options()
             {
                 return new CampaignSaveCompositionOptions
                 {
-                    BackendMode = backendMode,
                     PathProvider = _pathProvider,
                     ProductVersion = "facade-test-product",
                     ProfileId = "facade-test-profile",
-                    UtcNow = () => FixedNowUtc,
-                    EnableProfileWrite = enableProfileWrite,
-                    AllowLegacyImport = allowLegacyImport,
-                    LegacyCampaignSourceKey = LegacySourceKey,
-                    LegacyActiveSlotKey = LegacyActiveSlotKey,
-                    LegacyImportMarkerStore = LegacyMarkerStore,
                 };
+            }
+
+            public void WriteProfile(CampaignProfileDocument document)
+            {
+                Directory.CreateDirectory(SaveRootPath);
+                File.WriteAllText(ProfilePath, JsonUtility.ToJson(document));
             }
 
             public void Dispose()
@@ -734,153 +193,6 @@ namespace Game.Feature.Stages.Editor.Tests
             public TemporarySavePathProvider(string saveRootPath)
                 : base(saveRootPath)
             {
-            }
-        }
-
-        private sealed class ProfileWriteFailingTextFileStore : IAtomicTextFileStore
-        {
-            private readonly IAtomicTextFileStore _inner;
-
-            public ProfileWriteFailingTextFileStore(IAtomicTextFileStore inner)
-            {
-                _inner = inner;
-            }
-
-            public bool Exists(string fileName) => _inner.Exists(fileName);
-
-            public string ReadAllText(string fileName) => _inner.ReadAllText(fileName);
-
-            public void WriteAllTextAtomic(string fileName, string contents)
-            {
-                if (string.Equals(
-                        fileName,
-                        FileCampaignProfileRepository.ProfileFileName,
-                        StringComparison.Ordinal))
-                {
-                    throw new IOException("Injected profile write failure.");
-                }
-
-                _inner.WriteAllTextAtomic(fileName, contents);
-            }
-
-            public bool Delete(string fileName) => _inner.Delete(fileName);
-
-            public void EnsureDirectory() => _inner.EnsureDirectory();
-
-            public bool TryRestoreBackup(string fileName) => _inner.TryRestoreBackup(fileName);
-
-            public bool TryQuarantine(string fileName, out string quarantinePath) =>
-                _inner.TryQuarantine(fileName, out quarantinePath);
-
-            public bool TryQuarantine(string fileName, string suffix, out string quarantinePath) =>
-                _inner.TryQuarantine(fileName, suffix, out quarantinePath);
-
-            public void CleanupTempFiles(string fileName) => _inner.CleanupTempFiles(fileName);
-        }
-
-        private sealed class StatusRepository : ICampaignProfileRepository
-        {
-            private readonly CampaignProfileLoadStatus _status;
-            private readonly CampaignProfileDocument _document;
-
-            public StatusRepository(CampaignProfileLoadStatus status, CampaignProfileDocument document = null)
-            {
-                _status = status;
-                _document = document;
-            }
-
-            public CampaignProfileLoadResult Load()
-            {
-                return new CampaignProfileLoadResult(_status, _document, _status.ToString());
-            }
-
-            public void Save(CampaignProfileDocument document)
-            {
-                throw new InvalidOperationException("Repair-state test must not write a profile.");
-            }
-        }
-
-        private sealed class NoOpResetMarkerPort : ICampaignSaveResetMarkerPort
-        {
-            public void MarkResetImportDisabled(string resetTombstoneUtc)
-            {
-            }
-        }
-
-        private sealed class StubRecoveryPort : ICampaignSaveRecoveryPort
-        {
-            public bool HasPendingReset { get; set; }
-
-            public CampaignSaveResetResult ResetBlockedProfile(CampaignSaveLoadStatus expectedStatus)
-            {
-                return CampaignSaveResetResult.NotAllowed;
-            }
-
-            public CampaignSaveResetResult RetryPendingReset()
-            {
-                return CampaignSaveResetResult.NotAllowed;
-            }
-        }
-    }
-
-    internal static class CampaignSaveSourceContractGuard
-    {
-        public static string ExtractMethod(string source, string declarationToken)
-        {
-            Assert.That(source, Is.Not.Null.And.Not.Empty, declarationToken);
-            Assert.That(declarationToken, Is.Not.Null.And.Not.Empty);
-
-            var declarationStart = source.IndexOf(declarationToken, StringComparison.Ordinal);
-            Assert.That(declarationStart, Is.GreaterThanOrEqualTo(0), declarationToken);
-            var openingBrace = source.IndexOf('{', declarationStart);
-            Assert.That(openingBrace, Is.GreaterThan(declarationStart), declarationToken);
-
-            var depth = 0;
-            for (var index = openingBrace; index < source.Length; index++)
-            {
-                switch (source[index])
-                {
-                    case '{':
-                        depth++;
-                        break;
-                    case '}':
-                        depth--;
-                        if (depth == 0)
-                        {
-                            var method = source.Substring(declarationStart, index - declarationStart + 1);
-                            Assert.That(method, Is.Not.Empty, declarationToken);
-                            return method;
-                        }
-
-                        break;
-                }
-            }
-
-            Assert.Fail($"Could not find the balanced method body for '{declarationToken}'.");
-            return string.Empty;
-        }
-
-        public static string ExtractTailFromToken(string source, string startToken)
-        {
-            Assert.That(source, Is.Not.Null.And.Not.Empty, startToken);
-            var start = source.IndexOf(startToken, StringComparison.Ordinal);
-            Assert.That(start, Is.GreaterThanOrEqualTo(0), startToken);
-            var tail = source.Substring(start);
-            Assert.That(tail, Is.Not.Empty, startToken);
-            return tail;
-        }
-
-        public static void AssertForbiddenTokensAbsent(
-            string scope,
-            string source,
-            params string[] forbiddenTokens)
-        {
-            Assert.That(source, Is.Not.Null.And.Not.Empty, scope);
-            Assert.That(forbiddenTokens, Is.Not.Null.And.Not.Empty, scope);
-            foreach (var forbiddenToken in forbiddenTokens)
-            {
-                Assert.That(forbiddenToken, Is.Not.Null.And.Not.Empty, scope);
-                Assert.That(source, Does.Not.Contain(forbiddenToken), scope);
             }
         }
     }

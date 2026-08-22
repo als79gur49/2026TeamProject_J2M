@@ -32,11 +32,6 @@ namespace Game.Feature.Stages.Editor
             int schemaVersion,
             string savedAtUtc,
             int diagnosticLastPlayedSlotNumber,
-            bool hasImportedSourceHash,
-            string importedSourceHash,
-            bool importDisabledMarkerMetadata,
-            bool hasResetTombstoneMarkerMetadata,
-            int deletedSlotGuardCount,
             int profileSlotDocumentCount,
             int validSlotDocumentCount,
             string probeMessage,
@@ -49,11 +44,6 @@ namespace Game.Feature.Stages.Editor
             SchemaVersion = schemaVersion;
             SavedAtUtc = savedAtUtc ?? string.Empty;
             DiagnosticLastPlayedSlotNumber = diagnosticLastPlayedSlotNumber;
-            HasImportedSourceHash = hasImportedSourceHash;
-            ImportedSourceHash = importedSourceHash ?? string.Empty;
-            ImportDisabledMarkerMetadata = importDisabledMarkerMetadata;
-            HasResetTombstoneMarkerMetadata = hasResetTombstoneMarkerMetadata;
-            DeletedSlotGuardCount = deletedSlotGuardCount;
             ProfileSlotDocumentCount = profileSlotDocumentCount;
             ValidSlotDocumentCount = validSlotDocumentCount;
             ProbeMessage = probeMessage ?? string.Empty;
@@ -73,16 +63,6 @@ namespace Game.Feature.Stages.Editor
         public string SavedAtUtc { get; }
 
         public int DiagnosticLastPlayedSlotNumber { get; }
-
-        public bool HasImportedSourceHash { get; }
-
-        public string ImportedSourceHash { get; }
-
-        public bool ImportDisabledMarkerMetadata { get; }
-
-        public bool HasResetTombstoneMarkerMetadata { get; }
-
-        public int DeletedSlotGuardCount { get; }
 
         public int ProfileSlotDocumentCount { get; }
 
@@ -115,9 +95,6 @@ namespace Game.Feature.Stages.Editor
             builder.AppendLine($"profile metadata schema version: {SchemaVersion}");
             builder.AppendLine($"profile metadata savedAtUtc: {SavedAtUtc}");
             builder.AppendLine($"diagnostic LastPlayedSlotNumber: {DiagnosticLastPlayedSlotNumber}");
-            builder.AppendLine($"imported source hash diagnostic: {FormatPresence(HasImportedSourceHash)}");
-            builder.AppendLine($"import/reset marker metadata: ImportDisabled={ImportDisabledMarkerMetadata}, ResetTombstone={HasResetTombstoneMarkerMetadata}");
-            builder.AppendLine($"deleted-slot guard count: {DeletedSlotGuardCount}");
             builder.AppendLine($"profile slot document count: {ProfileSlotDocumentCount}");
             builder.AppendLine($"valid profile slot document count: {ValidSlotDocumentCount}");
             builder.AppendLine($"metadata probe message: {ProbeMessage}");
@@ -144,9 +121,5 @@ namespace Game.Feature.Stages.Editor
             return exists ? "exists for diagnostics" : "missing for diagnostics";
         }
 
-        private static string FormatPresence(bool present)
-        {
-            return present ? "present" : "absent";
-        }
     }
 }

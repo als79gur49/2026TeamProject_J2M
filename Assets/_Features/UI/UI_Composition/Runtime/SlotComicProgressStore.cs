@@ -34,7 +34,7 @@ namespace Game.Feature.UI.Composition
 
         private SaveSlotData LoadSlot(int slotNumber)
         {
-            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             return _saveSlotStore.LoadSlot(slotNumber);
         }
     }

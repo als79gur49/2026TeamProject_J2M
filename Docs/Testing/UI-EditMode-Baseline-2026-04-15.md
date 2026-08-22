@@ -256,3 +256,31 @@
 - Interpretation:
   - this remains a companion smoke lane, not a replacement for `./run_tests.sh ui`
   - Stage 9 evidence is incomplete if the UI lane passes on a worktree where the companion core lane is not rerun
+
+## Campaign PlayerPrefs Retirement and JSON Save Integration — 2026-08-23
+
+### Structural Delta
+- Campaign progression, active-slot, and launch-state production truth now flows through the Stages-owned JSON composition; UI continues to consume `ICampaignSaveSlotStore` and recovery ports instead of owning serialization or persistence policy.
+- PlayerPrefs-backed campaign fallback, legacy import, and rollback-selection production paths are retired. Readiness probes remain diagnostics only and do not participate in production read, write, delete, or launch routing.
+- Main Menu pending-launch ownership is lifecycle-bound. Stale confirmations, disposed controllers, and commands that arrive after an accepted launch cannot delete or replace the accepted slot/handoff owner.
+- Direct-play temporary-state clearing is an explicit non-recovering delete operation. It removes the canonical file, backup, rollback residue, and both write-temp families for profile, local launch state, and pending reset without deleting quarantine/rejection evidence.
+
+### Guard Evolution and Responsibility Shift
+- New UI guards cover delete confirmation after disposal, reset confirmation after disposal, public commands after disposal, stale failure ownership, pending-launch delete rejection, continue/delete ordering, and preservation of an existing restart confirmation for invalid intent.
+- The former default-PlayerPrefs constructor assertion and the coarse `MainMenu_Delete_ClearsOnlyMatchingPendingHandoff` case were removed with their retired ownership model. Exact launch reservation and lifecycle cases now carry that responsibility.
+- Stage save guards cover absence of production PlayerPrefs writes, the UI-to-Stages adapter boundary, and explicit temporary-state deletion without rollback resurrection.
+- UI owns intent, confirmation, recovery presentation, and view-model publication. Stages owns campaign persistence, active-slot/local launch state, recovery state, and atomic file lifecycle.
+
+### Same-Revision Validation
+- `./run_tests.sh ui`: Windows UI build passed; Unity UI EditMode `1353 total / 0 failed`.
+- `./run_tests.sh core`: Core EditMode `217 total / 0 failed`; Core PlayMode `109 total / 0 failed`.
+- `./run_tests.sh full --filter CampaignSaveArchitectureV2Tests`: EditMode `54 total / 0 failed`; PlayMode `0 total / 0 failed`.
+- `./run_tests.sh full --filter CampaignSaveSlotStoreAdapterTests`: EditMode `12 total / 0 failed`; PlayMode `0 total / 0 failed`.
+- `./run_tests.sh full --filter CampaignPlayerPrefsWriteRemovalTests`: EditMode `6 total / 0 failed`; PlayMode `0 total / 0 failed`.
+- The UI count moves from the 2026-08-22 follow-up's `1348` to `1353` for this slice. This is a slice-local delta, not a replacement for the pinned snapshot or a broad full-lane claim.
+
+### Runner and PlayMode Status
+- Existing soft governance warnings remain advisory and separate from the touched-slice pass/fail result.
+- The filtered EditMode fixtures contain no PlayMode tests; the companion core PlayMode lane passed on the same revision.
+- Generated `InitTestScene` artifacts were removed automatically by the runner and left no residual worktree mutation.
+- Broad `./run_tests.sh full` was not run, so no project-wide or full-regression-green claim is made.

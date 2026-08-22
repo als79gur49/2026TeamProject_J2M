@@ -94,7 +94,7 @@ namespace Game.Feature.Stages
         {
             if (activeSlotNumber != 0)
             {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(activeSlotNumber);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(activeSlotNumber);
             }
 
             var document = new CampaignLocalLaunchStateDocument
@@ -122,7 +122,7 @@ namespace Game.Feature.Stages
             }
 
             if (document.campaign.activeSlotNumber != 0 &&
-                !SaveSlotStore.IsValidSlotNumber(document.campaign.activeSlotNumber))
+                !CampaignSaveSlotPolicy.IsValidSlotNumber(document.campaign.activeSlotNumber))
             {
                 return CampaignLocalLaunchStateLoadStatus.SchemaInvalid;
             }

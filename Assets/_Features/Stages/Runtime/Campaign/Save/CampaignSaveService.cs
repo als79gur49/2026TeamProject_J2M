@@ -173,77 +173,11 @@ namespace Game.Feature.Stages
         public bool Completed { get; set; } = true;
     }
 
-    public interface ICampaignSaveResetMarkerPort
-    {
-        void MarkResetImportDisabled(string resetTombstoneUtc);
-    }
-
-    public interface ICampaignDeletedSlotGuardMarkerPort
-    {
-        void RecordDeletedSlotGuard(
-            int slotNumber,
-            string importedSourceHash,
-            string deletedAtUtc,
-            string reason);
-    }
-
-    public sealed class CampaignLegacyImportResetMarkerPort : ICampaignSaveResetMarkerPort
-    {
-        private readonly CampaignLegacyImportMarkerStore _markerStore;
-
-        public CampaignLegacyImportResetMarkerPort()
-            : this(new CampaignLegacyImportMarkerStore())
-        {
-        }
-
-        public CampaignLegacyImportResetMarkerPort(CampaignLegacyImportMarkerStore markerStore)
-        {
-            _markerStore = markerStore ?? throw new ArgumentNullException(nameof(markerStore));
-        }
-
-        public void MarkResetImportDisabled(string resetTombstoneUtc)
-        {
-            _markerStore.SetImportDisabled(true);
-            _markerStore.SetResetTombstoneUtc(resetTombstoneUtc);
-        }
-    }
-
-    public sealed class CampaignLegacyDeletedSlotGuardMarkerPort : ICampaignDeletedSlotGuardMarkerPort
-    {
-        private readonly CampaignLegacyImportMarkerStore _markerStore;
-
-        public CampaignLegacyDeletedSlotGuardMarkerPort()
-            : this(new CampaignLegacyImportMarkerStore())
-        {
-        }
-
-        public CampaignLegacyDeletedSlotGuardMarkerPort(CampaignLegacyImportMarkerStore markerStore)
-        {
-            _markerStore = markerStore ?? throw new ArgumentNullException(nameof(markerStore));
-        }
-
-        public void RecordDeletedSlotGuard(
-            int slotNumber,
-            string importedSourceHash,
-            string deletedAtUtc,
-            string reason)
-        {
-            _markerStore.RecordDeletedSlotGuard(
-                slotNumber,
-                importedSourceHash,
-                deletedAtUtc,
-                reason);
-        }
-    }
-
     public sealed class CampaignSaveService
     {
         private const int SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion;
-        private const string DeleteSlotGuardReason = "DeleteSlot";
 
         private readonly ICampaignProfileRepository _repository;
-        private readonly ICampaignSaveResetMarkerPort _resetMarkerPort;
-        private readonly ICampaignDeletedSlotGuardMarkerPort _deletedSlotGuardMarkerPort;
         private readonly Func<string> _utcNowProvider;
         private readonly string _profileId;
         private readonly string _productVersion;
@@ -251,15 +185,11 @@ namespace Game.Feature.Stages
 
         public CampaignSaveService(
             ICampaignProfileRepository repository,
-            ICampaignSaveResetMarkerPort resetMarkerPort,
             Func<string> utcNowProvider,
             string profileId,
-            string productVersion,
-            ICampaignDeletedSlotGuardMarkerPort deletedSlotGuardMarkerPort = null)
+            string productVersion)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-            _resetMarkerPort = resetMarkerPort;
-            _deletedSlotGuardMarkerPort = deletedSlotGuardMarkerPort;
             _utcNowProvider = utcNowProvider ?? DefaultUtcNow;
             _profileId = string.IsNullOrWhiteSpace(profileId) ? "campaign-profile" : profileId;
             _productVersion = productVersion ?? string.Empty;
@@ -267,9 +197,8 @@ namespace Game.Feature.Stages
 
         public CampaignSaveService(
             ICampaignProfileRepository repository,
-            ICampaignSaveResetMarkerPort resetMarkerPort = null,
             Func<string> utcNowProvider = null)
-            : this(repository, resetMarkerPort, utcNowProvider, "campaign-profile", string.Empty)
+            : this(repository, utcNowProvider, "campaign-profile", string.Empty)
         {
         }
 
@@ -303,7 +232,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult GetSlot(int slotNumber)
         {
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
                     CampaignSaveCommandStatus.InvalidSlotNumber,
@@ -345,7 +274,7 @@ namespace Game.Feature.Stages
                     "New game request must not be null.");
             }
 
-            if (!SaveSlotStore.IsValidSlotNumber(request.SlotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(request.SlotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
                     CampaignSaveCommandStatus.InvalidSlotNumber,
@@ -370,7 +299,7 @@ namespace Game.Feature.Stages
                     SlotNumber = request.SlotNumber,
                     StageId = request.InitialStageId ?? string.Empty,
                     LevelGroupId = request.InitialLevelGroupId ?? string.Empty,
-                    RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                    RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
                     CampaignCompleted = false,
                     NormalCampaignCompletionReceipt = null,
                     IntroComicCompleted = false,
@@ -389,7 +318,7 @@ namespace Game.Feature.Stages
                     document,
                     CloneSlot(slot),
                     message: "New campaign slot initialized.");
-            });
+            }, destructive: true);
         }
 
         public CampaignSaveServiceResult UpdateSlot(int slotNumber, CampaignSlotUpdate update)
@@ -401,7 +330,7 @@ namespace Game.Feature.Stages
                     "Slot update must not be null.");
             }
 
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
                     CampaignSaveCommandStatus.InvalidSlotNumber,
@@ -428,7 +357,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult DeleteSlot(int slotNumber)
         {
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
                     CampaignSaveCommandStatus.InvalidSlotNumber,
@@ -451,16 +380,9 @@ namespace Game.Feature.Stages
                     document.LastPlayedSlotNumber = FindFirstSlotNumber(document);
                 }
 
-                var now = Now();
-                UpsertDeletedSlotGuard(document, slotNumber, now, DeleteSlotGuardReason);
-                _deletedSlotGuardMarkerPort?.RecordDeletedSlotGuard(
-                    slotNumber,
-                    document.LegacyImport.ImportedSourceHash,
-                    now,
-                    DeleteSlotGuardReason);
-                TouchProfile(document, now);
+                TouchProfile(document, Now());
                 return CampaignSaveServiceResult.Success(document, message: "Campaign slot deleted.");
-            });
+            }, destructive: true);
         }
 
         public CampaignSaveServiceResult ClearAll()
@@ -473,20 +395,14 @@ namespace Game.Feature.Stages
                 document.ProfileId = _profileId;
                 document.Slots = Array.Empty<CampaignSlotDocument>();
                 document.LastPlayedSlotNumber = 0;
-                document.LegacyImport = new CampaignLegacyImportDocument
-                {
-                    ImportDisabled = true,
-                    ResetTombstoneUtc = now,
-                };
                 TouchProfile(document, now);
-                _resetMarkerPort?.MarkResetImportDisabled(now);
                 return CampaignSaveServiceResult.Success(document, message: "Campaign profile cleared.");
-            });
+            }, destructive: true);
         }
 
         public CampaignSaveServiceResult MarkLastPlayedSlot(int slotNumber)
         {
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
                     CampaignSaveCommandStatus.InvalidSlotNumber,
@@ -518,7 +434,7 @@ namespace Game.Feature.Stages
                     "Death save update must not be null.");
             }
 
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
                     CampaignSaveCommandStatus.InvalidSlotNumber,
@@ -577,7 +493,7 @@ namespace Game.Feature.Stages
                     "Cleared stage id must not be empty.");
             }
 
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
                     CampaignSaveCommandStatus.InvalidSlotNumber,
@@ -652,7 +568,7 @@ namespace Game.Feature.Stages
             CampaignComicProgressUpdate update,
             bool intro)
         {
-            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
                     CampaignSaveCommandStatus.InvalidSlotNumber,
@@ -695,7 +611,9 @@ namespace Game.Feature.Stages
             });
         }
 
-        private CampaignSaveServiceResult Mutate(Func<CampaignProfileDocument, CampaignSaveServiceResult> mutation)
+        private CampaignSaveServiceResult Mutate(
+            Func<CampaignProfileDocument, CampaignSaveServiceResult> mutation,
+            bool destructive = false)
         {
             if (!TryLoadProfile(out var document, out var failure, allowMissing: true))
             {
@@ -711,7 +629,14 @@ namespace Game.Feature.Stages
             try
             {
                 Normalize(document);
-                _repository.Save(document);
+                if (destructive)
+                {
+                    _repository.SaveDestructive(document);
+                }
+                else
+                {
+                    _repository.Save(document);
+                }
             }
             catch (Exception exception)
             {
@@ -778,7 +703,6 @@ namespace Game.Feature.Stages
                 SavedAtUtc = string.Empty,
                 ProfileId = _profileId,
                 LastPlayedSlotNumber = 0,
-                LegacyImport = new CampaignLegacyImportDocument(),
                 Slots = Array.Empty<CampaignSlotDocument>(),
             };
         }
@@ -939,7 +863,7 @@ namespace Game.Feature.Stages
             slot = new CampaignSlotDocument
             {
                 SlotNumber = slotNumber,
-                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
                 StageClearProfileSnapshot = new CampaignStageClearProfileDocument(),
             };
             UpsertSlot(document, slot);
@@ -997,7 +921,7 @@ namespace Game.Feature.Stages
             Array.Sort(slots, (left, right) => left.SlotNumber.CompareTo(right.SlotNumber));
             for (var i = 0; i < slots.Length; i++)
             {
-                if (slots[i] != null && SaveSlotStore.IsValidSlotNumber(slots[i].SlotNumber))
+                if (slots[i] != null && CampaignSaveSlotPolicy.IsValidSlotNumber(slots[i].SlotNumber))
                 {
                     return slots[i].SlotNumber;
                 }
@@ -1032,11 +956,6 @@ namespace Game.Feature.Stages
             document.ProfileId = string.IsNullOrWhiteSpace(document.ProfileId) ? "campaign-profile" : document.ProfileId;
             document.ProductVersion ??= string.Empty;
             document.SavedAtUtc ??= string.Empty;
-            document.LegacyImport ??= new CampaignLegacyImportDocument();
-            document.LegacyImport.ImportedSourceHash ??= string.Empty;
-            document.LegacyImport.ResetTombstoneUtc ??= string.Empty;
-            document.LegacyImport.DeletedSlotGuards =
-                NormalizeDeletedSlotGuards(document.LegacyImport.DeletedSlotGuards);
             document.Slots ??= Array.Empty<CampaignSlotDocument>();
             for (var i = 0; i < document.Slots.Length; i++)
             {
@@ -1080,115 +999,7 @@ namespace Game.Feature.Stages
                 SavedAtUtc = document.SavedAtUtc ?? string.Empty,
                 ProfileId = document.ProfileId ?? string.Empty,
                 LastPlayedSlotNumber = document.LastPlayedSlotNumber,
-                LegacyImport = CloneLegacyImport(document.LegacyImport),
                 Slots = clonedSlots,
-            };
-        }
-
-        private static CampaignLegacyImportDocument CloneLegacyImport(CampaignLegacyImportDocument legacyImport)
-        {
-            legacyImport ??= new CampaignLegacyImportDocument();
-            return new CampaignLegacyImportDocument
-            {
-                ImportedSourceHash = legacyImport.ImportedSourceHash ?? string.Empty,
-                ImportDisabled = legacyImport.ImportDisabled,
-                ResetTombstoneUtc = legacyImport.ResetTombstoneUtc ?? string.Empty,
-                DeletedSlotGuards = CloneDeletedSlotGuards(legacyImport.DeletedSlotGuards),
-            };
-        }
-
-        private static void UpsertDeletedSlotGuard(
-            CampaignProfileDocument document,
-            int slotNumber,
-            string deletedAtUtc,
-            string reason)
-        {
-            document.LegacyImport ??= new CampaignLegacyImportDocument();
-            document.LegacyImport.DeletedSlotGuards =
-                UpsertDeletedSlotGuard(
-                    document.LegacyImport.DeletedSlotGuards,
-                    new CampaignLegacyDeletedSlotGuardDocument
-                    {
-                        SlotNumber = slotNumber,
-                        ImportedSourceHash = document.LegacyImport.ImportedSourceHash ?? string.Empty,
-                        DeletedAtUtc = deletedAtUtc ?? string.Empty,
-                        Reason = reason ?? string.Empty,
-                    });
-        }
-
-        private static CampaignLegacyDeletedSlotGuardDocument[] UpsertDeletedSlotGuard(
-            CampaignLegacyDeletedSlotGuardDocument[] existing,
-            CampaignLegacyDeletedSlotGuardDocument replacement)
-        {
-            if (replacement == null || !SaveSlotStore.IsValidSlotNumber(replacement.SlotNumber))
-            {
-                return NormalizeDeletedSlotGuards(existing);
-            }
-
-            var guards = new List<CampaignLegacyDeletedSlotGuardDocument>(
-                NormalizeDeletedSlotGuards(existing));
-            var normalizedHash = replacement.ImportedSourceHash ?? string.Empty;
-            for (var i = 0; i < guards.Count; i++)
-            {
-                var guard = guards[i];
-                if (guard.SlotNumber == replacement.SlotNumber &&
-                    string.Equals(
-                        guard.ImportedSourceHash ?? string.Empty,
-                        normalizedHash,
-                        StringComparison.Ordinal))
-                {
-                    guards[i] = CloneDeletedSlotGuard(replacement);
-                    return guards.ToArray();
-                }
-            }
-
-            guards.Add(CloneDeletedSlotGuard(replacement));
-            return guards.ToArray();
-        }
-
-        private static CampaignLegacyDeletedSlotGuardDocument[] NormalizeDeletedSlotGuards(
-            CampaignLegacyDeletedSlotGuardDocument[] guards)
-        {
-            if (guards == null || guards.Length == 0)
-            {
-                return Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
-            }
-
-            var normalized = new List<CampaignLegacyDeletedSlotGuardDocument>();
-            for (var i = 0; i < guards.Length; i++)
-            {
-                var guard = guards[i];
-                if (guard == null || !SaveSlotStore.IsValidSlotNumber(guard.SlotNumber))
-                {
-                    continue;
-                }
-
-                normalized.Add(CloneDeletedSlotGuard(guard));
-            }
-
-            return normalized.ToArray();
-        }
-
-        private static CampaignLegacyDeletedSlotGuardDocument[] CloneDeletedSlotGuards(
-            CampaignLegacyDeletedSlotGuardDocument[] guards)
-        {
-            return NormalizeDeletedSlotGuards(guards);
-        }
-
-        private static CampaignLegacyDeletedSlotGuardDocument CloneDeletedSlotGuard(
-            CampaignLegacyDeletedSlotGuardDocument guard)
-        {
-            if (guard == null)
-            {
-                return null;
-            }
-
-            return new CampaignLegacyDeletedSlotGuardDocument
-            {
-                SlotNumber = guard.SlotNumber,
-                ImportedSourceHash = guard.ImportedSourceHash ?? string.Empty,
-                DeletedAtUtc = guard.DeletedAtUtc ?? string.Empty,
-                Reason = guard.Reason ?? string.Empty,
             };
         }
 

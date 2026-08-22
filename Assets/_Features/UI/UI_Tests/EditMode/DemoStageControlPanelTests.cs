@@ -68,7 +68,7 @@ namespace Game.Feature.UI.Tests
             var source = File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelView.cs");
 
             Assert.That(source, Does.Not.Contain("IDemoStageControlCommandPort"));
-            Assert.That(source, Does.Not.Contain("SaveSlotStore"));
+            Assert.That(source, Does.Not.Contain("TransientCampaignSaveSlotStore"));
             Assert.That(source, Does.Not.Contain("ObjectiveTracker"));
             Assert.That(source, Does.Not.Contain("WorldState"));
             Assert.That(source, Does.Not.Contain("EntityState"));
@@ -229,7 +229,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Not.Contain("WorldState"));
             Assert.That(source, Does.Not.Contain("EntityState"));
             Assert.That(source, Does.Not.Contain("TickPipeline"));
-            Assert.That(source, Does.Not.Contain("SaveSlotStore"));
+            Assert.That(source, Does.Not.Contain("TransientCampaignSaveSlotStore"));
         }
 
         [Test]
