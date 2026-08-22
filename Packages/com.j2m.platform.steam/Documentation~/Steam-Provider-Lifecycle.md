@@ -7,8 +7,10 @@ no Steamworks.NET reference or native payload.
 
 The provider state machine owns pack-size/DLL observation, native initialization,
 the single callback pump, shutdown-once, overlay observation, and bounded diagnostics.
-A callback exception faults the provider and disables future callback pumps. Feature
-methods are not added to `ISteamNativeApi`.
+A callback exception faults the provider and disables future callback pumps. It also stops
+Product Achievement publication immediately: the product session is detached, active and queued
+items complete as unavailable, and durable pending remains. Native Steam shutdown is still owned
+by the later runtime shutdown. Feature methods are not added to `ISteamNativeApi`.
 
 The separate `ISteamAchievementApi` is a Steam-specific raw transport capability reused
 by either the Product Achievement publisher or the opt-in AppID 480 smoke coordinator.
@@ -37,14 +39,27 @@ Normal Product Achievement publication uses the optional mapping owned under
 `VQ_STAGE_1_2_PUSH_FLIP_LE_25`, all with status `EXPECTED_NOT_PUBLISHED` until an actual
 AppID schema is created and published in Steamworks App Admin. Publication is
 gated by initialized session observations, exact runtime schema presence, pre-read state,
-Set/Store results, both correlated callback kinds, and a final unlocked post-read. The
-publisher runs one mutation at a time, queues concurrent publications in FIFO order, and
-uses a 30-second monotonic callback timeout with no automatic mutation retry. A timeout or
-non-OK `UserStatsStored_t` result quarantines that publisher session: the active item fails,
-queued items become unavailable, callback handles are disposed, and later callbacks cannot
-be attributed to a newer item. The same process does not automatically register a replacement
-publisher session. Durable Product Achievement pending records remain available for a later
-process/session.
+Set/Store results, and exact-name full-unlock callbacks. The publisher accepts an immutable
+product batch, pre-reads each item, sets every eligible locked item, and calls `StoreStats`
+once for the batch. Each exact `UserAchievementStored_t` confirms only its named item.
+`UserStatsStored_t`, whether OK or non-OK, is not correlated to an achievement and is retained
+only as diagnostics; it never completes or fails a batch.
+
+Concurrent batches are queued in FIFO order. `StoreStats(false)` fails that batch's store
+candidates and starts the next queued batch without quarantining the session. After a successful
+store call, a 30-second monotonic timeout preserves named successes, fails unresolved items,
+quarantines the publisher session, completes queued batches as unavailable, and disposes callback
+handles. Runtime readiness is checked once when each batch enters mutation. Readiness loss
+completes the batch as unavailable, while a readiness API exception completes it as failed; both
+paths quarantine before any Achievement API call. An exception from an Achievement schema,
+pre-read, set, or store API quarantines at its point of failure, preserves item results already
+known, fails unresolved items, and makes queued batches unavailable. Disposal completes every
+active and queued item as unavailable, even when an active
+batch had already computed a partial item result. A named completion returns `Submitted` and
+keeps the durable Product Achievement pending record. The same Product Achievement application
+lifetime accepts only one distinct publisher session; the next application lifetime removes all
+`AlreadySatisfied` pending items from a reconciliation batch in one atomic save, or resubmits
+items whose pre-read remains locked.
 
 Achievement smoke mutation still requires explicit Steam selection plus both
 `-j2mSteamSmoke` and `-j2mSteamAchievementSmoke`. That flag pair selects the provider-local
