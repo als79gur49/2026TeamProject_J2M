@@ -63,6 +63,7 @@ namespace Game.Product.Achievements.Tests
 
             integration.TryEarnFromCommittedSlot(slot, _resolver);
 
+            Assert.That(sink.BatchCount, Is.EqualTo(1));
             Assert.That(sink.Ids, Has.Count.EqualTo(expectedEarnCount));
             Assert.That(sink.Ids, Does.Contain(GameAchievementIds.CampaignStage1_2Clear));
             Assert.That(
@@ -116,10 +117,28 @@ namespace Game.Product.Achievements.Tests
         {
             internal List<GameAchievementId> Ids { get; } = new();
 
+            internal int BatchCount { get; private set; }
+
             public AchievementEarnResult Earn(GameAchievementId achievementId)
             {
                 Ids.Add(achievementId);
                 return AchievementEarnResult.EarnedNew;
+            }
+
+            public AchievementEarnBatchResult EarnBatch(
+                IReadOnlyList<GameAchievementId> achievementIds)
+            {
+                BatchCount++;
+                var values = new GameAchievementId[achievementIds.Count];
+                for (var i = 0; i < achievementIds.Count; i++)
+                {
+                    values[i] = achievementIds[i];
+                    Ids.Add(achievementIds[i]);
+                }
+
+                return new AchievementEarnBatchResult(
+                    AchievementEarnResult.EarnedNew,
+                    values);
             }
         }
 

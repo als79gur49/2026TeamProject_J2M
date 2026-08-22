@@ -180,6 +180,7 @@ namespace Game.Product.Achievements.CampaignIntegration
 
             var records = NormalStagePerformanceRecordPolicy.Normalize(
                 committedSlot.NormalStagePerformanceRecords);
+            var earnedFromCommittedFact = new List<GameAchievementId>();
             for (var ruleIndex = 0; ruleIndex < _rules.Rules.Count; ruleIndex++)
             {
                 var rule = _rules.Rules[ruleIndex];
@@ -195,17 +196,23 @@ namespace Game.Product.Achievements.CampaignIntegration
                         continue;
                     }
 
-                    try
-                    {
-                        _earningSink.Earn(rule.AchievementId);
-                    }
-                    catch
-                    {
-                        // The durable stage record remains the startup recovery source.
-                    }
-
+                    earnedFromCommittedFact.Add(rule.AchievementId);
                     break;
                 }
+            }
+
+            if (earnedFromCommittedFact.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                _earningSink.EarnBatch(earnedFromCommittedFact);
+            }
+            catch
+            {
+                // The durable stage record remains the startup recovery source.
             }
         }
     }

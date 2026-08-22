@@ -3943,6 +3943,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int EarnCount { get; private set; }
 
+            public int EarnBatchCount { get; private set; }
+
             public GameAchievementId LastAchievementId { get; private set; }
 
             public bool SaveWasCommittedAtEarn { get; private set; }
@@ -3961,6 +3963,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 return _result;
+            }
+
+            public AchievementEarnBatchResult EarnBatch(
+                IReadOnlyList<GameAchievementId> achievementIds)
+            {
+                EarnBatchCount++;
+                var values = new GameAchievementId[achievementIds.Count];
+                for (var i = 0; i < achievementIds.Count; i++)
+                {
+                    Earn(achievementIds[i]);
+                    values[i] = achievementIds[i];
+                }
+
+                return new AchievementEarnBatchResult(_result, values);
             }
         }
 

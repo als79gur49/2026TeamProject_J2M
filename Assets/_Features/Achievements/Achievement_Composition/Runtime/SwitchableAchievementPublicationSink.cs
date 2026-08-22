@@ -83,10 +83,15 @@ namespace Game.Product.Achievements.Composition
             }
         }
 
-        public void Publish(
-            GameAchievementId achievementId,
-            Action<AchievementPublicationResult> completed)
+        public void PublishBatch(
+            AchievementPublicationBatch batch,
+            Action<AchievementPublicationBatchResult> completed)
         {
+            if (batch == null)
+            {
+                throw new ArgumentNullException(nameof(batch));
+            }
+
             if (completed == null)
             {
                 throw new ArgumentNullException(nameof(completed));
@@ -98,7 +103,7 @@ namespace Game.Product.Achievements.Composition
                 snapshot = _target;
             }
 
-            snapshot.Publish(achievementId, completed);
+            snapshot.PublishBatch(batch, completed);
         }
     }
 }

@@ -6,6 +6,9 @@ namespace Game.Product.Achievements
     public interface IProductAchievementEarningSink
     {
         AchievementEarnResult Earn(GameAchievementId achievementId);
+
+        AchievementEarnBatchResult EarnBatch(
+            IReadOnlyList<GameAchievementId> achievementIds);
     }
 
     public enum AchievementEarnResult
@@ -15,6 +18,24 @@ namespace Game.Product.Achievements
         InvalidAchievement = 2,
         PersistenceFailed = 3,
         UnavailableState = 4,
+    }
+
+    public readonly struct AchievementEarnBatchResult
+    {
+        public AchievementEarnBatchResult(
+            AchievementEarnResult result,
+            GameAchievementId[] newlyEarnedAchievementIds)
+        {
+            Result = result;
+            var values = newlyEarnedAchievementIds == null
+                ? Array.Empty<GameAchievementId>()
+                : (GameAchievementId[])newlyEarnedAchievementIds.Clone();
+            NewlyEarnedAchievementIds = Array.AsReadOnly(values);
+        }
+
+        public AchievementEarnResult Result { get; }
+
+        public IReadOnlyList<GameAchievementId> NewlyEarnedAchievementIds { get; }
     }
 
     public readonly struct ProductAchievementSnapshot
@@ -81,7 +102,7 @@ namespace Game.Product.Achievements
 
         public bool Initialize()
         {
-            List<PublicationAttempt> attempts;
+            PublicationAttempt attempt;
             lock (_gate)
             {
                 if (_disposed)
@@ -119,44 +140,79 @@ namespace Game.Product.Achievements
                 _earned = ParseIds(normalized.EarnedAchievementIds);
                 _pending = ParseIds(normalized.PendingAchievementPublicationIds);
                 _usable = true;
-                attempts = RegisterInitializationReconciliationLocked();
+                attempt = RegisterInitializationReconciliationLocked();
             }
 
-            PublishAll(attempts);
+            Publish(attempt);
             return true;
         }
 
         public AchievementEarnResult Earn(GameAchievementId achievementId)
         {
-            PublicationAttempt attempt;
+            return EarnBatch(new[] { achievementId }).Result;
+        }
+
+        public AchievementEarnBatchResult EarnBatch(
+            IReadOnlyList<GameAchievementId> achievementIds)
+        {
+            PublicationAttempt attempt = null;
             lock (_gate)
             {
                 if (_disposed || !_initializeAttempted || !_usable)
                 {
-                    return AchievementEarnResult.UnavailableState;
+                    return BatchResult(AchievementEarnResult.UnavailableState);
                 }
 
-                if (!achievementId.IsValid || !_catalog.Contains(achievementId))
+                if (achievementIds == null || achievementIds.Count == 0)
                 {
-                    return AchievementEarnResult.InvalidAchievement;
+                    return BatchResult(AchievementEarnResult.InvalidAchievement);
                 }
 
-                if (_earned.Contains(achievementId))
+                var requested = new HashSet<GameAchievementId>();
+                for (var i = 0; i < achievementIds.Count; i++)
                 {
-                    return AchievementEarnResult.AlreadyEarned;
+                    var achievementId = achievementIds[i];
+                    if (!achievementId.IsValid ||
+                        !_catalog.Contains(achievementId) ||
+                        !requested.Add(achievementId))
+                    {
+                        return BatchResult(AchievementEarnResult.InvalidAchievement);
+                    }
                 }
 
-                var candidateEarned = new HashSet<GameAchievementId>(_earned) { achievementId };
-                var candidatePending = new HashSet<GameAchievementId>(_pending) { achievementId };
+                var newlyEarned = new List<GameAchievementId>();
+                foreach (var achievementId in requested)
+                {
+                    if (!_earned.Contains(achievementId))
+                    {
+                        newlyEarned.Add(achievementId);
+                    }
+                }
+
+                if (newlyEarned.Count == 0)
+                {
+                    return BatchResult(AchievementEarnResult.AlreadyEarned);
+                }
+
+                newlyEarned.Sort(
+                    (left, right) => StringComparer.Ordinal.Compare(left.Value, right.Value));
+                var candidateEarned = new HashSet<GameAchievementId>(_earned);
+                var candidatePending = new HashSet<GameAchievementId>(_pending);
+                for (var i = 0; i < newlyEarned.Count; i++)
+                {
+                    candidateEarned.Add(newlyEarned[i]);
+                    candidatePending.Add(newlyEarned[i]);
+                }
+
                 var candidate = CreateDocument(candidateEarned, candidatePending);
                 if (!TrySave(candidate))
                 {
-                    return AchievementEarnResult.PersistenceFailed;
+                    return BatchResult(AchievementEarnResult.PersistenceFailed);
                 }
 
                 _earned = candidateEarned;
                 _pending = candidatePending;
-                attempt = RegisterPublicationLocked(achievementId);
+                attempt = RegisterPublicationLocked(newlyEarned);
             }
 
             if (attempt != null)
@@ -164,12 +220,14 @@ namespace Game.Product.Achievements
                 Publish(attempt);
             }
 
-            return AchievementEarnResult.EarnedNew;
+            return new AchievementEarnBatchResult(
+                AchievementEarnResult.EarnedNew,
+                attempt?.AchievementIds ?? Array.Empty<GameAchievementId>());
         }
 
         public bool ReconcileAllEarnedForNewPublicationSession()
         {
-            List<PublicationAttempt> attempts;
+            PublicationAttempt attempt;
             lock (_gate)
             {
                 if (_disposed || !_initializeAttempted || !_usable)
@@ -177,10 +235,10 @@ namespace Game.Product.Achievements
                     return false;
                 }
 
-                attempts = RegisterAllKnownEarnedLocked();
+                attempt = RegisterAllKnownEarnedLocked();
             }
 
-            PublishAll(attempts);
+            Publish(attempt);
             return true;
         }
 
@@ -215,9 +273,9 @@ namespace Game.Product.Achievements
             }
         }
 
-        private List<PublicationAttempt> RegisterInitializationReconciliationLocked()
+        private PublicationAttempt RegisterInitializationReconciliationLocked()
         {
-            var attempts = new List<PublicationAttempt>();
+            var achievementIds = new List<GameAchievementId>();
             var definitions = _catalog.Definitions;
             for (var i = 0; i < definitions.Count; i++)
             {
@@ -227,19 +285,15 @@ namespace Game.Product.Achievements
                     continue;
                 }
 
-                var attempt = RegisterPublicationLocked(achievementId);
-                if (attempt != null)
-                {
-                    attempts.Add(attempt);
-                }
+                achievementIds.Add(achievementId);
             }
 
-            return attempts;
+            return RegisterPublicationLocked(achievementIds);
         }
 
-        private List<PublicationAttempt> RegisterAllKnownEarnedLocked()
+        private PublicationAttempt RegisterAllKnownEarnedLocked()
         {
-            var attempts = new List<PublicationAttempt>();
+            var achievementIds = new List<GameAchievementId>();
             var definitions = _catalog.Definitions;
             for (var i = 0; i < definitions.Count; i++)
             {
@@ -249,81 +303,117 @@ namespace Game.Product.Achievements
                     continue;
                 }
 
-                var attempt = RegisterPublicationLocked(achievementId);
-                if (attempt != null)
+                if (!_inFlight.ContainsKey(achievementId))
                 {
-                    attempts.Add(attempt);
+                    achievementIds.Add(achievementId);
                 }
             }
 
-            return attempts;
+            return RegisterPublicationLocked(achievementIds);
         }
 
-        private PublicationAttempt RegisterPublicationLocked(GameAchievementId achievementId)
+        private PublicationAttempt RegisterPublicationLocked(
+            IReadOnlyList<GameAchievementId> achievementIds)
         {
-            if (_disposed || !_usable || _inFlight.ContainsKey(achievementId))
+            if (_disposed || !_usable || achievementIds == null || achievementIds.Count == 0)
             {
                 return null;
             }
 
-            var attempt = new PublicationAttempt(++_nextAttemptId, achievementId);
-            _inFlight.Add(achievementId, attempt);
-            return attempt;
-        }
-
-        private void PublishAll(List<PublicationAttempt> attempts)
-        {
-            for (var i = 0; i < attempts.Count; i++)
+            var values = new List<GameAchievementId>();
+            for (var i = 0; i < achievementIds.Count; i++)
             {
-                Publish(attempts[i]);
+                if (!_inFlight.ContainsKey(achievementIds[i]))
+                {
+                    values.Add(achievementIds[i]);
+                }
             }
+
+            if (values.Count == 0)
+            {
+                return null;
+            }
+
+            values.Sort(
+                (left, right) => StringComparer.Ordinal.Compare(left.Value, right.Value));
+            var attempt = new PublicationAttempt(++_nextAttemptId, values.ToArray());
+            for (var i = 0; i < attempt.AchievementIds.Length; i++)
+            {
+                _inFlight.Add(attempt.AchievementIds[i], attempt);
+            }
+
+            return attempt;
         }
 
         private void Publish(PublicationAttempt attempt)
         {
+            if (attempt == null)
+            {
+                return;
+            }
+
             try
             {
-                _publicationSink.Publish(
-                    attempt.AchievementId,
+                _publicationSink.PublishBatch(
+                    new AchievementPublicationBatch(attempt.AchievementIds),
                     result => CompletePublication(attempt, result));
             }
             catch
             {
-                CompletePublication(attempt, AchievementPublicationResult.Failed);
+                CompletePublication(
+                    attempt,
+                    AchievementPublicationBatchResult.Uniform(
+                        new AchievementPublicationBatch(attempt.AchievementIds),
+                        AchievementPublicationResult.Failed));
             }
         }
 
         private void CompletePublication(
             PublicationAttempt attempt,
-            AchievementPublicationResult result)
+            AchievementPublicationBatchResult result)
         {
             lock (_gate)
             {
-                if (_disposed ||
-                    attempt.Completed ||
-                    !_inFlight.TryGetValue(attempt.AchievementId, out var current) ||
-                    !ReferenceEquals(current, attempt) ||
-                    current.AttemptId != attempt.AttemptId)
+                if (_disposed || attempt.Completed || !IsCurrentAttemptLocked(attempt))
                 {
                     return;
                 }
 
                 attempt.Completed = true;
-                _inFlight.Remove(attempt.AchievementId);
+                for (var i = 0; i < attempt.AchievementIds.Length; i++)
+                {
+                    _inFlight.Remove(attempt.AchievementIds[i]);
+                }
 
-                if (result != AchievementPublicationResult.Accepted &&
-                    result != AchievementPublicationResult.AlreadySatisfied)
+                if (result == null)
                 {
                     return;
                 }
 
-                if (!_pending.Contains(attempt.AchievementId))
+                var expected = new HashSet<GameAchievementId>(attempt.AchievementIds);
+                var observed = new HashSet<GameAchievementId>();
+                var alreadySatisfied = new HashSet<GameAchievementId>();
+                for (var i = 0; i < result.Items.Count; i++)
+                {
+                    var item = result.Items[i];
+                    if (!expected.Contains(item.AchievementId) ||
+                        !observed.Add(item.AchievementId) ||
+                        item.Result != AchievementPublicationResult.AlreadySatisfied ||
+                        !_pending.Contains(item.AchievementId))
+                    {
+                        continue;
+                    }
+
+                    alreadySatisfied.Add(item.AchievementId);
+                }
+
+                if (alreadySatisfied.Count == 0)
                 {
                     return;
                 }
 
                 var candidatePending = new HashSet<GameAchievementId>(_pending);
-                candidatePending.Remove(attempt.AchievementId);
+                candidatePending.ExceptWith(alreadySatisfied);
                 var candidate = CreateDocument(_earned, candidatePending);
                 if (!TrySave(candidate))
                 {
@@ -332,6 +422,26 @@ namespace Game.Product.Achievements
 
                 _pending = candidatePending;
             }
+        }
+
+        private bool IsCurrentAttemptLocked(PublicationAttempt attempt)
+        {
+            for (var i = 0; i < attempt.AchievementIds.Length; i++)
+            {
+                if (!_inFlight.TryGetValue(attempt.AchievementIds[i], out var current) ||
+                    !ReferenceEquals(current, attempt) ||
+                    current.AttemptId != attempt.AttemptId)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static AchievementEarnBatchResult BatchResult(AchievementEarnResult result)
+        {
+            return new AchievementEarnBatchResult(result, Array.Empty<GameAchievementId>());
         }
 
         private bool TrySave(ProductAchievementDocument candidate)
@@ -397,15 +507,15 @@ namespace Game.Product.Achievements
 
         private sealed class PublicationAttempt
         {
-            public PublicationAttempt(long attemptId, GameAchievementId achievementId)
+            public PublicationAttempt(long attemptId, GameAchievementId[] achievementIds)
             {
                 AttemptId = attemptId;
-                AchievementId = achievementId;
+                AchievementIds = achievementIds ?? Array.Empty<GameAchievementId>();
             }
 
             public long AttemptId { get; }
 
-            public GameAchievementId AchievementId { get; }
+            public GameAchievementId[] AchievementIds { get; }
 
             public bool Completed { get; set; }
         }

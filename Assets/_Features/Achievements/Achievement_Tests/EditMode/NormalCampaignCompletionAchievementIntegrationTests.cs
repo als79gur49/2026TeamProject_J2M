@@ -579,6 +579,19 @@ namespace Game.Product.Achievements.Tests
 
                 return _result;
             }
+
+            public AchievementEarnBatchResult EarnBatch(
+                IReadOnlyList<GameAchievementId> achievementIds)
+            {
+                var newlyEarned = new GameAchievementId[achievementIds.Count];
+                for (var i = 0; i < achievementIds.Count; i++)
+                {
+                    Earn(achievementIds[i]);
+                    newlyEarned[i] = achievementIds[i];
+                }
+
+                return new AchievementEarnBatchResult(_result, newlyEarned);
+            }
         }
 
         private sealed class RecordingCampaignStore : ICampaignSaveSlotStore

@@ -23,10 +23,17 @@ namespace Game.Platform.Steam.Tests.EditMode
         internal Exception GetAchievementException { get; set; }
         internal Exception SetAchievementException { get; set; }
         internal Exception StoreStatsException { get; set; }
+        internal Action<string> SetAchievementAction { get; set; }
+        internal Action StoreStatsAction { get; set; }
         internal List<string> CallOrder { get; set; }
         internal List<string> RequestedAchievementNames { get; } = new List<string>();
+        internal Dictionary<string, Exception> GetAchievementExceptionsByName { get; } =
+            new Dictionary<string, Exception>(StringComparer.Ordinal);
+        internal Dictionary<string, Exception> SetAchievementExceptionsByName { get; } =
+            new Dictionary<string, Exception>(StringComparer.Ordinal);
         internal Queue<bool> ReadResultOverrides { get; } = new Queue<bool>();
         internal Queue<bool> UnlockedOverrides { get; } = new Queue<bool>();
+        internal Queue<bool> StoreResultOverrides { get; } = new Queue<bool>();
 
         internal int GetNumAchievementsCount { get; private set; }
         internal int GetAchievementNameCount { get; private set; }
@@ -38,6 +45,8 @@ namespace Game.Platform.Steam.Tests.EditMode
 
         private Action<SteamStatsStoredObservation> statsStoredObserver;
         private Action<SteamAchievementStoredObservation> achievementStoredObserver;
+        private Action<SteamStatsStoredObservation> capturedStatsStoredObserver;
+        private Action<SteamAchievementStoredObservation> capturedAchievementStoredObserver;
 
         public uint GetNumAchievements()
         {
@@ -70,6 +79,13 @@ namespace Game.Platform.Steam.Tests.EditMode
                 throw GetAchievementException;
             }
 
+            if (GetAchievementExceptionsByName.TryGetValue(
+                    achievementName,
+                    out var namedException))
+            {
+                throw namedException;
+            }
+
             if (ReadResultOverrides.Count > 0 && UnlockedOverrides.Count > 0)
             {
                 achieved = UnlockedOverrides.Dequeue();
@@ -90,6 +106,14 @@ namespace Game.Platform.Steam.Tests.EditMode
                 throw SetAchievementException;
             }
 
+            if (SetAchievementExceptionsByName.TryGetValue(
+                    achievementName,
+                    out var namedException))
+            {
+                throw namedException;
+            }
+
+            SetAchievementAction?.Invoke(achievementName);
             return SetResult;
         }
 
@@ -101,7 +125,10 @@ namespace Game.Platform.Steam.Tests.EditMode
                 throw StoreStatsException;
             }
 
-            return StoreResult;
+            StoreStatsAction?.Invoke();
+            return StoreResultOverrides.Count > 0
+                ? StoreResultOverrides.Dequeue()
+                : StoreResult;
         }
 
         public void RegisterAchievementStoreCallbacks(
@@ -114,8 +141,16 @@ namespace Game.Platform.Steam.Tests.EditMode
                 throw RegistrationException;
             }
 
+            if (statsStoredObserver != null || achievementStoredObserver != null)
+            {
+                throw new InvalidOperationException(
+                    "Steam achievement store callbacks are already registered.");
+            }
+
             statsStoredObserver = statsObserver;
             achievementStoredObserver = achievementObserver;
+            capturedStatsStoredObserver = statsObserver;
+            capturedAchievementStoredObserver = achievementObserver;
         }
 
         public void DisposeAchievementStoreCallbacks()
@@ -146,6 +181,26 @@ namespace Game.Platform.Steam.Tests.EditMode
                 appId,
                 achievementName,
                 fullUnlock));
+        }
+
+        internal void RaiseCapturedStatsStored(
+            uint appId = SpacewarAchievementSmokePolicy.AppId,
+            SteamCallbackResult result = SteamCallbackResult.Ok)
+        {
+            capturedStatsStoredObserver?.Invoke(
+                new SteamStatsStoredObservation(appId, result));
+        }
+
+        internal void RaiseCapturedAchievementStored(
+            uint appId = SpacewarAchievementSmokePolicy.AppId,
+            string achievementName = SpacewarAchievementSmokePolicy.TargetAchievement,
+            bool fullUnlock = true)
+        {
+            capturedAchievementStoredObserver?.Invoke(
+                new SteamAchievementStoredObservation(
+                    appId,
+                    achievementName,
+                    fullUnlock));
         }
     }
 }

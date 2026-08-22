@@ -13,6 +13,8 @@ namespace Game.Platform.Steam.ProductAchievements
 
         void Tick();
 
+        void OnRuntimeFaulted();
+
         void DisposeBeforeNativeShutdown();
     }
 
@@ -26,7 +28,7 @@ namespace Game.Platform.Steam.ProductAchievements
         private SteamAchievementPublisher _publisher;
         private bool _initializationObserved;
         private bool _registeredWithProduct;
-        private bool _disposed;
+        private bool _publicationStopped;
 
         internal SteamProductAchievementPublicationFeature(
             SteamRuntimeDependencies dependencies,
@@ -46,7 +48,7 @@ namespace Game.Platform.Steam.ProductAchievements
             bool steamIdValid,
             bool loggedOn)
         {
-            if (_disposed || _initializationObserved)
+            if (_publicationStopped || _initializationObserved)
             {
                 return;
             }
@@ -90,17 +92,26 @@ namespace Game.Platform.Steam.ProductAchievements
             _publisher?.Tick();
         }
 
+        public void OnRuntimeFaulted()
+        {
+            StopPublication();
+        }
+
         public void DisposeBeforeNativeShutdown()
         {
-            if (_disposed)
+            StopPublication();
+        }
+
+        private void StopPublication()
+        {
+            if (_publicationStopped)
             {
                 return;
             }
 
-            _disposed = true;
+            _publicationStopped = true;
             var publisher = _publisher;
             _publisher = null;
-            publisher?.Dispose();
             if (_registeredWithProduct)
             {
                 _registeredWithProduct = false;
@@ -108,6 +119,8 @@ namespace Game.Platform.Steam.ProductAchievements
                     this,
                     publisher);
             }
+
+            publisher?.Dispose();
         }
     }
 }

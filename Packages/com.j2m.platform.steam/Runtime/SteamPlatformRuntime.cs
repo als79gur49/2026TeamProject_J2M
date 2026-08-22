@@ -240,6 +240,7 @@ namespace Game.Platform.Steam
                     SteamPlatformFailureReason.CallbackException,
                     FormatException(exception),
                     exception);
+                productAchievementPublicationFeature.OnRuntimeFaulted();
             }
         }
 
