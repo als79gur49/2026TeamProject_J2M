@@ -17,7 +17,7 @@ MonoBehaviour:
     - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290101, type: 3}
       _referenceRect: {serializedVersion: 2, x: 14, y: 33, width: 619, height: 284}
     - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290102, type: 3}
-      _referenceRect: {serializedVersion: 2, x: 30, y: 406, width: 868, height: 526}
+      _referenceRect: {serializedVersion: 2, x: 30, y: 406, width: 868, height: 651}
     - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290103, type: 3}
       _referenceRect: {serializedVersion: 2, x: 1097, y: 30, width: 626, height: 375}
     - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290104, type: 3}

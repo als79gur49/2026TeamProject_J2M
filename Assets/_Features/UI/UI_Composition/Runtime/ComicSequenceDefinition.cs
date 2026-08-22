@@ -143,7 +143,7 @@ namespace Game.Feature.UI.Composition
     public sealed class ComicSequenceDefinition : ScriptableObject
     {
         public static readonly Vector2 ReferenceResolution = new(1920f, 1080f);
-        public const float FinalTransitionAspectRatio = 2.244f;
+        public const float FinalTransitionAspectRatio = 16f / 9f;
 
         [SerializeField] private ComicPageDefinition[] _pages =
             Array.Empty<ComicPageDefinition>();
