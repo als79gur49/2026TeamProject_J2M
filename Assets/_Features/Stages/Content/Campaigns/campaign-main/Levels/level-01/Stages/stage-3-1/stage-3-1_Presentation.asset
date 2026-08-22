@@ -15,7 +15,7 @@ MonoBehaviour:
   ownerEntry: {fileID: 11400000, guid: 07f416a395219645590d2b74425866c6, type: 2}
   ownerEntryGuid: 07f416a395219645590d2b74425866c6
   displayNameKey: stage.stage-3-1.display_name
-  backgroundPrefab: {fileID: 8961267106798357042, guid: ed5d5a37c3e1cb44a8f765fb7ac45862, type: 3}
+  backgroundPrefab: {fileID: 4032346886678373965, guid: 04021a85b7c037c4a8f1aede4dba9a82, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
   enemyPresentationBindings:

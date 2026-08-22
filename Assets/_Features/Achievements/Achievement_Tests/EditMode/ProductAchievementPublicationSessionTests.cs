@@ -27,29 +27,31 @@ namespace Game.Product.Achievements.Tests
             var router = new SwitchableAchievementPublicationSink();
             var session = new object();
             var otherSession = new object();
-            var sink = new RecordingSink(AchievementPublicationResult.Accepted);
-            var otherSink = new RecordingSink(AchievementPublicationResult.Accepted);
+            var sink = new RecordingSink(AchievementPublicationResult.Submitted);
+            var otherSink = new RecordingSink(AchievementPublicationResult.Submitted);
 
             Assert.That(Publish(router), Is.EqualTo(AchievementPublicationResult.Unavailable));
             Assert.That(router.TryAttach(session, sink), Is.True);
             Assert.That(router.TryAttach(session, sink), Is.True);
             Assert.That(router.TryAttach(otherSession, otherSink), Is.False);
             Assert.That(router.TryDetach(otherSession, sink), Is.False);
-            Assert.That(Publish(router), Is.EqualTo(AchievementPublicationResult.Accepted));
+            Assert.That(Publish(router), Is.EqualTo(AchievementPublicationResult.Submitted));
             Assert.That(router.TryDetach(session, sink), Is.True);
             Assert.That(Publish(router), Is.EqualTo(AchievementPublicationResult.Unavailable));
         }
 
-        [TestCase(AchievementPublicationResult.Accepted)]
-        [TestCase(AchievementPublicationResult.AlreadySatisfied)]
-        public void AttachAfterInitialUnavailable_ReconcilesEarnedPendingAndAcceptanceRemovesPending(
-            AchievementPublicationResult acceptanceResult)
+        [TestCase(AchievementPublicationResult.Submitted, 1, 0)]
+        [TestCase(AchievementPublicationResult.AlreadySatisfied, 0, 1)]
+        public void AttachAfterInitialUnavailable_ReconcilesWithResultSpecificPendingPolicy(
+            AchievementPublicationResult publicationResult,
+            int expectedPendingCount,
+            int expectedSaveCount)
         {
             var repository = new MemoryRepository(Document(pending: true));
             var router = new SwitchableAchievementPublicationSink();
             var coordinator = CreateCoordinator(repository, router);
             Assert.That(coordinator.Initialize(), Is.True);
-            var sink = new RecordingSink(acceptanceResult);
+            var sink = new RecordingSink(publicationResult);
             var controller = new ProductAchievementPublicationSessionController(
                 router,
                 coordinator);
@@ -59,8 +61,8 @@ namespace Game.Product.Achievements.Tests
             Assert.That(sink.PublishCount, Is.EqualTo(1));
             Assert.That(
                 coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
-                Is.Zero);
-            Assert.That(repository.SaveCount, Is.EqualTo(1));
+                Is.EqualTo(expectedPendingCount));
+            Assert.That(repository.SaveCount, Is.EqualTo(expectedSaveCount));
         }
 
         [Test]
@@ -82,7 +84,7 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void SameSessionIsIdempotentAndNewSessionReconcilesAgain()
+        public void SameSessionIsIdempotentAndDifferentSessionIsRejectedForApplicationLifetime()
         {
             var repository = new MemoryRepository(Document(pending: false));
             var router = new SwitchableAchievementPublicationSink();
@@ -100,8 +102,8 @@ namespace Game.Product.Achievements.Tests
 
             controller.Detach(firstSession, firstSink);
             var secondSink = new RecordingSink(AchievementPublicationResult.Unavailable);
-            Assert.That(controller.TryAttach(new object(), secondSink), Is.True);
-            Assert.That(secondSink.PublishCount, Is.EqualTo(1));
+            Assert.That(controller.TryAttach(new object(), secondSink), Is.False);
+            Assert.That(secondSink.PublishCount, Is.Zero);
         }
 
         [Test]
@@ -113,11 +115,13 @@ namespace Game.Product.Achievements.Tests
             Assert.That(router.TryAttach(session, sink), Is.True);
             var results = new List<AchievementPublicationResult>();
 
-            router.Publish(GameAchievementIds.NormalCampaignComplete, results.Add);
+            router.PublishBatch(
+                Batch(GameAchievementIds.NormalCampaignComplete),
+                result => results.Add(result.Items[0].Result));
             Assert.That(router.TryDetach(session, sink), Is.True);
-            sink.Complete(AchievementPublicationResult.Accepted);
+            sink.Complete(AchievementPublicationResult.Submitted);
 
-            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Accepted }));
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
             Assert.That(Publish(router), Is.EqualTo(AchievementPublicationResult.Unavailable));
         }
 
@@ -183,10 +187,15 @@ namespace Game.Product.Achievements.Tests
             SwitchableAchievementPublicationSink router)
         {
             var result = AchievementPublicationResult.Failed;
-            router.Publish(
-                GameAchievementIds.NormalCampaignComplete,
-                observed => result = observed);
+            router.PublishBatch(
+                Batch(GameAchievementIds.NormalCampaignComplete),
+                observed => result = observed.Items[0].Result);
             return result;
+        }
+
+        private static AchievementPublicationBatch Batch(GameAchievementId achievementId)
+        {
+            return new AchievementPublicationBatch(new[] { achievementId });
         }
 
         private sealed class MemoryRepository : IAchievementDocumentRepository
@@ -230,7 +239,8 @@ namespace Game.Product.Achievements.Tests
         private sealed class RecordingSink : IAchievementPublicationSink
         {
             private readonly AchievementPublicationResult? _result;
-            private Action<AchievementPublicationResult> _completion;
+            private AchievementPublicationBatch _batch;
+            private Action<AchievementPublicationBatchResult> _completion;
 
             internal RecordingSink(AchievementPublicationResult result)
             {
@@ -248,21 +258,24 @@ namespace Game.Product.Achievements.Tests
                 return new RecordingSink();
             }
 
-            public void Publish(
-                GameAchievementId achievementId,
-                Action<AchievementPublicationResult> completed)
+            public void PublishBatch(
+                AchievementPublicationBatch batch,
+                Action<AchievementPublicationBatchResult> completed)
             {
                 PublishCount++;
+                _batch = batch;
                 _completion = completed;
                 if (_result.HasValue)
                 {
-                    completed(_result.Value);
+                    completed(AchievementPublicationBatchResult.Uniform(
+                        batch,
+                        _result.Value));
                 }
             }
 
             internal void Complete(AchievementPublicationResult result)
             {
-                _completion(result);
+                _completion(AchievementPublicationBatchResult.Uniform(_batch, result));
             }
         }
 

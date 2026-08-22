@@ -344,7 +344,8 @@ namespace Game.Feature.Gameplay.Host
                 _campaignChanceDisplayOverride,
                 terminalTransitionPort,
                 _runtimeDirectPlayContext,
-                CreateNormalCampaignCompletionAchievementIntegration());
+                CreateNormalCampaignCompletionAchievementIntegration(),
+                CreateCampaignStageAchievementIntegration());
             _campaignFlowController.Bind();
         }
 
@@ -371,6 +372,13 @@ namespace Game.Feature.Gameplay.Host
         {
             return ProductAchievementEarningSinkHandoff
                 .CreateIntegrationForSceneComposition();
+        }
+
+        private static ICampaignStageAchievementIntegration
+            CreateCampaignStageAchievementIntegration()
+        {
+            return ProductAchievementEarningSinkHandoff
+                .CreateCampaignStageIntegrationForSceneComposition();
         }
 
         private static IStageLaunchRouter CreateStageLaunchRouter(

@@ -225,6 +225,9 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt),
                 IntroComicCompleted = slot.IntroComicCompleted,
                 OutroComicCompleted = slot.OutroComicCompleted,
+                NormalStagePerformanceRecords =
+                    CampaignProfileDocumentMapper.ToPerformanceRecordDocuments(
+                        slot.NormalStagePerformanceRecords),
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = CampaignProfileDocumentMapper.ToStageClearProfileDocument(
@@ -270,6 +273,9 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt),
                 IntroComicCompleted = slot.IntroComicCompleted,
                 OutroComicCompleted = slot.OutroComicCompleted,
+                NormalStagePerformanceRecords =
+                    CampaignProfileDocumentMapper.ToPerformanceRecords(
+                        slot.NormalStagePerformanceRecords),
                 TotalDeaths = Math.Max(0, slot.TotalDeaths),
                 LastPlayedAt = slot.LastPlayedAtUtc ?? string.Empty,
                 StageClearProfileSnapshot = ToStageClearProfileSnapshot(slot.StageClearProfileSnapshot),

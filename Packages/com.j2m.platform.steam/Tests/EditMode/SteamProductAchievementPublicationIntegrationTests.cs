@@ -27,7 +27,7 @@ namespace Game.Platform.Steam.Tests.EditMode
 
         [TestCase(true)]
         [TestCase(false)]
-        public void OrderingIndependentHandoff_AttachesOnceAndAcceptedRemovesPending(
+        public void OrderingIndependentHandoff_AttachesOnceAndSubmittedKeepsPending(
             bool productFirst)
         {
             var product = CreateProduct(pending: true);
@@ -63,8 +63,8 @@ namespace Game.Platform.Steam.Tests.EditMode
 
             Assert.That(
                 product.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
-                Is.Zero);
-            Assert.That(product.Repository.SaveCount, Is.EqualTo(1));
+                Is.EqualTo(1));
+            Assert.That(product.Repository.SaveCount, Is.Zero);
             Assert.That(achievements.RegistrationCount, Is.EqualTo(1));
             runtime.Shutdown();
         }
@@ -87,7 +87,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void NewSteamRuntimeSession_ReconcilesEarnedAgain()
+        public void SecondSteamRuntimeSession_IsRejectedWithinSameApplicationLifetime()
         {
             var product = CreateProduct(pending: false);
             ProductAchievementPublicationSessionHandoff.TryRegisterController(
@@ -107,7 +107,61 @@ namespace Game.Platform.Steam.Tests.EditMode
             secondRuntime.Initialize();
 
             Assert.That(firstAchievements.GetAchievementCount, Is.EqualTo(1));
-            Assert.That(secondAchievements.GetAchievementCount, Is.EqualTo(1));
+            Assert.That(secondAchievements.GetAchievementCount, Is.Zero);
+            Assert.That(secondAchievements.SetAchievementCount, Is.Zero);
+            Assert.That(secondAchievements.RegistrationCount, Is.EqualTo(1));
+            Assert.That(secondAchievements.DisposalCount, Is.EqualTo(1));
+            secondRuntime.Shutdown();
+        }
+
+        [Test]
+        public void SubmittedPending_IsRemovedOnlyAfterFreshApplicationLifetimePreRead()
+        {
+            var repository = new MemoryRepository(new ProductAchievementDocument
+            {
+                EarnedAchievementIds = new[] { GameAchievementIds.NormalCampaignComplete.Value },
+                PendingAchievementPublicationIds = new[]
+                {
+                    GameAchievementIds.NormalCampaignComplete.Value,
+                },
+            });
+            var firstProduct = CreateProduct(repository);
+            ProductAchievementPublicationSessionHandoff.TryRegisterController(
+                firstProduct.Controller);
+            var firstLifecycle = ProductLifecycle();
+            var firstAchievements = ProductApi();
+            firstLifecycle.CallbackAction = () => RaiseProductSuccess(firstAchievements);
+            var firstRuntime = CreateRuntime(firstLifecycle, firstAchievements);
+
+            firstRuntime.Initialize();
+            firstRuntime.Tick();
+
+            Assert.That(
+                firstProduct.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
+                Is.EqualTo(1));
+            Assert.That(repository.SaveCount, Is.Zero);
+
+            firstRuntime.Shutdown();
+            ProductAchievementPublicationSessionHandoff.ClearController(
+                firstProduct.Controller);
+            firstProduct.Controller.Dispose();
+            firstProduct.Coordinator.Dispose();
+            ProductAchievementPublicationSessionHandoff.ResetForTests();
+
+            var secondProduct = CreateProduct(repository);
+            ProductAchievementPublicationSessionHandoff.TryRegisterController(
+                secondProduct.Controller);
+            var secondLifecycle = ProductLifecycle();
+            var secondAchievements = ProductApi();
+            secondAchievements.BeforeUnlocked = true;
+            var secondRuntime = CreateRuntime(secondLifecycle, secondAchievements);
+
+            secondRuntime.Initialize();
+
+            Assert.That(
+                secondProduct.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
+                Is.Zero);
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
             Assert.That(secondAchievements.SetAchievementCount, Is.Zero);
             secondRuntime.Shutdown();
         }
@@ -161,7 +215,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void CallbackRegistrationFailure_LeavesProductUnavailableAndNativeSessionOperational()
+        public void CallbackRegistrationFailure_DoesNotDisposeUnownedCallbacksAndLeavesProductUnavailable()
         {
             var product = CreateProduct(pending: true);
             ProductAchievementPublicationSessionHandoff.TryRegisterController(
@@ -173,7 +227,7 @@ namespace Game.Platform.Steam.Tests.EditMode
 
             Assert.DoesNotThrow(() => runtime.Initialize());
             Assert.That(achievements.RegistrationCount, Is.EqualTo(1));
-            Assert.That(achievements.DisposalCount, Is.EqualTo(1));
+            Assert.That(achievements.DisposalCount, Is.Zero);
             Assert.That(achievements.SetAchievementCount, Is.Zero);
             Assert.That(
                 product.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
@@ -182,6 +236,60 @@ namespace Game.Platform.Steam.Tests.EditMode
             runtime.Tick();
             runtime.Shutdown();
             Assert.That(lifecycle.CallbackCount, Is.EqualTo(1));
+            Assert.That(lifecycle.ShutdownCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CallbackPumpFault_StopsPublicationClearsInFlightAndKeepsPending()
+        {
+            var product = CreateProduct(pending: true);
+            ProductAchievementPublicationSessionHandoff.TryRegisterController(
+                product.Controller);
+            var lifecycle = ProductLifecycle();
+            var achievements = ProductApi(
+                GameAchievementIds.NormalCampaignComplete,
+                GameAchievementIds.CampaignStage1_2Clear,
+                GameAchievementIds.CampaignStage1_2PushFlipWithin25);
+            var runtime = CreateRuntime(lifecycle, achievements);
+            runtime.Initialize();
+
+            Assert.That(product.Coordinator.GetSnapshot().InFlightCount, Is.EqualTo(1));
+            Assert.That(
+                product.Coordinator.Earn(GameAchievementIds.CampaignStage1_2Clear),
+                Is.EqualTo(AchievementEarnResult.EarnedNew));
+            Assert.That(product.Coordinator.GetSnapshot().InFlightCount, Is.EqualTo(2));
+            Assert.That(achievements.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(achievements.StoreStatsCount, Is.EqualTo(1));
+
+            lifecycle.CallbackException = new InvalidOperationException("callback failed");
+            Assert.DoesNotThrow(() => runtime.Tick());
+
+            var afterFault = product.Coordinator.GetSnapshot();
+            Assert.That(
+                runtime.Diagnostics.State,
+                Is.EqualTo(SteamPlatformRuntimeState.Faulted));
+            Assert.That(runtime.SteamAvailability.IsAvailable, Is.False);
+            Assert.That(product.Router.IsUnavailable, Is.True);
+            Assert.That(afterFault.InFlightCount, Is.Zero);
+            Assert.That(afterFault.PendingAchievementPublicationIds.Count, Is.EqualTo(2));
+            Assert.That(achievements.DisposalCount, Is.EqualTo(1));
+            Assert.That(lifecycle.ShutdownCount, Is.Zero);
+
+            Assert.That(
+                product.Coordinator.Earn(
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25),
+                Is.EqualTo(AchievementEarnResult.EarnedNew));
+            var afterUnavailableEarn = product.Coordinator.GetSnapshot();
+            Assert.That(afterUnavailableEarn.InFlightCount, Is.Zero);
+            Assert.That(
+                afterUnavailableEarn.PendingAchievementPublicationIds.Count,
+                Is.EqualTo(3));
+            Assert.That(achievements.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(achievements.StoreStatsCount, Is.EqualTo(1));
+
+            runtime.Shutdown();
+
+            Assert.That(achievements.DisposalCount, Is.EqualTo(1));
             Assert.That(lifecycle.ShutdownCount, Is.EqualTo(1));
         }
 
@@ -241,6 +349,11 @@ namespace Game.Platform.Steam.Tests.EditMode
                     ? new[] { GameAchievementIds.NormalCampaignComplete.Value }
                     : Array.Empty<string>(),
             });
+            return CreateProduct(repository);
+        }
+
+        private static ProductHarness CreateProduct(MemoryRepository repository)
+        {
             var router = new SwitchableAchievementPublicationSink();
             var coordinator = new ProductAchievementCoordinator(
                 repository,
@@ -250,7 +363,7 @@ namespace Game.Platform.Steam.Tests.EditMode
             var controller = new ProductAchievementPublicationSessionController(
                 router,
                 coordinator);
-            return new ProductHarness(repository, coordinator, controller);
+            return new ProductHarness(repository, coordinator, controller, router);
         }
 
         private static FakeSteamNativeApi ProductLifecycle()
@@ -258,11 +371,22 @@ namespace Game.Platform.Steam.Tests.EditMode
             return new FakeSteamNativeApi { AppId = SessionAppId };
         }
 
-        private static FakeSteamAchievementApi ProductApi()
+        private static FakeSteamAchievementApi ProductApi(
+            params GameAchievementId[] achievementIds)
         {
             var api = new FakeSteamAchievementApi();
             api.AchievementNames.Clear();
-            api.AchievementNames.Add(ExpectedName());
+            if (achievementIds == null || achievementIds.Length == 0)
+            {
+                api.AchievementNames.Add(ExpectedName());
+                return api;
+            }
+
+            for (var i = 0; i < achievementIds.Length; i++)
+            {
+                api.AchievementNames.Add(ExpectedName(achievementIds[i]));
+            }
+
             return api;
         }
 
@@ -286,8 +410,13 @@ namespace Game.Platform.Steam.Tests.EditMode
 
         private static string ExpectedName()
         {
+            return ExpectedName(GameAchievementIds.NormalCampaignComplete);
+        }
+
+        private static string ExpectedName(GameAchievementId achievementId)
+        {
             SteamAchievementMapping.Production.TryGetExpectedSteamApiName(
-                GameAchievementIds.NormalCampaignComplete,
+                achievementId,
                 out var expectedName);
             return expectedName.Value;
         }
@@ -297,11 +426,13 @@ namespace Game.Platform.Steam.Tests.EditMode
             internal ProductHarness(
                 MemoryRepository repository,
                 ProductAchievementCoordinator coordinator,
-                ProductAchievementPublicationSessionController controller)
+                ProductAchievementPublicationSessionController controller,
+                SwitchableAchievementPublicationSink router)
             {
                 Repository = repository;
                 Coordinator = coordinator;
                 Controller = controller;
+                Router = router;
             }
 
             internal MemoryRepository Repository { get; }
@@ -309,6 +440,8 @@ namespace Game.Platform.Steam.Tests.EditMode
             internal ProductAchievementCoordinator Coordinator { get; }
 
             internal ProductAchievementPublicationSessionController Controller { get; }
+
+            internal SwitchableAchievementPublicationSink Router { get; }
         }
 
         private sealed class MemoryRepository : IAchievementDocumentRepository

@@ -195,6 +195,14 @@ namespace Game.Platform.Steam.ProductAchievements
                         GameAchievementIds.NormalCampaignComplete,
                         ExpectedSteamAchievementApiName.Require(
                             "VQ_CAMPAIGN_COMPLETE")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage1_2Clear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_1_2_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_1_2_PUSH_FLIP_LE_25")),
                 });
 
         public IReadOnlyList<SteamAchievementMappingEntry> Entries => _entries;

@@ -117,6 +117,8 @@ namespace Game.Feature.Stages
         public bool HasNormalCampaignCompletionReceipt { get; set; }
 
         public NormalCampaignCompletionReceiptDocument NormalCampaignCompletionReceipt { get; set; }
+
+        public NormalStagePerformanceRecordDocument[] NormalStagePerformanceRecords { get; set; }
     }
 
     public sealed class CampaignNewGameRequest
@@ -373,6 +375,8 @@ namespace Game.Feature.Stages
                     NormalCampaignCompletionReceipt = null,
                     IntroComicCompleted = false,
                     OutroComicCompleted = false,
+                    NormalStagePerformanceRecords =
+                        Array.Empty<NormalStagePerformanceRecordDocument>(),
                     TotalDeaths = 0,
                     LastPlayedAtUtc = lastPlayedAtUtc,
                     StageClearProfileSnapshot = new CampaignStageClearProfileDocument(),
@@ -810,6 +814,12 @@ namespace Game.Feature.Stages
                     update.NormalCampaignCompletionReceipt);
             }
 
+            if (update.NormalStagePerformanceRecords != null)
+            {
+                slot.NormalStagePerformanceRecords = ClonePerformanceRecords(
+                    update.NormalStagePerformanceRecords);
+            }
+
             if (update.IntroComicCompleted.HasValue)
             {
                 slot.IntroComicCompleted = update.IntroComicCompleted.Value;
@@ -1202,6 +1212,8 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt),
                 IntroComicCompleted = slot.IntroComicCompleted,
                 OutroComicCompleted = slot.OutroComicCompleted,
+                NormalStagePerformanceRecords = ClonePerformanceRecords(
+                    slot.NormalStagePerformanceRecords),
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAtUtc ?? string.Empty,
                 StageClearProfileSnapshot = CloneStageClearProfile(slot.StageClearProfileSnapshot),
@@ -1243,6 +1255,27 @@ namespace Game.Feature.Stages
                 StageRunId = receipt.StageRunId,
                 ClearSource = receipt.ClearSource,
             };
+        }
+
+        private static NormalStagePerformanceRecordDocument[] ClonePerformanceRecords(
+            NormalStagePerformanceRecordDocument[] records)
+        {
+            records ??= Array.Empty<NormalStagePerformanceRecordDocument>();
+            var cloned = new NormalStagePerformanceRecordDocument[records.Length];
+            for (var i = 0; i < records.Length; i++)
+            {
+                var record = records[i];
+                cloned[i] = record == null
+                    ? null
+                    : new NormalStagePerformanceRecordDocument
+                    {
+                        Version = record.Version,
+                        StageId = record.StageId ?? string.Empty,
+                        BestCombinedPushFlipUses = record.BestCombinedPushFlipUses,
+                    };
+            }
+
+            return cloned;
         }
 
         private static PlayerStageClearRecordDocument CloneRecord(PlayerStageClearRecordDocument record)

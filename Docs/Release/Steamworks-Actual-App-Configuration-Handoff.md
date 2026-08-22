@@ -38,14 +38,35 @@ The exporter reads the `steam-windows` contract, `SteamAchievementMapping.Produc
 
 This is a repository expectation. It does not mean the Steamworks General Installation launch option has been configured or published.
 
-### Product achievement
+### Product achievements
 
-- Product Achievement ID: `campaign.complete`
-- Expected Steam API Name: `VQ_CAMPAIGN_COMPLETE`
-- Current status: `EXPECTED_NOT_PUBLISHED`
-- Unlock condition: normal Campaign final Objective clear
-- Excluded paths: DirectPlay and Force Clear
-- Hidden recommendation: `false`
+| Product Achievement ID | Expected Steam API Name | Unlock condition | Status |
+| --- | --- | --- | --- |
+| `campaign.complete` | `VQ_CAMPAIGN_COMPLETE` | Normal Campaign final Objective clear | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.stage-1-2.clear` | `VQ_STAGE_1_2_CLEAR` | Normal `stage-1-2` Objective clear | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.stage-1-2.push-flip-within-25` | `VQ_STAGE_1_2_PUSH_FLIP_LE_25` | Normal `stage-1-2` Objective clear with combined Push+Flip uses <= 25 | `EXPECTED_NOT_PUBLISHED` |
+
+All three exclude DirectPlay and Force Clear. The action threshold counts only executed, non-cancelled Push/Flip outcomes resolved as Success or Impact, resets on death/respawn/retry, and is inclusive at 25. Hidden recommendation is `false` for owner review.
+
+The runtime records qualifying normal-stage performance in the campaign save before it
+attempts Product Achievement earning. All achievements produced by that committed fact are
+written to the product ledger atomically and published as one Steam batch: eligible locked
+items are set first and one `StoreStats` follows. Exact-name `UserAchievementStored_t`
+callbacks confirm individual items. Generic `UserStatsStored_t` results are diagnostic only
+because they contain no achievement identity. `StoreStats(false)` fails the current store
+candidates but allows the next queued batch to start. A 30-second named-callback timeout
+preserves named successes, fails unresolved items, quarantines the publisher session, and
+makes queued batches unavailable. Pending records remain durable for startup recovery when
+a later process attaches a healthy Steam publisher; no replacement publisher is attached in
+the same application lifetime. Runtime readiness is evaluated once as each batch enters
+mutation. Readiness loss returns unavailable, while an exception from `GetAppId`,
+`IsSteamIdValid`, or `IsLoggedOn` returns failed; both quarantine before any Achievement API
+call. Achievement schema, pre-read, set, or store exceptions quarantine at their point of
+failure, preserve exact item results already known, fail unresolved items, and make queued
+batches unavailable. Publisher disposal completes every active and queued item as unavailable,
+regardless of any partial result accumulated by the active batch. A callback-pump exception also
+detaches and disposes Product publication immediately while leaving native shutdown to the normal
+runtime shutdown path; pending records remain durable.
 
 Owner-review copy drafts:
 
@@ -132,8 +153,8 @@ grant upload authority. Credentials, SteamID, account details, branch activation
 
 1. Confirm the Actual VectorQuake AppID.
 2. Confirm App Admin access for the authorized owner account.
-3. Create the `VQ_CAMPAIGN_COMPLETE` achievement.
-4. Review and enter Display Name, Description, Locked/Unlocked icons, and Hidden setting.
+3. Create `VQ_CAMPAIGN_COMPLETE`, `VQ_STAGE_1_2_CLEAR`, and `VQ_STAGE_1_2_PUSH_FLIP_LE_25` with exact ordinal API Names.
+4. Review and enter Display Name, Description, Locked/Unlocked icons, and Hidden setting for each achievement.
 5. Publish the Steamworks changes.
 6. Register the Windows launch option for `VectorQuake.exe` with `-j2mPlatformProvider steam`.
 7. Confirm or create the Windows Depot.
@@ -144,8 +165,12 @@ grant upload authority. Credentials, SteamID, account details, branch activation
 12. Perform an actual SteamPipe preview only after separate approval.
 13. Upload only after separate explicit approval.
 14. Install the resulting private branch build from the Steam Library.
-15. Complete the Campaign normally.
-16. Verify the actual achievement unlock and pending-publication removal behavior.
+15. Start with a clean QA account (or an approved partner-side achievement reset) and clean local `profile.json` / `achievements.json` test state; do not add a reset API to the product runtime.
+16. Complete `stage-1-2` normally at 26 combined Push+Flip uses first. Verify `VQ_STAGE_1_2_CLEAR` unlocks, `VQ_STAGE_1_2_PUSH_FLIP_LE_25` remains locked, the best count is 26, and the submitted clear achievement remains locally pending.
+17. Fully exit and restart the game. Verify the already-unlocked Steam pre-read removes the clear achievement from local pending; Scene reload, Main Menu entry, and Stage retry are not confirmation restarts.
+18. Complete `stage-1-2` normally at 25 combined Push+Flip uses. Verify the efficient-clear achievement unlocks, the best count improves to 25, and that achievement remains locally pending for this application lifetime.
+19. Fully exit and restart the game again, then verify the already-unlocked pre-read removes the efficient-clear achievement from local pending.
+20. Complete the Campaign normally and use the same full-exit/restart sequence to verify its actual unlock and pending removal behavior.
 
 ## Inputs required after AppID assignment
 

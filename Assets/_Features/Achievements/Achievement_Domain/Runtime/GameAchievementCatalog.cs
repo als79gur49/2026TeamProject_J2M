@@ -7,6 +7,12 @@ namespace Game.Product.Achievements
     {
         public static readonly GameAchievementId NormalCampaignComplete =
             GameAchievementId.Require("campaign.complete");
+
+        public static readonly GameAchievementId CampaignStage1_2Clear =
+            GameAchievementId.Require("campaign.stage-1-2.clear");
+
+        public static readonly GameAchievementId CampaignStage1_2PushFlipWithin25 =
+            GameAchievementId.Require("campaign.stage-1-2.push-flip-within-25");
     }
 
     public enum GameAchievementKind
@@ -79,6 +85,12 @@ namespace Game.Product.Achievements
                 {
                     new GameAchievementDefinition(
                         GameAchievementIds.NormalCampaignComplete,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage1_2Clear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage1_2PushFlipWithin25,
                         GameAchievementKind.OneShot),
                 });
 

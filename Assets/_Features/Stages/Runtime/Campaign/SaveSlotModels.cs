@@ -169,6 +169,9 @@ namespace Game.Feature.Stages
 
         public NormalCampaignCompletionReceipt NormalCampaignCompletionReceipt { get; set; }
 
+        public NormalStagePerformanceRecord[] NormalStagePerformanceRecords { get; set; } =
+            Array.Empty<NormalStagePerformanceRecord>();
+
         public bool IntroComicCompleted { get; set; }
 
         public bool OutroComicCompleted { get; set; }
@@ -187,6 +190,8 @@ namespace Game.Feature.Stages
                                !OutroComicCompleted &&
                                TotalDeaths == 0 &&
                                string.IsNullOrWhiteSpace(LastPlayedAt) &&
+                               (NormalStagePerformanceRecords == null ||
+                                NormalStagePerformanceRecords.Length == 0) &&
                                IsClearProfileEmpty(StageClearProfileSnapshot);
 
         public SaveSlotData Clone()
@@ -203,6 +208,8 @@ namespace Game.Feature.Stages
                 NormalCampaignCompletionReceipt = NormalCampaignCompletionReceipt?.Clone(),
                 IntroComicCompleted = IntroComicCompleted,
                 OutroComicCompleted = OutroComicCompleted,
+                NormalStagePerformanceRecords = NormalStagePerformanceRecordPolicy.Normalize(
+                    NormalStagePerformanceRecords),
                 TotalDeaths = TotalDeaths,
                 LastPlayedAt = LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = StageClearProfileSnapshot?.Clone() ?? new StageClearProfileSnapshot(),
@@ -222,6 +229,7 @@ namespace Game.Feature.Stages
                 NormalCampaignCompletionReceipt = null,
                 IntroComicCompleted = false,
                 OutroComicCompleted = false,
+                NormalStagePerformanceRecords = Array.Empty<NormalStagePerformanceRecord>(),
                 TotalDeaths = 0,
                 LastPlayedAt = string.Empty,
                 StageClearProfileSnapshot = new StageClearProfileSnapshot(),
@@ -250,6 +258,7 @@ namespace Game.Feature.Stages
                 NormalCampaignCompletionReceipt = null,
                 IntroComicCompleted = false,
                 OutroComicCompleted = false,
+                NormalStagePerformanceRecords = Array.Empty<NormalStagePerformanceRecord>(),
                 TotalDeaths = 0,
                 LastPlayedAt = lastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = new StageClearProfileSnapshot(),

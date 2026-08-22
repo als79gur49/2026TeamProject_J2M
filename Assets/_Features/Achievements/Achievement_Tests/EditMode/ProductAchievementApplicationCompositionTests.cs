@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Game.Feature.Stages;
 using Game.Product.Achievements.CampaignIntegration;
@@ -309,6 +310,20 @@ namespace Game.Product.Achievements.Tests
             public AchievementEarnResult Earn(GameAchievementId achievementId)
             {
                 return AchievementEarnResult.EarnedNew;
+            }
+
+            public AchievementEarnBatchResult EarnBatch(
+                IReadOnlyList<GameAchievementId> achievementIds)
+            {
+                var values = new GameAchievementId[achievementIds.Count];
+                for (var i = 0; i < values.Length; i++)
+                {
+                    values[i] = achievementIds[i];
+                }
+
+                return new AchievementEarnBatchResult(
+                    AchievementEarnResult.EarnedNew,
+                    values);
             }
         }
 

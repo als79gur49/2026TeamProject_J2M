@@ -23,6 +23,7 @@ namespace Game.Product.Achievements.Composition
 
         private object _sessionIdentity;
         private IAchievementPublicationSink _publicationSink;
+        private bool _publicationSessionConsumed;
         private bool _disposed;
 
         internal ProductAchievementPublicationSessionController(
@@ -60,11 +61,17 @@ namespace Game.Product.Achievements.Composition
                            ReferenceEquals(_publicationSink, publicationSink);
                 }
 
+                if (_publicationSessionConsumed)
+                {
+                    return false;
+                }
+
                 if (!_router.TryAttach(sessionIdentity, publicationSink))
                 {
                     return false;
                 }
 
+                _publicationSessionConsumed = true;
                 _sessionIdentity = sessionIdentity;
                 _publicationSink = publicationSink;
             }

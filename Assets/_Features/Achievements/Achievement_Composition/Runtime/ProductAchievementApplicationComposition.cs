@@ -114,7 +114,8 @@ namespace Game.Product.Achievements.Composition
                 var integration = new NormalCampaignCompletionAchievementIntegration(
                     _registeredEarningSink);
                 _startupReconciler = new NormalCampaignCompletionAchievementStartupReconciler(
-                    integration);
+                    integration,
+                    new CampaignStageAchievementIntegration(_registeredEarningSink));
                 var sequenceResolver = _sequenceResolverFactory?.Invoke();
                 if (sequenceResolver == null)
                 {

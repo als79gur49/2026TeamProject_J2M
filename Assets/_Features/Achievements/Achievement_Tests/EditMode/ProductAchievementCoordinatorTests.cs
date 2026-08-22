@@ -35,6 +35,113 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
+        public void EarnBatch_SavesAndPublishesAllNewAchievementsAtomically()
+        {
+            var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
+            var sink = RecordingSink.Async();
+            var coordinator = CreateCoordinator(repository, sink);
+            coordinator.Initialize();
+
+            var result = coordinator.EarnBatch(new[]
+            {
+                GameAchievementIds.CampaignStage1_2Clear,
+                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+            });
+
+            Assert.That(result.Result, Is.EqualTo(AchievementEarnResult.EarnedNew));
+            Assert.That(result.NewlyEarnedAchievementIds, Has.Count.EqualTo(2));
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            Assert.That(repository.Current.EarnedAchievementIds, Has.Length.EqualTo(2));
+            Assert.That(repository.Current.PendingAchievementPublicationIds, Has.Length.EqualTo(2));
+            Assert.That(sink.PublishCount, Is.EqualTo(1));
+            Assert.That(sink.LastBatch.AchievementIds, Has.Count.EqualTo(2));
+            Assert.That(coordinator.GetSnapshot().InFlightCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void BatchCompletion_RemovesAllAlreadySatisfiedPendingItemsInOneSave()
+        {
+            var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
+            var sink = RecordingSink.Async();
+            var coordinator = CreateCoordinator(repository, sink);
+            coordinator.Initialize();
+            coordinator.EarnBatch(new[]
+            {
+                GameAchievementIds.CampaignStage1_2Clear,
+                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+            });
+
+            sink.CompleteBatch(0, new[]
+            {
+                new AchievementPublicationItemResult(
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    AchievementPublicationResult.AlreadySatisfied),
+                new AchievementPublicationItemResult(
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                    AchievementPublicationResult.AlreadySatisfied),
+            });
+
+            Assert.That(repository.SaveCount, Is.EqualTo(2));
+            Assert.That(repository.Current.PendingAchievementPublicationIds, Is.Empty);
+            Assert.That(coordinator.GetSnapshot().InFlightCount, Is.Zero);
+        }
+
+        [Test]
+        public void MalformedBatchResult_IgnoresUnknownAndDuplicateItemsAndRetainsMissingPending()
+        {
+            var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
+            var sink = RecordingSink.Async();
+            var coordinator = CreateCoordinator(repository, sink);
+            coordinator.Initialize();
+            coordinator.EarnBatch(new[]
+            {
+                GameAchievementIds.CampaignStage1_2Clear,
+                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+            });
+
+            sink.CompleteBatch(0, new[]
+            {
+                new AchievementPublicationItemResult(
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    AchievementPublicationResult.AlreadySatisfied),
+                new AchievementPublicationItemResult(
+                    GameAchievementId.Require("future.valid"),
+                    AchievementPublicationResult.AlreadySatisfied),
+                new AchievementPublicationItemResult(
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    AchievementPublicationResult.AlreadySatisfied),
+            });
+
+            Assert.That(repository.SaveCount, Is.EqualTo(2));
+            Assert.That(
+                repository.Current.PendingAchievementPublicationIds,
+                Is.EqualTo(new[]
+                {
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25.Value,
+                }));
+            Assert.That(coordinator.GetSnapshot().InFlightCount, Is.Zero);
+        }
+
+        [Test]
+        public void EarnBatch_DuplicateInputFailsBeforeSaveOrPublication()
+        {
+            var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
+            var sink = RecordingSink.Async();
+            var coordinator = CreateCoordinator(repository, sink);
+            coordinator.Initialize();
+
+            var result = coordinator.EarnBatch(new[]
+            {
+                GameAchievementIds.CampaignStage1_2Clear,
+                GameAchievementIds.CampaignStage1_2Clear,
+            });
+
+            Assert.That(result.Result, Is.EqualTo(AchievementEarnResult.InvalidAchievement));
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(sink.PublishCount, Is.Zero);
+        }
+
+        [Test]
         public void SaveFailureBeforePublish_DoesNotCommitMemoryOrCallPublisher()
         {
             var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
@@ -112,22 +219,27 @@ namespace Game.Product.Achievements.Tests
             var sink = new UnavailableAchievementPublicationSink();
             var callbackCount = 0;
 
-            sink.Publish(
-                GameAchievementIds.NormalCampaignComplete,
+            sink.PublishBatch(
+                new AchievementPublicationBatch(new[]
+                {
+                    GameAchievementIds.NormalCampaignComplete,
+                }),
                 result =>
                 {
                     callbackCount++;
-                    Assert.That(result, Is.EqualTo(AchievementPublicationResult.Unavailable));
+                    Assert.That(
+                        result.Items[0].Result,
+                        Is.EqualTo(AchievementPublicationResult.Unavailable));
                 });
 
             Assert.That(callbackCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void SynchronousAcceptedCallback_RemovesPendingAfterInitialDurableSave()
+        public void SynchronousSubmittedCallback_KeepsPendingForNextApplicationLifetime()
         {
             var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
-            var sink = new RecordingSink(AchievementPublicationResult.Accepted)
+            var sink = new RecordingSink(AchievementPublicationResult.Submitted)
             {
                 BeforeCallback = _ => Assert.That(repository.SaveCount, Is.EqualTo(1)),
             };
@@ -136,12 +248,12 @@ namespace Game.Product.Achievements.Tests
 
             coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
 
-            Assert.That(repository.SaveCount, Is.EqualTo(2));
-            AssertState(coordinator, earned: true, pending: false, inFlight: 0);
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            AssertState(coordinator, earned: true, pending: true, inFlight: 0);
         }
 
         [Test]
-        public void AsyncAcceptedCallback_KeepsPendingUntilCompletionThenRemovesIt()
+        public void AsyncSubmittedCallback_CompletesInFlightButKeepsPending()
         {
             var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
             var sink = RecordingSink.Async();
@@ -151,19 +263,19 @@ namespace Game.Product.Achievements.Tests
             coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
             AssertState(coordinator, earned: true, pending: true, inFlight: 1);
 
-            sink.Complete(0, AchievementPublicationResult.Accepted);
+            sink.Complete(0, AchievementPublicationResult.Submitted);
 
-            Assert.That(repository.SaveCount, Is.EqualTo(2));
-            AssertState(coordinator, earned: true, pending: false, inFlight: 0);
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            AssertState(coordinator, earned: true, pending: true, inFlight: 0);
         }
 
-        [TestCase(AchievementPublicationResult.Accepted, false, 2)]
+        [TestCase(AchievementPublicationResult.Submitted, true, 1)]
         [TestCase(AchievementPublicationResult.AlreadySatisfied, false, 2)]
         [TestCase(AchievementPublicationResult.Deferred, true, 1)]
         [TestCase(AchievementPublicationResult.Unavailable, true, 1)]
         [TestCase(AchievementPublicationResult.Rejected, true, 1)]
         [TestCase(AchievementPublicationResult.Failed, true, 1)]
-        public void PublicationResultPolicy_OnlyAcceptanceRemovesPending(
+        public void PublicationResultPolicy_OnlyAlreadySatisfiedRemovesPending(
             AchievementPublicationResult publicationResult,
             bool pending,
             int expectedSaves)
@@ -179,7 +291,7 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void AcceptedPendingRemovalSaveFailure_RetainsPendingAndAllowsNextSessionReconciliation()
+        public void AlreadySatisfiedPendingRemovalSaveFailure_RetainsPendingForNextApplicationLifetime()
         {
             var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
             repository.SaveResults.Enqueue(AchievementDocumentSaveResult.Saved());
@@ -187,7 +299,7 @@ namespace Game.Product.Achievements.Tests
                 new AchievementDocumentSaveResult(AchievementDocumentSaveStatus.IoFailed, "io"));
             var firstCoordinator = CreateCoordinator(
                 repository,
-                new RecordingSink(AchievementPublicationResult.Accepted));
+                new RecordingSink(AchievementPublicationResult.AlreadySatisfied));
             firstCoordinator.Initialize();
 
             firstCoordinator.Earn(GameAchievementIds.NormalCampaignComplete);
@@ -224,11 +336,11 @@ namespace Game.Product.Achievements.Tests
             coordinator.Initialize();
             coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
 
-            sink.Complete(0, AchievementPublicationResult.Accepted);
-            sink.Complete(0, AchievementPublicationResult.Accepted);
+            sink.Complete(0, AchievementPublicationResult.Submitted);
+            sink.Complete(0, AchievementPublicationResult.Submitted);
 
-            Assert.That(repository.SaveCount, Is.EqualTo(2));
-            AssertState(coordinator, earned: true, pending: false, inFlight: 0);
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            AssertState(coordinator, earned: true, pending: true, inFlight: 0);
         }
 
         [Test]
@@ -242,7 +354,7 @@ namespace Game.Product.Achievements.Tests
             var savesBeforeDispose = repository.SaveCount;
 
             coordinator.Dispose();
-            Assert.DoesNotThrow(() => sink.Complete(0, AchievementPublicationResult.Accepted));
+            Assert.DoesNotThrow(() => sink.Complete(0, AchievementPublicationResult.Submitted));
 
             Assert.That(repository.SaveCount, Is.EqualTo(savesBeforeDispose));
             AssertState(coordinator, earned: true, pending: true, inFlight: 0);
@@ -413,7 +525,8 @@ namespace Game.Product.Achievements.Tests
         private sealed class RecordingSink : IAchievementPublicationSink
         {
             private readonly AchievementPublicationResult? _synchronousResult;
-            private readonly List<Action<AchievementPublicationResult>> _callbacks = new();
+            private readonly List<AchievementPublicationBatch> _batches = new();
+            private readonly List<Action<AchievementPublicationBatchResult>> _callbacks = new();
 
             public RecordingSink(AchievementPublicationResult synchronousResult)
             {
@@ -428,35 +541,50 @@ namespace Game.Product.Achievements.Tests
 
             public int PublishCount { get; private set; }
 
+            public AchievementPublicationBatch LastBatch =>
+                _batches.Count == 0 ? null : _batches[_batches.Count - 1];
+
             public static RecordingSink Async()
             {
                 return new RecordingSink();
             }
 
-            public void Publish(
-                GameAchievementId achievementId,
-                Action<AchievementPublicationResult> completed)
+            public void PublishBatch(
+                AchievementPublicationBatch batch,
+                Action<AchievementPublicationBatchResult> completed)
             {
                 PublishCount++;
-                BeforeCallback?.Invoke(achievementId);
+                BeforeCallback?.Invoke(batch.AchievementIds[0]);
+                _batches.Add(batch);
                 _callbacks.Add(completed);
                 if (_synchronousResult.HasValue)
                 {
-                    completed(_synchronousResult.Value);
+                    completed(AchievementPublicationBatchResult.Uniform(
+                        batch,
+                        _synchronousResult.Value));
                 }
             }
 
             public void Complete(int index, AchievementPublicationResult result)
             {
-                _callbacks[index](result);
+                _callbacks[index](AchievementPublicationBatchResult.Uniform(
+                    _batches[index],
+                    result));
+            }
+
+            public void CompleteBatch(
+                int index,
+                IEnumerable<AchievementPublicationItemResult> items)
+            {
+                _callbacks[index](new AchievementPublicationBatchResult(items));
             }
         }
 
         private sealed class ThrowingSink : IAchievementPublicationSink
         {
-            public void Publish(
-                GameAchievementId achievementId,
-                Action<AchievementPublicationResult> completed)
+            public void PublishBatch(
+                AchievementPublicationBatch batch,
+                Action<AchievementPublicationBatchResult> completed)
             {
                 throw new InvalidOperationException("publisher failed");
             }

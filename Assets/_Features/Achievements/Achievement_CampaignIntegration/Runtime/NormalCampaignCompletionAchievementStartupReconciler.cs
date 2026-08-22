@@ -6,12 +6,16 @@ namespace Game.Product.Achievements.CampaignIntegration
     internal sealed class NormalCampaignCompletionAchievementStartupReconciler
     {
         private readonly NormalCampaignCompletionAchievementIntegration _integration;
+        private readonly ICampaignStageAchievementIntegration _stageIntegration;
         private bool _executionAttempted;
 
         public NormalCampaignCompletionAchievementStartupReconciler(
-            NormalCampaignCompletionAchievementIntegration integration)
+            NormalCampaignCompletionAchievementIntegration integration,
+            ICampaignStageAchievementIntegration stageIntegration = null)
         {
             _integration = integration ?? throw new ArgumentNullException(nameof(integration));
+            _stageIntegration = stageIntegration ??
+                UnavailableCampaignStageAchievementIntegration.Instance;
         }
 
         public NormalCampaignCompletionAchievementResult Reconcile(
@@ -60,6 +64,11 @@ namespace Game.Product.Achievements.CampaignIntegration
             }
 
             var slots = loadResult.Slots ?? Array.Empty<SaveSlotData>();
+            for (var i = 0; i < slots.Length; i++)
+            {
+                _stageIntegration.TryEarnFromCommittedSlot(slots[i], sequenceResolver);
+            }
+
             for (var i = 0; i < slots.Length; i++)
             {
                 if (!NormalCampaignCompletionAchievementIntegration.HasEligiblePersistedReceipt(

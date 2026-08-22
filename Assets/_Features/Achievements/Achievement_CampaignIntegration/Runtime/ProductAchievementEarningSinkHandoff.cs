@@ -36,6 +36,14 @@ namespace Game.Product.Achievements.CampaignIntegration
                 : UnavailableNormalCampaignCompletionAchievementIntegration.Instance;
         }
 
+        internal static ICampaignStageAchievementIntegration
+            CreateCampaignStageIntegrationForSceneComposition()
+        {
+            return _earningSink != null
+                ? new CampaignStageAchievementIntegration(_earningSink)
+                : UnavailableCampaignStageAchievementIntegration.Instance;
+        }
+
         internal static void Clear(IProductAchievementEarningSink expected)
         {
             if (expected != null && ReferenceEquals(_earningSink, expected))

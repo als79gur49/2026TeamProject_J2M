@@ -40,6 +40,39 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
+        public void FailedSecondRegistration_DoesNotReleaseFirstPublisherCallbacks()
+        {
+            var lifecycle = ProductLifecycle();
+            var api = ProductApi();
+            using var owner = ReadyPublisher(lifecycle, api, out _);
+            using var contender = CreatePublisher(lifecycle, api, out _);
+
+            Assert.That(
+                contender.BeginSession(new SteamAchievementSessionPrerequisites(
+                    initializationSucceeded: true,
+                    observedAppId: SessionAppId,
+                    steamIdValid: true,
+                    loggedOn: true)),
+                Is.False);
+            Assert.That(api.RegistrationCount, Is.EqualTo(2));
+            Assert.That(api.DisposalCount, Is.Zero);
+
+            var results = Publish(
+                owner,
+                GameAchievementIds.NormalCampaignComplete);
+
+            Assert.That(results, Is.Empty);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+
+            Assert.That(
+                results,
+                Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+        }
+
+        [Test]
         public void UnknownMapping_ReturnsRejectedWithoutSteamApiCalls()
         {
             var api = ProductApi();
@@ -53,10 +86,87 @@ namespace Game.Platform.Steam.Tests.EditMode
             AssertNoMutation(api);
         }
 
+        [Test]
+        public void SuccessfulBatch_ChecksReadinessExactlyOnceAtMutationAdmission()
+        {
+            var lifecycle = ProductLifecycle();
+            var api = ProductApi();
+            using var publisher = ReadyPublisher(lifecycle, api, out _);
+
+            var results = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+
+            Assert.That(lifecycle.AppIdCount, Is.EqualTo(1));
+            Assert.That(lifecycle.IdentityCount, Is.EqualTo(1));
+            Assert.That(lifecycle.LoggedOnCount, Is.EqualTo(1));
+
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(lifecycle.AppIdCount, Is.EqualTo(1));
+            Assert.That(lifecycle.IdentityCount, Is.EqualTo(1));
+            Assert.That(lifecycle.LoggedOnCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void EachStartedQueuedBatch_ChecksReadinessExactlyOnce()
+        {
+            var lifecycle = ProductLifecycle();
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 2);
+            using var publisher = ReadyPublisher(lifecycle, api, out _);
+
+            var first = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            var second = Publish(publisher, GameAchievementIds.CampaignStage1_2Clear);
+
+            Assert.That(second, Is.Empty);
+            Assert.That(lifecycle.AppIdCount, Is.EqualTo(1));
+            Assert.That(lifecycle.IdentityCount, Is.EqualTo(1));
+            Assert.That(lifecycle.LoggedOnCount, Is.EqualTo(1));
+
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(second, Is.Empty);
+            Assert.That(lifecycle.AppIdCount, Is.EqualTo(2));
+            Assert.That(lifecycle.IdentityCount, Is.EqualTo(2));
+            Assert.That(lifecycle.LoggedOnCount, Is.EqualTo(2));
+
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2Clear));
+
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(lifecycle.AppIdCount, Is.EqualTo(2));
+            Assert.That(lifecycle.IdentityCount, Is.EqualTo(2));
+            Assert.That(lifecycle.LoggedOnCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ChangedNonZeroAppId_QuarantinesBeforeAchievementApi()
+        {
+            var lifecycle = ProductLifecycle();
+            var api = ProductApi();
+            using var publisher = ReadyPublisher(lifecycle, api, out _);
+            lifecycle.AppId = SessionAppId + 1;
+
+            var results = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(lifecycle.AppIdCount, Is.EqualTo(1));
+            Assert.That(lifecycle.IdentityCount, Is.Zero);
+            Assert.That(lifecycle.LoggedOnCount, Is.Zero);
+            Assert.That(api.GetNumAchievementsCount, Is.Zero);
+            AssertNoMutation(api);
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+            Assert.That(
+                Publish(publisher, GameAchievementIds.CampaignStage1_2Clear),
+                Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+        }
+
         [TestCase("app-id")]
         [TestCase("steam-id")]
         [TestCase("logged-on")]
-        public void ReadinessLostAfterAttach_ReturnsUnavailableBeforeAchievementApi(
+        public void ReadinessLostAfterAttach_QuarantinesBeforeAchievementApi(
             string lostPrerequisite)
         {
             var lifecycle = ProductLifecycle();
@@ -82,6 +192,53 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
             Assert.That(api.GetNumAchievementsCount, Is.Zero);
             AssertNoMutation(api);
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+            Assert.That(
+                Publish(publisher, GameAchievementIds.CampaignStage1_2Clear),
+                Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+        }
+
+        [TestCase("app-id")]
+        [TestCase("steam-id")]
+        [TestCase("logged-on")]
+        public void ReadinessException_QuarantinesAsFailed(
+            string throwingPrerequisite)
+        {
+            var lifecycle = ProductLifecycle();
+            var api = ProductApi();
+            using var publisher = ReadyPublisher(lifecycle, api, out _);
+            SetReadinessException(lifecycle, throwingPrerequisite);
+
+            var results = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
+            Assert.That(api.GetNumAchievementsCount, Is.Zero);
+            AssertNoMutation(api);
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+            Assert.That(
+                Publish(publisher, GameAchievementIds.CampaignStage1_2Clear),
+                Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+        }
+
+        [Test]
+        public void QueuedReadinessLoss_UsesSameQuarantinePolicyAsImmediateBatch()
+        {
+            var lifecycle = ProductLifecycle();
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 2);
+            using var publisher = ReadyPublisher(lifecycle, api, out _);
+            var first = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            var second = Publish(publisher, GameAchievementIds.CampaignStage1_2Clear);
+            lifecycle.LoggedOn = false;
+
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
         }
 
         [TestCase("OTHER_ACHIEVEMENT")]
@@ -174,7 +331,7 @@ namespace Game.Platform.Steam.Tests.EditMode
 
         [TestCase(true)]
         [TestCase(false)]
-        public void RequiredCallbacks_InEitherOrder_PostReadAndAcceptExactlyOnce(
+        public void NamedCallback_SubmitsExactlyOnceRegardlessOfStatsOrder(
             bool statsFirst)
         {
             var api = ProductApi();
@@ -183,10 +340,165 @@ namespace Game.Platform.Steam.Tests.EditMode
 
             RaiseSuccessCallbacks(api, statsFirst);
 
-            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Accepted }));
-            Assert.That(api.GetAchievementCount, Is.EqualTo(2));
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
             Assert.That(api.SetAchievementCount, Is.EqualTo(1));
             Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Batch_SetsAllCandidatesStoresOnceAndWaitsForEveryExactNamedCallback()
+        {
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 2);
+            using var publisher = ReadyPublisher(api, out _);
+            AchievementPublicationBatchResult result = null;
+
+            publisher.PublishBatch(
+                new AchievementPublicationBatch(new[]
+                {
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                }),
+                observed => result = observed);
+
+            Assert.That(api.SetAchievementCount, Is.EqualTo(2));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(result, Is.Null);
+
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2Clear));
+            api.RaiseStatsStored(SessionAppId, SteamCallbackResult.Failure);
+            Assert.That(result, Is.Null);
+
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2PushFlipWithin25));
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Items, Has.Count.EqualTo(2));
+            Assert.That(result.Items[0].Result, Is.EqualTo(AchievementPublicationResult.Submitted));
+            Assert.That(result.Items[1].Result, Is.EqualTo(AchievementPublicationResult.Submitted));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(publisher.StatsStoredObservationCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void BatchTimeout_PreservesNamedSuccessFailsMissingItemAndQuarantinesSession()
+        {
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 2);
+            var publisher = ReadyPublisher(api, out var clock);
+            AchievementPublicationBatchResult result = null;
+            publisher.PublishBatch(
+                new AchievementPublicationBatch(new[]
+                {
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                }),
+                observed => result = observed);
+
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2Clear));
+            clock.Seconds = SteamAchievementPublisher.CallbackTimeoutSeconds;
+            publisher.Tick();
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Items[0].Result, Is.EqualTo(AchievementPublicationResult.Submitted));
+            Assert.That(result.Items[1].Result, Is.EqualTo(AchievementPublicationResult.Failed));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+            Assert.That(
+                Publish(publisher, GameAchievementIds.NormalCampaignComplete),
+                Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            publisher.Dispose();
+        }
+
+        [Test]
+        public void StatsStoredOkAlone_DoesNotCompleteAndEventuallyTimesOut()
+        {
+            var api = ProductApi();
+            using var publisher = ReadyPublisher(api, out var clock);
+            var results = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+
+            api.RaiseStatsStored(SessionAppId);
+
+            Assert.That(results, Is.Empty);
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
+
+            clock.Seconds = SteamAchievementPublisher.CallbackTimeoutSeconds;
+            publisher.Tick();
+
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DelayedPriorSuccessCallbacks_CannotCompleteNextNamedOperation()
+        {
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 2);
+            using var publisher = ReadyPublisher(api, out _);
+            var first = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            var second = Publish(publisher, GameAchievementIds.CampaignStage1_2Clear);
+
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(second, Is.Empty);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(2));
+
+            api.RaiseStatsStored(SessionAppId);
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+
+            Assert.That(second, Is.Empty);
+            Assert.That(api.GetAchievementCount, Is.EqualTo(2));
+
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2Clear));
+
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void DelayedPriorStatsError_IsDiagnosticAndDoesNotContaminateNamedOperations()
+        {
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 3);
+            var publisher = ReadyPublisher(api, out _);
+            var first = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            var second = Publish(publisher, GameAchievementIds.CampaignStage1_2Clear);
+            var third = Publish(
+                publisher,
+                GameAchievementIds.CampaignStage1_2PushFlipWithin25);
+
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+            api.RaiseStatsStored(SessionAppId, SteamCallbackResult.Failure);
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(second, Is.Empty);
+            Assert.That(third, Is.Empty);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(2));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(2));
+            Assert.That(publisher.StatsStoredObservationCount, Is.EqualTo(1));
+            Assert.That(
+                publisher.LastStatsStoredResult,
+                Is.EqualTo(SteamCallbackResult.Failure));
+
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2Clear));
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2PushFlipWithin25));
+
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(third, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(api.DisposalCount, Is.Zero);
+            publisher.Dispose();
         }
 
         [Test]
@@ -208,16 +520,72 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void StatsStoredError_FailsWithoutPostRead()
+        public void StatsStoredError_DoesNotCompleteOrStopQueuedNamedOperations()
         {
             var api = ProductApi();
-            using var publisher = ReadyPublisher(api, out _);
-            var results = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            QueueSuccessfulPublicationReads(api, publicationCount: 3);
+            var publisher = ReadyPublisher(api, out _);
+            var first = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            var second = Publish(publisher, GameAchievementIds.CampaignStage1_2Clear);
+            var third = Publish(publisher, GameAchievementIds.CampaignStage1_2PushFlipWithin25);
 
             api.RaiseStatsStored(SessionAppId, SteamCallbackResult.Failure);
 
-            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
+            Assert.That(first, Is.Empty);
+            Assert.That(second, Is.Empty);
+            Assert.That(third, Is.Empty);
             Assert.That(api.GetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2Clear));
+            api.RaiseAchievementStored(
+                SessionAppId,
+                ExpectedName(GameAchievementIds.CampaignStage1_2PushFlipWithin25));
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(third, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(3));
+            Assert.That(api.SetAchievementCount, Is.EqualTo(3));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(3));
+            Assert.That(api.DisposalCount, Is.Zero);
+            publisher.Dispose();
+        }
+
+        [Test]
+        public void StatsStoredError_IsDiagnosticAndDisposeExceptionsRemainContained()
+        {
+            var api = ProductApi();
+            api.DisposalException = new InvalidOperationException("callback cleanup failed");
+            var publisher = ReadyPublisher(api, out _);
+            var activeCompletionCount = 0;
+            var queued = new List<AchievementPublicationResult>();
+            Publish(
+                publisher,
+                GameAchievementIds.NormalCampaignComplete,
+                _ =>
+                {
+                    activeCompletionCount++;
+                    throw new InvalidOperationException("completion failed");
+                });
+            Publish(
+                publisher,
+                GameAchievementIds.CampaignStage1_2Clear,
+                queued.Add);
+
+            Assert.DoesNotThrow(() =>
+                api.RaiseStatsStored(SessionAppId, SteamCallbackResult.Failure));
+
+            Assert.That(activeCompletionCount, Is.Zero);
+            Assert.That(queued, Is.Empty);
+            Assert.That(api.DisposalCount, Is.Zero);
+            Assert.DoesNotThrow(() => publisher.Dispose());
+            Assert.That(activeCompletionCount, Is.EqualTo(1));
+            Assert.That(queued, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -238,24 +606,211 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
             Assert.That(api.SetAchievementCount, Is.EqualTo(1));
             Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void SingleFlight_DefersSecondOperation()
+        public void Timeout_QuarantinesSessionAndCompletesQueuedOperationsUnavailable()
         {
             var api = ProductApi();
-            using var publisher = ReadyPublisher(api, out _);
+            var publisher = ReadyPublisher(api, out var clock);
             var first = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
-            var second = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            var second = Publish(publisher, GameAchievementIds.CampaignStage1_2Clear);
+            var third = Publish(publisher, GameAchievementIds.CampaignStage1_2PushFlipWithin25);
 
-            Assert.That(first, Is.Empty);
-            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Deferred }));
+            clock.Seconds = SteamAchievementPublisher.CallbackTimeoutSeconds;
+            publisher.Tick();
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(third, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
             Assert.That(api.SetAchievementCount, Is.EqualTo(1));
             Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+
+            api.RaiseStatsStored(SessionAppId, SteamCallbackResult.Failure);
+            api.RaiseAchievementStored(SessionAppId, ExpectedName());
+            var afterTimeout = Publish(
+                publisher,
+                GameAchievementIds.CampaignStage1_2Clear);
+            publisher.Dispose();
+            publisher.Dispose();
+
+            Assert.That(first, Has.Count.EqualTo(1));
+            Assert.That(second, Has.Count.EqualTo(1));
+            Assert.That(third, Has.Count.EqualTo(1));
+            Assert.That(afterTimeout, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void DuplicateCallbacks_CompleteAndPostReadOnce()
+        public void Timeout_CompletionReentryCannotRestartQuarantinedSession()
+        {
+            var api = ProductApi();
+            var publisher = ReadyPublisher(api, out var clock);
+            var first = new List<AchievementPublicationResult>();
+            var reentrant = new List<AchievementPublicationResult>();
+            Publish(
+                publisher,
+                GameAchievementIds.NormalCampaignComplete,
+                result =>
+                {
+                    first.Add(result);
+                    Publish(
+                        publisher,
+                        GameAchievementIds.CampaignStage1_2Clear,
+                        reentrant.Add);
+                });
+
+            clock.Seconds = SteamAchievementPublisher.CallbackTimeoutSeconds;
+            publisher.Tick();
+            publisher.Dispose();
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
+            Assert.That(reentrant, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SingleFlight_QueuesSecondOperationInFifoOrder()
+        {
+            var api = ProductApi();
+            api.ReadResultOverrides.Enqueue(true);
+            api.UnlockedOverrides.Enqueue(false);
+            api.ReadResultOverrides.Enqueue(true);
+            api.UnlockedOverrides.Enqueue(false);
+            using var publisher = ReadyPublisher(api, out _);
+            var first = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            var second = Publish(publisher, GameAchievementIds.CampaignStage1_2Clear);
+
+            Assert.That(first, Is.Empty);
+            Assert.That(second, Is.Empty);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+
+            RaiseSuccessCallbacks(
+                api,
+                GameAchievementIds.NormalCampaignComplete,
+                statsFirst: true);
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(second, Is.Empty);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(2));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(2));
+
+            RaiseSuccessCallbacks(
+                api,
+                GameAchievementIds.CampaignStage1_2Clear,
+                statsFirst: false);
+
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+        }
+
+        [Test]
+        public void SuccessfulCompletionReentry_PreservesReservedFifoOrder()
+        {
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 3);
+            using var publisher = ReadyPublisher(api, out _);
+            var first = new List<AchievementPublicationResult>();
+            var second = new List<AchievementPublicationResult>();
+            var third = new List<AchievementPublicationResult>();
+            Publish(
+                publisher,
+                GameAchievementIds.NormalCampaignComplete,
+                result =>
+                {
+                    first.Add(result);
+                    Publish(
+                        publisher,
+                        GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                        third.Add);
+                });
+            Publish(
+                publisher,
+                GameAchievementIds.CampaignStage1_2Clear,
+                second.Add);
+
+            RaiseSuccessCallbacks(
+                api,
+                GameAchievementIds.NormalCampaignComplete,
+                statsFirst: true);
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(second, Is.Empty);
+            Assert.That(third, Is.Empty);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(2));
+            Assert.That(
+                api.RequestedAchievementNames[api.RequestedAchievementNames.Count - 1],
+                Is.EqualTo(ExpectedName(GameAchievementIds.CampaignStage1_2Clear)));
+
+            RaiseSuccessCallbacks(
+                api,
+                GameAchievementIds.CampaignStage1_2Clear,
+                statsFirst: false);
+
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(third, Is.Empty);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(3));
+            Assert.That(
+                api.RequestedAchievementNames[api.RequestedAchievementNames.Count - 1],
+                Is.EqualTo(ExpectedName(
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25)));
+
+            RaiseSuccessCallbacks(
+                api,
+                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                statsFirst: true);
+
+            Assert.That(third, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+        }
+
+        [Test]
+        public void StoreFalse_CompletesFailedAndStillStartsNextQueuedOperation()
+        {
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 2);
+            api.StoreResultOverrides.Enqueue(false);
+            api.StoreResultOverrides.Enqueue(true);
+            using var publisher = ReadyPublisher(api, out _);
+            var first = new List<AchievementPublicationResult>();
+            var second = new List<AchievementPublicationResult>();
+            api.StoreStatsAction = () =>
+            {
+                api.StoreStatsAction = null;
+                Publish(
+                    publisher,
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    second.Add);
+            };
+
+            Publish(
+                publisher,
+                GameAchievementIds.NormalCampaignComplete,
+                first.Add);
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
+            Assert.That(second, Is.Empty);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(2));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(2));
+            Assert.That(api.DisposalCount, Is.Zero);
+
+            RaiseSuccessCallbacks(
+                api,
+                GameAchievementIds.CampaignStage1_2Clear,
+                statsFirst: false);
+
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+        }
+
+        [Test]
+        public void DuplicateCallbacks_CompleteExactlyOnce()
         {
             var api = ProductApi();
             using var publisher = ReadyPublisher(api, out _);
@@ -266,12 +821,12 @@ namespace Game.Platform.Steam.Tests.EditMode
             api.RaiseAchievementStored(SessionAppId, ExpectedName());
             api.RaiseAchievementStored(SessionAppId, ExpectedName());
 
-            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Accepted }));
-            Assert.That(api.GetAchievementCount, Is.EqualTo(2));
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void PostReadMismatch_ReturnsFailed()
+        public void NamedCallback_DoesNotRequirePostReadConfirmation()
         {
             var api = ProductApi();
             api.AfterUnlocked = false;
@@ -280,12 +835,12 @@ namespace Game.Platform.Steam.Tests.EditMode
 
             RaiseSuccessCallbacks(api, statsFirst: true);
 
-            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
-            Assert.That(api.GetAchievementCount, Is.EqualTo(2));
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void PostReadReturnedFalse_ReturnsFailed()
+        public void NamedCallback_DoesNotPerformSecondRead()
         {
             var api = ProductApi();
             api.AfterReadResult = false;
@@ -294,12 +849,12 @@ namespace Game.Platform.Steam.Tests.EditMode
 
             RaiseSuccessCallbacks(api, statsFirst: true);
 
-            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
-            Assert.That(api.GetAchievementCount, Is.EqualTo(2));
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void PostReadException_IsContainedAsFailed()
+        public void NamedCallback_IgnoresUnusedPostReadException()
         {
             var api = ProductApi();
             using var publisher = ReadyPublisher(api, out _);
@@ -308,12 +863,12 @@ namespace Game.Platform.Steam.Tests.EditMode
 
             RaiseSuccessCallbacks(api, statsFirst: false);
 
-            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Failed }));
-            Assert.That(api.GetAchievementCount, Is.EqualTo(2));
+            Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Submitted }));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void DisposeInFlight_CompletesUnavailableDisposesCallbacksAndIgnoresLateCallbacks()
+        public void DisposeInFlight_CompletesUniformUnavailableAndIgnoresCapturedLateCallbacks()
         {
             var api = ProductApi();
             var publisher = ReadyPublisher(api, out _);
@@ -323,10 +878,150 @@ namespace Game.Platform.Steam.Tests.EditMode
             publisher.Dispose();
             api.RaiseStatsStored(SessionAppId);
             api.RaiseAchievementStored(SessionAppId, ExpectedName());
+            api.RaiseCapturedStatsStored(SessionAppId);
+            api.RaiseCapturedAchievementStored(SessionAppId, ExpectedName());
+            api.RaiseCapturedStatsStored(SessionAppId);
+            api.RaiseCapturedAchievementStored(SessionAppId, ExpectedName());
 
             Assert.That(results, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
             Assert.That(api.DisposalCount, Is.EqualTo(1));
             Assert.That(api.GetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(publisher.StatsStoredObservationCount, Is.Zero);
+            Assert.That(
+                Publish(publisher, GameAchievementIds.CampaignStage1_2Clear),
+                Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+        }
+
+        [Test]
+        public void DisposeWithQueuedOperations_CompletesAllUnavailableWithoutStartingQueue()
+        {
+            var api = ProductApi();
+            var publisher = ReadyPublisher(api, out _);
+            var first = Publish(publisher, GameAchievementIds.NormalCampaignComplete);
+            var second = Publish(publisher, GameAchievementIds.CampaignStage1_2Clear);
+
+            publisher.Dispose();
+
+            Assert.That(first, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(second, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DisposePartialBatch_OverwritesResolvedAndUnresolvedItemsAsUnavailable()
+        {
+            var api = ProductApi();
+            QueuePublicationReads(api, readSucceeded: true, unlocked: true);
+            QueuePublicationReads(api, readSucceeded: true, unlocked: false);
+            var publisher = ReadyPublisher(api, out _);
+            AchievementPublicationBatchResult result = null;
+            publisher.PublishBatch(
+                new AchievementPublicationBatch(new[]
+                {
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                }),
+                observed => result = observed);
+
+            Assert.That(result, Is.Null);
+            Assert.That(api.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+
+            publisher.Dispose();
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Items, Has.Count.EqualTo(2));
+            Assert.That(result.Items[0].Result, Is.EqualTo(AchievementPublicationResult.Unavailable));
+            Assert.That(result.Items[1].Result, Is.EqualTo(AchievementPublicationResult.Unavailable));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void AchievementApiException_PreservesKnownItemAndFailsUnresolvedItem()
+        {
+            var api = ProductApi();
+            QueuePublicationReads(api, readSucceeded: true, unlocked: true);
+            api.GetAchievementExceptionsByName.Add(
+                ExpectedName(GameAchievementIds.CampaignStage1_2PushFlipWithin25),
+                new InvalidOperationException("second pre-read failed"));
+            using var publisher = ReadyPublisher(api, out _);
+            AchievementPublicationBatchResult result = null;
+
+            publisher.PublishBatch(
+                new AchievementPublicationBatch(new[]
+                {
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                }),
+                observed => result = observed);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Items, Has.Count.EqualTo(2));
+            Assert.That(
+                result.Items[0].AchievementId,
+                Is.EqualTo(GameAchievementIds.CampaignStage1_2Clear));
+            Assert.That(
+                result.Items[0].Result,
+                Is.EqualTo(AchievementPublicationResult.AlreadySatisfied));
+            Assert.That(
+                result.Items[1].AchievementId,
+                Is.EqualTo(GameAchievementIds.CampaignStage1_2PushFlipWithin25));
+            Assert.That(
+                result.Items[1].Result,
+                Is.EqualTo(AchievementPublicationResult.Failed));
+            Assert.That(api.GetAchievementCount, Is.EqualTo(2));
+            AssertNoMutation(api);
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+            Assert.That(
+                Publish(publisher, GameAchievementIds.NormalCampaignComplete),
+                Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+        }
+
+        [Test]
+        public void StoreStatsException_AfterMultipleSetsFailsActiveAndQueuedBatch()
+        {
+            var api = ProductApi();
+            QueueSuccessfulPublicationReads(api, publicationCount: 2);
+            api.StoreStatsException = new InvalidOperationException("store failed");
+            var publisher = ReadyPublisher(api, out _);
+            var queued = new List<AchievementPublicationResult>();
+            api.SetAchievementAction = _ =>
+            {
+                api.SetAchievementAction = null;
+                Publish(
+                    publisher,
+                    GameAchievementIds.NormalCampaignComplete,
+                    queued.Add);
+            };
+            AchievementPublicationBatchResult active = null;
+
+            publisher.PublishBatch(
+                new AchievementPublicationBatch(new[]
+                {
+                    GameAchievementIds.CampaignStage1_2Clear,
+                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                }),
+                observed => active = observed);
+
+            Assert.That(active, Is.Not.Null);
+            Assert.That(active.Items, Has.Count.EqualTo(2));
+            Assert.That(
+                active.Items[0].Result,
+                Is.EqualTo(AchievementPublicationResult.Failed));
+            Assert.That(
+                active.Items[1].Result,
+                Is.EqualTo(AchievementPublicationResult.Failed));
+            Assert.That(queued, Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            Assert.That(api.SetAchievementCount, Is.EqualTo(2));
+            Assert.That(api.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(api.DisposalCount, Is.EqualTo(1));
+            Assert.That(
+                Publish(publisher, GameAchievementIds.NormalCampaignComplete),
+                Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));
+            publisher.Dispose();
         }
 
         [TestCase(nameof(FakeSteamAchievementApi.GetNumAchievementsException))]
@@ -393,7 +1088,18 @@ namespace Game.Platform.Steam.Tests.EditMode
         {
             var api = new FakeSteamAchievementApi();
             api.AchievementNames.Clear();
-            api.AchievementNames.Add(schemaName ?? ExpectedName());
+            if (schemaName != null)
+            {
+                api.AchievementNames.Add(schemaName);
+                return api;
+            }
+
+            for (var i = 0; i < GameAchievementCatalog.Production.Definitions.Count; i++)
+            {
+                var id = GameAchievementCatalog.Production.Definitions[i].Id;
+                api.AchievementNames.Add(ExpectedName(id));
+            }
+
             return api;
         }
 
@@ -404,8 +1110,13 @@ namespace Game.Platform.Steam.Tests.EditMode
 
         private static string ExpectedName()
         {
+            return ExpectedName(GameAchievementIds.NormalCampaignComplete);
+        }
+
+        private static string ExpectedName(GameAchievementId achievementId)
+        {
             SteamAchievementMapping.Production.TryGetExpectedSteamApiName(
-                GameAchievementIds.NormalCampaignComplete,
+                achievementId,
                 out var expectedName);
             return expectedName.Value;
         }
@@ -415,22 +1126,63 @@ namespace Game.Platform.Steam.Tests.EditMode
             GameAchievementId achievementId)
         {
             var results = new List<AchievementPublicationResult>();
-            publisher.Publish(achievementId, results.Add);
+            Publish(publisher, achievementId, results.Add);
             return results;
+        }
+
+        private static void Publish(
+            SteamAchievementPublisher publisher,
+            GameAchievementId achievementId,
+            Action<AchievementPublicationResult> completed)
+        {
+            publisher.PublishBatch(
+                new AchievementPublicationBatch(new[] { achievementId }),
+                result => completed(result.Items[0].Result));
+        }
+
+        private static void QueueSuccessfulPublicationReads(
+            FakeSteamAchievementApi api,
+            int publicationCount)
+        {
+            for (var i = 0; i < publicationCount; i++)
+            {
+                QueuePublicationReads(api, readSucceeded: true, unlocked: false);
+            }
+        }
+
+        private static void QueuePublicationReads(
+            FakeSteamAchievementApi api,
+            bool readSucceeded,
+            bool unlocked)
+        {
+            api.ReadResultOverrides.Enqueue(readSucceeded);
+            api.UnlockedOverrides.Enqueue(unlocked);
         }
 
         private static void RaiseSuccessCallbacks(
             FakeSteamAchievementApi api,
             bool statsFirst)
         {
+            RaiseSuccessCallbacks(
+                api,
+                GameAchievementIds.NormalCampaignComplete,
+                statsFirst);
+        }
+
+        private static void RaiseSuccessCallbacks(
+            FakeSteamAchievementApi api,
+            GameAchievementId achievementId,
+            bool statsFirst)
+        {
+            var expectedName = ExpectedName(achievementId);
             if (statsFirst)
             {
                 api.RaiseStatsStored(SessionAppId);
-                api.RaiseAchievementStored(SessionAppId, ExpectedName());
+                api.RaiseAchievementStored(SessionAppId, expectedName);
             }
             else
             {
-                api.RaiseAchievementStored(SessionAppId, ExpectedName());
+                api.RaiseAchievementStored(SessionAppId, expectedName);
                 api.RaiseStatsStored(SessionAppId);
             }
         }
@@ -465,6 +1217,27 @@ namespace Game.Platform.Steam.Tests.EditMode
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(exceptionProperty));
+            }
+        }
+
+        private static void SetReadinessException(
+            FakeSteamNativeApi lifecycle,
+            string throwingPrerequisite)
+        {
+            var exception = new InvalidOperationException("readiness failed");
+            switch (throwingPrerequisite)
+            {
+                case "app-id":
+                    lifecycle.AppIdException = exception;
+                    break;
+                case "steam-id":
+                    lifecycle.SteamIdValidException = exception;
+                    break;
+                case "logged-on":
+                    lifecycle.LoggedOnException = exception;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(throwingPrerequisite));
             }
         }
 

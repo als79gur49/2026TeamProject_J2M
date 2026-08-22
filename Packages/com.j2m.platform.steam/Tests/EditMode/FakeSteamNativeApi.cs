@@ -15,6 +15,9 @@ namespace Game.Platform.Steam.Tests.EditMode
         internal bool OverlayEnabled { get; set; }
         internal Exception PacksizeException { get; set; }
         internal Exception InitializeException { get; set; }
+        internal Exception AppIdException { get; set; }
+        internal Exception SteamIdValidException { get; set; }
+        internal Exception LoggedOnException { get; set; }
         internal Exception CallbackException { get; set; }
         internal Exception OverlayEnabledException { get; set; }
         internal Exception ShutdownException { get; set; }
@@ -87,12 +90,22 @@ namespace Game.Platform.Steam.Tests.EditMode
         public uint GetAppId()
         {
             AppIdCount++;
+            if (AppIdException != null)
+            {
+                throw AppIdException;
+            }
+
             return AppId;
         }
 
         public bool IsSteamIdValid()
         {
             IdentityCount++;
+            if (SteamIdValidException != null)
+            {
+                throw SteamIdValidException;
+            }
+
             return SteamIdValid;
         }
 
@@ -109,6 +122,11 @@ namespace Game.Platform.Steam.Tests.EditMode
         public bool IsLoggedOn()
         {
             LoggedOnCount++;
+            if (LoggedOnException != null)
+            {
+                throw LoggedOnException;
+            }
+
             return LoggedOn;
         }
 

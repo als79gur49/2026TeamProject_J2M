@@ -10,6 +10,29 @@ using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
+    internal readonly struct TerminalClaimAcceptedContext
+    {
+        internal TerminalClaimAcceptedContext(
+            TickResult result,
+            MinimalStageCompletionReadModel stageCompletion,
+            TerminalClaimResult claim,
+            StageAttemptMetricsSnapshot attemptMetrics)
+        {
+            Result = result;
+            StageCompletion = stageCompletion;
+            Claim = claim;
+            AttemptMetrics = attemptMetrics;
+        }
+
+        internal TickResult Result { get; }
+
+        internal MinimalStageCompletionReadModel StageCompletion { get; }
+
+        internal TerminalClaimResult Claim { get; }
+
+        internal StageAttemptMetricsSnapshot AttemptMetrics { get; }
+    }
+
     internal sealed class GameplayHostPresentationFeed : IGameplayPresentationFeed, IDisposable
     {
         private readonly GameplayInputHost _inputHost;
@@ -17,6 +40,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         private readonly GameplayTickViewPresenter _presenter;
         private readonly GameplayTimingProfile _timingProfile;
         private readonly GameplayPresentationBarrierTracker _barrierTracker;
+        private readonly StageAttemptPushFlipTracker _stageAttemptMetrics = new();
         private TerminalArbitrationOwner _terminalArbiter;
         private bool _terminalOutcomesEnabled = true;
         private PendingStageClearPresentation _pendingStageClearPresentation;
@@ -52,7 +76,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         internal event Action<TickResult, MinimalStageCompletionReadModel> StageClearCommitted;
 
-        internal event Action<TickResult, MinimalStageCompletionReadModel, TerminalClaimResult> TerminalClaimAccepted;
+        internal event Action<TerminalClaimAcceptedContext> TerminalClaimAccepted;
 
         internal event Action<TerminalClaimResult> TerminalClaimRejected;
 
@@ -91,7 +115,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 result: null,
                 claim.Token);
             StageClearCommitted?.Invoke(null, readModel);
-            TerminalClaimAccepted?.Invoke(null, readModel, claim);
+            TerminalClaimAccepted?.Invoke(new TerminalClaimAcceptedContext(
+                result: null,
+                readModel,
+                claim,
+                _stageAttemptMetrics.Snapshot));
             return readModel;
         }
 
@@ -195,6 +223,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             }
 
             _lastTickResult = result;
+            _stageAttemptMetrics.Observe(result, _inputHost.PlayerEntityId);
             _barrierTracker.RegisterFromTick(result, _timingProfile);
             var hasClear = result.ObjectiveResult != null && result.ObjectiveResult.ClearedThisTick;
             var hasDeath = ContainsPlayerDeathSignal(result, _inputHost.PlayerEntityId);
@@ -226,7 +255,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                             _terminalArbiter.RejectSameTickVictory(claim));
                     }
 
-                    TerminalClaimAccepted?.Invoke(result, stageCompletion, claim);
+                    TerminalClaimAccepted?.Invoke(new TerminalClaimAcceptedContext(
+                        result,
+                        stageCompletion,
+                        claim,
+                        _stageAttemptMetrics.Snapshot));
                     FramePublished?.Invoke(CreateFrame(
                         result,
                         includeStageEvent: false));

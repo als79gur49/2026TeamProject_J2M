@@ -76,6 +76,54 @@ namespace Game.Platform.Steam.SteamworksNet.Tests.EditMode
         }
 
         [Test]
+        public void DuplicateRegistration_PreservesExistingOwnerCallbacks()
+        {
+            Action<UserStatsStored_t> statsDispatch = null;
+            Action<UserAchievementStored_t> achievementDispatch = null;
+            var statsHandle = new FakeHandle();
+            var achievementHandle = new FakeHandle();
+            var ownerStatsCount = 0;
+            var ownerAchievementCount = 0;
+            var adapter = new SteamworksNetNativeApi(
+                observer =>
+                {
+                    statsDispatch = observer;
+                    return statsHandle;
+                },
+                observer =>
+                {
+                    achievementDispatch = observer;
+                    return achievementHandle;
+                });
+            adapter.RegisterAchievementStoreCallbacks(
+                _ => ownerStatsCount++,
+                _ => ownerAchievementCount++);
+
+            Assert.That(
+                () => Register(adapter),
+                Throws.TypeOf<InvalidOperationException>());
+
+            var gameId = new CGameID(new AppId_t(480)).m_GameID;
+            statsDispatch(new UserStatsStored_t
+            {
+                m_nGameID = gameId,
+                m_eResult = EResult.k_EResultOK,
+            });
+            achievementDispatch(CreateAchievementStored(
+                gameId,
+                "ACH_WIN_ONE_GAME",
+                currentProgress: 0,
+                maximumProgress: 0));
+
+            Assert.That(ownerStatsCount, Is.EqualTo(1));
+            Assert.That(ownerAchievementCount, Is.EqualTo(1));
+            Assert.That(statsHandle.DisposeCount, Is.Zero);
+            Assert.That(achievementHandle.DisposeCount, Is.Zero);
+
+            adapter.DisposeAchievementStoreCallbacks();
+        }
+
+        [Test]
         public void StoreCallbacks_NormalizeAppIdResultAndBooleanUnlockWithoutIdentityData()
         {
             Action<UserStatsStored_t> statsDispatch = null;

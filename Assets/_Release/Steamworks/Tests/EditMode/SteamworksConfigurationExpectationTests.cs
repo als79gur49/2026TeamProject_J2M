@@ -5,6 +5,7 @@ using Game.Platform.Steam.ProductAchievements;
 using Game.Product.Achievements;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine;
 
 namespace Game.Release.Steamworks.Editor.Tests
 {
@@ -46,14 +47,7 @@ namespace Game.Release.Steamworks.Editor.Tests
             Assert.That(report.distribution.forbiddenArtifacts,
                 Is.EqualTo(canonicalDistribution.ForbiddenArtifacts));
 
-            Assert.That(report.achievements, Has.Length.EqualTo(1));
-            var expectedMapping = SteamAchievementMapping.Production.Entries.Single();
-            Assert.That(report.achievements[0].gameAchievementId,
-                Is.EqualTo(expectedMapping.GameAchievementId.Value));
-            Assert.That(report.achievements[0].expectedSteamApiName,
-                Is.EqualTo(expectedMapping.ExpectedSteamApiName.Value));
-            Assert.That(report.achievements[0].publicationStatus,
-                Is.EqualTo(SteamworksExpectationVocabulary.ExpectedNotPublished));
+            AssertAchievementContracts(report.achievements);
         }
 
         [Test]
@@ -72,15 +66,18 @@ namespace Game.Release.Steamworks.Editor.Tests
         }
 
         [Test]
-        public void CanonicalJson_ContainsOneExpectedMappingAndNoActualIdentity()
+        public void CanonicalJson_ContainsEveryExpectedMappingAndNoActualIdentity()
         {
             var json = SteamworksConfigurationExpectationSerializer.Serialize(
                 SteamworksConfigurationExpectationBuilder.Build(Head, Tree));
+            var deserialized = JsonUtility.FromJson<SteamworksConfigurationExpectation>(json);
 
-            Assert.That(Count(json, "campaign.complete"), Is.EqualTo(1));
-            Assert.That(Count(json, "VQ_CAMPAIGN_COMPLETE"), Is.EqualTo(1));
-            Assert.That(Count(json, "EXPECTED_NOT_PUBLISHED"), Is.EqualTo(2));
-            Assert.That(json, Does.Contain("ACTUAL_IDENTITY_NOT_CONFIGURED"));
+            Assert.That(deserialized, Is.Not.Null);
+            Assert.That(deserialized.publicationStatus,
+                Is.EqualTo(SteamworksExpectationVocabulary.ExpectedNotPublished));
+            Assert.That(deserialized.actualIdentityStatus,
+                Is.EqualTo(SteamworksExpectationVocabulary.ActualIdentityNotConfigured));
+            AssertAchievementContracts(deserialized.achievements);
             Assert.That(json, Does.Not.Contain("\"appId\""));
             Assert.That(json, Does.Not.Contain("\"depotId\""));
             Assert.That(json, Does.Not.Contain("ACH_WIN_ONE_GAME"));
@@ -180,17 +177,23 @@ namespace Game.Release.Steamworks.Editor.Tests
             Assert.That(source, Does.Not.Contain("Regex"));
         }
 
-        private static int Count(string value, string token)
+        private static void AssertAchievementContracts(
+            SteamworksExpectationAchievement[] achievements)
         {
-            var count = 0;
-            var offset = 0;
-            while ((offset = value.IndexOf(token, offset, StringComparison.Ordinal)) >= 0)
-            {
-                count++;
-                offset += token.Length;
-            }
+            var actual = (achievements ?? Array.Empty<SteamworksExpectationAchievement>())
+                .Select(entry => string.Join(
+                    "|",
+                    entry.gameAchievementId,
+                    entry.expectedSteamApiName,
+                    entry.publicationStatus));
+            var expected = SteamAchievementMapping.Production.Entries
+                .Select(entry => string.Join(
+                    "|",
+                    entry.GameAchievementId.Value,
+                    entry.ExpectedSteamApiName.Value,
+                    SteamworksExpectationVocabulary.ExpectedNotPublished));
 
-            return count;
+            Assert.That(actual, Is.EqualTo(expected));
         }
     }
 }
