@@ -71,6 +71,7 @@ namespace Game.Feature.UI.Composition
 
         private readonly ComicSequenceAlphaFadeRunner _fadeRunner = new();
         private readonly List<Image> _panelImages = new();
+        private Image _backgroundImage;
         private Action<ComicSequenceResult> _completion;
         private ComicSequenceAudioFocusController _audioFocusController;
         private ComicSequenceDefinition _definition;
@@ -205,6 +206,7 @@ namespace Game.Feature.UI.Composition
             _canvasGroup.alpha = 1f;
             _canvasGroup.blocksRaycasts = true;
             _canvasGroup.interactable = true;
+            SetImageAlpha(_backgroundImage, 0f);
             ApplyBlackFadeAlpha(0f);
             BindAdvanceInput();
             CurrentPresentationState = ComicSequencePresentationState.Entering;
@@ -431,6 +433,7 @@ namespace Game.Feature.UI.Composition
             switch (completedOperation)
             {
                 case FadeOperation.EnterToBlack:
+                    SetImageAlpha(_backgroundImage, 1f);
                     ConfigureInitialContent();
                     StartSequenceAudio();
                     BeginFade(
@@ -635,9 +638,9 @@ namespace Game.Feature.UI.Composition
                 UiCanvasElementFactory.Stretch(background);
             }
 
-            var backgroundImage = background.GetComponent<Image>();
-            backgroundImage.color = Color.black;
-            backgroundImage.raycastTarget = true;
+            _backgroundImage = background.GetComponent<Image>();
+            _backgroundImage.color = Color.black;
+            _backgroundImage.raycastTarget = true;
         }
 
         private void EnsurePageViewport()

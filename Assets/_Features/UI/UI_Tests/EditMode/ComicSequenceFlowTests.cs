@@ -86,6 +86,47 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void Overlay_EnterFade_TransitionsFromSourceSceneToOpaqueBlack()
+        {
+            var definition = CreateDefinitionWithoutAudio();
+            var root = new GameObject(
+                nameof(Overlay_EnterFade_TransitionsFromSourceSceneToOpaqueBlack),
+                typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<ComicSequenceOverlayView>();
+
+                view.Present(definition, default, _ => { });
+
+                var backgroundImage = root.transform
+                    .Find("Background")
+                    .GetComponent<Image>();
+                var enterFadeDuration = definition.Timing.EnterFadeDuration;
+                Assert.That(enterFadeDuration, Is.GreaterThan(0f));
+                Assert.That(backgroundImage.color.a, Is.Zero);
+                Assert.That(view.CurrentFadeAlpha, Is.Zero);
+
+                view.AdvanceForTesting(enterFadeDuration * 0.5f);
+
+                Assert.That(backgroundImage.color.a, Is.Zero);
+                Assert.That(view.CurrentFadeAlpha, Is.GreaterThan(0f));
+                Assert.That(view.CurrentFadeAlpha, Is.LessThan(1f));
+
+                view.AdvanceForTesting(enterFadeDuration);
+
+                Assert.That(backgroundImage.color.a, Is.EqualTo(1f));
+                Assert.That(view.CurrentFadeAlpha, Is.EqualTo(1f));
+                Assert.That(view.CurrentPageIndex, Is.Zero);
+                Assert.That(view.VisiblePanelCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
         public void Overlay_AutoShowsFirstPanel_ThenCompletesAfterThirteenAdvances()
         {
             var definition = CreateDefinitionWithoutAudio();
