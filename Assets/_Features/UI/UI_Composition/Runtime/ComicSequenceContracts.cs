@@ -21,10 +21,21 @@ namespace Game.Feature.UI.Composition
         bool TryReleaseCancelledIntroOpaqueOwner();
     }
 
+    internal interface IComicSequenceTransitionAudioHandoffOwner
+    {
+        void CommitAudioFocusToTransition();
+    }
+
+    internal enum ComicSequenceAudioFocusEndMode
+    {
+        RestoreCurrentBgm = 0,
+        KeepBgmStoppedForTransition = 1,
+    }
+
     internal interface IComicSequenceAudioFocusOwner
     {
         void BeginFocus(AudioSource comicSequenceAudioSource);
 
-        void EndFocus();
+        void EndFocus(ComicSequenceAudioFocusEndMode endMode);
     }
 }

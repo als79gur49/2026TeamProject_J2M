@@ -48,6 +48,9 @@ namespace Game.Feature.UI.Tests
                 harness.Route.Requests[0].TransitionIntent,
                 Is.EqualTo(SceneTransitionIntent.ComicIntroToGameplay));
             Assert.That(harness.SaveStore.LoadSlot(1).IntroComicCompleted, Is.True);
+            Assert.That(
+                harness.ComicFlow.CommitAudioFocusToTransitionCount,
+                Is.EqualTo(1));
         }
 
         [TestCase(ComicSequenceResultKind.Failed)]
@@ -64,6 +67,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
             Assert.That(harness.Route.Requests, Is.Empty);
             Assert.That(harness.SaveStore.LoadSlot(1).IntroComicCompleted, Is.False);
+            Assert.That(
+                harness.ComicFlow.CommitAudioFocusToTransitionCount,
+                Is.Zero);
         }
 
         [Test]
@@ -85,6 +91,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.Route.Requests, Is.Empty);
             Assert.That(harness.SaveStore.LoadSlot(1).IntroComicCompleted, Is.False);
             Assert.That(harness.ComicFlow.ReleaseCancelledOwnerCount, Is.EqualTo(1));
+            Assert.That(
+                harness.ComicFlow.CommitAudioFocusToTransitionCount,
+                Is.Zero);
             Assert.That(harness.HandoffStore.TryPeek(out var current), Is.True);
             Assert.That(current, Is.SameAs(replacement));
         }
@@ -136,6 +145,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
             Assert.That(SceneEntryPresentationRegistry.Current.Phase,
                 Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+            Assert.That(
+                harness.ComicFlow.CommitAudioFocusToTransitionCount,
+                Is.Zero);
         }
 
         [Test]
@@ -153,6 +165,9 @@ namespace Game.Feature.UI.Tests
                 harness.Route.LastTransitionIntent,
                 Is.EqualTo(SceneTransitionIntent.ComicOutroToMainMenu));
             Assert.That(harness.SaveStore.LoadSlot(1).OutroComicCompleted, Is.True);
+            Assert.That(
+                harness.ComicFlow.CommitAudioFocusToTransitionCount,
+                Is.EqualTo(1));
         }
 
         [TestCase(ComicSequenceResultKind.Failed)]
@@ -168,6 +183,9 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(harness.Route.ReturnCallCount, Is.Zero);
             Assert.That(harness.SaveStore.LoadSlot(1).OutroComicCompleted, Is.False);
+            Assert.That(
+                harness.ComicFlow.CommitAudioFocusToTransitionCount,
+                Is.Zero);
         }
 
         [Test]
@@ -232,6 +250,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.SaveStore.LoadSlot(1).OutroComicCompleted, Is.False);
             Assert.That(MainMenuEntryPresentationRegistry.Current.Phase,
                 Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+            Assert.That(
+                harness.ComicFlow.CommitAudioFocusToTransitionCount,
+                Is.Zero);
         }
 
         [Test]
@@ -292,7 +313,8 @@ namespace Game.Feature.UI.Tests
 
         private sealed class ManualComicFlow :
             IComicIntroOutroFlow,
-            IComicSequenceOpaqueHandoffCancellationOwner
+            IComicSequenceOpaqueHandoffCancellationOwner,
+            IComicSequenceTransitionAudioHandoffOwner
         {
             private Action<ComicSequenceResult> _introCompletion;
             private Action<ComicSequenceResult> _outroCompletion;
@@ -305,6 +327,7 @@ namespace Game.Feature.UI.Tests
             public int PresentIntroCallCount { get; private set; }
             public int PresentOutroCallCount { get; private set; }
             public int ReleaseCancelledOwnerCount { get; private set; }
+            public int CommitAudioFocusToTransitionCount { get; private set; }
 
             public void PresentIntro(Action<ComicSequenceResult> completion)
             {
@@ -336,6 +359,11 @@ namespace Game.Feature.UI.Tests
             {
                 ReleaseCancelledOwnerCount++;
                 return true;
+            }
+
+            public void CommitAudioFocusToTransition()
+            {
+                CommitAudioFocusToTransitionCount++;
             }
         }
 

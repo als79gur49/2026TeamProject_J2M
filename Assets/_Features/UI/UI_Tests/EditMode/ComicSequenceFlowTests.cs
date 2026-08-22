@@ -357,8 +357,81 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(focus.BeginCount, Is.EqualTo(1));
                 Assert.That(focus.EndCount, Is.EqualTo(1));
+                Assert.That(
+                    focus.LastEndMode,
+                    Is.EqualTo(ComicSequenceAudioFocusEndMode.RestoreCurrentBgm));
                 Assert.That(overlay.AbortCount, Is.EqualTo(1));
                 Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(overlayObject);
+            }
+        }
+
+        [Test]
+        public void Coordinator_CancelledCompletion_RestoresCurrentBgmAfterCallback()
+        {
+            var definition = LoadProductionDefinition();
+            var overlayObject = new GameObject(
+                nameof(Coordinator_CancelledCompletion_RestoresCurrentBgmAfterCallback));
+            try
+            {
+                var focus = new RecordingAudioFocusOwner();
+                var overlay = new RecordingComicOverlay(
+                    overlayObject.AddComponent<AudioSource>());
+                var coordinator = new ComicSequenceFlowCoordinator(
+                    definition,
+                    null,
+                    overlay,
+                    null,
+                    focus);
+                var focusWasActiveDuringCallback = false;
+
+                coordinator.PresentIntro(_ =>
+                    focusWasActiveDuringCallback = focus.EndCount == 0);
+                overlay.Emit(ComicSequenceResultKind.Cancelled);
+
+                Assert.That(focusWasActiveDuringCallback, Is.True);
+                Assert.That(focus.EndCount, Is.EqualTo(1));
+                Assert.That(
+                    focus.LastEndMode,
+                    Is.EqualTo(ComicSequenceAudioFocusEndMode.RestoreCurrentBgm));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(overlayObject);
+            }
+        }
+
+        [Test]
+        public void Coordinator_AcceptedTransition_KeepsBgmStopped()
+        {
+            var definition = LoadProductionDefinition();
+            var overlayObject = new GameObject(
+                nameof(Coordinator_AcceptedTransition_KeepsBgmStopped));
+            try
+            {
+                var focus = new RecordingAudioFocusOwner();
+                var overlay = new RecordingComicOverlay(
+                    overlayObject.AddComponent<AudioSource>());
+                var coordinator = new ComicSequenceFlowCoordinator(
+                    definition,
+                    null,
+                    overlay,
+                    null,
+                    focus);
+
+                coordinator.PresentIntro(_ =>
+                    ((IComicSequenceTransitionAudioHandoffOwner)coordinator)
+                    .CommitAudioFocusToTransition());
+                overlay.Emit(ComicSequenceResultKind.Completed);
+
+                Assert.That(focus.EndCount, Is.EqualTo(1));
+                Assert.That(
+                    focus.LastEndMode,
+                    Is.EqualTo(
+                        ComicSequenceAudioFocusEndMode.KeepBgmStoppedForTransition));
             }
             finally
             {
@@ -476,15 +549,17 @@ namespace Game.Feature.UI.Tests
         {
             public int BeginCount { get; private set; }
             public int EndCount { get; private set; }
+            public ComicSequenceAudioFocusEndMode? LastEndMode { get; private set; }
 
             public void BeginFocus(AudioSource comicSequenceAudioSource)
             {
                 BeginCount++;
             }
 
-            public void EndFocus()
+            public void EndFocus(ComicSequenceAudioFocusEndMode endMode)
             {
                 EndCount++;
+                LastEndMode = endMode;
             }
         }
 
@@ -499,6 +574,7 @@ namespace Game.Feature.UI.Tests
             public AudioSource ComicSequenceAudioSource { get; }
             public Exception PresentException { get; set; }
             public int AbortCount { get; private set; }
+            private Action<ComicSequenceResult> Completion { get; set; }
 
             public void EnsureHierarchy()
             {
@@ -518,6 +594,13 @@ namespace Game.Feature.UI.Tests
                 {
                     throw PresentException;
                 }
+
+                Completion = completion;
+            }
+
+            public void Emit(ComicSequenceResultKind kind)
+            {
+                Completion?.Invoke(new ComicSequenceResult(kind));
             }
 
             public bool AbortSetupAfterFailure(ComicSequenceOpaqueHandoffToken expectedToken)

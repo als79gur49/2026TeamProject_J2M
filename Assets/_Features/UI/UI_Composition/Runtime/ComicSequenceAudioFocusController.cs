@@ -13,6 +13,7 @@ namespace Game.Feature.UI.Composition
 
         private AudioSource _activeAudioSource;
         private IAudioSettingsService _audioSettingsService;
+        private BgmPlaybackSuppressionLease _bgmPlaybackSuppression;
         private bool _isFocused;
         private float _comicSequenceFadeGain = 1f;
 
@@ -25,21 +26,46 @@ namespace Game.Feature.UI.Composition
             _activeAudioSource = comicSequenceAudioSource ?? throw new ArgumentNullException(nameof(comicSequenceAudioSource));
             _comicSequenceFadeGain = 1f;
             ResolveAudioSettingsService();
-            StopCurrentBgmIfAvailable();
+            BeginBgmPlaybackSuppressionIfAvailable();
             ApplyCurrentSettings();
             _isFocused = true;
         }
 
         public void EndFocus()
         {
-            if (_activeAudioSource != null)
-            {
-                _activeAudioSource.Stop();
-            }
+            EndFocus(ComicSequenceAudioFocusEndMode.RestoreCurrentBgm);
+        }
 
+        void IComicSequenceAudioFocusOwner.EndFocus(
+            ComicSequenceAudioFocusEndMode endMode)
+        {
+            EndFocus(endMode);
+        }
+
+        private void EndFocus(ComicSequenceAudioFocusEndMode endMode)
+        {
+            var activeAudioSource = _activeAudioSource;
+            var playbackSuppression = _bgmPlaybackSuppression;
             _activeAudioSource = null;
+            _bgmPlaybackSuppression = null;
             _comicSequenceFadeGain = 1f;
             _isFocused = false;
+            try
+            {
+                activeAudioSource?.Stop();
+            }
+            finally
+            {
+                if (endMode ==
+                    ComicSequenceAudioFocusEndMode.KeepBgmStoppedForTransition)
+                {
+                    playbackSuppression?.ReleaseWithoutRestore();
+                }
+                else
+                {
+                    playbackSuppression?.Dispose();
+                }
+            }
         }
 
         internal void SetComicSequenceFadeGain(float gain)
@@ -87,7 +113,7 @@ namespace Game.Feature.UI.Composition
             _audioSettingsService = _audioRuntimeInstaller.AudioSettingsService;
         }
 
-        private void StopCurrentBgmIfAvailable()
+        private void BeginBgmPlaybackSuppressionIfAvailable()
         {
             if (_audioFlowBootstrap == null)
             {
@@ -99,7 +125,9 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            _audioFlowBootstrap.GetCoordinatorOrThrow().StopCurrent();
+            _bgmPlaybackSuppression = _audioFlowBootstrap
+                .GetRequestRouterOrThrow()
+                .BeginPlaybackSuppression();
         }
 
         private void ApplyCurrentSettings()

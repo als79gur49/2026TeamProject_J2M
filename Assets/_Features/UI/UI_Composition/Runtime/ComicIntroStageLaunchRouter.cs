@@ -11,6 +11,8 @@ namespace Game.Feature.UI.Composition
         private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
         private readonly IComicSequenceOpaqueHandoffCancellationOwner
             _opaqueHandoffCancellationOwner;
+        private readonly IComicSequenceTransitionAudioHandoffOwner
+            _transitionAudioHandoffOwner;
         private readonly IComicIntroOutroFlow _comicFlow;
         private readonly SlotComicProgressStore _progressStore;
 
@@ -35,6 +37,8 @@ namespace Game.Feature.UI.Composition
             _comicFlow = comicFlow ?? throw new ArgumentNullException(nameof(comicFlow));
             _opaqueHandoffCancellationOwner =
                 comicFlow as IComicSequenceOpaqueHandoffCancellationOwner;
+            _transitionAudioHandoffOwner =
+                comicFlow as IComicSequenceTransitionAudioHandoffOwner;
         }
 
         public void Launch(StageNavigationRequest request)
@@ -115,6 +119,8 @@ namespace Game.Feature.UI.Composition
                                 LaunchOrClear(
                                     request.WithTransitionIntent(SceneTransitionIntent.ComicIntroToGameplay),
                                     handoff);
+                                _transitionAudioHandoffOwner?
+                                    .CommitAudioFocusToTransition();
                                 _progressStore.MarkIntroComicCompleted(handoff.SlotNumber);
                             }
                             catch (Exception exception)

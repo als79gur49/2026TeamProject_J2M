@@ -6,7 +6,8 @@ namespace Game.Feature.UI.Composition
 {
     public sealed class ComicSequenceFlowCoordinator :
         IComicIntroOutroFlow,
-        IComicSequenceOpaqueHandoffCancellationOwner
+        IComicSequenceOpaqueHandoffCancellationOwner,
+        IComicSequenceTransitionAudioHandoffOwner
     {
         private readonly ComicSequenceDefinition _introDefinition;
         private readonly ComicSequenceDefinition _outroDefinition;
@@ -85,6 +86,13 @@ namespace Game.Feature.UI.Composition
             return true;
         }
 
+        void IComicSequenceTransitionAudioHandoffOwner
+            .CommitAudioFocusToTransition()
+        {
+            EndAudioFocusIfActive(
+                ComicSequenceAudioFocusEndMode.KeepBgmStoppedForTransition);
+        }
+
         private void Present(
             ComicSequenceDefinition definition,
             SceneTransitionIntent intent,
@@ -130,7 +138,8 @@ namespace Game.Feature.UI.Composition
                         () => _overlayView.ReleaseOpaqueHandoff(handoffToken),
                         out handoffToken))
                 {
-                    EndAudioFocusIfActive();
+                    EndAudioFocusIfActive(
+                        ComicSequenceAudioFocusEndMode.RestoreCurrentBgm);
                     completion?.Invoke(new ComicSequenceResult(
                         ComicSequenceResultKind.Failed,
                         "The comic sequence opaque handoff session is already owned."));
@@ -192,7 +201,8 @@ namespace Game.Feature.UI.Composition
                 try
                 {
                     _audioFocusActive = false;
-                    _audioFocusController?.EndFocus();
+                    _audioFocusController?.EndFocus(
+                        ComicSequenceAudioFocusEndMode.RestoreCurrentBgm);
                 }
                 catch (Exception cleanupException)
                 {
@@ -225,7 +235,8 @@ namespace Game.Feature.UI.Composition
             }
         }
 
-        private void EndAudioFocusIfActive()
+        private void EndAudioFocusIfActive(
+            ComicSequenceAudioFocusEndMode endMode)
         {
             if (!_audioFocusActive)
             {
@@ -233,7 +244,7 @@ namespace Game.Feature.UI.Composition
             }
 
             _audioFocusActive = false;
-            _audioFocusController?.EndFocus();
+            _audioFocusController?.EndFocus(endMode);
         }
 
         private static void AttachCleanupFailure(
@@ -257,8 +268,15 @@ namespace Game.Feature.UI.Composition
             }
 
             _completionDispatched = true;
-            EndAudioFocusIfActive();
-            completion?.Invoke(result);
+            try
+            {
+                completion?.Invoke(result);
+            }
+            finally
+            {
+                EndAudioFocusIfActive(
+                    ComicSequenceAudioFocusEndMode.RestoreCurrentBgm);
+            }
         }
     }
 }

@@ -12,6 +12,8 @@ namespace Game.Feature.UI.Composition
         private readonly Func<bool> _isFinalClearMainReturn;
         private readonly IMainMenuReturnRouter _inner;
         private readonly IComicIntroOutroFlow _comicFlow;
+        private readonly IComicSequenceTransitionAudioHandoffOwner
+            _transitionAudioHandoffOwner;
         private readonly SlotComicProgressStore _progressStore;
 
         public ComicOutroMainMenuReturnRouter(
@@ -35,6 +37,8 @@ namespace Game.Feature.UI.Composition
             _progressStore = progressStore ?? throw new ArgumentNullException(nameof(progressStore));
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
             _comicFlow = comicFlow ?? throw new ArgumentNullException(nameof(comicFlow));
+            _transitionAudioHandoffOwner =
+                comicFlow as IComicSequenceTransitionAudioHandoffOwner;
             _isFinalClearMainReturn = isFinalClearMainReturn ?? (() => false);
         }
 
@@ -104,6 +108,8 @@ namespace Game.Feature.UI.Composition
                     try
                     {
                         _inner.ReturnToMainMenu(SceneTransitionIntent.ComicOutroToMainMenu);
+                        _transitionAudioHandoffOwner?
+                            .CommitAudioFocusToTransition();
                         _progressStore.MarkOutroComicCompleted(slotNumber);
                     }
                     catch (Exception exception)
