@@ -5,10 +5,14 @@ namespace Game.Feature.Stages
     public sealed class SaveSlotStoreCompatibilityAdapter : ICampaignSaveSlotStore
     {
         private readonly CampaignSaveService _campaignSaveService;
+        private readonly ICampaignSaveRecoveryPort _recoveryPort;
 
-        public SaveSlotStoreCompatibilityAdapter(CampaignSaveService campaignSaveService)
+        public SaveSlotStoreCompatibilityAdapter(
+            CampaignSaveService campaignSaveService,
+            ICampaignSaveRecoveryPort recoveryPort = null)
         {
             _campaignSaveService = campaignSaveService ?? throw new ArgumentNullException(nameof(campaignSaveService));
+            _recoveryPort = recoveryPort;
             LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
             LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Load has not run.");
         }
@@ -26,6 +30,15 @@ namespace Game.Feature.Stages
 
         public CampaignSaveLoadResult LoadAllWithReport()
         {
+            if (IsRecoveryPending())
+            {
+                LastCampaignLoadReport = new CampaignSaveLoadReport(
+                    CampaignSaveLoadStatus.RecoveryPending,
+                    "Campaign save reset is pending.",
+                    CampaignSaveServiceResultStatusToken);
+                return new CampaignSaveLoadResult(CreateEmptySlots(), LastCampaignLoadReport);
+            }
+
             var result = _campaignSaveService.GetSlots();
             if (!result.Succeeded)
             {
@@ -57,6 +70,7 @@ namespace Game.Feature.Stages
 
         public void SaveSlot(SaveSlotData slot)
         {
+            ThrowIfRecoveryPending();
             if (slot == null)
             {
                 throw new ArgumentNullException(nameof(slot));
@@ -71,6 +85,7 @@ namespace Game.Feature.Stages
             CampaignStageSequenceResolver sequenceResolver,
             string lastPlayedAt)
         {
+            ThrowIfRecoveryPending();
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
             if (sequenceResolver == null)
             {
@@ -91,6 +106,7 @@ namespace Game.Feature.Stages
 
         public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
         {
+            ThrowIfRecoveryPending();
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
             if (mutation == null)
             {
@@ -105,6 +121,7 @@ namespace Game.Feature.Stages
 
         public void DeleteSlot(int slotNumber)
         {
+            ThrowIfRecoveryPending();
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
             var result = _campaignSaveService.DeleteSlot(slotNumber);
             if (result.Status == CampaignSaveCommandStatus.SlotNotFound)
@@ -117,11 +134,26 @@ namespace Game.Feature.Stages
 
         public void ClearAll()
         {
+            ThrowIfRecoveryPending();
             ThrowIfFailed(_campaignSaveService.ClearAll());
             LastLoadReport = StageClearSaveLoadReport.Empty("Campaign profile was cleared.");
         }
 
         private const string CampaignSaveServiceResultStatusToken = "CampaignProfileDocument";
+
+        private bool IsRecoveryPending()
+        {
+            return _recoveryPort?.HasPendingReset == true;
+        }
+
+        private void ThrowIfRecoveryPending()
+        {
+            if (IsRecoveryPending())
+            {
+                throw new InvalidOperationException(
+                    "Campaign save reset is pending; campaign save writes are blocked.");
+            }
+        }
 
         private static CampaignSaveLoadReport ToCampaignLoadReport(CampaignSaveServiceResult result)
         {
@@ -152,13 +184,13 @@ namespace Game.Feature.Stages
                         CampaignSaveLoadStatus.BackupRecovered,
                         result.Message,
                         CampaignSaveServiceResultStatusToken);
-                case CampaignProfileLoadStatus.CorruptQuarantined:
                 case CampaignProfileLoadStatus.CorruptNoFallback:
+                case CampaignProfileLoadStatus.InvalidDocument:
                     return new CampaignSaveLoadReport(
                         CampaignSaveLoadStatus.CorruptRepairRequired,
                         result.Message,
                         CampaignSaveServiceResultStatusToken);
-                case CampaignProfileLoadStatus.SchemaInvalid:
+                case CampaignProfileLoadStatus.UnsupportedVersion:
                     return new CampaignSaveLoadReport(
                         CampaignSaveLoadStatus.SchemaInvalidRepairRequired,
                         result.Message,
@@ -191,11 +223,11 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt != null,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
                 NormalStagePerformanceRecords =
                     CampaignProfileDocumentMapper.ToPerformanceRecordDocuments(
                         slot.NormalStagePerformanceRecords),
-                IntroPlayed = slot.IntroPlayed,
-                OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = CampaignProfileDocumentMapper.ToStageClearProfileDocument(
@@ -239,11 +271,11 @@ namespace Game.Feature.Stages
                     slot.HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceipt(
                     slot.NormalCampaignCompletionReceipt),
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
                 NormalStagePerformanceRecords =
                     CampaignProfileDocumentMapper.ToPerformanceRecords(
                         slot.NormalStagePerformanceRecords),
-                IntroPlayed = slot.IntroPlayed,
-                OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = Math.Max(0, slot.TotalDeaths),
                 LastPlayedAt = slot.LastPlayedAtUtc ?? string.Empty,
                 StageClearProfileSnapshot = ToStageClearProfileSnapshot(slot.StageClearProfileSnapshot),

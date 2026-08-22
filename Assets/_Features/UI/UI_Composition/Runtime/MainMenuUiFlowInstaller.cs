@@ -52,12 +52,12 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private ScriptableObjectStageCatalogProvider _stageCatalogProvider;
         [SerializeField] private CampaignStageSequenceDefinition _campaignStageSequenceDefinition;
-        [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
+        [SerializeField] private ComicSequenceDefinition _introComicSequence;
         [SerializeField] private double _settingsPreviewTimeoutSeconds = 15d;
         [SerializeField] private bool _installOnStart = true;
 
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
-        private CinematicFlowCoordinator _cinematicFlowCoordinator;
+        private ComicSequenceFlowCoordinator _comicSequenceFlowCoordinator;
         private CampaignStageSequenceResolver _campaignStageSequenceResolver;
         private IConfirmPopupPort _confirmPopupPort;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
@@ -359,9 +359,8 @@ namespace Game.Feature.UI.Composition
                 return true;
             }
 
-            if (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying)
+            if (_comicSequenceFlowCoordinator != null && _comicSequenceFlowCoordinator.IsPresenting)
             {
-                _cinematicFlowCoordinator.RequestSkip();
                 return true;
             }
 
@@ -477,16 +476,17 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException(
                     "MainMenuUiFlowInstaller campaign sequence resolver was not created during composition bootstrap.");
             var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
+            var saveRecoveryPort = CampaignSaveCompositionProvider.GetProductionRecoveryPort();
             var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore);
             ImportStandaloneCampaignSaveSeed(saveSlotStore, activeSlotProvider, sequenceResolver);
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
             var validationService = new SaveSlotValidationService(sequenceResolver, _stageCatalogProvider);
             IStageLaunchRouter stageLaunchRouter = new ConfiguredGameplayStageLaunchRouter(_routeConfig);
-            stageLaunchRouter = new CinematicStageLaunchRouter(
+            stageLaunchRouter = new ComicIntroStageLaunchRouter(
                 stageLaunchRouter,
                 saveSlotStore,
                 launchHandoffStore,
-                EnsureCinematicFlowCoordinator());
+                EnsureComicSequenceFlowCoordinator());
             Controller = new MainMenuController(
                 saveSlotStore,
                 launchHandoffStore,
@@ -495,9 +495,12 @@ namespace Game.Feature.UI.Composition
                 _confirmPopupPort,
                 validationService,
                 _localizedTextResolver,
-                new UnityMainMenuSaveDiagnosticPort());
+                new UnityMainMenuSaveDiagnosticPort(),
+                saveRecoveryPort);
 
             _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested += Controller.HandleIntent;
+            _mainMenuScreenView.SaveSlotPanel.RetryBlockedSaveRequested += Controller.RetryBlockedSave;
+            _mainMenuScreenView.SaveSlotPanel.ResetBlockedSaveRequested += Controller.RequestResetBlockedSave;
             Controller.ViewModelChanged += HandleControllerViewModelChanged;
             _mainMenuScreenView.SaveSlotPanel.Bind(Controller.BuildViewModel());
         }
@@ -592,7 +595,7 @@ namespace Game.Feature.UI.Composition
                 TryHandleBackRequested,
                 () => IsKeyboardBindingRebinding() ||
                       _wasKeyboardBindingRebinding ||
-                      (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying) ||
+                      (_comicSequenceFlowCoordinator != null && _comicSequenceFlowCoordinator.IsPresenting) ||
                       MainMenuEntryPresentationRegistry.IsActive,
                 EnsureUiAudioPort());
         }
@@ -615,6 +618,8 @@ namespace Game.Feature.UI.Composition
             if (_mainMenuScreenView != null && _mainMenuScreenView.SaveSlotPanel != null && Controller != null)
             {
                 _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested -= Controller.HandleIntent;
+                _mainMenuScreenView.SaveSlotPanel.RetryBlockedSaveRequested -= Controller.RetryBlockedSave;
+                _mainMenuScreenView.SaveSlotPanel.ResetBlockedSaveRequested -= Controller.RequestResetBlockedSave;
             }
 
             if (_mainMenuScreenView != null && HubController != null)
@@ -1171,34 +1176,35 @@ namespace Game.Feature.UI.Composition
             return new KeyboardBindingSettingsPortAdapter(new KeyboardBindingSettingsService(_inputActions));
         }
 
-        private CinematicFlowCoordinator EnsureCinematicFlowCoordinator()
+        private ComicSequenceFlowCoordinator EnsureComicSequenceFlowCoordinator()
         {
-            if (_cinematicFlowCoordinator != null)
+            if (_comicSequenceFlowCoordinator != null)
             {
-                return _cinematicFlowCoordinator;
+                return _comicSequenceFlowCoordinator;
             }
 
-            var overlay = GetComponentInChildren<CinematicVideoOverlayView>(includeInactive: true);
+            var overlay = GetComponentInChildren<ComicSequenceOverlayView>(includeInactive: true);
             if (overlay == null)
             {
-                var overlayObject = new GameObject("CinematicVideoOverlay", typeof(RectTransform));
+                var overlayObject = new GameObject("ComicSequenceOverlay", typeof(RectTransform));
                 overlayObject.transform.SetParent(transform, false);
-                overlay = overlayObject.AddComponent<CinematicVideoOverlayView>();
+                overlay = overlayObject.AddComponent<ComicSequenceOverlayView>();
                 overlayObject.SetActive(false);
             }
 
             overlay.Initialize(_inputActions);
-            var audioFocus = GetComponent<CinematicAudioFocusController>();
+            var audioFocus = GetComponent<ComicSequenceAudioFocusController>();
             if (audioFocus == null)
             {
-                audioFocus = gameObject.AddComponent<CinematicAudioFocusController>();
+                audioFocus = gameObject.AddComponent<ComicSequenceAudioFocusController>();
             }
 
-            _cinematicFlowCoordinator = new CinematicFlowCoordinator(
-                _slotCinematicDefinition,
+            _comicSequenceFlowCoordinator = new ComicSequenceFlowCoordinator(
+                _introComicSequence,
+                null,
                 overlay,
                 audioFocus);
-            return _cinematicFlowCoordinator;
+            return _comicSequenceFlowCoordinator;
         }
 
         private void EnsureDisplayPreviewTimeoutRelay()

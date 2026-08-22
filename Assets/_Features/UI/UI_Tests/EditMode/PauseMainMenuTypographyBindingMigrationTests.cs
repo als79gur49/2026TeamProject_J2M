@@ -32,10 +32,10 @@ namespace Game.Feature.UI.Tests
                 "819507a38fa816a489de88dad2de2ce9",
                 -6419728470944652023,
                 FontStyles.Bold,
-                30f,
+                35f,
                 true,
                 18f,
-                30f);
+                35f);
         private static readonly MainMenuAuthoredTypographyBaseline MainMenuKoreanBaseline =
             new MainMenuAuthoredTypographyBaseline(
                 "40d61154fd6576b4d85c2d78460b16ad",
@@ -43,10 +43,10 @@ namespace Game.Feature.UI.Tests
                 "40d61154fd6576b4d85c2d78460b16ad",
                 1352911973252649374,
                 FontStyles.Normal,
-                30f,
+                35f,
                 true,
                 18f,
-                30f);
+                35f);
 
         [Test]
         public void PausePrefab_HasTypographyBindingsForRequiredLocalizedText()
@@ -55,6 +55,20 @@ namespace Game.Feature.UI.Tests
             var required = GetPauseRequiredBindings(prefab);
 
             AssertRequiredBindings(required);
+        }
+
+        [Test]
+        public void PauseAndMainMenuActions_UseExpandedAuthoredAutoSizeRanges()
+        {
+            var pauseActions = GetPauseRequiredBindings(LoadPausePrefab()).Skip(1);
+            foreach (var action in pauseActions)
+            {
+                AssertAutoSizeRange(action.Text, 24f, 10f, 24f, action.Name);
+            }
+
+            var blockedSaveActions = GetMainMenuBlockedSaveRequiredBindings(LoadMainMenuPrefab()).Skip(2).ToArray();
+            AssertAutoSizeRange(blockedSaveActions[0].Text, 30f, 16f, 30f, blockedSaveActions[0].Name);
+            AssertAutoSizeRange(blockedSaveActions[1].Text, 30f, 16f, 30f, blockedSaveActions[1].Name);
         }
 
         [Test]
@@ -225,7 +239,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(backLine.anchorMin, Is.EqualTo(Vector2.zero));
             Assert.That(backLine.anchorMax, Is.EqualTo(Vector2.right));
             Assert.That(backLine.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
-            Assert.That(backLine.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(backLine.anchoredPosition.y, Is.GreaterThan(0f));
             Assert.That(backLine.sizeDelta.x, Is.LessThan(0f), "Stretched back line should reserve horizontal padding.");
             Assert.That(backLine.sizeDelta.y, Is.GreaterThan(0f));
             Assert.That(backLine.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
@@ -235,12 +249,17 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageTemplate.VisualImage, Is.Not.Null);
             Assert.That(groupTemplate.VisualImage.raycastTarget, Is.False);
             Assert.That(stageTemplate.VisualImage.raycastTarget, Is.False);
-            Assert.That(groupTemplate.SelectionFrame, Is.Not.Null);
-            Assert.That(stageTemplate.SelectionFrame, Is.Not.Null);
-            Assert.That(groupTemplate.SelectionFrame.activeSelf, Is.False);
-            Assert.That(stageTemplate.SelectionFrame.activeSelf, Is.False);
-            Assert.That(groupTemplate.RectTransform.sizeDelta, Is.EqualTo(new Vector2(30f, 60f)));
-            Assert.That(stageTemplate.RectTransform.sizeDelta, Is.EqualTo(new Vector2(15f, 40f)));
+            Assert.That(groupTemplate.CurrentFrame, Is.Not.Null);
+            Assert.That(stageTemplate.CurrentFrame, Is.Not.Null);
+            Assert.That(groupTemplate.CurrentFrame.name, Is.EqualTo("CurrentFrame"));
+            Assert.That(stageTemplate.CurrentFrame.name, Is.EqualTo("CurrentFrame"));
+            Assert.That(groupTemplate.CurrentFrame.activeSelf, Is.False);
+            Assert.That(stageTemplate.CurrentFrame.activeSelf, Is.False);
+            Assert.That(groupTemplate.RectTransform.sizeDelta.x, Is.GreaterThan(stageTemplate.RectTransform.sizeDelta.x));
+            Assert.That(groupTemplate.RectTransform.sizeDelta.y, Is.EqualTo(stageTemplate.RectTransform.sizeDelta.y));
+            Assert.That(groupTemplate.VisualImage.rectTransform.rect.width, Is.GreaterThan(stageTemplate.VisualImage.rectTransform.rect.width));
+            Assert.That(groupTemplate.VisualImage.rectTransform.rect.width, Is.EqualTo(groupTemplate.VisualImage.rectTransform.rect.height));
+            Assert.That(stageTemplate.VisualImage.rectTransform.rect.width, Is.EqualTo(stageTemplate.VisualImage.rectTransform.rect.height));
         }
 
         [Test]
@@ -260,6 +279,15 @@ namespace Game.Feature.UI.Tests
         {
             var prefab = LoadMainMenuPrefab();
             var required = GetMainMenuRequiredBindings(prefab);
+
+            AssertRequiredBindings(required);
+        }
+
+        [Test]
+        public void MainMenuBlockedSavePrefab_HasSemanticTypographyBindings()
+        {
+            var prefab = LoadMainMenuPrefab();
+            var required = GetMainMenuBlockedSaveRequiredBindings(prefab);
 
             AssertRequiredBindings(required);
         }
@@ -515,6 +543,10 @@ namespace Game.Feature.UI.Tests
                 Assert.That(capture.Errors, Is.Empty);
                 Assert.That(productionResolver.CurrentLocaleCode, Is.EqualTo(localeCode));
                 Assert.That(capture.LocaleCode, Is.EqualTo(localeCode));
+                var captureProgression = GetField<PauseProgressionStripView>(captureView, "_progressionView");
+                Assert.That(captureProgression.gameObject.activeInHierarchy, Is.True);
+                Assert.That(captureProgression.MarkerCount, Is.EqualTo(13));
+                Assert.That(captureProgression.CurrentIndex, Is.EqualTo(5));
                 AssertPauseTypographyIdentity(
                     GetPauseRequiredBindings(productionView),
                     GetPauseRequiredBindings(captureView),
@@ -575,6 +607,76 @@ namespace Game.Feature.UI.Tests
                 resolver.SetLocale("en-US");
 
                 AssertCommandTypography(commands, MainMenuEnglishBaseline, "round-trip en-US", useKoreanText: false);
+            }
+            finally
+            {
+                view.UnbindStaticLocalization();
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MainMenuBlockedSaveTypography_RoundTripsLocaleFontsAndPreservesSizing()
+        {
+            var theme = LoadTheme();
+            var resolver = new FakeLocalizedTextResolver();
+            var root = UnityEngine.Object.Instantiate(LoadMainMenuPrefab().gameObject);
+            var view = root.GetComponent<MainMenuScreenView>();
+            var required = GetMainMenuBlockedSaveRequiredBindings(view);
+            var authoredStates = required.ToDictionary(
+                target => target.Text,
+                target => new ConfirmTypographyState(target.Text));
+
+            try
+            {
+                view.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
+
+                AssertResolvedTypography(required, authoredStates, theme, "en-US");
+
+                resolver.SetLocale("ko-KR");
+
+                AssertResolvedTypography(required, authoredStates, theme, "ko-KR");
+                Assert.That(required[2].Text.font, Is.SameAs(required[3].Text.font));
+                Assert.That(required[2].Text.fontSharedMaterial, Is.SameAs(required[3].Text.fontSharedMaterial));
+
+                resolver.SetLocale("en-US");
+
+                AssertResolvedTypography(required, authoredStates, theme, "en-US");
+            }
+            finally
+            {
+                view.UnbindStaticLocalization();
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MainMenuBlockedSaveTypography_MissingBindingFailsBeforeOrdinalFallback()
+        {
+            var theme = LoadTheme();
+            var resolver = new FakeLocalizedTextResolver();
+            var root = UnityEngine.Object.Instantiate(LoadMainMenuPrefab().gameObject);
+            var view = root.GetComponent<MainMenuScreenView>();
+            var detail = GetField<TMP_Text>(view.SaveSlotPanel, "_blockedDetailLabel");
+            var binding = TypographyBinding.FindFor(detail);
+
+            try
+            {
+                Assert.That(binding, Is.Not.Null);
+                UnityEngine.Object.DestroyImmediate(binding);
+
+                var exception = Assert.Throws<InvalidOperationException>(() => view.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme));
+
+                Assert.That(exception.Message, Does.Contain("BlockedSaveDetail"));
+                Assert.That(exception.Message, Does.Contain("requires an authored TypographyBinding"));
             }
             finally
             {
@@ -700,6 +802,19 @@ namespace Game.Feature.UI.Tests
             };
         }
 
+        private static IReadOnlyList<(string Name, TMP_Text Text, TypographyStyleTag ExpectedTag)> GetMainMenuBlockedSaveRequiredBindings(
+            MainMenuScreenView prefab)
+        {
+            var panel = prefab.SaveSlotPanel;
+            return new[]
+            {
+                ("Blocked save title", GetField<TMP_Text>(panel, "_blockedTitleLabel"), TypographyStyleTag.HeaderMedium),
+                ("Blocked save detail", GetField<TMP_Text>(panel, "_blockedDetailLabel"), TypographyStyleTag.Body),
+                ("Blocked save retry", GetField<TMP_Text>(panel, "_retryButtonLabel"), TypographyStyleTag.Button),
+                ("Blocked save reset", GetField<TMP_Text>(panel, "_resetProfileButtonLabel"), TypographyStyleTag.Button),
+            };
+        }
+
         private static void AssertCommandTypography(
             IReadOnlyList<(string Name, TMP_Text Text, string EnglishText, string KoreanText)> commands,
             MainMenuAuthoredTypographyBaseline expected,
@@ -738,6 +853,19 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static void AssertAutoSizeRange(
+            TMP_Text target,
+            float expectedFontSize,
+            float expectedFontSizeMin,
+            float expectedFontSizeMax,
+            string context)
+        {
+            Assert.That(target.fontSize, Is.EqualTo(expectedFontSize), $"{context} fontSize");
+            Assert.That(target.enableAutoSizing, Is.True, $"{context} enableAutoSizing");
+            Assert.That(target.fontSizeMin, Is.EqualTo(expectedFontSizeMin), $"{context} fontSizeMin");
+            Assert.That(target.fontSizeMax, Is.EqualTo(expectedFontSizeMax), $"{context} fontSizeMax");
+        }
+
         private static void AssertAssetIdentity(
             UnityEngine.Object asset,
             string expectedGuid,
@@ -764,6 +892,25 @@ namespace Game.Feature.UI.Tests
                 Assert.That(binding.StyleTag, Is.EqualTo(expectedTag), name);
                 Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid), name);
                 Assert.That(binding.UseApplyMaskOverride, Is.False, name);
+            }
+        }
+
+        private static void AssertResolvedTypography(
+            IReadOnlyList<(string Name, TMP_Text Text, TypographyStyleTag ExpectedTag)> targets,
+            IReadOnlyDictionary<TMP_Text, ConfirmTypographyState> authoredStates,
+            GameplayUiTypographyTheme theme,
+            string localeCode)
+        {
+            foreach (var target in targets)
+            {
+                var style = theme.ResolveOrThrow(localeCode, target.ExpectedTag);
+                var context = $"{target.Name} {localeCode}";
+
+                Assert.That(target.Text.font, Is.SameAs(style.FontAsset), $"{context} font");
+                Assert.That(target.Text.fontSharedMaterial, Is.SameAs(style.MaterialPreset), $"{context} material");
+                Assert.That(target.Text.fontStyle, Is.EqualTo(style.FontStyle), $"{context} style");
+                Assert.That(style.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None));
+                authoredStates[target.Text].AssertSizing(target.Text, context);
             }
         }
 

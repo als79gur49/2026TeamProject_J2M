@@ -519,9 +519,9 @@ namespace Game.Feature.UI.Tests
         [TestCase("ConfigureTransitionColor", "ReturnToMainMenu")]
         [TestCase("Show", "ReturnToMainMenu")]
         [TestCase("ApplyClosedEntry", "ReturnToMainMenu")]
-        [TestCase("ConfigureTransitionColor", "CinematicToMainMenu")]
-        [TestCase("Show", "CinematicToMainMenu")]
-        [TestCase("ApplyClosedEntry", "CinematicToMainMenu")]
+        [TestCase("ConfigureTransitionColor", "ComicOutroToMainMenu")]
+        [TestCase("Show", "ComicOutroToMainMenu")]
+        [TestCase("ApplyClosedEntry", "ComicOutroToMainMenu")]
         public void DestinationIrisSetupThrow_FailsExactMainMenuEntryOnce(
             string failureOperationName,
             string transitionIntentName)
@@ -627,9 +627,9 @@ namespace Game.Feature.UI.Tests
                     token,
                     SceneTransitionRoutePolicyCatalog.ResolveProduction(
                         transitionIntent),
-                    cinematicOpaqueColor:
+                    comicSequenceOpaqueColor:
                         transitionIntent ==
-                        SceneTransitionIntent.CinematicToMainMenu
+                        SceneTransitionIntent.ComicOutroToMainMenu
                             ? Color.black
                             : null);
 

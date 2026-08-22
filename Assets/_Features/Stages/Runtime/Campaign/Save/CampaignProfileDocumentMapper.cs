@@ -55,10 +55,10 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt != null,
                 NormalCampaignCompletionReceipt = ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
                 NormalStagePerformanceRecords = ToPerformanceRecordDocuments(
                     slot.NormalStagePerformanceRecords),
-                IntroPlayed = slot.IntroPlayed,
-                OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = ToStageClearProfileDocument(slot.StageClearProfileSnapshot),

@@ -87,7 +87,21 @@ namespace Game.Feature.Stages
 
         public bool TryQuarantine(string fileName, out string quarantinePath)
         {
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfffffff", CultureInfo.InvariantCulture);
+            return TryQuarantine(fileName, $"corrupt.{timestamp}", out quarantinePath);
+        }
+
+        public bool TryQuarantine(string fileName, string suffix, out string quarantinePath)
+        {
             quarantinePath = string.Empty;
+            if (string.IsNullOrWhiteSpace(suffix) ||
+                suffix.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                suffix.Contains("/", StringComparison.Ordinal) ||
+                suffix.Contains("\\", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
             var canonicalPath = GetPath(fileName);
             if (!File.Exists(canonicalPath))
             {
@@ -95,8 +109,7 @@ namespace Game.Feature.Stages
             }
 
             EnsureDirectory();
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfffffff", CultureInfo.InvariantCulture);
-            quarantinePath = Path.Combine(_rootDirectory, $"{fileName}.corrupt.{timestamp}");
+            quarantinePath = Path.Combine(_rootDirectory, $"{fileName}.{suffix}");
             try
             {
                 File.Move(canonicalPath, quarantinePath);

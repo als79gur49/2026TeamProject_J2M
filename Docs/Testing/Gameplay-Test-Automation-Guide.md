@@ -18,6 +18,12 @@
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 현재 fullscreen cursor confinement touched slice는 2026-08-15 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1386 total / 0 failed`가 통과했다. 이는 위 pinned snapshot row를 대체하거나 서로 다른 날짜 artifact를 합산하는 주장이 아니다.
+- 현재 comic-sequence 전환 slice는 2026-08-19 KST에 기존 MP4/VideoPlayer 전용 런타임과 70-method legacy mixed suite를 제거하고 13개 공통 라우팅 테스트 및 확장된 만화 회귀 guard로 대체했다. 당시 표시 검증용이던 별도 아웃트로 Definition은 2026-08-21 KST 제품 결정으로 제거되었고, Gameplay production 씬은 아웃트로 Definition을 명시적 null로 두어 최종 클리어에서도 일반 메인 메뉴 전환으로 즉시 위임한다. 공용 아웃트로 런타임·라우팅·저장 계약은 향후 실제 콘텐츠 연결을 위해 유지한다. 같은 변경의 Windows UI build와 Unity UI EditMode `1341 total / 0 failed`, filtered actual-scene PlayMode `1 total / 0 failed`가 통과했으며, 이는 위 pinned snapshot이나 broad full-lane 결과를 대체하지 않는다.
+- 현재 comic-sequence enter-fade follow-up은 2026-08-22 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1348 total / 0 failed`가 통과했다. 진입 시작에는 overlay background를 투명하게 유지해 source scene이 보이도록 하고, dedicated black layer가 authored duration 동안 불투명해진 뒤에만 background를 검정으로 고정하고 첫 페이지 reveal을 시작한다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
+- 현재 blocked-save recovery slice는 2026-08-20 KST에 `./run_tests.sh ui`로 fail-closed 재검증했으며, Windows UI build와 Unity UI EditMode `1338 total / 0 failed`가 통과했다. 버전 불일치/손상은 retry와 명시적 전체 초기화를 제공하고, IO/권한 실패 및 미완료 reset은 retry만 제공한다. 미완료 reset 동안 migration과 모든 campaign save write는 차단된다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
+- 현재 blocked-save typography follow-up은 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. `BlockedSaveRecovery` 제목/설명/두 action은 authored `TypographyBinding`으로 각각 `HeaderMedium`/`Body`/`Button`/`Button`을 명시한다. 순번 기반 style fallback은 SaveSlotCard의 8-target 계약에만 제한되며, en-US/ko-KR font/material round-trip과 authored sizing 보존을 검증한다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
+- 현재 Gameplay Stage Name typography follow-up은 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. Stage Name은 양 locale 모두 `HeaderLarge` Theme를 사용하여 en-US는 Orbitron ExtraBold, ko-KR은 Climate Crisis KR 2000을 해석하고 authored sizing을 보존하며, localized source string을 바꾸지 않고 TMP `UpperCase` 표시를 적용한다. World Guide와 transition label의 en-US Prefab 복원 계약은 변경하지 않았다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
+- 현재 Pause progression stepper slice는 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. 진행도는 previous/current/upcoming 상태, 더 큰 group-start 다이아몬드, 영구 current ring을 사용하는 정보형 수평 스테퍼이며 별도 Left/Right 커서를 소유하지 않는다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
 - 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-10 KST 현재 재실행에서는 재현되지 않았다.
 - 삭제 후보는 별도 제품 결정, 현재 lane evidence, baseline note 갱신이 같은 변경에 포함될 때만 제거한다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
@@ -38,6 +44,12 @@
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - The current fullscreen cursor confinement touched slice was rerun with `./run_tests.sh ui` on 2026-08-15 KST; the Windows UI build and Unity UI EditMode `1386 total / 0 failed` passed. This does not replace the pinned snapshot row above or combine artifacts from different dates.
+- The current comic-sequence transition slice removed the MP4/VideoPlayer-only runtime and a 70-method legacy mixed suite on 2026-08-19 KST, replacing it with 13 shared-routing tests and expanded comic regression guards. The separate outro definition used for temporary presentation validation was removed by the 2026-08-21 KST product decision. The Gameplay production scene now leaves the outro definition explicitly null so final clear delegates immediately to the regular Main Menu transition, while the shared outro runtime, routing, and save contracts remain available for future authored content. On the same change, the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed, along with filtered actual-scene PlayMode `1 total / 0 failed`; this does not replace the pinned snapshot or constitute a broad full-lane result.
+- The current comic-sequence enter-fade follow-up was rerun with `./run_tests.sh ui` on 2026-08-22 KST; the Windows UI build and Unity UI EditMode `1348 total / 0 failed` passed. Entry keeps the overlay background transparent so the source scene remains visible while the dedicated black layer becomes opaque over the authored duration, then fixes the background to black before the first-page reveal begins. This does not replace the pinned snapshot row above.
+- The current blocked-save recovery slice was rerun fail-closed with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1338 total / 0 failed` passed. Unsupported/corrupt profiles expose retry plus explicit full reset, while IO/authorization failures and incomplete resets expose retry only. Migration and all campaign save writes stay blocked while a reset is pending. This does not replace the pinned snapshot row above.
+- The current blocked-save typography follow-up was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Authored `TypographyBinding` components assign `HeaderMedium`/`Body`/`Button`/`Button` to the `BlockedSaveRecovery` title, detail, and two actions. Ordinal style fallback is restricted to the eight-target SaveSlotCard contract, with en-US/ko-KR font/material round-trip and authored-sizing preservation covered. This does not replace the pinned snapshot row above.
+- The current Gameplay Stage Name typography follow-up was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Stage Name now uses the `HeaderLarge` theme in both locales, resolving Orbitron ExtraBold for en-US and Climate Crisis KR 2000 for ko-KR while preserving authored sizing, and adds TMP `UpperCase` presentation without mutating localized source strings. The en-US prefab-restoration contracts for World Guide and transition labels remain unchanged. This does not replace the pinned snapshot row above.
+- The current Pause-progression stepper slice was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Progression is now an informational horizontal stepper with previous/current/upcoming states, larger group-start diamonds, and a persistent current ring, and it owns no separate Left/Right cursor. This does not replace the pinned snapshot row above.
 - The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-10 KST rerun.
 - UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
@@ -110,6 +122,7 @@
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md`와 이 가이드는 같은 변경에서 함께 갱신해야 한다.
 - root `UI-Current-Structure-Source.md`도 current UI structure나 stale-token audit 기준이 바뀌는 변경에서는 함께 갱신해야 한다.
 - Scene transition payload decommission evidence는 `StageTransitionChanceLostPayload`와 `SceneTransitionOverlayModel`의 generic `Title` / `Message` 부재, coordinator resolver 부재, typed progress/chance-loss 보존, canonical content routing과 production-prefab smoke를 함께 검증해야 한다.
+- Pause progression evidence는 sequence mapper의 previous/current/upcoming 상태, group-start와 stage 노드의 상대 크기, rail 정렬, current ring 단일 소유, informational Left/Right 입력 계약, 그리고 screenshot preview의 실제 campaign payload 바인딩을 함께 검증해야 한다.
 
 ### English Original
 - The UI baseline note is not a count-only ledger.
@@ -123,6 +136,7 @@
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md` and this guide must be updated together in the same change.
 - Root `UI-Current-Structure-Source.md` must also be updated in the same change when current UI structure or stale-token audit policy changes.
 - Scene-transition payload decommission evidence must jointly verify the absence of generic `Title` / `Message` members from `StageTransitionChanceLostPayload` and `SceneTransitionOverlayModel`, the absence of coordinator copy resolvers, preservation of typed progress/chance-loss state, canonical content routing, and a production-prefab smoke.
+- Pause-progression evidence must jointly cover previous/current/upcoming mapper states, relative group-start/stage node sizing, rail alignment, single ownership of the current ring, the informational Left/Right input contract, and real campaign-payload binding in screenshot preview.
 
 ## Gameplay audio verification wording / Gameplay audio verification wording
 ### 한국어
@@ -294,6 +308,7 @@
 - approved sentence template:
   - `Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved.`
 - v1 ownership continuity와 single-source FadeOutIn support는 true Crossfade support completion과 동일하지 않다.
+- presentation-exclusive playback suppression evidence는 router가 suppression 중 최신 request selection을 유지하면서 playback을 보류하는지, source-scene 종료에서 현재 selection을 복원하는지, 동기 승인된 transition handoff에서 이전 BGM을 재시작하지 않는지를 함께 검증해야 한다.
 
 ### English Original
 - Persistent BGM flow v1 reporting must stay scoped to ownership continuity and the transition effects actually validated; it must not imply completed Crossfade support.
@@ -309,6 +324,8 @@
 - Approved sentence template:
   - `Persistent BGM ownership, cross-scene continuity, and single-source FadeOutIn are validated; Crossfade remains reserved.`
 - v1 ownership continuity plus single-source FadeOutIn support is not equivalent to completed Crossfade support.
+- Presentation-exclusive playback-suppression evidence must jointly verify that the router keeps the latest request selection without playback while suppressed, restores the current selection when the source scene remains, and does not restart the previous BGM after a synchronously accepted transition handoff.
+
 ## Targeted gameplay-audio integration validation / 타겟 게임플레이 오디오 통합 검증
 ### 한국어
 - 이 pass는 gameplay audio host-orchestration이 인접 presentation/runtime boundary와 정상적으로 합성되는지 검증하는 targeted integration validation이다.

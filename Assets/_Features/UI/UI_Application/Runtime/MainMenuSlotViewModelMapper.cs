@@ -89,30 +89,21 @@ namespace Game.Feature.UI.Application
             var failureText = MainMenuLocalization.FailureDescriptor(failureKind);
             var failureTitle = localizedTextResolver.Resolve(failureText.Title);
             var failureDetail = localizedTextResolver.Resolve(failureText.Detail);
-            var cards = new List<SaveSlotCardViewModel>(SaveSlotStore.SlotCount);
-            for (var slotNumber = 1; slotNumber <= SaveSlotStore.SlotCount; slotNumber++)
-            {
-                cards.Add(new SaveSlotCardViewModel(
-                    slotNumber,
-                    failureKind == SaveSlotFailurePresentationKind.UnsupportedVersion
-                        ? SaveSlotCardState.Unsupported
-                        : SaveSlotCardState.Corrupted,
-                    MainMenuLocalization.Resolve(
-                        localizedTextResolver,
-                        MainMenuLocalizationEntryId.SlotLabel,
-                        slotNumber),
+            var recoveryActions = CampaignSaveRecoveryPolicy.GetActions(report.Status);
+            return new SaveSlotPanelViewModel(
+                Array.Empty<SaveSlotCardViewModel>(),
+                new CampaignSaveBlockedViewModel(
+                    failureKind,
                     failureTitle,
                     failureDetail,
-                    string.Empty,
-                    string.Empty,
-                    string.Empty,
-                    string.Empty,
-                    SaveSlotIntentKind.None,
-                    showDelete: false,
-                    failureKind: failureKind));
-            }
-
-            return new SaveSlotPanelViewModel(cards);
+                    showRetry: (recoveryActions & CampaignSaveRecoveryActions.Retry) != 0,
+                    showResetProfile: (recoveryActions & CampaignSaveRecoveryActions.ResetProfile) != 0,
+                    retryActionText: MainMenuLocalization.Resolve(
+                        localizedTextResolver,
+                        MainMenuLocalizationEntryId.SaveRecoveryRetry),
+                    resetProfileActionText: MainMenuLocalization.Resolve(
+                        localizedTextResolver,
+                        MainMenuLocalizationEntryId.SaveRecoveryReset)));
         }
 
         public static SaveSlotPanelViewModel MapRepairRequired(CampaignSaveLoadReport report)
@@ -289,11 +280,13 @@ namespace Game.Feature.UI.Application
                 case CampaignSaveLoadStatus.CorruptRepairRequired:
                     return SaveSlotFailurePresentationKind.CorruptedData;
                 case CampaignSaveLoadStatus.SchemaInvalidRepairRequired:
-                    return SaveSlotFailurePresentationKind.NeedsRepair;
+                    return SaveSlotFailurePresentationKind.UnsupportedVersion;
                 case CampaignSaveLoadStatus.Unauthorized:
                     return SaveSlotFailurePresentationKind.PermissionDenied;
                 case CampaignSaveLoadStatus.IoFailed:
                     return SaveSlotFailurePresentationKind.LoadFailed;
+                case CampaignSaveLoadStatus.RecoveryPending:
+                    return SaveSlotFailurePresentationKind.RecoveryPending;
                 default:
                     return SaveSlotFailurePresentationKind.None;
             }

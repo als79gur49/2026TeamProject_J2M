@@ -169,17 +169,31 @@ namespace Game.Feature.UI.Popups
         Stage = 1,
     }
 
+    public enum PauseProgressionMarkerState
+    {
+        Neutral = 0,
+        Previous = 1,
+        Current = 2,
+        Upcoming = 3,
+    }
+
     public readonly struct PauseProgressionMarkerModel
     {
-        public PauseProgressionMarkerModel(string stageKey, PauseProgressionMarkerKind kind)
+        public PauseProgressionMarkerModel(
+            string stageKey,
+            PauseProgressionMarkerKind kind,
+            PauseProgressionMarkerState state)
         {
             StageKey = stageKey ?? string.Empty;
             Kind = kind;
+            State = state;
         }
 
         public string StageKey { get; }
 
         public PauseProgressionMarkerKind Kind { get; }
+
+        public PauseProgressionMarkerState State { get; }
     }
 
     public sealed class PauseProgressionViewModel

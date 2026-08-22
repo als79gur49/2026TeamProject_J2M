@@ -730,10 +730,20 @@ namespace Game.Feature.UI.Tests
                 {
                     "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab",
                 }));
-            Assert.That(
-                targets.All(target =>
-                    TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem) == 9),
-                Is.True);
+            var expectedLocalizedTextCounts = new Dictionary<string, int>
+            {
+                ["M2ACorrupt"] = 4,
+                ["M2APermission"] = 3,
+                ["M2ALoadFailed"] = 3,
+                ["M2ANeedsRepair"] = 4,
+            };
+            foreach (var target in targets)
+            {
+                Assert.That(
+                    TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem),
+                    Is.EqualTo(expectedLocalizedTextCounts[target.FileStem]),
+                    target.FileStem);
+            }
         }
 
         [Test]

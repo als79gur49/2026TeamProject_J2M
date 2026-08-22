@@ -18,7 +18,7 @@ Campaign progression truth remains `Saves/profile.json`. The profile schema owns
 
 `activeSlotNumber` may be absent or `0`, meaning no committed local active slot. The active commit point is inside the gameplay installer, after confirming that the profile slot is non-empty and that request/handoff, `StageLaunchContextStore`, resolved stage content, and profile `CurrentStageId` identify the same stage. Commit order is `SetActiveSlot`, create `CampaignRunningSlotContext`, consume the exact pending handoff, then consume/finalize the exact `StageLaunchContext`. These four steps are one explicit installer transaction. Once `SetActiveSlot` has been attempted, any later failure assumes the storage may already have mutated and restores the previous active (or empty active when none existed), discards the uncommitted running context, and clears only the still-matching pending/context operation. Compensation steps continue independently; rollback or cleanup failures are surfaced together with the original failure as an aggregate diagnostic rather than hidden.
 
-NewGame, Restart, and Continue do not update LocalState. Pre-commit validation, cinematic, transition, or load failure leaves the previous committed active unchanged. If commit completion fails after `SetActiveSlot`, the installer restores the previous active value before surfacing the failure. Clearing a pending request never clears committed active.
+NewGame, Restart, and Continue do not update LocalState. Pre-commit validation, intro comic presentation, transition, or load failure leaves the previous committed active unchanged. If commit completion fails after `SetActiveSlot`, the installer restores the previous active value before surfacing the failure. Clearing a pending request never clears committed active.
 
 A loaded active slot is usable only when it points to an existing non-empty campaign profile slot. A valid LocalState file wins over PlayerPrefs. When LocalState is missing, `Game.Feature.Stages.ActiveStageClearSaveSlot` may still be imported after profile-slot validation; the retained PlayerPrefs key is not deleted. Corrupt or schema-invalid LocalState never silently falls back to PlayerPrefs.
 
@@ -30,10 +30,10 @@ A loaded active slot is usable only when it points to an existing non-empty camp
 - Clear and consume require the matching token.
 - MainMenu NewGame, Restart, and empty-slot Continue create the complete handoff before profile initialization or validation sync can write. The handoff acts as the application-session launch reservation; acquiring it does not commit persistent active.
 - Overwrite and restart confirmations capture the reservation token, slot, and operation kind. A callback may initialize the profile at most once and only while that exact operation remains current. Cancelled, duplicate, replaced, or otherwise stale callbacks are no-ops and cannot clear a newer operation.
-- The request survives MainMenu cinematic playback and the required scene transition.
-- Every cinematic terminal callback revalidates the captured handoff against the current pending owner by token, slot, `StageId`, navigation kind, and source. A missing or non-exact current owner makes Completed, Skipped, Failed, and Cancelled a complete no-op: no profile/progress write, gameplay route, `StageLaunchContextStore` write, active write, or pending clear.
-- A cinematic invocation claims at most one valid terminal callback at the router transaction boundary. Completed followed by Cancelled, Skipped followed by Completed, and duplicate terminal notifications cannot repeat routing, progress, or cleanup even if the view/coordinator also has a completion guard.
-- Valid Completed and Skipped first request gameplay routing. `IntroPlayed` is committed only after the route accepts synchronously; it means that the cinematic terminal result remained owned and gameplay routing was accepted. Immediate transition rejection or a route exception writes no intro progress and clears only the still-matching handoff.
+- The request survives MainMenu intro comic presentation and the required scene transition.
+- Every intro comic terminal callback revalidates the captured handoff against the current pending owner by token, slot, `StageId`, navigation kind, and source. A missing or non-exact current owner makes Completed, Failed, and Cancelled a complete no-op: no profile/progress write, gameplay route, `StageLaunchContextStore` write, active write, or pending clear.
+- An intro comic presentation claims at most one valid terminal callback at the router transaction boundary. Completed followed by Cancelled, Failed followed by Completed, and duplicate terminal notifications cannot repeat routing, progress, or cleanup even if the view/coordinator also has a completion guard.
+- Valid Completed first requests gameplay routing. `IntroComicCompleted` is committed only after the route accepts synchronously; it means that the intro comic terminal result remained owned and gameplay routing was accepted. Immediate transition rejection or a route exception writes no intro progress and clears only the still-matching handoff.
 - Valid Failed and Cancelled never write progress or route gameplay and clear only the still-matching owner. DeleteSlot and ClearAll repair matching pending ownership as part of the operation, so a callback arriving after either operation returns cannot recreate a deleted slot or launch context.
 - Transition rejection, load failure, and installer pre-commit validation failure clear only the matching request.
 - `StageLaunchContext` is an immutable in-memory operation identity carrying token, slot number, `StageId`, navigation kind, and source. Registration is strict first-owner-wins: once current exists, a second registration is rejected even when all five identity fields are equal. Production set, clear, and consume use the full identity rather than stage-only or token-only approval.
@@ -43,7 +43,7 @@ A loaded active slot is usable only when it points to an existing non-empty camp
 - `RuntimeInitializeOnLoadType.SubsystemRegistration` resets the owner, so process/application-session restart never restores pending state.
 - Pending, `StageLaunchContext`, and running state are not written to profile, LocalState, PlayerPrefs, Steam Cloud, or another file.
 
-Cinematic callbacks never write `Saves/local-launch-state.json`. Persistent active remains committed only by the gameplay installer after its profile, request, handoff, context, and resolved-stage validation. A route accepted synchronously but failing later during asynchronous scene loading remains transition-owner follow-up work; the cinematic boundary does not claim that later outcome.
+Intro comic callbacks never write `Saves/local-launch-state.json`. Persistent active remains committed only by the gameplay installer after its profile, request, handoff, context, and resolved-stage validation. A route accepted synchronously but failing later during asynchronous scene loading remains transition-owner follow-up work; the intro comic boundary does not claim that later outcome.
 
 ## Running scene-local slot
 
@@ -70,7 +70,7 @@ Subsystem registration resets only the runtime `StageLaunchContext`. The editor 
 - Application-session reset clears runtime launch ownership but deliberately preserves a pre-PlayMode Editor DirectPlay prime until consume or explicit editor cleanup.
 - A watchdog for a live `AsyncOperation` that never invokes a terminal callback is deferred; no arbitrary timeout is introduced here.
 - Failure to restore persistent active is fatal for the launch attempt and is surfaced in the aggregate diagnostic. There is no durable rollback-recovery document or new recovery schema in this slice.
-- Async `IntroPlayed` rollback, a unified DirectPlay/pending protocol, and manual Player E2E remain separate follow-up work.
+- Async `IntroComicCompleted` rollback, a unified DirectPlay/pending protocol, and manual Player E2E remain separate follow-up work.
 
 ## Cloud boundary
 

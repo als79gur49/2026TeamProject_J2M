@@ -223,6 +223,8 @@ TickResult
 - stage gameplay BGM request는 `StageAudioRuntimeRequestSource -> BgmRequestRouter -> BgmFlowCoordinator` path로만 실행한다.
 - stage content, scene installers, visual adapters는 `IAudioService.PlayBgm`를 직접 호출하지 않는다.
 - `BgmRequestRouter` priority는 `SceneDefault=100`, `StageGameplay=300`으로 고정한다.
+- comic sequence 같은 presentation-exclusive audio focus는 `BgmRequestRouter`의 single-owner playback-suppression lease를 사용한다. suppression 중 request selection은 계속 갱신하되 playback은 보류하고, source scene 잔류 시 현재 최우선 request를 재평가해 복원하며, destination route 동기 승인 시에만 이전 BGM 복원 없이 lease를 해제한다.
+- UI composition은 suppression lease만 소비하며 `BgmFlowRequest`, selected profile, priority, 또는 coordinator direct stop을 소유하지 않는다.
 
 ## 5. 2D-Only Playback Contract
 

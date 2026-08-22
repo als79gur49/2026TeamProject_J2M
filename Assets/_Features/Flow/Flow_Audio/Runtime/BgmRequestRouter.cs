@@ -63,9 +63,14 @@ namespace Game.Feature.Flow.Audio
 
     public sealed class BgmRequestRouter
     {
+        private const string PlaybackSuppressionAlreadyActiveMessage =
+            "BgmRequestRouter supports only one active playback suppression lease.";
+
         private readonly IBgmFlowCoordinator coordinator;
         private readonly Dictionary<BgmRequestSourceKind, BgmFlowRequest> requests = new();
         private BgmFlowRequest? activeRequest;
+        private long nextPlaybackSuppressionToken;
+        private long activePlaybackSuppressionToken;
 
         public BgmRequestRouter(IBgmFlowCoordinator coordinator)
         {
@@ -77,17 +82,37 @@ namespace Game.Feature.Flow.Audio
         public void Submit(BgmFlowRequest request)
         {
             requests[request.SourceKind] = request;
+            if (activePlaybackSuppressionToken != 0)
+            {
+                SelectHighestPriorityRequest();
+                return;
+            }
+
             ApplyHighestPriorityRequest();
+        }
+
+        public BgmPlaybackSuppressionLease BeginPlaybackSuppression()
+        {
+            if (activePlaybackSuppressionToken != 0)
+            {
+                throw new InvalidOperationException(
+                    PlaybackSuppressionAlreadyActiveMessage);
+            }
+
+            var token = ++nextPlaybackSuppressionToken;
+            coordinator.StopCurrent();
+            activePlaybackSuppressionToken = token;
+            return new BgmPlaybackSuppressionLease(this, token);
         }
 
         private void ApplyHighestPriorityRequest()
         {
-            if (!TryGetHighestPriorityRequest(out var request))
+            if (!SelectHighestPriorityRequest())
             {
                 return;
             }
 
-            activeRequest = request;
+            var request = activeRequest.Value;
             if (request.HasProfile)
             {
                 coordinator.RequestSceneDefault(request.Profile);
@@ -97,6 +122,34 @@ namespace Game.Feature.Flow.Audio
             if (request.StopBgm)
             {
                 coordinator.StopCurrent();
+            }
+        }
+
+        private bool SelectHighestPriorityRequest()
+        {
+            if (!TryGetHighestPriorityRequest(out var request))
+            {
+                activeRequest = null;
+                return false;
+            }
+
+            activeRequest = request;
+            return true;
+        }
+
+        internal void ReleasePlaybackSuppression(
+            long token,
+            bool restoreCurrentSelection)
+        {
+            if (token == 0 || activePlaybackSuppressionToken != token)
+            {
+                return;
+            }
+
+            activePlaybackSuppressionToken = 0;
+            if (restoreCurrentSelection)
+            {
+                ApplyHighestPriorityRequest();
             }
         }
 
@@ -114,6 +167,44 @@ namespace Game.Feature.Flow.Audio
             }
 
             return hasRequest;
+        }
+    }
+
+    public sealed class BgmPlaybackSuppressionLease : IDisposable
+    {
+        private BgmRequestRouter owner;
+        private readonly long token;
+
+        internal BgmPlaybackSuppressionLease(
+            BgmRequestRouter owner,
+            long token)
+        {
+            this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            this.token = token;
+        }
+
+        public void ReleaseWithoutRestore()
+        {
+            Release(restoreCurrentSelection: false);
+        }
+
+        public void Dispose()
+        {
+            Release(restoreCurrentSelection: true);
+        }
+
+        private void Release(bool restoreCurrentSelection)
+        {
+            var currentOwner = owner;
+            if (currentOwner == null)
+            {
+                return;
+            }
+
+            owner = null;
+            currentOwner.ReleasePlaybackSuppression(
+                token,
+                restoreCurrentSelection);
         }
     }
 }

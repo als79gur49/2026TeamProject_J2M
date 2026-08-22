@@ -479,6 +479,38 @@ MonoBehaviour:
     m_Localized: Off
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693800
+    m_Localized: Retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693801
+    m_Localized: Delete All Save Data
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693802
+    m_Localized: Delete All Save Data
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693803
+    m_Localized: Delete the incompatible save data and every save slot, then start over?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693804
+    m_Localized: All progress will be deleted.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693805
+    m_Localized: Delete All
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693806
+    m_Localized: Save Reset Incomplete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693807
+    m_Localized: The save reset did not finish. Retry to continue.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

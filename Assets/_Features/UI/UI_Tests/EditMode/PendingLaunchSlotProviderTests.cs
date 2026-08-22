@@ -511,7 +511,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 CountOccurrences(source, "CampaignLaunchHandoffSessionStore.Instance"),
                 Is.EqualTo(1));
-            Assert.That(source, Does.Contain("launchHandoffStore,\n                EnsureCinematicFlowCoordinator()"));
+            Assert.That(source, Does.Contain("launchHandoffStore,\n                EnsureComicSequenceFlowCoordinator()"));
+            Assert.That(source, Does.Contain("ComicSequenceFlowCoordinator"));
             Assert.That(source, Does.Contain("saveSlotStore,\n                launchHandoffStore,"));
             Assert.That(source, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
         }

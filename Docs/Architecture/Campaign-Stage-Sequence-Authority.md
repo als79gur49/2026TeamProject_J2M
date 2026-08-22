@@ -98,7 +98,7 @@ Actual executable smoke used the existing Development Mono Player harness with a
 
 | Player flow | Evidence |
 | --- | --- |
-| New Game | Resolver first `stage-0-1` -> intro cinematic production route -> gameplay `stage-0-1`; save cursor/group `stage-0-1` / `level-0`; Main Menu and gameplay resolver contracts passed. |
+| New Game | Resolver first `stage-0-1` -> intro comic sequence production route -> gameplay `stage-0-1`; save cursor/group `stage-0-1` / `level-0`; Main Menu and gameplay resolver contracts passed. |
 | Continue | Seeded `stage-0-2` -> Continue -> gameplay/save `stage-0-2`; group `level-0`; non-empty localization key. |
 | Clear -> Next | Source `stage-4-1`; resolver next, saved cursor, and result Next all `stage-4-2`. |
 | Retry/group | Source `stage-2-2`; resolver group `level-2`; group-first, saved cursor, and restart destination all `stage-2-1`. |

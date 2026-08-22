@@ -41,8 +41,17 @@ namespace Game.Feature.UI.Application
                 return PauseProgressionViewModel.Hidden;
             }
 
-            var markers = new PauseProgressionMarkerModel[snapshot.Stages.Count];
             var currentIndex = -1;
+            for (var i = 0; i < snapshot.Stages.Count; i++)
+            {
+                if (string.Equals(snapshot.Stages[i].StageKey, snapshot.CurrentStageKey, StringComparison.Ordinal))
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
+
+            var markers = new PauseProgressionMarkerModel[snapshot.Stages.Count];
             for (var i = 0; i < snapshot.Stages.Count; i++)
             {
                 var stage = snapshot.Stages[i];
@@ -55,17 +64,31 @@ namespace Game.Feature.UI.Application
                     stage.StageKey,
                     isGroupStart
                         ? PauseProgressionMarkerKind.GroupStart
-                        : PauseProgressionMarkerKind.Stage);
-                if (string.Equals(stage.StageKey, snapshot.CurrentStageKey, StringComparison.Ordinal))
-                {
-                    currentIndex = i;
-                }
+                        : PauseProgressionMarkerKind.Stage,
+                    ResolveMarkerState(i, currentIndex));
             }
 
             return new PauseProgressionViewModel(
                 isVisible: true,
                 markers,
                 currentIndex);
+        }
+
+        private static PauseProgressionMarkerState ResolveMarkerState(int index, int currentIndex)
+        {
+            if (currentIndex < 0)
+            {
+                return PauseProgressionMarkerState.Neutral;
+            }
+
+            if (index < currentIndex)
+            {
+                return PauseProgressionMarkerState.Previous;
+            }
+
+            return index == currentIndex
+                ? PauseProgressionMarkerState.Current
+                : PauseProgressionMarkerState.Upcoming;
         }
 
         private string Resolve(LocalizedTextDescriptor descriptor)

@@ -21,6 +21,7 @@ namespace Game.Feature.UI.Application
         private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly ILocalizedTextResolver _localizedTextResolver;
         private readonly IMainMenuSaveDiagnosticPort _saveDiagnosticPort;
+        private readonly ICampaignSaveRecoveryPort _saveRecoveryPort;
         private LaunchConfirmationOperation _currentLaunchConfirmation;
         private bool _isDisposed;
 
@@ -32,7 +33,8 @@ namespace Game.Feature.UI.Application
             IConfirmPopupPort confirmPopupPort,
             SaveSlotValidationService saveSlotValidationService = null,
             ILocalizedTextResolver localizedTextResolver = null,
-            IMainMenuSaveDiagnosticPort saveDiagnosticPort = null)
+            IMainMenuSaveDiagnosticPort saveDiagnosticPort = null,
+            ICampaignSaveRecoveryPort saveRecoveryPort = null)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
             _launchHandoffStore = launchHandoffStore ??
@@ -45,6 +47,7 @@ namespace Game.Feature.UI.Application
                 InvariantSettingsLocalizedTextResolver.Instance;
             _saveDiagnosticPort = saveDiagnosticPort ??
                 NoOpMainMenuSaveDiagnosticPort.Instance;
+            _saveRecoveryPort = saveRecoveryPort;
             _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
         }
 
@@ -197,6 +200,48 @@ namespace Game.Feature.UI.Application
                         {
                             _launchHandoffStore.TryClear(pendingHandoff.Token);
                         }
+                    }
+                    finally
+                    {
+                        RefreshViewModel();
+                    }
+                });
+        }
+
+        public void RetryBlockedSave()
+        {
+            if (_saveRecoveryPort?.HasPendingReset == true)
+            {
+                _saveRecoveryPort.RetryPendingReset();
+            }
+
+            RefreshViewModel();
+        }
+
+        public void RequestResetBlockedSave()
+        {
+            var report = _saveSlotStore.LoadAllWithReport().Report;
+            var actions = CampaignSaveRecoveryPolicy.GetActions(report.Status);
+            if (_saveRecoveryPort == null ||
+                (actions & CampaignSaveRecoveryActions.ResetProfile) == 0)
+            {
+                RefreshViewModel();
+                return;
+            }
+
+            _confirmPopupPort.Request(
+                MainMenuLocalization.CreateConfirmationPayload(
+                    MainMenuConfirmationKind.ResetBlockedProfile),
+                confirmed =>
+                {
+                    try
+                    {
+                        if (!confirmed)
+                        {
+                            return;
+                        }
+
+                        _saveRecoveryPort.ResetBlockedProfile(report.Status);
                     }
                     finally
                     {

@@ -54,11 +54,11 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
-        [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
+        [SerializeField] private ComicSequenceDefinition _outroComicSequence;
         [SerializeField] private DemoStageControlSettings _demoStageControlSettings = DemoStageControlSettings.EnabledByDefault();
         [SerializeField] private bool _installOnStart = true;
 
-        private CinematicFlowCoordinator _cinematicFlowCoordinator;
+        private ComicSequenceFlowCoordinator _comicSequenceFlowCoordinator;
         private CampaignStageSequenceResolver _campaignStageSequenceResolver;
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
@@ -955,45 +955,46 @@ namespace Game.Feature.UI.Composition
                 ? new ConfiguredMainMenuReturnRouter(_routeConfig)
                 : NoOpMainMenuReturnRouter.Instance;
             var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
-            return new CinematicMainMenuReturnRouter(
+            return new ComicOutroMainMenuReturnRouter(
                 inner,
                 saveSlotStore,
                 CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore),
-                EnsureCinematicFlowCoordinator(),
+                EnsureComicSequenceFlowCoordinator(),
                 () => ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);
         }
 
-        private CinematicFlowCoordinator EnsureCinematicFlowCoordinator()
+        private ComicSequenceFlowCoordinator EnsureComicSequenceFlowCoordinator()
         {
-            if (_cinematicFlowCoordinator != null)
+            if (_comicSequenceFlowCoordinator != null)
             {
-                return _cinematicFlowCoordinator;
+                return _comicSequenceFlowCoordinator;
             }
 
             var overlay = _rootView != null
-                ? _rootView.GetComponentInChildren<CinematicVideoOverlayView>(includeInactive: true)
+                ? _rootView.GetComponentInChildren<ComicSequenceOverlayView>(includeInactive: true)
                 : null;
             if (overlay == null)
             {
                 var parent = _rootView != null ? _rootView.transform : transform;
-                var overlayObject = new GameObject("CinematicVideoOverlay", typeof(RectTransform));
+                var overlayObject = new GameObject("ComicSequenceOverlay", typeof(RectTransform));
                 overlayObject.transform.SetParent(parent, false);
-                overlay = overlayObject.AddComponent<CinematicVideoOverlayView>();
+                overlay = overlayObject.AddComponent<ComicSequenceOverlayView>();
                 overlayObject.SetActive(false);
             }
 
             overlay.Initialize(ResolveUiInputActions());
-            var audioFocus = GetComponent<CinematicAudioFocusController>();
+            var audioFocus = GetComponent<ComicSequenceAudioFocusController>();
             if (audioFocus == null)
             {
-                audioFocus = gameObject.AddComponent<CinematicAudioFocusController>();
+                audioFocus = gameObject.AddComponent<ComicSequenceAudioFocusController>();
             }
 
-            _cinematicFlowCoordinator = new CinematicFlowCoordinator(
-                _slotCinematicDefinition,
+            _comicSequenceFlowCoordinator = new ComicSequenceFlowCoordinator(
+                null,
+                _outroComicSequence,
                 overlay,
                 audioFocus);
-            return _cinematicFlowCoordinator;
+            return _comicSequenceFlowCoordinator;
         }
 
         private void EnsureDisplayPreviewTimeoutRelay()
@@ -1034,7 +1035,7 @@ namespace Game.Feature.UI.Composition
                 ResolveUiInputActions(),
                 resolver,
                 () => Coordinator != null && Coordinator.HandleBackRequested(),
-                () => (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying) ||
+                () => (_comicSequenceFlowCoordinator != null && _comicSequenceFlowCoordinator.IsPresenting) ||
                       TerminalSessionRegistry.IsActive ||
                       SceneEntryPresentationRegistry.IsActive ||
                       MainMenuEntryPresentationRegistry.IsActive,

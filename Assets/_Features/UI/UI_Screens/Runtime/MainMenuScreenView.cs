@@ -126,20 +126,41 @@ namespace Game.Feature.UI.Screens
             var slotTargets = _saveSlotPanel != null
                 ? _saveSlotPanel.CreateTypographyTargets()
                 : Array.Empty<TMP_Text>();
+            var slotCardTypographyTargetCount = _saveSlotPanel != null
+                ? _saveSlotPanel.SlotCards.Length * SaveSlotCardView.TypographyTargetCount
+                : 0;
             _localizedSlotTypographyBindings = new List<LocalizedTmpTypographyBinding>(slotTargets.Count);
             for (var i = 0; i < slotTargets.Count; i++)
             {
+                var target = slotTargets[i];
+                var authoredBinding = TypographyBinding.FindFor(target);
+                if (authoredBinding != null)
+                {
+                    _localizedSlotTypographyBindings.Add(new LocalizedTmpTypographyBinding(
+                        target,
+                        textResolver,
+                        typographyTheme,
+                        authoredBinding));
+                    continue;
+                }
+
+                if (i >= slotCardTypographyTargetCount)
+                {
+                    throw new InvalidOperationException(
+                        $"MainMenu non-card typography target '{target?.name}' requires an authored TypographyBinding.");
+                }
+
                 _localizedSlotTypographyBindings.Add(new LocalizedTmpTypographyBinding(
-                    slotTargets[i],
+                    target,
                     textResolver,
                     typographyTheme,
-                    ResolveSlotTypographyStyle(i)));
+                    ResolveSlotCardTypographyStyle(i)));
             }
         }
 
-        private static TypographyStyleTag ResolveSlotTypographyStyle(int targetIndex)
+        private static TypographyStyleTag ResolveSlotCardTypographyStyle(int targetIndex)
         {
-            switch (targetIndex % 8)
+            switch (targetIndex % SaveSlotCardView.TypographyTargetCount)
             {
                 case 0:
                     return TypographyStyleTag.HeaderSmall;

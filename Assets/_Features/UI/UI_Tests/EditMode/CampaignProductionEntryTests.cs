@@ -52,6 +52,7 @@ namespace Game.Feature.UI.Tests
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             CampaignLaunchHandoffSessionStore.ResetForTests();
+            CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
             CampaignChanceHudDiagnostics.IsEnabled = false;
             CampaignChanceHudDiagnostics.Clear();
             SceneTransitionCoordinator.SetOverlayShellResourceLoaderForTests(null);
@@ -196,6 +197,7 @@ namespace Game.Feature.UI.Tests
         {
             var root = new GameObject("main-menu-delete-popup-installer");
             var provider = CreateProvider("stage-0-1");
+            var saveHarness = new TemporaryProductionSaveHarness();
             var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
             var uiAudioCueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath);
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
@@ -204,6 +206,13 @@ namespace Game.Feature.UI.Tests
 
             try
             {
+                saveHarness.PrepareDefaultSlot(
+                    StageId.CreateOrThrow("stage-0-1"),
+                    SaveSlotStore.DefaultRemainingChances);
+                CampaignSaveCompositionProvider.SetProductionCompositionForTests(
+                    saveHarness.SaveStore,
+                    saveHarness.RecoveryPort,
+                    saveHarness.ActiveSlotStorage);
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
                 root.AddComponent<AudioRuntimeInstaller>();
                 root.AddComponent<DisplayRuntimeInstaller>();
@@ -232,8 +241,10 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 UnityEngine.Object.DestroyImmediate(root);
                 provider.Dispose();
+                saveHarness.Dispose();
             }
         }
 
@@ -2336,11 +2347,15 @@ namespace Game.Feature.UI.Tests
                 SaveStore = facade.CampaignSaveSlots;
                 _profileTextFileStore = facade.ProfileServices.TextFileStore;
                 _localStateTextFileStore = new AtomicTextFileStore(SaveRootPath);
-                var activeSlotStorage = new LocalStateActiveSlotStorage(
+                ActiveSlotStorage = new LocalStateActiveSlotStorage(
                     new FileCampaignLocalLaunchStateRepository(_localStateTextFileStore),
                     new PlayerPrefsActiveSlotStorage(_playerPrefsKeys[1]),
                     SaveStore);
-                ActiveSlotProvider = new ActiveSlotProvider(activeSlotStorage);
+                ActiveSlotProvider = new ActiveSlotProvider(ActiveSlotStorage);
+                RecoveryPort = new CampaignLaunchStateRepairingCampaignSaveRecoveryPort(
+                    facade.ProfileServices.Recovery,
+                    ActiveSlotStorage,
+                    CampaignLaunchHandoffSessionStore.Instance);
             }
 
             public string TestRootPath { get; }
@@ -2350,6 +2365,10 @@ namespace Game.Feature.UI.Tests
             public ICampaignSaveSlotStore SaveStore { get; }
 
             public ActiveSlotProvider ActiveSlotProvider { get; }
+
+            public IActiveSlotStorage ActiveSlotStorage { get; }
+
+            public ICampaignSaveRecoveryPort RecoveryPort { get; }
 
             public void PrepareDefaultSlot(StageId stageId, int remainingChances)
             {

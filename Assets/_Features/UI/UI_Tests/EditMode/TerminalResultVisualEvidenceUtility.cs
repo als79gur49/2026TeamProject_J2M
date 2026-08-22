@@ -523,8 +523,8 @@ namespace Game.Feature.UI.Tests
                     {
                         return new[]
                         {
-                            new TextExpectation(typeof(LevelFailedScreenView), "_titleLabel", "스테이지 실패", TypographyStyleTag.HeaderLarge),
-                            new TextExpectation(typeof(LevelFailedScreenView), "_restartLevelButtonLabel", "다시 시작", TypographyStyleTag.Button),
+                            new TextExpectation(typeof(LevelFailedScreenView), "_titleLabel", "게임 오버", TypographyStyleTag.HeaderLarge),
+                            new TextExpectation(typeof(LevelFailedScreenView), "_restartLevelButtonLabel", "재도전", TypographyStyleTag.Button),
                             new TextExpectation(typeof(LevelFailedScreenView), "_mainButtonLabel", "메인 메뉴", TypographyStyleTag.Button),
                         };
                     }

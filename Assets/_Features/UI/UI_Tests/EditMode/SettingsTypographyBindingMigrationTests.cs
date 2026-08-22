@@ -10,6 +10,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -55,6 +56,79 @@ namespace Game.Feature.UI.Tests
                 Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid), name);
                 Assert.That(binding.UseApplyMaskOverride, Is.False, name);
             }
+        }
+
+        [Test]
+        public void SettingsPrefab_UsesExpandedAuthoredTypographyCapacity()
+        {
+            var prefab = LoadSettingsPrefab();
+            foreach (var (name, target) in new[]
+                     {
+                         ("Audio tab", GetField<TMP_Text>(prefab, "_audioTabButtonLabel")),
+                         ("Display tab", GetField<TMP_Text>(prefab, "_displayTabButtonLabel")),
+                         ("Input tab", GetField<TMP_Text>(prefab, "_inputTabButtonLabel")),
+                     })
+            {
+                AssertAutoSizeRange(target, 23f, 15f, 23f, name);
+            }
+
+            var movement = GetField<TMP_Text>(prefab.InputView, "_movementLabel");
+            var push = GetField<TMP_Text>(prefab.InputView, "_pushLabel");
+            var flip = GetField<TMP_Text>(prefab.InputView, "_flipLabel");
+            var reset = GetField<TMP_Text>(prefab.InputView, "_resetButtonLabel");
+            AssertAutoSizeRange(movement, 24f, 10f, 24f, "Movement label");
+            AssertAutoSizeRange(push, 24f, 16f, 24f, "Push label");
+            AssertAutoSizeRange(flip, 24f, 16f, 24f, "Flip label");
+            AssertAutoSizeRange(reset, 24f, 10f, 24f, "Reset input action");
+            AssertLayoutCapacity(movement, 220f, 40f, "Movement label");
+            AssertLayoutCapacity(push, 220f, 40f, "Push label");
+            AssertLayoutCapacity(flip, 220f, 40f, "Flip label");
+            AssertLayoutCapacity(GetField<Button>(prefab.InputView, "_resetButton"), 180f, 40f, "Reset input action");
+
+            foreach (var path in new[]
+                     {
+                         "SettingsSectionHost/SettingsInputSection/MovementInputRow/WASDKeyDisplay/WKey/Label",
+                         "SettingsSectionHost/SettingsInputSection/MovementInputRow/WASDKeyDisplay/AKey/Label",
+                         "SettingsSectionHost/SettingsInputSection/MovementInputRow/WASDKeyDisplay/SKey/Label",
+                         "SettingsSectionHost/SettingsInputSection/MovementInputRow/WASDKeyDisplay/DKey/Label",
+                         "SettingsSectionHost/SettingsInputSection/PushInputRow/PushKeyDisplay/JKey/Label",
+                         "SettingsSectionHost/SettingsInputSection/FlipInputRow/FlipKeyDisplay/KKey/Label",
+                     })
+            {
+                AssertAutoSizeRange(GetTextAtPath(prefab, path), 30f, 18f, 30f, path);
+            }
+
+            foreach (var path in new[]
+                     {
+                         "SettingsSectionHost/SettingsAudioSection/MainAudioRow/Label",
+                         "SettingsSectionHost/SettingsAudioSection/BgmAudioRow/Label",
+                         "SettingsSectionHost/SettingsAudioSection/SfxAudioRow/Label",
+                     })
+            {
+                var target = GetTextAtPath(prefab, path);
+                AssertAutoSizeRange(target, 22f, 14f, 22f, path);
+                AssertLayoutCapacity(target, 220f, 40f, path);
+            }
+
+            var currentDisplay = GetField<TMP_Text>(prefab.DisplayView, "_currentDisplayLabel");
+            var resolution = GetField<TMP_Text>(prefab.DisplayView, "_resolutionLabel");
+            var fullscreen = GetField<TMP_Text>(prefab.DisplayView, "_fullscreenLabel");
+            var language = GetField<TMP_Text>(prefab.DisplayView, "_languageLabel");
+            foreach (var (name, target) in new[]
+                     {
+                         ("Current display label", currentDisplay),
+                         ("Resolution label", resolution),
+                         ("Fullscreen label", fullscreen),
+                         ("Language label", language),
+                     })
+            {
+                AssertAutoSizeRange(target, 23f, 14f, 23f, name);
+            }
+
+            AssertLayoutCapacity(currentDisplay, 200f, 40f, "Current display label");
+            AssertLayoutCapacity(resolution, 200f, 40f, "Resolution label");
+            Assert.That(fullscreen.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(40f));
+            AssertLayoutCapacity(language, 200f, 40f, "Language label");
         }
 
         [Test]
@@ -303,6 +377,36 @@ namespace Game.Feature.UI.Tests
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName} must exist.");
             return (T)field.GetValue(target);
+        }
+
+        private static TMP_Text GetTextAtPath(SettingsScreenView root, string path)
+        {
+            var transform = root.transform.Find(path);
+            Assert.That(transform, Is.Not.Null, path);
+            var text = transform.GetComponent<TMP_Text>();
+            Assert.That(text, Is.Not.Null, path);
+            return text;
+        }
+
+        private static void AssertAutoSizeRange(
+            TMP_Text target,
+            float expectedFontSize,
+            float expectedFontSizeMin,
+            float expectedFontSizeMax,
+            string context)
+        {
+            Assert.That(target.fontSize, Is.EqualTo(expectedFontSize), $"{context} fontSize");
+            Assert.That(target.enableAutoSizing, Is.True, $"{context} enableAutoSizing");
+            Assert.That(target.fontSizeMin, Is.EqualTo(expectedFontSizeMin), $"{context} fontSizeMin");
+            Assert.That(target.fontSizeMax, Is.EqualTo(expectedFontSizeMax), $"{context} fontSizeMax");
+        }
+
+        private static void AssertLayoutCapacity(Component target, float expectedWidth, float expectedHeight, string context)
+        {
+            var layout = target.GetComponent<LayoutElement>();
+            Assert.That(layout, Is.Not.Null, context);
+            Assert.That(layout.preferredWidth, Is.EqualTo(expectedWidth), $"{context} preferredWidth");
+            Assert.That(layout.preferredHeight, Is.EqualTo(expectedHeight), $"{context} preferredHeight");
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

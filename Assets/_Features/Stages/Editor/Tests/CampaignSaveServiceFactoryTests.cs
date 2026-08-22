@@ -177,6 +177,12 @@ namespace Game.Feature.Stages.Editor.Tests
                 null,
                 new[] { typeof(ICampaignSaveSlotStore) },
                 null);
+            var recoveryPort = providerType.GetMethod(
+                nameof(CampaignSaveCompositionProvider.GetProductionRecoveryPort),
+                publicDeclaredStatic,
+                null,
+                Type.EmptyTypes,
+                null);
             var legacyRollback = providerType.GetMethod(
                 nameof(CampaignSaveCompositionProvider.CreateProductionLegacyRollback),
                 publicDeclaredStatic,
@@ -212,13 +218,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 allDeclaredStatic);
 
             Assert.That(providerType.IsPublic, Is.True);
-            Assert.That(publicMethods, Has.Length.EqualTo(3));
+            Assert.That(publicMethods, Has.Length.EqualTo(4));
             Assert.That(
                 publicMethods.Select(method => method.Name),
                 Is.EquivalentTo(new[]
                 {
                     nameof(CampaignSaveCompositionProvider.CreateProductionProfileBacked),
                     nameof(CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider),
+                    nameof(CampaignSaveCompositionProvider.GetProductionRecoveryPort),
                     nameof(CampaignSaveCompositionProvider.CreateProductionLegacyRollback),
                 }));
 
@@ -226,6 +233,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(profileBacked.ReturnType, Is.EqualTo(typeof(ICampaignSaveSlotStore)));
             Assert.That(activeSlotProvider, Is.Not.Null);
             Assert.That(activeSlotProvider.ReturnType, Is.EqualTo(typeof(ActiveSlotProvider)));
+            Assert.That(recoveryPort, Is.Not.Null);
+            Assert.That(recoveryPort.ReturnType, Is.EqualTo(typeof(ICampaignSaveRecoveryPort)));
             Assert.That(legacyRollback, Is.Not.Null);
             Assert.That(legacyRollback.IsPublic, Is.True);
             Assert.That(legacyRollback.ReturnType, Is.EqualTo(typeof(ICampaignSaveSlotStore)));

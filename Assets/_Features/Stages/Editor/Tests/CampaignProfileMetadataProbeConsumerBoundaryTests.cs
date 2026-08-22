@@ -56,14 +56,14 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void RepositoryLoad_RemainsSideEffectCapableAndThereforeForbiddenForProbe()
+        public void RepositoryLoad_MayRestoreBackupButDoesNotQuarantineCorruptPrimary()
         {
             var repositorySource = File.ReadAllText(
                 "Assets/_Features/Stages/Runtime/Campaign/Save/FileCampaignProfileRepository.cs");
 
             Assert.That(repositorySource, Does.Contain("public CampaignProfileLoadResult Load()"));
             Assert.That(repositorySource, Does.Contain("TryRestoreBackup"));
-            Assert.That(repositorySource, Does.Contain("TryQuarantine"));
+            Assert.That(repositorySource, Does.Not.Contain("TryQuarantine"));
             Assert.That(File.ReadAllText(ProbePath), Does.Not.Contain("new FileCampaignProfileRepository"));
         }
     }

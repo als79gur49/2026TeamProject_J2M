@@ -15,6 +15,8 @@ namespace Game.Feature.UI.Screens
 
     public sealed class SaveSlotCardView : MonoBehaviour
     {
+        internal const int TypographyTargetCount = 8;
+
         private const string MissingAuthoredStructureMessage =
             "MainMenu save slot card is missing required authored UI references. Repair MainMenuScreen.prefab so each SaveSlotCardView owns its labels and action buttons.";
 

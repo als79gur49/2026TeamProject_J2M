@@ -24,7 +24,7 @@ namespace Game.Feature.UI.Tests
         public void MainMenuContract_IsUniqueCompleteAndMatchesTablesBootstrapAndFallbacks()
         {
             var entries = MainMenuLocalizationContract.Entries;
-            Assert.That(entries, Has.Count.EqualTo(37));
+            Assert.That(entries, Has.Count.EqualTo(45));
             Assert.That(entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(entries.Count));
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.English)), Is.True);
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.Korean)), Is.True);
@@ -208,7 +208,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(korean.SlotCards[0].PrimaryActionText, Is.EqualTo("새 게임"));
             Assert.That(korean.SlotCards[1].StatusText, Is.EqualTo("계속"));
             Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("스테이지 A병동-02"));
-            Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("남은 기회: 2"));
+            Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("남은 목숨: 2"));
             Assert.That(korean.SlotCards[1].DeathsText, Is.EqualTo("사망 횟수: 3"));
             Assert.That(korean.SlotCards[1].LastPlayedText, Is.EqualTo("마지막 플레이: 2026. 7. 29."));
             Assert.That(korean.SlotCards[1].DeleteActionText, Is.EqualTo("삭제"));
@@ -243,7 +243,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[] { 1, 2, 3 }));
             Assert.That(
                 korean.SlotCards.Select(card => card.ChancesText).ToArray(),
-                Is.EqualTo(new[] { "남은 기회: 3", "남은 기회: 2", "남은 기회: 1" }));
+                Is.EqualTo(new[] { "남은 목숨: 3", "남은 목숨: 2", "남은 목숨: 1" }));
             Assert.That(
                 korean.SlotCards.Select(card => card.DeathsText).ToArray(),
                 Is.EqualTo(new[] { "사망 횟수: 1", "사망 횟수: 3", "사망 횟수: 5" }));
@@ -312,6 +312,30 @@ namespace Game.Feature.UI.Tests
 
     public sealed class MainMenuConfirmationLocalizationTests
     {
+        [TestCase("en-US", "Delete All Save Data", "Delete the incompatible save data and every save slot, then start over?", "All progress will be deleted.", "Delete All", "Cancel")]
+        [TestCase("ko-KR", "모든 저장 데이터 삭제", "호환되지 않는 저장 데이터와 모든 저장 슬롯을 삭제하고 새로 시작할까요?", "모든 진행 상황이 삭제됩니다.", "모두 삭제", "취소")]
+        public void ResetBlockedProfileConfirmation_ResolvesLocalizedDestructiveCopy(
+            string locale,
+            string title,
+            string body,
+            string warning,
+            string confirm,
+            string cancel)
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(locale);
+            using var presenter = new ConfirmPopupPresenter(resolver);
+
+            presenter.Apply(MainMenuLocalization.CreateConfirmationPayload(
+                MainMenuConfirmationKind.ResetBlockedProfile));
+
+            Assert.That(presenter.ViewModel.TitleText, Is.EqualTo(title));
+            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo(body));
+            Assert.That(presenter.ViewModel.WarningText, Is.EqualTo(warning));
+            Assert.That(presenter.ViewModel.ConfirmLabel, Is.EqualTo(confirm));
+            Assert.That(presenter.ViewModel.CancelLabel, Is.EqualTo(cancel));
+            Assert.That(presenter.ViewModel.IsConfirmDestructive, Is.True);
+        }
+
         [TestCase(MainMenuConfirmationKind.DeleteSlot, "Delete Slot", "Delete slot 2?", "This action cannot be undone.", "Delete")]
         [TestCase(MainMenuConfirmationKind.RestartSlot, "Restart Slot", "Restart slot 2 from the beginning?", "Existing progress will be replaced.", "Restart")]
         [TestCase(MainMenuConfirmationKind.OverwriteSlot, "Overwrite Slot", "Start a new game in slot 2?", "Existing progress will be overwritten.", "New Game")]
@@ -446,27 +470,28 @@ namespace Game.Feature.UI.Tests
                 refreshCount++;
             };
 
-            var english = controller.BuildViewModel().SlotCards[0];
-            Assert.That(english.TitleText, Is.EqualTo("Slot 1"));
-            Assert.That(english.StatusText, Is.EqualTo("Save Load Failed"));
-            Assert.That(english.StageText, Is.EqualTo("The save data could not be loaded."));
-            Assert.That(english.StageText, Does.Not.Contain(diagnostic));
-            Assert.That(english.PrimaryIntentKind, Is.EqualTo(SaveSlotIntentKind.None));
-            Assert.That(english.ShowDelete, Is.False);
+            var english = controller.BuildViewModel();
+            Assert.That(english.SlotCards, Is.Empty);
+            Assert.That(english.BlockedState, Is.Not.Null);
+            Assert.That(english.BlockedState.TitleText, Is.EqualTo("Save Load Failed"));
+            Assert.That(english.BlockedState.DetailText, Is.EqualTo("The save data could not be loaded."));
+            Assert.That(english.BlockedState.DetailText, Does.Not.Contain(diagnostic));
+            Assert.That(english.BlockedState.ShowRetry, Is.True);
+            Assert.That(english.BlockedState.ShowResetProfile, Is.False);
             Assert.That(resolver.SubscriberCount, Is.EqualTo(1));
 
             resolver.SetLocale("ko-KR");
             Assert.That(refreshCount, Is.EqualTo(1));
-            Assert.That(refreshed.SlotCards[0].TitleText, Is.EqualTo("슬롯 1"));
-            Assert.That(refreshed.SlotCards[0].StatusText, Is.EqualTo("저장 데이터 불러오기 실패"));
-            Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("저장 데이터를 불러올 수 없습니다."));
-            Assert.That(refreshed.SlotCards[0].PrimaryIntentKind, Is.EqualTo(SaveSlotIntentKind.None));
-            Assert.That(refreshed.SlotCards[0].ShowDelete, Is.False);
+            Assert.That(refreshed.SlotCards, Is.Empty);
+            Assert.That(refreshed.BlockedState.TitleText, Is.EqualTo("저장 데이터 불러오기 실패"));
+            Assert.That(refreshed.BlockedState.DetailText, Is.EqualTo("저장 데이터를 불러올 수 없습니다."));
+            Assert.That(refreshed.BlockedState.ShowRetry, Is.True);
+            Assert.That(refreshed.BlockedState.ShowResetProfile, Is.False);
 
             resolver.SetLocale("en-US");
             Assert.That(refreshCount, Is.EqualTo(2));
-            Assert.That(refreshed.SlotCards[0].StatusText, Is.EqualTo("Save Load Failed"));
-            Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("The save data could not be loaded."));
+            Assert.That(refreshed.BlockedState.TitleText, Is.EqualTo("Save Load Failed"));
+            Assert.That(refreshed.BlockedState.DetailText, Is.EqualTo("The save data could not be loaded."));
 
             controller.Dispose();
             Assert.That(resolver.SubscriberCount, Is.Zero);

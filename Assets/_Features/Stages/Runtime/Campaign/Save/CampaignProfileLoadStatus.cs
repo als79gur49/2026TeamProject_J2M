@@ -5,10 +5,10 @@ namespace Game.Feature.Stages
         Missing = 0,
         Loaded = 1,
         BackupRecovered = 2,
-        CorruptQuarantined = 3,
-        CorruptNoFallback = 4,
-        Unauthorized = 5,
-        IoFailed = 6,
-        SchemaInvalid = 7,
+        CorruptNoFallback = 3,
+        Unauthorized = 4,
+        IoFailed = 5,
+        UnsupportedVersion = 6,
+        InvalidDocument = 7,
     }
 }

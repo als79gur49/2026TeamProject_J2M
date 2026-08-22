@@ -7,6 +7,7 @@ using System.Text;
 using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
 using ConfirmPopupPresenter = Game.Feature.UI.Application.ConfirmPopupPresenter;
+using PausePopupPresenter = Game.Feature.UI.Application.PausePopupPresenter;
 using MainMenuConfirmationKind = Game.Feature.UI.Application.MainMenuConfirmationKind;
 using MainMenuLocalization = Game.Feature.UI.Application.MainMenuLocalization;
 using MainMenuSlotViewModelMapper = Game.Feature.UI.Application.MainMenuSlotViewModelMapper;
@@ -479,10 +480,12 @@ namespace Game.Feature.UI.Composition.Editor
                     return 5;
 
                 case "M2ACorrupt":
+                case "M2ANeedsRepair":
+                    return 4;
+
                 case "M2APermission":
                 case "M2ALoadFailed":
-                case "M2ANeedsRepair":
-                    return 9;
+                    return 3;
 
                 case "M2BReserved":
                 case "M2BActionConflictFlip":
@@ -922,9 +925,13 @@ namespace Game.Feature.UI.Composition.Editor
                     return scope;
                 }
 
+                var payload = CreatePausePreviewPayload();
+                var presenter = new PausePopupPresenter(resolver);
+                presenter.Apply(payload);
+                view.Bind(presenter.ViewModel);
                 var productionLocalizationScope = PausePopupProductionLocalizationComposer.Bind(
                     view,
-                    PausePopupPayload.Default,
+                    payload,
                     resolver,
                     DefaultLocalizedTypographyResolver.Instance,
                     theme);
@@ -939,11 +946,12 @@ namespace Game.Feature.UI.Composition.Editor
                     target,
                     resolver,
                     capture,
-                    GetPauseDescriptors(PausePopupPayload.Default),
+                    GetPauseDescriptors(payload),
                     prefabRoot);
                 return new DisposableAction(() =>
                 {
                     productionLocalizationScope.Dispose();
+                    view.Bind(null);
                     scope.Dispose();
                 });
             }
@@ -2278,6 +2286,32 @@ namespace Game.Feature.UI.Composition.Editor
                 payload.RetryLabelDescriptor,
                 payload.MainMenuLabelDescriptor,
             };
+        }
+
+        private static PausePopupPayload CreatePausePreviewPayload()
+        {
+            var stages = new[]
+            {
+                new PauseProgressionStageSnapshot("preview-stage-01", "preview-group-01"),
+                new PauseProgressionStageSnapshot("preview-stage-02", "preview-group-01"),
+                new PauseProgressionStageSnapshot("preview-stage-03", "preview-group-02"),
+                new PauseProgressionStageSnapshot("preview-stage-04", "preview-group-02"),
+                new PauseProgressionStageSnapshot("preview-stage-05", "preview-group-02"),
+                new PauseProgressionStageSnapshot("preview-stage-06", "preview-group-03"),
+                new PauseProgressionStageSnapshot("preview-stage-07", "preview-group-03"),
+                new PauseProgressionStageSnapshot("preview-stage-08", "preview-group-04"),
+                new PauseProgressionStageSnapshot("preview-stage-09", "preview-group-04"),
+                new PauseProgressionStageSnapshot("preview-stage-10", "preview-group-04"),
+                new PauseProgressionStageSnapshot("preview-stage-11", "preview-group-05"),
+                new PauseProgressionStageSnapshot("preview-stage-12", "preview-group-05"),
+                new PauseProgressionStageSnapshot("preview-stage-13", "preview-group-05"),
+            };
+
+            return new PausePopupPayload(
+                new PauseProgressionSnapshot(
+                    isAvailable: true,
+                    stages,
+                    currentStageKey: "preview-stage-06"));
         }
 
         private static IReadOnlyList<LocalizedTextDescriptor> GetMainMenuDescriptors(MainMenuStaticTextPayload payload)

@@ -296,7 +296,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void SaveSlotStore_FileBackend_InvalidPayload_UsesGuardResetWithoutSilentEmptyOverwrite()
         {
             using var harness = CreateSaveFileHarness();
-            const string invalidPayload = "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":3,\"SaveVersion\":1,\"Slots\":[]}";
+            const string invalidPayload = "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":99,\"SaveVersion\":1,\"Slots\":[]}";
             Directory.CreateDirectory(harness.SaveRootPath);
             File.WriteAllText(harness.ProfilePath, invalidPayload);
             var store = harness.CreateStore();

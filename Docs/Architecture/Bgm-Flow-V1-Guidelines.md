@@ -34,6 +34,7 @@
 - `StageAudioDefinition`은 content metadata / playback profile reference owner일 뿐이고 BGM execution owner가 아니다.
 - StageAudioDefinition v1 supports only gameplay BGM. Stage result/failure BGM, boss/objective phase BGM, preview/menu BGM, ambience, and layered music are intentionally out of scope and not modeled.
 - stage-backed gameplay BGM은 `StageAudioRuntimeRequestSource -> BgmRequestRouter -> BgmFlowCoordinator` path로만 실행한다.
+- presentation-exclusive audio가 현재 BGM을 일시 정지해야 할 때도 `BgmRequestRouter`의 playback-suppression lease를 사용한다. feature composition은 `BgmFlowRequest`, 선택된 profile, 또는 priority를 캡처하거나 재제출하지 않는다.
 
 ## 3. Bootstrap And Registry Contract
 
@@ -108,6 +109,15 @@ exact fail-fast messages:
 - `BgmFlowCoordinator`는 low-level timing/mixing mechanics를 직접 소유하지 않는다.
 - source priority는 `BgmRequestRouter`가 소유한다: `SceneDefault=100`, `StageGameplay=300`.
 - `BgmFlowCoordinator`는 router에서 선택된 request만 실행한다.
+
+### 6.1 Temporary Playback Suppression
+
+- `BgmRequestRouter.BeginPlaybackSuppression()`은 현재 playback을 정지하고 한 개의 active lease를 소유한다. 동시 lease는 setup defect로 fail fast 한다.
+- suppression 중에도 scene/stage requester는 기존 `Submit` 계약을 유지한다. router는 최신 최우선 request를 선택 상태로 갱신하지만 coordinator에 실행하지 않는다.
+- cancellation, setup failure, stale callback, immediate route rejection처럼 source scene에 남는 종료는 lease dispose로 수렴한다. router는 캡처된 과거 request가 아니라 종료 시점의 현재 최우선 request를 다시 계산해 실행한다.
+- destination route가 동기적으로 승인된 종료만 `ReleaseWithoutRestore()`를 사용한다. 이전 scene BGM은 재시작하지 않고, suppression 해제 뒤 destination requester의 다음 `Submit`이 정상 실행된다.
+- 이 lease는 `ComicSequence` 같은 새 global request source kind를 만들지 않으며 `IBgmPlaybackPort`의 `Play` / `Stop` surface도 넓히지 않는다.
+- 동기 승인 뒤의 비동기 scene-load failure 복구는 scene-transition owner의 별도 책임이며 comic audio-focus 종료가 완료를 주장하지 않는다.
 
 forward plan:
 

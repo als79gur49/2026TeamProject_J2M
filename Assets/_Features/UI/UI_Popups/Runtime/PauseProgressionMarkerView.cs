@@ -7,42 +7,38 @@ namespace Game.Feature.UI.Popups
     public sealed class PauseProgressionMarkerView : MonoBehaviour
     {
         [SerializeField] private Image _visualImage;
-        [SerializeField] private GameObject _selectionFrame;
-
-        private Color _authoredVisualColor;
-        private bool _hasAuthoredVisualColor;
+        [SerializeField] private GameObject _currentFrame;
 
         public RectTransform RectTransform => transform as RectTransform;
 
         public Image VisualImage => _visualImage;
 
-        public GameObject SelectionFrame => _selectionFrame;
+        public GameObject CurrentFrame => _currentFrame;
 
-        public bool IsViewed => _selectionFrame != null && _selectionFrame.activeSelf;
+        public PauseProgressionMarkerState State { get; private set; } = PauseProgressionMarkerState.Neutral;
 
-        public void SetCurrent(bool isCurrent, Color currentColor)
+        public void ApplyState(
+            PauseProgressionMarkerState state,
+            Color neutralColor,
+            Color previousColor,
+            Color currentColor,
+            Color upcomingColor)
         {
-            if (_visualImage == null)
+            State = state;
+            if (_visualImage != null)
             {
-                return;
+                _visualImage.color = state switch
+                {
+                    PauseProgressionMarkerState.Previous => previousColor,
+                    PauseProgressionMarkerState.Current => currentColor,
+                    PauseProgressionMarkerState.Upcoming => upcomingColor,
+                    _ => neutralColor,
+                };
             }
 
-            if (!_hasAuthoredVisualColor)
+            if (_currentFrame != null)
             {
-                _authoredVisualColor = _visualImage.color;
-                _hasAuthoredVisualColor = true;
-            }
-
-            _visualImage.color = isCurrent
-                ? currentColor
-                : _authoredVisualColor;
-        }
-
-        public void SetViewed(bool isViewed)
-        {
-            if (_selectionFrame != null)
-            {
-                _selectionFrame.SetActive(isViewed);
+                _currentFrame.SetActive(state == PauseProgressionMarkerState.Current);
             }
         }
     }

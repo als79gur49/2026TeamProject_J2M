@@ -69,6 +69,10 @@ public static class SteamPipeStagingSanitizerPolicy
                EndsWithPath(lower, "saves/profile.json.bak") ||
                IsProfileTemporaryPath(lower) ||
                ContainsPath(lower, "saves/profile.json.corrupt.") ||
+               ContainsPath(lower, "saves/profile.json.rejected.") ||
+               ContainsPath(lower, "saves/profile.json.bak.rejected.") ||
+               EndsWithPath(lower, "saves/profile.reset.pending.json") ||
+               EndsWithPath(lower, "saves/profile.reset.pending.json.bak") ||
                EndsWithPath(lower, "settings/local-settings.json") ||
                EndsWithPath(lower, "saves/local-launch-state.json") ||
                EndsWithPath(lower, "saves/editor-direct-play.json") ||

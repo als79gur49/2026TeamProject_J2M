@@ -316,7 +316,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void SaveSlotStore_InvalidPayload_IsNotExposed()
         {
-            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":3,\"Slots\":[]}");
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":99,\"Slots\":[]}");
             PlayerPrefs.Save();
             var store = new SaveSlotStore();
 

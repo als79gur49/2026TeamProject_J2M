@@ -38,12 +38,12 @@ namespace Game.Feature.Stages
                         "profile.json loaded.");
                 }
 
-                if (canonicalResult == ProfileReadResult.SchemaInvalid)
+                if (canonicalResult == ProfileReadResult.UnsupportedVersion)
                 {
                     return new CampaignProfileLoadResult(
-                        CampaignProfileLoadStatus.SchemaInvalid,
+                        CampaignProfileLoadStatus.UnsupportedVersion,
                         null,
-                        "profile.json schema is invalid.");
+                        "profile.json was created with an unsupported schema version.");
                 }
 
                 if (TryLoadBackup(out var backupDocument))
@@ -55,12 +55,12 @@ namespace Game.Feature.Stages
                         "profile.json.bak recovered profile.json.");
                 }
 
-                if (_textFileStore.TryQuarantine(ProfileFileName, out _))
+                if (canonicalResult == ProfileReadResult.InvalidDocument)
                 {
                     return new CampaignProfileLoadResult(
-                        CampaignProfileLoadStatus.CorruptQuarantined,
+                        CampaignProfileLoadStatus.InvalidDocument,
                         null,
-                        "profile.json was corrupt and quarantined.");
+                        "profile.json does not satisfy the current profile contract.");
                 }
 
                 return new CampaignProfileLoadResult(
@@ -127,26 +127,32 @@ namespace Game.Feature.Stages
                 return ProfileReadResult.Corrupt;
             }
 
-            return Validate(document) == CampaignProfileLoadStatus.Loaded
-                ? ProfileReadResult.Valid
-                : ProfileReadResult.SchemaInvalid;
+            switch (Validate(document))
+            {
+                case CampaignProfileLoadStatus.Loaded:
+                    return ProfileReadResult.Valid;
+                case CampaignProfileLoadStatus.UnsupportedVersion:
+                    return ProfileReadResult.UnsupportedVersion;
+                default:
+                    return ProfileReadResult.InvalidDocument;
+            }
         }
 
         private static CampaignProfileLoadStatus Validate(CampaignProfileDocument document)
         {
             if (document == null)
             {
-                return CampaignProfileLoadStatus.SchemaInvalid;
+                return CampaignProfileLoadStatus.InvalidDocument;
             }
 
             if (document.SchemaVersion != CampaignProfileDocument.CurrentSchemaVersion)
             {
-                return CampaignProfileLoadStatus.SchemaInvalid;
+                return CampaignProfileLoadStatus.UnsupportedVersion;
             }
 
             if (string.IsNullOrWhiteSpace(document.ProfileId))
             {
-                return CampaignProfileLoadStatus.SchemaInvalid;
+                return CampaignProfileLoadStatus.InvalidDocument;
             }
 
             document.Slots ??= Array.Empty<CampaignSlotDocument>();
@@ -193,7 +199,8 @@ namespace Game.Feature.Stages
         {
             Valid,
             Corrupt,
-            SchemaInvalid,
+            UnsupportedVersion,
+            InvalidDocument,
         }
 
         private static class JsonSyntaxValidator

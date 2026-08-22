@@ -22,7 +22,9 @@ namespace Game.Feature.UI.Tests
             "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
         private const string ThemePath =
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
-        private const string ClimatePath =
+        private const string Climate2000Path =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        private const string Climate2019Path =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
 
         [Test]
@@ -92,11 +94,15 @@ namespace Game.Feature.UI.Tests
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
             var instance = Object.Instantiate(prefab);
             var resolver = new ContractResolver("en-US");
-            var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimatePath);
+            var climate2000 = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2000Path);
 
             try
             {
                 var binding = instance.GetComponent<GameplayHudLocalizationBinding>();
+                var englishStyle = binding.Theme.ResolveOrThrow("en-US", TypographyStyleTag.HeaderLarge);
+                var koreanStyle = binding.Theme.ResolveOrThrow("ko-KR", TypographyStyleTag.HeaderLarge);
+                var expectedEnglishFontStyle = englishStyle.FontStyle | FontStyles.UpperCase;
+                var expectedKoreanFontStyle = koreanStyle.FontStyle | FontStyles.UpperCase;
                 var chanceView = instance.GetComponent<HUDRootView>().ChancePanelView;
                 var chanceModel = new ChancePanelViewModel();
                 Assert.That(
@@ -121,11 +127,12 @@ namespace Game.Feature.UI.Tests
                     isInitialBind: true,
                     ChanceChangeAnimationHint.None);
                 binding.StageNameText.text = "Lab-01";
-                var englishStageNameFont = binding.StageNameText.font;
-                var englishStageNameMaterial = binding.StageNameText.fontSharedMaterial;
                 binding.Initialize(resolver);
                 Assert.That(resolver.SubscriberCount, Is.EqualTo(1));
                 Assert.That(binding.StageNameText.text, Is.EqualTo("Lab-01"));
+                Assert.That(binding.StageNameText.font, Is.SameAs(englishStyle.FontAsset));
+                Assert.That(binding.StageNameText.fontSharedMaterial, Is.SameAs(englishStyle.MaterialPreset));
+                Assert.That(binding.StageNameText.fontStyle, Is.EqualTo(expectedEnglishFontStyle));
                 AssertChanceState(chanceModel, 2, 3);
 
                 instance.SetActive(false);
@@ -135,16 +142,18 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(binding.StageNameText.text, Is.EqualTo("연구실-01"));
                 AssertChanceState(chanceModel, 2, 3);
-                Assert.That(binding.StageNameText.font, Is.SameAs(climate));
+                Assert.That(binding.StageNameText.font, Is.SameAs(climate2000));
+                Assert.That(binding.StageNameText.font, Is.SameAs(koreanStyle.FontAsset));
+                Assert.That(binding.StageNameText.fontSharedMaterial, Is.SameAs(koreanStyle.MaterialPreset));
+                Assert.That(binding.StageNameText.fontStyle, Is.EqualTo(expectedKoreanFontStyle));
 
                 binding.StageNameText.text = "Lab-01";
                 resolver.SetLocale("en-US");
 
                 Assert.That(binding.StageNameText.text, Is.EqualTo("Lab-01"));
-                Assert.That(binding.StageNameText.font, Is.SameAs(englishStageNameFont));
-                Assert.That(
-                    binding.StageNameText.fontSharedMaterial,
-                    Is.SameAs(englishStageNameMaterial));
+                Assert.That(binding.StageNameText.font, Is.SameAs(englishStyle.FontAsset));
+                Assert.That(binding.StageNameText.fontSharedMaterial, Is.SameAs(englishStyle.MaterialPreset));
+                Assert.That(binding.StageNameText.fontStyle, Is.EqualTo(expectedEnglishFontStyle));
                 AssertChanceState(chanceModel, 2, 3);
 
                 binding.Dispose();
@@ -152,7 +161,9 @@ namespace Game.Feature.UI.Tests
                 binding.StageNameText.text = "연구실-01";
                 resolver.SetLocale("ko-KR");
                 Assert.That(binding.StageNameText.text, Is.EqualTo("연구실-01"));
-                Assert.That(binding.StageNameText.font, Is.SameAs(englishStageNameFont));
+                Assert.That(binding.StageNameText.font, Is.SameAs(englishStyle.FontAsset));
+                Assert.That(binding.StageNameText.fontSharedMaterial, Is.SameAs(englishStyle.MaterialPreset));
+                Assert.That(binding.StageNameText.fontStyle, Is.EqualTo(expectedEnglishFontStyle));
             }
             finally
             {
@@ -165,7 +176,7 @@ namespace Game.Feature.UI.Tests
         {
             var resolver = new ContractResolver("en-US");
             var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemePath);
-            var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimatePath);
+            var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2019Path);
             var movement = new LocalizationTarget(WorldGuideInstructionKind.Movement, "WASD");
             var push = new LocalizationTarget(WorldGuideInstructionKind.Push, "J");
             var flip = new LocalizationTarget(WorldGuideInstructionKind.Flip, "K");

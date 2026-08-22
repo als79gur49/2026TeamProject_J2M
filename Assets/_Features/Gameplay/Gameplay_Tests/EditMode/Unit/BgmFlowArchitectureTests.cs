@@ -219,6 +219,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ComicSequenceAudioFocusController_UsesRouterPlaybackSuppression()
+        {
+            var source = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicSequenceAudioFocusController.cs");
+
+            Assert.That(source, Does.Contain("GetRequestRouterOrThrow()"));
+            Assert.That(source, Does.Contain("BeginPlaybackSuppression()"));
+            Assert.That(source, Does.Not.Contain("GetCoordinatorOrThrow()"));
+            Assert.That(source, Does.Not.Contain("StopCurrent()"));
+            Assert.That(source, Does.Not.Contain("BgmFlowRequest"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayAndUiComposition_Sources_RemainSameRootInstallerBased_WithoutGlobalCoordinatorLookup()
         {
             var gameplaySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs");

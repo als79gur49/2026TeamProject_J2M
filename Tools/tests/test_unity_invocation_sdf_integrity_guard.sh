@@ -106,7 +106,7 @@ assert_equal \
     "$(sha256sum "$SCENARIO_ASSET" | awk '{print $1}')" \
     "expected-drift final hash"
 assert_contains \
-    "Imported=19f4a36872fb68b8bf2b84bf49c3c32572ec57e5c20016e213ecef675ca7da6b" \
+    "Imported=8c776e06dff6e330538814c3535e563a55add13fdf25b1c89e34e520547dc386" \
     "$SCENARIO_EVIDENCE" \
     "expected-drift imported hash"
 assert_contains "Classification=EXPECTED_IMPORT_DERIVED_DRIFT" "$SCENARIO_EVIDENCE" "expected-drift classification"
@@ -213,7 +213,7 @@ if (
     exit 1
 fi
 assert_equal \
-    "19f4a36872fb68b8bf2b84bf49c3c32572ec57e5c20016e213ecef675ca7da6b" \
+    "8c776e06dff6e330538814c3535e563a55add13fdf25b1c89e34e520547dc386" \
     "$(sha256sum "$SCENARIO_ASSET" | awk '{print $1}')" \
     "restore-failure preserved imported state"
 assert_contains "Classification=EXPECTED_IMPORT_DERIVED_DRIFT" "$SCENARIO_EVIDENCE" "restore-failure classification"

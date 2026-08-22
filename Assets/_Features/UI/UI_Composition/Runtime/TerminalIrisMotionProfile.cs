@@ -11,7 +11,7 @@ namespace Game.Feature.UI.Composition
         ExistingDefeatIris = 1,
         RetryIris = 2,
         MainMenuIris = 3,
-        CinematicOpaqueOwner = 4,
+        ComicSequenceOpaqueOwner = 4,
     }
 
     internal enum GameplayEntryFocusPolicy
@@ -305,12 +305,12 @@ namespace Game.Feature.UI.Composition
                 GameplayEntryInputReleasePolicy.OpeningCompleted);
         }
 
-        internal static GameplayEntryTransitionVisualSnapshot CreateCinematicTransitionVisualSnapshot(
+        internal static GameplayEntryTransitionVisualSnapshot CreateComicIntroTransitionVisualSnapshot(
             Color authoredBlack)
         {
             return new GameplayEntryTransitionVisualSnapshot(
-                SceneTransitionIntent.CinematicToGameplay,
-                GameplayEntrySourceCloseVisualKind.CinematicOpaqueOwner,
+                SceneTransitionIntent.ComicIntroToGameplay,
+                GameplayEntrySourceCloseVisualKind.ComicSequenceOpaqueOwner,
                 authoredBlack,
                 authoredBlack,
                 authoredBlack,
@@ -340,7 +340,7 @@ namespace Game.Feature.UI.Composition
             SceneTransitionIntent.ManualRetry,
             SceneTransitionIntent.DemoStageRelaunch,
             SceneTransitionIntent.GameplayEntry,
-            SceneTransitionIntent.CinematicToGameplay,
+            SceneTransitionIntent.ComicIntroToGameplay,
         };
         private const string IrisProfileResourcePath =
             "UI/Transitions/TerminalIrisMotionProfile";
@@ -354,7 +354,7 @@ namespace Game.Feature.UI.Composition
             SceneEntrySessionToken token,
             SceneTransitionRoutePolicy routePolicy,
             Color? stageAdvanceColor = null,
-            Color? cinematicColor = null)
+            Color? comicSequenceColor = null)
         {
             if (!token.IsValid ||
                 routePolicy.Classification != SceneTransitionRouteClassification.Production ||
@@ -393,11 +393,11 @@ namespace Game.Feature.UI.Composition
                             "StageAdvance visual capture requires its immutable Result color.")),
                 SceneTransitionIntent.GameplayEntry =>
                     RequireIrisProfile().CreateGameplayEntryTransitionVisualSnapshot(),
-                SceneTransitionIntent.CinematicToGameplay =>
-                    TerminalIrisMotionProfile.CreateCinematicTransitionVisualSnapshot(
-                        cinematicColor ??
+                SceneTransitionIntent.ComicIntroToGameplay =>
+                    TerminalIrisMotionProfile.CreateComicIntroTransitionVisualSnapshot(
+                        comicSequenceColor ??
                         throw new InvalidOperationException(
-                            "CinematicToGameplay visual capture requires the authored cinematic opaque color.")),
+                            "ComicIntroToGameplay visual capture requires the authored comic sequence opaque color.")),
                 _ => RequireIrisProfile().CreateRetryTransitionVisualSnapshot(routePolicy.Intent),
             };
             _token = token;
@@ -464,7 +464,7 @@ namespace Game.Feature.UI.Composition
     internal enum MainMenuSourceCloseVisualKind
     {
         GameplayScreenCenterIris = 0,
-        CinematicOpaqueOwner = 1,
+        ComicSequenceOpaqueOwner = 1,
     }
 
     internal readonly struct MainMenuTransitionVisualSnapshot
@@ -509,7 +509,7 @@ namespace Game.Feature.UI.Composition
         private static readonly SceneTransitionIntent[] ProductionIntentKeys =
         {
             SceneTransitionIntent.ReturnToMainMenu,
-            SceneTransitionIntent.CinematicToMainMenu,
+            SceneTransitionIntent.ComicOutroToMainMenu,
         };
         private static readonly Color NeutralBlack = new(0f, 0f, 0f, 1f);
         private static MainMenuEntrySessionToken _token;
@@ -521,7 +521,7 @@ namespace Game.Feature.UI.Composition
         internal static MainMenuTransitionVisualSnapshot Capture(
             MainMenuEntrySessionToken token,
             SceneTransitionRoutePolicy routePolicy,
-            Color? cinematicOpaqueColor = null)
+            Color? comicSequenceOpaqueColor = null)
         {
             if (!token.IsValid ||
                 routePolicy.Status != SceneTransitionRouteStatus.Canonical ||
@@ -549,13 +549,13 @@ namespace Game.Feature.UI.Composition
                     $"Main Menu visual token {_token} still owns the immutable snapshot.");
             }
 
-            var color = routePolicy.Intent == SceneTransitionIntent.CinematicToMainMenu
-                ? cinematicOpaqueColor ??
+            var color = routePolicy.Intent == SceneTransitionIntent.ComicOutroToMainMenu
+                ? comicSequenceOpaqueColor ??
                   throw new InvalidOperationException(
-                      "CinematicToMainMenu requires the authored cinematic opaque color.")
+                      "ComicOutroToMainMenu requires the authored comic sequence opaque color.")
                 : NeutralBlack;
-            var sourceKind = routePolicy.Intent == SceneTransitionIntent.CinematicToMainMenu
-                ? MainMenuSourceCloseVisualKind.CinematicOpaqueOwner
+            var sourceKind = routePolicy.Intent == SceneTransitionIntent.ComicOutroToMainMenu
+                ? MainMenuSourceCloseVisualKind.ComicSequenceOpaqueOwner
                 : MainMenuSourceCloseVisualKind.GameplayScreenCenterIris;
             var captured = new MainMenuTransitionVisualSnapshot(
                 routePolicy.Intent,

@@ -37,6 +37,7 @@ This file is the external current-structure source for the completed UI cleanup 
   - HUD is not a gameplay command owner.
   - HUD may raise bounded UI-owned requests such as pause flow, but it must not dispatch gameplay Push/Flip commands.
   - `PlayerStatus` displays current player status/readiness state only; it does not own Push/Flip command routing.
+  - The in-game Stage Name resolves `HeaderLarge` through `GameplayUiTypographyTheme` in both locales: en-US uses Orbitron ExtraBold and ko-KR uses Climate Crisis KR 2000, prefab-authored sizing remains unchanged, and the target adds TMP `UpperCase` presentation without mutating localized source strings. World Guide and transition-label default-locale restoration remain separate contracts.
 
 ## Preserved Classification Decisions
 
@@ -64,6 +65,17 @@ This file is the external current-structure source for the completed UI cleanup 
 
 ## Canonical Runtime Paths
 
+- The shared intro/outro comic path remains `ComicSequenceDefinition -> ComicSequenceFlowCoordinator -> ComicSequenceOverlayView` and accepts sprite-sequence content only.
+- Comic entry keeps the overlay background transparent while its dedicated fade layer covers the visible source scene to opaque black. Only after full cover does the overlay fix its background to black, configure the first comic content, and begin the initial reveal; the authored enter-fade duration therefore remains a real presentation transition rather than an invisible fade over an already-black root.
+- Comic audio focus consumes an opaque `BgmRequestRouter` playback-suppression lease through the same-root `GlobalAudioFlowBootstrap`. Cancellation, setup failure, stale ownership, and immediate route rejection restore the router's current highest-priority request; only a synchronously accepted scene route commits the handoff without restarting the source-scene BGM. UI composition does not capture or resubmit BGM requests or profiles.
+- The intro definition owns two pages with normalized 1920x1080 reference rectangles (currently 5 panels then 6 panels), followed by a final before/after sprite pair. Pointer left-click or one UI Submit advances one state; the background is not a `Button`, so one Submit cannot traverse both paths.
+- Main Menu composes the authored intro definition. Gameplay keeps the outro composition seam but leaves `_outroComicSequence` explicitly null because no production outro content is currently authored. Final clear therefore skips comic presentation and uses the regular `ReturnToMainMenu` transition without marking `OutroComicCompleted`; a future outro Definition can be connected without restoring the retired MP4 path or changing the intro.
+- Main Menu save access is globally gated: unsupported-version or corrupt profiles replace all slot cards with retry and destructive full-reset actions, while IO/authorization failures expose retry only. A durable pending reset is also a global retry-only gate: startup skips legacy migration when resume fails, every campaign save write remains blocked, and Retry resumes the same reset before normal slot access returns. Reset revalidates the failure, archives canonical/backup files, writes one empty current-schema profile, and clears active launch state; it is not a per-slot delete path or a schema migration.
+- Main Menu save-slot typography keeps ordinal fallback only for each SaveSlotCard's eight-target contract. The non-card `BlockedSaveRecovery` title, detail, retry label, and reset label require authored `TypographyBinding` tags `HeaderMedium`, `Body`, `Button`, and `Button`; the shared theme resolves locale font/material while authored sizing is preserved.
+- `VideoClip`, `VideoPlayer`, `CinematicVideoOverlayView`, `SlotCinematicDefinition`, and the VQ intro/outro MP4 assets are retired and are not current dependencies.
+- Comic-sequence layout is resolution-independent: reference rectangles are converted to anchors under a 16:9 fitted viewport, and source sprites retain aspect ratio. Non-16:9 displays therefore use fitted letterboxing rather than stretching.
+- Panel sprites are pre-cut assets whose aspect ratios match their authored reference rectangles; replacing a panel sprite preserves layout when the replacement uses the same cut/aspect. A full 1920x1080 scene dropped into a non-16:9 panel is intentionally fitted and will letterbox because the current path has no per-panel crop/mask authoring.
+- Current panel pixel dimensions are approximately native for the 1920x1080 reference layout and will upscale at 2560x1440. For 1440p-quality replacements, author each pre-cut panel at least 1.334 times its reference-rectangle width and height (or use a larger same-aspect source); importer `maxTextureSize=4096` only prevents import downscaling and does not create source detail.
 - Push/Flip physical gameplay commands flow through the gameplay input route, not UI HUD command injection.
 - `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
 - Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore through the shared `GameplayInputActionPaths` input contract.
@@ -77,6 +89,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Settings typography inventory is closed over every authored TMP target: 45 TMP targets, 45 unique valid binding targets, and 45 manifest classifications; the governed localized subset is 22 static plus 11 dynamic/special targets.
 - The 35 governed localized Settings targets use Settings-specific semantic profiles where shared tags would change other UI: en-US resolves exactly to each prefab-authored font/material/fontStyle, while ko-KR resolves through the current all-19-role Climate Crisis KR font/material with Normal style and authored sizing preserved.
 - Current Climate layout contracts are Pause title width `160` with its authored visual center preserved, Settings audio value Rect/preferred width `140`, and Display status height `28` with `14 / Auto / 10-14`; the Display status may use two Korean lines without clipping.
+- Pause campaign progression is an informational horizontal stepper. Group starts use larger diamond nodes, previous/current/upcoming stages have distinct presentation states, and only the current stage owns the persistent ring; Left/Right does not move a separate progression cursor.
 - Climate committed source identity is guarded from `HEAD` Git blobs before Unity runs. Unity-loaded font/material identity, glyph/fallback, theme roles, and rendering remain the runtime contract; importer-derived working-file hashes and ScaleRatio values are diagnostics rather than production source inputs.
 - Nanum font/material assets remain retained repository assets, but current Climate ko-KR role resolution does not use them.
 - Settings resolution dropdown caption, authored item template, and generated live item labels use the same theme. An open list is restyled in place; numeric/symbol resolution option strings remain the current raw locale-neutral exception, and future localized options require descriptor-backed option models.
@@ -103,6 +116,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Do not restore StageResult result title/summary/detail schema or title/detail labels without a new product decision.
 - Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision.
 - Do not revive `ActionBar`, diagnostics runtime UI, or `SceneTransitionOverlayView`.
+- Do not restore the MP4/VideoPlayer path; new intro/outro content is authored as `ComicSequenceDefinition` sprite sequences.
 - Do not restore `Help` or `Inventory` as current gameplay screens.
 
 ## Deferred Policy Items

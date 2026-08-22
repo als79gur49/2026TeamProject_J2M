@@ -451,6 +451,38 @@ MonoBehaviour:
     m_Key: ui.settings.display.fullscreen_off
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693800
+    m_Key: ui.main_menu.save_recovery.retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693801
+    m_Key: ui.main_menu.save_recovery.reset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693802
+    m_Key: ui.main_menu.save_recovery.confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693803
+    m_Key: ui.main_menu.save_recovery.confirm.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693804
+    m_Key: ui.main_menu.save_recovery.confirm.warning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693805
+    m_Key: ui.main_menu.save_recovery.confirm.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693806
+    m_Key: ui.main_menu.slot.error.recovery_pending.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693807
+    m_Key: ui.main_menu.slot.error.recovery_pending.detail
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

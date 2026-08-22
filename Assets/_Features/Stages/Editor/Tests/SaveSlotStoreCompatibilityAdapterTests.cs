@@ -56,7 +56,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var legacy = CreateLegacyStore();
             var adapter = CreateAdapter();
             var slot = CreateSlot(1, "stage-1-1", "level-1", 2);
-            slot.IntroPlayed = true;
+            slot.IntroComicCompleted = true;
             slot.TotalDeaths = 4;
             slot.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
             {
@@ -287,8 +287,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 actual.NormalCampaignCompletionReceipt?.ClearSource,
                 Is.EqualTo(expected.NormalCampaignCompletionReceipt?.ClearSource));
-            Assert.That(actual.IntroPlayed, Is.EqualTo(expected.IntroPlayed));
-            Assert.That(actual.OutroPlayed, Is.EqualTo(expected.OutroPlayed));
+            Assert.That(actual.IntroComicCompleted, Is.EqualTo(expected.IntroComicCompleted));
+            Assert.That(actual.OutroComicCompleted, Is.EqualTo(expected.OutroComicCompleted));
             Assert.That(actual.TotalDeaths, Is.EqualTo(expected.TotalDeaths));
             Assert.That(actual.LastPlayedAt, Is.EqualTo(expected.LastPlayedAt));
             Assert.That(

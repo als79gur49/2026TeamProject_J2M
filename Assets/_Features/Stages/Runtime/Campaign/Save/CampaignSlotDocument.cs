@@ -12,8 +12,8 @@ namespace Game.Feature.Stages
         public int RemainingChances;
         public bool CampaignCompleted;
         public bool HasNormalCampaignCompletionReceipt;
-        public bool IntroPlayed;
-        public bool OutroPlayed;
+        public bool IntroComicCompleted;
+        public bool OutroComicCompleted;
         public int TotalDeaths;
         public string LastPlayedAtUtc;
         public NormalCampaignCompletionReceiptDocument NormalCampaignCompletionReceipt;

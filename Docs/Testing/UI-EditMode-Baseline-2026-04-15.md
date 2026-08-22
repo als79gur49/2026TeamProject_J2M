@@ -21,9 +21,18 @@
 - Current Settings movement-key toggle rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1357 total / 0 failed`; Settings now has 37 locale-themed bindings / 10 invariant bindings over 47 TMP targets
 - Current Settings Push/Flip keycap rebind rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1361 total / 0 failed`; Settings now has 35 locale-themed bindings / 10 invariant bindings over 45 TMP targets, with the obsolete Change localization entry removed
 - Current fullscreen cursor confinement rerun: green on 2026-08-15 KST, Windows UI build passed and Unity UI EditMode `1386 total / 0 failed`
+- Current comic-sequence terminology rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path is retired and the current runtime is sprite-sequence only. The 2026-08-21 product follow-up removes the temporary outro validation Definition, leaves the Gameplay scene reference explicitly null, and preserves the missing-content direct-return contract.
+- Current production-outro removal rerun: green on 2026-08-21 KST, Windows UI build passed, Unity UI EditMode `1341 total / 0 failed`, and filtered actual-scene PlayMode `1 total / 0 failed`; an active completed campaign skips comic presentation, completes the regular Main Menu lifecycle, and does not mark absent outro content complete
+- Current comic-sequence audio-settings follow-up rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1345 total / 0 failed`; authored intro audio follows both Master and BGM mute/volume settings while retaining the comic-sequence fade gain
+- Current comic-sequence BGM-focus recovery rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1347 total / 0 failed`; cancellation and unsuccessful handoff restore the router's current BGM selection, while synchronously accepted scene routes keep the source-scene BGM stopped for destination takeover
+- Current comic-sequence enter-fade follow-up rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1348 total / 0 failed`; entry keeps the overlay background transparent while the dedicated fade layer transitions the visible source scene to opaque black, then fixes the background to black before the first comic page reveal
+- Current blocked-save recovery fail-closed rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1338 total / 0 failed`; incomplete resets remain globally blocked, Retry resumes the pending transaction, and destructive reset remains limited to incompatible/corrupt profile states
+- Current blocked-save typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; the recovery title, detail, and two actions use authored semantic bindings, while ordinal fallback remains card-only
+- Current Gameplay Stage Name typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; Stage Name resolves `HeaderLarge` through the theme for both locales and adds target-local TMP `UpperCase` presentation without changing World Guide or transition-label default-locale restoration
+- Current Pause progression stepper rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; previous/current/upcoming states, larger group-start diamonds, one persistent current ring, informational Left/Right behavior, and real screenshot-preview campaign binding are guarded
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1386 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1386 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1348 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1348 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
@@ -33,6 +42,11 @@
 
 ## Structural Delta
 - Added tests:
+  - blocked-save recovery typography guards proving four authored semantic bindings, en-US/ko-KR font/material round-trip with authored sizing preserved, and fail-fast behavior when a non-card binding is missing instead of applying a card-ordinal fallback
+  - blocked-save state classification, retry-only IO/permission policy, destructive reset confirmation/cancel flow, status revalidation, locale refresh, startup reset resumption, and incompatible/corrupt profile archive-and-empty-profile recovery guards
+  - comic-sequence import/layout guards, exact 13-click progression, explicit null production-outro scene wiring, shared intro/outro routing contracts including missing-content direct return, current comic-sequence component presence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, Master/BGM/fade audio-setting composition, setup-failure cleanup, and pointer-only background click ownership
+  - comic-sequence BGM-focus guards proving cancellation restores current router selection after the terminal callback, synchronously accepted routing commits without source-scene BGM restart, and unsuccessful/stale/duplicate routing never commits the audio handoff
+  - comic-sequence enter-fade guard proving the source scene remains visible at entry start, the dedicated black layer gains opacity during the authored duration, and the persistent black background is enabled only after full cover before initial content reveal
   - fullscreen cursor confinement policy guards covering focused borderless fullscreen, windowed/unfocused release, unsupported-platform no-op, idempotent writes, shared-display ownership, authored default-cursor hotspot/dimensions, and installer focus/pause/update lifecycle reconciliation
   - Settings movement-key production guards proving the authored `WASDKeyDisplay` button toggles WASD/arrow visuals in both directions with click feedback, and `Input.Movement.Toggle` shows its `SelectionFrame` and submits once on Enter without Slider edit mode
   - Climate Crisis KR committed TTF/SDF Git-blob, GUID, material localID, and Nanum-retention preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, and approved Pause/audio/display layout guards; importer-derived working hashes and ScaleRatio values are diagnostic only
@@ -75,7 +89,33 @@
   - cursor-confinement slice pre-change observed result: `1383 total / 0 failed`
   - cursor-confinement slice current rerun: `1386 total / 0 failed`
   - cursor-confinement slice-local delta: `+3`; the `+22` between the prior documented `1361` result and this slice's pre-change result predates this change
+  - comic-sequence slice pre-change observed result: `1391 total / 0 failed`
+  - comic-sequence slice current rerun: `1324 total / 0 failed`
+  - comic-sequence slice-local executed-case delta: `-67`; the 70-method legacy mixed suite was replaced by 13 shared-routing methods plus expanded comic guards, with parameterized cases accounting for the executed-case total
+  - blocked-save recovery slice pre-change observed result: `1324 total / 0 failed`
+  - blocked-save recovery slice current fail-closed rerun: `1338 total / 0 failed`
+  - blocked-save recovery slice-local delta: `+6` executed UI cases, alongside expanded Stages editor coverage outside the UI lane
+  - blocked-save typography follow-up pre-change observed result: `1338 total / 0 failed`
+  - blocked-save typography follow-up current rerun: `1341 total / 0 failed`
+  - blocked-save typography follow-up slice-local delta: `+3` executed UI cases covering authored bindings, locale round-trip/sizing preservation, and missing-binding fail-fast behavior
+  - Gameplay Stage Name typography follow-up pre-change and current rerun: `1341 total / 0 failed`
+  - Gameplay Stage Name typography follow-up slice-local delta: `+0`; the existing locale round-trip guard now asserts en-US and ko-KR `HeaderLarge` theme identity plus target-local TMP `UpperCase` while retaining authored sizing
+  - Pause progression stepper pre-change and current rerun: `1341 total / 0 failed`
+  - Pause progression stepper slice-local delta: `+0`; existing mapper, prefab, and screenshot-preview guards were strengthened and renamed without changing the executed-case count
+  - production-outro removal pre-change and current UI rerun: `1341 total / 0 failed`
+  - production-outro removal slice-local UI delta: `+0`; the temporary Definition parity test was replaced one-for-one by explicit null scene wiring coverage, with the renamed actual-scene PlayMode smoke validated separately as `1 total / 0 failed`
+  - comic-sequence audio-settings follow-up pre-change observed result: `1343 total / 0 failed`
+  - comic-sequence audio-settings follow-up current rerun: `1345 total / 0 failed`
+  - comic-sequence audio-settings follow-up slice-local delta: `+2`; focused guards cover Master/BGM/fade volume composition and Master-or-BGM mute behavior
+  - comic-sequence BGM-focus recovery pre-change observed result: `1345 total / 0 failed`
+  - comic-sequence BGM-focus recovery current rerun: `1347 total / 0 failed`
+  - comic-sequence BGM-focus recovery slice-local UI delta: `+2`; focused coordinator guards cover source-scene restore and accepted-transition no-restore settlement, while existing routing cases gained handoff-commit assertions without adding executed cases
+  - comic-sequence enter-fade follow-up pre-change observed result: `1347 total / 0 failed`
+  - comic-sequence enter-fade follow-up current rerun: `1348 total / 0 failed`
+  - comic-sequence enter-fade follow-up slice-local UI delta: `+1`; the focused overlay guard covers transparent entry, in-progress black opacity, and full-cover background settlement before initial reveal
 - Removed tests:
+  - the temporary outro validation-copy parity guard was replaced by an explicit null production-scene wiring guard after the duplicate Definition asset was removed; shared outro routing behavior remains covered
+  - the 70-method mixed legacy suite containing `CinematicVideoOverlayView`, `VideoClip`, viewport/aspect, skip-policy, video coordinator, and routing tests was removed with the retired MP4 runtime; shared intro/outro routing coverage was retained in `ComicIntroOutroRoutingTests`, and comic overlay/coordinator behavior is covered in `ComicSequenceFlowTests`
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
   - Diagnostics overlay behavior tests were removed with the unused runtime feature.
@@ -83,9 +123,13 @@
   - Duplicate common transition content prefab files and stale common-only content view types were removed after PR-T2 collapsed the shared physical content mapping.
   - ObjectiveStatus screen controller tests were removed with the retired ObjectiveStatus production screen.
 - Renamed / merged / split tests:
+  - renamed the Pause prefab progression tests around readable sequence states and removal of the second navigation cursor so their names describe the surviving informational-stepper contract
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
   - renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic
 - Replaced weak guards:
+  - color-only current-marker and movable viewed-frame assertions are replaced by full sequence-state mapping, a persistent current ring, rail/node geometry checks, and screenshot-preview payload closure
+  - Stage Name's generic authored-English/Climate assertion is replaced by exact en-US Orbitron `HeaderLarge`, ko-KR Climate 2000 theme font/material/style, and target-local TMP `UpperCase` assertions; World Guide remains independently fixed to Climate 2019
+  - retired video playback/skip/aspect guards are replaced by sprite import-resolution, normalized panel-layout, click sequencing, final-transition fade, ownership cleanup, audio-focus ordering, and current comic-sequence component presence coverage
   - retired movement Slider, separate Arrow/WASD display-group alpha/Light checks, `Use Arrow Keys` localized label, and movement-current text expectations are replaced by one state-driven visual toggle contract
   - title-only and injected Korean font-resolver evidence is replaced by production Scene/Catalog composition coverage over all 36 governed Settings TMP targets, while a separate exact 51-target closure guard catches new unbound TMP or unclassified binding additions
   - Main Menu-only duplicated Settings assembly assertions are replaced by a thin-adapter guard plus common `SettingsScreenRuntimeBuilder` behavior coverage
@@ -141,6 +185,7 @@
 - PlayMode escalation status:
   - no additional UI PlayMode tests were added in Stage 9
   - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
+  - comic-sequence production scene bootstrap continues to be covered by actual-scene PlayMode smoke: intro presentation remains exercised, while the Gameplay outro case now proves that an active completed campaign with no authored outro content skips presentation and uses the regular Main Menu lifecycle; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
 
 ## Covered Freeze Evidence
 - architectural seams are guarded by tests, not only by convention
@@ -206,8 +251,8 @@
 ## Companion Smoke Check
 - Command: `./run_tests.sh core`
 - Status: green
-- Core EditMode: `184 total / 0 failed`
-- Core PlayMode: `34 total / 0 failed`
+- Core EditMode: `212 total / 0 failed`
+- Core PlayMode: `109 total / 0 failed`
 - Interpretation:
   - this remains a companion smoke lane, not a replacement for `./run_tests.sh ui`
   - Stage 9 evidence is incomplete if the UI lane passes on a worktree where the companion core lane is not rerun

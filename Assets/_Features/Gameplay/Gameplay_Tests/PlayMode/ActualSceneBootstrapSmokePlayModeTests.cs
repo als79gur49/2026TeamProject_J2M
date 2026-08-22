@@ -210,7 +210,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
                     CurrentLevelGroupId = "level-0",
                     RemainingChances = 3,
-                    IntroPlayed = true,
+                    IntroComicCompleted = true,
                     LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
                 });
 
@@ -924,22 +924,22 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator M4IntroSkip_ActualMainMenuTransfersRenderedOpaqueOwnerToGameplay()
+        public IEnumerator M4IntroBackInput_DoesNotSkipAndTransfersRenderedOpaqueOwnerToGameplay()
         {
-            return RunIntroCinematicActualScene(
-                CinematicPlaybackCompletionKind.Skipped);
+            return RunIntroComicActualScene(
+                requestBackDuringPlayback: true);
         }
 
         [UnityTest]
         [Category("Full")]
         public IEnumerator M5IntroNormal_ActualMainMenuTransfersRenderedOpaqueOwnerToGameplay()
         {
-            return RunIntroCinematicActualScene(
-                CinematicPlaybackCompletionKind.Completed);
+            return RunIntroComicActualScene(
+                requestBackDuringPlayback: false);
         }
 
-        private IEnumerator RunIntroCinematicActualScene(
-            CinematicPlaybackCompletionKind completionKind)
+        private IEnumerator RunIntroComicActualScene(
+            bool requestBackDuringPlayback)
         {
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
             var saveStore =
@@ -964,38 +964,54 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Object.FindFirstObjectByType<MainMenuUiFlowInstaller>();
                 mainMenu.Controller.Continue(1);
                 var overlay =
-                    Object.FindFirstObjectByType<CinematicVideoOverlayView>(
+                    Object.FindFirstObjectByType<ComicSequenceOverlayView>(
                         FindObjectsInactive.Include);
                 Assert.That(overlay, Is.Not.Null);
-                Assert.That(overlay.IsPlaying, Is.True);
+                Assert.That(overlay.IsPresenting, Is.True);
                 Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
                 Assert.That(
                     SceneEntryPresentationRegistry.Current.TransitionIntent,
-                    Is.EqualTo(SceneTransitionIntent.CinematicToGameplay));
+                    Is.EqualTo(SceneTransitionIntent.ComicIntroToGameplay));
 
-                overlay.AdvanceFadeForTesting(10f);
-                overlay.NotifyPreparedFirstFrame();
-                overlay.AdvanceFadeForTesting(10f);
+                overlay.AdvanceForTesting(10f);
+                overlay.AdvanceForTesting(10f);
                 Assert.That(
                     overlay.CurrentPresentationState,
-                    Is.EqualTo(CinematicPresentationState.Playing));
-                if (completionKind == CinematicPlaybackCompletionKind.Skipped)
+                    Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
+                if (requestBackDuringPlayback)
                 {
-                    overlay.RequestSkip();
+                    Assert.That(mainMenu.TryHandleBackRequested(), Is.True);
+                    Assert.That(overlay.IsPresenting, Is.True);
+                    Assert.That(
+                        overlay.CurrentPresentationState,
+                        Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
                 }
-                else
+
+                var advanceGuard = 0;
+                while (overlay.CurrentPresentationState !=
+                           ComicSequencePresentationState.AwaitingOpaqueRender &&
+                       advanceGuard++ < 100)
                 {
-                    overlay.CompleteForTesting(completionKind);
+                    if (overlay.CurrentPresentationState ==
+                        ComicSequencePresentationState.AwaitingAdvance)
+                    {
+                        overlay.RequestAdvance();
+                    }
+
+                    overlay.AdvanceForTesting(10f);
                 }
-                overlay.AdvanceFadeForTesting(10f);
+
+                Assert.That(
+                    overlay.CurrentPresentationState,
+                    Is.EqualTo(ComicSequencePresentationState.AwaitingOpaqueRender));
                 Assert.That(
                     overlay.AcknowledgeOpaqueRenderForTesting(),
                     Is.True);
                 Assert.That(
-                    CinematicOpaqueHandoffRegistry.Current.Phase,
+                    ComicSequenceOpaqueHandoffRegistry.Current.Phase,
                     Is.EqualTo(
-                        CinematicOpaqueHandoffPhase
-                            .CinematicOpaqueRendered));
+                        ComicSequenceOpaqueHandoffPhase
+                            .ComicSequenceOpaqueRendered));
 
                 var sawPersistentRender = false;
                 var sawGameplayOpening = false;
@@ -1042,7 +1058,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(sawGameplayOpening, Is.True);
                 Assert.That(destinationHost, Is.Not.Null);
                 Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
-                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+                Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
                 Assert.That(overlay == null || !overlay.gameObject.activeSelf, Is.True);
             }
             finally
@@ -1069,22 +1085,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator M4OutroSkip_ActualGameClearTransfersRenderedOpaqueOwnerToMainMenu()
-        {
-            return RunOutroCinematicActualScene(
-                CinematicPlaybackCompletionKind.Skipped);
-        }
-
-        [UnityTest]
-        [Category("Full")]
-        public IEnumerator M5OutroNormal_ActualGameClearTransfersRenderedOpaqueOwnerToMainMenu()
-        {
-            return RunOutroCinematicActualScene(
-                CinematicPlaybackCompletionKind.Completed);
-        }
-
-        private IEnumerator RunOutroCinematicActualScene(
-            CinematicPlaybackCompletionKind completionKind)
+        public IEnumerator M4MissingOutroContent_SkipsComicAndReturnsToMainMenu()
         {
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
             var saveStore =
@@ -1108,8 +1109,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CurrentStageId = stageId,
                     CurrentLevelGroupId = "level-1",
                     RemainingChances = 3,
-                    IntroPlayed = true,
-                    OutroPlayed = false,
+                    IntroComicCompleted = true,
+                    OutroComicCompleted = false,
                     CampaignCompleted = true,
                     LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
                 });
@@ -1125,34 +1126,20 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 source.ScreenController.SetRoot(new ScreenRequest(
                     ScreenId.GameClear,
                     GameClearScreenPayload.Default,
-                    "m4-outro-skip"));
+                    "m4-missing-outro-content"));
                 source.GameClearScreenView.ClickMain();
 
                 var overlay =
-                    Object.FindFirstObjectByType<CinematicVideoOverlayView>(
+                    Object.FindFirstObjectByType<ComicSequenceOverlayView>(
                         FindObjectsInactive.Include);
                 Assert.That(overlay, Is.Not.Null);
-                Assert.That(overlay.IsPlaying, Is.True);
+                Assert.That(overlay.IsPresenting, Is.False);
+                Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
                 Assert.That(MainMenuEntryPresentationRegistry.IsActive, Is.True);
                 Assert.That(
                     MainMenuEntryPresentationRegistry.Current.TransitionIntent,
-                    Is.EqualTo(SceneTransitionIntent.CinematicToMainMenu));
-
-                overlay.AdvanceFadeForTesting(10f);
-                overlay.NotifyPreparedFirstFrame();
-                overlay.AdvanceFadeForTesting(10f);
-                if (completionKind == CinematicPlaybackCompletionKind.Skipped)
-                {
-                    overlay.RequestSkip();
-                }
-                else
-                {
-                    overlay.CompleteForTesting(completionKind);
-                }
-                overlay.AdvanceFadeForTesting(10f);
-                Assert.That(
-                    overlay.AcknowledgeOpaqueRenderForTesting(),
-                    Is.True);
+                    Is.EqualTo(SceneTransitionIntent.ReturnToMainMenu));
+                Assert.That(saveStore.LoadSlot(1).OutroComicCompleted, Is.False);
 
                 var sawPersistentRender = false;
                 var sawMenuOpening = false;
@@ -1200,8 +1187,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(sawMenuOpening, Is.True);
                 Assert.That(destination, Is.Not.Null);
                 Assert.That(MainMenuEntryPresentationRegistry.IsActive, Is.False);
-                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
-                Assert.That(saveStore.LoadSlot(1).OutroPlayed, Is.True);
+                Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
+                Assert.That(
+                    MainMenuEntryPresentationRegistry.Current.Phase,
+                    Is.EqualTo(SceneEntryPresentationPhase.Completed));
+                Assert.That(destination.IsGameplayEntryInteractionBlocked, Is.False);
+                Assert.That(saveStore.LoadSlot(1).OutroComicCompleted, Is.False);
             }
             finally
             {
@@ -2964,13 +2955,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var visual = MainMenuTransitionVisualPolicy.Require(
                 token,
                 SceneTransitionIntent.ReturnToMainMenu);
-            var cinematicVisual =
+            var comicSequenceVisual =
                 TerminalIrisMotionProfile
-                    .CreateCinematicTransitionVisualSnapshot(Color.black);
+                    .CreateComicIntroTransitionVisualSnapshot(Color.black);
             AssertColorsEquivalent(
-                cinematicVisual.HoldColor,
+                comicSequenceVisual.HoldColor,
                 visual.HoldColor,
-                "Cinematic and Main Menu policies must share authored black.");
+                "Comic sequence and Main Menu policies must share authored black.");
             var closePreset =
                 profile.CreateResolver().ResolveGameplayEntryClose();
             var openPreset =
@@ -2986,7 +2977,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     UnityEngine.Application.dataPath,
                     "..",
                     "TestLogs",
-                    "M4MainMenuCinematic",
+                    "M4MainMenuComicSequence",
                     "PixelContinuity",
                     $"{resolution.x}x{resolution.y}"));
                 var cameraObject = new GameObject(
