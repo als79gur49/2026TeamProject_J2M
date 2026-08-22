@@ -37,10 +37,23 @@ function Write-FixtureFile {
     [IO.File]::WriteAllText($path, $Content, [Text.UTF8Encoding]::new($false))
 }
 
+function Get-ValidThirdPartyNoticeFixture {
+    return @"
+VectorQuake Third-Party Notices
+Unity UI Extensions
+Steamworks.NET (Steam distribution only)
+Valve Steamworks SDK Redistributable (Steam distribution only)
+Open Font Software
+SIL OPEN FONT LICENSE Version 1.1
+"@
+}
+
 function New-RawFixture {
     param([string]$Root)
     New-Item -ItemType Directory -Path $Root -Force | Out-Null
     Write-FixtureFile $Root "VectorQuake.exe" "exe"
+    Write-FixtureFile $Root "ThirdPartyNotices.txt" `
+        (Get-ValidThirdPartyNoticeFixture)
     Write-FixtureFile $Root "UnityPlayer.dll" "unity"
     Write-FixtureFile $Root "VectorQuake_Data\globalgamemanagers" "managers"
     Write-FixtureFile $Root "MonoBleedingEdge\etc\mono\config" "mono-runtime"
@@ -81,6 +94,8 @@ try {
         Assert-Equal 1 $result.SteamNativeCount
         Assert-Equal 1 $result.SteamManagedCount
         Assert-Equal 0 $result.SteamAppIdCount
+        Assert-True (Test-Path -LiteralPath (
+            Join-Path $result.PayloadRoot "ThirdPartyNotices.txt") -PathType Leaf)
         Assert-True (Test-Path -LiteralPath $result.ManifestPath -PathType Leaf)
         Assert-True (Test-Path -LiteralPath $result.SuccessPath -PathType Leaf)
         Assert-True ((Get-Content -LiteralPath $result.SuccessPath -Raw).Contains(
@@ -98,6 +113,8 @@ try {
         Assert-Equal 0 $result.SteamManagedCount
         Assert-Equal 0 $result.SteamAppIdCount
         Assert-Equal 0 $result.DeniedArtifactCount
+        Assert-True (Test-Path -LiteralPath (
+            Join-Path $result.PayloadRoot "ThirdPartyNotices.txt") -PathType Leaf)
     }
 
     Invoke-Case "repository drift fails before final promotion" {
@@ -137,6 +154,26 @@ try {
                 "STAGING_UNKNOWN_DISTRIBUTION_TARGET")
         }
         Assert-True $threw
+    }
+
+    Invoke-Case "wrapper rejects an empty public notice" {
+        $invalidRawRoot = Join-Path $fixtureRoot "invalid-notice-raw"
+        New-RawFixture $invalidRawRoot
+        Write-FixtureFile $invalidRawRoot "ThirdPartyNotices.txt" ""
+        $output = Join-Path $fixtureRoot "invalid-notice-output"
+        $threw = $false
+        try {
+            Invoke-WindowsDistributionStaging `
+                -SourceBuildRoot $invalidRawRoot `
+                -DistributionTarget "direct-windows" `
+                -OutputRoot $output `
+                -RepositoryRoot $repositoryRoot | Out-Null
+        } catch {
+            $threw = $_.Exception.Message.Contains(
+                "STAGING_PUBLIC_NOTICE_INVALID")
+        }
+        Assert-True $threw
+        Assert-True (-not (Test-Path -LiteralPath $output))
     }
 
     Invoke-Case "wrapper rejects missing target" {

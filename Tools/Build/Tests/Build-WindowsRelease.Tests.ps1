@@ -50,6 +50,41 @@ function Write-JsonFixture {
     $Value | ConvertTo-Json -Depth 20 |
         Set-Content -LiteralPath $Path -Encoding UTF8
 }
+function Get-ValidThirdPartyNoticeFixture {
+    return @"
+VectorQuake Third-Party Notices
+Unity UI Extensions
+Steamworks.NET (Steam distribution only)
+Valve Steamworks SDK Redistributable (Steam distribution only)
+Open Font Software
+SIL OPEN FONT LICENSE Version 1.1
+"@
+}
+function New-PublicNoticeGitFixture {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [AllowEmptyString()][string]$Content = $(Get-ValidThirdPartyNoticeFixture)
+    )
+    New-Item -ItemType Directory -Path $Root -Force | Out-Null
+    $noticePath = Join-Path $Root "ThirdPartyNotices.txt"
+    [IO.File]::WriteAllText(
+        $noticePath, $Content, [Text.UTF8Encoding]::new($false))
+    Invoke-GitText -Root $Root -Arguments @("init", "--quiet") `
+        -DisableAutoCrlf | Out-Null
+    Invoke-GitText -Root $Root -Arguments @("add", "--all") `
+        -DisableAutoCrlf | Out-Null
+    Invoke-GitText -Root $Root -Arguments @(
+        "-c", "user.name=Release Tests",
+        "-c", "user.email=release-tests@example.invalid",
+        "commit", "--quiet", "-m", "fixture"
+    ) -DisableAutoCrlf | Out-Null
+    return [pscustomobject]@{
+        Root = $Root
+        NoticePath = $noticePath
+        SourceSha = Invoke-GitText -Root $Root `
+            -Arguments @("rev-parse", "HEAD") -DisableAutoCrlf
+    }
+}
 function New-AddressablesGitFixture {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -122,7 +157,7 @@ function New-ZeroErrorEvidenceFixture {
         [string]$ProviderSelectionMode = "DefaultWhenUnspecified",
         [string]$ExpectedProviderId = "local",
         [string[]]$ExpectedLaunchArguments = @(),
-        [string[]]$RequiredArtifacts = @(),
+        [string[]]$RequiredArtifacts = @("ThirdPartyNotices.txt"),
         [string[]]$ForbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",
@@ -287,7 +322,7 @@ function New-CanonicalEvidenceExpectation {
         ProviderSelectionMode = "DefaultWhenUnspecified"
         ExpectedProviderId = "local"
         ExpectedLaunchArguments = @()
-        RequiredArtifacts = @()
+        RequiredArtifacts = @("ThirdPartyNotices.txt")
         ForbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",
@@ -348,6 +383,8 @@ Invoke-Case "DirectWindows distribution expects Local without selector" {
     Assert-Equal "DefaultWhenUnspecified" $target.ProviderSelectionMode
     Assert-Equal "local" $target.ExpectedProviderId
     Assert-Equal 0 (@($target.ExpectedLaunchArguments).Count)
+    Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts `
+        @("ThirdPartyNotices.txt"))
     Assert-Equal "VectorQuake.exe" $target.ExpectedStoreLaunch
 }
 Invoke-Case "SteamWindows distribution expects canonical external selector" {
@@ -358,6 +395,11 @@ Invoke-Case "SteamWindows distribution expects canonical external selector" {
     Assert-Equal "steam" $target.ExpectedProviderId
     Assert-True (Test-OrdinalArrayEqual $target.ExpectedLaunchArguments `
         @("-j2mPlatformProvider", "steam"))
+    Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts @(
+        "ThirdPartyNotices.txt",
+        "steam_api64.dll",
+        "com.rlabrecque.steamworks.net.dll"
+    ))
     Assert-Equal "VectorQuake.exe -j2mPlatformProvider steam" `
         $target.ExpectedStoreLaunch
 }
@@ -1145,6 +1187,286 @@ try {
         Assert-Equal "NonzeroBuildErrors" $decision.Reason
     }
 
+    Invoke-Case "public notice is copied byte-identically to payload root" {
+        $noticeSourceRoot = Join-Path $temp "notice-source"
+        $noticeStagingRoot = Join-Path $temp "notice-staging"
+        $noticePayloadRoot = Join-Path $noticeStagingRoot "payload"
+        New-Item -ItemType Directory -Path $noticeSourceRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $noticePayloadRoot -Force | Out-Null
+        $sourceNotice = Join-Path $noticeSourceRoot "ThirdPartyNotices.txt"
+        [IO.File]::WriteAllText(
+            $sourceNotice,
+            (Get-ValidThirdPartyNoticeFixture),
+            [Text.UTF8Encoding]::new($false))
+        $sourceHash = Get-Sha256 $sourceNotice
+
+        $published = Publish-ThirdPartyNotices `
+            -SourceRoot $noticeSourceRoot `
+            -PayloadRoot $noticePayloadRoot `
+            -ExpectedSourceSha256 $sourceHash
+        $destination = Join-Path $noticePayloadRoot "ThirdPartyNotices.txt"
+
+        Assert-True (Test-Path -LiteralPath $destination -PathType Leaf)
+        Assert-Equal $sourceHash $published.Sha256
+        Assert-Equal $sourceHash (Get-Sha256 $destination)
+        $noticeManifest = New-PayloadManifest $noticeStagingRoot
+        $noticePaths = @(Read-PayloadManifest $noticeManifest.Path |
+            ForEach-Object { $_.RelativePath })
+        Assert-True ($noticePaths -contains "payload/ThirdPartyNotices.txt")
+        Assert-True (Test-StorePayloadPrivacy $noticeStagingRoot)
+        Assert-True (Test-PayloadManifest $noticeStagingRoot)
+        Add-Content -LiteralPath $destination -Value "tampered"
+        Assert-False (Test-PayloadManifest $noticeStagingRoot)
+    }
+    Invoke-Case "pipeline public-notices preflight returns 117 and quarantines" {
+        $pipelineRoot = Join-Path $temp "notice-pipeline"
+        $repositoryRoot = Join-Path $pipelineRoot "repository"
+        $preparedRoot = Join-Path $pipelineRoot "prepared"
+        $outputRoot = Join-Path $pipelineRoot "output"
+        $unityExe = Join-Path $pipelineRoot "Unity.exe"
+        New-Item -ItemType Directory -Path $repositoryRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $preparedRoot -Force | Out-Null
+        Set-Content -LiteralPath $unityExe -Value "synthetic" -NoNewline
+        $sourceSha = "a" * 40
+        $sourceTree = "b" * 40
+        $runId = "public-notice-preflight"
+        $originalInvokeGitText = (Get-Command Invoke-GitText).ScriptBlock
+        $originalGetGitSnapshot = (Get-Command Get-GitSnapshot).ScriptBlock
+        $originalGetRepositoryFamilyPaths =
+            (Get-Command Get-RepositoryFamilyPaths).ScriptBlock
+        $originalTestBuildSourcePathBudget =
+            (Get-Command Test-BuildSourcePathBudget).ScriptBlock
+        $originalNoticeContract =
+            (Get-Command Get-ThirdPartyNoticeSourceContract).ScriptBlock
+        try {
+            Set-Item Function:\Invoke-GitText {
+                param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
+                if ($Arguments -contains "HEAD^{tree}") { return "b" * 40 }
+                return "a" * 40
+            }
+            Set-Item Function:\Get-GitSnapshot {
+                param([string]$Root, [string[]]$CanaryPaths, [switch]$Detached)
+                return [ordered]@{
+                    head = "a" * 40
+                    tree = "b" * 40
+                    branch = if ($Detached) { "(detached)" } else { "fixture" }
+                    detached = [bool]$Detached
+                    originMain = "a" * 40
+                    behind = 0
+                    ahead = 0
+                    tracked = @()
+                    staged = @()
+                    untracked = @()
+                    canaries = [ordered]@{}
+                }
+            }
+            Set-Item Function:\Get-RepositoryFamilyPaths {
+                param([string]$Root)
+                return @($Root)
+            }
+            Set-Item Function:\Get-CimInstance {
+                param([string]$ClassName)
+                return @()
+            }
+            Set-Item Function:\Test-BuildSourcePathBudget {
+                param([string]$Path)
+                return $true
+            }
+            Set-Item Function:\Get-ThirdPartyNoticeSourceContract {
+                param([string]$SourceRoot, [string]$SourceRevision)
+                throw "PUBLIC_NOTICE_SOURCE_MISSING: synthetic"
+            }
+
+            $exitCode = Invoke-WindowsReleasePipeline `
+                -RepositoryRoot $repositoryRoot `
+                -UnityExe $unityExe `
+                -OutputRoot $outputRoot `
+                -BuildSourceRoot (Join-Path $pipelineRoot "build-sources") `
+                -PreparedBuildSourceRoot $preparedRoot `
+                -RunId $runId 2>$null
+
+            Assert-Equal 117 ([int]$exitCode)
+            $configurationRoot = Join-Path `
+                (Join-Path $outputRoot $sourceSha) $script:ConfigurationPathName
+            $failedPath = Join-Path (Join-Path $configurationRoot "failed") $runId
+            $failure = Get-Content (Join-Path $failedPath "FAILURE.json") `
+                -Raw | ConvertFrom-Json
+            Assert-Equal "public-notices" $failure.failureStage
+            Assert-Equal 117 ([int]$failure.exitCode)
+            Assert-False $failure.deployable
+            Assert-False (Test-Path -LiteralPath (
+                Join-Path $configurationRoot $runId))
+        } finally {
+            Set-Item Function:\Invoke-GitText $originalInvokeGitText
+            Set-Item Function:\Get-GitSnapshot $originalGetGitSnapshot
+            Set-Item Function:\Get-RepositoryFamilyPaths `
+                $originalGetRepositoryFamilyPaths
+            Set-Item Function:\Test-BuildSourcePathBudget `
+                $originalTestBuildSourcePathBudget
+            Set-Item Function:\Get-ThirdPartyNoticeSourceContract `
+                $originalNoticeContract
+            Remove-Item Function:\Get-CimInstance -ErrorAction SilentlyContinue
+        }
+    }
+    Invoke-Case "committed public notice source contract is accepted" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "notice-git-valid")
+
+        $contract = Get-ThirdPartyNoticeSourceContract `
+            -SourceRoot $fixture.Root -SourceRevision $fixture.SourceSha
+
+        Assert-Equal $fixture.NoticePath $contract.Path
+        Assert-Equal (Get-Sha256 $fixture.NoticePath) $contract.Sha256
+        Assert-True ($contract.BlobId -match '^[0-9a-f]{40,64}$')
+    }
+    Invoke-Case "untracked public notice source is rejected" {
+        $fixtureRoot = Join-Path $temp "notice-git-untracked"
+        New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
+        [IO.File]::WriteAllText(
+            (Join-Path $fixtureRoot "README.md"),
+            "fixture",
+            [Text.UTF8Encoding]::new($false))
+        Invoke-GitText -Root $fixtureRoot -Arguments @("init", "--quiet") `
+            -DisableAutoCrlf | Out-Null
+        Invoke-GitText -Root $fixtureRoot -Arguments @("add", "--all") `
+            -DisableAutoCrlf | Out-Null
+        Invoke-GitText -Root $fixtureRoot -Arguments @(
+            "-c", "user.name=Release Tests",
+            "-c", "user.email=release-tests@example.invalid",
+            "commit", "--quiet", "-m", "fixture"
+        ) -DisableAutoCrlf | Out-Null
+        $sourceSha = Invoke-GitText -Root $fixtureRoot `
+            -Arguments @("rev-parse", "HEAD") -DisableAutoCrlf
+        [IO.File]::WriteAllText(
+            (Join-Path $fixtureRoot "ThirdPartyNotices.txt"),
+            (Get-ValidThirdPartyNoticeFixture),
+            [Text.UTF8Encoding]::new($false))
+
+        $threw = $false
+        try {
+            Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $fixtureRoot -SourceRevision $sourceSha | Out-Null
+        } catch {
+            $threw = $_.Exception.Message -like `
+                "PUBLIC_NOTICE_NOT_COMMITTED_REGULAR_BLOB:*"
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "empty committed public notice source is rejected" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "notice-git-empty") -Content ""
+        $threw = $false
+        try {
+            Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $fixture.Root -SourceRevision $fixture.SourceSha |
+                Out-Null
+        } catch {
+            $threw = $_.Exception.Message -like "PUBLIC_NOTICE_EMPTY:*"
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "committed public notice missing required section is rejected" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "notice-git-incomplete") `
+            -Content "VectorQuake Third-Party Notices"
+        $threw = $false
+        try {
+            Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $fixture.Root -SourceRevision $fixture.SourceSha |
+                Out-Null
+        } catch {
+            $threw = $_.Exception.Message -like `
+                "PUBLIC_NOTICE_REQUIRED_SECTION_MISSING:*"
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "public notice working file must match committed blob" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "notice-git-modified")
+        Add-Content -LiteralPath $fixture.NoticePath -Value "modified"
+        $threw = $false
+        try {
+            Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $fixture.Root -SourceRevision $fixture.SourceSha |
+                Out-Null
+        } catch {
+            $threw = $_.Exception.Message -ceq `
+                "PUBLIC_NOTICE_SOURCE_BLOB_MISMATCH"
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "public notice changed after preflight is not published" {
+        $noticeSourceRoot = Join-Path $temp "notice-changed-source"
+        $noticePayloadRoot = Join-Path $temp "notice-changed-payload"
+        New-Item -ItemType Directory -Path $noticeSourceRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $noticePayloadRoot -Force | Out-Null
+        $sourceNotice = Join-Path $noticeSourceRoot "ThirdPartyNotices.txt"
+        [IO.File]::WriteAllText(
+            $sourceNotice,
+            (Get-ValidThirdPartyNoticeFixture),
+            [Text.UTF8Encoding]::new($false))
+        $preflightHash = Get-Sha256 $sourceNotice
+        Add-Content -LiteralPath $sourceNotice -Value "changed"
+
+        $threw = $false
+        try {
+            Publish-ThirdPartyNotices `
+                -SourceRoot $noticeSourceRoot `
+                -PayloadRoot $noticePayloadRoot `
+                -ExpectedSourceSha256 $preflightHash | Out-Null
+        } catch {
+            $threw = $_.Exception.Message -ceq `
+                "PUBLIC_NOTICE_SOURCE_CHANGED_AFTER_PREFLIGHT"
+        }
+        Assert-True $threw
+        Assert-False (Test-Path -LiteralPath (
+            Join-Path $noticePayloadRoot "ThirdPartyNotices.txt"))
+    }
+    Invoke-Case "missing public notice source fails closed" {
+        $missingSourceRoot = Join-Path $temp "missing-notice-source"
+        $missingPayloadRoot = Join-Path $temp "missing-notice-payload"
+        New-Item -ItemType Directory -Path $missingSourceRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $missingPayloadRoot -Force | Out-Null
+        $threw = $false
+        try {
+            Publish-ThirdPartyNotices `
+                -SourceRoot $missingSourceRoot `
+                -PayloadRoot $missingPayloadRoot `
+                -ExpectedSourceSha256 ("0" * 64) | Out-Null
+        } catch {
+            $threw = $_.Exception.Message -like "PUBLIC_NOTICE_SOURCE_MISSING:*"
+        }
+        Assert-True $threw
+        Assert-False (Test-Path -LiteralPath (
+            Join-Path $missingPayloadRoot "ThirdPartyNotices.txt"))
+    }
+    Invoke-Case "public notice destination collision fails without overwrite" {
+        $collisionSourceRoot = Join-Path $temp "collision-notice-source"
+        $collisionPayloadRoot = Join-Path $temp "collision-notice-payload"
+        New-Item -ItemType Directory -Path $collisionSourceRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $collisionPayloadRoot -Force | Out-Null
+        Set-Content -LiteralPath (
+            Join-Path $collisionSourceRoot "ThirdPartyNotices.txt") `
+            -Value (Get-ValidThirdPartyNoticeFixture) -NoNewline
+        $collisionSourceHash = Get-Sha256 (
+            Join-Path $collisionSourceRoot "ThirdPartyNotices.txt")
+        $collisionDestination = Join-Path `
+            $collisionPayloadRoot "ThirdPartyNotices.txt"
+        Set-Content -LiteralPath $collisionDestination -Value "existing"
+        $threw = $false
+        try {
+            Publish-ThirdPartyNotices `
+                -SourceRoot $collisionSourceRoot `
+                -PayloadRoot $collisionPayloadRoot `
+                -ExpectedSourceSha256 $collisionSourceHash | Out-Null
+        } catch {
+            $threw = $_.Exception.Message -like "PUBLIC_NOTICE_OUTPUT_COLLISION:*"
+        }
+        Assert-True $threw
+        Assert-Equal "existing" ((Get-Content -LiteralPath `
+            $collisionDestination -Raw).Trim())
+    }
+
     $payload = Join-Path $temp "payload"
     New-Item -ItemType Directory -Path (Join-Path $payload "Data") -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $payload "z.txt") -Value "z" -NoNewline
@@ -1342,7 +1664,7 @@ try {
         providerSelectionMode = "DefaultWhenUnspecified"
         expectedProviderId = "local"
         expectedLaunchArguments = @()
-        requiredArtifacts = @()
+        requiredArtifacts = @("ThirdPartyNotices.txt")
         forbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",
@@ -1537,6 +1859,18 @@ try {
         Assert-False $failure.deployable
         Assert-Equal 106 ([int]$failure.exitCode)
         Assert-Equal "drift" $failure.failureStage
+    }
+    Invoke-Case "public notice failure remains fail-closed and quarantined" {
+        $publicNoticeCode = (Get-ReleaseExitCodes).PublicNoticeFailure
+        $quarantine = Join-Path $temp "failed\public-notices"
+        Write-FailureEvidence $quarantine "public-notices" $publicNoticeCode `
+            "sha" "public-notices" "private.log"
+        $failure = Get-Content (Join-Path $quarantine "FAILURE.json") `
+            -Raw | ConvertFrom-Json
+        Assert-Equal 117 ([int]$publicNoticeCode)
+        Assert-False $failure.deployable
+        Assert-Equal 117 ([int]$failure.exitCode)
+        Assert-Equal "public-notices" $failure.failureStage
     }
     Invoke-Case "wrapper CSharp and report exits remain distinct" {
         Assert-Equal 105 (Convert-UnityExitCode 33)

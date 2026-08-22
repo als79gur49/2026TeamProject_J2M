@@ -10,6 +10,10 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class WindowsDistributionStagerTests
     {
+        private static readonly string ValidThirdPartyNotices = string.Join(
+            "\n",
+            WindowsDistributionTargetPolicy.ThirdPartyNoticeRequiredMarkers);
+
         private string fixtureRoot;
         private string repositoryRoot;
         private string sourceRoot;
@@ -44,6 +48,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(File.Exists(Path.Combine(result.PayloadRoot, "VectorQuake.exe")), Is.True);
             Assert.That(File.Exists(Path.Combine(result.PayloadRoot, "UnityPlayer.dll")), Is.True);
             Assert.That(File.Exists(Path.Combine(
+                result.PayloadRoot,
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact)), Is.True);
+            Assert.That(File.Exists(Path.Combine(
                 result.PayloadRoot, "VectorQuake_Data", "globalgamemanagers")), Is.True);
             Assert.That(result.SteamNativeCount, Is.EqualTo(1));
             Assert.That(result.SteamManagedCount, Is.EqualTo(1));
@@ -62,6 +69,63 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(FindFileNames(result.PayloadRoot), Does.Not.Contain("steam_api64.dll"));
             Assert.That(FindFileNames(result.PayloadRoot),
                 Does.Not.Contain("com.rlabrecque.steamworks.net.dll"));
+            Assert.That(File.Exists(Path.Combine(
+                result.PayloadRoot,
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact)), Is.True);
+        }
+
+        [TestCase("direct-windows", "direct-missing-notice-output")]
+        [TestCase("steam-windows", "steam-missing-notice-output")]
+        public void BothTargets_MissingThirdPartyNoticesFailsClosed(
+            string target,
+            string outputName)
+        {
+            File.Delete(Path.Combine(
+                sourceRoot,
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact));
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(target, outputName));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_REQUIRED_PUBLIC_NOTICE_MISSING"));
+            AssertPromotedOutputAbsent(Path.Combine(fixtureRoot, outputName));
+        }
+
+        [TestCase("")]
+        [TestCase("   \r\n\t")]
+        [TestCase("VectorQuake Third-Party Notices")]
+        public void BothTargets_InvalidThirdPartyNoticesFailClosed(string content)
+        {
+            File.WriteAllText(
+                Path.Combine(
+                    sourceRoot,
+                    WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact),
+                content);
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage("direct-windows", "invalid-notice-output"));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_PUBLIC_NOTICE_INVALID"));
+            AssertPromotedOutputAbsent(Path.Combine(fixtureRoot, "invalid-notice-output"));
+        }
+
+        [Test]
+        public void IncorrectlyCasedThirdPartyNoticesNameFailsClosed()
+        {
+            var canonicalPath = Path.Combine(
+                sourceRoot,
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact);
+            File.Delete(canonicalPath);
+            File.WriteAllText(
+                Path.Combine(sourceRoot, "thirdpartynotices.txt"),
+                ValidThirdPartyNotices);
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage("direct-windows", "wrong-case-notice-output"));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_REQUIRED_PUBLIC_NOTICE_MISSING"));
         }
 
         [TestCase("direct-windows", "direct-appid-output")]
@@ -300,6 +364,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.False);
             Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate(
                 "VectorQuake_Data/../../outside.dll"), Is.False);
+            Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate(
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact), Is.True);
+            Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate(
+                "Docs/ThirdPartyNotices.txt"), Is.False);
         }
 
         [Test]
@@ -578,6 +646,9 @@ namespace Game.Feature.Stages.Editor.Tests
         private void WriteCanonicalRawFixture(bool includeSteamDependencies)
         {
             WriteFile("VectorQuake.exe", "exe");
+            WriteFile(
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
+                ValidThirdPartyNotices);
             WriteFile("UnityPlayer.dll", "unity");
             WriteFile("UnityCrashHandler64.exe", "crash-handler");
             WriteFile("VectorQuake_Data/globalgamemanagers", "managers");

@@ -299,6 +299,34 @@ entries use relative, forward-slash paths and ordinal ordering. These four
 control files are excluded from the payload manifest so the final binding is
 non-circular.
 
+Every Direct Windows and Steam Windows distributable must contain the committed
+root `ThirdPartyNotices.txt` as `payload/ThirdPartyNotices.txt`, beside
+`VectorQuake.exe`. Before Unity starts, the wrapper requires that notice to be a
+tracked `100644` regular blob at the exact source revision, rejects reparse
+points, compares the checked-out file with the committed Git blob, decodes it as
+strict UTF-8, and verifies the required public-license sections. Empty,
+whitespace-only, incomplete, non-blob, or modified detached notices fail the
+`public-notices` stage with wrapper exit code `117`, avoiding a wasted Unity
+build. An untracked invocation notice is rejected even earlier by the existing
+clean-source gate. After Unity succeeds and its build evidence is accepted, the
+wrapper copies the preflight-approved notice from the detached source and
+rechecks its SHA-256 so a build-time mutation also fails closed. An existing
+destination or a source/destination SHA-256 mismatch likewise prevents payload
+promotion.
+
+The notice is subject to the Store text-privacy gate and is included in
+`files.sha256` as `payload/ThirdPartyNotices.txt`; later distribution staging
+preserves only the exact root-relative filename with canonical casing rather
+than allowing arbitrary or nested `.txt` files. The common notice may describe
+components that vary by distribution target. Steamworks.NET's MIT license and
+Valve's Steamworks SDK redistributable are listed separately so the MIT grant is
+not presented as covering `steam_api64.dll`.
+
+The public notice is the only licensing document intentionally promoted by this
+pipeline. Purchase receipts, seat records, historical commercial EULAs, internal
+asset audits, and package-local source documentation remain repository/private
+records and are not copied into the distributable payload.
+
 A distributable payload must not contain a
 `*_BurstDebugInformation_DoNotShip` directory or file beneath one. It must also
 not contain inspectable text or control content that exposes an absolute

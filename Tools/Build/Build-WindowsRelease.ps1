@@ -22,6 +22,16 @@ param(
     )
 )
 
+$script:ThirdPartyNoticesFileName = "ThirdPartyNotices.txt"
+$script:RequiredThirdPartyNoticeMarkers = @(
+    "VectorQuake Third-Party Notices",
+    "Unity UI Extensions",
+    "Steamworks.NET (Steam distribution only)",
+    "Valve Steamworks SDK Redistributable (Steam distribution only)",
+    "Open Font Software",
+    "SIL OPEN FONT LICENSE Version 1.1"
+)
+
 function Resolve-WindowsDistributionTargetPolicy {
     param([Parameter(Mandatory)][string]$TargetId)
     switch -CaseSensitive ($TargetId) {
@@ -32,7 +42,7 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ProviderSelectionMode = "DefaultWhenUnspecified"
                 ExpectedProviderId = "local"
                 ExpectedLaunchArguments = @()
-                RequiredArtifacts = @()
+                RequiredArtifacts = @($script:ThirdPartyNoticesFileName)
                 ForbiddenArtifacts = @(
                     "steam_api64.dll",
                     "com.rlabrecque.steamworks.net.dll",
@@ -49,6 +59,7 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ExpectedProviderId = "steam"
                 ExpectedLaunchArguments = @("-j2mPlatformProvider", "steam")
                 RequiredArtifacts = @(
+                    $script:ThirdPartyNoticesFileName,
                     "steam_api64.dll",
                     "com.rlabrecque.steamworks.net.dll"
                 )
@@ -151,6 +162,7 @@ $script:ReleaseExitCodes = [ordered]@{
     ArtifactProvenanceFailure = 114
     BuildSourcePathBudgetFailure = 115
     UnsupportedConfiguration = 116
+    PublicNoticeFailure = 117
 }
 try {
     $script:BackendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
@@ -661,6 +673,135 @@ function Get-Sha256 {
     } finally {
         if ($null -ne $algorithm) { $algorithm.Dispose() }
         if ($null -ne $stream) { $stream.Dispose() }
+    }
+}
+
+function Assert-NoReparsePointInPath {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $candidate = [IO.Path]::GetFullPath($Path)
+    if (-not $candidate.StartsWith(
+            "$rootFull\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw "PUBLIC_NOTICE_PATH_OUTSIDE_SOURCE: $candidate"
+    }
+
+    while ($true) {
+        $item = Get-Item -LiteralPath $candidate -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "PUBLIC_NOTICE_REPARSE_POINT_REJECTED: $candidate"
+        }
+        if ([string]::Equals(
+                $candidate.TrimEnd('\', '/'),
+                $rootFull,
+                [StringComparison]::OrdinalIgnoreCase)) { break }
+        $candidate = Split-Path $candidate -Parent
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            throw "PUBLIC_NOTICE_PATH_OUTSIDE_SOURCE: $Path"
+        }
+    }
+}
+
+function Assert-ThirdPartyNoticeContent {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -eq 0) {
+        throw "PUBLIC_NOTICE_EMPTY: $Path"
+    }
+    try {
+        $content = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+    } catch {
+        throw "PUBLIC_NOTICE_INVALID_UTF8: $Path"
+    }
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        throw "PUBLIC_NOTICE_WHITESPACE_ONLY: $Path"
+    }
+    foreach ($marker in $script:RequiredThirdPartyNoticeMarkers) {
+        if ($content.IndexOf($marker, [StringComparison]::Ordinal) -lt 0) {
+            throw "PUBLIC_NOTICE_REQUIRED_SECTION_MISSING: $marker"
+        }
+    }
+}
+
+function Get-ThirdPartyNoticeSourceContract {
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$SourceRevision
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SourceRevision)) {
+        throw "PUBLIC_NOTICE_SOURCE_REVISION_MISSING"
+    }
+    $source = Join-Path $SourceRoot $script:ThirdPartyNoticesFileName
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+        throw "PUBLIC_NOTICE_SOURCE_MISSING: $source"
+    }
+    Assert-NoReparsePointInPath -Root $SourceRoot -Path $source
+
+    $treeEntry = Invoke-GitText -Root $SourceRoot -DisableAutoCrlf -Arguments @(
+        "ls-tree", $SourceRevision, "--", $script:ThirdPartyNoticesFileName
+    )
+    $escapedName = [Regex]::Escape($script:ThirdPartyNoticesFileName)
+    if ($treeEntry -cnotmatch "^100644 blob ([0-9a-f]{40,64})`t$escapedName$") {
+        throw "PUBLIC_NOTICE_NOT_COMMITTED_REGULAR_BLOB: $($script:ThirdPartyNoticesFileName)"
+    }
+    $committedBlobId = $Matches[1]
+    $workingBlobId = Invoke-GitText -Root $SourceRoot -DisableAutoCrlf -Arguments @(
+        "hash-object", "--path=$($script:ThirdPartyNoticesFileName)", "--",
+        $script:ThirdPartyNoticesFileName
+    )
+    if ($workingBlobId -cne $committedBlobId) {
+        throw "PUBLIC_NOTICE_SOURCE_BLOB_MISMATCH"
+    }
+    Assert-ThirdPartyNoticeContent -Path $source
+
+    return [pscustomobject]@{
+        Path = $source
+        BlobId = $committedBlobId
+        Sha256 = Get-Sha256 -Path $source
+    }
+}
+
+function Publish-ThirdPartyNotices {
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$PayloadRoot,
+        [Parameter(Mandatory)][string]$ExpectedSourceSha256
+    )
+
+    $source = Join-Path $SourceRoot $script:ThirdPartyNoticesFileName
+    $destination = Join-Path $PayloadRoot $script:ThirdPartyNoticesFileName
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+        throw "PUBLIC_NOTICE_SOURCE_MISSING: $source"
+    }
+    Assert-NoReparsePointInPath -Root $SourceRoot -Path $source
+    Assert-ThirdPartyNoticeContent -Path $source
+    $sourceHash = Get-Sha256 -Path $source
+    if ($sourceHash -cne $ExpectedSourceSha256) {
+        throw "PUBLIC_NOTICE_SOURCE_CHANGED_AFTER_PREFLIGHT"
+    }
+    if (Test-Path -LiteralPath $destination) {
+        throw "PUBLIC_NOTICE_OUTPUT_COLLISION: $destination"
+    }
+
+    Copy-Item -LiteralPath $source -Destination $destination
+    if (-not (Test-Path -LiteralPath $destination -PathType Leaf)) {
+        throw "PUBLIC_NOTICE_COPY_MISSING: $destination"
+    }
+
+    $destinationHash = Get-Sha256 -Path $destination
+    if ($sourceHash -cne $destinationHash) {
+        throw "PUBLIC_NOTICE_COPY_HASH_MISMATCH"
+    }
+
+    return [pscustomobject]@{
+        SourcePath = $source
+        DestinationPath = $destination
+        Sha256 = $destinationHash
     }
 }
 
@@ -2168,7 +2309,8 @@ function Invoke-WindowsReleasePipeline {
             "Assets/_Features/Stages/Editor/Build/WindowsReleaseBuildCli.cs",
             "Assets/_Features/Stages/Editor/Build/WindowsReleaseBuildPolicy.cs",
             "Assets/_Features/Stages/Editor/Build/WindowsDistributionTargetPolicy.cs",
-            "Tools/Build/Build-WindowsRelease.ps1"
+            "Tools/Build/Build-WindowsRelease.ps1",
+            "ThirdPartyNotices.txt"
         )
         $invocationPre = Get-GitSnapshot -Root $RepositoryRoot -CanaryPaths $canaries
         Write-PrivateJson (Join-Path $privateRoot "invocation-source-pre.json") `
@@ -2241,6 +2383,15 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source HEAD/tree identity does not match the invocation revision."
         }
+        $stage = "public-notices"
+        try {
+            $noticeSourceContract = Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $detached -SourceRevision $sourceSha
+        } catch {
+            $exitCode = $script:ReleaseExitCodes.PublicNoticeFailure
+            throw
+        }
+        $stage = "detached-source"
         $trackedPathsAtSourceRevision = @(Get-TrackedPathsAtSourceRevision `
             -Root $detached -SourceRevision $sourceSha -Detached)
         $entrySourcePath = Join-Path $detached `
@@ -2344,6 +2495,16 @@ function Invoke-WindowsReleasePipeline {
         if ($unityExitCode -ne 0) {
             $exitCode = $script:ReleaseExitCodes.UnityInvocationFailure
             throw "Unity returned exit code $unityExitCode."
+        }
+
+        $stage = "public-notices"
+        try {
+            Publish-ThirdPartyNotices -SourceRoot $detached -PayloadRoot $payload `
+                -ExpectedSourceSha256 $noticeSourceContract.Sha256 |
+                Out-Null
+        } catch {
+            $exitCode = $script:ReleaseExitCodes.PublicNoticeFailure
+            throw
         }
 
         $stage = "drift"
@@ -2499,7 +2660,8 @@ function Invoke-WindowsReleasePipeline {
             $stage -eq "preflight") {
             $exitCode = $script:ReleaseExitCodes.GitPreflightFailure
         }
-        Write-Error "[$stage][$exitCode] $($_.Exception.Message)"
+        Write-Error "[$stage][$exitCode] $($_.Exception.Message)" `
+            -ErrorAction Continue
         Write-WrapperLog $wrapperLog $stage `
             "Pipeline failed with wrapper code ${exitCode}: $($_.Exception.Message)"
         $quarantineCandidate = if (-not [string]::IsNullOrWhiteSpace($staging) -and

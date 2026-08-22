@@ -81,6 +81,17 @@ public static class WindowsDistributionTargetPolicy
     public const string SteamManagedBindingArtifact =
         "com.rlabrecque.steamworks.net.dll";
     public const string SteamAppIdArtifact = "steam_appid.txt";
+    public const string ThirdPartyNoticesArtifact = "ThirdPartyNotices.txt";
+    public static readonly IReadOnlyList<string> ThirdPartyNoticeRequiredMarkers =
+        Array.AsReadOnly(new[]
+        {
+            "VectorQuake Third-Party Notices",
+            "Unity UI Extensions",
+            "Steamworks.NET (Steam distribution only)",
+            "Valve Steamworks SDK Redistributable (Steam distribution only)",
+            "Open Font Software",
+            "SIL OPEN FONT LICENSE Version 1.1",
+        });
 
     public static readonly WindowsDistributionTargetConfiguration DirectWindows =
         new WindowsDistributionTargetConfiguration(
@@ -89,7 +100,7 @@ public static class WindowsDistributionTargetPolicy
             ProviderSelectionMode.DefaultWhenUnspecified,
             LocalProviderId,
             Array.Empty<string>(),
-            Array.Empty<string>(),
+            new[] { ThirdPartyNoticesArtifact },
             new[]
             {
                 SteamNativeArtifact,
@@ -104,7 +115,12 @@ public static class WindowsDistributionTargetPolicy
             ProviderSelectionMode.ExternalLaunchArgumentRequired,
             SteamProviderId,
             new[] { ProviderSelectorArgument, SteamProviderId },
-            new[] { SteamNativeArtifact, SteamManagedBindingArtifact },
+            new[]
+            {
+                ThirdPartyNoticesArtifact,
+                SteamNativeArtifact,
+                SteamManagedBindingArtifact,
+            },
             new[] { SteamAppIdArtifact });
 
     public static bool TryResolve(
@@ -212,13 +228,27 @@ public static class WindowsDistributionTargetPolicy
             return configurationFailure;
         }
 
+        var artifactPaths = (normalizedArtifactPaths ?? Array.Empty<string>())
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path.Replace('\\', '/'))
+            .ToArray();
         var fileNames = new HashSet<string>(
-            (normalizedArtifactPaths ?? Array.Empty<string>())
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Select(path => Path.GetFileName(path.Replace('\\', '/'))),
+            artifactPaths.Select(Path.GetFileName),
             StringComparer.OrdinalIgnoreCase);
 
-        if (configuration.RequiredArtifacts.Any(required => !fileNames.Contains(required)))
+        var requiresPublicNotice = configuration.RequiredArtifacts.Contains(
+            ThirdPartyNoticesArtifact, StringComparer.OrdinalIgnoreCase);
+        if (requiresPublicNotice && !artifactPaths.Any(IsCanonicalPublicNoticePath))
+        {
+            return WindowsDistributionValidationFailure.RequiredArtifactMissing;
+        }
+
+        if (configuration.RequiredArtifacts.Any(required =>
+                !string.Equals(
+                    required,
+                    ThirdPartyNoticesArtifact,
+                    StringComparison.OrdinalIgnoreCase) &&
+                !fileNames.Contains(required)))
         {
             return WindowsDistributionValidationFailure.RequiredArtifactMissing;
         }
@@ -229,6 +259,18 @@ public static class WindowsDistributionTargetPolicy
         }
 
         return WindowsDistributionValidationFailure.None;
+    }
+
+    private static bool IsCanonicalPublicNoticePath(string path)
+    {
+        return string.Equals(
+                   path,
+                   ThirdPartyNoticesArtifact,
+                   StringComparison.Ordinal) ||
+               string.Equals(
+                   path,
+                   "payload/" + ThirdPartyNoticesArtifact,
+                   StringComparison.Ordinal);
     }
 
     private static bool ValidTokens(IEnumerable<string> values)
