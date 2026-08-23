@@ -12,6 +12,13 @@ namespace Game.Feature.Stages
             return slotNumber >= 1 && slotNumber <= SlotCount;
         }
 
+        public static int ToRuntimeRemainingChances(int persistedRemainingChances)
+        {
+            return persistedRemainingChances <= 0
+                ? DefaultRemainingChances
+                : persistedRemainingChances;
+        }
+
         public static void ThrowIfInvalidSlotNumber(int slotNumber)
         {
             if (!IsValidSlotNumber(slotNumber))

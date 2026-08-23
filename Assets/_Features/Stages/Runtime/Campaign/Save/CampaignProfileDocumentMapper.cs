@@ -12,40 +12,140 @@ namespace Game.Feature.Stages
             string savedAtUtc,
             string productVersion)
         {
+            if (string.IsNullOrWhiteSpace(profileId))
+            {
+                throw new ArgumentException("Campaign profile id must not be empty.", nameof(profileId));
+            }
+
             var slotDocuments = new List<CampaignSlotDocument>();
             if (slots != null)
             {
                 for (var i = 0; i < slots.Count; i++)
                 {
-                    if (slots[i] != null)
+                    var slot = slots[i];
+                    if (slot == null || slot.IsEmpty)
                     {
-                        slotDocuments.Add(ToSlotDocument(slots[i]));
+                        continue;
                     }
+
+                    slotDocuments.Add(CampaignSlotMapper.ToDocument(slot));
                 }
             }
 
-            return new CampaignProfileDocument
+            slotDocuments.Sort((left, right) => left.SlotNumber.CompareTo(right.SlotNumber));
+            var document = new CampaignProfileDocument
             {
                 SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
                 ProductVersion = productVersion ?? string.Empty,
                 SavedAtUtc = savedAtUtc ?? string.Empty,
-                ProfileId = profileId ?? string.Empty,
+                ProfileId = profileId,
                 LastPlayedSlotNumber = lastPlayedSlotNumber,
                 Slots = slotDocuments.ToArray(),
             };
+
+            if (CampaignProfileDocumentValidator.Validate(document) !=
+                CampaignProfileDocumentValidationResult.Valid)
+            {
+                throw new ArgumentException(
+                    "Campaign slot data cannot produce a valid profile document.",
+                    nameof(slots));
+            }
+
+            return document;
+        }
+
+        internal static SaveSlotData[] ToDomainSlots(CampaignProfileDocument document)
+        {
+            if (document == null)
+            {
+                throw new ArgumentNullException(nameof(document));
+            }
+
+            var validation = CampaignProfileDocumentValidator.Validate(document);
+            if (validation != CampaignProfileDocumentValidationResult.Valid)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot map invalid campaign profile document: {validation}.");
+            }
+
+            var slots = CreateEmptySlots();
+            var documentSlots = document.Slots ?? Array.Empty<CampaignSlotDocument>();
+            for (var i = 0; i < documentSlots.Length; i++)
+            {
+                var slot = documentSlots[i];
+                slots[slot.SlotNumber - 1] = CampaignSlotMapper.ToDomain(slot);
+            }
+
+            return slots;
+        }
+
+        internal static CampaignSlotUpdate ToFullReplacementUpdate(SaveSlotData slot)
+        {
+            return CampaignSlotMapper.ToFullReplacementUpdate(slot);
         }
 
         public static CampaignSlotDocument ToSlotDocument(SaveSlotData slot)
         {
-            if (slot == null)
+            return CampaignSlotMapper.ToDocument(slot);
+        }
+
+        public static NormalCampaignCompletionReceiptDocument ToReceiptDocument(
+            NormalCampaignCompletionReceipt receipt)
+        {
+            return CampaignSlotMapper.ToReceiptDocument(receipt);
+        }
+
+        public static NormalCampaignCompletionReceipt ToReceipt(
+            NormalCampaignCompletionReceiptDocument document)
+        {
+            return CampaignSlotMapper.ToReceipt(document);
+        }
+
+        public static NormalStagePerformanceRecordDocument[] ToPerformanceRecordDocuments(
+            IEnumerable<NormalStagePerformanceRecord> records)
+        {
+            return CampaignSlotMapper.ToPerformanceRecordDocuments(records);
+        }
+
+        public static NormalStagePerformanceRecord[] ToPerformanceRecords(
+            IEnumerable<NormalStagePerformanceRecordDocument> documents)
+        {
+            return CampaignSlotMapper.ToPerformanceRecords(documents);
+        }
+
+        public static CampaignStageClearProfileDocument ToStageClearProfileDocument(
+            StageClearProfileSnapshot snapshot)
+        {
+            return CampaignSlotMapper.ToStageClearProfileDocument(snapshot);
+        }
+
+        public static PlayerStageClearRecordDocument ToPlayerStageClearRecordDocument(
+            PlayerStageClearRecord record)
+        {
+            return CampaignSlotMapper.ToPlayerStageClearRecordDocument(record);
+        }
+
+        private static SaveSlotData[] CreateEmptySlots()
+        {
+            var slots = new SaveSlotData[CampaignSaveSlotPolicy.SlotCount];
+            for (var i = 0; i < slots.Length; i++)
             {
-                throw new ArgumentNullException(nameof(slot));
+                slots[i] = SaveSlotData.CreateEmpty(i + 1);
             }
 
-            return new CampaignSlotDocument
+            return slots;
+        }
+    }
+
+    internal static class CampaignSlotMapper
+    {
+        public static CampaignSlotDocument ToDocument(SaveSlotData slot)
+        {
+            ValidateDomainSlotForPersistence(slot);
+            var document = new CampaignSlotDocument
             {
                 SlotNumber = slot.SlotNumber,
-                StageId = slot.CurrentStageId.IsValid ? slot.CurrentStageId.Value : string.Empty,
+                StageId = slot.CurrentStageId.Value,
                 LevelGroupId = slot.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
@@ -60,7 +160,79 @@ namespace Game.Feature.Stages
                     slot.NormalStagePerformanceRecords),
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAt ?? string.Empty,
-                StageClearProfileSnapshot = ToStageClearProfileDocument(slot.StageClearProfileSnapshot),
+                StageClearProfileSnapshot = ToStageClearProfileDocument(
+                    slot.StageClearProfileSnapshot),
+            };
+
+            if (!CampaignSlotDocumentValidator.IsValid(document))
+            {
+                throw new ArgumentException(
+                    "Campaign slot data cannot produce a valid persisted slot document.",
+                    nameof(slot));
+            }
+
+            return document;
+        }
+
+        public static SaveSlotData ToDomain(CampaignSlotDocument slot)
+        {
+            if (slot == null)
+            {
+                throw new ArgumentNullException(nameof(slot));
+            }
+
+            if (!CampaignSlotDocumentValidator.IsValid(slot))
+            {
+                throw new InvalidOperationException(
+                    "Campaign profile repository returned an invalid slot document.");
+            }
+
+            var stageId = StageId.CreateOrThrow(slot.StageId);
+
+            return new SaveSlotData
+            {
+                SlotNumber = slot.SlotNumber,
+                CurrentStageId = stageId,
+                CurrentLevelGroupId = slot.LevelGroupId ?? string.Empty,
+                RemainingChances = CampaignSaveSlotPolicy.ToRuntimeRemainingChances(
+                    slot.RemainingChances),
+                CampaignCompleted = slot.CampaignCompleted,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt,
+                NormalCampaignCompletionReceipt = ToReceipt(
+                    slot.NormalCampaignCompletionReceipt),
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
+                NormalStagePerformanceRecords = ToPerformanceRecords(
+                    slot.NormalStagePerformanceRecords),
+                TotalDeaths = slot.TotalDeaths,
+                LastPlayedAt = slot.LastPlayedAtUtc ?? string.Empty,
+                StageClearProfileSnapshot = ToStageClearProfileSnapshot(
+                    slot.StageClearProfileSnapshot),
+            };
+        }
+
+        public static CampaignSlotUpdate ToFullReplacementUpdate(SaveSlotData slot)
+        {
+            var document = ToDocument(slot);
+            return new CampaignSlotUpdate
+            {
+                StageId = document.StageId,
+                LevelGroupId = document.LevelGroupId,
+                RemainingChances = document.RemainingChances,
+                CampaignCompleted = document.CampaignCompleted,
+                ReplaceNormalCampaignCompletionReceipt = true,
+                HasNormalCampaignCompletionReceipt =
+                    document.HasNormalCampaignCompletionReceipt,
+                NormalCampaignCompletionReceipt =
+                    document.NormalCampaignCompletionReceipt,
+                IntroComicCompleted = document.IntroComicCompleted,
+                OutroComicCompleted = document.OutroComicCompleted,
+                NormalStagePerformanceRecords =
+                    document.NormalStagePerformanceRecords,
+                TotalDeaths = document.TotalDeaths,
+                LastPlayedAtUtc = document.LastPlayedAtUtc,
+                StageClearProfileSnapshot = document.StageClearProfileSnapshot,
             };
         }
 
@@ -148,7 +320,6 @@ namespace Game.Feature.Stages
             StageClearProfileSnapshot snapshot)
         {
             snapshot ??= new StageClearProfileSnapshot();
-
             var records = new List<PlayerStageClearRecordDocument>();
             if (snapshot.ClearRecordsByStageId != null)
             {
@@ -168,7 +339,6 @@ namespace Game.Feature.Stages
             }
 
             records.Sort((left, right) => string.CompareOrdinal(left.StageId, right.StageId));
-
             return new CampaignStageClearProfileDocument
             {
                 Version = snapshot.Version,
@@ -176,6 +346,44 @@ namespace Game.Feature.Stages
                 ProcessedStageRunIds = ToSortedArray(snapshot.ProcessedStageRunIds),
                 ProcessedClearAttemptIds = ToSortedArray(snapshot.ProcessedClearAttemptIds),
             };
+        }
+
+        public static StageClearProfileSnapshot ToStageClearProfileSnapshot(
+            CampaignStageClearProfileDocument document)
+        {
+            var snapshot = new StageClearProfileSnapshot();
+            if (document == null)
+            {
+                return snapshot;
+            }
+
+            snapshot.Version = Math.Max(0, document.Version);
+            var records = document.Records ?? Array.Empty<PlayerStageClearRecordDocument>();
+            for (var i = 0; i < records.Length; i++)
+            {
+                var record = records[i];
+                if (record == null || !StageId.TryCreate(record.StageId, out var stageId))
+                {
+                    continue;
+                }
+
+                snapshot.ClearRecordsByStageId[stageId] = new PlayerStageClearRecord
+                {
+                    StageId = stageId,
+                    HasAttempted = record.HasAttempted,
+                    HasCleared = record.HasCleared,
+                    ClearCount = Math.Max(0, record.ClearCount),
+                    ProcessedStageRunIds = CloneArray(record.ProcessedStageRunIds),
+                };
+            }
+
+            snapshot.ProcessedStageRunIds = new HashSet<string>(
+                document.ProcessedStageRunIds ?? Array.Empty<string>(),
+                StringComparer.Ordinal);
+            snapshot.ProcessedClearAttemptIds = new HashSet<string>(
+                document.ProcessedClearAttemptIds ?? Array.Empty<string>(),
+                StringComparer.Ordinal);
+            return snapshot;
         }
 
         public static PlayerStageClearRecordDocument ToPlayerStageClearRecordDocument(
@@ -198,7 +406,6 @@ namespace Game.Feature.Stages
                 : fallbackStageId.IsValid
                     ? fallbackStageId.Value
                     : string.Empty;
-
             return new PlayerStageClearRecordDocument
             {
                 StageId = stageId,
@@ -207,6 +414,31 @@ namespace Game.Feature.Stages
                 ClearCount = record.ClearCount,
                 ProcessedStageRunIds = CloneArray(record.ProcessedStageRunIds),
             };
+        }
+
+        private static void ValidateDomainSlotForPersistence(SaveSlotData slot)
+        {
+            if (slot == null)
+            {
+                throw new ArgumentNullException(nameof(slot));
+            }
+
+            if (slot.IsEmpty)
+            {
+                throw new ArgumentException(
+                    "An empty campaign slot has no persisted slot document.",
+                    nameof(slot));
+            }
+
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slot.SlotNumber) ||
+                !slot.CurrentStageId.IsValid ||
+                slot.RemainingChances < 0 ||
+                slot.TotalDeaths < 0)
+            {
+                throw new ArgumentException(
+                    "Campaign slot data cannot produce a valid persisted slot document.",
+                    nameof(slot));
+            }
         }
 
         private static string[] ToSortedArray(HashSet<string> values)

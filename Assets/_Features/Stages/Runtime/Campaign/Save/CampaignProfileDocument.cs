@@ -23,56 +23,17 @@ namespace Game.Feature.Stages
         InvalidDocument,
     }
 
-    internal static class CampaignProfileDocumentValidator
+    internal static class CampaignSlotDocumentValidator
     {
-        public static CampaignProfileDocumentValidationResult Validate(
-            CampaignProfileDocument document)
+        public static bool IsValid(CampaignSlotDocument slot)
         {
-            if (document == null)
-            {
-                return CampaignProfileDocumentValidationResult.InvalidDocument;
-            }
-
-            if (document.SchemaVersion != CampaignProfileDocument.CurrentSchemaVersion)
-            {
-                return CampaignProfileDocumentValidationResult.UnsupportedVersion;
-            }
-
-            if (string.IsNullOrWhiteSpace(document.ProfileId))
-            {
-                return CampaignProfileDocumentValidationResult.InvalidDocument;
-            }
-
-            var slots = document.Slots ?? Array.Empty<CampaignSlotDocument>();
-            if (slots.Length > CampaignSaveSlotPolicy.SlotCount)
-            {
-                return CampaignProfileDocumentValidationResult.InvalidDocument;
-            }
-
-            var slotNumbers = new HashSet<int>();
-            for (var index = 0; index < slots.Length; index++)
-            {
-                var slot = slots[index];
-                if (slot == null ||
-                    !CampaignSaveSlotPolicy.IsValidSlotNumber(slot.SlotNumber) ||
-                    !slotNumbers.Add(slot.SlotNumber) ||
-                    slot.RemainingChances < 0 ||
-                    slot.TotalDeaths < 0 ||
-                    !IsCanonicalStageId(slot.StageId) ||
-                    !ValidatePerformanceRecords(slot.NormalStagePerformanceRecords) ||
-                    !ValidateStageClearProfile(slot.StageClearProfileSnapshot))
-                {
-                    return CampaignProfileDocumentValidationResult.InvalidDocument;
-                }
-            }
-
-            if (document.LastPlayedSlotNumber != 0 &&
-                !slotNumbers.Contains(document.LastPlayedSlotNumber))
-            {
-                return CampaignProfileDocumentValidationResult.InvalidDocument;
-            }
-
-            return CampaignProfileDocumentValidationResult.Valid;
+            return slot != null &&
+                   CampaignSaveSlotPolicy.IsValidSlotNumber(slot.SlotNumber) &&
+                   slot.RemainingChances >= 0 &&
+                   slot.TotalDeaths >= 0 &&
+                   IsCanonicalStageId(slot.StageId) &&
+                   ValidatePerformanceRecords(slot.NormalStagePerformanceRecords) &&
+                   ValidateStageClearProfile(slot.StageClearProfileSnapshot);
         }
 
         private static bool ValidatePerformanceRecords(
@@ -162,6 +123,53 @@ namespace Game.Feature.Stages
         {
             return StageId.TryCreate(rawStageId, out var stageId) &&
                    string.Equals(rawStageId, stageId.Value, StringComparison.Ordinal);
+        }
+    }
+
+    internal static class CampaignProfileDocumentValidator
+    {
+        public static CampaignProfileDocumentValidationResult Validate(
+            CampaignProfileDocument document)
+        {
+            if (document == null)
+            {
+                return CampaignProfileDocumentValidationResult.InvalidDocument;
+            }
+
+            if (document.SchemaVersion != CampaignProfileDocument.CurrentSchemaVersion)
+            {
+                return CampaignProfileDocumentValidationResult.UnsupportedVersion;
+            }
+
+            if (string.IsNullOrWhiteSpace(document.ProfileId))
+            {
+                return CampaignProfileDocumentValidationResult.InvalidDocument;
+            }
+
+            var slots = document.Slots ?? Array.Empty<CampaignSlotDocument>();
+            if (slots.Length > CampaignSaveSlotPolicy.SlotCount)
+            {
+                return CampaignProfileDocumentValidationResult.InvalidDocument;
+            }
+
+            var slotNumbers = new HashSet<int>();
+            for (var index = 0; index < slots.Length; index++)
+            {
+                var slot = slots[index];
+                if (!CampaignSlotDocumentValidator.IsValid(slot) ||
+                    !slotNumbers.Add(slot.SlotNumber))
+                {
+                    return CampaignProfileDocumentValidationResult.InvalidDocument;
+                }
+            }
+
+            if (document.LastPlayedSlotNumber != 0 &&
+                !slotNumbers.Contains(document.LastPlayedSlotNumber))
+            {
+                return CampaignProfileDocumentValidationResult.InvalidDocument;
+            }
+
+            return CampaignProfileDocumentValidationResult.Valid;
         }
     }
 }

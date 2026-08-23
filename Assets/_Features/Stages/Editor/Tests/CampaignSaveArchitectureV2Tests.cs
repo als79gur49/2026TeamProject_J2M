@@ -201,7 +201,11 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void CampaignProfileDocumentMapper_NullStageClearProfileMapsToEmptyDocument()
         {
-            var slot = SaveSlotData.CreateEmpty(1);
+            var slot = new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+            };
             slot.StageClearProfileSnapshot = null;
 
             var document = CampaignProfileDocumentMapper.ToSlotDocument(slot);

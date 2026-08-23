@@ -49,9 +49,8 @@ namespace Game.Feature.Stages
                 throw new InvalidOperationException("Save slot does not contain a current campaign stage.");
             }
 
-            var remainingChances = slot.RemainingChances <= 0
-                ? CampaignSaveSlotPolicy.DefaultRemainingChances
-                : slot.RemainingChances;
+            var remainingChances = CampaignSaveSlotPolicy.ToRuntimeRemainingChances(
+                slot.RemainingChances);
 
             if (remainingChances > 1)
             {
