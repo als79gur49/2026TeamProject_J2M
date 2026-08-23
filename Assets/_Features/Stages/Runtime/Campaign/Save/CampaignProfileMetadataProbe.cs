@@ -78,7 +78,7 @@ namespace Game.Feature.Stages
                 }
 
                 var rawProfile = File.ReadAllText(profilePath);
-                if (!LooksLikeJsonObject(rawProfile))
+                if (!CampaignJsonSyntaxValidator.IsValid(rawProfile))
                 {
                     return StatusOnly(
                         CampaignProfileMetadataProbeStatus.Corrupt,
@@ -142,17 +142,6 @@ namespace Game.Feature.Stages
         {
             return CampaignProfileDocumentValidator.Validate(document) ==
                    CampaignProfileDocumentValidationResult.Valid;
-        }
-
-        private static bool LooksLikeJsonObject(string rawProfile)
-        {
-            if (string.IsNullOrWhiteSpace(rawProfile))
-            {
-                return false;
-            }
-
-            var trimmed = rawProfile.Trim();
-            return trimmed.Length >= 2 && trimmed[0] == '{' && trimmed[trimmed.Length - 1] == '}';
         }
 
         private static CampaignProfileMetadataProbeResult Missing(string message)

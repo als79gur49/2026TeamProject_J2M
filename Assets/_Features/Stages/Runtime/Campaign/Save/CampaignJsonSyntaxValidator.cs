@@ -43,7 +43,7 @@ namespace Game.Feature.Stages
                 return TrySkipArray(json, ref index);
             }
 
-            if (current == '-' || char.IsDigit(current))
+            if (current == '-' || IsDigit(current))
             {
                 return TrySkipNumber(json, ref index);
             }
@@ -169,7 +169,27 @@ namespace Game.Feature.Stages
                                 return false;
                             }
                         }
+                        continue;
                     }
+
+                    if (escaped != '"' &&
+                        escaped != '\\' &&
+                        escaped != '/' &&
+                        escaped != 'b' &&
+                        escaped != 'f' &&
+                        escaped != 'n' &&
+                        escaped != 'r' &&
+                        escaped != 't')
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
+                if (current < 0x20)
+                {
+                    return false;
                 }
             }
 
@@ -183,13 +203,28 @@ namespace Game.Feature.Stages
                 index++;
             }
 
-            var digitStart = index;
-            while (index < json.Length && char.IsDigit(json[index]))
+            if (index >= json.Length)
             {
-                index++;
+                return false;
             }
 
-            if (index == digitStart)
+            if (json[index] == '0')
+            {
+                index++;
+                if (index < json.Length && IsDigit(json[index]))
+                {
+                    return false;
+                }
+            }
+            else if (json[index] >= '1' && json[index] <= '9')
+            {
+                do
+                {
+                    index++;
+                }
+                while (index < json.Length && IsDigit(json[index]));
+            }
+            else
             {
                 return false;
             }
@@ -198,7 +233,7 @@ namespace Game.Feature.Stages
             {
                 index++;
                 var fractionStart = index;
-                while (index < json.Length && char.IsDigit(json[index]))
+                while (index < json.Length && IsDigit(json[index]))
                 {
                     index++;
                 }
@@ -218,7 +253,7 @@ namespace Game.Feature.Stages
                 }
 
                 var exponentStart = index;
-                while (index < json.Length && char.IsDigit(json[index]))
+                while (index < json.Length && IsDigit(json[index]))
                 {
                     index++;
                 }
@@ -246,10 +281,20 @@ namespace Game.Feature.Stages
 
         private static void SkipWhitespace(string json, ref int index)
         {
-            while (index < json.Length && char.IsWhiteSpace(json[index]))
+            while (index < json.Length && IsWhitespace(json[index]))
             {
                 index++;
             }
+        }
+
+        private static bool IsWhitespace(char value)
+        {
+            return value == ' ' || value == '\t' || value == '\r' || value == '\n';
+        }
+
+        private static bool IsDigit(char value)
+        {
+            return value >= '0' && value <= '9';
         }
 
         private static bool IsHex(char value)
