@@ -5,14 +5,16 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class WindowsDistributionStagerTests
     {
-        private static readonly string ValidThirdPartyNotices = string.Join(
-            "\n",
-            WindowsDistributionTargetPolicy.ThirdPartyNoticeRequiredMarkers);
+        private static readonly string ValidThirdPartyNotices = File.ReadAllText(
+            Path.Combine(
+                Path.GetDirectoryName(Application.dataPath),
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact));
 
         private string fixtureRoot;
         private string repositoryRoot;
@@ -108,6 +110,75 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(exception.Code, Is.EqualTo("STAGING_PUBLIC_NOTICE_INVALID"));
             AssertPromotedOutputAbsent(Path.Combine(fixtureRoot, "invalid-notice-output"));
+        }
+
+        [Test]
+        public void PublicNoticeContract_AcceptsCanonicalDocumentAndRejectsMarkerOnlyFixture()
+        {
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(
+                    ValidThirdPartyNotices),
+                Is.True);
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(
+                    string.Join(
+                        "\n",
+                        WindowsDistributionTargetPolicy.ThirdPartyNoticeRequiredMarkers)),
+                Is.False);
+        }
+
+        [Test]
+        public void PublicNoticeContract_RejectsEveryMissingComponentInventoryFragment()
+        {
+            foreach (var fragment in
+                     WindowsDistributionTargetPolicy.ThirdPartyNoticeRequiredFragments)
+            {
+                var mutated = ValidThirdPartyNotices.Replace(fragment, string.Empty);
+                Assert.That(mutated, Is.Not.EqualTo(ValidThirdPartyNotices), fragment);
+                Assert.That(
+                    WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(mutated),
+                    Is.False,
+                    fragment);
+            }
+        }
+
+        [TestCase(
+            "are permitted provided that the following conditions are met:",
+            "are allowed provided that the following conditions are met:")]
+        [TestCase(
+            "to use, copy, modify, merge, publish, distribute, sublicense",
+            "to use, modify, merge, publish, distribute, sublicense")]
+        [TestCase(
+            "development of collaborative font projects",
+            "development of font projects")]
+        public void PublicNoticeContract_RejectsCanonicalLicenseBodyMutation(
+            string original,
+            string replacement)
+        {
+            var mutated = ValidThirdPartyNotices.Replace(original, replacement);
+            Assert.That(mutated, Is.Not.EqualTo(ValidThirdPartyNotices));
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(mutated),
+                Is.False);
+        }
+
+        [Test]
+        public void PublicNoticeContract_RejectsDuplicateAndReorderedSections()
+        {
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(
+                    ValidThirdPartyNotices + "\nUnity UI Extensions\n"),
+                Is.False);
+
+            var reordered = ValidThirdPartyNotices
+                .Replace("Unity UI Extensions", "__UI_SECTION__")
+                .Replace(
+                    "Steamworks.NET (Steam distribution only)",
+                    "Unity UI Extensions")
+                .Replace("__UI_SECTION__", "Steamworks.NET (Steam distribution only)");
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(reordered),
+                Is.False);
         }
 
         [Test]

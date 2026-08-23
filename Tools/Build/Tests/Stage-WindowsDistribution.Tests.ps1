@@ -38,14 +38,10 @@ function Write-FixtureFile {
 }
 
 function Get-ValidThirdPartyNoticeFixture {
-    return @"
-VectorQuake Third-Party Notices
-Unity UI Extensions
-Steamworks.NET (Steam distribution only)
-Valve Steamworks SDK Redistributable (Steam distribution only)
-Open Font Software
-SIL OPEN FONT LICENSE Version 1.1
-"@
+    $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+    return [IO.File]::ReadAllText(
+        (Join-Path $repositoryRoot "ThirdPartyNotices.txt"),
+        [Text.UTF8Encoding]::new($false, $true))
 }
 
 function New-RawFixture {
@@ -161,6 +157,31 @@ try {
         New-RawFixture $invalidRawRoot
         Write-FixtureFile $invalidRawRoot "ThirdPartyNotices.txt" ""
         $output = Join-Path $fixtureRoot "invalid-notice-output"
+        $threw = $false
+        try {
+            Invoke-WindowsDistributionStaging `
+                -SourceBuildRoot $invalidRawRoot `
+                -DistributionTarget "direct-windows" `
+                -OutputRoot $output `
+                -RepositoryRoot $repositoryRoot | Out-Null
+        } catch {
+            $threw = $_.Exception.Message.Contains(
+                "STAGING_PUBLIC_NOTICE_INVALID")
+        }
+        Assert-True $threw
+        Assert-True (-not (Test-Path -LiteralPath $output))
+    }
+
+    Invoke-Case "wrapper rejects a mutated canonical license body" {
+        $invalidRawRoot = Join-Path $fixtureRoot "mutated-notice-raw"
+        New-RawFixture $invalidRawRoot
+        $noticePath = Join-Path $invalidRawRoot "ThirdPartyNotices.txt"
+        $content = [IO.File]::ReadAllText($noticePath).Replace(
+            "development of collaborative font projects",
+            "development of font projects")
+        [IO.File]::WriteAllText(
+            $noticePath, $content, [Text.UTF8Encoding]::new($false))
+        $output = Join-Path $fixtureRoot "mutated-notice-output"
         $threw = $false
         try {
             Invoke-WindowsDistributionStaging `

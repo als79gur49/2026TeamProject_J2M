@@ -31,6 +31,48 @@ $script:RequiredThirdPartyNoticeMarkers = @(
     "Open Font Software",
     "SIL OPEN FONT LICENSE Version 1.1"
 )
+$script:RequiredThirdPartyNoticeFragments = @(
+    "License: BSD 3-Clause",
+    "Source: https://github.com/Unity-UI-Extensions/com.unity.uiextensions",
+    "Copyright (c) 2019",
+    "License: MIT",
+    "Source: https://github.com/rlabrecque/Steamworks.NET",
+    "Copyright (c) 2013-2022 Riley Labrecque",
+    "Component: steam_api64.dll",
+    "Provider: Valve Corporation",
+    "not licensed under the Steamworks.NET MIT License reproduced above.",
+    "Orbitron`n`nCopyright 2018 The Orbitron Project Authors",
+    'with Reserved Font Name: "Orbitron"',
+    "Exo 2.0`n`nStyles included: Regular, SemiBold",
+    "with Reserved Font Name 'Exo'",
+    "Saira Condensed`n`nStyle included in the current build: SemiBold",
+    'reserved font name "Saira".',
+    "Climate Crisis KR`n`nStyles included: 2000, 2019",
+    'Copyright 2022, NohType with Reserved Font Name "Climate Crisis"',
+    "Liberation Sans`n`nDigitized data copyright (c) 2010 Google Corporation",
+    "Copyright (c) 2012 Red Hat, Inc.",
+    "with Reserved Font Name Liberation."
+)
+$script:ThirdPartyNoticeBodyContracts = @(
+    [pscustomobject]@{
+        Name = "BSD-3-Clause"
+        StartMarker = "Copyright (c) 2019"
+        EndMarker = "SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
+        Sha256 = "c6a4a8ed2a82b50bb6c71da4211ab64903d7c752e8c91b149a2364165aa717de"
+    },
+    [pscustomobject]@{
+        Name = "MIT"
+        StartMarker = "The MIT License (MIT)"
+        EndMarker = "THE SOFTWARE."
+        Sha256 = "5760a1a32c5b06c462ecacda9162d6987ae8fa3738f522e55dcd31120a190e4c"
+    },
+    [pscustomobject]@{
+        Name = "OFL-1.1"
+        StartMarker = "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007"
+        EndMarker = "OTHER DEALINGS IN THE FONT SOFTWARE."
+        Sha256 = "a79eba37ac2bb75da2e17e0854aeeeebaa7e4a49fb120e63162f333df394831d"
+    }
+)
 
 function Resolve-WindowsDistributionTargetPolicy {
     param([Parameter(Mandatory)][string]$TargetId)
@@ -705,6 +747,38 @@ function Assert-NoReparsePointInPath {
     }
 }
 
+function Get-OrdinalOccurrenceCount {
+    param(
+        [Parameter(Mandatory)][string]$Content,
+        [Parameter(Mandatory)][string]$Value
+    )
+
+    $count = 0
+    $startIndex = 0
+    while ($startIndex -le $Content.Length - $Value.Length) {
+        $index = $Content.IndexOf(
+            $Value, $startIndex, [StringComparison]::Ordinal)
+        if ($index -lt 0) { break }
+        $count++
+        $startIndex = $index + $Value.Length
+    }
+    return $count
+}
+
+function Get-Utf8TextSha256 {
+    param([Parameter(Mandatory)][string]$Content)
+
+    $algorithm = $null
+    try {
+        $algorithm = [Security.Cryptography.SHA256]::Create()
+        $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Content)
+        $hash = $algorithm.ComputeHash($bytes)
+        return ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+    } finally {
+        if ($null -ne $algorithm) { $algorithm.Dispose() }
+    }
+}
+
 function Assert-ThirdPartyNoticeContent {
     param([Parameter(Mandatory)][string]$Path)
 
@@ -720,9 +794,47 @@ function Assert-ThirdPartyNoticeContent {
     if ([string]::IsNullOrWhiteSpace($content)) {
         throw "PUBLIC_NOTICE_WHITESPACE_ONLY: $Path"
     }
+
+    $content = $content.Replace("`r`n", "`n").Replace("`r", "`n")
+    $previousIndex = -1
     foreach ($marker in $script:RequiredThirdPartyNoticeMarkers) {
-        if ($content.IndexOf($marker, [StringComparison]::Ordinal) -lt 0) {
+        $markerIndex = $content.IndexOf($marker, [StringComparison]::Ordinal)
+        if ($markerIndex -lt 0) {
             throw "PUBLIC_NOTICE_REQUIRED_SECTION_MISSING: $marker"
+        }
+        if ((Get-OrdinalOccurrenceCount -Content $content -Value $marker) -ne 1) {
+            throw "PUBLIC_NOTICE_REQUIRED_SECTION_DUPLICATE: $marker"
+        }
+        if ($markerIndex -le $previousIndex) {
+            throw "PUBLIC_NOTICE_REQUIRED_SECTION_ORDER_INVALID: $marker"
+        }
+        $previousIndex = $markerIndex
+    }
+
+    foreach ($fragment in $script:RequiredThirdPartyNoticeFragments) {
+        if ((Get-OrdinalOccurrenceCount -Content $content -Value $fragment) -ne 1) {
+            throw "PUBLIC_NOTICE_REQUIRED_INVENTORY_INVALID: $fragment"
+        }
+    }
+
+    foreach ($contract in $script:ThirdPartyNoticeBodyContracts) {
+        if ((Get-OrdinalOccurrenceCount -Content $content `
+                -Value $contract.StartMarker) -ne 1 -or
+            (Get-OrdinalOccurrenceCount -Content $content `
+                -Value $contract.EndMarker) -ne 1) {
+            throw "PUBLIC_NOTICE_LICENSE_BODY_BOUNDARY_INVALID: $($contract.Name)"
+        }
+        $startIndex = $content.IndexOf(
+            $contract.StartMarker, [StringComparison]::Ordinal)
+        $endIndex = $content.IndexOf(
+            $contract.EndMarker, [StringComparison]::Ordinal)
+        if ($endIndex -lt $startIndex) {
+            throw "PUBLIC_NOTICE_LICENSE_BODY_BOUNDARY_INVALID: $($contract.Name)"
+        }
+        $bodyLength = $endIndex + $contract.EndMarker.Length - $startIndex
+        $body = $content.Substring($startIndex, $bodyLength)
+        if ((Get-Utf8TextSha256 -Content $body) -cne $contract.Sha256) {
+            throw "PUBLIC_NOTICE_LICENSE_BODY_HASH_MISMATCH: $($contract.Name)"
         }
     }
 }

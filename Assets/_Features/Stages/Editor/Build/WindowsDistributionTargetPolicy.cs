@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 public enum ProviderSelectionMode
 {
@@ -92,6 +94,49 @@ public static class WindowsDistributionTargetPolicy
             "Open Font Software",
             "SIL OPEN FONT LICENSE Version 1.1",
         });
+    public static readonly IReadOnlyList<string> ThirdPartyNoticeRequiredFragments =
+        Array.AsReadOnly(new[]
+        {
+            "License: BSD 3-Clause",
+            "Source: https://github.com/Unity-UI-Extensions/com.unity.uiextensions",
+            "Copyright (c) 2019",
+            "License: MIT",
+            "Source: https://github.com/rlabrecque/Steamworks.NET",
+            "Copyright (c) 2013-2022 Riley Labrecque",
+            "Component: steam_api64.dll",
+            "Provider: Valve Corporation",
+            "not licensed under the Steamworks.NET MIT License reproduced above.",
+            "Orbitron\n\nCopyright 2018 The Orbitron Project Authors",
+            "with Reserved Font Name: \"Orbitron\"",
+            "Exo 2.0\n\nStyles included: Regular, SemiBold",
+            "with Reserved Font Name 'Exo'",
+            "Saira Condensed\n\nStyle included in the current build: SemiBold",
+            "reserved font name \"Saira\".",
+            "Climate Crisis KR\n\nStyles included: 2000, 2019",
+            "Copyright 2022, NohType with Reserved Font Name \"Climate Crisis\"",
+            "Liberation Sans\n\nDigitized data copyright (c) 2010 Google Corporation",
+            "Copyright (c) 2012 Red Hat, Inc.",
+            "with Reserved Font Name Liberation.",
+        });
+
+    private static readonly ThirdPartyNoticeBodyContract[] ThirdPartyNoticeBodyContracts =
+    {
+        new ThirdPartyNoticeBodyContract(
+            "BSD-3-Clause",
+            "Copyright (c) 2019",
+            "SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.",
+            "c6a4a8ed2a82b50bb6c71da4211ab64903d7c752e8c91b149a2364165aa717de"),
+        new ThirdPartyNoticeBodyContract(
+            "MIT",
+            "The MIT License (MIT)",
+            "THE SOFTWARE.",
+            "5760a1a32c5b06c462ecacda9162d6987ae8fa3738f522e55dcd31120a190e4c"),
+        new ThirdPartyNoticeBodyContract(
+            "OFL-1.1",
+            "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007",
+            "OTHER DEALINGS IN THE FONT SOFTWARE.",
+            "a79eba37ac2bb75da2e17e0854aeeeebaa7e4a49fb120e63162f333df394831d"),
+    };
 
     public static readonly WindowsDistributionTargetConfiguration DirectWindows =
         new WindowsDistributionTargetConfiguration(
@@ -261,6 +306,56 @@ public static class WindowsDistributionTargetPolicy
         return WindowsDistributionValidationFailure.None;
     }
 
+    public static bool HasValidThirdPartyNoticeContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
+        var normalized = NormalizeLineEndings(content);
+        var previousIndex = -1;
+        foreach (var marker in ThirdPartyNoticeRequiredMarkers)
+        {
+            if (!TryGetUniqueOrdinalIndex(normalized, marker, out var markerIndex) ||
+                markerIndex <= previousIndex)
+            {
+                return false;
+            }
+
+            previousIndex = markerIndex;
+        }
+
+        if (ThirdPartyNoticeRequiredFragments.Any(
+                fragment => CountOrdinalOccurrences(normalized, fragment) != 1))
+        {
+            return false;
+        }
+
+        foreach (var contract in ThirdPartyNoticeBodyContracts)
+        {
+            if (!TryGetUniqueOrdinalIndex(normalized, contract.StartMarker, out var startIndex) ||
+                !TryGetUniqueOrdinalIndex(normalized, contract.EndMarker, out var endIndex) ||
+                endIndex < startIndex)
+            {
+                return false;
+            }
+
+            var body = normalized.Substring(
+                startIndex,
+                endIndex + contract.EndMarker.Length - startIndex);
+            if (!string.Equals(
+                    ComputeUtf8Sha256(body),
+                    contract.ExpectedSha256,
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static bool IsCanonicalPublicNoticePath(string path)
     {
         return string.Equals(
@@ -273,6 +368,52 @@ public static class WindowsDistributionTargetPolicy
                    StringComparison.Ordinal);
     }
 
+    private static string NormalizeLineEndings(string value)
+    {
+        return value.Replace("\r\n", "\n").Replace('\r', '\n');
+    }
+
+    private static bool TryGetUniqueOrdinalIndex(
+        string content,
+        string value,
+        out int index)
+    {
+        index = content.IndexOf(value, StringComparison.Ordinal);
+        return index >= 0 &&
+               content.IndexOf(
+                   value,
+                   index + value.Length,
+                   StringComparison.Ordinal) < 0;
+    }
+
+    private static int CountOrdinalOccurrences(string content, string value)
+    {
+        var count = 0;
+        var startIndex = 0;
+        while (startIndex <= content.Length - value.Length)
+        {
+            var index = content.IndexOf(value, startIndex, StringComparison.Ordinal);
+            if (index < 0)
+            {
+                break;
+            }
+
+            count++;
+            startIndex = index + value.Length;
+        }
+
+        return count;
+    }
+
+    private static string ComputeUtf8Sha256(string value)
+    {
+        using (var algorithm = SHA256.Create())
+        {
+            var hash = algorithm.ComputeHash(new UTF8Encoding(false).GetBytes(value));
+            return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+        }
+    }
+
     private static bool ValidTokens(IEnumerable<string> values)
     {
         return values != null && values.All(value => !string.IsNullOrWhiteSpace(value));
@@ -283,5 +424,25 @@ public static class WindowsDistributionTargetPolicy
         IEnumerable<string> second)
     {
         return first.SequenceEqual(second, StringComparer.Ordinal);
+    }
+
+    private sealed class ThirdPartyNoticeBodyContract
+    {
+        public ThirdPartyNoticeBodyContract(
+            string name,
+            string startMarker,
+            string endMarker,
+            string expectedSha256)
+        {
+            Name = name;
+            StartMarker = startMarker;
+            EndMarker = endMarker;
+            ExpectedSha256 = expectedSha256;
+        }
+
+        public string Name { get; }
+        public string StartMarker { get; }
+        public string EndMarker { get; }
+        public string ExpectedSha256 { get; }
     }
 }

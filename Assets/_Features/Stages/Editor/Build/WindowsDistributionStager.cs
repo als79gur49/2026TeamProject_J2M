@@ -558,13 +558,11 @@ public static class WindowsDistributionStager
                 "ThirdPartyNotices.txt must be a readable UTF-8 text file.");
         }
 
-        if (string.IsNullOrWhiteSpace(content) ||
-            WindowsDistributionTargetPolicy.ThirdPartyNoticeRequiredMarkers.Any(
-                marker => content.IndexOf(marker, StringComparison.Ordinal) < 0))
+        if (!WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(content))
         {
             throw Failure(
                 "STAGING_PUBLIC_NOTICE_INVALID",
-                "ThirdPartyNotices.txt is empty or missing required license sections.");
+                "ThirdPartyNotices.txt is incomplete or does not match the approved license contract.");
         }
     }
 

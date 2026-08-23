@@ -51,14 +51,10 @@ function Write-JsonFixture {
         Set-Content -LiteralPath $Path -Encoding UTF8
 }
 function Get-ValidThirdPartyNoticeFixture {
-    return @"
-VectorQuake Third-Party Notices
-Unity UI Extensions
-Steamworks.NET (Steam distribution only)
-Valve Steamworks SDK Redistributable (Steam distribution only)
-Open Font Software
-SIL OPEN FONT LICENSE Version 1.1
-"@
+    $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+    return [IO.File]::ReadAllText(
+        (Join-Path $repositoryRoot "ThirdPartyNotices.txt"),
+        [Text.UTF8Encoding]::new($false, $true))
 }
 function New-PublicNoticeGitFixture {
     param(
@@ -1379,6 +1375,105 @@ try {
                 "PUBLIC_NOTICE_REQUIRED_SECTION_MISSING:*"
         }
         Assert-True $threw
+    }
+    Invoke-Case "marker-only public notice is rejected" {
+        $noticePath = Join-Path $temp "marker-only-notice.txt"
+        [IO.File]::WriteAllText(
+            $noticePath,
+            ($script:RequiredThirdPartyNoticeMarkers -join "`n"),
+            [Text.UTF8Encoding]::new($false))
+        $threw = $false
+        try {
+            Assert-ThirdPartyNoticeContent -Path $noticePath
+        } catch {
+            $threw = $_.Exception.Message -like `
+                "PUBLIC_NOTICE_REQUIRED_INVENTORY_INVALID:*"
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "public notice rejects every missing component inventory fragment" {
+        $validNotice = Get-ValidThirdPartyNoticeFixture
+        $noticePath = Join-Path $temp "missing-inventory-notice.txt"
+        foreach ($fragment in $script:RequiredThirdPartyNoticeFragments) {
+            $mutated = $validNotice.Replace($fragment, "")
+            Assert-False ($mutated -ceq $validNotice) "Fixture did not contain: $fragment"
+            [IO.File]::WriteAllText(
+                $noticePath, $mutated, [Text.UTF8Encoding]::new($false))
+            $threw = $false
+            try {
+                Assert-ThirdPartyNoticeContent -Path $noticePath
+            } catch {
+                $threw = $true
+            }
+            Assert-True $threw "Missing inventory fragment was accepted: $fragment"
+        }
+    }
+    Invoke-Case "public notice rejects mutations inside every canonical license body" {
+        $validNotice = Get-ValidThirdPartyNoticeFixture
+        $noticePath = Join-Path $temp "mutated-license-body-notice.txt"
+        $mutations = @(
+            @{
+                From = "are permitted provided that the following conditions are met:"
+                To = "are allowed provided that the following conditions are met:"
+            },
+            @{
+                From = "to use, copy, modify, merge, publish, distribute, sublicense"
+                To = "to use, modify, merge, publish, distribute, sublicense"
+            },
+            @{
+                From = "development of collaborative font projects"
+                To = "development of font projects"
+            }
+        )
+        foreach ($mutation in $mutations) {
+            $mutated = $validNotice.Replace($mutation.From, $mutation.To)
+            Assert-False ($mutated -ceq $validNotice) `
+                "Fixture did not contain: $($mutation.From)"
+            [IO.File]::WriteAllText(
+                $noticePath, $mutated, [Text.UTF8Encoding]::new($false))
+            $threw = $false
+            try {
+                Assert-ThirdPartyNoticeContent -Path $noticePath
+            } catch {
+                $threw = $_.Exception.Message -like `
+                    "PUBLIC_NOTICE_LICENSE_BODY_HASH_MISMATCH:*"
+            }
+            Assert-True $threw "Mutated license body was accepted: $($mutation.From)"
+        }
+    }
+    Invoke-Case "public notice rejects duplicate and reordered required sections" {
+        $validNotice = Get-ValidThirdPartyNoticeFixture
+        $noticePath = Join-Path $temp "invalid-section-structure-notice.txt"
+        [IO.File]::WriteAllText(
+            $noticePath,
+            $validNotice + "`nUnity UI Extensions`n",
+            [Text.UTF8Encoding]::new($false))
+        $duplicateThrew = $false
+        try {
+            Assert-ThirdPartyNoticeContent -Path $noticePath
+        } catch {
+            $duplicateThrew = $_.Exception.Message -like `
+                "PUBLIC_NOTICE_REQUIRED_SECTION_DUPLICATE:*"
+        }
+        Assert-True $duplicateThrew
+
+        $reordered = $validNotice.Replace(
+            "Unity UI Extensions", "__UI_SECTION__")
+        $reordered = $reordered.Replace(
+            "Steamworks.NET (Steam distribution only)",
+            "Unity UI Extensions")
+        $reordered = $reordered.Replace(
+            "__UI_SECTION__", "Steamworks.NET (Steam distribution only)")
+        [IO.File]::WriteAllText(
+            $noticePath, $reordered, [Text.UTF8Encoding]::new($false))
+        $orderThrew = $false
+        try {
+            Assert-ThirdPartyNoticeContent -Path $noticePath
+        } catch {
+            $orderThrew = $_.Exception.Message -like `
+                "PUBLIC_NOTICE_REQUIRED_SECTION_ORDER_INVALID:*"
+        }
+        Assert-True $orderThrew
     }
     Invoke-Case "public notice working file must match committed blob" {
         $fixture = New-PublicNoticeGitFixture `

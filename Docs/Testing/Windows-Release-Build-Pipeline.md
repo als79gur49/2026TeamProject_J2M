@@ -304,9 +304,13 @@ root `ThirdPartyNotices.txt` as `payload/ThirdPartyNotices.txt`, beside
 `VectorQuake.exe`. Before Unity starts, the wrapper requires that notice to be a
 tracked `100644` regular blob at the exact source revision, rejects reparse
 points, compares the checked-out file with the committed Git blob, decodes it as
-strict UTF-8, and verifies the required public-license sections. Empty,
-whitespace-only, incomplete, non-blob, or modified detached notices fail the
-`public-notices` stage with wrapper exit code `117`, avoiding a wasted Unity
+strict UTF-8, and validates the public-license contract. The required top-level
+sections must each occur exactly once and in canonical order; the component,
+source, copyright, provider, and reserved-font-name inventory must be complete;
+and the normalized BSD 3-Clause, MIT, and OFL 1.1 license bodies must match their
+approved SHA-256 values. Empty, whitespace-only, marker-only, incomplete,
+duplicated, reordered, body-mutated, non-blob, or modified detached notices fail
+the `public-notices` stage with wrapper exit code `117`, avoiding a wasted Unity
 build. An untracked invocation notice is rejected even earlier by the existing
 clean-source gate. After Unity succeeds and its build evidence is accepted, the
 wrapper copies the preflight-approved notice from the detached source and

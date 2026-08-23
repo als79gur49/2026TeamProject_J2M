@@ -96,7 +96,8 @@ function New-PromotedFixture {
         [bool]$IncludeNative = $true,
         [bool]$IncludeManaged = $true,
         [bool]$IncludeSteamAppId = $false,
-        [bool]$IncludeDenied = $false
+        [bool]$IncludeDenied = $false,
+        [AllowNull()][string]$NoticeContent
     )
 
     $payload = Join-Path $Root "payload"
@@ -105,14 +106,15 @@ function New-PromotedFixture {
     [IO.Directory]::CreateDirectory($evidence) | Out-Null
     Write-Utf8File (Join-Path $payload "VectorQuake.exe") "exe"
     if ($IncludeNotice) {
-        Write-Utf8File (Join-Path $payload "ThirdPartyNotices.txt") @"
-VectorQuake Third-Party Notices
-Unity UI Extensions
-Steamworks.NET (Steam distribution only)
-Valve Steamworks SDK Redistributable (Steam distribution only)
-Open Font Software
-SIL OPEN FONT LICENSE Version 1.1
-"@
+        $noticeSource = Join-Path $script:RepositoryRoot "ThirdPartyNotices.txt"
+        $notice = if ($PSBoundParameters.ContainsKey("NoticeContent")) {
+            $NoticeContent
+        } else {
+            [IO.File]::ReadAllText(
+                $noticeSource,
+                [Text.UTF8Encoding]::new($false, $true))
+        }
+        Write-Utf8File (Join-Path $payload "ThirdPartyNotices.txt") $notice
     }
     if ($IncludeUnityPlayer) {
         Write-Utf8File (Join-Path $payload "UnityPlayer.dll") "unity"
@@ -1474,6 +1476,24 @@ try {
         Assert-ThrowsContaining {
             Invoke-PrepareSteamPipeBuild @arguments
         } "STAGING_REQUIRED_PUBLIC_NOTICE_MISSING"
+        Assert-FinalOutputAbsent $output
+    }
+
+    Invoke-Case "matching manifest with mutated public notice body is rejected" {
+        $canonicalNotice = [IO.File]::ReadAllText(
+            (Join-Path $script:RepositoryRoot "ThirdPartyNotices.txt"),
+            [Text.UTF8Encoding]::new($false, $true))
+        $mutatedNotice = $canonicalNotice.Replace(
+            "development of collaborative font projects",
+            "development of font projects")
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "mutated-public-notice") `
+            -NoticeContent $mutatedNotice
+        $output = Join-Path $script:FixtureRoot "mutated-public-notice-output"
+        $arguments = New-ValidArguments $promoted $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STAGING_PUBLIC_NOTICE_INVALID"
         Assert-FinalOutputAbsent $output
     }
 
