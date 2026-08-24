@@ -44,12 +44,21 @@ function Get-ValidThirdPartyNoticeFixture {
         [Text.UTF8Encoding]::new($false, $true))
 }
 
+function Get-ValidUnityPlayerThirdPartyNoticeFixture {
+    $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+    return [IO.File]::ReadAllBytes(
+        (Join-Path $repositoryRoot "UnityPlayerThirdPartyNotices.pdf"))
+}
+
 function New-RawFixture {
     param([string]$Root)
     New-Item -ItemType Directory -Path $Root -Force | Out-Null
     Write-FixtureFile $Root "VectorQuake.exe" "exe"
     Write-FixtureFile $Root "ThirdPartyNotices.txt" `
         (Get-ValidThirdPartyNoticeFixture)
+    [IO.File]::WriteAllBytes(
+        (Join-Path $Root "UnityPlayerThirdPartyNotices.pdf"),
+        (Get-ValidUnityPlayerThirdPartyNoticeFixture))
     Write-FixtureFile $Root "UnityPlayer.dll" "unity"
     Write-FixtureFile $Root "VectorQuake_Data\globalgamemanagers" "managers"
     Write-FixtureFile $Root "MonoBleedingEdge\etc\mono\config" "mono-runtime"
@@ -92,6 +101,9 @@ try {
         Assert-Equal 0 $result.SteamAppIdCount
         Assert-True (Test-Path -LiteralPath (
             Join-Path $result.PayloadRoot "ThirdPartyNotices.txt") -PathType Leaf)
+        Assert-True (Test-Path -LiteralPath (
+            Join-Path $result.PayloadRoot `
+                "UnityPlayerThirdPartyNotices.pdf") -PathType Leaf)
         Assert-True (Test-Path -LiteralPath $result.ManifestPath -PathType Leaf)
         Assert-True (Test-Path -LiteralPath $result.SuccessPath -PathType Leaf)
         Assert-True ((Get-Content -LiteralPath $result.SuccessPath -Raw).Contains(
@@ -111,6 +123,9 @@ try {
         Assert-Equal 0 $result.DeniedArtifactCount
         Assert-True (Test-Path -LiteralPath (
             Join-Path $result.PayloadRoot "ThirdPartyNotices.txt") -PathType Leaf)
+        Assert-True (Test-Path -LiteralPath (
+            Join-Path $result.PayloadRoot `
+                "UnityPlayerThirdPartyNotices.pdf") -PathType Leaf)
     }
 
     Invoke-Case "repository drift fails before final promotion" {
@@ -182,6 +197,51 @@ try {
         [IO.File]::WriteAllText(
             $noticePath, $content, [Text.UTF8Encoding]::new($false))
         $output = Join-Path $fixtureRoot "mutated-notice-output"
+        $threw = $false
+        try {
+            Invoke-WindowsDistributionStaging `
+                -SourceBuildRoot $invalidRawRoot `
+                -DistributionTarget "direct-windows" `
+                -OutputRoot $output `
+                -RepositoryRoot $repositoryRoot | Out-Null
+        } catch {
+            $threw = $_.Exception.Message.Contains(
+                "STAGING_PUBLIC_NOTICE_INVALID")
+        }
+        Assert-True $threw
+        Assert-True (-not (Test-Path -LiteralPath $output))
+    }
+
+    Invoke-Case "wrapper rejects a missing Unity Player notice" {
+        $invalidRawRoot = Join-Path $fixtureRoot "missing-unity-notice-raw"
+        New-RawFixture $invalidRawRoot
+        [IO.File]::Delete((Join-Path `
+            $invalidRawRoot "UnityPlayerThirdPartyNotices.pdf"))
+        $output = Join-Path $fixtureRoot "missing-unity-notice-output"
+        $threw = $false
+        try {
+            Invoke-WindowsDistributionStaging `
+                -SourceBuildRoot $invalidRawRoot `
+                -DistributionTarget "direct-windows" `
+                -OutputRoot $output `
+                -RepositoryRoot $repositoryRoot | Out-Null
+        } catch {
+            $threw = $_.Exception.Message.Contains(
+                "STAGING_REQUIRED_PUBLIC_NOTICE_MISSING")
+        }
+        Assert-True $threw
+        Assert-True (-not (Test-Path -LiteralPath $output))
+    }
+
+    Invoke-Case "wrapper rejects a mutated Unity Player notice" {
+        $invalidRawRoot = Join-Path $fixtureRoot "mutated-unity-notice-raw"
+        New-RawFixture $invalidRawRoot
+        $noticePath = Join-Path `
+            $invalidRawRoot "UnityPlayerThirdPartyNotices.pdf"
+        $content = [IO.File]::ReadAllBytes($noticePath)
+        $content[100] = $content[100] -bxor 1
+        [IO.File]::WriteAllBytes($noticePath, $content)
+        $output = Join-Path $fixtureRoot "mutated-unity-notice-output"
         $threw = $false
         try {
             Invoke-WindowsDistributionStaging `

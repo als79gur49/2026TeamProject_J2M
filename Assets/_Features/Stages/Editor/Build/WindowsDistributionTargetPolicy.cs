@@ -84,28 +84,68 @@ public static class WindowsDistributionTargetPolicy
         "com.rlabrecque.steamworks.net.dll";
     public const string SteamAppIdArtifact = "steam_appid.txt";
     public const string ThirdPartyNoticesArtifact = "ThirdPartyNotices.txt";
+    public const string UnityPlayerThirdPartyNoticesArtifact =
+        "UnityPlayerThirdPartyNotices.pdf";
+    public const int UnityPlayerThirdPartyNoticesSize = 132262;
+    public const string UnityPlayerThirdPartyNoticesSha256 =
+        "7bed0e6f6646552f9262903b62863c693074ac89ccf6291ead7e876033a29623";
+    private const string UnityCompanionLicenseUrl =
+        "https://unity.com/legal/licenses/unity-companion-license";
+    private const int UnityCompanionLicenseUrlOccurrenceCount = 6;
     public static readonly IReadOnlyList<string> ThirdPartyNoticeRequiredMarkers =
         Array.AsReadOnly(new[]
         {
             "VectorQuake Third-Party Notices",
+            "Unity Player Runtime Third-Party Notices",
             "Unity UI Extensions",
             "Steamworks.NET (Steam distribution only)",
             "Valve Steamworks SDK Redistributable (Steam distribution only)",
+            "Commercial Third-Party Assets",
+            "Ovani Sound Audio Assets",
+            "Unity Package Notices",
             "Open Font Software",
             "SIL OPEN FONT LICENSE Version 1.1",
         });
     public static readonly IReadOnlyList<string> ThirdPartyNoticeRequiredFragments =
         Array.AsReadOnly(new[]
         {
+            "provided separately in UnityPlayerThirdPartyNotices.pdf.",
+            "Product: Unity Player\nPlatform: Windows\n" +
+            "Scripting backend: Mono\nVersion: 6000.3.11f1",
+            "Player_Windows_Mono_6000_3_11f1_b7ab078964.pdf",
             "License: BSD 3-Clause",
             "Source: https://github.com/Unity-UI-Extensions/com.unity.uiextensions",
-            "Copyright (c) 2019",
             "License: MIT",
             "Source: https://github.com/rlabrecque/Steamworks.NET",
             "Copyright (c) 2013-2022 Riley Labrecque",
             "Component: steam_api64.dll",
             "Provider: Valve Corporation",
             "not licensed under the Steamworks.NET MIT License reproduced above.",
+            "DOTween Pro\nProvider: Demigiant / Daniele Giardini",
+            "INTERFACE - Sci-Fi Soldier HUD\nProvider: Synty Studios",
+            "Casual & Mobile Sound FX Pack Vol. 3",
+            "Mutated Beings Sound FX Pack",
+            "Runtime packages whose bundled third-party notices are reproduced below:",
+            "com.unity.cinemachine 3.1.6",
+            "com.unity.nuget.newtonsoft-json 3.2.2",
+            "com.unity.localization 1.5.12",
+            "com.unity.visualscripting 1.9.10",
+            "com.unity.render-pipelines.universal 17.3.0",
+            "com.unity.render-pipelines.core 17.3.0",
+            "com.unity.burst 1.8.28",
+            "# [Clipper](http://www.angusj.com/delphi/clipper.php)",
+            "Component Name: Newtonsoft.Json\n\nLicense Type: MIT\n\nThe MIT License (MIT)",
+            "Component Name: **SmartFormat**",
+            "Component Name: AQN Parser",
+            "Component Name: Full Serializer",
+            "Component Name: Ensure.That",
+            "Component Name: NCalc",
+            "Component Name: Antlr 3 Runtime",
+            "Component Name: FXAA3_11.h (renamed to FXAA3_11.hlsl)",
+            "Component Name: RadeonRays 4.1",
+            "Component Name: Sobol sampler",
+            "Component Name: LLVM",
+            "Component Name: mimalloc",
             "Orbitron\n\nCopyright 2018 The Orbitron Project Authors",
             "with Reserved Font Name: \"Orbitron\"",
             "Exo 2.0\n\nStyles included: Regular, SemiBold",
@@ -122,20 +162,35 @@ public static class WindowsDistributionTargetPolicy
     private static readonly ThirdPartyNoticeBodyContract[] ThirdPartyNoticeBodyContracts =
     {
         new ThirdPartyNoticeBodyContract(
-            "BSD-3-Clause",
-            "Copyright (c) 2019",
-            "SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.",
+            "unity-ui-extensions-bsd-3-clause",
             "c6a4a8ed2a82b50bb6c71da4211ab64903d7c752e8c91b149a2364165aa717de"),
         new ThirdPartyNoticeBodyContract(
-            "MIT",
-            "The MIT License (MIT)",
-            "THE SOFTWARE.",
+            "steamworks-net-mit",
             "5760a1a32c5b06c462ecacda9162d6987ae8fa3738f522e55dcd31120a190e4c"),
         new ThirdPartyNoticeBodyContract(
-            "OFL-1.1",
-            "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007",
-            "OTHER DEALINGS IN THE FONT SOFTWARE.",
-            "a79eba37ac2bb75da2e17e0854aeeeebaa7e4a49fb120e63162f333df394831d"),
+            "upm-cinemachine-3.1.6",
+            "678229d5dd2445ce43fc6946384bd1d1b6fdfc9c536685a6cc9aac36163758c8"),
+        new ThirdPartyNoticeBodyContract(
+            "upm-newtonsoft-json-3.2.2",
+            "3adf7770d103fc1c5f9830d41003d961ed2e52efa2f6f76c59275e744df70f26"),
+        new ThirdPartyNoticeBodyContract(
+            "upm-localization-smartformat-1.5.12",
+            "67223356b8edd8ba7607c5096dfa235ff8e8ddd821fd37666df93928863962b2"),
+        new ThirdPartyNoticeBodyContract(
+            "upm-visualscripting-runtime-1.9.10",
+            "b127bcfedf86708096ff926af6fd40d3025f762e561eaf029cdae20969ba043f"),
+        new ThirdPartyNoticeBodyContract(
+            "upm-urp-fxaa-17.3.0",
+            "383daf405e3a8569b3e591b09970ba040abd5491615fe17868205f05627e138a"),
+        new ThirdPartyNoticeBodyContract(
+            "upm-render-pipelines-core-runtime-17.3.0",
+            "6a43a4582d54e450f53f7596e068a3dac8486e2c94b04839139c548e3725d7f4"),
+        new ThirdPartyNoticeBodyContract(
+            "upm-burst-1.8.28",
+            "496c579fc20d6bfcb4e19cf0eafd85eb20dc2d3a93e545f11bcfec79aca76ea0"),
+        new ThirdPartyNoticeBodyContract(
+            "open-font-license-1.1",
+            "6f9807a7127177a76fae2209e11f4b90d01a50cbfdb3dfe5704c2dcb2c68a3d1"),
     };
 
     public static readonly WindowsDistributionTargetConfiguration DirectWindows =
@@ -145,7 +200,11 @@ public static class WindowsDistributionTargetPolicy
             ProviderSelectionMode.DefaultWhenUnspecified,
             LocalProviderId,
             Array.Empty<string>(),
-            new[] { ThirdPartyNoticesArtifact },
+            new[]
+            {
+                ThirdPartyNoticesArtifact,
+                UnityPlayerThirdPartyNoticesArtifact,
+            },
             new[]
             {
                 SteamNativeArtifact,
@@ -163,6 +222,7 @@ public static class WindowsDistributionTargetPolicy
             new[]
             {
                 ThirdPartyNoticesArtifact,
+                UnityPlayerThirdPartyNoticesArtifact,
                 SteamNativeArtifact,
                 SteamManagedBindingArtifact,
             },
@@ -281,18 +341,23 @@ public static class WindowsDistributionTargetPolicy
             artifactPaths.Select(Path.GetFileName),
             StringComparer.OrdinalIgnoreCase);
 
-        var requiresPublicNotice = configuration.RequiredArtifacts.Contains(
-            ThirdPartyNoticesArtifact, StringComparer.OrdinalIgnoreCase);
-        if (requiresPublicNotice && !artifactPaths.Any(IsCanonicalPublicNoticePath))
+        var publicNoticeArtifacts = new[]
+        {
+            ThirdPartyNoticesArtifact,
+            UnityPlayerThirdPartyNoticesArtifact,
+        };
+        if (publicNoticeArtifacts.Any(publicNotice =>
+                configuration.RequiredArtifacts.Contains(
+                    publicNotice, StringComparer.OrdinalIgnoreCase) &&
+                !artifactPaths.Any(path => IsCanonicalPublicNoticePath(
+                    path, publicNotice))))
         {
             return WindowsDistributionValidationFailure.RequiredArtifactMissing;
         }
 
         if (configuration.RequiredArtifacts.Any(required =>
-                !string.Equals(
-                    required,
-                    ThirdPartyNoticesArtifact,
-                    StringComparison.OrdinalIgnoreCase) &&
+                !publicNoticeArtifacts.Contains(
+                    required, StringComparer.OrdinalIgnoreCase) &&
                 !fileNames.Contains(required)))
         {
             return WindowsDistributionValidationFailure.RequiredArtifactMissing;
@@ -331,19 +396,32 @@ public static class WindowsDistributionTargetPolicy
         {
             return false;
         }
+        if (CountOrdinalOccurrences(normalized, UnityCompanionLicenseUrl) !=
+            UnityCompanionLicenseUrlOccurrenceCount)
+        {
+            return false;
+        }
 
         foreach (var contract in ThirdPartyNoticeBodyContracts)
         {
-            if (!TryGetUniqueOrdinalIndex(normalized, contract.StartMarker, out var startIndex) ||
-                !TryGetUniqueOrdinalIndex(normalized, contract.EndMarker, out var endIndex) ||
-                endIndex < startIndex)
+            var startMarker =
+                "----- BEGIN NOTICE: " + contract.Name + " -----\n";
+            var endMarker =
+                "\n----- END NOTICE: " + contract.Name + " -----";
+            if (!TryGetUniqueOrdinalIndex(normalized, startMarker, out var startIndex) ||
+                !TryGetUniqueOrdinalIndex(normalized, endMarker, out var endIndex))
             {
                 return false;
             }
 
+            startIndex += startMarker.Length;
+            if (endIndex < startIndex)
+            {
+                return false;
+            }
             var body = normalized.Substring(
                 startIndex,
-                endIndex + contract.EndMarker.Length - startIndex);
+                endIndex - startIndex);
             if (!string.Equals(
                     ComputeUtf8Sha256(body),
                     contract.ExpectedSha256,
@@ -356,15 +434,41 @@ public static class WindowsDistributionTargetPolicy
         return true;
     }
 
-    private static bool IsCanonicalPublicNoticePath(string path)
+    public static bool HasValidUnityPlayerThirdPartyNoticeContent(byte[] content)
+    {
+        if (content == null ||
+            content.Length != UnityPlayerThirdPartyNoticesSize ||
+            content.Length < 5 ||
+            !string.Equals(
+                Encoding.ASCII.GetString(content, 0, 5),
+                "%PDF-",
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        using (var algorithm = SHA256.Create())
+        {
+            var hash = algorithm.ComputeHash(content);
+            var actual = BitConverter.ToString(hash)
+                .Replace("-", string.Empty)
+                .ToLowerInvariant();
+            return string.Equals(
+                actual,
+                UnityPlayerThirdPartyNoticesSha256,
+                StringComparison.Ordinal);
+        }
+    }
+
+    private static bool IsCanonicalPublicNoticePath(string path, string artifact)
     {
         return string.Equals(
                    path,
-                   ThirdPartyNoticesArtifact,
+                   artifact,
                    StringComparison.Ordinal) ||
                string.Equals(
                    path,
-                   "payload/" + ThirdPartyNoticesArtifact,
+                   "payload/" + artifact,
                    StringComparison.Ordinal);
     }
 
@@ -430,19 +534,13 @@ public static class WindowsDistributionTargetPolicy
     {
         public ThirdPartyNoticeBodyContract(
             string name,
-            string startMarker,
-            string endMarker,
             string expectedSha256)
         {
             Name = name;
-            StartMarker = startMarker;
-            EndMarker = endMarker;
             ExpectedSha256 = expectedSha256;
         }
 
         public string Name { get; }
-        public string StartMarker { get; }
-        public string EndMarker { get; }
         public string ExpectedSha256 { get; }
     }
 }

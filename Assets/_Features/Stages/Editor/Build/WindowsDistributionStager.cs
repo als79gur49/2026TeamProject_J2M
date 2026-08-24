@@ -396,6 +396,10 @@ public static class WindowsDistributionStager
                 path,
                 WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
                 StringComparison.Ordinal) ||
+            string.Equals(
+                path,
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
+                StringComparison.Ordinal) ||
             string.Equals(path, "UnityPlayer.dll", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(path, "UnityCrashHandler64.exe", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(path, "GameAssembly.dll", StringComparison.OrdinalIgnoreCase) ||
@@ -484,7 +488,7 @@ public static class WindowsDistributionStager
         IList<StagedFile> sourceInventory,
         string scriptingBackend)
     {
-        RequirePublicNotice(sourceInventory);
+        RequirePublicNotices(sourceInventory);
         RequireExactFile(sourceInventory, WindowsDistributionTargetPolicy.ExecutableName);
         RequireExactFile(sourceInventory, "UnityPlayer.dll");
         RequireDirectoryContent(sourceInventory, "VectorQuake_Data");
@@ -505,7 +509,7 @@ public static class WindowsDistributionStager
         IList<StagedFile> destinationInventory,
         string scriptingBackend)
     {
-        RequirePublicNotice(destinationInventory);
+        RequirePublicNotices(destinationInventory);
         RequireExactFile(destinationInventory, WindowsDistributionTargetPolicy.ExecutableName);
         RequireExactFile(destinationInventory, "UnityPlayer.dll");
         RequireDirectoryContent(destinationInventory, "VectorQuake_Data");
@@ -527,7 +531,7 @@ public static class WindowsDistributionStager
         RequireExactFile(destinationInventory, "baselib.dll");
     }
 
-    private static void RequirePublicNotice(IList<StagedFile> inventory)
+    private static void RequirePublicNotices(IList<StagedFile> inventory)
     {
         var notices = inventory.Where(file => string.Equals(
                 file.RelativePath,
@@ -563,6 +567,44 @@ public static class WindowsDistributionStager
             throw Failure(
                 "STAGING_PUBLIC_NOTICE_INVALID",
                 "ThirdPartyNotices.txt is incomplete or does not match the approved license contract.");
+        }
+
+        var unityPlayerNotices = inventory.Where(file => string.Equals(
+                file.RelativePath,
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
+                StringComparison.Ordinal))
+            .ToArray();
+        if (unityPlayerNotices.Length != 1)
+        {
+            throw Failure(
+                "STAGING_REQUIRED_PUBLIC_NOTICE_MISSING",
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact +
+                " must exist exactly once at the payload root.");
+        }
+
+        byte[] unityPlayerNoticeContent;
+        try
+        {
+            unityPlayerNoticeContent = File.ReadAllBytes(
+                ToIoPath(unityPlayerNotices[0].FullPath));
+        }
+        catch (Exception exception) when (
+            exception is IOException ||
+            exception is UnauthorizedAccessException)
+        {
+            throw Failure(
+                "STAGING_PUBLIC_NOTICE_INVALID",
+                "UnityPlayerThirdPartyNotices.pdf must be a readable file.");
+        }
+
+        if (!WindowsDistributionTargetPolicy
+                .HasValidUnityPlayerThirdPartyNoticeContent(
+                    unityPlayerNoticeContent))
+        {
+            throw Failure(
+                "STAGING_PUBLIC_NOTICE_INVALID",
+                "UnityPlayerThirdPartyNotices.pdf does not match the approved " +
+                "Unity 6000.3.11f1 Player Windows Mono notice.");
         }
     }
 

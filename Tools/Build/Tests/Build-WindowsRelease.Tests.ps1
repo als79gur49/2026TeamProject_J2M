@@ -56,6 +56,11 @@ function Get-ValidThirdPartyNoticeFixture {
         (Join-Path $repositoryRoot "ThirdPartyNotices.txt"),
         [Text.UTF8Encoding]::new($false, $true))
 }
+function Get-ValidUnityPlayerThirdPartyNoticeFixture {
+    $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+    return [IO.File]::ReadAllBytes(
+        (Join-Path $repositoryRoot "UnityPlayerThirdPartyNotices.pdf"))
+}
 function New-PublicNoticeGitFixture {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -65,6 +70,18 @@ function New-PublicNoticeGitFixture {
     $noticePath = Join-Path $Root "ThirdPartyNotices.txt"
     [IO.File]::WriteAllText(
         $noticePath, $Content, [Text.UTF8Encoding]::new($false))
+    $unityPlayerNoticePath = Join-Path $Root "UnityPlayerThirdPartyNotices.pdf"
+    [IO.File]::WriteAllBytes(
+        $unityPlayerNoticePath,
+        (Get-ValidUnityPlayerThirdPartyNoticeFixture))
+    $packageDependencies = [ordered]@{}
+    foreach ($packageId in $script:ThirdPartyNoticePackageVersions.Keys) {
+        $packageDependencies[$packageId] = [ordered]@{
+            version = $script:ThirdPartyNoticePackageVersions[$packageId]
+        }
+    }
+    Write-JsonFixture (Join-Path $Root "Packages\packages-lock.json") `
+        ([ordered]@{ dependencies = $packageDependencies })
     Invoke-GitText -Root $Root -Arguments @("init", "--quiet") `
         -DisableAutoCrlf | Out-Null
     Invoke-GitText -Root $Root -Arguments @("add", "--all") `
@@ -77,6 +94,7 @@ function New-PublicNoticeGitFixture {
     return [pscustomobject]@{
         Root = $Root
         NoticePath = $noticePath
+        UnityPlayerNoticePath = $unityPlayerNoticePath
         SourceSha = Invoke-GitText -Root $Root `
             -Arguments @("rev-parse", "HEAD") -DisableAutoCrlf
     }
@@ -153,7 +171,10 @@ function New-ZeroErrorEvidenceFixture {
         [string]$ProviderSelectionMode = "DefaultWhenUnspecified",
         [string]$ExpectedProviderId = "local",
         [string[]]$ExpectedLaunchArguments = @(),
-        [string[]]$RequiredArtifacts = @("ThirdPartyNotices.txt"),
+        [string[]]$RequiredArtifacts = @(
+            "ThirdPartyNotices.txt",
+            "UnityPlayerThirdPartyNotices.pdf"
+        ),
         [string[]]$ForbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",
@@ -318,7 +339,10 @@ function New-CanonicalEvidenceExpectation {
         ProviderSelectionMode = "DefaultWhenUnspecified"
         ExpectedProviderId = "local"
         ExpectedLaunchArguments = @()
-        RequiredArtifacts = @("ThirdPartyNotices.txt")
+        RequiredArtifacts = @(
+            "ThirdPartyNotices.txt",
+            "UnityPlayerThirdPartyNotices.pdf"
+        )
         ForbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",
@@ -380,7 +404,7 @@ Invoke-Case "DirectWindows distribution expects Local without selector" {
     Assert-Equal "local" $target.ExpectedProviderId
     Assert-Equal 0 (@($target.ExpectedLaunchArguments).Count)
     Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts `
-        @("ThirdPartyNotices.txt"))
+        @("ThirdPartyNotices.txt", "UnityPlayerThirdPartyNotices.pdf"))
     Assert-Equal "VectorQuake.exe" $target.ExpectedStoreLaunch
 }
 Invoke-Case "SteamWindows distribution expects canonical external selector" {
@@ -393,6 +417,7 @@ Invoke-Case "SteamWindows distribution expects canonical external selector" {
         @("-j2mPlatformProvider", "steam"))
     Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts @(
         "ThirdPartyNotices.txt",
+        "UnityPlayerThirdPartyNotices.pdf",
         "steam_api64.dll",
         "com.rlabrecque.steamworks.net.dll"
     ))
@@ -1194,21 +1219,36 @@ try {
             $sourceNotice,
             (Get-ValidThirdPartyNoticeFixture),
             [Text.UTF8Encoding]::new($false))
+        $sourceUnityPlayerNotice = Join-Path `
+            $noticeSourceRoot "UnityPlayerThirdPartyNotices.pdf"
+        [IO.File]::WriteAllBytes(
+            $sourceUnityPlayerNotice,
+            (Get-ValidUnityPlayerThirdPartyNoticeFixture))
         $sourceHash = Get-Sha256 $sourceNotice
+        $sourceUnityPlayerHash = Get-Sha256 $sourceUnityPlayerNotice
 
         $published = Publish-ThirdPartyNotices `
             -SourceRoot $noticeSourceRoot `
             -PayloadRoot $noticePayloadRoot `
-            -ExpectedSourceSha256 $sourceHash
+            -ExpectedSourceSha256 $sourceHash `
+            -ExpectedUnityPlayerSourceSha256 $sourceUnityPlayerHash
         $destination = Join-Path $noticePayloadRoot "ThirdPartyNotices.txt"
+        $unityPlayerDestination = Join-Path `
+            $noticePayloadRoot "UnityPlayerThirdPartyNotices.pdf"
 
         Assert-True (Test-Path -LiteralPath $destination -PathType Leaf)
-        Assert-Equal $sourceHash $published.Sha256
+        Assert-True (Test-Path -LiteralPath `
+            $unityPlayerDestination -PathType Leaf)
+        Assert-Equal $sourceHash $published.TextSha256
+        Assert-Equal $sourceUnityPlayerHash $published.UnityPlayerPdfSha256
         Assert-Equal $sourceHash (Get-Sha256 $destination)
+        Assert-Equal $sourceUnityPlayerHash (Get-Sha256 $unityPlayerDestination)
         $noticeManifest = New-PayloadManifest $noticeStagingRoot
         $noticePaths = @(Read-PayloadManifest $noticeManifest.Path |
             ForEach-Object { $_.RelativePath })
         Assert-True ($noticePaths -contains "payload/ThirdPartyNotices.txt")
+        Assert-True ($noticePaths -contains `
+            "payload/UnityPlayerThirdPartyNotices.pdf")
         Assert-True (Test-StorePayloadPrivacy $noticeStagingRoot)
         Assert-True (Test-PayloadManifest $noticeStagingRoot)
         Add-Content -LiteralPath $destination -Value "tampered"
@@ -1315,6 +1355,76 @@ try {
         Assert-Equal (Get-Sha256 $fixture.NoticePath) $contract.Sha256
         Assert-True ($contract.BlobId -match '^[0-9a-f]{40,64}$')
     }
+    Invoke-Case "public notice package inventory rejects a committed version drift" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "notice-package-version-drift")
+        $lockPath = Join-Path $fixture.Root "Packages\packages-lock.json"
+        $lock = Get-Content -LiteralPath $lockPath -Raw | ConvertFrom-Json
+        $lock.dependencies.'com.unity.cinemachine'.version = "3.1.7"
+        Write-JsonFixture $lockPath $lock
+        Invoke-GitText -Root $fixture.Root -Arguments @("add", "--all") `
+            -DisableAutoCrlf | Out-Null
+        Invoke-GitText -Root $fixture.Root -Arguments @(
+            "-c", "user.name=Release Tests",
+            "-c", "user.email=release-tests@example.invalid",
+            "commit", "--quiet", "-m", "package version drift"
+        ) -DisableAutoCrlf | Out-Null
+        $sourceSha = Invoke-GitText -Root $fixture.Root `
+            -Arguments @("rev-parse", "HEAD") -DisableAutoCrlf
+
+        $threw = $false
+        try {
+            Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $fixture.Root -SourceRevision $sourceSha | Out-Null
+        } catch {
+            $threw = $_.Exception.Message -like `
+                "PUBLIC_NOTICE_PACKAGE_VERSION_MISMATCH: com.unity.cinemachine*"
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "public notice package lock working file must match committed blob" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "notice-package-lock-modified")
+        Add-Content -LiteralPath (
+            Join-Path $fixture.Root "Packages\packages-lock.json") -Value " "
+
+        $threw = $false
+        try {
+            Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $fixture.Root -SourceRevision $fixture.SourceSha |
+                Out-Null
+        } catch {
+            $threw = $_.Exception.Message -ceq `
+                "PUBLIC_NOTICE_PACKAGE_LOCK_SOURCE_BLOB_MISMATCH"
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "committed Unity Player notice source contract is accepted" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "unity-notice-git-valid")
+
+        $contract = Get-UnityPlayerThirdPartyNoticeSourceContract `
+            -SourceRoot $fixture.Root -SourceRevision $fixture.SourceSha
+
+        Assert-Equal $fixture.UnityPlayerNoticePath $contract.Path
+        Assert-Equal $script:UnityPlayerThirdPartyNoticesSha256 $contract.Sha256
+        Assert-True ($contract.BlobId -match '^[0-9a-f]{40,64}$')
+    }
+    Invoke-Case "Unity Player notice bytes are pinned" {
+        $noticePath = Join-Path $temp "mutated-unity-player-notice.pdf"
+        $bytes = Get-ValidUnityPlayerThirdPartyNoticeFixture
+        $bytes[100] = $bytes[100] -bxor 1
+        [IO.File]::WriteAllBytes($noticePath, $bytes)
+
+        $threw = $false
+        try {
+            Assert-UnityPlayerThirdPartyNoticeContent -Path $noticePath
+        } catch {
+            $threw = $_.Exception.Message -like `
+                "UNITY_PLAYER_NOTICE_HASH_MISMATCH:*"
+        }
+        Assert-True $threw
+    }
     Invoke-Case "untracked public notice source is rejected" {
         $fixtureRoot = Join-Path $temp "notice-git-untracked"
         New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
@@ -1408,6 +1518,24 @@ try {
             Assert-True $threw "Missing inventory fragment was accepted: $fragment"
         }
     }
+    Invoke-Case "public notice rejects an obsolete Unity Companion license URL" {
+        $validNotice = Get-ValidThirdPartyNoticeFixture
+        $noticePath = Join-Path $temp "obsolete-companion-license-url.txt"
+        $mutated = $validNotice.Replace(
+            $script:UnityCompanionLicenseUrl,
+            "https://unity.com/legal/licenses/unity_companion_license")
+        [IO.File]::WriteAllText(
+            $noticePath, $mutated, [Text.UTF8Encoding]::new($false))
+
+        $threw = $false
+        try {
+            Assert-ThirdPartyNoticeContent -Path $noticePath
+        } catch {
+            $threw = $_.Exception.Message -ceq `
+                "PUBLIC_NOTICE_UNITY_COMPANION_LICENSE_URL_INVALID"
+        }
+        Assert-True $threw
+    }
     Invoke-Case "public notice rejects mutations inside every canonical license body" {
         $validNotice = Get-ValidThirdPartyNoticeFixture
         $noticePath = Join-Path $temp "mutated-license-body-notice.txt"
@@ -1423,6 +1551,34 @@ try {
             @{
                 From = "development of collaborative font projects"
                 To = "development of font projects"
+            },
+            @{
+                From = "Copyright $([char]0x00A9) 2010-2014 Angus Johnson"
+                To = "Copyright $([char]0x00A9) 2011-2014 Angus Johnson"
+            },
+            @{
+                From = "Copyright (c) 2007 James Newton-King"
+                To = "Copyright (c) 2008 James Newton-King"
+            },
+            @{
+                From = "Copyright 2011-2019 axuno gGmbH"
+                To = "Copyright 2012-2019 axuno gGmbH"
+            },
+            @{
+                From = "https://www.codeproject.com/Tips/624300/AssemblyQualifiedName-Parser"
+                To = "https://example.invalid/AssemblyQualifiedName-Parser"
+            },
+            @{
+                From = "Copyright (c) 2014-2015, NVIDIA CORPORATION."
+                To = "Copyright (c) 2015, NVIDIA CORPORATION."
+            },
+            @{
+                From = "Copyright (c) 2021 Advanced Micro Devices, Inc."
+                To = "Copyright (c) 2022 Advanced Micro Devices, Inc."
+            },
+            @{
+                From = "Copyright (c) 2007-2019 University of Illinois"
+                To = "Copyright (c) 2008-2019 University of Illinois"
             }
         )
         foreach ($mutation in $mutations) {
@@ -1490,6 +1646,23 @@ try {
         }
         Assert-True $threw
     }
+    Invoke-Case "Unity Player notice working file must match committed blob" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "unity-notice-git-modified")
+        $bytes = [IO.File]::ReadAllBytes($fixture.UnityPlayerNoticePath)
+        $bytes[100] = $bytes[100] -bxor 1
+        [IO.File]::WriteAllBytes($fixture.UnityPlayerNoticePath, $bytes)
+        $threw = $false
+        try {
+            Get-UnityPlayerThirdPartyNoticeSourceContract `
+                -SourceRoot $fixture.Root -SourceRevision $fixture.SourceSha |
+                Out-Null
+        } catch {
+            $threw = $_.Exception.Message -ceq `
+                "UNITY_PLAYER_NOTICE_SOURCE_BLOB_MISMATCH"
+        }
+        Assert-True $threw
+    }
     Invoke-Case "public notice changed after preflight is not published" {
         $noticeSourceRoot = Join-Path $temp "notice-changed-source"
         $noticePayloadRoot = Join-Path $temp "notice-changed-payload"
@@ -1500,7 +1673,13 @@ try {
             $sourceNotice,
             (Get-ValidThirdPartyNoticeFixture),
             [Text.UTF8Encoding]::new($false))
+        $sourceUnityPlayerNotice = Join-Path `
+            $noticeSourceRoot "UnityPlayerThirdPartyNotices.pdf"
+        [IO.File]::WriteAllBytes(
+            $sourceUnityPlayerNotice,
+            (Get-ValidUnityPlayerThirdPartyNoticeFixture))
         $preflightHash = Get-Sha256 $sourceNotice
+        $unityPlayerHash = Get-Sha256 $sourceUnityPlayerNotice
         Add-Content -LiteralPath $sourceNotice -Value "changed"
 
         $threw = $false
@@ -1508,10 +1687,11 @@ try {
             Publish-ThirdPartyNotices `
                 -SourceRoot $noticeSourceRoot `
                 -PayloadRoot $noticePayloadRoot `
-                -ExpectedSourceSha256 $preflightHash | Out-Null
+                -ExpectedSourceSha256 $preflightHash `
+                -ExpectedUnityPlayerSourceSha256 $unityPlayerHash | Out-Null
         } catch {
-            $threw = $_.Exception.Message -ceq `
-                "PUBLIC_NOTICE_SOURCE_CHANGED_AFTER_PREFLIGHT"
+            $threw = $_.Exception.Message -like `
+                "PUBLIC_NOTICE_SOURCE_CHANGED_AFTER_PREFLIGHT:*"
         }
         Assert-True $threw
         Assert-False (Test-Path -LiteralPath (
@@ -1527,7 +1707,8 @@ try {
             Publish-ThirdPartyNotices `
                 -SourceRoot $missingSourceRoot `
                 -PayloadRoot $missingPayloadRoot `
-                -ExpectedSourceSha256 ("0" * 64) | Out-Null
+                -ExpectedSourceSha256 ("0" * 64) `
+                -ExpectedUnityPlayerSourceSha256 ("0" * 64) | Out-Null
         } catch {
             $threw = $_.Exception.Message -like "PUBLIC_NOTICE_SOURCE_MISSING:*"
         }
@@ -1540,11 +1721,19 @@ try {
         $collisionPayloadRoot = Join-Path $temp "collision-notice-payload"
         New-Item -ItemType Directory -Path $collisionSourceRoot -Force | Out-Null
         New-Item -ItemType Directory -Path $collisionPayloadRoot -Force | Out-Null
-        Set-Content -LiteralPath (
-            Join-Path $collisionSourceRoot "ThirdPartyNotices.txt") `
-            -Value (Get-ValidThirdPartyNoticeFixture) -NoNewline
+        [IO.File]::WriteAllText(
+            (Join-Path $collisionSourceRoot "ThirdPartyNotices.txt"),
+            (Get-ValidThirdPartyNoticeFixture),
+            [Text.UTF8Encoding]::new($false))
+        $collisionUnityPlayerSource = Join-Path `
+            $collisionSourceRoot "UnityPlayerThirdPartyNotices.pdf"
+        [IO.File]::WriteAllBytes(
+            $collisionUnityPlayerSource,
+            (Get-ValidUnityPlayerThirdPartyNoticeFixture))
         $collisionSourceHash = Get-Sha256 (
             Join-Path $collisionSourceRoot "ThirdPartyNotices.txt")
+        $collisionUnityPlayerSourceHash = Get-Sha256 `
+            $collisionUnityPlayerSource
         $collisionDestination = Join-Path `
             $collisionPayloadRoot "ThirdPartyNotices.txt"
         Set-Content -LiteralPath $collisionDestination -Value "existing"
@@ -1553,7 +1742,9 @@ try {
             Publish-ThirdPartyNotices `
                 -SourceRoot $collisionSourceRoot `
                 -PayloadRoot $collisionPayloadRoot `
-                -ExpectedSourceSha256 $collisionSourceHash | Out-Null
+                -ExpectedSourceSha256 $collisionSourceHash `
+                -ExpectedUnityPlayerSourceSha256 `
+                    $collisionUnityPlayerSourceHash | Out-Null
         } catch {
             $threw = $_.Exception.Message -like "PUBLIC_NOTICE_OUTPUT_COLLISION:*"
         }
@@ -1759,7 +1950,10 @@ try {
         providerSelectionMode = "DefaultWhenUnspecified"
         expectedProviderId = "local"
         expectedLaunchArguments = @()
-        requiredArtifacts = @("ThirdPartyNotices.txt")
+        requiredArtifacts = @(
+            "ThirdPartyNotices.txt",
+            "UnityPlayerThirdPartyNotices.pdf"
+        )
         forbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",

@@ -181,6 +181,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(new[]
                 {
                     WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
+                    WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
                 }));
 
             Assert.That(WindowsDistributionTargetPolicy.TryResolve(
@@ -194,6 +195,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(new[]
                 {
                     WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
+                    WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
                     WindowsDistributionTargetPolicy.SteamNativeArtifact,
                     WindowsDistributionTargetPolicy.SteamManagedBindingArtifact,
                 }));
@@ -242,6 +244,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 "payload/VectorQuake.exe",
                 "payload/ThirdPartyNotices.txt",
+                "payload/UnityPlayerThirdPartyNotices.pdf",
                 "payload/steam_api64.dll",
                 "payload/VectorQuake_Data/Managed/com.rlabrecque.steamworks.net.dll",
             };
@@ -271,6 +274,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     {
                         "payload/VectorQuake.exe",
                         "payload/ThirdPartyNotices.txt",
+                        "payload/UnityPlayerThirdPartyNotices.pdf",
                         artifact,
                     }),
                 Is.EqualTo(WindowsDistributionValidationFailure.ForbiddenArtifactPresent));
@@ -294,6 +298,25 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(WindowsDistributionValidationFailure.RequiredArtifactMissing));
         }
 
+        [TestCase(WindowsDistributionTargetPolicy.DirectWindowsTargetId)]
+        [TestCase(WindowsDistributionTargetPolicy.SteamWindowsTargetId)]
+        public void DistributionContract_MissingUnityPlayerNoticesIsRejected(
+            string targetId)
+        {
+            Assert.That(WindowsDistributionTargetPolicy.TryResolve(
+                targetId, out var target), Is.True);
+            var artifacts = target.RequiredArtifacts
+                .Where(artifact => !string.Equals(
+                    artifact,
+                    WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
+                    StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                    target, artifacts),
+                Is.EqualTo(WindowsDistributionValidationFailure.RequiredArtifactMissing));
+        }
+
         [TestCase("payload/Docs/ThirdPartyNotices.txt")]
         [TestCase("payload/thirdpartynotices.txt")]
         [TestCase("Docs/ThirdPartyNotices.txt")]
@@ -303,7 +326,30 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
                     WindowsDistributionTargetPolicy.DirectWindows,
-                    new[] { "payload/VectorQuake.exe", noticePath }),
+                    new[]
+                    {
+                        "payload/VectorQuake.exe",
+                        noticePath,
+                        "payload/UnityPlayerThirdPartyNotices.pdf",
+                    }),
+                Is.EqualTo(WindowsDistributionValidationFailure.RequiredArtifactMissing));
+        }
+
+        [TestCase("payload/Docs/UnityPlayerThirdPartyNotices.pdf")]
+        [TestCase("payload/unityplayerthirdpartynotices.pdf")]
+        [TestCase("Docs/UnityPlayerThirdPartyNotices.pdf")]
+        [TestCase("/payload/UnityPlayerThirdPartyNotices.pdf")]
+        public void DistributionContract_NonCanonicalUnityPlayerNoticesPathIsRejected(
+            string noticePath)
+        {
+            Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                    WindowsDistributionTargetPolicy.DirectWindows,
+                    new[]
+                    {
+                        "payload/VectorQuake.exe",
+                        "payload/ThirdPartyNotices.txt",
+                        noticePath,
+                    }),
                 Is.EqualTo(WindowsDistributionValidationFailure.RequiredArtifactMissing));
         }
 
