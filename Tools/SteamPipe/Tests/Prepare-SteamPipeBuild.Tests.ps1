@@ -107,6 +107,9 @@ function New-PromotedFixture {
     Write-Utf8File (Join-Path $payload "VectorQuake.exe") "exe"
     if ($IncludeNotice) {
         $noticeSource = Join-Path $script:RepositoryRoot "ThirdPartyNotices.txt"
+        $unityNoticeSource = Join-Path `
+            $script:RepositoryRoot `
+            "UnityPlayerThirdPartyNotices.pdf"
         $notice = if ($PSBoundParameters.ContainsKey("NoticeContent")) {
             $NoticeContent
         } else {
@@ -115,6 +118,10 @@ function New-PromotedFixture {
                 [Text.UTF8Encoding]::new($false, $true))
         }
         Write-Utf8File (Join-Path $payload "ThirdPartyNotices.txt") $notice
+        [IO.File]::Copy(
+            $unityNoticeSource,
+            (Join-Path $payload "UnityPlayerThirdPartyNotices.pdf"),
+            $true)
     }
     if ($IncludeUnityPlayer) {
         Write-Utf8File (Join-Path $payload "UnityPlayer.dll") "unity"
@@ -1065,6 +1072,8 @@ try {
         Assert-True (-not $app.Contains((ConvertTo-VdfQuoted (Join-Path $promoted "evidence"))))
         Assert-True (Test-Path -LiteralPath (
             Join-Path $promoted "payload\ThirdPartyNotices.txt") -PathType Leaf)
+        Assert-True (Test-Path -LiteralPath (
+            Join-Path $promoted "payload\UnityPlayerThirdPartyNotices.pdf") -PathType Leaf)
         $success = Get-Content `
             (Join-Path $output "PRE_APPID_DRY_RUN_SUCCESS.json") -Raw | ConvertFrom-Json
         Assert-Equal "NOT_UPLOADABLE" ([string]$success.uploadAuthority)
