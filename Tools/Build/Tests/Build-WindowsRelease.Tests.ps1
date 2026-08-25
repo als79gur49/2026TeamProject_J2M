@@ -80,6 +80,11 @@ function New-PublicNoticeGitFixture {
             version = $script:ThirdPartyNoticePackageVersions[$packageId]
         }
     }
+    foreach ($packageId in $script:ReleaseManagedPluginPackageVersions.Keys) {
+        $packageDependencies[$packageId] = [ordered]@{
+            version = $script:ReleaseManagedPluginPackageVersions[$packageId]
+        }
+    }
     Write-JsonFixture (Join-Path $Root "Packages\packages-lock.json") `
         ([ordered]@{ dependencies = $packageDependencies })
     Invoke-GitText -Root $Root -Arguments @("init", "--quiet") `
@@ -178,7 +183,9 @@ function New-ZeroErrorEvidenceFixture {
         [string[]]$ForbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",
-            "steam_appid.txt"
+            "steam_appid.txt",
+            "System.IO.Hashing.dll",
+            "System.Runtime.CompilerServices.Unsafe.dll"
         ),
         [string]$ExpectedStoreLaunch = "VectorQuake.exe"
     )
@@ -346,7 +353,9 @@ function New-CanonicalEvidenceExpectation {
         ForbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",
-            "steam_appid.txt"
+            "steam_appid.txt",
+            "System.IO.Hashing.dll",
+            "System.Runtime.CompilerServices.Unsafe.dll"
         )
         ExpectedStoreLaunch = "VectorQuake.exe"
     }
@@ -405,6 +414,13 @@ Invoke-Case "DirectWindows distribution expects Local without selector" {
     Assert-Equal 0 (@($target.ExpectedLaunchArguments).Count)
     Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts `
         @("ThirdPartyNotices.txt", "UnityPlayerThirdPartyNotices.pdf"))
+    Assert-True (Test-OrdinalArrayEqual $target.ForbiddenArtifacts @(
+        "steam_api64.dll",
+        "com.rlabrecque.steamworks.net.dll",
+        "steam_appid.txt",
+        "System.IO.Hashing.dll",
+        "System.Runtime.CompilerServices.Unsafe.dll"
+    ))
     Assert-Equal "VectorQuake.exe" $target.ExpectedStoreLaunch
 }
 Invoke-Case "SteamWindows distribution expects canonical external selector" {
@@ -420,6 +436,11 @@ Invoke-Case "SteamWindows distribution expects canonical external selector" {
         "UnityPlayerThirdPartyNotices.pdf",
         "steam_api64.dll",
         "com.rlabrecque.steamworks.net.dll"
+    ))
+    Assert-True (Test-OrdinalArrayEqual $target.ForbiddenArtifacts @(
+        "steam_appid.txt",
+        "System.IO.Hashing.dll",
+        "System.Runtime.CompilerServices.Unsafe.dll"
     ))
     Assert-Equal "VectorQuake.exe -j2mPlatformProvider steam" `
         $target.ExpectedStoreLaunch
@@ -711,6 +732,70 @@ try {
     $final = Join-Path $temp "final"
     $detached = Join-Path $temp "source"
     New-Item -ItemType Directory -Path $stage | Out-Null
+    Invoke-Case "clean managed player inventory is accepted" {
+        $root = Join-Path $temp "managed-player-clean"
+        $dataRoot = Join-Path $root "VectorQuake_Data"
+        New-Item -ItemType Directory -Path (Join-Path $dataRoot "Managed") `
+            -Force | Out-Null
+        [IO.File]::WriteAllText(
+            (Join-Path $dataRoot "ScriptingAssemblies.json"),
+            '{"names":["Assembly-CSharp.dll"]}',
+            [Text.UTF8Encoding]::new($false))
+        Assert-ForbiddenReleaseManagedAssembliesAbsent -PayloadRoot $root
+    }
+    foreach ($assemblyName in $script:ForbiddenReleaseManagedAssemblies) {
+        Invoke-Case "managed player file is rejected: $assemblyName" {
+            $root = Join-Path $temp ("managed-player-file-" + $assemblyName)
+            $dataRoot = Join-Path $root "VectorQuake_Data"
+            $managedRoot = Join-Path $dataRoot "Managed"
+            New-Item -ItemType Directory -Path $managedRoot -Force | Out-Null
+            [IO.File]::WriteAllText(
+                (Join-Path $dataRoot "ScriptingAssemblies.json"),
+                '{"names":["Assembly-CSharp.dll"]}',
+                [Text.UTF8Encoding]::new($false))
+            [IO.File]::WriteAllBytes((Join-Path $managedRoot $assemblyName), @())
+            $threw = $false
+            try {
+                Assert-ForbiddenReleaseManagedAssembliesAbsent -PayloadRoot $root
+            } catch {
+                $threw = $_.Exception.Message -like `
+                    "FORBIDDEN_MANAGED_ASSEMBLY_PRESENT:*"
+            }
+            Assert-True $threw
+        }
+        Invoke-Case "managed player inventory entry is rejected: $assemblyName" {
+            $root = Join-Path $temp `
+                ("managed-player-inventory-" + $assemblyName)
+            $dataRoot = Join-Path $root "VectorQuake_Data"
+            New-Item -ItemType Directory -Path (Join-Path $dataRoot "Managed") `
+                -Force | Out-Null
+            [IO.File]::WriteAllText(
+                (Join-Path $dataRoot "ScriptingAssemblies.json"),
+                ('{"names":["' + $assemblyName + '"]}'),
+                [Text.UTF8Encoding]::new($false))
+            $threw = $false
+            try {
+                Assert-ForbiddenReleaseManagedAssembliesAbsent -PayloadRoot $root
+            } catch {
+                $threw = $_.Exception.Message -like `
+                    "FORBIDDEN_SCRIPTING_ASSEMBLY_ENTRY_PRESENT:*"
+            }
+            Assert-True $threw
+        }
+    }
+    Invoke-Case "missing managed player inventory is rejected" {
+        $root = Join-Path $temp "managed-player-missing-inventory"
+        New-Item -ItemType Directory `
+            -Path (Join-Path $root "VectorQuake_Data\Managed") -Force | Out-Null
+        $threw = $false
+        try {
+            Assert-ForbiddenReleaseManagedAssembliesAbsent -PayloadRoot $root
+        } catch {
+            $threw = $_.Exception.Message -like `
+                "SCRIPTING_ASSEMBLY_INVENTORY_MISSING:*"
+        }
+        Assert-True $threw
+    }
     Invoke-Case "destination collision rejected" {
         Assert-False (Assert-OutputPlan $stage $final $detached)
     }
@@ -1382,6 +1467,33 @@ try {
         }
         Assert-True $threw
     }
+    Invoke-Case "managed plugin package inventory rejects Collections version drift" {
+        $fixture = New-PublicNoticeGitFixture `
+            -Root (Join-Path $temp "managed-plugin-package-version-drift")
+        $lockPath = Join-Path $fixture.Root "Packages\packages-lock.json"
+        $lock = Get-Content -LiteralPath $lockPath -Raw | ConvertFrom-Json
+        $lock.dependencies.'com.unity.collections'.version = "2.6.3"
+        Write-JsonFixture $lockPath $lock
+        Invoke-GitText -Root $fixture.Root -Arguments @("add", "--all") `
+            -DisableAutoCrlf | Out-Null
+        Invoke-GitText -Root $fixture.Root -Arguments @(
+            "-c", "user.name=Release Tests",
+            "-c", "user.email=release-tests@example.invalid",
+            "commit", "--quiet", "-m", "managed plugin package version drift"
+        ) -DisableAutoCrlf | Out-Null
+        $sourceSha = Invoke-GitText -Root $fixture.Root `
+            -Arguments @("rev-parse", "HEAD") -DisableAutoCrlf
+
+        $threw = $false
+        try {
+            Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $fixture.Root -SourceRevision $sourceSha | Out-Null
+        } catch {
+            $threw = $_.Exception.Message -like `
+                "PUBLIC_NOTICE_PACKAGE_VERSION_MISMATCH: com.unity.collections*"
+        }
+        Assert-True $threw
+    }
     Invoke-Case "public notice package lock working file must match committed blob" {
         $fixture = New-PublicNoticeGitFixture `
             -Root (Join-Path $temp "notice-package-lock-modified")
@@ -1579,6 +1691,10 @@ try {
             @{
                 From = "Copyright (c) 2007-2019 University of Illinois"
                 To = "Copyright (c) 2008-2019 University of Illinois"
+            },
+            @{
+                From = "Copyright (C) 2011 by Ashima Arts (Simplex noise)"
+                To = "Copyright (C) 2012 by Ashima Arts (Simplex noise)"
             }
         )
         foreach ($mutation in $mutations) {
@@ -1957,7 +2073,9 @@ try {
         forbiddenArtifacts = @(
             "steam_api64.dll",
             "com.rlabrecque.steamworks.net.dll",
-            "steam_appid.txt"
+            "steam_appid.txt",
+            "System.IO.Hashing.dll",
+            "System.Runtime.CompilerServices.Unsafe.dll"
         )
         expectedStoreLaunch = "VectorQuake.exe"
         development = $false
@@ -2160,6 +2278,19 @@ try {
         Assert-False $failure.deployable
         Assert-Equal 117 ([int]$failure.exitCode)
         Assert-Equal "public-notices" $failure.failureStage
+    }
+    Invoke-Case "managed assembly failure remains fail-closed and quarantined" {
+        $managedAssemblyCode =
+            (Get-ReleaseExitCodes).ForbiddenManagedAssemblyPresent
+        $quarantine = Join-Path $temp "failed\managed-assembly-policy"
+        Write-FailureEvidence $quarantine "managed-assembly-policy" `
+            $managedAssemblyCode "sha" "managed-assembly-policy" "private.log"
+        $failure = Get-Content (Join-Path $quarantine "FAILURE.json") `
+            -Raw | ConvertFrom-Json
+        Assert-Equal 118 ([int]$managedAssemblyCode)
+        Assert-False $failure.deployable
+        Assert-Equal 118 ([int]$failure.exitCode)
+        Assert-Equal "managed-assembly-policy" $failure.failureStage
     }
     Invoke-Case "wrapper CSharp and report exits remain distinct" {
         Assert-Equal 105 (Convert-UnityExitCode 33)

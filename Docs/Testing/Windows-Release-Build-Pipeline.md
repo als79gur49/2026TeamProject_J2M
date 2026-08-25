@@ -46,6 +46,14 @@ When all effective settings already match the RC contract, the transaction skips
 both setters and restoration so absent-default ProjectSettings keys are not
 materialized as configuration drift.
 
+The release entry also treats the `com.unity.collections 2.6.2` copies of
+`System.IO.Hashing.dll` and `System.Runtime.CompilerServices.Unsafe.dll` as
+test-only managed plugins. Their Windows Player compatibility is disabled only
+inside a separate build transaction and restored in `finally`. Missing importers,
+package-version drift, apply failure, or restore failure fail closed. A successful
+Player must contain neither DLL in `VectorQuake_Data/Managed` nor either name in
+`ScriptingAssemblies.json`.
+
 Build acceptance is strict:
 
 ```text
@@ -99,9 +107,11 @@ without Local fallback.
 The promoted-payload contracts are:
 
 - `DirectWindows`: forbids `steam_api64.dll`,
-  `com.rlabrecque.steamworks.net.dll`, and `steam_appid.txt`.
+  `com.rlabrecque.steamworks.net.dll`, `steam_appid.txt`,
+  `System.IO.Hashing.dll`, and `System.Runtime.CompilerServices.Unsafe.dll`.
 - `SteamWindows`: requires `steam_api64.dll` and the managed binding
-  `com.rlabrecque.steamworks.net.dll`, and forbids `steam_appid.txt`.
+  `com.rlabrecque.steamworks.net.dll`, and forbids `steam_appid.txt`,
+  `System.IO.Hashing.dll`, and `System.Runtime.CompilerServices.Unsafe.dll`.
 
 `ValidatePromotedArtifactInventory` remains the canonical final-inventory validation
 seam and is called by `WindowsDistributionStager`. The stager starts from one raw
@@ -194,12 +204,27 @@ against the exact allowlist.
 
 ## Invocation
 
-After the implementation is committed and the invocation worktree is clean:
+This license-remediation execution did not run the wrapper's internal
+detached-build path because it conflicts with the J2M storage contract
+(`/mnt/d/J2M/worktrees` through `j2m-worktree-add`). The current
+`C:\VQBuildSources` plus direct `git worktree add` implementation is not valid
+new-build evidence under that contract. This revision therefore has focused
+PowerShell/Unity policy evidence only and makes no current-revision distributable
+claim. A later formal build must use the prepared-worktree flow below.
+
+The immutable `c9c826e4f6d42862e9f65df223f0e7e4b3c91728` and
+`65ab02cb8b86b64490ed3ec3a1587d3e4d3bb461` artifacts remain historical evidence
+only: they contain both forbidden test DLLs and predate the corrected public-notice
+contract, so they must not be re-promoted or described as distributable.
+
+After the implementation is committed, the invocation worktree is clean, and an
+exact-revision worktree has been created through `j2m-worktree-add`:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File "Tools\Build\Build-WindowsRelease.ps1" `
   -RepositoryRoot "C:\Users\user\2026TeamProject_J2M" `
+  -PreparedBuildSourceRoot "D:\J2M\worktrees\prepared-release" `
   -UnityExe "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe" `
   -BuildIntent "CanonicalStore" `
   -Backend "Mono" `
@@ -208,8 +233,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 ```
 
 The wrapper does not pass `-quit`; `WindowsReleaseBuildCli` owns the Unity exit.
-It creates and preserves a new detached worktree at the exact committed source
-SHA under the short deterministic root `C:\VQBuildSources`. The wrapper rejects
+When `-PreparedBuildSourceRoot` is omitted, its legacy internal path creates and
+preserves a new detached worktree at the exact committed source SHA under the
+short deterministic root `C:\VQBuildSources`; that path is not valid for new J2M
+build evidence. The wrapper rejects
 a detached path whose maximum predicted path across the known critical
 Collections, URP Surface Cache, and URP/APV importer suffixes would exceed the
 legacy 259-character Windows budget. This avoids relying on machine-wide long
@@ -304,7 +331,8 @@ root public notices beside `VectorQuake.exe`:
 
 - `payload/ThirdPartyNotices.txt` covers project-added commercial assets,
   Steamworks.NET, fonts, and runtime UPM package notices, including
-  Cinemachine's bundled Clipper/Boost notice.
+  Cinemachine's bundled Clipper/Boost notice and Unity.Mathematics 1.3.3's
+  Ashima Arts / Stefan Gustavson Noise MIT notice.
 - `payload/UnityPlayerThirdPartyNotices.pdf` is Unity's unmodified
   Player/Windows/Mono notice for Unity `6000.3.11f1`.
 
