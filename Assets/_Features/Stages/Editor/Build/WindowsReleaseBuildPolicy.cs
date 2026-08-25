@@ -475,7 +475,8 @@ public static class WindowsReleaseBuildPolicy
             WindowsReleaseExitCodes.Success)
     {
         if (buildExitCode == WindowsReleaseExitCodes.SettingsRestoreFailure ||
-            buildExitCode == WindowsReleaseExitCodes.ManagedPluginApplyFailure)
+            buildExitCode == WindowsReleaseExitCodes.ManagedPluginApplyFailure ||
+            buildExitCode == WindowsReleaseExitCodes.ManagedPluginRestoreFailure)
         {
             return buildExitCode;
         }

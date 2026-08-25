@@ -559,6 +559,22 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ManagedPluginRestoreExitCode_TakesPrecedenceOverBuildReportFailures()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
+                    WindowsReleaseExitCodes.ManagedPluginRestoreFailure,
+                    summaryWritten: false,
+                    detailsWritten: false,
+                    metadataWritten: true,
+                    metadataErrorCount: 0,
+                    reportErrorCount: -1,
+                    structuredErrorCount: -1,
+                    evidenceIdentityAndCounts:
+                        WindowsReleaseExitCodes.BuildReportIdentityMismatch),
+                Is.EqualTo(WindowsReleaseExitCodes.ManagedPluginRestoreFailure));
+        }
+
+        [Test]
         public void BuildReportEvidence_StructuredCountMismatch_IsRejected()
         {
             Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportEvidence(2, 2, 1),
