@@ -26,15 +26,37 @@ public static class PlayerProfilerCaptureCli
 
     public static void BuildWindowsDevelopmentPlayer()
     {
-        BuildWindowsDevelopmentPlayer(includeCaptureCapability: true);
+        BuildWindowsPlayer(
+            includeCaptureCapability: true,
+            buildOptions: DevelopmentBuildOptions,
+            enableFrameTimingStats: false);
     }
 
     public static void BuildWindowsDevelopmentPlayerForSaveSafetyProbe()
     {
-        BuildWindowsDevelopmentPlayer(includeCaptureCapability: false);
+        BuildWindowsPlayer(
+            includeCaptureCapability: false,
+            buildOptions: DevelopmentBuildOptions,
+            enableFrameTimingStats: false);
     }
 
-    private static void BuildWindowsDevelopmentPlayer(bool includeCaptureCapability)
+    public static void BuildWindowsPerformancePlayer()
+    {
+        BuildWindowsPlayer(
+            includeCaptureCapability: true,
+            buildOptions: BuildOptions.None,
+            enableFrameTimingStats: true);
+    }
+
+    private const BuildOptions DevelopmentBuildOptions =
+        BuildOptions.Development |
+        BuildOptions.ConnectWithProfiler |
+        BuildOptions.AllowDebugging;
+
+    private static void BuildWindowsPlayer(
+        bool includeCaptureCapability,
+        BuildOptions buildOptions,
+        bool enableFrameTimingStats)
     {
         var args = Environment.GetCommandLineArgs();
         var buildPath = RequireArgument(args, CaptureBuildPathArg);
@@ -45,12 +67,15 @@ public static class PlayerProfilerCaptureCli
 
         var originalBackend = PlayerSettings.GetScriptingBackend(BuildTargetGroup.Standalone);
         var originalProductName = PlayerSettings.productName;
+        var originalEnableFrameTimingStats = PlayerSettings.enableFrameTimingStats;
         var backendWasChanged = originalBackend != requestedBackend;
         var productNameWasChanged = !string.IsNullOrWhiteSpace(productName) &&
                                     !string.Equals(
                                         originalProductName,
                                         productName,
                                         StringComparison.Ordinal);
+        var frameTimingStatsWereChanged =
+            originalEnableFrameTimingStats != enableFrameTimingStats;
         if (!string.IsNullOrWhiteSpace(productName) &&
             !IsAllowedCaptureProductName(originalProductName, productName))
         {
@@ -77,14 +102,17 @@ public static class PlayerProfilerCaptureCli
                 PlayerSettings.productName = productName;
             }
 
+            if (frameTimingStatsWereChanged)
+            {
+                PlayerSettings.enableFrameTimingStats = enableFrameTimingStats;
+            }
+
             var options = new BuildPlayerOptions
             {
                 scenes = scenes,
                 locationPathName = buildPath,
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.Development |
-                          BuildOptions.ConnectWithProfiler |
-                          BuildOptions.AllowDebugging,
+                options = buildOptions,
                 extraScriptingDefines = includeCaptureCapability
                     ? CaptureBuildScriptingDefines
                     : Array.Empty<string>(),
@@ -123,6 +151,13 @@ public static class PlayerProfilerCaptureCli
             {
                 PlayerSettings.productName = originalProductName;
             }
+
+            if (frameTimingStatsWereChanged)
+            {
+                PlayerSettings.enableFrameTimingStats = originalEnableFrameTimingStats;
+            }
+
+            AssetDatabase.SaveAssets();
         }
     }
 
@@ -134,6 +169,16 @@ public static class PlayerProfilerCaptureCli
     internal static string[] CaptureBuildScriptingDefinesForTests()
     {
         return CaptureBuildScriptingDefines.ToArray();
+    }
+
+    internal static BuildOptions PerformanceBuildOptionsForTests()
+    {
+        return BuildOptions.None;
+    }
+
+    internal static bool PerformanceFrameTimingStatsEnabledForTests()
+    {
+        return true;
     }
 
     internal static bool IsAllowedCaptureProductNameForTests(

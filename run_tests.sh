@@ -217,6 +217,13 @@ TERMINAL_PLAYER_SMOKE_PROFILE="${TERMINAL_PLAYER_SMOKE_PROFILE:-standard}"
 TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX:-VectorQuake-P0Phase4Smoke}"
 PLAYER_CAPTURE_SAVE_SAFETY_EVIDENCE_ROOT="${PLAYER_CAPTURE_SAVE_SAFETY_EVIDENCE_ROOT:-/mnt/d/J2M/evidence/P24/player-capture-save-safety}"
 PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT="${PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT:-/mnt/d/J2M/builds/P24/player-capture-save-safety}"
+GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT="${GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT:-/mnt/d/J2M/evidence/gameplay-performance}"
+GAMEPLAY_PERFORMANCE_BUILD_ROOT="${GAMEPLAY_PERFORMANCE_BUILD_ROOT:-/mnt/d/J2M/builds/gameplay-performance}"
+GAMEPLAY_PERFORMANCE_WIDTH="${GAMEPLAY_PERFORMANCE_WIDTH:-1920}"
+GAMEPLAY_PERFORMANCE_HEIGHT="${GAMEPLAY_PERFORMANCE_HEIGHT:-1080}"
+GAMEPLAY_PERFORMANCE_WARMUP_FRAMES="${GAMEPLAY_PERFORMANCE_WARMUP_FRAMES:-120}"
+GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES="${GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES:-600}"
+GAMEPLAY_PERFORMANCE_TICK_INTERVAL="${GAMEPLAY_PERFORMANCE_TICK_INTERVAL:-6}"
 
 UNITY_INTEGRATION_SIMULATION_EDITMODE_LOG="$RESULT_DIR/wsl-unity-integration-simulation-editmode.log"
 UNITY_INTEGRATION_SIMULATION_EDITMODE_XML="$RESULT_DIR/wsl-unity-integration-simulation-editmode.xml"
@@ -1079,7 +1086,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|camera-shake-visual|camera-shake-hud-visual|climate-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|camera-shake-visual|camera-shake-hud-visual|climate-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|gameplay-performance|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -5850,6 +5857,242 @@ run_player_capture_save_safety() {
     echo "  persistent root:  $persistent_root_wsl"
 }
 
+run_gameplay_performance() {
+    local timestamp
+    local product_name
+    local evidence_dir
+    local evidence_dir_win
+    local build_dir
+    local player_path
+    local player_path_win
+    local build_log
+    local build_log_win
+    local runtime_log
+    local runtime_log_win
+    local metrics_path
+    local worktree_diff_hash
+    local artifact_hash
+    local build_payload_hash
+    local revision_sha
+    local build_status
+    local guard_root
+    local guarded_relative_path
+    local optional_guarded_relative_path
+    local generated_link_existed=0
+    local -a build_command
+    local -a guarded_relative_paths=(
+        "ProjectSettings/ProjectSettings.asset"
+        "Assets/Settings/PC_RPAsset.asset"
+        "Assets/AddressableAssetsData/AddressableAssetSettings.asset"
+    )
+    local -a optional_guarded_relative_paths=(
+        "ProjectSettings/ScriptableBuildPipeline.json"
+        "Assets/AddressableAssetsData/Windows.meta"
+    )
+
+    timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    revision_sha="$(git rev-parse HEAD)"
+    product_name="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX}-GameplayPerformance-${timestamp}"
+    evidence_dir="$GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT/$timestamp"
+    build_dir="$GAMEPLAY_PERFORMANCE_BUILD_ROOT/$timestamp"
+    player_path="$build_dir/VectorQuake-GameplayPerformance.exe"
+    build_log="$evidence_dir/player-build.log"
+    runtime_log="$evidence_dir/player-runtime.log"
+    metrics_path="$evidence_dir/performance-metrics.json"
+    evidence_dir_win="$(wslpath -w "$evidence_dir")"
+    player_path_win="$(wslpath -w "$player_path")"
+    build_log_win="$(wslpath -w "$build_log")"
+    runtime_log_win="$(wslpath -w "$runtime_log")"
+    build_command=(
+        timeout --kill-after=20 900
+        "$UNITY_PATH"
+        -batchmode
+        -nographics
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -buildTarget StandaloneWindows64
+        -logFile "$build_log_win"
+        -executeMethod PlayerProfilerCaptureCli.BuildWindowsPerformancePlayer
+        -captureBuildPath "$player_path_win"
+        -captureBackend Mono
+        -captureProductName "$product_name"
+        --capture-stage stage-1-1
+        --capture-campaign-temp-slot
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would build and run a release-like Windows gameplay performance Player:"
+        print_shell_command "${build_command[@]}"
+        echo "Would sample render-idle and gameplay-neutral-tick phases at ${GAMEPLAY_PERFORMANCE_WIDTH}x${GAMEPLAY_PERFORMANCE_HEIGHT}."
+        echo "Would store evidence under $GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT and builds under $GAMEPLAY_PERFORMANCE_BUILD_ROOT."
+        return 0
+    fi
+
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$evidence_dir" "$build_dir"
+    guard_root="$evidence_dir/pre-build-project-state"
+    for guarded_relative_path in "${guarded_relative_paths[@]}"; do
+        mkdir -p "$guard_root/$(dirname "$guarded_relative_path")"
+        cp -- \
+            "$PROJECT_PATH_WSL/$guarded_relative_path" \
+            "$guard_root/$guarded_relative_path"
+    done
+    for optional_guarded_relative_path in "${optional_guarded_relative_paths[@]}"; do
+        if [ -f "$PROJECT_PATH_WSL/$optional_guarded_relative_path" ]; then
+            mkdir -p "$guard_root/$(dirname "$optional_guarded_relative_path")"
+            cp -- \
+                "$PROJECT_PATH_WSL/$optional_guarded_relative_path" \
+                "$guard_root/$optional_guarded_relative_path"
+        fi
+    done
+    if [ -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" ] ||
+       [ -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" ]; then
+        generated_link_existed=1
+        mkdir -p "$guard_root/Assets/AddressableAssetsData"
+        [ ! -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" ] ||
+            cp -- \
+                "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" \
+                "$guard_root/Assets/AddressableAssetsData/link.xml"
+        [ ! -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" ] ||
+            cp -- \
+                "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" \
+                "$guard_root/Assets/AddressableAssetsData/link.xml.meta"
+    fi
+    worktree_diff_hash="$(
+        {
+            git diff --binary HEAD -- .
+            while IFS= read -r -d '' untracked_file; do
+                printf 'UNTRACKED %s\n' "$untracked_file"
+                sha256sum -- "$untracked_file"
+            done < <(git ls-files --others --exclude-standard -z | sort -z)
+        } | sha256sum | awk '{print $1}'
+    )"
+
+    echo "Building release-like Windows gameplay performance Player..."
+    build_status=0
+    "${build_command[@]}" || build_status=$?
+    for guarded_relative_path in "${guarded_relative_paths[@]}"; do
+        cp -- \
+            "$guard_root/$guarded_relative_path" \
+            "$PROJECT_PATH_WSL/$guarded_relative_path"
+    done
+    for optional_guarded_relative_path in "${optional_guarded_relative_paths[@]}"; do
+        if [ -f "$guard_root/$optional_guarded_relative_path" ]; then
+            cp -- \
+                "$guard_root/$optional_guarded_relative_path" \
+                "$PROJECT_PATH_WSL/$optional_guarded_relative_path"
+        else
+            rm -f -- "$PROJECT_PATH_WSL/$optional_guarded_relative_path"
+        fi
+    done
+    if [ "$generated_link_existed" -eq 1 ]; then
+        [ ! -f "$guard_root/Assets/AddressableAssetsData/link.xml" ] ||
+            cp -- \
+                "$guard_root/Assets/AddressableAssetsData/link.xml" \
+                "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml"
+        [ ! -f "$guard_root/Assets/AddressableAssetsData/link.xml.meta" ] ||
+            cp -- \
+                "$guard_root/Assets/AddressableAssetsData/link.xml.meta" \
+                "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta"
+    else
+        rm -f -- \
+            "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" \
+            "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta"
+    fi
+    if [ "$build_status" -ne 0 ]; then
+        echo "ERROR: Gameplay performance Player build failed with status $build_status."
+        return "$build_status"
+    fi
+    require_file "$player_path" "gameplay performance Player"
+
+    echo "Running gameplay performance measurement..."
+    if ! timeout --kill-after=10 180 \
+            "$player_path" \
+            -force-d3d11 \
+            -screen-fullscreen 0 \
+            -screen-width "$GAMEPLAY_PERFORMANCE_WIDTH" \
+            -screen-height "$GAMEPLAY_PERFORMANCE_HEIGHT" \
+            -logFile "$runtime_log_win" \
+            --capture-stage stage-1-1 \
+            --capture-campaign-temp-slot \
+            --gameplay-performance \
+            --gameplay-performance-output "$evidence_dir_win" \
+            --gameplay-performance-width "$GAMEPLAY_PERFORMANCE_WIDTH" \
+            --gameplay-performance-height "$GAMEPLAY_PERFORMANCE_HEIGHT" \
+            --gameplay-performance-warmup-frames "$GAMEPLAY_PERFORMANCE_WARMUP_FRAMES" \
+            --gameplay-performance-sample-frames "$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" \
+            --gameplay-performance-tick-interval "$GAMEPLAY_PERFORMANCE_TICK_INTERVAL" \
+            --gameplay-performance-revision "$revision_sha"; then
+        terminate_terminal_player_processes "$player_path_win" || true
+        echo "ERROR: Gameplay performance Player failed."
+        tail -n 160 "$runtime_log" || true
+        return 1
+    fi
+
+    require_file "$runtime_log" "gameplay performance runtime log"
+    require_file "$metrics_path" "gameplay performance metrics"
+    if ! rg -qF "GAMEPLAY_PERFORMANCE:PASS" "$runtime_log" ||
+       rg -qF "GAMEPLAY_PERFORMANCE:FAIL" "$runtime_log"; then
+        echo "ERROR: Gameplay performance marker validation failed."
+        tail -n 160 "$runtime_log" || true
+        return 1
+    fi
+    if ! python3 -m json.tool "$metrics_path" >/dev/null; then
+        echo "ERROR: Gameplay performance metrics are not valid JSON."
+        return 1
+    fi
+    if ! rg -qF '"developmentBuild": false' "$metrics_path" ||
+       ! rg -qF '"phase":"render-idle"' "$metrics_path" ||
+       ! rg -qF '"phase":"gameplay-neutral-tick"' "$metrics_path" ||
+       ! rg -qF "\"validCpuMainSamples\":$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" "$metrics_path" ||
+       ! rg -qF "\"validGpuSamples\":$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" "$metrics_path"; then
+        echo "ERROR: Gameplay performance metrics identity is incomplete."
+        return 1
+    fi
+
+    artifact_hash="$(sha256sum "$player_path" | awk '{print $1}')"
+    build_payload_hash="$(
+        cd "$build_dir"
+        while IFS= read -r -d '' payload_file; do
+            sha256sum -- "$payload_file"
+        done < <(find . -type f -print0 | sort -z)
+    )"
+    build_payload_hash="$(printf '%s\n' "$build_payload_hash" | sha256sum | awk '{print $1}')"
+    {
+        echo "UTC=$timestamp"
+        echo "HEAD=$revision_sha"
+        echo "Branch=$(git branch --show-current)"
+        echo "WorktreeDiffSHA256=$worktree_diff_hash"
+        echo "WorktreeHashIncludes=tracked-binary-diff+untracked-path-content-sha256"
+        echo "ArtifactSHA256=$artifact_hash"
+        echo "BuildPayloadSHA256=$build_payload_hash"
+        echo "Player=$player_path"
+        echo "Stage=stage-1-1"
+        echo "SceneRoute=canonical gameplay shell"
+        echo "Backend=Mono"
+        echo "Configuration=ReleaseLikeCapture"
+        echo "BuildOptions=None"
+        echo "CaptureBuildCapability=present"
+        echo "FrameTimingStats=enabled-for-capture"
+        echo "BuildMutationRestore=PASS"
+        echo "PersistentDataIsolation=unique-product-name"
+        echo "GraphicsApi=Direct3D11"
+        echo "RequestedResolution=${GAMEPLAY_PERFORMANCE_WIDTH}x${GAMEPLAY_PERFORMANCE_HEIGHT}"
+        echo "WarmupFrames=$GAMEPLAY_PERFORMANCE_WARMUP_FRAMES"
+        echo "SampleFramesPerPhase=$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES"
+        echo "GameplayTickIntervalFrames=$GAMEPLAY_PERFORMANCE_TICK_INTERVAL"
+        echo "Metrics=$metrics_path"
+        echo "GitStatusShort:"
+        git status --short
+    } > "$evidence_dir/manifest.txt"
+
+    echo "Gameplay performance measurement: PASS"
+    echo "  evidence: $evidence_dir"
+    echo "  metrics:  $metrics_path"
+    echo "  build:    $build_dir"
+}
+
 run_typography_visual() {
     local output_dir_win
     local baseline_root
@@ -7225,6 +7468,7 @@ parse_arguments() {
          [ "$RUN_MODE" = "typography-hud-guide-visual" ] ||
          [ "$RUN_MODE" = "typography-result-visual" ] ||
          [ "$RUN_MODE" = "terminal-player-build-smoke" ] ||
+         [ "$RUN_MODE" = "gameplay-performance" ] ||
          [ "$RUN_MODE" = "player-capture-save-safety" ]; } &&
        [ -n "$TEST_FILTER" ]; then
         echo "ERROR: asset generation and visual evidence lanes do not accept test filters."
@@ -7566,6 +7810,10 @@ main() {
             run_dotnet_ui
             run_terminal_player_build_smoke
             ;;
+        gameplay-performance)
+            run_dotnet_ui
+            run_gameplay_performance
+            ;;
         player-capture-save-safety)
             run_player_capture_save_safety
             ;;
@@ -7601,6 +7849,7 @@ main() {
        [ "$mode" != "typography-hud-guide-visual" ] &&
        [ "$mode" != "typography-result-visual" ] &&
        [ "$mode" != "terminal-player-build-smoke" ] &&
+       [ "$mode" != "gameplay-performance" ] &&
        [ "$mode" != "player-capture-save-safety" ]; then
         echo "ALL TESTS PASSED"
     fi

@@ -309,6 +309,17 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PerformanceCaptureBuilder_UsesReleaseLikeBuildOptions()
+        {
+            Assert.That(
+                PlayerProfilerCaptureCli.PerformanceBuildOptionsForTests(),
+                Is.EqualTo(UnityEditor.BuildOptions.None));
+            Assert.That(
+                PlayerProfilerCaptureCli.PerformanceFrameTimingStatsEnabledForTests(),
+                Is.True);
+        }
+
+        [Test]
         public void NormalBuildConfiguration_DoesNotEnableCaptureCapabilityGlobally()
         {
             var projectSettings = File.ReadAllText("ProjectSettings/ProjectSettings.asset");

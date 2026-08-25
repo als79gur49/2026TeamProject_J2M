@@ -504,6 +504,7 @@ WSL CLI
 ./run_tests.sh ui
 ./run_tests.sh climate-glyph-update
 ./run_tests.sh typography-visual
+./run_tests.sh gameplay-performance
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
@@ -543,6 +544,13 @@ WSL CLI
   - Climate PR2에서는 ko-KR Settings Audio muted, Settings Display status, ConfirmPopup 진단 PNG를 `Diagnostics/`에 추가 생성한다. 이 파일들은 canonical root의 exact 6-file manifest와 분리되며, 진단 capture failure는 해당 slice를 실패시킨다.
   - raw Unity log와 canonical `capture.log`을 분리하고, 기존 output은 overwrite하지 않으며 실패 output도 진단을 위해 보존한다.
   - `./run_tests.sh --dry-run typography-visual`은 실제 Unity path, current worktree project path, execute method, output/log/manifest path, 1920x1080, isolated slice 인자를 출력한다.
+- `./run_tests.sh gameplay-performance`
+  - `stage-1-1` canonical gameplay shell을 1920x1080 PC 품질의 Windows Mono Player로 실행해 `render-idle`과 `gameplay-neutral-tick`을 각각 600프레임 측정한다.
+  - Player는 `BuildOptions.None`을 사용하되 측정용 capture define과 Frame Timing Stats만 임시 활성화하므로 `ReleaseLikeCapture`이지 store 배포 artifact와 byte-identical한 production release는 아니다.
+  - VSync와 target frame cap을 끄고 frame interval, CPU main/render, GPU, 실제 tick wall time, draw calls의 median/P95/P99/max를 기록한다. Non-Development Player에서 GC Profiler counter가 비활성일 때는 availability를 false로 명시한다.
+  - 제품 성능 예산이 아직 고정되지 않았으므로 `GAMEPLAY_PERFORMANCE:PASS`는 capture/instrumentation 성공만 뜻하고 metrics의 `budgetVerdict`는 `NOT_CONFIGURED`로 남긴다.
+  - Unity build가 건드릴 수 있는 ProjectSettings, Scriptable Build Pipeline 설정, PC render pipeline asset, Addressables settings/Windows metadata와 generated `link.xml`은 build 전 존재 여부와 byte snapshot으로 복원한다. 기존 사용자 변경을 canonical state로 간주하여 덮어쓰지 않는다.
+  - 새 evidence는 `/mnt/d/J2M/evidence/gameplay-performance`, build는 `/mnt/d/J2M/builds/gameplay-performance` 아래 timestamp 디렉터리에 저장한다. 이 lane은 성능 수집이며 `core`, `ui`, `full` 회귀 검증을 대체하지 않는다.
 - `./run_tests.sh full`
   - 안정화 직전, 통합 직전, 혹은 넓은 회귀를 조사할 때 사용한다.
   - governance 검사 후 Windows solution build, Unity Full EditMode, Unity Full PlayMode를 실행한다.
@@ -570,6 +578,7 @@ WSL CLI
 ./run_tests.sh ui
 ./run_tests.sh climate-glyph-update
 ./run_tests.sh typography-visual
+./run_tests.sh gameplay-performance
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
@@ -609,6 +618,13 @@ WSL CLI
   - For Climate PR2, it also creates ko-KR Settings Audio muted, Settings Display status, and ConfirmPopup diagnostics under `Diagnostics/`. They remain outside the exact six-file canonical root manifest, and a diagnostic capture failure fails its slice.
   - Separates raw Unity logs from canonical `capture.log`, refuses existing output directories, and retains failed output for diagnostics.
   - `./run_tests.sh --dry-run typography-visual` prints the real Unity/current-worktree paths, execute method, output/log/manifest paths, 1920x1080 resolution, and isolated slice arguments without launching Unity.
+- `./run_tests.sh gameplay-performance`
+  - Runs the canonical `stage-1-1` gameplay shell in a 1920x1080 PC-quality Windows Mono Player and samples 600 frames each for `render-idle` and `gameplay-neutral-tick`.
+  - The Player uses `BuildOptions.None` with only the capture define and Frame Timing Stats temporarily enabled, so it is a `ReleaseLikeCapture`, not a byte-identical store production artifact.
+  - Disables VSync and the target frame cap, then records median/P95/P99/max for frame interval, CPU main/render, GPU, actual tick wall time, and draw calls. When the GC Profiler counter is unavailable in a non-Development Player, the manifest records availability as false.
+  - Because no product performance budget is pinned yet, `GAMEPLAY_PERFORMANCE:PASS` means capture/instrumentation success only and `budgetVerdict` remains `NOT_CONFIGURED`.
+  - Restores ProjectSettings, Scriptable Build Pipeline settings, the PC render-pipeline asset, Addressables settings/Windows metadata, and generated `link.xml` to their pre-build existence state and byte snapshots, treating pre-existing user changes as the state to preserve.
+  - Stores timestamped evidence under `/mnt/d/J2M/evidence/gameplay-performance` and builds under `/mnt/d/J2M/builds/gameplay-performance`. This performance capture does not replace `core`, `ui`, or `full` regression validation.
 - `./run_tests.sh full`
   - Use before stabilization, integration, or when investigating broader regressions.
   - Runs governance first, then Windows solution build, then Unity Full EditMode and Full PlayMode.
