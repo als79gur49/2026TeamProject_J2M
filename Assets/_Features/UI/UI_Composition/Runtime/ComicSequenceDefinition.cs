@@ -7,9 +7,14 @@ namespace Game.Feature.UI.Composition
     public sealed class ComicPanelDefinition
     {
         [SerializeField] private Sprite _sprite;
+        [SerializeField] private Sprite _replacementSprite;
         [SerializeField] private Rect _referenceRect;
 
         public Sprite Sprite => _sprite;
+
+        public Sprite ReplacementSprite => _replacementSprite;
+
+        public bool HasReplacement => _replacementSprite != null;
 
         public Rect ReferenceRect => _referenceRect;
 

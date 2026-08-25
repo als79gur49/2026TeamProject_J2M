@@ -47,6 +47,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 Array.ConvertAll(definition.Pages[1].Panels, panel => panel.Sprite.name),
                 Is.EqualTo(new[] { "2-1", "2-2-2", "2-4-1", "2-3", "2-5", "2-6" }));
+            Assert.That(
+                Array.ConvertAll(
+                    definition.Pages[1].Panels,
+                    panel => panel.ReplacementSprite != null
+                        ? panel.ReplacementSprite.name
+                        : null),
+                Is.EqualTo(new[] { null, null, "2-4-2", null, null, null }));
             Assert.That(definition.FinalTransitionBeforeSprite.name, Is.EqualTo("3-1"));
             Assert.That(definition.FinalTransitionAfterSprite.name, Is.EqualTo("3-2"));
             Assert.That(definition.AudioClip, Is.Not.Null);
@@ -56,6 +63,10 @@ namespace Game.Feature.UI.Tests
                 foreach (var panel in page.Panels)
                 {
                     AssertUiSpriteImport(panel.Sprite);
+                    if (panel.ReplacementSprite != null)
+                    {
+                        AssertUiSpriteImport(panel.ReplacementSprite);
+                    }
                 }
             }
 
@@ -127,11 +138,11 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void Overlay_AutoShowsFirstPanel_ThenCompletesAfterThirteenAdvances()
+        public void Overlay_ReplacesSecondPagePanel_ThenCompletesAfterFourteenAdvances()
         {
             var definition = CreateDefinitionWithoutAudio();
             var root = new GameObject(
-                nameof(Overlay_AutoShowsFirstPanel_ThenCompletesAfterThirteenAdvances),
+                nameof(Overlay_ReplacesSecondPagePanel_ThenCompletesAfterFourteenAdvances),
                 typeof(RectTransform));
             try
             {
@@ -166,7 +177,54 @@ namespace Game.Feature.UI.Tests
                 Assert.That(view.CurrentPageIndex, Is.EqualTo(1));
                 Assert.That(view.VisiblePanelCount, Is.EqualTo(1));
 
-                for (var panel = 1; panel < 6; panel++)
+                for (var panel = 1; panel < 3; panel++)
+                {
+                    view.RequestAdvance();
+                    advanceCount++;
+                    SettleFade(view);
+                }
+
+                Assert.That(view.VisiblePanelCount, Is.EqualTo(3));
+                Assert.That(view.PanelImages[2].sprite.name, Is.EqualTo("2-4-1"));
+                Assert.That(view.CurrentFadeAlpha, Is.Zero);
+                Assert.That(view.PanelImages[0].color.a, Is.EqualTo(1f));
+                Assert.That(view.PanelImages[1].color.a, Is.EqualTo(1f));
+
+                view.RequestAdvance();
+                advanceCount++;
+                view.RequestAdvance();
+                Assert.That(view.CurrentPresentationState,
+                    Is.EqualTo(ComicSequencePresentationState.PanelSwap));
+                Assert.That(view.CurrentFadeAlpha, Is.Zero);
+
+                view.AdvanceForTesting(
+                    definition.Timing.FinalSwapFadeOutDuration * 0.5f);
+                Assert.That(view.PanelImages[2].color.a, Is.GreaterThan(0f));
+                Assert.That(view.PanelImages[2].color.a, Is.LessThan(1f));
+                Assert.That(view.PanelImages[2].sprite.name, Is.EqualTo("2-4-1"));
+                Assert.That(view.PanelImages[0].color.a, Is.EqualTo(1f));
+                Assert.That(view.PanelImages[1].color.a, Is.EqualTo(1f));
+                Assert.That(view.CurrentFadeAlpha, Is.Zero);
+
+                SettleFade(view);
+                Assert.That(view.PanelImages[2].sprite.name, Is.EqualTo("2-4-2"));
+                Assert.That(view.PanelImages[2].color.a, Is.Zero);
+                Assert.That(view.CurrentPresentationState,
+                    Is.EqualTo(ComicSequencePresentationState.PanelSwap));
+                Assert.That(view.CurrentFadeAlpha, Is.Zero);
+
+                SettleFade(view);
+
+                Assert.That(view.VisiblePanelCount, Is.EqualTo(3));
+                Assert.That(view.PanelImages[2].sprite.name, Is.EqualTo("2-4-2"));
+                Assert.That(view.PanelImages[2].color.a, Is.EqualTo(1f));
+                Assert.That(view.PanelImages[0].color.a, Is.EqualTo(1f));
+                Assert.That(view.PanelImages[1].color.a, Is.EqualTo(1f));
+                Assert.That(view.CurrentFadeAlpha, Is.Zero);
+                Assert.That(view.CurrentPresentationState,
+                    Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
+
+                for (var panel = 3; panel < 6; panel++)
                 {
                     view.RequestAdvance();
                     advanceCount++;
@@ -190,7 +248,7 @@ namespace Game.Feature.UI.Tests
                 advanceCount++;
                 SettleFade(view);
 
-                Assert.That(advanceCount, Is.EqualTo(13));
+                Assert.That(advanceCount, Is.EqualTo(14));
                 Assert.That(view.IsPresenting, Is.False);
                 Assert.That(view.CurrentPresentationState,
                     Is.EqualTo(ComicSequencePresentationState.Completed));

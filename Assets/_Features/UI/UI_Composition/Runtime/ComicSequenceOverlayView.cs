@@ -18,6 +18,7 @@ namespace Game.Feature.UI.Composition
         Exiting = 6,
         AwaitingOpaqueRender = 7,
         Completed = 8,
+        PanelSwap = 9,
     }
 
     internal interface IComicSequenceOverlay
@@ -56,6 +57,8 @@ namespace Game.Feature.UI.Composition
             FinalSwapToBlack = 8,
             FinalSwapFromBlack = 9,
             ExitToBlack = 10,
+            PanelSwapFadeOut = 11,
+            PanelSwapFadeIn = 12,
         }
 
         [SerializeField] private InputActionAsset _inputActions;
@@ -78,6 +81,7 @@ namespace Game.Feature.UI.Composition
         private ComicSequenceTimingSettings _timing;
         private FadeOperation _fadeOperation;
         private Image _panelBeingRevealed;
+        private Image _panelBeingSwapped;
         private InputAction _submitAction;
         private bool _submitActionWasEnabled;
         private ComicSequenceOpaqueHandoffToken _opaqueHandoffToken;
@@ -86,6 +90,7 @@ namespace Game.Feature.UI.Composition
         private int _visiblePanelCount;
         private int _opaqueRenderRequestFrame = -1;
         private float _finalBlackHoldRemaining;
+        private bool _currentPanelReplacementDisplayed;
         private bool _awaitingOpaqueRender;
         private bool _completionDispatched;
         private bool _finalTransitionBeforeDisplayed;
@@ -235,6 +240,19 @@ namespace Game.Feature.UI.Composition
             if (_currentPageIndex >= 0)
             {
                 var currentPage = _definition.Pages[_currentPageIndex];
+                var currentPanel = currentPage.Panels[_visiblePanelCount - 1];
+                if (!_currentPanelReplacementDisplayed && currentPanel.HasReplacement)
+                {
+                    _panelBeingSwapped = _panelImages[_visiblePanelCount - 1];
+                    CurrentPresentationState = ComicSequencePresentationState.PanelSwap;
+                    BeginFade(
+                        FadeOperation.PanelSwapFadeOut,
+                        1f,
+                        0f,
+                        _timing.FinalSwapFadeOutDuration);
+                    return;
+                }
+
                 if (_visiblePanelCount < currentPage.Panels.Length)
                 {
                     RevealNextPanel(currentPage);
@@ -417,6 +435,13 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            if (_fadeOperation == FadeOperation.PanelSwapFadeOut ||
+                _fadeOperation == FadeOperation.PanelSwapFadeIn)
+            {
+                SetImageAlpha(_panelBeingSwapped, _fadeRunner.CurrentAlpha);
+                return;
+            }
+
             ApplyBlackFadeAlpha(_fadeRunner.CurrentAlpha);
             if (_fadeOperation == FadeOperation.ExitToBlack &&
                 _definition != null &&
@@ -489,6 +514,23 @@ namespace Game.Feature.UI.Composition
                     }
                     break;
 
+                case FadeOperation.PanelSwapFadeOut:
+                    SetImageAlpha(_panelBeingSwapped, 0f);
+                    ConfigureCurrentPanelReplacement();
+                    BeginFade(
+                        FadeOperation.PanelSwapFadeIn,
+                        0f,
+                        1f,
+                        _timing.FinalSwapFadeInDuration);
+                    break;
+
+                case FadeOperation.PanelSwapFadeIn:
+                    SetImageAlpha(_panelBeingSwapped, 1f);
+                    _panelBeingSwapped = null;
+                    CurrentPresentationState =
+                        ComicSequencePresentationState.AwaitingAdvance;
+                    break;
+
                 case FadeOperation.ExitToBlack:
                     CompleteExitFade();
                     break;
@@ -511,6 +553,7 @@ namespace Game.Feature.UI.Composition
         {
             _currentPageIndex = pageIndex;
             _visiblePanelCount = 0;
+            _currentPanelReplacementDisplayed = false;
             _finalTransitionBeforeDisplayed = false;
             _finalTransitionAfterDisplayed = false;
             _pageViewport.gameObject.SetActive(true);
@@ -545,6 +588,7 @@ namespace Game.Feature.UI.Composition
             SetImageAlpha(image, 0f);
             _panelBeingRevealed = image;
             _visiblePanelCount++;
+            _currentPanelReplacementDisplayed = false;
             CurrentPresentationState = ComicSequencePresentationState.Revealing;
             BeginFade(
                 FadeOperation.PanelReveal,
@@ -553,10 +597,19 @@ namespace Game.Feature.UI.Composition
                 _timing.PanelRevealDuration);
         }
 
+        private void ConfigureCurrentPanelReplacement()
+        {
+            var panelIndex = _visiblePanelCount - 1;
+            var panel = _definition.Pages[_currentPageIndex].Panels[panelIndex];
+            _panelBeingSwapped.sprite = panel.ReplacementSprite;
+            _currentPanelReplacementDisplayed = true;
+        }
+
         private void ConfigureFinalTransition(bool showAfter)
         {
             _currentPageIndex = -1;
             _visiblePanelCount = 0;
+            _currentPanelReplacementDisplayed = false;
             _pageViewport.gameObject.SetActive(false);
             _finalTransitionViewport.gameObject.SetActive(true);
             _finalTransitionImage.sprite = showAfter
@@ -849,7 +902,9 @@ namespace Game.Feature.UI.Composition
             _finalTransitionBeforeDisplayed = false;
             _finalTransitionAfterDisplayed = false;
             _finalBlackHoldRemaining = 0f;
+            _currentPanelReplacementDisplayed = false;
             _panelBeingRevealed = null;
+            _panelBeingSwapped = null;
             _fadeOperation = FadeOperation.None;
             _fadeRunner.Reset();
 
