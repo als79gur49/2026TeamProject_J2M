@@ -450,6 +450,8 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            host.Presenter.RegisterPresentationPauseRoot(backgroundInstance);
+
             var authoring = BackgroundSpaceOrbitPresenterAdapter.ResolveSingleAuthoring(backgroundInstance);
             if (authoring == null)
             {

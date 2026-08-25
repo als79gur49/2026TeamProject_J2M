@@ -168,6 +168,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var celestialPivot = celestialTilt.Find("CelestialOrbitPivot");
             Assert.That(celestialPivot, Is.Not.Null);
             var initialRotation = celestialPivot.localRotation;
+            var particleSystems = authorings[0]
+                .GetComponentsInChildren<ParticleSystem>(includeInactive: true)
+                .Where(candidate => candidate.gameObject.activeInHierarchy)
+                .ToArray();
+            Assert.That(particleSystems, Is.Not.Empty);
+            foreach (var particleSystem in particleSystems)
+            {
+                particleSystem.Play(withChildren: false);
+                Assert.That(particleSystem.isPlaying, Is.True, particleSystem.name);
+            }
 
             host.Presenter.UpdatePresentation(1f);
             Assert.That(
@@ -178,10 +188,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var pausedRotation = celestialPivot.localRotation;
             host.Presenter.UpdatePresentation(1f);
             Assert.That(Quaternion.Angle(pausedRotation, celestialPivot.localRotation), Is.LessThan(0.001f));
+            Assert.That(particleSystems.All(particleSystem => particleSystem.isPaused), Is.True);
 
             host.Presenter.SetPresentationPaused(false);
             host.Presenter.UpdatePresentation(1f);
             Assert.That(Quaternion.Angle(pausedRotation, celestialPivot.localRotation), Is.GreaterThan(0.3f));
+            Assert.That(particleSystems.All(particleSystem => particleSystem.isPlaying), Is.True);
         }
 
         [UnityTest]
