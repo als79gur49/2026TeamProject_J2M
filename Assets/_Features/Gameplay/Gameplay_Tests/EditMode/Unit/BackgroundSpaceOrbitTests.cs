@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
@@ -13,6 +15,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string OrbitPrefabPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Background/Prefabs/ExhibitionSpaceOrbit.prefab";
+        private const string WindowPrefabPath =
+            "Assets/3DM/전시회/CoverGlass/Window_Exhibition.prefab";
+        private const string WindowFrameMaterialPath =
+            "Assets/3DM/전시회/CoverGlass/CoverGlass_SM.mat";
+        private const string WindowGlassMaterialPath =
+            "Assets/3DM/SideWall/Window.mat";
         private const string BackgroundVariantPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Background/Prefabs/WallRoot_Default_Exhibition.prefab";
         private static readonly string[] BackgroundVariantPaths =
@@ -212,6 +220,109 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void ExhibitionBackgroundVariants_UseFourPresentationOnlyWindowPrefabTargets()
+        {
+            var windowPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WindowPrefabPath);
+            var frameMaterial = AssetDatabase.LoadAssetAtPath<Material>(WindowFrameMaterialPath);
+            var glassMaterial = AssetDatabase.LoadAssetAtPath<Material>(WindowGlassMaterialPath);
+            var expectedRotations = new Dictionary<string, float>(StringComparer.Ordinal)
+            {
+                ["BottomFront_Window"] = 0f,
+                ["BackFront_Window"] = 90f,
+                ["CeilingBack_Window"] = 180f,
+                ["FrontCeiling_Window"] = 270f,
+            };
+
+            Assert.That(windowPrefab, Is.Not.Null, WindowPrefabPath);
+            Assert.That(frameMaterial, Is.Not.Null, WindowFrameMaterialPath);
+            Assert.That(glassMaterial, Is.Not.Null, WindowGlassMaterialPath);
+
+            foreach (var path in BackgroundVariantPaths)
+            {
+                var variant = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                var instance = PrefabUtility.InstantiatePrefab(variant) as GameObject;
+
+                try
+                {
+                    Assert.That(instance, Is.Not.Null, path);
+                    var controller = instance.GetComponent<TopologyVisualBridgeVisibilityController>();
+                    Assert.That(controller, Is.Not.Null, path);
+                    Assert.That(controller.Bindings.Count, Is.EqualTo(expectedRotations.Count), path);
+
+                    foreach (var binding in controller.Bindings)
+                    {
+                        var target = binding?.TargetObject;
+                        Assert.That(target, Is.Not.Null, path);
+                        Assert.That(expectedRotations, Does.ContainKey(target.name), path);
+                        Assert.That(
+                            PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(target),
+                            Is.EqualTo(WindowPrefabPath),
+                            $"{path}: {target.name} must remain an instance of the shared exhibition window prefab.");
+                        Assert.That(target.transform.localPosition, Is.EqualTo(Vector3.zero), path);
+                        Assert.That(target.transform.localScale, Is.EqualTo(Vector3.one), path);
+                        Assert.That(
+                            Quaternion.Angle(
+                                target.transform.localRotation,
+                                Quaternion.Euler(expectedRotations[target.name], 0f, 0f)),
+                            Is.LessThan(0.001f),
+                            $"{path}: {target.name} rotation");
+
+                        var visual = target.transform.Find("Visual");
+                        Assert.That(visual, Is.Not.Null, $"{path}: {target.name}");
+                        AssertVectorApproximately(
+                            visual.localPosition,
+                            new Vector3(0f, -5f, 5f),
+                            $"{path}: {target.name} visual position");
+                        AssertVectorApproximately(
+                            visual.localScale,
+                            new Vector3(0.23333333f, 0.17677687f, 0.14142124f),
+                            $"{path}: {target.name} visual scale");
+                        Assert.That(
+                            Quaternion.Angle(visual.localRotation, Quaternion.Euler(45f, 0f, 0f)),
+                            Is.LessThan(0.001f),
+                            $"{path}: {target.name} visual rotation");
+                        Assert.That(
+                            target.GetComponentsInChildren<Collider>(true),
+                            Is.Empty,
+                            $"{path}: topology bridge window targets must remain presentation-only.");
+
+                        var renderers = target.GetComponentsInChildren<MeshRenderer>(true);
+                        Assert.That(renderers, Has.Length.EqualTo(2), $"{path}: {target.name}");
+                        var rendererBounds = renderers[0].bounds;
+                        for (var rendererIndex = 1; rendererIndex < renderers.Length; rendererIndex++)
+                        {
+                            rendererBounds.Encapsulate(renderers[rendererIndex].bounds);
+                        }
+
+                        if (target.name == "BottomFront_Window")
+                        {
+                            AssertVectorApproximately(
+                                rendererBounds.center,
+                                new Vector3(0f, -5f, 5f),
+                                $"{path}: imported window bounds center");
+                            AssertVectorApproximately(
+                                rendererBounds.size,
+                                new Vector3(17.5f, 2.1213202f, 2.1213202f),
+                                $"{path}: imported window bounds size",
+                                0.001f);
+                        }
+
+                        var materials = renderers.SelectMany(renderer => renderer.sharedMaterials).ToArray();
+                        Assert.That(materials, Does.Contain(frameMaterial), $"{path}: {target.name}");
+                        Assert.That(materials, Does.Contain(glassMaterial), $"{path}: {target.name}");
+                    }
+                }
+                finally
+                {
+                    if (instance != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(instance);
+                    }
+                }
+            }
+        }
+
+        [Test]
         public void ExhibitionOrbitPrefab_HasConfiguredPresentationContent()
         {
             var orbitPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(OrbitPrefabPath);
@@ -329,6 +440,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssertRotation(Transform target, Quaternion expected)
         {
             Assert.That(Quaternion.Angle(target.localRotation, expected), Is.LessThan(0.001f));
+        }
+
+        private static void AssertVectorApproximately(
+            Vector3 actual,
+            Vector3 expected,
+            string message,
+            float tolerance = 0.00001f)
+        {
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(tolerance), message);
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(tolerance), message);
+            Assert.That(actual.z, Is.EqualTo(expected.z).Within(tolerance), message);
         }
 
         private readonly struct StageVariantExpectation
