@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
@@ -31,6 +32,22 @@ public static class WindowsReleaseBuildPolicy
     public const Il2CppCompilerConfiguration Il2CppCompiler =
         Il2CppCompilerConfiguration.Release;
     public const StackTraceLogType WarningStackTrace = StackTraceLogType.ScriptOnly;
+    public const string CollectionsPackageVersion = "2.6.2";
+
+    public static readonly string[] ForbiddenManagedAssemblies =
+    {
+        WindowsDistributionTargetPolicy.SystemIoHashingArtifact,
+        WindowsDistributionTargetPolicy.UnsafeArtifact,
+    };
+
+    public static readonly string[] TestOnlyManagedPluginPaths =
+    {
+        "Packages/com.unity.collections/Unity.Collections.Tests/" +
+        "System.IO.Hashing/System.IO.Hashing.dll",
+        "Packages/com.unity.collections/Unity.Collections.Tests/" +
+        "System.Runtime.CompilerServices.Unsafe/" +
+        "System.Runtime.CompilerServices.Unsafe.dll",
+    };
 
     public static readonly string[] Scenes = { MainMenuScene, UiAudioScene };
 
@@ -186,6 +203,44 @@ public static class WindowsReleaseBuildPolicy
             default:
                 return WindowsReleaseExitCodes.BuildUnknownResult;
         }
+    }
+
+    public static int ValidateForbiddenManagedAssemblies(string outputPath)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath))
+        {
+            return WindowsReleaseExitCodes.ForbiddenManagedAssemblyPresent;
+        }
+
+        var playerRoot = Path.GetDirectoryName(outputPath);
+        var executableName = Path.GetFileNameWithoutExtension(outputPath);
+        if (string.IsNullOrEmpty(playerRoot) || string.IsNullOrEmpty(executableName))
+        {
+            return WindowsReleaseExitCodes.ForbiddenManagedAssemblyPresent;
+        }
+
+        var dataRoot = Path.Combine(playerRoot, executableName + "_Data");
+        var managedRoot = Path.Combine(dataRoot, "Managed");
+        foreach (var artifact in ForbiddenManagedAssemblies)
+        {
+            if (File.Exists(Path.Combine(managedRoot, artifact)))
+            {
+                return WindowsReleaseExitCodes.ForbiddenManagedAssemblyPresent;
+            }
+        }
+
+        var scriptingAssembliesPath = Path.Combine(dataRoot, "ScriptingAssemblies.json");
+        if (!File.Exists(scriptingAssembliesPath))
+        {
+            return WindowsReleaseExitCodes.ForbiddenManagedAssemblyPresent;
+        }
+
+        var scriptingAssemblies = File.ReadAllText(scriptingAssembliesPath);
+        return ForbiddenManagedAssemblies.Any(artifact =>
+                scriptingAssemblies.IndexOf(
+                    "\"" + artifact + "\"", StringComparison.Ordinal) >= 0)
+            ? WindowsReleaseExitCodes.ForbiddenManagedAssemblyPresent
+            : WindowsReleaseExitCodes.Success;
     }
 
     public static int ValidateBuildReportEvidence(
@@ -419,7 +474,9 @@ public static class WindowsReleaseBuildPolicy
         int evidenceIdentityAndCounts =
             WindowsReleaseExitCodes.Success)
     {
-        if (buildExitCode == WindowsReleaseExitCodes.SettingsRestoreFailure)
+        if (buildExitCode == WindowsReleaseExitCodes.SettingsRestoreFailure ||
+            buildExitCode == WindowsReleaseExitCodes.ManagedPluginApplyFailure ||
+            buildExitCode == WindowsReleaseExitCodes.ManagedPluginRestoreFailure)
         {
             return buildExitCode;
         }
@@ -601,10 +658,13 @@ public static class WindowsReleaseExitCodes
     public const int PlayerSettingsContractMismatch = 20;
     public const int SettingsApplyFailure = 21;
     public const int SettingsRestoreFailure = 22;
+    public const int ManagedPluginApplyFailure = 23;
+    public const int ManagedPluginRestoreFailure = 24;
     public const int BuildFailed = 30;
     public const int BuildCancelled = 31;
     public const int BuildUnknownResult = 32;
     public const int BuildErrorsRecorded = 33;
+    public const int ForbiddenManagedAssemblyPresent = 34;
     public const int MetadataWriteFailure = 40;
     public const int BuildReportWriteFailure = 41;
     public const int BuildReportDetailsWriteFailure = 42;
@@ -618,8 +678,10 @@ public static class WindowsReleaseExitCodes
             Success, InvalidArguments, UnsupportedConfiguration, ActiveBuildTargetMismatch,
             UnityVersionMismatch, SceneContractMismatch, UnsupportedDistributionTarget,
             PlayerSettingsContractMismatch,
-            SettingsApplyFailure, SettingsRestoreFailure, BuildFailed, BuildCancelled,
-            BuildUnknownResult, BuildErrorsRecorded, MetadataWriteFailure,
+            SettingsApplyFailure, SettingsRestoreFailure,
+            ManagedPluginApplyFailure, ManagedPluginRestoreFailure,
+            BuildFailed, BuildCancelled, BuildUnknownResult, BuildErrorsRecorded,
+            ForbiddenManagedAssemblyPresent, MetadataWriteFailure,
             BuildReportWriteFailure, BuildReportDetailsWriteFailure,
             BuildReportCountMismatch, BuildReportIdentityMismatch, InternalException,
         };
@@ -786,6 +848,149 @@ public sealed class ReleaseSettingsTransactionRecordV1
     public bool restoreAttempted;
     public string restoreResult;
     public bool restoredVerification;
+    public ManagedPluginTransactionRecordV1 managedPluginTransaction;
+}
+
+public interface IWindowsReleaseManagedPluginSettings
+{
+    ManagedPluginSettingsSnapshot Capture();
+    void ApplyRequired();
+    bool IsRequired();
+    void Restore(ManagedPluginSettingsSnapshot snapshot);
+    bool IsRestored(ManagedPluginSettingsSnapshot snapshot);
+}
+
+[Serializable]
+public struct ManagedPluginState
+{
+    public string assetPath;
+    public bool compatibleWithAnyPlatform;
+    public bool compatibleWithStandaloneWindows64;
+}
+
+[Serializable]
+public struct ManagedPluginSettingsSnapshot
+{
+    public ManagedPluginState[] plugins;
+}
+
+[Serializable]
+public sealed class ManagedPluginTransactionRecordV1
+{
+    public string schemaVersion = "1.0";
+    public string[] assetPaths;
+    public bool appliedVerification;
+    public bool restoreAttempted;
+    public string restoreResult;
+    public bool restoredVerification;
+}
+
+public static class WindowsReleaseManagedPluginTransaction
+{
+    public static int Run(
+        IWindowsReleaseManagedPluginSettings settings,
+        Func<int> build,
+        ManagedPluginTransactionRecordV1 record = null)
+    {
+        ManagedPluginSettingsSnapshot snapshot;
+        try
+        {
+            snapshot = settings.Capture();
+        }
+        catch
+        {
+            return WindowsReleaseExitCodes.ManagedPluginApplyFailure;
+        }
+
+        if (record != null)
+        {
+            record.assetPaths = snapshot.plugins == null
+                ? Array.Empty<string>()
+                : snapshot.plugins.Select(plugin => plugin.assetPath).ToArray();
+        }
+
+        var result = WindowsReleaseExitCodes.InternalException;
+        var restoreRequired = true;
+        try
+        {
+            try
+            {
+                restoreRequired = !settings.IsRequired();
+                if (restoreRequired)
+                {
+                    settings.ApplyRequired();
+                }
+
+                var applied = settings.IsRequired();
+                if (record != null)
+                {
+                    record.appliedVerification = applied;
+                }
+                if (!applied)
+                {
+                    result = WindowsReleaseExitCodes.ManagedPluginApplyFailure;
+                }
+            }
+            catch
+            {
+                if (record != null)
+                {
+                    record.appliedVerification = false;
+                }
+                result = WindowsReleaseExitCodes.ManagedPluginApplyFailure;
+            }
+
+            if (result != WindowsReleaseExitCodes.ManagedPluginApplyFailure)
+            {
+                result = build();
+            }
+        }
+        catch
+        {
+            result = WindowsReleaseExitCodes.InternalException;
+        }
+        finally
+        {
+            if (restoreRequired)
+            {
+                if (record != null)
+                {
+                    record.restoreAttempted = true;
+                }
+                try
+                {
+                    settings.Restore(snapshot);
+                    var restored = settings.IsRestored(snapshot);
+                    if (record != null)
+                    {
+                        record.restoredVerification = restored;
+                        record.restoreResult = restored ? "Restored" : "VerificationFailed";
+                    }
+                    if (!restored)
+                    {
+                        result = WindowsReleaseExitCodes.ManagedPluginRestoreFailure;
+                    }
+                }
+                catch
+                {
+                    if (record != null)
+                    {
+                        record.restoredVerification = false;
+                        record.restoreResult = "Exception";
+                    }
+                    result = WindowsReleaseExitCodes.ManagedPluginRestoreFailure;
+                }
+            }
+            else if (record != null)
+            {
+                record.restoreAttempted = false;
+                record.restoredVerification = true;
+                record.restoreResult = "NotRequired";
+            }
+        }
+
+        return result;
+    }
 }
 
 [Serializable]

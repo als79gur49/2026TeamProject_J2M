@@ -29,7 +29,7 @@ $script:UnityPlayerThirdPartyNoticesSha256 =
     "7bed0e6f6646552f9262903b62863c693074ac89ccf6291ead7e876033a29623"
 $script:UnityCompanionLicenseUrl =
     "https://unity.com/legal/licenses/unity-companion-license"
-$script:UnityCompanionLicenseUrlOccurrenceCount = 6
+$script:UnityCompanionLicenseUrlOccurrenceCount = 7
 $script:ThirdPartyNoticePackageVersions = [ordered]@{
     "com.unity.cinemachine" = "3.1.6"
     "com.unity.nuget.newtonsoft-json" = "3.2.2"
@@ -37,8 +37,16 @@ $script:ThirdPartyNoticePackageVersions = [ordered]@{
     "com.unity.visualscripting" = "1.9.10"
     "com.unity.render-pipelines.universal" = "17.3.0"
     "com.unity.render-pipelines.core" = "17.3.0"
+    "com.unity.mathematics" = "1.3.3"
     "com.unity.burst" = "1.8.28"
 }
+$script:ReleaseManagedPluginPackageVersions = [ordered]@{
+    "com.unity.collections" = "2.6.2"
+}
+$script:ForbiddenReleaseManagedAssemblies = @(
+    "System.IO.Hashing.dll",
+    "System.Runtime.CompilerServices.Unsafe.dll"
+)
 $script:RequiredThirdPartyNoticeMarkers = @(
     "VectorQuake Third-Party Notices",
     "Unity Player Runtime Third-Party Notices",
@@ -74,6 +82,8 @@ $script:RequiredThirdPartyNoticeFragments = @(
     "com.unity.visualscripting 1.9.10",
     "com.unity.render-pipelines.universal 17.3.0",
     "com.unity.render-pipelines.core 17.3.0",
+    "com.unity.mathematics 1.3.3",
+    "Copyright (c) 2023 Unity Technologies ApS",
     "com.unity.burst 1.8.28",
     "# [Clipper](http://www.angusj.com/delphi/clipper.php)",
     "Component Name: Newtonsoft.Json`n`nLicense Type: MIT`n`nThe MIT License (MIT)",
@@ -134,6 +144,10 @@ $script:ThirdPartyNoticeBodyContracts = @(
         Sha256 = "6a43a4582d54e450f53f7596e068a3dac8486e2c94b04839139c548e3725d7f4"
     },
     [pscustomobject]@{
+        Name = "upm-mathematics-noise-1.3.3"
+        Sha256 = "f18920bdf3c091dee9a97bcad9a93dd2d2a8343aaf558db46f4bc4f82f3c20b0"
+    },
+    [pscustomobject]@{
         Name = "upm-burst-1.8.28"
         Sha256 = "496c579fc20d6bfcb4e19cf0eafd85eb20dc2d3a93e545f11bcfec79aca76ea0"
     },
@@ -160,7 +174,9 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ForbiddenArtifacts = @(
                     "steam_api64.dll",
                     "com.rlabrecque.steamworks.net.dll",
-                    "steam_appid.txt"
+                    "steam_appid.txt",
+                    "System.IO.Hashing.dll",
+                    "System.Runtime.CompilerServices.Unsafe.dll"
                 )
                 ExpectedStoreLaunch = "VectorQuake.exe"
             }
@@ -178,7 +194,11 @@ function Resolve-WindowsDistributionTargetPolicy {
                     "steam_api64.dll",
                     "com.rlabrecque.steamworks.net.dll"
                 )
-                ForbiddenArtifacts = @("steam_appid.txt")
+                ForbiddenArtifacts = @(
+                    "steam_appid.txt",
+                    "System.IO.Hashing.dll",
+                    "System.Runtime.CompilerServices.Unsafe.dll"
+                )
                 ExpectedStoreLaunch =
                     "VectorQuake.exe -j2mPlatformProvider steam"
             }
@@ -278,6 +298,7 @@ $script:ReleaseExitCodes = [ordered]@{
     BuildSourcePathBudgetFailure = 115
     UnsupportedConfiguration = 116
     PublicNoticeFailure = 117
+    ForbiddenManagedAssemblyPresent = 118
 }
 try {
     $script:BackendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
@@ -956,13 +977,23 @@ function Assert-ThirdPartyNoticePackageInventory {
         throw "PUBLIC_NOTICE_PACKAGE_LOCK_DEPENDENCIES_MISSING"
     }
 
+    $expectedPackages = [ordered]@{}
     foreach ($packageId in $script:ThirdPartyNoticePackageVersions.Keys) {
+        $expectedPackages[$packageId] =
+            $script:ThirdPartyNoticePackageVersions[$packageId]
+    }
+    foreach ($packageId in $script:ReleaseManagedPluginPackageVersions.Keys) {
+        $expectedPackages[$packageId] =
+            $script:ReleaseManagedPluginPackageVersions[$packageId]
+    }
+
+    foreach ($packageId in $expectedPackages.Keys) {
         $property = $lock.dependencies.PSObject.Properties[$packageId]
         if ($null -eq $property -or $null -eq $property.Value) {
             throw "PUBLIC_NOTICE_PACKAGE_MISSING: $packageId"
         }
         $actualVersion = [string]$property.Value.version
-        $expectedVersion = [string]$script:ThirdPartyNoticePackageVersions[$packageId]
+        $expectedVersion = [string]$expectedPackages[$packageId]
         if ($actualVersion -cne $expectedVersion) {
             throw "PUBLIC_NOTICE_PACKAGE_VERSION_MISMATCH: $packageId expected=$expectedVersion actual=$actualVersion"
         }
@@ -1731,6 +1762,36 @@ function Prepare-PayloadForAudience {
         Audience = $Audience
         ExcludedRelativePaths = @($excluded)
         PrivacyGatePassed = $true
+    }
+}
+
+function Assert-ForbiddenReleaseManagedAssembliesAbsent {
+    param([Parameter(Mandatory)][string]$PayloadRoot)
+
+    $dataRoot = Join-Path $PayloadRoot "VectorQuake_Data"
+    $managedRoot = Join-Path $dataRoot "Managed"
+    foreach ($assemblyName in $script:ForbiddenReleaseManagedAssemblies) {
+        $assemblyPath = Join-Path $managedRoot $assemblyName
+        if (Test-Path -LiteralPath $assemblyPath -PathType Leaf) {
+            throw "FORBIDDEN_MANAGED_ASSEMBLY_PRESENT: $assemblyPath"
+        }
+    }
+
+    $inventoryPath = Join-Path $dataRoot "ScriptingAssemblies.json"
+    if (-not (Test-Path -LiteralPath $inventoryPath -PathType Leaf)) {
+        throw "SCRIPTING_ASSEMBLY_INVENTORY_MISSING: $inventoryPath"
+    }
+    try {
+        $inventory = [IO.File]::ReadAllText(
+            $inventoryPath, [Text.UTF8Encoding]::new($false, $true))
+    } catch {
+        throw "SCRIPTING_ASSEMBLY_INVENTORY_UNREADABLE: $inventoryPath"
+    }
+    foreach ($assemblyName in $script:ForbiddenReleaseManagedAssemblies) {
+        $quotedName = '"' + $assemblyName + '"'
+        if ($inventory.IndexOf($quotedName, [StringComparison]::Ordinal) -ge 0) {
+            throw "FORBIDDEN_SCRIPTING_ASSEMBLY_ENTRY_PRESENT: $assemblyName"
+        }
     }
 }
 
@@ -2822,6 +2883,14 @@ function Invoke-WindowsReleasePipeline {
         if ($unityExitCode -ne 0) {
             $exitCode = $script:ReleaseExitCodes.UnityInvocationFailure
             throw "Unity returned exit code $unityExitCode."
+        }
+
+        $stage = "managed-assembly-policy"
+        try {
+            Assert-ForbiddenReleaseManagedAssembliesAbsent -PayloadRoot $payload
+        } catch {
+            $exitCode = $script:ReleaseExitCodes.ForbiddenManagedAssemblyPresent
+            throw
         }
 
         $stage = "public-notices"

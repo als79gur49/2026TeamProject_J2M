@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
@@ -280,6 +281,25 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(WindowsDistributionValidationFailure.ForbiddenArtifactPresent));
         }
 
+        [TestCase("direct-windows", "System.IO.Hashing.dll")]
+        [TestCase("direct-windows", "System.Runtime.CompilerServices.Unsafe.dll")]
+        [TestCase("steam-windows", "System.IO.Hashing.dll")]
+        [TestCase("steam-windows", "System.Runtime.CompilerServices.Unsafe.dll")]
+        public void BothTargets_ForbidTestOnlyManagedAssemblies(
+            string targetId,
+            string artifact)
+        {
+            Assert.That(WindowsDistributionTargetPolicy.TryResolve(
+                targetId, out var target), Is.True);
+            var inventory = target.CopyRequiredArtifacts()
+                .Concat(new[] { "VectorQuake_Data/Managed/" + artifact });
+
+            Assert.That(
+                WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                    target, inventory),
+                Is.EqualTo(WindowsDistributionValidationFailure.ForbiddenArtifactPresent));
+        }
+
         [TestCase(WindowsDistributionTargetPolicy.DirectWindowsTargetId)]
         [TestCase(WindowsDistributionTargetPolicy.SteamWindowsTargetId)]
         public void DistributionContract_MissingThirdPartyNoticesIsRejected(string targetId)
@@ -523,6 +543,38 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ManagedPluginApplyFailure_WithoutBuildReport_IsPreserved()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
+                    WindowsReleaseExitCodes.ManagedPluginApplyFailure,
+                    summaryWritten: false,
+                    detailsWritten: false,
+                    metadataWritten: true,
+                    metadataErrorCount: 0,
+                    reportErrorCount: -1,
+                    structuredErrorCount: -1,
+                    evidenceIdentityAndCounts:
+                        WindowsReleaseExitCodes.BuildReportIdentityMismatch),
+                Is.EqualTo(WindowsReleaseExitCodes.ManagedPluginApplyFailure));
+        }
+
+        [Test]
+        public void ManagedPluginRestoreExitCode_TakesPrecedenceOverBuildReportFailures()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
+                    WindowsReleaseExitCodes.ManagedPluginRestoreFailure,
+                    summaryWritten: false,
+                    detailsWritten: false,
+                    metadataWritten: true,
+                    metadataErrorCount: 0,
+                    reportErrorCount: -1,
+                    structuredErrorCount: -1,
+                    evidenceIdentityAndCounts:
+                        WindowsReleaseExitCodes.BuildReportIdentityMismatch),
+                Is.EqualTo(WindowsReleaseExitCodes.ManagedPluginRestoreFailure));
+        }
+
+        [Test]
         public void BuildReportEvidence_StructuredCountMismatch_IsRejected()
         {
             Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportEvidence(2, 2, 1),
@@ -632,6 +684,119 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(result, Is.EqualTo(WindowsReleaseExitCodes.Success));
             Assert.That(settings.ApplyCalled, Is.False);
             Assert.That(settings.RestoreCalled, Is.False);
+        }
+
+        [Test]
+        public void ManagedPlugins_AreRestoredOnSuccessAndRecorded()
+        {
+            var settings = new FakeManagedPluginSettings();
+            var record = new ManagedPluginTransactionRecordV1();
+
+            var result = WindowsReleaseManagedPluginTransaction.Run(
+                settings,
+                () => WindowsReleaseExitCodes.Success,
+                record);
+
+            Assert.That(result, Is.EqualTo(WindowsReleaseExitCodes.Success));
+            Assert.That(settings.ApplyCalled, Is.True);
+            Assert.That(settings.RestoreCalled, Is.True);
+            Assert.That(record.assetPaths,
+                Is.EqualTo(WindowsReleaseBuildPolicy.TestOnlyManagedPluginPaths));
+            Assert.That(record.appliedVerification, Is.True);
+            Assert.That(record.restoreResult, Is.EqualTo("Restored"));
+        }
+
+        [Test]
+        public void ManagedPlugins_AreRestoredOnBuildException()
+        {
+            var settings = new FakeManagedPluginSettings();
+
+            var result = WindowsReleaseManagedPluginTransaction.Run(
+                settings,
+                () => throw new InvalidOperationException("synthetic"));
+
+            Assert.That(result, Is.EqualTo(WindowsReleaseExitCodes.InternalException));
+            Assert.That(settings.RestoreCalled, Is.True);
+        }
+
+        [Test]
+        public void ManagedPluginRestoreFailure_TakesPrecedence()
+        {
+            var settings = new FakeManagedPluginSettings { RestoreValid = false };
+
+            var result = WindowsReleaseManagedPluginTransaction.Run(
+                settings,
+                () => WindowsReleaseExitCodes.Success);
+
+            Assert.That(result,
+                Is.EqualTo(WindowsReleaseExitCodes.ManagedPluginRestoreFailure));
+        }
+
+        [Test]
+        public void ManagedPlugins_AlreadyExcluded_AreNotMutated()
+        {
+            var settings = new FakeManagedPluginSettings { RequiredValid = true };
+
+            var result = WindowsReleaseManagedPluginTransaction.Run(
+                settings,
+                () => WindowsReleaseExitCodes.Success);
+
+            Assert.That(result, Is.EqualTo(WindowsReleaseExitCodes.Success));
+            Assert.That(settings.ApplyCalled, Is.False);
+            Assert.That(settings.RestoreCalled, Is.False);
+        }
+
+        [Test]
+        public void ManagedPluginApplyFailure_FailsClosedAndRestores()
+        {
+            var settings = new FakeManagedPluginSettings { ApplyValid = false };
+
+            var result = WindowsReleaseManagedPluginTransaction.Run(
+                settings,
+                () => WindowsReleaseExitCodes.Success);
+
+            Assert.That(result,
+                Is.EqualTo(WindowsReleaseExitCodes.ManagedPluginApplyFailure));
+            Assert.That(settings.RestoreCalled, Is.True);
+        }
+
+        [TestCase("System.IO.Hashing.dll")]
+        [TestCase("System.Runtime.CompilerServices.Unsafe.dll")]
+        public void PlayerOutput_ForbiddenManagedAssemblyFailsClosed(string artifact)
+        {
+            WithPlayerOutput((output, dataRoot, managedRoot) =>
+            {
+                File.WriteAllText(Path.Combine(managedRoot, artifact), "fixture");
+                Assert.That(
+                    WindowsReleaseBuildPolicy.ValidateForbiddenManagedAssemblies(output),
+                    Is.EqualTo(
+                        WindowsReleaseExitCodes.ForbiddenManagedAssemblyPresent));
+            });
+        }
+
+        [TestCase("System.IO.Hashing.dll")]
+        [TestCase("System.Runtime.CompilerServices.Unsafe.dll")]
+        public void ScriptingAssemblyInventory_ForbiddenNameFailsClosed(string artifact)
+        {
+            WithPlayerOutput((output, dataRoot, _) =>
+            {
+                File.WriteAllText(
+                    Path.Combine(dataRoot, "ScriptingAssemblies.json"),
+                    "{\"names\":[\"" + artifact + "\"]}");
+                Assert.That(
+                    WindowsReleaseBuildPolicy.ValidateForbiddenManagedAssemblies(output),
+                    Is.EqualTo(
+                        WindowsReleaseExitCodes.ForbiddenManagedAssemblyPresent));
+            });
+        }
+
+        [Test]
+        public void PlayerOutput_WithoutForbiddenManagedAssembliesPasses()
+        {
+            WithPlayerOutput((output, _, __) =>
+                Assert.That(
+                    WindowsReleaseBuildPolicy.ValidateForbiddenManagedAssemblies(output),
+                    Is.EqualTo(WindowsReleaseExitCodes.Success)));
         }
 
         [Test]
@@ -1311,6 +1476,65 @@ namespace Game.Feature.Stages.Editor.Tests
             public bool IsRequired() => RequiredValid;
             public void Restore(ReleaseSettingsSnapshot snapshot) => RestoreCalled = true;
             public bool IsRestored(ReleaseSettingsSnapshot snapshot) => RestoreValid;
+        }
+
+        private sealed class FakeManagedPluginSettings :
+            IWindowsReleaseManagedPluginSettings
+        {
+            public bool ApplyCalled { get; private set; }
+            public bool RestoreCalled { get; private set; }
+            public bool ApplyValid { get; set; } = true;
+            public bool RestoreValid { get; set; } = true;
+            public bool RequiredValid { get; set; }
+
+            public ManagedPluginSettingsSnapshot Capture()
+            {
+                return new ManagedPluginSettingsSnapshot
+                {
+                    plugins = WindowsReleaseBuildPolicy.TestOnlyManagedPluginPaths
+                        .Select(path => new ManagedPluginState { assetPath = path })
+                        .ToArray(),
+                };
+            }
+
+            public void ApplyRequired()
+            {
+                ApplyCalled = true;
+                RequiredValid = ApplyValid;
+            }
+
+            public bool IsRequired() => RequiredValid;
+
+            public void Restore(ManagedPluginSettingsSnapshot snapshot)
+            {
+                RestoreCalled = true;
+                RequiredValid = false;
+            }
+
+            public bool IsRestored(ManagedPluginSettingsSnapshot snapshot) => RestoreValid;
+        }
+
+        private static void WithPlayerOutput(
+            Action<string, string, string> assertion)
+        {
+            var root = Path.Combine(
+                Path.GetTempPath(),
+                "windows-release-managed-" + Guid.NewGuid().ToString("N"));
+            var output = Path.Combine(root, "VectorQuake.exe");
+            var dataRoot = Path.Combine(root, "VectorQuake_Data");
+            var managedRoot = Path.Combine(dataRoot, "Managed");
+            Directory.CreateDirectory(managedRoot);
+            File.WriteAllText(
+                Path.Combine(dataRoot, "ScriptingAssemblies.json"),
+                "{\"names\":[\"Game.Feature.Gameplay.dll\"]}");
+            try
+            {
+                assertion(output, dataRoot, managedRoot);
+            }
+            finally
+            {
+                Directory.Delete(root, recursive: true);
+            }
         }
     }
 }

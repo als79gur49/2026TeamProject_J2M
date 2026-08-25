@@ -83,6 +83,9 @@ public static class WindowsDistributionTargetPolicy
     public const string SteamManagedBindingArtifact =
         "com.rlabrecque.steamworks.net.dll";
     public const string SteamAppIdArtifact = "steam_appid.txt";
+    public const string SystemIoHashingArtifact = "System.IO.Hashing.dll";
+    public const string UnsafeArtifact =
+        "System.Runtime.CompilerServices.Unsafe.dll";
     public const string ThirdPartyNoticesArtifact = "ThirdPartyNotices.txt";
     public const string UnityPlayerThirdPartyNoticesArtifact =
         "UnityPlayerThirdPartyNotices.pdf";
@@ -91,7 +94,7 @@ public static class WindowsDistributionTargetPolicy
         "7bed0e6f6646552f9262903b62863c693074ac89ccf6291ead7e876033a29623";
     private const string UnityCompanionLicenseUrl =
         "https://unity.com/legal/licenses/unity-companion-license";
-    private const int UnityCompanionLicenseUrlOccurrenceCount = 6;
+    private const int UnityCompanionLicenseUrlOccurrenceCount = 7;
     public static readonly IReadOnlyList<string> ThirdPartyNoticeRequiredMarkers =
         Array.AsReadOnly(new[]
         {
@@ -132,6 +135,8 @@ public static class WindowsDistributionTargetPolicy
             "com.unity.visualscripting 1.9.10",
             "com.unity.render-pipelines.universal 17.3.0",
             "com.unity.render-pipelines.core 17.3.0",
+            "com.unity.mathematics 1.3.3",
+            "Copyright (c) 2023 Unity Technologies ApS",
             "com.unity.burst 1.8.28",
             "# [Clipper](http://www.angusj.com/delphi/clipper.php)",
             "Component Name: Newtonsoft.Json\n\nLicense Type: MIT\n\nThe MIT License (MIT)",
@@ -186,6 +191,9 @@ public static class WindowsDistributionTargetPolicy
             "upm-render-pipelines-core-runtime-17.3.0",
             "6a43a4582d54e450f53f7596e068a3dac8486e2c94b04839139c548e3725d7f4"),
         new ThirdPartyNoticeBodyContract(
+            "upm-mathematics-noise-1.3.3",
+            "f18920bdf3c091dee9a97bcad9a93dd2d2a8343aaf558db46f4bc4f82f3c20b0"),
+        new ThirdPartyNoticeBodyContract(
             "upm-burst-1.8.28",
             "496c579fc20d6bfcb4e19cf0eafd85eb20dc2d3a93e545f11bcfec79aca76ea0"),
         new ThirdPartyNoticeBodyContract(
@@ -210,6 +218,8 @@ public static class WindowsDistributionTargetPolicy
                 SteamNativeArtifact,
                 SteamManagedBindingArtifact,
                 SteamAppIdArtifact,
+                SystemIoHashingArtifact,
+                UnsafeArtifact,
             });
 
     public static readonly WindowsDistributionTargetConfiguration SteamWindows =
@@ -226,7 +236,12 @@ public static class WindowsDistributionTargetPolicy
                 SteamNativeArtifact,
                 SteamManagedBindingArtifact,
             },
-            new[] { SteamAppIdArtifact });
+            new[]
+            {
+                SteamAppIdArtifact,
+                SystemIoHashingArtifact,
+                UnsafeArtifact,
+            });
 
     public static bool TryResolve(
         string targetId,
