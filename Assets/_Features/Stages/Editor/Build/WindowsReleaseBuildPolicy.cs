@@ -864,8 +864,7 @@ public interface IWindowsReleaseManagedPluginSettings
 public struct ManagedPluginState
 {
     public string assetPath;
-    public bool compatibleWithAnyPlatform;
-    public bool compatibleWithStandaloneWindows64;
+    public bool shouldIncludeInBuild;
 }
 
 [Serializable]

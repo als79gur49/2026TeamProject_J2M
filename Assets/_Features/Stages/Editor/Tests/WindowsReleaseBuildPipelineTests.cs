@@ -760,6 +760,35 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(settings.RestoreCalled, Is.True);
         }
 
+        [Test]
+        public void ManagedPluginAdapter_ExcludesWindowsAndRestoresActualPackageImporters()
+        {
+            var settings = new UnityWindowsReleaseManagedPluginSettings();
+            var snapshot = settings.Capture();
+            var applied = false;
+            var appliedState = string.Empty;
+
+            try
+            {
+                settings.ApplyRequired();
+                applied = settings.IsRequired();
+                appliedState = string.Join("; ",
+                    WindowsReleaseBuildPolicy.TestOnlyManagedPluginPaths.Select(path =>
+                    {
+                        var importer = (PluginImporter)AssetImporter.GetAtPath(path);
+                        return $"{path}: include={importer.ShouldIncludeInBuild()}, " +
+                               $"required={settings.IsRequired()}";
+                    }));
+            }
+            finally
+            {
+                settings.Restore(snapshot);
+            }
+
+            Assert.That(applied, Is.True, appliedState);
+            Assert.That(settings.IsRestored(snapshot), Is.True);
+        }
+
         [TestCase("System.IO.Hashing.dll")]
         [TestCase("System.Runtime.CompilerServices.Unsafe.dll")]
         public void PlayerOutput_ForbiddenManagedAssemblyFailsClosed(string artifact)
