@@ -474,7 +474,8 @@ public static class WindowsReleaseBuildPolicy
         int evidenceIdentityAndCounts =
             WindowsReleaseExitCodes.Success)
     {
-        if (buildExitCode == WindowsReleaseExitCodes.SettingsRestoreFailure)
+        if (buildExitCode == WindowsReleaseExitCodes.SettingsRestoreFailure ||
+            buildExitCode == WindowsReleaseExitCodes.ManagedPluginApplyFailure)
         {
             return buildExitCode;
         }
