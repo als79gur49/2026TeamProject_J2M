@@ -225,6 +225,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var authorings = instance.GetComponentsInChildren<BackgroundSpaceOrbitAuthoring>(true);
                 Assert.That(authorings, Has.Length.EqualTo(1));
+                var serializedAuthoring = new SerializedObject(authorings[0]);
+                Assert.That(
+                    serializedAuthoring.FindProperty("debrisDegreesPerSecond").floatValue,
+                    Is.EqualTo(-40.65f),
+                    "The campaign debris orbit intentionally uses the authored fast presentation pace.");
 
                 var orbitRoot = authorings[0].transform;
                 var celestialTilt = orbitRoot.Find("CelestialOrbitTilt");
