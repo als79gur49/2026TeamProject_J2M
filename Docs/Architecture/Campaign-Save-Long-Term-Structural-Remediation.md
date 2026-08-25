@@ -1390,6 +1390,8 @@ Final verdict: 위 original objective와 전체 완료 정의를 모두 충족�
 구조 계약이 아니라 broad baseline recovery, cross-process writer coordination, 새 schema/release
 결정, manual Player/build 검증처럼 명시적으로 실행하지 않았거나 범위 밖인 후속 작업이다.
 
+후속 독립 감사에서 확인한 test-truth 교정과 current-state 재검증은 13.5를 따른다.
+
 ## 13. 권장 Goal 시작 단위와 실행 기록
 
 첫 Goal turn은 Phase 0의 transition characterization만 수행한다. engine을 바로 추가하면 기존
@@ -1560,6 +1562,29 @@ red와 최종 XML/log/metrics/source hash evidence는
 `/mnt/d/J2M/evidence/20260825-084058-campaign-save-final-structure-closeout/`에 보존한다. broad
 unfiltered `full`과 manual Player/build smoke는 실행하지 않았으므로 project-wide 또는 broad recovery를
 claim하지 않는다.
+
+### 13.5 Independent audit corrective closeout — 2026-08-25 KST
+
+후속 독립 감사에서 `DemoStageControlTests`의 diagnostic stage-selection assertion 하나가 기존 runtime과
+문서 계약에 반대로 이식된 사실을 확인했다. Runtime은 이전부터 선택 stage의 snapshot record가 없으면
+`HasAttempted = false`, `HasCleared = false`, `ClearCount = 0`인 record를 만들었지만, 변경된 테스트는 전체
+record collection이 비어 있다고 기대해 단독 재실행에서도 `1/1`로 반복 실패했다.
+
+교정은 production runtime을 변경하지 않고 purpose-named diagnostic port로 이전 stage record를 준비한 뒤
+선택 stage의 미시도/미완료 record 생성과 이전 record의 field 보존을 함께 검증하도록 제한했다. 같은
+fixture의 launch-context 테스트 이름도 실제 ownership 계약에 맞게 Demo bridge가 context를 직접 등록하지
+않고 router에 위임한다는 의미로 정정했다. Planner/engine 책임 분리, profile-level fail-closed diagnostic,
+raw DTO/test boundary는 재감사 결과 current StrongContract와 일치하므로 변경하지 않았다. Stage-clear save
+failure terminal recovery와 profile/LocalState cleanup failure는 각각 별도 CurrentPolicy 후속이며 이 corrective
+slice에 섞지 않았다.
+
+최종 current-state 검증은 교정된 단일 test EditMode `1/0`, `DemoStageControlTests` EditMode `18/0`,
+`CampaignSaveArchitectureV2Tests` EditMode `127/0`과 각 matching PlayMode `0`, core EditMode `217/0`,
+core PlayMode `109 total / 105 passed / 4 skipped / 0 failed`, UI Windows build + EditMode `1352/0`이다.
+XML/log/source hash와 working-tree 상태는
+`/mnt/d/J2M/evidence/20260825-110252-campaign-save-independent-audit-corrective-closeout/`에 별도 보존한다.
+기존 evidence bundle은 수정하거나 재패키징하지 않았다. Broad unfiltered `full`, ActualScene Full-category
+PlayMode, manual Player/build smoke는 실행하지 않았으므로 그 범위의 회귀 해소를 claim하지 않는다.
 
 ### Historical post-package verification notes
 
