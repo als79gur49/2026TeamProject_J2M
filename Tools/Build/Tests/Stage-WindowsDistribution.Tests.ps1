@@ -61,6 +61,9 @@ function New-RawFixture {
         (Get-ValidUnityPlayerThirdPartyNoticeFixture))
     Write-FixtureFile $Root "UnityPlayer.dll" "unity"
     Write-FixtureFile $Root "VectorQuake_Data\globalgamemanagers" "managers"
+    Write-FixtureFile $Root "VectorQuake_Data\Managed\Game.dll" "game-managed"
+    Write-FixtureFile $Root "VectorQuake_Data\ScriptingAssemblies.json" `
+        '{"names":["Game.dll"]}'
     Write-FixtureFile $Root "MonoBleedingEdge\etc\mono\config" "mono-runtime"
     Write-FixtureFile $Root `
         "VectorQuake_Data\Managed\com.rlabrecque.steamworks.net.dll" "managed"
