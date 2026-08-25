@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.Host.UIAccess;
@@ -61,7 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void DemoStageControl_StartStage_UpdatesCampaignActiveStage_AndWritesLaunchContext()
+        public void DemoStageControl_StartStage_UpdatesCampaignActiveStage_AndRoutesWithoutRegisteringLaunchContext()
         {
             var first = CreateEntry("stage-0-1");
             var selected = CreateEntry("stage-1-1");
@@ -91,17 +92,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void DemoStageControl_StartStage_AllowsLockedStageSelection_AndDoesNotCompletePreviousStages()
+        public void DemoStageControl_StartStage_LockedStageCreatesUnattemptedRecord_AndPreservesPreviousRecord()
         {
             var first = CreateEntry("stage-0-1");
             var selected = CreateEntry("stage-0-2", initiallyAvailable: false);
-            var service = CreateService(new[] { first, selected }, out var saveStore, out _);
+            var sequenceResolver = LoadProductionSequenceResolver();
+            var service = CreateService(
+                new[] { first, selected },
+                out var saveStore,
+                out _,
+                sequenceResolver: sequenceResolver);
+            var before = saveStore.SetActiveStageForDiagnostics(
+                1,
+                first.StageId,
+                sequenceResolver.GetLevelGroupId(first.StageId));
+            var previousBefore = before.StageClearProfile.Records.Single(
+                record => record.StageId.Equals(first.StageId));
 
             var result = service.StartStage(selected.StageId);
 
+            var state = saveStore.LoadSlot(1).State;
+            var records = state.StageClearProfile.Records;
             Assert.That(result.Success, Is.True);
-            Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(selected.StageId));
-            Assert.That(saveStore.LoadSlot(1).State.StageClearProfile.Records, Is.Empty);
+            Assert.That(state.CurrentStageId, Is.EqualTo(selected.StageId));
+            Assert.That(
+                records.Select(record => record.StageId),
+                Is.EquivalentTo(new[] { first.StageId, selected.StageId }));
+
+            var previousAfter = records.Single(
+                record => record.StageId.Equals(first.StageId));
+            var selectedRecord = records.Single(
+                record => record.StageId.Equals(selected.StageId));
+            Assert.That(selectedRecord.HasAttempted, Is.False);
+            Assert.That(selectedRecord.HasCleared, Is.False);
+            Assert.That(selectedRecord.ClearCount, Is.Zero);
+            Assert.That(selectedRecord.ProcessedStageRunIds, Is.Empty);
+            Assert.That(previousAfter.HasAttempted, Is.EqualTo(previousBefore.HasAttempted));
+            Assert.That(previousAfter.HasCleared, Is.EqualTo(previousBefore.HasCleared));
+            Assert.That(previousAfter.ClearCount, Is.EqualTo(previousBefore.ClearCount));
+            Assert.That(
+                previousAfter.ProcessedStageRunIds,
+                Is.EqualTo(previousBefore.ProcessedStageRunIds));
         }
 
         [Test]
