@@ -134,12 +134,16 @@ namespace Game.Feature.UI.Tests
                     backLine.rect.width,
                     Is.EqualTo(viewport.rect.width - 32f).Within(0.01f));
                 Assert.That(backLine.rect.width, Is.GreaterThan(backLine.rect.height));
+                var groupMarkerCenterY =
+                    GetCenterYIn(markers[0].VisualImage.rectTransform, viewport);
+                var stageMarkerCenterY =
+                    GetCenterYIn(markers[1].VisualImage.rectTransform, viewport);
+                var backLineCenterY = GetCenterYIn(backLine, viewport);
+                Assert.That(groupMarkerCenterY, Is.GreaterThan(backLineCenterY));
+                Assert.That(stageMarkerCenterY, Is.LessThan(backLineCenterY));
                 Assert.That(
-                    GetCenterYIn(markers[0].VisualImage.rectTransform, viewport),
-                    Is.EqualTo(GetCenterYIn(backLine, viewport)).Within(0.01f));
-                Assert.That(
-                    GetCenterYIn(markers[1].VisualImage.rectTransform, viewport),
-                    Is.EqualTo(GetCenterYIn(backLine, viewport)).Within(0.01f));
+                    groupMarkerCenterY - backLineCenterY,
+                    Is.EqualTo(backLineCenterY - stageMarkerCenterY).Within(0.01f));
                 Assert.That(content.rect.width, Is.LessThanOrEqualTo(viewport.rect.width));
                 Assert.That(view.HandleNavigate(UiNavigationCommand.Right), Is.False);
                 Assert.That(view.HandleNavigate(UiNavigationCommand.Left), Is.False);

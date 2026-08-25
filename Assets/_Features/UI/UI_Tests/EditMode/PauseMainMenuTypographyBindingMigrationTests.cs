@@ -258,8 +258,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(groupTemplate.RectTransform.sizeDelta.x, Is.GreaterThan(stageTemplate.RectTransform.sizeDelta.x));
             Assert.That(groupTemplate.RectTransform.sizeDelta.y, Is.EqualTo(stageTemplate.RectTransform.sizeDelta.y));
             Assert.That(groupTemplate.VisualImage.rectTransform.rect.width, Is.GreaterThan(stageTemplate.VisualImage.rectTransform.rect.width));
-            Assert.That(groupTemplate.VisualImage.rectTransform.rect.width, Is.EqualTo(groupTemplate.VisualImage.rectTransform.rect.height));
-            Assert.That(stageTemplate.VisualImage.rectTransform.rect.width, Is.EqualTo(stageTemplate.VisualImage.rectTransform.rect.height));
+            Assert.That(groupTemplate.VisualImage.rectTransform.rect.height, Is.GreaterThan(groupTemplate.VisualImage.rectTransform.rect.width));
+            Assert.That(stageTemplate.VisualImage.rectTransform.rect.height, Is.GreaterThan(stageTemplate.VisualImage.rectTransform.rect.width));
         }
 
         [Test]
