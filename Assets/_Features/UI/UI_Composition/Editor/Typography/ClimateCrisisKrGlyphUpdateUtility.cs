@@ -18,11 +18,6 @@ namespace Game.Feature.UI.Composition.Editor
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019.ttf";
         private const string FontAsset2019Path =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
-        private const string NanumSourceFontPath =
-            "Assets/_Shared/UI/Fonts/NanumGothic.ttf";
-        private const string NanumFontAssetPath =
-            "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
-
         [MenuItem("Tools/UI/Update Climate Crisis KR Managed Glyphs")]
         public static void GenerateFromMenu()
         {
@@ -47,13 +42,8 @@ namespace Game.Feature.UI.Composition.Editor
                 SourceFont2019Path,
                 FontAsset2019Path,
                 requireScaleRatios: true);
-            UpdateFontOrThrow(
-                "Nanum",
-                NanumSourceFontPath,
-                NanumFontAssetPath,
-                requireScaleRatios: false);
             Debug.Log(
-                "Climate 2000/2019 and Nanum managed glyph update complete: " +
+                "Climate 2000/2019 managed glyph update complete: " +
                 "0 missing, 0 fallback.");
             Debug.Log(
                 "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 glyph_remap=0 " +

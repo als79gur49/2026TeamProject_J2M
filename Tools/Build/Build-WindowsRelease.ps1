@@ -22,6 +22,127 @@ param(
     )
 )
 
+$script:ThirdPartyNoticesFileName = "ThirdPartyNotices.txt"
+$script:UnityPlayerThirdPartyNoticesFileName = "UnityPlayerThirdPartyNotices.pdf"
+$script:UnityPlayerThirdPartyNoticesSize = 132262
+$script:UnityPlayerThirdPartyNoticesSha256 =
+    "7bed0e6f6646552f9262903b62863c693074ac89ccf6291ead7e876033a29623"
+$script:UnityCompanionLicenseUrl =
+    "https://unity.com/legal/licenses/unity-companion-license"
+$script:UnityCompanionLicenseUrlOccurrenceCount = 6
+$script:ThirdPartyNoticePackageVersions = [ordered]@{
+    "com.unity.cinemachine" = "3.1.6"
+    "com.unity.nuget.newtonsoft-json" = "3.2.2"
+    "com.unity.localization" = "1.5.12"
+    "com.unity.visualscripting" = "1.9.10"
+    "com.unity.render-pipelines.universal" = "17.3.0"
+    "com.unity.render-pipelines.core" = "17.3.0"
+    "com.unity.burst" = "1.8.28"
+}
+$script:RequiredThirdPartyNoticeMarkers = @(
+    "VectorQuake Third-Party Notices",
+    "Unity Player Runtime Third-Party Notices",
+    "Unity UI Extensions",
+    "Steamworks.NET (Steam distribution only)",
+    "Valve Steamworks SDK Redistributable (Steam distribution only)",
+    "Commercial Third-Party Assets",
+    "Ovani Sound Audio Assets",
+    "Unity Package Notices",
+    "Open Font Software",
+    "SIL OPEN FONT LICENSE Version 1.1"
+)
+$script:RequiredThirdPartyNoticeFragments = @(
+    "provided separately in UnityPlayerThirdPartyNotices.pdf.",
+    "Product: Unity Player`nPlatform: Windows`nScripting backend: Mono`nVersion: 6000.3.11f1",
+    "Player_Windows_Mono_6000_3_11f1_b7ab078964.pdf",
+    "License: BSD 3-Clause",
+    "Source: https://github.com/Unity-UI-Extensions/com.unity.uiextensions",
+    "License: MIT",
+    "Source: https://github.com/rlabrecque/Steamworks.NET",
+    "Copyright (c) 2013-2022 Riley Labrecque",
+    "Component: steam_api64.dll",
+    "Provider: Valve Corporation",
+    "not licensed under the Steamworks.NET MIT License reproduced above.",
+    "DOTween Pro`nProvider: Demigiant / Daniele Giardini",
+    "INTERFACE - Sci-Fi Soldier HUD`nProvider: Synty Studios",
+    "Casual & Mobile Sound FX Pack Vol. 3",
+    "Mutated Beings Sound FX Pack",
+    "Runtime packages whose bundled third-party notices are reproduced below:",
+    "com.unity.cinemachine 3.1.6",
+    "com.unity.nuget.newtonsoft-json 3.2.2",
+    "com.unity.localization 1.5.12",
+    "com.unity.visualscripting 1.9.10",
+    "com.unity.render-pipelines.universal 17.3.0",
+    "com.unity.render-pipelines.core 17.3.0",
+    "com.unity.burst 1.8.28",
+    "# [Clipper](http://www.angusj.com/delphi/clipper.php)",
+    "Component Name: Newtonsoft.Json`n`nLicense Type: MIT`n`nThe MIT License (MIT)",
+    "Component Name: **SmartFormat**",
+    "Component Name: AQN Parser",
+    "Component Name: Full Serializer",
+    "Component Name: Ensure.That",
+    "Component Name: NCalc",
+    "Component Name: Antlr 3 Runtime",
+    "Component Name: FXAA3_11.h (renamed to FXAA3_11.hlsl)",
+    "Component Name: RadeonRays 4.1",
+    "Component Name: Sobol sampler",
+    "Component Name: LLVM",
+    "Component Name: mimalloc",
+    "Orbitron`n`nCopyright 2018 The Orbitron Project Authors",
+    'with Reserved Font Name: "Orbitron"',
+    "Exo 2.0`n`nStyles included: Regular, SemiBold",
+    "with Reserved Font Name 'Exo'",
+    "Saira Condensed`n`nStyle included in the current build: SemiBold",
+    'reserved font name "Saira".',
+    "Climate Crisis KR`n`nStyles included: 2000, 2019",
+    'Copyright 2022, NohType with Reserved Font Name "Climate Crisis"',
+    "Liberation Sans`n`nDigitized data copyright (c) 2010 Google Corporation",
+    "Copyright (c) 2012 Red Hat, Inc.",
+    "with Reserved Font Name Liberation."
+)
+$script:ThirdPartyNoticeBodyContracts = @(
+    [pscustomobject]@{
+        Name = "unity-ui-extensions-bsd-3-clause"
+        Sha256 = "c6a4a8ed2a82b50bb6c71da4211ab64903d7c752e8c91b149a2364165aa717de"
+    },
+    [pscustomobject]@{
+        Name = "steamworks-net-mit"
+        Sha256 = "5760a1a32c5b06c462ecacda9162d6987ae8fa3738f522e55dcd31120a190e4c"
+    },
+    [pscustomobject]@{
+        Name = "upm-cinemachine-3.1.6"
+        Sha256 = "678229d5dd2445ce43fc6946384bd1d1b6fdfc9c536685a6cc9aac36163758c8"
+    },
+    [pscustomobject]@{
+        Name = "upm-newtonsoft-json-3.2.2"
+        Sha256 = "3adf7770d103fc1c5f9830d41003d961ed2e52efa2f6f76c59275e744df70f26"
+    },
+    [pscustomobject]@{
+        Name = "upm-localization-smartformat-1.5.12"
+        Sha256 = "67223356b8edd8ba7607c5096dfa235ff8e8ddd821fd37666df93928863962b2"
+    },
+    [pscustomobject]@{
+        Name = "upm-visualscripting-runtime-1.9.10"
+        Sha256 = "b127bcfedf86708096ff926af6fd40d3025f762e561eaf029cdae20969ba043f"
+    },
+    [pscustomobject]@{
+        Name = "upm-urp-fxaa-17.3.0"
+        Sha256 = "383daf405e3a8569b3e591b09970ba040abd5491615fe17868205f05627e138a"
+    },
+    [pscustomobject]@{
+        Name = "upm-render-pipelines-core-runtime-17.3.0"
+        Sha256 = "6a43a4582d54e450f53f7596e068a3dac8486e2c94b04839139c548e3725d7f4"
+    },
+    [pscustomobject]@{
+        Name = "upm-burst-1.8.28"
+        Sha256 = "496c579fc20d6bfcb4e19cf0eafd85eb20dc2d3a93e545f11bcfec79aca76ea0"
+    },
+    [pscustomobject]@{
+        Name = "open-font-license-1.1"
+        Sha256 = "6f9807a7127177a76fae2209e11f4b90d01a50cbfdb3dfe5704c2dcb2c68a3d1"
+    }
+)
+
 function Resolve-WindowsDistributionTargetPolicy {
     param([Parameter(Mandatory)][string]$TargetId)
     switch -CaseSensitive ($TargetId) {
@@ -32,7 +153,10 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ProviderSelectionMode = "DefaultWhenUnspecified"
                 ExpectedProviderId = "local"
                 ExpectedLaunchArguments = @()
-                RequiredArtifacts = @()
+                RequiredArtifacts = @(
+                    $script:ThirdPartyNoticesFileName,
+                    $script:UnityPlayerThirdPartyNoticesFileName
+                )
                 ForbiddenArtifacts = @(
                     "steam_api64.dll",
                     "com.rlabrecque.steamworks.net.dll",
@@ -49,6 +173,8 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ExpectedProviderId = "steam"
                 ExpectedLaunchArguments = @("-j2mPlatformProvider", "steam")
                 RequiredArtifacts = @(
+                    $script:ThirdPartyNoticesFileName,
+                    $script:UnityPlayerThirdPartyNoticesFileName,
                     "steam_api64.dll",
                     "com.rlabrecque.steamworks.net.dll"
                 )
@@ -151,6 +277,7 @@ $script:ReleaseExitCodes = [ordered]@{
     ArtifactProvenanceFailure = 114
     BuildSourcePathBudgetFailure = 115
     UnsupportedConfiguration = 116
+    PublicNoticeFailure = 117
 }
 try {
     $script:BackendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
@@ -661,6 +788,343 @@ function Get-Sha256 {
     } finally {
         if ($null -ne $algorithm) { $algorithm.Dispose() }
         if ($null -ne $stream) { $stream.Dispose() }
+    }
+}
+
+function Assert-NoReparsePointInPath {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $candidate = [IO.Path]::GetFullPath($Path)
+    if (-not $candidate.StartsWith(
+            "$rootFull\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw "PUBLIC_NOTICE_PATH_OUTSIDE_SOURCE: $candidate"
+    }
+
+    while ($true) {
+        $item = Get-Item -LiteralPath $candidate -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "PUBLIC_NOTICE_REPARSE_POINT_REJECTED: $candidate"
+        }
+        if ([string]::Equals(
+                $candidate.TrimEnd('\', '/'),
+                $rootFull,
+                [StringComparison]::OrdinalIgnoreCase)) { break }
+        $candidate = Split-Path $candidate -Parent
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            throw "PUBLIC_NOTICE_PATH_OUTSIDE_SOURCE: $Path"
+        }
+    }
+}
+
+function Get-OrdinalOccurrenceCount {
+    param(
+        [Parameter(Mandatory)][string]$Content,
+        [Parameter(Mandatory)][string]$Value
+    )
+
+    $count = 0
+    $startIndex = 0
+    while ($startIndex -le $Content.Length - $Value.Length) {
+        $index = $Content.IndexOf(
+            $Value, $startIndex, [StringComparison]::Ordinal)
+        if ($index -lt 0) { break }
+        $count++
+        $startIndex = $index + $Value.Length
+    }
+    return $count
+}
+
+function Get-Utf8TextSha256 {
+    param([Parameter(Mandatory)][string]$Content)
+
+    $algorithm = $null
+    try {
+        $algorithm = [Security.Cryptography.SHA256]::Create()
+        $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Content)
+        $hash = $algorithm.ComputeHash($bytes)
+        return ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+    } finally {
+        if ($null -ne $algorithm) { $algorithm.Dispose() }
+    }
+}
+
+function Assert-ThirdPartyNoticeContent {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -eq 0) {
+        throw "PUBLIC_NOTICE_EMPTY: $Path"
+    }
+    try {
+        $content = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+    } catch {
+        throw "PUBLIC_NOTICE_INVALID_UTF8: $Path"
+    }
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        throw "PUBLIC_NOTICE_WHITESPACE_ONLY: $Path"
+    }
+
+    $content = $content.Replace("`r`n", "`n").Replace("`r", "`n")
+    $previousIndex = -1
+    foreach ($marker in $script:RequiredThirdPartyNoticeMarkers) {
+        $markerIndex = $content.IndexOf($marker, [StringComparison]::Ordinal)
+        if ($markerIndex -lt 0) {
+            throw "PUBLIC_NOTICE_REQUIRED_SECTION_MISSING: $marker"
+        }
+        if ((Get-OrdinalOccurrenceCount -Content $content -Value $marker) -ne 1) {
+            throw "PUBLIC_NOTICE_REQUIRED_SECTION_DUPLICATE: $marker"
+        }
+        if ($markerIndex -le $previousIndex) {
+            throw "PUBLIC_NOTICE_REQUIRED_SECTION_ORDER_INVALID: $marker"
+        }
+        $previousIndex = $markerIndex
+    }
+
+    foreach ($fragment in $script:RequiredThirdPartyNoticeFragments) {
+        if ((Get-OrdinalOccurrenceCount -Content $content -Value $fragment) -ne 1) {
+            throw "PUBLIC_NOTICE_REQUIRED_INVENTORY_INVALID: $fragment"
+        }
+    }
+    if ((Get-OrdinalOccurrenceCount -Content $content `
+            -Value $script:UnityCompanionLicenseUrl) -ne
+        $script:UnityCompanionLicenseUrlOccurrenceCount) {
+        throw "PUBLIC_NOTICE_UNITY_COMPANION_LICENSE_URL_INVALID"
+    }
+
+    foreach ($contract in $script:ThirdPartyNoticeBodyContracts) {
+        $startMarker = "----- BEGIN NOTICE: $($contract.Name) -----`n"
+        $endMarker = "`n----- END NOTICE: $($contract.Name) -----"
+        if ((Get-OrdinalOccurrenceCount -Content $content `
+                -Value $startMarker) -ne 1 -or
+            (Get-OrdinalOccurrenceCount -Content $content `
+                -Value $endMarker) -ne 1) {
+            throw "PUBLIC_NOTICE_LICENSE_BODY_BOUNDARY_INVALID: $($contract.Name)"
+        }
+        $startIndex = $content.IndexOf(
+            $startMarker, [StringComparison]::Ordinal) + $startMarker.Length
+        $endIndex = $content.IndexOf(
+            $endMarker, $startIndex, [StringComparison]::Ordinal)
+        if ($endIndex -lt $startIndex) {
+            throw "PUBLIC_NOTICE_LICENSE_BODY_BOUNDARY_INVALID: $($contract.Name)"
+        }
+        $body = $content.Substring($startIndex, $endIndex - $startIndex)
+        if ((Get-Utf8TextSha256 -Content $body) -cne $contract.Sha256) {
+            throw "PUBLIC_NOTICE_LICENSE_BODY_HASH_MISMATCH: $($contract.Name)"
+        }
+    }
+}
+
+function Assert-ThirdPartyNoticePackageInventory {
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$SourceRevision
+    )
+
+    $relativePath = "Packages/packages-lock.json"
+    $lockPath = Join-Path $SourceRoot $relativePath.Replace('/', '\')
+    if (-not (Test-Path -LiteralPath $lockPath -PathType Leaf)) {
+        throw "PUBLIC_NOTICE_PACKAGE_LOCK_MISSING: $lockPath"
+    }
+    Assert-NoReparsePointInPath -Root $SourceRoot -Path $lockPath
+
+    $treeEntry = Invoke-GitText -Root $SourceRoot -DisableAutoCrlf -Arguments @(
+        "ls-tree", $SourceRevision, "--", $relativePath
+    )
+    $escapedPath = [Regex]::Escape($relativePath)
+    if ($treeEntry -cnotmatch "^100644 blob ([0-9a-f]{40,64})`t$escapedPath$") {
+        throw "PUBLIC_NOTICE_PACKAGE_LOCK_NOT_COMMITTED_REGULAR_BLOB"
+    }
+    $committedBlobId = $Matches[1]
+    $workingBlobId = Invoke-GitText -Root $SourceRoot -DisableAutoCrlf -Arguments @(
+        "hash-object", "--path=$relativePath", "--", $relativePath
+    )
+    if ($workingBlobId -cne $committedBlobId) {
+        throw "PUBLIC_NOTICE_PACKAGE_LOCK_SOURCE_BLOB_MISMATCH"
+    }
+
+    try {
+        $lock = Get-Content -LiteralPath $lockPath -Raw -Encoding UTF8 |
+            ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        throw "PUBLIC_NOTICE_PACKAGE_LOCK_INVALID_JSON"
+    }
+    if ($null -eq $lock.dependencies) {
+        throw "PUBLIC_NOTICE_PACKAGE_LOCK_DEPENDENCIES_MISSING"
+    }
+
+    foreach ($packageId in $script:ThirdPartyNoticePackageVersions.Keys) {
+        $property = $lock.dependencies.PSObject.Properties[$packageId]
+        if ($null -eq $property -or $null -eq $property.Value) {
+            throw "PUBLIC_NOTICE_PACKAGE_MISSING: $packageId"
+        }
+        $actualVersion = [string]$property.Value.version
+        $expectedVersion = [string]$script:ThirdPartyNoticePackageVersions[$packageId]
+        if ($actualVersion -cne $expectedVersion) {
+            throw "PUBLIC_NOTICE_PACKAGE_VERSION_MISMATCH: $packageId expected=$expectedVersion actual=$actualVersion"
+        }
+    }
+}
+
+function Get-ThirdPartyNoticeSourceContract {
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$SourceRevision
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SourceRevision)) {
+        throw "PUBLIC_NOTICE_SOURCE_REVISION_MISSING"
+    }
+    $source = Join-Path $SourceRoot $script:ThirdPartyNoticesFileName
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+        throw "PUBLIC_NOTICE_SOURCE_MISSING: $source"
+    }
+    Assert-NoReparsePointInPath -Root $SourceRoot -Path $source
+
+    $treeEntry = Invoke-GitText -Root $SourceRoot -DisableAutoCrlf -Arguments @(
+        "ls-tree", $SourceRevision, "--", $script:ThirdPartyNoticesFileName
+    )
+    $escapedName = [Regex]::Escape($script:ThirdPartyNoticesFileName)
+    if ($treeEntry -cnotmatch "^100644 blob ([0-9a-f]{40,64})`t$escapedName$") {
+        throw "PUBLIC_NOTICE_NOT_COMMITTED_REGULAR_BLOB: $($script:ThirdPartyNoticesFileName)"
+    }
+    $committedBlobId = $Matches[1]
+    $workingBlobId = Invoke-GitText -Root $SourceRoot -DisableAutoCrlf -Arguments @(
+        "hash-object", "--path=$($script:ThirdPartyNoticesFileName)", "--",
+        $script:ThirdPartyNoticesFileName
+    )
+    if ($workingBlobId -cne $committedBlobId) {
+        throw "PUBLIC_NOTICE_SOURCE_BLOB_MISMATCH"
+    }
+    Assert-ThirdPartyNoticePackageInventory `
+        -SourceRoot $SourceRoot -SourceRevision $SourceRevision
+    Assert-ThirdPartyNoticeContent -Path $source
+
+    return [pscustomobject]@{
+        Path = $source
+        BlobId = $committedBlobId
+        Sha256 = Get-Sha256 -Path $source
+    }
+}
+
+function Assert-UnityPlayerThirdPartyNoticeContent {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -ne $script:UnityPlayerThirdPartyNoticesSize) {
+        throw "UNITY_PLAYER_NOTICE_SIZE_MISMATCH: $Path"
+    }
+    if ([Text.Encoding]::ASCII.GetString($bytes, 0, 5) -cne "%PDF-") {
+        throw "UNITY_PLAYER_NOTICE_HEADER_INVALID: $Path"
+    }
+    if ((Get-Sha256 -Path $Path) -cne
+        $script:UnityPlayerThirdPartyNoticesSha256) {
+        throw "UNITY_PLAYER_NOTICE_HASH_MISMATCH: $Path"
+    }
+}
+
+function Get-UnityPlayerThirdPartyNoticeSourceContract {
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$SourceRevision
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SourceRevision)) {
+        throw "UNITY_PLAYER_NOTICE_SOURCE_REVISION_MISSING"
+    }
+    $fileName = $script:UnityPlayerThirdPartyNoticesFileName
+    $source = Join-Path $SourceRoot $fileName
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+        throw "UNITY_PLAYER_NOTICE_SOURCE_MISSING: $source"
+    }
+    Assert-NoReparsePointInPath -Root $SourceRoot -Path $source
+
+    $treeEntry = Invoke-GitText -Root $SourceRoot -DisableAutoCrlf -Arguments @(
+        "ls-tree", $SourceRevision, "--", $fileName
+    )
+    $escapedName = [Regex]::Escape($fileName)
+    if ($treeEntry -cnotmatch "^100644 blob ([0-9a-f]{40,64})`t$escapedName$") {
+        throw "UNITY_PLAYER_NOTICE_NOT_COMMITTED_REGULAR_BLOB: $fileName"
+    }
+    $committedBlobId = $Matches[1]
+    $workingBlobId = Invoke-GitText -Root $SourceRoot -DisableAutoCrlf -Arguments @(
+        "hash-object", "--path=$fileName", "--", $fileName
+    )
+    if ($workingBlobId -cne $committedBlobId) {
+        throw "UNITY_PLAYER_NOTICE_SOURCE_BLOB_MISMATCH"
+    }
+    Assert-UnityPlayerThirdPartyNoticeContent -Path $source
+
+    return [pscustomobject]@{
+        Path = $source
+        BlobId = $committedBlobId
+        Sha256 = Get-Sha256 -Path $source
+    }
+}
+
+function Publish-ThirdPartyNotices {
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$PayloadRoot,
+        [Parameter(Mandatory)][string]$ExpectedSourceSha256,
+        [Parameter(Mandatory)][string]$ExpectedUnityPlayerSourceSha256
+    )
+
+    $artifacts = @(
+        [pscustomobject]@{
+            FileName = $script:ThirdPartyNoticesFileName
+            ExpectedSha256 = $ExpectedSourceSha256
+            Kind = "Text"
+        },
+        [pscustomobject]@{
+            FileName = $script:UnityPlayerThirdPartyNoticesFileName
+            ExpectedSha256 = $ExpectedUnityPlayerSourceSha256
+            Kind = "UnityPlayerPdf"
+        }
+    )
+
+    foreach ($artifact in $artifacts) {
+        $artifact | Add-Member -NotePropertyName SourcePath -NotePropertyValue (
+            Join-Path $SourceRoot $artifact.FileName)
+        $artifact | Add-Member -NotePropertyName DestinationPath -NotePropertyValue (
+            Join-Path $PayloadRoot $artifact.FileName)
+        if (-not (Test-Path -LiteralPath $artifact.SourcePath -PathType Leaf)) {
+            throw "PUBLIC_NOTICE_SOURCE_MISSING: $($artifact.SourcePath)"
+        }
+        Assert-NoReparsePointInPath -Root $SourceRoot -Path $artifact.SourcePath
+        if ($artifact.Kind -ceq "Text") {
+            Assert-ThirdPartyNoticeContent -Path $artifact.SourcePath
+        } else {
+            Assert-UnityPlayerThirdPartyNoticeContent -Path $artifact.SourcePath
+        }
+        $artifact | Add-Member -NotePropertyName SourceSha256 -NotePropertyValue (
+            Get-Sha256 -Path $artifact.SourcePath)
+        if ($artifact.SourceSha256 -cne $artifact.ExpectedSha256) {
+            throw "PUBLIC_NOTICE_SOURCE_CHANGED_AFTER_PREFLIGHT: $($artifact.FileName)"
+        }
+        if (Test-Path -LiteralPath $artifact.DestinationPath) {
+            throw "PUBLIC_NOTICE_OUTPUT_COLLISION: $($artifact.DestinationPath)"
+        }
+    }
+
+    foreach ($artifact in $artifacts) {
+        Copy-Item -LiteralPath $artifact.SourcePath `
+            -Destination $artifact.DestinationPath
+        if (-not (Test-Path -LiteralPath $artifact.DestinationPath -PathType Leaf)) {
+            throw "PUBLIC_NOTICE_COPY_MISSING: $($artifact.DestinationPath)"
+        }
+        $destinationHash = Get-Sha256 -Path $artifact.DestinationPath
+        if ($artifact.SourceSha256 -cne $destinationHash) {
+            throw "PUBLIC_NOTICE_COPY_HASH_MISMATCH: $($artifact.FileName)"
+        }
+    }
+
+    return [pscustomobject]@{
+        TextSha256 = $artifacts[0].SourceSha256
+        UnityPlayerPdfSha256 = $artifacts[1].SourceSha256
     }
 }
 
@@ -2168,7 +2632,9 @@ function Invoke-WindowsReleasePipeline {
             "Assets/_Features/Stages/Editor/Build/WindowsReleaseBuildCli.cs",
             "Assets/_Features/Stages/Editor/Build/WindowsReleaseBuildPolicy.cs",
             "Assets/_Features/Stages/Editor/Build/WindowsDistributionTargetPolicy.cs",
-            "Tools/Build/Build-WindowsRelease.ps1"
+            "Tools/Build/Build-WindowsRelease.ps1",
+            "ThirdPartyNotices.txt",
+            "UnityPlayerThirdPartyNotices.pdf"
         )
         $invocationPre = Get-GitSnapshot -Root $RepositoryRoot -CanaryPaths $canaries
         Write-PrivateJson (Join-Path $privateRoot "invocation-source-pre.json") `
@@ -2241,6 +2707,18 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source HEAD/tree identity does not match the invocation revision."
         }
+        $stage = "public-notices"
+        try {
+            $noticeSourceContract = Get-ThirdPartyNoticeSourceContract `
+                -SourceRoot $detached -SourceRevision $sourceSha
+            $unityPlayerNoticeSourceContract =
+                Get-UnityPlayerThirdPartyNoticeSourceContract `
+                    -SourceRoot $detached -SourceRevision $sourceSha
+        } catch {
+            $exitCode = $script:ReleaseExitCodes.PublicNoticeFailure
+            throw
+        }
+        $stage = "detached-source"
         $trackedPathsAtSourceRevision = @(Get-TrackedPathsAtSourceRevision `
             -Root $detached -SourceRevision $sourceSha -Detached)
         $entrySourcePath = Join-Path $detached `
@@ -2344,6 +2822,18 @@ function Invoke-WindowsReleasePipeline {
         if ($unityExitCode -ne 0) {
             $exitCode = $script:ReleaseExitCodes.UnityInvocationFailure
             throw "Unity returned exit code $unityExitCode."
+        }
+
+        $stage = "public-notices"
+        try {
+            Publish-ThirdPartyNotices -SourceRoot $detached -PayloadRoot $payload `
+                -ExpectedSourceSha256 $noticeSourceContract.Sha256 `
+                -ExpectedUnityPlayerSourceSha256 `
+                    $unityPlayerNoticeSourceContract.Sha256 |
+                Out-Null
+        } catch {
+            $exitCode = $script:ReleaseExitCodes.PublicNoticeFailure
+            throw
         }
 
         $stage = "drift"
@@ -2499,7 +2989,8 @@ function Invoke-WindowsReleasePipeline {
             $stage -eq "preflight") {
             $exitCode = $script:ReleaseExitCodes.GitPreflightFailure
         }
-        Write-Error "[$stage][$exitCode] $($_.Exception.Message)"
+        Write-Error "[$stage][$exitCode] $($_.Exception.Message)" `
+            -ErrorAction Continue
         Write-WrapperLog $wrapperLog $stage `
             "Pipeline failed with wrapper code ${exitCode}: $($_.Exception.Message)"
         $quarantineCandidate = if (-not [string]::IsNullOrWhiteSpace($staging) -and

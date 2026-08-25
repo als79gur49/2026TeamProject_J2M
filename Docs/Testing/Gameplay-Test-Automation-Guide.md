@@ -528,18 +528,18 @@ WSL CLI
   - pre-commit 훅이 사용하는 명령이다.
 - `./run_tests.sh ui`
   - Stage 9 이후 UI architecture hardening 및 Stage 4–8 seam preservation 검증에 사용한다.
-  - Unity 시작 전에 Climate TTF/SDF의 `HEAD` Git blob, GUID, material localID, Nanum retention을 검사한다. working-file hash와 importer-derived ScaleRatio는 source canonical 판정에 사용하지 않고 pre/post import diagnostic으로 별도 기록한다.
+  - Unity 시작 전에 Climate 2000/2019 TTF/SDF의 `HEAD` Git blob, GUID, material localID를 검사한다. working-file hash와 importer-derived ScaleRatio는 source canonical 판정에 사용하지 않고 pre/post import diagnostic으로 별도 기록한다.
   - UI EditMode도 core와 동일한 shared Climate SDF integrity guard를 사용하며, per-invocation evidence에는 before/imported/final SHA, classification, changed-field signature, restore 결과가 기록된다.
   - governance 검사 후 Windows `dotnet` UI test build, Unity UI EditMode assembly 실행만 수행한다.
   - `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, `TestResults/wsl-unity-ui-editmode.xml`을 남긴다.
   - `core`를 대체하지 않으며, UI slice를 넓히기 전 targeted evidence를 얻기 위한 명령이다.
 - `./run_tests.sh climate-glyph-update`
-  - committed Climate 2000/2019 및 Nanum source identity를 preflight한 뒤 현재 관리 ko-KR String Table corpus의 실제 missing glyph만 canonical TMP asset에 추가한다.
-  - Climate 2000/2019 runtime font와 retained Nanum validation font를 source TTF에서 원자적으로 갱신하며 missing/fallback 0을 강제한다.
+  - committed Climate 2000/2019 source identity를 preflight한 뒤 현재 관리 ko-KR String Table corpus의 실제 missing glyph만 canonical TMP asset에 추가한다.
+  - Climate 2000/2019 runtime font를 source TTF에서 원자적으로 갱신하며 missing/fallback 0을 강제한다.
   - 테스트 lane이 아니며 filter를 받지 않는다.
 - `./run_tests.sh typography-visual`
   - committed P2 revision에서 Settings/Pause/Main Menu의 en-US/ko-KR 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
-  - current worktree/Unity path, 동일 프로젝트 process, revision gate, Nanum 전후 hash, manifest PASS fields, Settings 35 및 localized 20/20, 6개 PNG byte size/SHA-256을 검증한다.
+  - current worktree/Unity path, 동일 프로젝트 process, revision gate, guarded Climate asset 복원, manifest PASS fields, Settings 35 및 localized 20/20, 6개 PNG byte size/SHA-256을 검증한다.
   - Climate PR2에서는 ko-KR Settings Audio muted, Settings Display status, ConfirmPopup 진단 PNG를 `Diagnostics/`에 추가 생성한다. 이 파일들은 canonical root의 exact 6-file manifest와 분리되며, 진단 capture failure는 해당 slice를 실패시킨다.
   - raw Unity log와 canonical `capture.log`을 분리하고, 기존 output은 overwrite하지 않으며 실패 output도 진단을 위해 보존한다.
   - `./run_tests.sh --dry-run typography-visual`은 실제 Unity path, current worktree project path, execute method, output/log/manifest path, 1920x1080, isolated slice 인자를 출력한다.
@@ -594,18 +594,18 @@ WSL CLI
   - This is the command used by pre-commit.
 - `./run_tests.sh ui`
   - Use for targeted Stage 9 UI hardening and Stage 4–8 seam-preservation validation.
-  - Before Unity starts, validates Climate TTF/SDF `HEAD` Git blobs, GUIDs, material local ID, and Nanum retention. Working-file hashes and importer-derived ScaleRatio values are recorded separately as pre/post import diagnostics and do not define source identity.
+  - Before Unity starts, validates Climate 2000/2019 TTF/SDF `HEAD` Git blobs, GUIDs, and material local IDs. Working-file hashes and importer-derived ScaleRatio values are recorded separately as pre/post import diagnostics and do not define source identity.
   - UI EditMode uses the same shared Climate SDF integrity guard as core, with per-invocation evidence for before/imported/final SHA, classification, changed-field signature, and restore outcome.
   - Runs governance first, then Windows `dotnet` build for `Game.Feature.UI.Tests.csproj`, then Unity EditMode with the `ui` selection in `TestRunnerCliBootstrap`.
   - Writes `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, and `TestResults/wsl-unity-ui-editmode.xml`.
   - It does not replace `core`; it exists to provide explicit Unity-side evidence for the UI assembly before broader UI expansion.
 - `./run_tests.sh climate-glyph-update`
-  - Preflights committed Climate 2000/2019 and Nanum source identity, then adds only actually missing glyphs from the managed ko-KR String Table corpus to the canonical TMP assets.
-  - Atomically updates the Climate 2000/2019 runtime fonts and retained Nanum validation font from their source TTFs, enforcing zero missing glyphs and zero fallback dependency.
+  - Preflights committed Climate 2000/2019 source identity, then adds only actually missing glyphs from the managed ko-KR String Table corpus to the canonical TMP assets.
+  - Atomically updates the Climate 2000/2019 runtime fonts from their source TTFs, enforcing zero missing glyphs and zero fallback dependency.
   - This is an asset-generation lane, not a test lane, and it does not accept filters.
 - `./run_tests.sh typography-visual`
   - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US and ko-KR from a committed P2 revision.
-  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, before/after Nanum hashes, manifest PASS fields, exact Settings 35 and localized 20/20 counts, and all six PNG byte sizes/SHA-256 hashes.
+  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, guarded Climate asset restoration, manifest PASS fields, exact Settings 35 and localized 20/20 counts, and all six PNG byte sizes/SHA-256 hashes.
   - For Climate PR2, it also creates ko-KR Settings Audio muted, Settings Display status, and ConfirmPopup diagnostics under `Diagnostics/`. They remain outside the exact six-file canonical root manifest, and a diagnostic capture failure fails its slice.
   - Separates raw Unity logs from canonical `capture.log`, refuses existing output directories, and retains failed output for diagnostics.
   - `./run_tests.sh --dry-run typography-visual` prints the real Unity/current-worktree paths, execute method, output/log/manifest paths, 1920x1080 resolution, and isolated slice arguments without launching Unity.

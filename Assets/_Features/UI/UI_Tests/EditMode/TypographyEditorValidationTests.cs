@@ -210,7 +210,7 @@ namespace Game.Feature.UI.Tests
                 fontSets: new[]
                 {
                     CreateFontSet("en-US", LoadLiberationSans(), nullMaterialCategory: FontCategory.Body),
-                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadNanumGothicFont()),
+                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()),
                 });
 
             try
@@ -258,7 +258,7 @@ namespace Game.Feature.UI.Tests
                 new[]
                 {
                     CreateFontSet("en-US", LoadLiberationSans()),
-                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadNanumGothicFont()),
+                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()),
                 });
             theme.SetBaseRules(GameplayUiTypographyTheme.CreateDefaultBaseRules()
                 .Where(rule => rule.StyleTag != TypographyStyleTag.Value));

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Game.Feature.UI.Composition;
+using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using TMPro;
@@ -15,6 +16,8 @@ namespace Game.Feature.UI.Tests
     {
         private const string LiberationSansFontAssetPath =
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
+        private const string ClimateCrisisKrFontAssetPath =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
         private const string UiApplicationRuntimePath = "Assets/_Features/UI/UI_Application/Runtime";
         private const string UiViewSharedRuntimePath = "Assets/_Features/UI/UI_ViewShared/Runtime";
         private const string UnityStringTableTextResolverPath =
@@ -36,7 +39,7 @@ namespace Game.Feature.UI.Tests
                     Assert.That(theme.TryResolve("en-US", styleTag, out var englishStyle), Is.True, styleTag.ToString());
                     Assert.That(englishStyle.FontAsset, Is.SameAs(LoadLiberationSans()));
                     Assert.That(theme.TryResolve("ko-KR", styleTag, out var koreanStyle), Is.True, styleTag.ToString());
-                    Assert.That(koreanStyle.FontAsset, Is.SameAs(LoadNanumGothic()));
+                    Assert.That(koreanStyle.FontAsset, Is.SameAs(LoadKoreanFont()));
                 }
             }
             finally
@@ -94,7 +97,7 @@ namespace Game.Feature.UI.Tests
             theme.SetLocaleFontSets(new[]
             {
                 CreateFontSet("en-US", LoadLiberationSans(), false, FontCategory.Display),
-                CreateFontSet("ko-KR", LoadNanumGothic(), true),
+                CreateFontSet("ko-KR", LoadKoreanFont(), true),
             });
 
             try
@@ -118,7 +121,7 @@ namespace Game.Feature.UI.Tests
             theme.SetLocaleFontSets(new[]
             {
                 CreateFontSet("en-US", LoadLiberationSans(), false, nullMaterialCategory: FontCategory.Body),
-                CreateFontSet("ko-KR", LoadNanumGothic(), true),
+                CreateFontSet("ko-KR", LoadKoreanFont(), true),
             });
 
             try
@@ -146,8 +149,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(english.FontAsset, Is.SameAs(LoadLiberationSans()));
                 Assert.That(english.MaterialPreset, Is.SameAs(LoadLiberationSans().material));
                 Assert.That(english.WeightStrategy, Is.EqualTo(TypographyWeightStrategy.UseFontAsset));
-                Assert.That(korean.FontAsset, Is.SameAs(LoadNanumGothic()));
-                Assert.That(korean.MaterialPreset, Is.SameAs(LoadNanumGothic().material));
+                Assert.That(korean.FontAsset, Is.SameAs(LoadKoreanFont()));
+                Assert.That(korean.MaterialPreset, Is.SameAs(LoadKoreanFont().material));
                 Assert.That(korean.WeightStrategy, Is.EqualTo(TypographyWeightStrategy.UseFontAsset));
             }
             finally
@@ -232,6 +235,67 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Not.Contain(nameof(TypographyStyleTag)));
         }
 
+        [Test]
+        public void SettingsLocalizationKeys_MatchTypographyCoverageContract()
+        {
+            var expectedKeys = new[]
+            {
+                "ui.settings.title",
+                "ui.settings.audio",
+                "ui.settings.display",
+                "ui.settings.input",
+                "ui.settings.audio.main",
+                "ui.settings.audio.bgm",
+                "ui.settings.audio.sfx",
+                "ui.settings.audio.mute",
+                "ui.settings.display.current",
+                "ui.settings.display.resolution",
+                "ui.settings.display.resolution_hint",
+                "ui.settings.display.fullscreen_window",
+                "ui.settings.display.fullscreen_on",
+                "ui.settings.display.fullscreen_off",
+                "ui.settings.display.apply",
+                "ui.settings.display.revert",
+                "ui.settings.input.movement_keys",
+                "ui.settings.input.push",
+                "ui.settings.input.flip",
+                "ui.settings.input.reset_input",
+                "ui.settings.language",
+                "ui.settings.language.english",
+                "ui.settings.language.korean",
+                "ui.common.back",
+            };
+            var descriptorKeys = new[]
+            {
+                SettingsStaticTextDescriptors.Title.Key,
+                SettingsStaticTextDescriptors.AudioTab.Key,
+                SettingsStaticTextDescriptors.DisplayTab.Key,
+                SettingsStaticTextDescriptors.InputTab.Key,
+                SettingsStaticTextDescriptors.AudioMain.Key,
+                SettingsStaticTextDescriptors.AudioBgm.Key,
+                SettingsStaticTextDescriptors.AudioSfx.Key,
+                SettingsStaticTextDescriptors.AudioMute.Key,
+                SettingsStaticTextDescriptors.DisplayCurrent.Key,
+                SettingsStaticTextDescriptors.DisplayResolution.Key,
+                SettingsStaticTextDescriptors.DisplayResolutionHint.Key,
+                SettingsStaticTextDescriptors.DisplayFullscreenWindow.Key,
+                SettingsDynamicTextDescriptors.DisplayFullscreenOnKey,
+                SettingsDynamicTextDescriptors.DisplayFullscreenOffKey,
+                SettingsStaticTextDescriptors.DisplayApply.Key,
+                SettingsStaticTextDescriptors.DisplayRevert.Key,
+                SettingsStaticTextDescriptors.MovementKeys.Key,
+                SettingsStaticTextDescriptors.Push.Key,
+                SettingsStaticTextDescriptors.Flip.Key,
+                SettingsStaticTextDescriptors.ResetInput.Key,
+                SettingsStaticTextDescriptors.Language.Key,
+                SettingsStaticTextDescriptors.LanguageEnglish.Key,
+                SettingsStaticTextDescriptors.LanguageKorean.Key,
+                SettingsStaticTextDescriptors.Back.Key,
+            };
+
+            Assert.That(descriptorKeys, Is.EquivalentTo(expectedKeys));
+        }
+
         private static GameplayUiTypographyTheme CreateValidTheme()
         {
             var theme = ScriptableObject.CreateInstance<GameplayUiTypographyTheme>();
@@ -240,7 +304,7 @@ namespace Game.Feature.UI.Tests
             theme.SetLocaleFontSets(new[]
             {
                 CreateFontSet("en-US", LoadLiberationSans(), false),
-                CreateFontSet("ko-KR", LoadNanumGothic(), true),
+                CreateFontSet("ko-KR", LoadKoreanFont(), true),
             });
             return theme;
         }
@@ -343,9 +407,9 @@ namespace Game.Feature.UI.Tests
             return LoadFont(LiberationSansFontAssetPath);
         }
 
-        private static TMP_FontAsset LoadNanumGothic()
+        private static TMP_FontAsset LoadKoreanFont()
         {
-            return LoadFont(NanumGothicFontValidationUtility.FontAssetPath);
+            return LoadFont(ClimateCrisisKrFontAssetPath);
         }
 
         private static TMP_FontAsset LoadFont(string assetPath)

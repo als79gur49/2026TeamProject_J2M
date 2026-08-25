@@ -4,8 +4,9 @@
 
 This document is the current closeout for Climate Crisis KR typography PR2. It
 supersedes Nanum-based current-state wording in earlier typography planning and
-PR1 visual documents, while retaining those documents and assets as historical
-evidence.
+PR1 visual documents. Those documents remain historical evidence; the retired
+Nanum font assets and their preservation-only automation were removed on
+2026-08-23 after the Climate migration completed.
 
 The governed production surfaces are Settings, Pause, Main Menu, HUD, terminal
 results, and ConfirmPopup typography. The current policy is:
@@ -47,9 +48,9 @@ is not described or treated as standalone license text.
 | Atlas/fallback | static single atlas; fallback empty | static single atlas; fallback empty |
 
 Committed source identity and Unity-loaded state are separate contracts.
-`run_tests.sh` verifies the `HEAD` Git blob, GUIDs, local ID, source TTF, and
-Nanum retention before Unity starts. Unity tests verify the loaded font and
-material references, static atlas, native glyph coverage, empty fallback,
+`run_tests.sh` verifies the Climate 2000/2019 `HEAD` Git blobs, GUIDs, local
+IDs, and source TTFs before Unity starts. Unity tests verify the loaded font
+and material references, static atlas, native glyph coverage, empty fallback,
 theme-role mapping, and layout/rendering behavior.
 
 The working-file shape with SHA-256
@@ -61,7 +62,7 @@ committed and known derived shapes is `UNEXPECTED_IMPORTER_MUTATION`; any
 glyph, atlas, reference, fallback, or unexplained pixel change remains a
 blocker.
 
-## Role, glyph, and retention governance
+## Role and glyph governance
 
 - Base roles: `19`; en-US resolved roles: `19`; ko-KR resolved roles: `19`.
 - Missing or duplicate resolved roles: `0`.
@@ -71,9 +72,6 @@ blocker.
 - Managed `*_ko-KR.asset` String Tables are scanned dynamically. The closeout
   set contains 123 values, 113 distinct values, and 186 distinct non-ASCII
   codepoints; missing native Climate glyphs and fallback dependencies are `0`.
-- The Nanum TTF/meta, SDF/meta, and SyntheticBold material/meta remain tracked.
-  Retention is independent from the fact that current ko-KR role mapping no
-  longer resolves to Nanum.
 
 ## Layout correction
 
@@ -84,7 +82,7 @@ blocker.
 | Settings `DisplayStatus` | height `28` | unchanged: height/preferred height `28`, size `14`, Auto Size `10-14` | two Korean lines allowed; no clipping/overflow |
 
 No theme sizing rule, font size, Auto Size flag/range, semantic role, runtime
-resolver, font asset, or Nanum asset was changed for the layout correction.
+resolver, or font asset was changed for the layout correction.
 
 ## Automated evidence
 
@@ -100,12 +98,12 @@ Code-head evidence before this documentation-only closeout:
 - project-wide: `NOT_RUN`; the documented broad baseline remains red and no
   project-wide green claim is made
 
-The shell preflight pins the committed asset GUID/material/blob identity and
-Nanum retention. Unity governance tests pin runtime references, theme
-completeness, en-US serialized theme payload identity, glyph coverage,
-fallback absence, and the three approved layout contracts. Import-derived
-scale ratios and the post-import working-file hash are diagnostics, not Unity
-source-integrity assertions.
+The shell preflight pins the committed Climate asset GUID/material/blob
+identity. Unity governance tests pin runtime references, theme completeness,
+en-US serialized theme payload identity, glyph coverage, fallback absence, and
+the three approved layout contracts. Import-derived scale ratios and the
+post-import working-file hash are diagnostics, not Unity source-integrity
+assertions.
 
 ## Visual evidence
 
@@ -148,6 +146,7 @@ canonical folders are retained and never overwritten.
 - Display status intentionally permits two lines; forcing one line or height
   `48` is a contract regression.
 - This closeout does not expand typography to ungoverned future UI surfaces.
-- No global font scaling, package/TMP Settings fallback change, Nanum deletion,
-  PR creation, or merge is authorized here.
+- No global font scaling, package/TMP Settings fallback change, PR creation, or
+  merge is authorized here. The later 2026-08-23 cleanup separately authorized
+  removal of the unused Nanum assets and preservation-only contracts.
 - Independent current-head audit remains required before opening the PR.

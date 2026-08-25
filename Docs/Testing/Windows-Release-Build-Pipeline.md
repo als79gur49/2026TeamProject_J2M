@@ -299,6 +299,51 @@ entries use relative, forward-slash paths and ordinal ordering. These four
 control files are excluded from the payload manifest so the final binding is
 non-circular.
 
+Every Direct Windows and Steam Windows distributable must contain two committed
+root public notices beside `VectorQuake.exe`:
+
+- `payload/ThirdPartyNotices.txt` covers project-added commercial assets,
+  Steamworks.NET, fonts, and runtime UPM package notices, including
+  Cinemachine's bundled Clipper/Boost notice.
+- `payload/UnityPlayerThirdPartyNotices.pdf` is Unity's unmodified
+  Player/Windows/Mono notice for Unity `6000.3.11f1`.
+
+Before Unity starts, the wrapper requires both notices to be tracked `100644`
+regular blobs at the exact source revision, rejects reparse points, and compares
+each checked-out file with its committed Git blob. The TXT is decoded as strict
+UTF-8. Its required top-level sections occur exactly once in canonical order;
+the component, source, copyright, provider, package-version, and reserved-font
+inventory is complete; and each explicitly delimited notice block matches its
+approved normalized SHA-256. Repeated generic MIT wording is permitted because
+license integrity is scoped to the owning component block rather than counted
+globally. The wrapper also requires the committed `Packages/packages-lock.json`
+blob to match the working file and binds every UPM package represented in the
+public notice to its approved version. A package update without the matching
+notice update therefore fails before Unity starts. The PDF must be exactly
+`132262` bytes, begin with `%PDF-`, and match
+SHA-256 `7bed0e6f6646552f9262903b62863c693074ac89ccf6291ead7e876033a29623`.
+
+Empty, incomplete, duplicated, reordered, body-mutated, non-blob, modified, or
+wrong-version notices fail the `public-notices` stage with wrapper exit code
+`117`. After Unity succeeds and its build evidence is accepted, the wrapper
+copies both preflight-approved notices and rechecks their SHA-256 values. An
+existing destination or source/destination mismatch prevents payload promotion.
+
+The TXT remains subject to the Store text-privacy gate. The PDF is allowed only
+under its exact canonical filename and pinned binary identity; arbitrary or
+nested PDFs are not promoted. Both notices are included in `files.sha256`, and
+later distribution staging preserves only their exact root-relative names with
+canonical casing. The common TXT may describe target-specific components.
+Steamworks.NET's MIT license and Valve's Steamworks SDK redistributable remain
+separate so the MIT grant is not presented as covering `steam_api64.dll`.
+
+These two files are the only licensing documents intentionally promoted by the
+pipeline. Purchase receipts, seat records, historical commercial EULAs,
+internal asset audits, and package-local source documentation remain private and
+are not copied into the distributable payload. Changing Unity version, platform,
+or scripting backend requires replacing the Unity Player PDF and its pinned
+identity in the same change.
+
 A distributable payload must not contain a
 `*_BurstDebugInformation_DoNotShip` directory or file beneath one. It must also
 not contain inspectable text or control content that exposes an absolute

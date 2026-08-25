@@ -23,7 +23,6 @@ namespace Game.Feature.UI.Tests
         internal const string GameClearScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameClearScreen.prefab";
         internal const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
         internal const string UiAudioCueMapAssetPath = "Assets/_Features/UI/UI_Composition/Authoring/UiAudioCueMap_V1.asset";
-        internal const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
         internal const string ClimateCrisisKrFontAssetPath =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
         internal const string ClimateCrisisKr2019FontAssetPath =
@@ -132,13 +131,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(cueMapProperty, Is.Not.Null);
             cueMapProperty.objectReferenceValue = LoadUiAudioCueMap();
             serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        internal static TMP_FontAsset LoadNanumGothicFont()
-        {
-            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontAssetPath);
-            Assert.That(font, Is.Not.Null, NanumGothicFontAssetPath);
-            return font;
         }
 
         internal static TMP_FontAsset LoadClimateCrisisKrFont()

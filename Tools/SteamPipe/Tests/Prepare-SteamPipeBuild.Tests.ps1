@@ -92,10 +92,12 @@ function New-PromotedFixture {
         [string]$Target = "steam-windows",
         [string]$ScriptingBackend = "Mono2x",
         [bool]$IncludeUnityPlayer = $true,
+        [bool]$IncludeNotice = $true,
         [bool]$IncludeNative = $true,
         [bool]$IncludeManaged = $true,
         [bool]$IncludeSteamAppId = $false,
-        [bool]$IncludeDenied = $false
+        [bool]$IncludeDenied = $false,
+        [AllowNull()][string]$NoticeContent
     )
 
     $payload = Join-Path $Root "payload"
@@ -103,6 +105,24 @@ function New-PromotedFixture {
     [IO.Directory]::CreateDirectory($payload) | Out-Null
     [IO.Directory]::CreateDirectory($evidence) | Out-Null
     Write-Utf8File (Join-Path $payload "VectorQuake.exe") "exe"
+    if ($IncludeNotice) {
+        $noticeSource = Join-Path $script:RepositoryRoot "ThirdPartyNotices.txt"
+        $unityNoticeSource = Join-Path `
+            $script:RepositoryRoot `
+            "UnityPlayerThirdPartyNotices.pdf"
+        $notice = if ($PSBoundParameters.ContainsKey("NoticeContent")) {
+            $NoticeContent
+        } else {
+            [IO.File]::ReadAllText(
+                $noticeSource,
+                [Text.UTF8Encoding]::new($false, $true))
+        }
+        Write-Utf8File (Join-Path $payload "ThirdPartyNotices.txt") $notice
+        [IO.File]::Copy(
+            $unityNoticeSource,
+            (Join-Path $payload "UnityPlayerThirdPartyNotices.pdf"),
+            $true)
+    }
     if ($IncludeUnityPlayer) {
         Write-Utf8File (Join-Path $payload "UnityPlayer.dll") "unity"
     }
@@ -1050,6 +1070,10 @@ try {
         Assert-True (-not $app.Contains("SetLive"))
         Assert-True ($app.Contains((ConvertTo-VdfQuoted (Join-Path $promoted "payload"))))
         Assert-True (-not $app.Contains((ConvertTo-VdfQuoted (Join-Path $promoted "evidence"))))
+        Assert-True (Test-Path -LiteralPath (
+            Join-Path $promoted "payload\ThirdPartyNotices.txt") -PathType Leaf)
+        Assert-True (Test-Path -LiteralPath (
+            Join-Path $promoted "payload\UnityPlayerThirdPartyNotices.pdf") -PathType Leaf)
         $success = Get-Content `
             (Join-Path $output "PRE_APPID_DRY_RUN_SUCCESS.json") -Raw | ConvertFrom-Json
         Assert-Equal "NOT_UPLOADABLE" ([string]$success.uploadAuthority)
@@ -1449,6 +1473,36 @@ try {
         Assert-ThrowsContaining {
             Invoke-PrepareSteamPipeBuild @arguments
         } "STAGING_REQUIRED_RUNTIME_MISSING"
+        Assert-FinalOutputAbsent $output
+    }
+
+    Invoke-Case "matching manifest without public notice is rejected" {
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "missing-public-notice") `
+            -IncludeNotice $false
+        $output = Join-Path $script:FixtureRoot "missing-public-notice-output"
+        $arguments = New-ValidArguments $promoted $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STAGING_REQUIRED_PUBLIC_NOTICE_MISSING"
+        Assert-FinalOutputAbsent $output
+    }
+
+    Invoke-Case "matching manifest with mutated public notice body is rejected" {
+        $canonicalNotice = [IO.File]::ReadAllText(
+            (Join-Path $script:RepositoryRoot "ThirdPartyNotices.txt"),
+            [Text.UTF8Encoding]::new($false, $true))
+        $mutatedNotice = $canonicalNotice.Replace(
+            "development of collaborative font projects",
+            "development of font projects")
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "mutated-public-notice") `
+            -NoticeContent $mutatedNotice
+        $output = Join-Path $script:FixtureRoot "mutated-public-notice-output"
+        $arguments = New-ValidArguments $promoted $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STAGING_PUBLIC_NOTICE_INVALID"
         Assert-FinalOutputAbsent $output
     }
 

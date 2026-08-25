@@ -184,7 +184,6 @@ namespace Game.Feature.UI.Composition.Editor
         public const string DefaultOutputRoot = "TestLogs/TypographyVisualQA";
         public const int SettingsExpectedAppliedBindingCount = 35;
         public const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
-        public const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
         public const string ClimateCrisisKrFontAssetPath =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
         public const string ClimateCrisisKr2019FontAssetPath =
@@ -291,7 +290,6 @@ namespace Game.Feature.UI.Composition.Editor
 
         public static readonly string[] DirtyGuardAssetPaths =
         {
-            NanumGothicFontAssetPath,
             TmpSettingsAssetPath,
             TypographyThemeValidator.ThemeAssetPath,
             "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab",

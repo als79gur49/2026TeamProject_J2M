@@ -1,5 +1,10 @@
 # Typography Visual QA Closeout
 
+> Historical evidence note: this closeout predates the completed Climate Crisis
+> KR migration. Nanum references below describe the captured revision and are
+> not current asset-retention requirements; the canonical current state is
+> defined by `Climate-Crisis-KR-Typography-Migration-Closeout.md`.
+
 ## Scope
 
 This closeout records the visual QA result for the UI Localization + Typography migration PR scope, including the Settings static-shell completion and SmartFormat production-integration restoration. It does not approve package changes, TMP Settings fallback changes, Addressables remote setup, or broader UI typography rollout.

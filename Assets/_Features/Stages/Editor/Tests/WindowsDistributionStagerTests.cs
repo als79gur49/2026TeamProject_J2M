@@ -5,11 +5,21 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class WindowsDistributionStagerTests
     {
+        private static readonly string ValidThirdPartyNotices = File.ReadAllText(
+            Path.Combine(
+                Path.GetDirectoryName(Application.dataPath),
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact));
+        private static readonly byte[] ValidUnityPlayerThirdPartyNotices =
+            File.ReadAllBytes(Path.Combine(
+                Path.GetDirectoryName(Application.dataPath),
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact));
+
         private string fixtureRoot;
         private string repositoryRoot;
         private string sourceRoot;
@@ -44,6 +54,13 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(File.Exists(Path.Combine(result.PayloadRoot, "VectorQuake.exe")), Is.True);
             Assert.That(File.Exists(Path.Combine(result.PayloadRoot, "UnityPlayer.dll")), Is.True);
             Assert.That(File.Exists(Path.Combine(
+                result.PayloadRoot,
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact)), Is.True);
+            Assert.That(File.Exists(Path.Combine(
+                result.PayloadRoot,
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact)),
+                Is.True);
+            Assert.That(File.Exists(Path.Combine(
                 result.PayloadRoot, "VectorQuake_Data", "globalgamemanagers")), Is.True);
             Assert.That(result.SteamNativeCount, Is.EqualTo(1));
             Assert.That(result.SteamManagedCount, Is.EqualTo(1));
@@ -62,6 +79,205 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(FindFileNames(result.PayloadRoot), Does.Not.Contain("steam_api64.dll"));
             Assert.That(FindFileNames(result.PayloadRoot),
                 Does.Not.Contain("com.rlabrecque.steamworks.net.dll"));
+            Assert.That(File.Exists(Path.Combine(
+                result.PayloadRoot,
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact)), Is.True);
+            Assert.That(File.Exists(Path.Combine(
+                result.PayloadRoot,
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact)),
+                Is.True);
+        }
+
+        [TestCase("direct-windows", "direct-missing-notice-output")]
+        [TestCase("steam-windows", "steam-missing-notice-output")]
+        public void BothTargets_MissingThirdPartyNoticesFailsClosed(
+            string target,
+            string outputName)
+        {
+            File.Delete(Path.Combine(
+                sourceRoot,
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact));
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(target, outputName));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_REQUIRED_PUBLIC_NOTICE_MISSING"));
+            AssertPromotedOutputAbsent(Path.Combine(fixtureRoot, outputName));
+        }
+
+        [TestCase("direct-windows", "direct-missing-unity-notice-output")]
+        [TestCase("steam-windows", "steam-missing-unity-notice-output")]
+        public void BothTargets_MissingUnityPlayerNoticesFailsClosed(
+            string target,
+            string outputName)
+        {
+            File.Delete(Path.Combine(
+                sourceRoot,
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact));
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(target, outputName));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_REQUIRED_PUBLIC_NOTICE_MISSING"));
+            AssertPromotedOutputAbsent(Path.Combine(fixtureRoot, outputName));
+        }
+
+        [Test]
+        public void UnityPlayerNoticeContract_AcceptsCanonicalAndRejectsMutation()
+        {
+            Assert.That(WindowsDistributionTargetPolicy
+                .HasValidUnityPlayerThirdPartyNoticeContent(
+                    ValidUnityPlayerThirdPartyNotices), Is.True);
+
+            var mutated = (byte[])ValidUnityPlayerThirdPartyNotices.Clone();
+            mutated[100] ^= 1;
+            Assert.That(WindowsDistributionTargetPolicy
+                .HasValidUnityPlayerThirdPartyNoticeContent(mutated), Is.False);
+            Assert.That(WindowsDistributionTargetPolicy
+                .HasValidUnityPlayerThirdPartyNoticeContent(
+                    ValidUnityPlayerThirdPartyNotices.Take(
+                        ValidUnityPlayerThirdPartyNotices.Length - 1).ToArray()),
+                Is.False);
+        }
+
+        [TestCase("")]
+        [TestCase("   \r\n\t")]
+        [TestCase("VectorQuake Third-Party Notices")]
+        public void BothTargets_InvalidThirdPartyNoticesFailClosed(string content)
+        {
+            File.WriteAllText(
+                Path.Combine(
+                    sourceRoot,
+                    WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact),
+                content);
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage("direct-windows", "invalid-notice-output"));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_PUBLIC_NOTICE_INVALID"));
+            AssertPromotedOutputAbsent(Path.Combine(fixtureRoot, "invalid-notice-output"));
+        }
+
+        [Test]
+        public void PublicNoticeContract_AcceptsCanonicalDocumentAndRejectsMarkerOnlyFixture()
+        {
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(
+                    ValidThirdPartyNotices),
+                Is.True);
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(
+                    string.Join(
+                        "\n",
+                        WindowsDistributionTargetPolicy.ThirdPartyNoticeRequiredMarkers)),
+                Is.False);
+        }
+
+        [Test]
+        public void PublicNoticeContract_RejectsEveryMissingComponentInventoryFragment()
+        {
+            foreach (var fragment in
+                     WindowsDistributionTargetPolicy.ThirdPartyNoticeRequiredFragments)
+            {
+                var mutated = ValidThirdPartyNotices.Replace(fragment, string.Empty);
+                Assert.That(mutated, Is.Not.EqualTo(ValidThirdPartyNotices), fragment);
+                Assert.That(
+                    WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(mutated),
+                    Is.False,
+                    fragment);
+            }
+        }
+
+        [Test]
+        public void PublicNoticeContract_RejectsObsoleteUnityCompanionLicenseUrl()
+        {
+            var mutated = ValidThirdPartyNotices.Replace(
+                "https://unity.com/legal/licenses/unity-companion-license",
+                "https://unity.com/legal/licenses/unity_companion_license");
+
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(mutated),
+                Is.False);
+        }
+
+        [TestCase(
+            "are permitted provided that the following conditions are met:",
+            "are allowed provided that the following conditions are met:")]
+        [TestCase(
+            "to use, copy, modify, merge, publish, distribute, sublicense",
+            "to use, modify, merge, publish, distribute, sublicense")]
+        [TestCase(
+            "development of collaborative font projects",
+            "development of font projects")]
+        [TestCase(
+            "Copyright © 2010-2014 Angus Johnson",
+            "Copyright © 2011-2014 Angus Johnson")]
+        [TestCase(
+            "Copyright (c) 2007 James Newton-King",
+            "Copyright (c) 2008 James Newton-King")]
+        [TestCase(
+            "Copyright 2011-2019 axuno gGmbH",
+            "Copyright 2012-2019 axuno gGmbH")]
+        [TestCase(
+            "https://www.codeproject.com/Tips/624300/AssemblyQualifiedName-Parser",
+            "https://example.invalid/AssemblyQualifiedName-Parser")]
+        [TestCase(
+            "Copyright (c) 2014-2015, NVIDIA CORPORATION.",
+            "Copyright (c) 2015, NVIDIA CORPORATION.")]
+        [TestCase(
+            "Copyright (c) 2021 Advanced Micro Devices, Inc.",
+            "Copyright (c) 2022 Advanced Micro Devices, Inc.")]
+        [TestCase(
+            "Copyright (c) 2007-2019 University of Illinois",
+            "Copyright (c) 2008-2019 University of Illinois")]
+        public void PublicNoticeContract_RejectsCanonicalLicenseBodyMutation(
+            string original,
+            string replacement)
+        {
+            var mutated = ValidThirdPartyNotices.Replace(original, replacement);
+            Assert.That(mutated, Is.Not.EqualTo(ValidThirdPartyNotices));
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(mutated),
+                Is.False);
+        }
+
+        [Test]
+        public void PublicNoticeContract_RejectsDuplicateAndReorderedSections()
+        {
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(
+                    ValidThirdPartyNotices + "\nUnity UI Extensions\n"),
+                Is.False);
+
+            var reordered = ValidThirdPartyNotices
+                .Replace("Unity UI Extensions", "__UI_SECTION__")
+                .Replace(
+                    "Steamworks.NET (Steam distribution only)",
+                    "Unity UI Extensions")
+                .Replace("__UI_SECTION__", "Steamworks.NET (Steam distribution only)");
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(reordered),
+                Is.False);
+        }
+
+        [Test]
+        public void IncorrectlyCasedThirdPartyNoticesNameFailsClosed()
+        {
+            var canonicalPath = Path.Combine(
+                sourceRoot,
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact);
+            File.Delete(canonicalPath);
+            File.WriteAllText(
+                Path.Combine(sourceRoot, "thirdpartynotices.txt"),
+                ValidThirdPartyNotices);
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage("direct-windows", "wrong-case-notice-output"));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_REQUIRED_PUBLIC_NOTICE_MISSING"));
         }
 
         [TestCase("direct-windows", "direct-appid-output")]
@@ -300,6 +516,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.False);
             Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate(
                 "VectorQuake_Data/../../outside.dll"), Is.False);
+            Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate(
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact), Is.True);
+            Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate(
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact),
+                Is.True);
+            Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate(
+                "Docs/ThirdPartyNotices.txt"), Is.False);
         }
 
         [Test]
@@ -578,6 +801,12 @@ namespace Game.Feature.Stages.Editor.Tests
         private void WriteCanonicalRawFixture(bool includeSteamDependencies)
         {
             WriteFile("VectorQuake.exe", "exe");
+            WriteFile(
+                WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
+                ValidThirdPartyNotices);
+            WriteBinaryFile(
+                WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
+                ValidUnityPlayerThirdPartyNotices);
             WriteFile("UnityPlayer.dll", "unity");
             WriteFile("UnityCrashHandler64.exe", "crash-handler");
             WriteFile("VectorQuake_Data/globalgamemanagers", "managers");
@@ -605,6 +834,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 sourceRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllText(path, content);
+        }
+
+        private void WriteBinaryFile(string relativePath, byte[] content)
+        {
+            var path = Path.Combine(
+                sourceRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllBytes(path, content);
         }
 
         private void WriteFileExtended(string relativePath, string content)

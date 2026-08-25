@@ -143,19 +143,6 @@ TYPOGRAPHY_VISUAL_HEIGHT=1080
 TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotSliceFromCommandLine"
 TYPOGRAPHY_VISUAL_M2B_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureM2bPreviewScreenshotSliceFromCommandLine"
 TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.ReconstructCanonicalManifestFromCommandLine"
-TYPOGRAPHY_VISUAL_NANUM_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
-NANUM_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/NanumGothic.ttf"
-NANUM_SOURCE_TTF_META="$NANUM_SOURCE_TTF_ASSET.meta"
-NANUM_SDF_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
-NANUM_SDF_META="$NANUM_SDF_ASSET.meta"
-NANUM_SYNTHETIC_BOLD_ASSET="Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"
-NANUM_SYNTHETIC_BOLD_META="$NANUM_SYNTHETIC_BOLD_ASSET.meta"
-NANUM_SOURCE_TTF_GUID="9efe96b63470e314280dc43c0aa565db"
-NANUM_SOURCE_TTF_SHA256="48a28e97b34fc8e5b157657633670cd1b7de126cfc414da65ce9c3d5bc8be733"
-NANUM_SDF_GUID="4662feb1d501d1f479b757a82e304069"
-NANUM_MATERIAL_LOCAL_ID="2769584723452840789"
-NANUM_ATLAS_LOCAL_ID="3176292610376301967"
-NANUM_SYNTHETIC_BOLD_GUID="2a2e67f1c1d143dc9f2d4af986ba7f21"
 OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="${OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT:-$CAPTURE_OUTPUT_ROOT/ObjectiveHudVisualQA}"
 OBJECTIVE_HUD_VISUAL_WIDTH=1920
 OBJECTIVE_HUD_VISUAL_HEIGHT=1080
@@ -362,18 +349,6 @@ verify_climate_committed_source_integrity() {
     local head_climate_2019_sdf_guid
     local head_climate_2019_material_local_id
     local head_climate_2019_atlas_local_id
-    local head_nanum_ttf_guid
-    local head_nanum_sdf_guid
-    local head_nanum_material_guid
-    local retained_path
-    local -a retained_nanum_paths=(
-        "Assets/_Shared/UI/Fonts/NanumGothic.ttf"
-        "Assets/_Shared/UI/Fonts/NanumGothic.ttf.meta"
-        "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
-        "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset.meta"
-        "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"
-        "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat.meta"
-    )
 
     head_climate_sdf_sha256="$(
         git_head_runner_constant CLIMATE_COMMITTED_SDF_SHA256
@@ -383,11 +358,6 @@ verify_climate_committed_source_integrity() {
     head_climate_sdf_guid="$(git_head_runner_constant CLIMATE_SDF_GUID)"
     head_climate_material_local_id="$(
         git_head_runner_constant CLIMATE_MATERIAL_LOCAL_ID
-    )"
-    head_nanum_ttf_guid="$(git_head_runner_constant NANUM_SOURCE_TTF_GUID)"
-    head_nanum_sdf_guid="$(git_head_runner_constant NANUM_SDF_GUID)"
-    head_nanum_material_guid="$(
-        git_head_runner_constant NANUM_SYNTHETIC_BOLD_GUID
     )"
 
     committed_sdf_hash="$(git_head_blob_sha256 "$CLIMATE_SDF_ASSET")"
@@ -467,42 +437,11 @@ verify_climate_committed_source_integrity() {
         echo "  Climate 2019 historical HEAD audit: skipped (candidate asset is not committed yet)"
     fi
 
-    for retained_path in "${retained_nanum_paths[@]}"; do
-        if ! git cat-file -e "HEAD:$retained_path"; then
-            echo "ERROR: Required retained Nanum asset is absent from Git HEAD: $retained_path"
-            return 1
-        fi
-    done
-    require_git_head_blob_text \
-        "$NANUM_SOURCE_TTF_META" \
-        "guid: $head_nanum_ttf_guid" \
-        "Nanum source TTF GUID"
-    require_git_head_blob_text \
-        "$NANUM_SDF_META" \
-        "guid: $head_nanum_sdf_guid" \
-        "Nanum SDF GUID"
-    require_git_head_blob_text \
-        "$NANUM_SYNTHETIC_BOLD_META" \
-        "guid: $head_nanum_material_guid" \
-        "Nanum synthetic-bold material GUID"
-    require_git_head_blob_text \
-        "$NANUM_SDF_ASSET" \
-        "m_SourceFontFileGUID: $head_nanum_ttf_guid" \
-        "Nanum SDF source TTF reference"
-    require_git_head_blob_text \
-        "$NANUM_SYNTHETIC_BOLD_ASSET" \
-        "guid: $head_nanum_sdf_guid" \
-        "Nanum synthetic-bold atlas reference"
-
     echo "Climate committed source integrity: PASS (historical HEAD audit)"
     echo "  SDF Git blob SHA-256: $committed_sdf_hash"
     echo "  TTF GUID:             $head_climate_ttf_guid"
     echo "  SDF GUID:             $head_climate_sdf_guid"
     echo "  Material localID:     $head_climate_material_local_id"
-    echo "  Nanum body/meta:      6/6 committed"
-    echo "  Nanum TTF GUID:       $head_nanum_ttf_guid"
-    echo "  Nanum SDF GUID:       $head_nanum_sdf_guid"
-    echo "  Nanum material GUID:  $head_nanum_material_guid"
 }
 
 require_worktree_file_text() {
@@ -521,16 +460,6 @@ verify_climate_worktree_source_integrity() {
     local candidate_ttf_hash
     local candidate_2019_sdf_hash
     local candidate_2019_ttf_hash
-    local candidate_nanum_ttf_hash
-    local retained_path
-    local -a retained_nanum_paths=(
-        "$NANUM_SOURCE_TTF_ASSET"
-        "$NANUM_SOURCE_TTF_META"
-        "$NANUM_SDF_ASSET"
-        "$NANUM_SDF_META"
-        "$NANUM_SYNTHETIC_BOLD_ASSET"
-        "$NANUM_SYNTHETIC_BOLD_META"
-    )
 
     candidate_sdf_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
@@ -543,9 +472,6 @@ verify_climate_worktree_source_integrity() {
     )"
     candidate_2019_ttf_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$CLIMATE_2019_SOURCE_TTF_ASSET" | awk '{print $1}'
-    )"
-    candidate_nanum_ttf_hash="$(
-        sha256sum "$PROJECT_PATH_WSL/$NANUM_SOURCE_TTF_ASSET" | awk '{print $1}'
     )"
     if [ "$candidate_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
         echo "ERROR: Candidate worktree Climate SDF mismatch."
@@ -571,13 +497,6 @@ verify_climate_worktree_source_integrity() {
         echo "  actual:   $candidate_2019_ttf_hash"
         return 1
     fi
-    if [ "$candidate_nanum_ttf_hash" != "$NANUM_SOURCE_TTF_SHA256" ]; then
-        echo "ERROR: Candidate worktree Nanum source TTF mismatch."
-        echo "  expected: $NANUM_SOURCE_TTF_SHA256"
-        echo "  actual:   $candidate_nanum_ttf_hash"
-        return 1
-    fi
-
     require_worktree_file_text \
         "$CLIMATE_SOURCE_TTF_META" \
         "guid: $CLIMATE_SOURCE_TTF_GUID" \
@@ -615,49 +534,14 @@ verify_climate_worktree_source_integrity() {
         "--- !u!28 &$CLIMATE_2019_ATLAS_LOCAL_ID" \
         "Climate 2019 atlas texture localID"
 
-    for retained_path in "${retained_nanum_paths[@]}"; do
-        if [ ! -f "$PROJECT_PATH_WSL/$retained_path" ]; then
-            echo "ERROR: Required retained Nanum candidate is absent: $retained_path"
-            return 1
-        fi
-    done
-    require_worktree_file_text \
-        "$NANUM_SOURCE_TTF_META" \
-        "guid: $NANUM_SOURCE_TTF_GUID" \
-        "Nanum source TTF GUID"
-    require_worktree_file_text \
-        "$NANUM_SDF_META" \
-        "guid: $NANUM_SDF_GUID" \
-        "Nanum SDF GUID"
-    require_worktree_file_text \
-        "$NANUM_SYNTHETIC_BOLD_META" \
-        "guid: $NANUM_SYNTHETIC_BOLD_GUID" \
-        "Nanum synthetic-bold material GUID"
-    require_worktree_file_text \
-        "$NANUM_SDF_ASSET" \
-        "m_SourceFontFileGUID: $NANUM_SOURCE_TTF_GUID" \
-        "Nanum SDF source TTF reference"
-    require_worktree_file_text \
-        "$NANUM_SDF_ASSET" \
-        "--- !u!21 &$NANUM_MATERIAL_LOCAL_ID" \
-        "Nanum material localID"
-    require_worktree_file_text \
-        "$NANUM_SDF_ASSET" \
-        "--- !u!28 &$NANUM_ATLAS_LOCAL_ID" \
-        "Nanum atlas texture localID"
-    require_worktree_file_text \
-        "$NANUM_SYNTHETIC_BOLD_ASSET" \
-        "guid: $NANUM_SDF_GUID" \
-        "Nanum synthetic-bold atlas reference"
     require_worktree_file_text \
         "$GLYPH_STRING_TABLE_INPUT_META" \
         "guid: $GLYPH_STRING_TABLE_INPUT_GUID" \
         "glyph String Table input GUID"
 
-    echo "Climate 2000/2019 and Nanum candidate worktree integrity: PASS"
+    echo "Climate 2000/2019 candidate worktree integrity: PASS"
     echo "  Climate 2000 candidate SHA-256: $candidate_sdf_hash"
     echo "  Climate 2019 candidate SHA-256: $candidate_2019_sdf_hash"
-    echo "  Nanum body/meta:     6/6 present"
 }
 
 climate_working_sha256() {
@@ -1217,15 +1101,13 @@ capture_guarded_paths() {
     if [ "${CAPTURE_GUARD_PROFILE:-visual}" = "glyph-update" ]; then
         printf '%s\n' \
             "$CLIMATE_SDF_ASSET" \
-            "$CLIMATE_2019_SDF_ASSET" \
-            "$NANUM_SDF_ASSET"
+            "$CLIMATE_2019_SDF_ASSET"
         return 0
     fi
 
     printf '%s\n' \
         "$CLIMATE_SDF_ASSET" \
         "$CLIMATE_2019_SDF_ASSET" \
-        "$NANUM_SDF_ASSET" \
         "Assets/TextMesh Pro/Resources/TMP Settings.asset" \
         "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset" \
         "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab" \
@@ -2219,14 +2101,6 @@ verify_typography_visual_revision_gate() {
     fi
 
     echo "Canonical revision gate: PASS ($(git rev-parse HEAD))"
-}
-
-typography_visual_nanum_hash() {
-    git hash-object "$PROJECT_PATH_WSL/$TYPOGRAPHY_VISUAL_NANUM_ASSET"
-}
-
-typography_visual_nanum_diff_sha256() {
-    git diff -- "$TYPOGRAPHY_VISUAL_NANUM_ASSET" | sha256sum | awk '{print $1}'
 }
 
 verify_typography_visual_manifest() {
@@ -4236,7 +4110,7 @@ run_dotnet_integration_fuzz() {
 normalize_glyph_serialized_output() {
     local asset_path
 
-    for asset_path in "$CLIMATE_SDF_ASSET" "$CLIMATE_2019_SDF_ASSET" "$NANUM_SDF_ASSET"; do
+    for asset_path in "$CLIMATE_SDF_ASSET" "$CLIMATE_2019_SDF_ASSET"; do
         if ! perl -pi -e 's/[ \t]+(?=\r?$)//' -- \
             "$PROJECT_PATH_WSL/$asset_path"; then
             echo "ERROR: Failed to normalize serialized whitespace: $asset_path"
@@ -4252,8 +4126,6 @@ run_climate_glyph_update() {
     local climate_after_hash
     local climate_2019_before_hash
     local climate_2019_after_hash
-    local nanum_before_hash
-    local nanum_after_hash
     local command_status=0
     local validation_status=0
     local process_cleanup_status=0
@@ -4271,11 +4143,10 @@ run_climate_glyph_update() {
     )
 
     if [ "$DRY_RUN" -eq 1 ]; then
-        echo "Would atomically update the canonical Climate 2000/2019 and retained Nanum managed glyph corpus:"
+        echo "Would atomically update the canonical Climate 2000/2019 managed glyph corpus:"
         echo "  preflight: immutable source/GUID/localID/String Table/projectPath identity"
         echo "  snapshot:  $CLIMATE_SDF_ASSET"
         echo "  snapshot:  $CLIMATE_2019_SDF_ASSET"
-        echo "  snapshot:  $NANUM_SDF_ASSET"
         echo "  restore:   command failure, timeout, INT, TERM, process cleanup failure, validation failure"
         print_shell_command "${unity_command[@]}"
         return 0
@@ -4292,9 +4163,6 @@ run_climate_glyph_update() {
     climate_2019_before_hash="$(
         sha256sum "$baseline_root/$CLIMATE_2019_SDF_ASSET" | awk '{print $1}'
     )"
-    nanum_before_hash="$(
-        sha256sum "$baseline_root/$NANUM_SDF_ASSET" | awk '{print $1}'
-    )"
     rm -f "$CLIMATE_GLYPH_UPDATE_LOG" \
         "$CLIMATE_GLYPH_UPDATE_EVIDENCE" \
         "$CLIMATE_GLYPH_UPDATE_LIFECYCLE"
@@ -4304,7 +4172,7 @@ run_climate_glyph_update() {
         "$CLIMATE_GLYPH_UPDATE_LIFECYCLE" \
         "ClimateGlyphUpdate"
 
-    echo "Running atomic Climate 2000/2019 and Nanum managed glyph update..."
+    echo "Running atomic Climate 2000/2019 managed glyph update..."
     if visual_guard_run_command "${unity_command[@]}"; then
         command_status=0
     else
@@ -4316,13 +4184,13 @@ run_climate_glyph_update() {
         process_cleanup_status=$?
     fi
     if [ "$command_status" -ne 0 ]; then
-        echo "ERROR: Unity glyph update failed with exit code $command_status; restoring all three font assets."
+        echo "ERROR: Unity glyph update failed with exit code $command_status; restoring both font assets."
         visual_guard_mark_observation_complete "FAIL"
         visual_guard_finish "$command_status"
         return 0
     fi
     if [ "$process_cleanup_status" -ne 0 ]; then
-        echo "ERROR: Unity glyph update process cleanup failed; restoring all three font assets."
+        echo "ERROR: Unity glyph update process cleanup failed; restoring both font assets."
         visual_guard_mark_observation_complete "FAIL"
         visual_guard_finish 1
         return 0
@@ -4334,9 +4202,6 @@ run_climate_glyph_update() {
     climate_after_hash="$(climate_working_sha256)"
     climate_2019_after_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$CLIMATE_2019_SDF_ASSET" | awk '{print $1}'
-    )"
-    nanum_after_hash="$(
-        sha256sum "$PROJECT_PATH_WSL/$NANUM_SDF_ASSET" | awk '{print $1}'
     )"
     require_worktree_file_text \
         "$CLIMATE_SDF_ASSET" \
@@ -4354,14 +4219,6 @@ run_climate_glyph_update() {
         "$CLIMATE_2019_SDF_ASSET" \
         "--- !u!28 &$CLIMATE_2019_ATLAS_LOCAL_ID" \
         "Climate 2019 atlas localID after glyph update" || validation_status=1
-    require_worktree_file_text \
-        "$NANUM_SDF_ASSET" \
-        "--- !u!21 &$NANUM_MATERIAL_LOCAL_ID" \
-        "Nanum material localID after glyph update" || validation_status=1
-    require_worktree_file_text \
-        "$NANUM_SDF_ASSET" \
-        "--- !u!28 &$NANUM_ATLAS_LOCAL_ID" \
-        "Nanum atlas localID after glyph update" || validation_status=1
     if ! grep -F \
         "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 glyph_remap=0 atlas_page_drift=0 source_linkage=PASS scale_ratio=PASS" \
         "$CLIMATE_GLYPH_UPDATE_LOG" >/dev/null; then
@@ -4371,20 +4228,17 @@ run_climate_glyph_update() {
     {
         echo "snapshot_target_climate=$CLIMATE_SDF_ASSET"
         echo "snapshot_target_climate_2019=$CLIMATE_2019_SDF_ASSET"
-        echo "snapshot_target_nanum=$NANUM_SDF_ASSET"
         echo "climate_before_sha256=$climate_before_hash"
         echo "climate_after_sha256=$climate_after_hash"
         echo "climate_2019_before_sha256=$climate_2019_before_hash"
         echo "climate_2019_after_sha256=$climate_2019_after_hash"
-        echo "nanum_before_sha256=$nanum_before_hash"
-        echo "nanum_after_sha256=$nanum_after_hash"
         echo "missing=0"
         echo "fallback=0"
         echo "process_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
     } > "$CLIMATE_GLYPH_UPDATE_EVIDENCE"
 
     if [ "$validation_status" -ne 0 ]; then
-        echo "ERROR: Glyph output validation failed; restoring all three font assets."
+        echo "ERROR: Glyph output validation failed; restoring both font assets."
         visual_guard_mark_observation_complete "FAIL"
         visual_guard_finish 1
         return 0
@@ -4392,13 +4246,11 @@ run_climate_glyph_update() {
 
     VISUAL_GUARD_RESTORE_ON_SUCCESS=0
     visual_guard_mark_observation_complete "PASS"
-    echo "Climate 2000/2019 and Nanum managed glyph update: PASS"
+    echo "Climate 2000/2019 managed glyph update: PASS"
     echo "  Climate 2000 before: $climate_before_hash"
     echo "  Climate 2000 after:  $climate_after_hash"
     echo "  Climate 2019 before: $climate_2019_before_hash"
     echo "  Climate 2019 after:  $climate_2019_after_hash"
-    echo "  Nanum before:   $nanum_before_hash"
-    echo "  Nanum after:    $nanum_after_hash"
     echo "  missing: 0"
     echo "  fallback: 0"
     visual_guard_finish 0
@@ -6019,13 +5871,8 @@ run_typography_visual() {
     local climate_hash_before
     local climate_hash_after
     local climate_restored_hash
-    local nanum_hash_before
-    local nanum_hash_after
-    local nanum_diff_before
-    local nanum_diff_after
     local unity_exit=0
     local residue_exit=0
-    local nanum_exit=0
     local climate_exit=0
     local capture_guard_exit=0
     local restore_exit=0
@@ -6070,8 +5917,6 @@ run_typography_visual() {
     fi
 
     expected_head="$(git rev-parse HEAD)"
-    nanum_hash_before="$(typography_visual_nanum_hash)"
-    nanum_diff_before="$(typography_visual_nanum_diff_sha256)"
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
     baseline_root="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/pre-capture-assets"
     baseline_root_win="$(wslpath -w "$baseline_root")"
@@ -6202,8 +6047,6 @@ run_typography_visual() {
             "$process_before" || true
     fi
 
-    nanum_hash_after="$(typography_visual_nanum_hash)"
-    nanum_diff_after="$(typography_visual_nanum_diff_sha256)"
     climate_hash_after="$(climate_working_sha256)"
     if ! verify_climate_working_transition \
         "$baseline_root/$CLIMATE_SDF_ASSET" \
@@ -6232,19 +6075,6 @@ run_typography_visual() {
     echo "  before:   $climate_hash_before"
     echo "  observed: $climate_hash_after"
     echo "  restored: $climate_restored_hash"
-    if [ "$nanum_hash_after" != "$nanum_hash_before" ]; then
-        echo "ERROR: Nanum asset content hash changed during typography capture."
-        echo "  before: $nanum_hash_before"
-        echo "  after:  $nanum_hash_after"
-        nanum_exit=1
-    fi
-    if [ "$nanum_diff_after" != "$nanum_diff_before" ]; then
-        echo "ERROR: Nanum asset diff SHA-256 changed during typography capture."
-        echo "  before: $nanum_diff_before"
-        echo "  after:  $nanum_diff_after"
-        nanum_exit=1
-    fi
-
     if ! assert_no_generated_test_scenes; then
         cleanup_generated_test_scenes
         assert_no_generated_test_scenes || true
@@ -6257,8 +6087,7 @@ run_typography_visual() {
         visual_guard_finish "$unity_exit" || return $?
         return 0
     fi
-    if [ "$nanum_exit" -ne 0 ] ||
-       [ "$climate_exit" -ne 0 ] ||
+    if [ "$climate_exit" -ne 0 ] ||
        [ "$capture_guard_exit" -ne 0 ] ||
        [ "$restore_exit" -ne 0 ] ||
        [ "$residue_exit" -ne 0 ]; then
@@ -6290,7 +6119,6 @@ run_typography_visual() {
     echo "  M3 Stage manifest: $TYPOGRAPHY_VISUAL_OUTPUT_DIR/m3-stage-capture.log"
     echo "  runner mutation:  $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
-    echo "  Nanum hash/diff: preserved"
     visual_guard_finish 0
 }
 
@@ -6363,9 +6191,6 @@ run_terminal_result_visual() {
     local climate_before
     local climate_observed
     local climate_restored
-    local nanum_before
-    local nanum_observed
-    local nanum_restored
     local command_status=0
     local process_cleanup_status=0
     local capture_guard_status=0
@@ -6417,7 +6242,6 @@ run_terminal_result_visual() {
     CAPTURE_GUARD_PROFILE="visual"
     prepare_capture_asset_baseline "$baseline_root"
     climate_before="$(sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}')"
-    nanum_before="$(sha256sum "$baseline_root/$NANUM_SDF_ASSET" | awk '{print $1}')"
     visual_guard_begin \
         "$baseline_root" \
         "$runner_mutation_evidence" \
@@ -6436,7 +6260,6 @@ run_terminal_result_visual() {
         process_cleanup_status=$?
     fi
     climate_observed="$(climate_working_sha256)"
-    nanum_observed="$(sha256sum "$PROJECT_PATH_WSL/$NANUM_SDF_ASSET" | awk '{print $1}')"
     if ! observe_capture_assets_before_restore \
         "$baseline_root" \
         "$runner_mutation_evidence"; then
@@ -6453,9 +6276,7 @@ run_terminal_result_visual() {
         restore_status=1
     fi
     climate_restored="$(climate_working_sha256)"
-    nanum_restored="$(sha256sum "$PROJECT_PATH_WSL/$NANUM_SDF_ASSET" | awk '{print $1}')"
-    if [ "$climate_restored" != "$climate_before" ] ||
-       [ "$nanum_restored" != "$nanum_before" ]; then
+    if [ "$climate_restored" != "$climate_before" ]; then
         echo "ERROR: Terminal result visual runner did not restore guarded font assets."
         restore_status=1
     fi
@@ -6475,9 +6296,6 @@ run_terminal_result_visual() {
             echo "guarded_climate_before_sha256=$climate_before"
             echo "guarded_climate_after_capture_sha256=$climate_observed"
             echo "guarded_climate_restored_sha256=$climate_restored"
-            echo "guarded_nanum_before_sha256=$nanum_before"
-            echo "guarded_nanum_after_capture_sha256=$nanum_observed"
-            echo "guarded_nanum_restored_sha256=$nanum_restored"
             echo "process_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
             echo "runner_cleanup_lifecycle=runner-cleanup-lifecycle.log"
         } >> "$manifest"

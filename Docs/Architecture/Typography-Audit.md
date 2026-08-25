@@ -16,8 +16,9 @@ questions, and “next implementation” wording retained later in this audit.
 - en-US identities remain base-authored; Generic Button stays SciFiSoldier and
   MainMenuCommand stays Orbitron.
 - Managed ko-KR glyph coverage is 127/127 with no fallback dependency.
-- Nanum TTF/SDF/SyntheticBold assets remain tracked for retention/history but
-  are not used by current Climate runtime role mapping.
+- Nanum TTF/SDF/SyntheticBold assets were retired on 2026-08-23 after Climate
+  fully replaced their production role. Historical candidate tables below are
+  retained only as decision provenance.
 
 Older sections remain useful provenance for the preceding localization PR and
 must not be interpreted as the current mapping.
