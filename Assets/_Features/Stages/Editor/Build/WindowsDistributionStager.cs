@@ -90,6 +90,8 @@ public static class WindowsDistributionStager
     public const string SuccessFileName = "SUCCESS.json";
     private const string MonoScriptingBackend = "Mono2x";
     private const string Il2CppScriptingBackend = "IL2CPP";
+    private const string ScriptingAssemblyInventoryPath =
+        "VectorQuake_Data/ScriptingAssemblies.json";
 
     public static WindowsDistributionStagingResult Stage(
         WindowsDistributionStagingRequest request)
@@ -556,6 +558,50 @@ public static class WindowsDistributionStager
             throw Failure(
                 "STAGING_FORBIDDEN_MANAGED_ASSEMBLY_PRESENT",
                 string.Join(", ", found));
+        }
+
+        var scriptingAssemblyInventories = inventory
+            .Where(file => string.Equals(
+                file.RelativePath,
+                ScriptingAssemblyInventoryPath,
+                StringComparison.Ordinal))
+            .ToArray();
+        if (scriptingAssemblyInventories.Length != 1)
+        {
+            throw Failure(
+                "STAGING_SCRIPTING_ASSEMBLY_INVENTORY_MISSING",
+                ScriptingAssemblyInventoryPath +
+                " must exist exactly once in the Player payload.");
+        }
+
+        string scriptingAssemblies;
+        try
+        {
+            var bytes = File.ReadAllBytes(
+                ToIoPath(scriptingAssemblyInventories[0].FullPath));
+            scriptingAssemblies = new UTF8Encoding(false, true).GetString(bytes);
+        }
+        catch (Exception exception) when (
+            exception is IOException ||
+            exception is UnauthorizedAccessException ||
+            exception is DecoderFallbackException)
+        {
+            throw Failure(
+                "STAGING_SCRIPTING_ASSEMBLY_INVENTORY_INVALID",
+                ScriptingAssemblyInventoryPath +
+                " must be a readable UTF-8 text file.");
+        }
+
+        var forbiddenEntry = forbidden
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(artifact => scriptingAssemblies.IndexOf(
+                "\"" + artifact + "\"", StringComparison.Ordinal) >= 0);
+        if (forbiddenEntry != null)
+        {
+            throw Failure(
+                "STAGING_FORBIDDEN_MANAGED_ASSEMBLY_PRESENT",
+                forbiddenEntry + " is listed in " +
+                ScriptingAssemblyInventoryPath + ".");
         }
     }
 

@@ -322,6 +322,42 @@ namespace Game.Feature.Stages.Editor.Tests
                 fixtureRoot, "forbidden-managed-output-" + artifact));
         }
 
+        [TestCase("direct-windows", "System.IO.Hashing.dll")]
+        [TestCase("direct-windows", "System.Runtime.CompilerServices.Unsafe.dll")]
+        [TestCase("steam-windows", "System.IO.Hashing.dll")]
+        [TestCase("steam-windows", "System.Runtime.CompilerServices.Unsafe.dll")]
+        public void BothTargets_RejectTestOnlyManagedAssemblyInventoryEntries(
+            string target,
+            string artifact)
+        {
+            WriteFile(
+                "VectorQuake_Data/ScriptingAssemblies.json",
+                "{\"names\":[\"Game.dll\",\"" + artifact + "\"]}");
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(target, "forbidden-inventory-output-" + artifact));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_FORBIDDEN_MANAGED_ASSEMBLY_PRESENT"));
+            AssertPromotedOutputAbsent(Path.Combine(
+                fixtureRoot, "forbidden-inventory-output-" + artifact));
+        }
+
+        [Test]
+        public void MissingScriptingAssemblyInventory_FailsBeforePromotion()
+        {
+            File.Delete(Path.Combine(
+                sourceRoot, "VectorQuake_Data", "ScriptingAssemblies.json"));
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage("direct-windows", "missing-inventory-output"));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_SCRIPTING_ASSEMBLY_INVENTORY_MISSING"));
+            AssertPromotedOutputAbsent(Path.Combine(
+                fixtureRoot, "missing-inventory-output"));
+        }
+
         [Test]
         public void SteamWindows_MissingRequiredNativeArtifactFailsWithoutSuccessMarker()
         {
@@ -833,6 +869,9 @@ namespace Game.Feature.Stages.Editor.Tests
             WriteFile("UnityCrashHandler64.exe", "crash-handler");
             WriteFile("VectorQuake_Data/globalgamemanagers", "managers");
             WriteFile("VectorQuake_Data/Managed/Game.dll", "game-managed");
+            WriteFile(
+                "VectorQuake_Data/ScriptingAssemblies.json",
+                "{\"names\":[\"Game.dll\"]}");
             WriteFile("MonoBleedingEdge/etc/mono/config", "mono-runtime");
             WriteFile("VectorQuake_Data/TestLogs/a.log", "denied-log");
             WriteFile("VectorQuake_Data/Saves/profile.json", "denied-save");
