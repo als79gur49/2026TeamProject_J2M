@@ -1653,6 +1653,10 @@ try {
         $noticePath = Join-Path $temp "mutated-license-body-notice.txt"
         $mutations = @(
             @{
+                From = "in no event may the Work be used for competitive analysis"
+                To = "in no event may the Work be used for benchmarking analysis"
+            },
+            @{
                 From = "are permitted provided that the following conditions are met:"
                 To = "are allowed provided that the following conditions are met:"
             },

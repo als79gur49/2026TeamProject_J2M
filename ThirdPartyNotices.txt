@@ -5,6 +5,15 @@ This product includes software and creative assets developed by third parties.
 Components included vary by distribution target.
 
 
+PART I - Required License and Legal Notices
+===========================================
+
+This part contains notices, license texts, copyright statements, and other
+legal disclosures required for components distributed with this product.
+Target-specific requirements apply only when the corresponding component is
+included in that distribution.
+
+
 Unity Player Runtime Third-Party Notices
 ----------------------------------------
 
@@ -60,6 +69,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ----- END NOTICE: unity-ui-extensions-bsd-3-clause -----
 
 
+Platform-Conditional Required Notices
+-------------------------------------
+
+The following notices apply only to the Steam distribution and are included
+here so the common notice file remains valid for every distribution target.
+
+
 Steamworks.NET (Steam distribution only)
 ----------------------------------------
 
@@ -102,85 +118,6 @@ Steamworks SDK agreement applicable to authorized Steamworks partners. It is
 not licensed under the Steamworks.NET MIT License reproduced above. The
 Steamworks SDK agreement and private partner records are not reproduced in
 this public notice.
-
-
-Commercial Third-Party Assets
------------------------------
-
-The following commercially licensed third-party assets are used as embedded
-components of this product.
-
-DOTween Pro
-Provider: Demigiant / Daniele Giardini
-Source: https://assetstore.unity.com/packages/tools/visual-scripting/dotween-pro-32416
-Additional license information: https://dotween.demigiant.com/license.php
-
-All In 1 Sprite Shader
-Provider: Seaside Studios
-Source: https://assetstore.unity.com/packages/vfx/shaders/all-in-1-sprite-shader-156513
-
-Polygon Arsenal
-Provider: Archanor VFX
-Source: https://assetstore.unity.com/packages/vfx/particles/polygon-arsenal-109286
-
-Toon Shaders Pro for URP
-Provider: Daniel Ilett
-Source: https://marketplace.unity.com/packages/vfx/shaders/toon-shaders-pro-for-urp-305845
-
-The Unity Asset Store assets listed above were purchased through the Unity
-Asset Store and are licensed under the Standard Unity Asset Store EULA:
-https://unity.com/legal/as-terms
-
-INTERFACE - Sci-Fi Soldier HUD
-Provider: Synty Studios
-Source: https://syntystore.com/products/interface-sci-fi-soldier-hud
-
-POLYGON - Particle FX Pack
-Provider: Synty Studios
-Source: https://syntystore.com/products/polygon-particle-fx-pack
-
-Purchased through Humble Bundle.
-
-License information:
-https://syntystore.com/pages/one-time-purchase-licence
-
-Copyright and ownership of these commercial assets remain with their
-respective providers. This notice does not grant recipients any right to
-extract, redistribute, or reuse the underlying source assets separately from
-this product.
-
-
-Ovani Sound Audio Assets
-------------------------
-
-The following audio assets are used in this product under Ovani Sound's
-royalty-free license terms.
-
-Casual & Mobile Sound FX Pack Vol. 3
-Source: https://ovanisound.com/products/casual-mobile-sound-fx-pack-vol-3
-Purchased through Humble Bundle - Audio Apocalypse.
-
-Horror Music Pack Vol. 2
-Source: https://ovanisound.com/products/horror-music-pack-vol-2
-Purchased through Humble Bundle - Audio Apocalypse.
-
-Superheroes Sound FX Pack Vol. 2
-Source: https://ovanisound.com/products/superheroes-sound-fx-pack-vol-2
-Purchased through Humble Bundle - Audio Apocalypse.
-
-Mutated Beings Sound FX Pack
-Source: https://ovanisound.com/products/mutated-beings-sound-fx-pack-1
-Purchased through Humble Bundle - Audio Alchemy.
-
-License terms: https://ovanisound.com/policies/terms-of-service
-
-Ovani Sound permits commercial use of its Sound FX and Music packs when
-integrated into games and other creative works. Attribution is not required
-for these Sound FX and Music packs.
-
-Copyright and ownership of the audio assets remain with Ovani Sound. The raw
-audio assets may not be sold, distributed, or sublicensed separately from the
-product in which they are integrated.
 
 
 Unity Package Notices
@@ -232,6 +169,172 @@ Copyright (c) 2022 Unity Technologies
 Package licenses: Unity Companion License and Unity Package Distribution License
 https://unity.com/legal/licenses/unity-companion-license
 https://unity.com/legal/licenses/unity-package-distribution-license
+
+Runtime packages licensed under the Unity Companion License without a separate
+bundled third-party notice in the installed package:
+
+com.unity.collections 2.6.2
+Copyright (c) 2024 Unity Technologies
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.addressables 2.9.1
+Copyright (c) 2020 Unity Technologies ApS
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.ai.navigation 2.0.11
+Copyright (c) 2016 Unity Technologies ApS
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.inputsystem 1.19.0
+Copyright (c) 2024 Unity Technologies
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.shadergraph 17.3.0
+Copyright (c) 2020 Unity Technologies ApS
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.splines 2.8.3
+Copyright (c) 2024 Unity Technologies ApS
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.timeline 1.8.11
+Copyright (c) 2023 Unity Technologies
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.ugui 2.0.0
+Copyright (c) 2015-2020 Unity Technologies ApS
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.render-pipelines.universal-config 17.0.3
+Copyright (c) 2020 Unity Technologies ApS
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.profiling.core 1.0.3
+Copyright (c) 2020 Unity Technologies ApS
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+com.unity.scriptablebuildpipeline 2.6.1
+Copyright (c) 2020 Unity Technologies ApS
+Package license: Unity Companion License
+https://unity.com/legal/licenses/unity-companion-license
+
+The Unity Companion License applicable to the package entries above is
+reproduced once below. No in-game or end-credit attribution is required by
+this license; its license and package copyright notices are supplied in this
+public notice.
+
+----- BEGIN NOTICE: unity-companion-license-v1.4 -----
+Unity Companion License ("License")
+
+v1.4
+
+Unity Technologies SF ("Unity") grants to you a worldwide, non-exclusive,
+no-charge, and royalty-free copyright license to reproduce, prepare derivative
+works of, publicly display, publicly perform, and distribute the work of
+authorship that accompanies this License ("Work"), subject to the following
+terms and conditions:
+
+1. Unity Companion Use. Exercise of the license granted herein is permitted as
+long as it is in connection with the authoring and/or distribution of
+applications, software, or other content under a valid Unity content authoring
+and rendering engine software license ("Engine License"). That means, for
+example, as long as you authored content using the Work under an Engine License,
+you may distribute the Work in connection with that content as you see fit under
+this License. No other exercise of the license granted herein is permitted, and
+in no event may the Work be used for competitive analysis or to develop a
+competing product or service.
+
+2. No Modification of Engine License. Neither this License nor any exercise of
+the license granted herein modifies the Engine License in any way.
+
+3. Ownership; Derivative Works.
+
+3.1 You own your content. In this License, "derivative works" means derivatives
+of the Work itself--works derived only from the Work by you under this License
+(for example, modifying the code of the Work itself to improve its efficacy);
+"derivative works" of the Work do not include, for example, games, apps, or
+content that you create with the Work. You keep all right, title, and interest in
+your own content.
+
+3.2 Unity owns its content. While you keep all right, title, and interest to your
+own content per the above, as between Unity and you, Unity will own all right,
+title, and interest to all intellectual property rights (including patent,
+trademark, and copyright) in the Work and derivative works of the Work, and you
+hereby assign and agree to assign all such rights in those derivative works to
+Unity. Should assignment be invalid for any reason, you grant to Unity an
+irrevocable, perpetual, worldwide, non-exclusive, no-charge, and royalty-free
+license (with the right to grant sublicenses) under those intellectual property
+rights to those derivative works. You also agree to waive or refrain from
+asserting any author's right, moral rights, or like rights to the extent
+necessary to permit exploitation as contemplated under this License.
+
+3.3 Your right to use derivative works. You will always have the right to use
+derivative works of the Work you create, consonant with this License.
+
+4. Trademarks. You are not granted any right or license under this License to use
+any trademarks, service marks, trade names, products names, or branding of Unity
+or its affiliates ("Trademarks"). Descriptive uses of Trademarks are permitted;
+see, for example, Unity's Trademark Guidelines at
+https://unity.com/legal/branding_trademarks.
+
+5. Notices & Third-Party Rights. This License, including the copyright notice
+associated with the Work, must be provided in all substantial portions of the
+Work and derivative works thereof (or, if that is impracticable, in any other
+location where such notices are customarily placed). Further, if the Work is
+accompanied by a Unity "third-party notices" or similar file, you acknowledge and
+agree that software or content identified in that file is governed by those
+separate license terms.
+
+6. DISCLAIMER, LIMITATION OF LIABILITY. THE Work AND ANY DERIVATIVE WORKS THEREOF
+IS PROVIDED ON AN "AS IS" BASIS, AND IS PROVIDED WITHOUT WARRANTY OF ANY KIND,
+WHETHER EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR
+A PARTICULAR PURPOSE, AND/OR NON-INFRINGEMENT. IN NO EVENT SHALL ANY COPYRIGHT
+HOLDER OR AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES (WHETHER DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL, INCLUDING PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES, LOSS OF USE, DATA, OR PROFITS, AND BUSINESS
+INTERRUPTION), OR OTHER LIABILITY WHATSOEVER, WHETHER IN AN ACTION OF CONTRACT,
+TORT, OR OTHERWISE, ARISING FROM OR OUT OF, OR IN CONNECTION WITH THE WORK OR ANY
+DERIVATIVE WORKS THEREOF OR THE USE OF OR OTHER DEALINGS IN SAME, EVEN WHERE
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+7. USE IS ACCEPTANCE and License Versions. Your access to and use of the Work
+constitutes your acceptance of this License and its terms and conditions. This
+License may be modified or updated; upon any such modification or update, you
+will comply with the terms of the updated License for any use of any of the Work
+under the updated License.
+
+8. Use in Compliance with Law and Termination. Your exercise of the license
+granted herein will at all times be in compliance with applicable law and will
+not infringe any proprietary rights (including intellectual property rights);
+this License will terminate immediately (i) on any breach by you of this License;
+and (ii) if you commence any form of patent litigation, including a cross-claim
+or counterclaim, against anyone wherein you allege that the Work constitutes
+direct or secondary/indirect patent infringement.
+
+9. Severability. If any provision of this License is held to be unenforceable or
+invalid, that provision will be enforced to the maximum extent possible and the
+other provisions will remain in full force and effect.
+
+10. Governing Law and Venue. This License is governed by and construed in
+accordance with the laws of the United States and the state of California,
+except for its conflict of laws rules; the United Nations Convention on Contracts
+for the International Sale of Goods will not apply. You and Unity agree to submit
+to the personal and exclusive jurisdiction of and venue in the state and federal
+courts located in San Francisco County, California concerning any dispute arising
+out of this License.
+
+(10.29.2024)
+----- END NOTICE: unity-companion-license-v1.4 -----
 
 The applicable bundled third-party notices follow. Text is retained from
 the installed package notices, except that package entries known to be
@@ -1251,3 +1354,99 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ----- END NOTICE: open-font-license-1.1 -----
+
+
+PART II - Licensed Third-Party Asset Disclosure
+===============================================
+
+This part identifies the commercially licensed third-party assets currently
+confirmed for this product. It is provided as a transparency disclosure even
+where the applicable commercial license does not require an end-credit or
+public license notice. The providers retain copyright and ownership; the
+individual or legal entity responsible for this product has acquired the rights
+granted under the applicable licenses to use the assets in, and distribute them
+as part of, this product. This disclosure does not transfer or sublicense the
+underlying assets to recipients.
+
+
+Commercial Third-Party Assets
+-----------------------------
+
+The following commercially licensed third-party assets are used as embedded
+components of this product.
+
+DOTween Pro
+Provider: Demigiant / Daniele Giardini
+Source: https://assetstore.unity.com/packages/tools/visual-scripting/dotween-pro-32416
+Additional license information: https://dotween.demigiant.com/license.php
+
+All In 1 Sprite Shader
+Provider: Seaside Studios
+Source: https://assetstore.unity.com/packages/vfx/shaders/all-in-1-sprite-shader-156513
+
+AllSky - 220+ Sky / Skybox Set
+Provider: rpgwhitelock
+Source: https://assetstore.unity.com/packages/2d/textures-materials/sky/allsky-220-sky-skybox-set-10109
+
+Polygon Arsenal
+Provider: Archanor VFX
+Source: https://assetstore.unity.com/packages/vfx/particles/polygon-arsenal-109286
+
+Toon Shaders Pro for URP
+Provider: Daniel Ilett
+Source: https://marketplace.unity.com/packages/vfx/shaders/toon-shaders-pro-for-urp-305845
+
+The Unity Asset Store assets listed above were purchased through the Unity
+Asset Store and are licensed under the Standard Unity Asset Store EULA:
+https://unity.com/legal/as-terms
+
+INTERFACE - Sci-Fi Soldier HUD
+Provider: Synty Studios
+Source: https://syntystore.com/products/interface-sci-fi-soldier-hud
+
+POLYGON - Particle FX Pack
+Provider: Synty Studios
+Source: https://syntystore.com/products/polygon-particle-fx-pack
+
+Purchased through Humble Bundle.
+
+License information:
+https://syntystore.com/pages/one-time-purchase-licence
+
+Copyright and ownership of these commercial assets remain with their
+respective providers. This notice does not grant recipients any right to
+extract, redistribute, or reuse the underlying source assets separately from
+this product.
+
+
+Ovani Sound Audio Assets
+------------------------
+
+The following audio assets are used in this product under Ovani Sound's
+royalty-free license terms.
+
+Casual & Mobile Sound FX Pack Vol. 3
+Source: https://ovanisound.com/products/casual-mobile-sound-fx-pack-vol-3
+Purchased through Humble Bundle - Audio Apocalypse.
+
+Horror Music Pack Vol. 2
+Source: https://ovanisound.com/products/horror-music-pack-vol-2
+Purchased through Humble Bundle - Audio Apocalypse.
+
+Superheroes Sound FX Pack Vol. 2
+Source: https://ovanisound.com/products/superheroes-sound-fx-pack-vol-2
+Purchased through Humble Bundle - Audio Apocalypse.
+
+Mutated Beings Sound FX Pack
+Source: https://ovanisound.com/products/mutated-beings-sound-fx-pack-1
+Purchased through Humble Bundle - Audio Alchemy.
+
+License terms: https://ovanisound.com/policies/terms-of-service
+
+Ovani Sound permits commercial use of its Sound FX and Music packs when
+integrated into games and other creative works. Attribution is not required
+for these Sound FX and Music packs.
+
+Copyright and ownership of the audio assets remain with Ovani Sound. The raw
+audio assets may not be sold, distributed, or sublicensed separately from the
+product in which they are integrated.

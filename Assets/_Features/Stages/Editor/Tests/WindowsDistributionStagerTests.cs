@@ -203,6 +203,9 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [TestCase(
+            "in no event may the Work be used for competitive analysis",
+            "in no event may the Work be used for benchmarking analysis")]
+        [TestCase(
             "are permitted provided that the following conditions are met:",
             "are allowed provided that the following conditions are met:")]
         [TestCase(
