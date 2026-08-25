@@ -149,21 +149,32 @@ public static class WindowsReleaseBuildCli
             arguments, configuration, distribution, comparisonId);
         var settings = new UnityWindowsReleaseSettings(configuration);
         var settingsTransaction = new ReleaseSettingsTransactionRecordV1();
+        var managedPluginSettings = new UnityWindowsReleaseManagedPluginSettings();
+        var managedPluginTransaction = new ManagedPluginTransactionRecordV1();
+        settingsTransaction.managedPluginTransaction = managedPluginTransaction;
         var started = DateTime.UtcNow;
         BuildReport report = null;
-        var result = WindowsReleaseSettingsTransaction.Run(
-            settings,
-            configuration,
+        var result = WindowsReleaseManagedPluginTransaction.Run(
+            managedPluginSettings,
             () =>
-            {
-                var outputPath = arguments[OutputPathArgument];
-                Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? ".");
-                report = BuildPipeline.BuildPlayer(
-                    WindowsReleaseBuildPolicy.CreateBuildOptions(outputPath));
-                return WindowsReleaseBuildPolicy.MapBuildResult(
-                    report.summary.result, (int)report.summary.totalErrors);
-            },
-            settingsTransaction);
+                WindowsReleaseSettingsTransaction.Run(
+                    settings,
+                    configuration,
+                    () =>
+                    {
+                        var outputPath = arguments[OutputPathArgument];
+                        Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? ".");
+                        report = BuildPipeline.BuildPlayer(
+                            WindowsReleaseBuildPolicy.CreateBuildOptions(outputPath));
+                        var buildResult = WindowsReleaseBuildPolicy.MapBuildResult(
+                            report.summary.result, (int)report.summary.totalErrors);
+                        return buildResult == WindowsReleaseExitCodes.Success
+                            ? WindowsReleaseBuildPolicy
+                                .ValidateForbiddenManagedAssemblies(outputPath)
+                            : buildResult;
+                    },
+                    settingsTransaction),
+            managedPluginTransaction);
         try
         {
             WriteJson(arguments[SettingsTransactionPathArgument], settingsTransaction);
@@ -456,6 +467,8 @@ public static class WindowsReleaseBuildCli
                 return "BuildUnknownResult";
             case WindowsReleaseExitCodes.BuildErrorsRecorded:
                 return "BuildErrorsRecorded";
+            case WindowsReleaseExitCodes.ForbiddenManagedAssemblyPresent:
+                return "ForbiddenManagedAssemblyPresent";
             case WindowsReleaseExitCodes.MetadataWriteFailure:
                 return "MetadataWriteFailure";
             case WindowsReleaseExitCodes.BuildReportWriteFailure:
@@ -470,6 +483,10 @@ public static class WindowsReleaseBuildCli
                 return "UnsupportedDistributionTarget";
             case WindowsReleaseExitCodes.SettingsRestoreFailure:
                 return "SettingsRestoreFailure";
+            case WindowsReleaseExitCodes.ManagedPluginApplyFailure:
+                return "ManagedPluginApplyFailure";
+            case WindowsReleaseExitCodes.ManagedPluginRestoreFailure:
+                return "ManagedPluginRestoreFailure";
             default:
                 return "ExitCode-" + code.ToString(CultureInfo.InvariantCulture);
         }
@@ -561,6 +578,102 @@ internal sealed class UnityWindowsReleaseSettings : IWindowsReleaseSettings
                    snapshot.il2cppCompilerConfiguration &&
                current.playerLog == snapshot.playerLog &&
                current.warningStackTrace == snapshot.warningStackTrace;
+    }
+}
+
+internal sealed class UnityWindowsReleaseManagedPluginSettings :
+    IWindowsReleaseManagedPluginSettings
+{
+    public ManagedPluginSettingsSnapshot Capture()
+    {
+        return new ManagedPluginSettingsSnapshot
+        {
+            plugins = WindowsReleaseBuildPolicy.TestOnlyManagedPluginPaths
+                .Select(CapturePlugin)
+                .ToArray(),
+        };
+    }
+
+    public void ApplyRequired()
+    {
+        foreach (var path in WindowsReleaseBuildPolicy.TestOnlyManagedPluginPaths)
+        {
+            var importer = RequireImporter(path);
+            importer.SetCompatibleWithAnyPlatform(false);
+            importer.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows64, false);
+            importer.SaveAndReimport();
+        }
+    }
+
+    public bool IsRequired()
+    {
+        return WindowsReleaseBuildPolicy.TestOnlyManagedPluginPaths.All(path =>
+        {
+            var importer = RequireImporter(path);
+            return !importer.GetCompatibleWithAnyPlatform() &&
+                   !importer.GetCompatibleWithPlatform(BuildTarget.StandaloneWindows64);
+        });
+    }
+
+    public void Restore(ManagedPluginSettingsSnapshot snapshot)
+    {
+        foreach (var state in snapshot.plugins ?? Array.Empty<ManagedPluginState>())
+        {
+            var importer = RequireImporter(state.assetPath);
+            importer.SetCompatibleWithAnyPlatform(false);
+            importer.SetCompatibleWithPlatform(
+                BuildTarget.StandaloneWindows64,
+                state.compatibleWithStandaloneWindows64);
+            importer.SetCompatibleWithAnyPlatform(state.compatibleWithAnyPlatform);
+            importer.SaveAndReimport();
+        }
+    }
+
+    public bool IsRestored(ManagedPluginSettingsSnapshot snapshot)
+    {
+        return (snapshot.plugins ?? Array.Empty<ManagedPluginState>()).All(state =>
+        {
+            var importer = RequireImporter(state.assetPath);
+            return importer.GetCompatibleWithAnyPlatform() ==
+                       state.compatibleWithAnyPlatform &&
+                   importer.GetCompatibleWithPlatform(BuildTarget.StandaloneWindows64) ==
+                       state.compatibleWithStandaloneWindows64;
+        });
+    }
+
+    private static ManagedPluginState CapturePlugin(string path)
+    {
+        var package = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(path);
+        if (package == null ||
+            !string.Equals(
+                package.version,
+                WindowsReleaseBuildPolicy.CollectionsPackageVersion,
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "WINDOWS_RELEASE_COLLECTIONS_PACKAGE_VERSION_MISMATCH: " + path);
+        }
+
+        var importer = RequireImporter(path);
+        return new ManagedPluginState
+        {
+            assetPath = path,
+            compatibleWithAnyPlatform = importer.GetCompatibleWithAnyPlatform(),
+            compatibleWithStandaloneWindows64 =
+                importer.GetCompatibleWithPlatform(BuildTarget.StandaloneWindows64),
+        };
+    }
+
+    private static PluginImporter RequireImporter(string path)
+    {
+        var importer = AssetImporter.GetAtPath(path) as PluginImporter;
+        if (importer == null)
+        {
+            throw new InvalidOperationException(
+                "WINDOWS_RELEASE_TEST_PLUGIN_IMPORTER_MISSING: " + path);
+        }
+
+        return importer;
     }
 }
 

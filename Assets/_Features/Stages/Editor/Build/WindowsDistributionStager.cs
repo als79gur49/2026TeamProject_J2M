@@ -488,6 +488,7 @@ public static class WindowsDistributionStager
         IList<StagedFile> sourceInventory,
         string scriptingBackend)
     {
+        RejectForbiddenManagedAssemblies(sourceInventory);
         RequirePublicNotices(sourceInventory);
         RequireExactFile(sourceInventory, WindowsDistributionTargetPolicy.ExecutableName);
         RequireExactFile(sourceInventory, "UnityPlayer.dll");
@@ -509,6 +510,7 @@ public static class WindowsDistributionStager
         IList<StagedFile> destinationInventory,
         string scriptingBackend)
     {
+        RejectForbiddenManagedAssemblies(destinationInventory);
         RequirePublicNotices(destinationInventory);
         RequireExactFile(destinationInventory, WindowsDistributionTargetPolicy.ExecutableName);
         RequireExactFile(destinationInventory, "UnityPlayer.dll");
@@ -529,6 +531,32 @@ public static class WindowsDistributionStager
 
         RequireExactFile(destinationInventory, "GameAssembly.dll");
         RequireExactFile(destinationInventory, "baselib.dll");
+    }
+
+    private static void RejectForbiddenManagedAssemblies(
+        IList<StagedFile> inventory)
+    {
+        var forbidden = new HashSet<string>(
+            new[]
+            {
+                WindowsDistributionTargetPolicy.SystemIoHashingArtifact,
+                WindowsDistributionTargetPolicy.UnsafeArtifact,
+            },
+            StringComparer.OrdinalIgnoreCase);
+        var found = inventory
+            .Where(file => IsPathOrChildOf(file.RelativePath, "VectorQuake_Data/Managed"))
+            .Select(file => Path.GetFileName(
+                file.RelativePath.Replace('/', Path.DirectorySeparatorChar)))
+            .Where(forbidden.Contains)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (found.Length != 0)
+        {
+            throw Failure(
+                "STAGING_FORBIDDEN_MANAGED_ASSEMBLY_PRESENT",
+                string.Join(", ", found));
+        }
     }
 
     private static void RequirePublicNotices(IList<StagedFile> inventory)

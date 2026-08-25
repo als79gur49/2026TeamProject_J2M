@@ -232,6 +232,9 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase(
             "Copyright (c) 2007-2019 University of Illinois",
             "Copyright (c) 2008-2019 University of Illinois")]
+        [TestCase(
+            "Copyright (C) 2011 by Ashima Arts (Simplex noise)",
+            "Copyright (C) 2012 by Ashima Arts (Simplex noise)")]
         public void PublicNoticeContract_RejectsCanonicalLicenseBodyMutation(
             string original,
             string replacement)
@@ -298,6 +301,25 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(relativeFiles.Any(path => path.EndsWith(".pdb")), Is.False);
             Assert.That(relativeFiles.Any(path => path.Contains("TestLogs/")), Is.False);
             Assert.That(relativeFiles.Any(path => path.Contains("Saves/")), Is.False);
+        }
+
+        [TestCase("direct-windows", "System.IO.Hashing.dll")]
+        [TestCase("direct-windows", "System.Runtime.CompilerServices.Unsafe.dll")]
+        [TestCase("steam-windows", "System.IO.Hashing.dll")]
+        [TestCase("steam-windows", "System.Runtime.CompilerServices.Unsafe.dll")]
+        public void BothTargets_RejectTestOnlyManagedAssembliesInRawBuild(
+            string target,
+            string artifact)
+        {
+            WriteFile("VectorQuake_Data/Managed/" + artifact, "test-only-managed");
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(target, "forbidden-managed-output-" + artifact));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_FORBIDDEN_MANAGED_ASSEMBLY_PRESENT"));
+            AssertPromotedOutputAbsent(Path.Combine(
+                fixtureRoot, "forbidden-managed-output-" + artifact));
         }
 
         [Test]
