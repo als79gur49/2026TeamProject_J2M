@@ -94,24 +94,37 @@ public static class WindowsDistributionTargetPolicy
         "7bed0e6f6646552f9262903b62863c693074ac89ccf6291ead7e876033a29623";
     private const string UnityCompanionLicenseUrl =
         "https://unity.com/legal/licenses/unity-companion-license";
-    private const int UnityCompanionLicenseUrlOccurrenceCount = 7;
+    private const int UnityCompanionLicenseUrlOccurrenceCount = 18;
     public static readonly IReadOnlyList<string> ThirdPartyNoticeRequiredMarkers =
         Array.AsReadOnly(new[]
         {
             "VectorQuake Third-Party Notices",
+            "PART I - Required License and Legal Notices",
             "Unity Player Runtime Third-Party Notices",
             "Unity UI Extensions",
+            "Platform-Conditional Required Notices",
             "Steamworks.NET (Steam distribution only)",
             "Valve Steamworks SDK Redistributable (Steam distribution only)",
-            "Commercial Third-Party Assets",
-            "Ovani Sound Audio Assets",
             "Unity Package Notices",
             "Open Font Software",
             "SIL OPEN FONT LICENSE Version 1.1",
+            "PART II - Licensed Third-Party Asset Disclosure",
+            "Commercial Third-Party Assets",
+            "Ovani Sound Audio Assets",
         });
     public static readonly IReadOnlyList<string> ThirdPartyNoticeRequiredFragments =
         Array.AsReadOnly(new[]
         {
+            "This part contains notices, license texts, copyright statements, and " +
+            "other\nlegal disclosures required for components distributed with " +
+            "this product.",
+            "This part identifies the commercially licensed third-party assets " +
+            "currently\nconfirmed for this product.",
+            "The providers retain copyright and ownership; the\nindividual or legal " +
+            "entity responsible for this product has acquired the rights\ngranted " +
+            "under the applicable licenses to use the assets in, and distribute " +
+            "them\nas part of, this product. This disclosure does not transfer or " +
+            "sublicense the\nunderlying assets to recipients.",
             "provided separately in UnityPlayerThirdPartyNotices.pdf.",
             "Product: Unity Player\nPlatform: Windows\n" +
             "Scripting backend: Mono\nVersion: 6000.3.11f1",
@@ -125,6 +138,9 @@ public static class WindowsDistributionTargetPolicy
             "Provider: Valve Corporation",
             "not licensed under the Steamworks.NET MIT License reproduced above.",
             "DOTween Pro\nProvider: Demigiant / Daniele Giardini",
+            "AllSky - 220+ Sky / Skybox Set\nProvider: rpgwhitelock\n" +
+            "Source: https://assetstore.unity.com/packages/2d/textures-materials/sky/" +
+            "allsky-220-sky-skybox-set-10109",
             "INTERFACE - Sci-Fi Soldier HUD\nProvider: Synty Studios",
             "Casual & Mobile Sound FX Pack Vol. 3",
             "Mutated Beings Sound FX Pack",
@@ -138,6 +154,33 @@ public static class WindowsDistributionTargetPolicy
             "com.unity.mathematics 1.3.3",
             "Copyright (c) 2023 Unity Technologies ApS",
             "com.unity.burst 1.8.28",
+            "Runtime packages licensed under the Unity Companion License without a " +
+            "separate\nbundled third-party notice in the installed package:",
+            "com.unity.collections 2.6.2\n" +
+            "Copyright (c) 2024 Unity Technologies",
+            "com.unity.addressables 2.9.1\n" +
+            "Copyright (c) 2020 Unity Technologies ApS",
+            "com.unity.ai.navigation 2.0.11\n" +
+            "Copyright (c) 2016 Unity Technologies ApS",
+            "com.unity.inputsystem 1.19.0\n" +
+            "Copyright (c) 2024 Unity Technologies",
+            "com.unity.shadergraph 17.3.0\n" +
+            "Copyright (c) 2020 Unity Technologies ApS",
+            "com.unity.splines 2.8.3\n" +
+            "Copyright (c) 2024 Unity Technologies ApS",
+            "com.unity.timeline 1.8.11\n" +
+            "Copyright (c) 2023 Unity Technologies",
+            "com.unity.ugui 2.0.0\n" +
+            "Copyright (c) 2015-2020 Unity Technologies ApS",
+            "com.unity.render-pipelines.universal-config 17.0.3\n" +
+            "Copyright (c) 2020 Unity Technologies ApS",
+            "com.unity.profiling.core 1.0.3\n" +
+            "Copyright (c) 2020 Unity Technologies ApS",
+            "com.unity.scriptablebuildpipeline 2.6.1\n" +
+            "Copyright (c) 2020 Unity Technologies ApS",
+            "----- BEGIN NOTICE: unity-companion-license-v1.4 -----",
+            "5. Notices & Third-Party Rights. This License, including the copyright " +
+            "notice",
             "# [Clipper](http://www.angusj.com/delphi/clipper.php)",
             "Component Name: Newtonsoft.Json\n\nLicense Type: MIT\n\nThe MIT License (MIT)",
             "Component Name: **SmartFormat**",
@@ -172,6 +215,9 @@ public static class WindowsDistributionTargetPolicy
         new ThirdPartyNoticeBodyContract(
             "steamworks-net-mit",
             "5760a1a32c5b06c462ecacda9162d6987ae8fa3738f522e55dcd31120a190e4c"),
+        new ThirdPartyNoticeBodyContract(
+            "unity-companion-license-v1.4",
+            "2e27959750ed5f01d00e1b82e520ca2e9d0115570f4dcc8adf0534fe3d06bd4a"),
         new ThirdPartyNoticeBodyContract(
             "upm-cinemachine-3.1.6",
             "678229d5dd2445ce43fc6946384bd1d1b6fdfc9c536685a6cc9aac36163758c8"),

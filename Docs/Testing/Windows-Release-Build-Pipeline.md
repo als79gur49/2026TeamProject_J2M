@@ -329,17 +329,35 @@ non-circular.
 Every Direct Windows and Steam Windows distributable must contain two committed
 root public notices beside `VectorQuake.exe`:
 
-- `payload/ThirdPartyNotices.txt` covers project-added commercial assets,
-  Steamworks.NET, fonts, and runtime UPM package notices, including
+- `payload/ThirdPartyNotices.txt` is organized into exactly two top-level parts.
+  `PART I - Required License and Legal Notices` contains the Unity Player
+  reference, open-source, runtime UPM, font, and target-conditional Steam legal
+  notices. `PART II - Licensed Third-Party Asset Disclosure` identifies the
+  currently confirmed commercial assets, including the build-referenced AllSky
+  skybox, as a transparency disclosure. It records that the individual or legal
+  entity responsible for the product holds the applicable use and integrated
+  distribution rights; it neither claims ownership of the underlying assets nor
+  transfers or sublicenses them to recipients. It also does not prove that
+  assets without provenance metadata have been fully inventoried. The UPM
+  inventory includes the eleven UCL packages whose
+  assemblies were present in prior Windows `ManagedStripped` evidence:
+  Collections, Addressables, AI Navigation, Input System, Shader Graph, Splines,
+  Timeline, uGUI, URP Config, Profiling Core, and Scriptable Build Pipeline.
+  Their package copyrights and one canonical Unity Companion License v1.4 body
+  are included alongside the bundled notices, including
   Cinemachine's bundled Clipper/Boost notice and Unity.Mathematics 1.3.3's
   Ashima Arts / Stefan Gustavson Noise MIT notice.
 - `payload/UnityPlayerThirdPartyNotices.pdf` is Unity's unmodified
-  Player/Windows/Mono notice for Unity `6000.3.11f1`.
+  Player/Windows/Mono notice for Unity `6000.3.11f1`. Its decoded content covers
+  Unity Player components such as Mono, HarfBuzz, and ICU, but does not contain
+  the project-added UPM package names or the Unity Companion License; it does not
+  replace the package entries in `ThirdPartyNotices.txt`.
 
 Before Unity starts, the wrapper requires both notices to be tracked `100644`
 regular blobs at the exact source revision, rejects reparse points, and compares
 each checked-out file with its committed Git blob. The TXT is decoded as strict
-UTF-8. Its required top-level sections occur exactly once in canonical order;
+UTF-8. Its two classification parts and required subordinate sections occur
+exactly once in canonical order;
 the component, source, copyright, provider, package-version, and reserved-font
 inventory is complete; and each explicitly delimited notice block matches its
 approved normalized SHA-256. Repeated generic MIT wording is permitted because
@@ -347,7 +365,9 @@ license integrity is scoped to the owning component block rather than counted
 globally. The wrapper also requires the committed `Packages/packages-lock.json`
 blob to match the working file and binds every UPM package represented in the
 public notice to its approved version. A package update without the matching
-notice update therefore fails before Unity starts. The PDF must be exactly
+notice update therefore fails before Unity starts. The canonical UCL URL must
+occur exactly eighteen times, once for each UCL package entry; legacy underscore
+URLs are rejected. The PDF must be exactly
 `132262` bytes, begin with `%PDF-`, and match
 SHA-256 `7bed0e6f6646552f9262903b62863c693074ac89ccf6291ead7e876033a29623`.
 
