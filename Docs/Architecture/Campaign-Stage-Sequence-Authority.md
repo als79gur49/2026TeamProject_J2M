@@ -22,7 +22,9 @@ Production runtime은 더 이상 transitional code mirror/factory를 읽지 않�
 MainMenuUiFlowInstaller
   -> CampaignStageSequenceResolver (one immutable snapshot)
      -> MainMenuController
-     -> SaveSlotValidationService
+        -> CampaignSlotLaunchEvaluator
+        -> CampaignSlotActionPolicy
+        -> ICampaignContinuePreparationPort (expected-identity narrow command)
      -> standalone seed import
      -> ICampaignStageSequenceResolverProvider
         -> Product Achievement startup reconciliation
@@ -106,11 +108,11 @@ Actual executable smoke used the existing Development Mono Player harness with a
 
 The same Player assertions reject `legacy-stage-5-1` sequence membership and require a non-empty `StagePresentationDefinition` localization key. Release `ScriptingAssemblies.json` contains no Editor/Test assembly, and the compiled Stage/UI composition/gameplay-host runtime assemblies contain no `UnityEditor` or `AssetDatabase` reference.
 
-Release regression evidence on the final Phase 4 source includes:
+Historical release regression evidence on the final Phase 4 source included:
 
 - physical SSOT architecture: 1 passed / 0 failed
 - authoritative sequence validator: 9 passed / 0 failed
-- save/direct-play and retired-save migration: 32 passed / 0 failed
+- save/direct-play and then-current retired-save migration: 32 passed / 0 failed
 - Stage Catalog CI entrypoint: passed
 - UI: Windows build passed; Unity EditMode 1363 passed / 0 failed / 0 skipped
 - Core: EditMode 197 passed / 0 failed; PlayMode 103 passed / 4 documented skipped / 0 failed
@@ -133,7 +135,7 @@ Sequence entry에는 display name field가 없다. Presentation 권위는 `Stage
 - Phase 3: implemented — code mirror/factory 제거, sequence display-name 제거, CatalogOnly/eligibility metadata 및 exclusion reason 도입, Catalog → Sequence reverse coverage blocking
 - Phase 4: completed — canonical Player build/dependency evidence, actual executable Campaign flow smoke, regression and serialization closeout
 
-Phase 3는 save schema와 Stage ID cursor, completed-slot migration, StageId rename/removal migration, direct-play catalog membership을 변경하지 않는다. Retired `stage-5-1` source ID는 save compatibility policy가 소유하고 destination final stage/group은 injected authoritative resolver에서 파생한다.
+Phase 3는 당시 save schema와 Stage ID cursor, completed-slot migration, StageId rename/removal migration, direct-play catalog membership을 변경하지 않았다. 2026-08-25 save architecture Phase 4 entry cleanup에서 공개 이전 `stage-5-1` cursor의 자동 final-stage 보정은 제거되었다. 해당 cursor는 이제 ordinary sequence-missing launch failure이며 저장 mutation을 일으키지 않는다. Catalog-only `legacy-stage-5-1` content와 alias/catalog governance는 그대로 유지된다.
 
 ## Final authority matrix
 
@@ -145,7 +147,7 @@ Phase 3는 save schema와 Stage ID cursor, completed-slot migration, StageId ren
 | Display | `StagePresentationDefinition` + localization | Yes |
 | Level group | Campaign sequence entry | Yes |
 | Alias | `CampaignMain_StageIdAliasTable.asset` | Yes, prebuild/CI and packed dependency |
-| Legacy save | `RetiredCampaignSaveCompatibilityPolicy` | Yes, compiled Player contract plus targeted migration regression |
+| Pre-release retired save cursor | No runtime migration owner; ordinary sequence-missing classification | No public compatibility obligation; targeted EditMode no-repair regression |
 | Player inclusion | Enabled-scene serialized dependency | Yes, packed asset list plus runtime bootstrap |
 
 ## Documentation reconciliation

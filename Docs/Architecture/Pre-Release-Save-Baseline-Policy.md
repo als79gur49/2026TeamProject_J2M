@@ -25,8 +25,62 @@ and does not create a prior-save compatibility obligation.
 - Persisted current-schema slot data is validated before normalization. Negative
   persisted slot counters and invalid or duplicate nested performance and
   stage-clear records fail closed instead of being silently clamped, dropped,
-  or rewritten by an unrelated save. Zero remaining chances retains its current
-  sentinel meaning and is not rejected by this structural validation.
+  or rewritten by an unrelated save. Remaining chances are always `1..3` in both
+  persisted and runtime slot state; zero has no sentinel meaning and fails closed.
+  Exhausting the final chance atomically commits the level-group first stage with
+  the default `3` chances and never persists an intermediate zero. DirectPlay
+  rejects invalid chances before writing profile, local launch, or context state.
+  `SaveSlotData.Clone()` and nested clones are exact deep copies retained only at
+  the explicit raw DTO/diagnostic/test boundary: they preserve nulls, invalid
+  values, null elements, duplicates, and order without validating or normalizing.
+  `CampaignSlotRawDataMapper` is a non-mutating validating raw conversion boundary,
+  not an exact-clone owner or runtime business persistence seam. It may materialize
+  an allowed nullable container representation, but it must reject rather than
+  repair an invalid receipt string pair or other invalid raw shape. Exact raw copy
+  belongs to the clone methods and `CampaignSlotRawDocumentCloner`.
+  The parser classifies physical absence as an empty `CampaignSlotEntry`, retains
+  mismatched or invalid raw documents in `CampaignSlotDiagnostic`, and constructs
+  immutable `CampaignSlotState` only from valid documents. Empty-shaped data with
+  an invalid slot/chance/death envelope is diagnostic/profile failure, not Empty.
+  The repository-owned post-validation document materializer materializes allowed
+  nulls and synchronizes receipt presence only after validation. Receipt serializer
+  residue has exactly two valid in-memory string shapes: both receipt strings are null
+  (reading an empty nested JSON object), or both are empty
+  (round-tripping a null nested object through the Unity writer). Version and source
+  must both be zero. Mixed null/empty receipt strings, whitespace, and non-default
+  values are invalid before conversion or materialization. This is a post-`JsonUtility`
+  object-shape contract, not a raw JSON-token provenance contract: an individual JSON
+  string `null` becomes empty after deserialization, so its original token provenance
+  is unavailable. Mixed pairs are rejected at direct in-memory raw/document inputs. For
+  `HasNormalCampaignCompletionReceipt == false`, any non-default payload fails closed
+  before materialization and cannot be dropped by an unrelated write. With the flag
+  true, either exact serializer residue restores `PresentWithoutPayload`.
+  `CampaignSlotState` construction owns performance uniqueness and deterministic
+  ordering, while `CampaignSlotTransitionEngine.UpsertPerformance` owns best-value
+  updates. `CampaignSlotStateDocumentMapper`
+  performs a strict, order-preserving one-to-one projection of canonical state; it
+  does not validate, skip invalid elements, clamp counters, or invoke tolerant
+  business normalization. Achievement consumers receive immutable canonical
+  slot/performance state directly; malformed persisted records fail at the
+  profile/parser boundary and are never projected or repaired by achievement code.
+- Ordinary Main Menu Continue never submits a complete replacement slot. It reserves
+  a launch handoff, then sends the expected slot/stage/persisted-level-group and
+  resolved target level-group through `ICampaignContinuePreparationPort`. The save
+  service re-reads and verifies that identity in the same mutation operation, changes
+  only `CurrentLevelGroupId` when synchronization is required, and returns the
+  committed immutable state. An already-current group verifies without a write;
+  missing, completed, or stale identity fails without a write and cannot route.
+  General complete-slot replacement and its concrete/internal fixture seam are
+  removed. DirectPlay/player-capture seed setup uses the narrow
+  `ICampaignSlotSeedImportPort`; diagnostics and lifecycle operations likewise use
+  purpose-specific commands rather than accepting an externally assembled slot.
+- Main Menu slot presentation consumes an immutable `CampaignSlotEntry`, its
+  repository-free `CampaignSlotLaunchEvaluation`, and the derived
+  `CampaignSlotActionPolicy` as separate inputs. The retired combined validation
+  result/service and its corrected mutable clone are not runtime surfaces. Profile
+  parse/schema/IO failures remain a global `CampaignSaveLoadReport` blocked screen;
+  sequence/catalog launch failures remain occupied per-slot cards with restart/delete
+  actions. Presentation does not reinterpret malformed raw evidence as an empty slot.
 - DeleteSlot, ClearAll, and NewGame/Restart initialization are destructive
   profile commits: their post-mutation document is also the recovery snapshot,
   so automatic backup recovery cannot resurrect the prior slot state.
@@ -53,6 +107,10 @@ and does not create a prior-save compatibility obligation.
 
 - Internal QA campaign progression is not a public compatibility target.
 - Pre-release saves may be reset after source changes.
+- The retired pre-release `stage-5-1` cursor is not auto-repaired or migrated to
+  the current final stage. It follows the ordinary sequence-missing launch
+  failure path without rewriting the slot. Catalog-only `legacy-stage-5-1`
+  content and alias/catalog governance remain independent of save compatibility.
 - Audio, display, input, and locale PlayerPrefs settings are outside campaign
   progression reset scope and must be preserved.
 - Broad registry namespace deletion is forbidden.

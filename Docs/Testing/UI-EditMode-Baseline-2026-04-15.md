@@ -30,6 +30,7 @@
 - Current blocked-save typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; the recovery title, detail, and two actions use authored semantic bindings, while ordinal fallback remains card-only
 - Current Gameplay Stage Name typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; Stage Name resolves `HeaderLarge` through the theme for both locales and adds target-local TMP `UpperCase` presentation without changing World Guide or transition-label default-locale restoration
 - Current Pause progression stepper rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; previous/current/upcoming states, larger group-start diamonds, one persistent current ring, informational Left/Right behavior, and real screenshot-preview campaign binding are guarded
+- Current campaign MainMenu separated-launch-result rerun: green on 2026-08-25 KST, Windows UI build passed and Unity UI EditMode `1352 total / 0 failed`; slot cards consume immutable entry/evaluation/action inputs, profile blocked recovery remains a separate global path, and the combined validation facade/corrected clone is retired
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
 - Current Unity UI EditMode: `1348 total / 0 failed`
 - Baseline test result: command `./run_tests.sh ui`, result `1348 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
@@ -260,13 +261,14 @@
 ## Campaign PlayerPrefs Retirement and JSON Save Integration — 2026-08-23
 
 ### Structural Delta
-- Campaign progression, active-slot, and launch-state production truth now flows through the Stages-owned JSON composition; UI continues to consume `ICampaignSaveSlotStore` and recovery ports instead of owning serialization or persistence policy.
+- Campaign progression, active-slot, and launch-state production truth now flows through the Stages-owned JSON composition. UI consumes `ICampaignSaveQuery`, `ICampaignSlotLifecyclePort`, `ICampaignContinuePreparationPort`, typed comic progress, and recovery ports instead of owning serialization or arbitrary slot mutation policy. Continue preparation carries only expected slot/stage/persisted-group/target-group identity; stale preparation clears only the caller-owned handoff, refreshes the panel, and never routes.
 - PlayerPrefs-backed campaign fallback, legacy import, and rollback-selection production paths are retired. Readiness probes remain diagnostics only and do not participate in production read, write, delete, or launch routing.
 - Main Menu pending-launch ownership is lifecycle-bound. Stale confirmations, disposed controllers, and commands that arrive after an accepted launch cannot delete or replace the accepted slot/handoff owner.
 - Direct-play temporary-state clearing is an explicit non-recovering delete operation. It removes the canonical file, backup, rollback residue, and both write-temp families for profile, local launch state, and pending reset without deleting quarantine/rejection evidence.
 
 ### Guard Evolution and Responsibility Shift
 - New UI guards cover delete confirmation after disposal, reset confirmation after disposal, public commands after disposal, stale failure ownership, pending-launch delete rejection, continue/delete ordering, and preservation of an existing restart confirmation for invalid intent.
+- Continue guards now cover reservation-before-preparation, committed stage/group recheck, stale/no-route handling, and exact-token preservation when a newer handoff replaces the original reservation during preparation. This is an EditMode policy/composition contract; it does not trigger PlayMode escalation.
 - The former default-PlayerPrefs constructor assertion and the coarse `MainMenu_Delete_ClearsOnlyMatchingPendingHandoff` case were removed with their retired ownership model. Exact launch reservation and lifecycle cases now carry that responsibility.
 - Stage save guards cover absence of production PlayerPrefs writes, the UI-to-Stages adapter boundary, and explicit temporary-state deletion without rollback resurrection.
 - UI owns intent, confirmation, recovery presentation, and view-model publication. Stages owns campaign persistence, active-slot/local launch state, recovery state, and atomic file lifecycle.
@@ -284,3 +286,24 @@
 - The filtered EditMode fixtures contain no PlayMode tests; the companion core PlayMode lane passed on the same revision.
 - Generated `InitTestScene` artifacts were removed automatically by the runner and left no residual worktree mutation.
 - Broad `./run_tests.sh full` was not run, so no project-wide or full-regression-green claim is made.
+
+## Campaign MainMenu Separated Launch Results — 2026-08-25
+
+### Structural Delta
+- `MainMenuController` evaluates each immutable `CampaignSlotEntry` through the Stages-owned launch evaluator and derives `CampaignSlotActionPolicy` separately.
+- `MainMenuSlotViewModelMapper` receives `MainMenuSlotPresentationInput` and validates entry/evaluation state identity plus policy consistency before publishing card state. It no longer receives a sequence resolver or combined validation service/result.
+- Profile corruption, unsupported schema, IO, authorization, and recovery-pending states remain on the global blocked-report screen. Sequence/catalog launch failures remain occupied per-slot cards with restart/delete actions. Completed slots remain Completed even when their persisted level group requires synchronization.
+- Restart/delete/new-game confirmations and exact handoff-token ownership remain controller application policy. UI does not repair raw save evidence or submit complete slot replacement.
+
+### Guard Evolution and Responsibility Shift
+- Architecture guards require the legacy combined validation source to be absent and prevent its result/status/service vocabulary from returning to the controller or mapper.
+- Mapper behavior guards cover separated launch-failure results and completed stale-group presentation. Production composition guards prove that installer, controller, and launch evaluator share the same campaign sequence authority.
+- Existing MainMenu lifecycle, localization, blocked recovery, preparation-stale, and newer-handoff preservation fixtures remain in the touched cluster. These are pure EditMode policy/composition paths and do not require separate PlayMode escalation.
+
+### Same-Revision Validation
+- Tests-first focused run: Windows build stopped with the intended two `CS1503` errors while the mapper still required the legacy signature.
+- First implemented focused gate: EditMode `113 total / 0 failed`; matching PlayMode `0`.
+- Nine-fixture filtered `full`: EditMode `403 total / 0 failed`; matching PlayMode `0`.
+- `./run_tests.sh core`: Core EditMode `217 total / 0 failed`; Core PlayMode `109 total / 0 failed`.
+- `./run_tests.sh ui`: Windows UI build passed; Unity UI EditMode `1352 total / 0 failed`.
+- Broad unfiltered `full` and manual Player/build smoke were not run; no broad-green claim is made.

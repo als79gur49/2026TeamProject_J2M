@@ -4,6 +4,9 @@
 > eligibility, Player inclusion, and closeout status are defined in
 > `Campaign-Stage-Sequence-Authority.md`. Counts and supported-stage lists below
 > describe the 2026-05-09 migration checkpoint only.
+> Mentions of retired-save compatibility below are checkpoint history. The
+> runtime `stage-5-1` auto-repair policy was removed on 2026-08-25; archived
+> `legacy-stage-5-1` content and alias/catalog governance remain current.
 
 Generated: 2026-05-09
 
@@ -90,7 +93,8 @@ Aliases are recorded in `CampaignMain_StageIdAliasTable.asset` and `StageAliasGo
 
 `legacy-stage-5-1` is catalog-preserved legacy/archived content.
 It is intentionally excluded from the campaign sequence and editor direct-play catalog.
-The old `stage-5-1` id remains only for alias/governance and retired-save compatibility.
+At this checkpoint, the old `stage-5-1` id remained for alias/governance and retired-save compatibility.
+Current runtime uses it only in alias/governance and historical evidence; it is not a save migration source.
 
 ## Shared Asset Rename Map
 
@@ -131,8 +135,8 @@ Follow-up issue:
 Allowed remaining runtime/governance old-token hits:
 - intentional alias/governance:
   - `stage-5-1`
-- save compatibility:
-  - retired completed `stage-5-1`
+- historical save compatibility at this checkpoint:
+  - retired completed `stage-5-1` (runtime auto-repair removed 2026-08-25)
 - forbidden legacy path validators:
   - deleted combined gameplay showcase stage path audits
   - deleted tutorial scene stage path audits
