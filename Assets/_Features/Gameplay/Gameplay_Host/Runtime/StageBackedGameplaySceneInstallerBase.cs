@@ -45,6 +45,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly StageVisualRuntimeAdapter _stageVisualRuntimeAdapter = new();
         private readonly StageAudioRuntimeRequestSource _stageAudioRuntimeRequestSource = new();
         private BackgroundWallSurfaceTintPresenterAdapter _backgroundWallSurfaceTintPresenterAdapter;
+        private BackgroundSpaceOrbitPresenterAdapter _backgroundSpaceOrbitPresenterAdapter;
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
 
@@ -314,6 +315,7 @@ namespace Game.Feature.Gameplay.Host
                 _resolvedAudioData,
                 globalAudioFlowBootstrap.GetRequestRouterOrThrow());
             AttachBackgroundWallSurfaceTintPresenter(host);
+            AttachBackgroundSpaceOrbitPresenter(host);
             var terminalTransitionPort = CreateTerminalTransitionPort(gameObject);
 
             if (!_campaignRuntimeActive)
@@ -432,9 +434,34 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnDestroy()
         {
+            _backgroundSpaceOrbitPresenterAdapter?.Dispose();
+            _backgroundSpaceOrbitPresenterAdapter = null;
             _backgroundWallSurfaceTintPresenterAdapter?.Dispose();
             _backgroundWallSurfaceTintPresenterAdapter = null;
             _campaignFlowController?.Dispose();
+        }
+
+        private void AttachBackgroundSpaceOrbitPresenter(GameplaySceneHost host)
+        {
+            _backgroundSpaceOrbitPresenterAdapter?.Dispose();
+            _backgroundSpaceOrbitPresenterAdapter = null;
+
+            var backgroundInstance = _stageVisualRuntimeAdapter.CurrentBackgroundInstance;
+            if (host == null || host.Presenter == null || backgroundInstance == null)
+            {
+                return;
+            }
+
+            host.Presenter.RegisterPresentationPauseRoot(backgroundInstance);
+
+            var authoring = BackgroundSpaceOrbitPresenterAdapter.ResolveSingleAuthoring(backgroundInstance);
+            if (authoring == null)
+            {
+                return;
+            }
+
+            _backgroundSpaceOrbitPresenterAdapter =
+                new BackgroundSpaceOrbitPresenterAdapter(authoring, host.Presenter);
         }
 
         private void AttachBackgroundWallSurfaceTintPresenter(GameplaySceneHost host)

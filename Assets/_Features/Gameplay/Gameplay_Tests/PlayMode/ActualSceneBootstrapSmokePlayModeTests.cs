@@ -144,6 +144,60 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_1_BackgroundOrbitAdvancesAndPauses()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            StageLaunchContextStore.SetCurrent(stageId);
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            yield return LoadScene(UIAudioScenePath);
+
+            var host = Object.FindObjectsByType<GameplaySceneHost>(
+                    FindObjectsInactive.Exclude,
+                    FindObjectsSortMode.None)
+                .Single();
+            var authorings = Object.FindObjectsByType<BackgroundSpaceOrbitAuthoring>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            Assert.That(authorings, Has.Length.EqualTo(1));
+
+            var celestialTilt = authorings[0].transform.Find("CelestialOrbitTilt");
+            Assert.That(celestialTilt, Is.Not.Null);
+            Assert.That(
+                Quaternion.Angle(celestialTilt.localRotation, Quaternion.Euler(0f, -6f, 12f)),
+                Is.LessThan(0.001f));
+            var celestialPivot = celestialTilt.Find("CelestialOrbitPivot");
+            Assert.That(celestialPivot, Is.Not.Null);
+            var initialRotation = celestialPivot.localRotation;
+            var particleSystems = authorings[0]
+                .GetComponentsInChildren<ParticleSystem>(includeInactive: true)
+                .Where(candidate => candidate.gameObject.activeInHierarchy)
+                .ToArray();
+            Assert.That(particleSystems, Is.Not.Empty);
+            foreach (var particleSystem in particleSystems)
+            {
+                particleSystem.Play(withChildren: false);
+                Assert.That(particleSystem.isPlaying, Is.True, particleSystem.name);
+            }
+
+            host.Presenter.UpdatePresentation(1f);
+            Assert.That(
+                Quaternion.Angle(initialRotation, celestialPivot.localRotation),
+                Is.EqualTo(0.35f).Within(0.01f));
+
+            host.Presenter.SetPresentationPaused(true);
+            var pausedRotation = celestialPivot.localRotation;
+            host.Presenter.UpdatePresentation(1f);
+            Assert.That(Quaternion.Angle(pausedRotation, celestialPivot.localRotation), Is.LessThan(0.001f));
+            Assert.That(particleSystems.All(particleSystem => particleSystem.isPaused), Is.True);
+
+            host.Presenter.SetPresentationPaused(false);
+            host.Presenter.UpdatePresentation(1f);
+            Assert.That(Quaternion.Angle(pausedRotation, celestialPivot.localRotation), Is.GreaterThan(0.3f));
+            Assert.That(particleSystems.All(particleSystem => particleSystem.isPlaying), Is.True);
+        }
+
+        [UnityTest]
+        [Category("Core")]
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_3_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
@@ -158,6 +212,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
                 StageId.CreateOrThrow("stage-1-1"));
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage2_1_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-2-1"));
         }
 
         [UnityTest]
