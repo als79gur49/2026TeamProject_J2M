@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -158,12 +160,12 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss()
+        public void CampaignSlotRawDataMapper_MapsDiagnosticCarrierWithoutKnownLoss()
         {
             WriteFieldInventory();
             var slot = CreateLegacySlotFixture();
 
-            var document = CampaignProfileDocumentMapper.ToDocument(
+            var document = CampaignSlotRawDataMapper.ToProfileDocument(
                 new[] { slot },
                 "profile-lossless",
                 slot.SlotNumber,
@@ -180,18 +182,98 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void NormalStagePerformanceRecord_RoundTripsAndKeepsBestCombinedCount()
+        public void CampaignRawBoundary_ExposesExplicitRawAndImmutableConversions()
+        {
+            var methods = typeof(CampaignSlotRawDataMapper).GetMethods(
+                BindingFlags.Public |
+                BindingFlags.Static |
+                BindingFlags.DeclaredOnly);
+            var methodNames = Array.ConvertAll(methods, method => method.Name);
+            Assert.That(methodNames, Does.Contain("ToProfileDocument"));
+            Assert.That(methodNames, Does.Contain("FromProfileDocument"));
+            Assert.That(methodNames, Does.Contain("ToDocument"));
+            Assert.That(methodNames, Does.Contain("FromDocument"));
+            Assert.That(methodNames, Does.Contain("ToState"));
+            Assert.That(methodNames, Does.Contain("ToEntry"));
+        }
+
+        [Test]
+        public void CampaignDocumentMaterialization_HasOneExplicitPostValidationOwner()
+        {
+            var repository = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/FileCampaignProfileRepository.cs");
+            var materializer = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignProfileDocument.cs");
+            var service = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveService.cs");
+
+            var validationIndex = repository.IndexOf(
+                "CampaignProfileDocumentValidator.Validate(document)",
+                StringComparison.Ordinal);
+            var materializationIndex = repository.IndexOf(
+                "CampaignProfileDocumentMaterializer.MaterializeValidated(document)",
+                StringComparison.Ordinal);
+
+            Assert.That(validationIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(materializationIndex, Is.GreaterThan(validationIndex));
+            Assert.That(materializer, Does.Contain(
+                "internal static class CampaignProfileDocumentMaterializer"));
+            Assert.That(repository, Does.Not.Contain("private static void Normalize("));
+            Assert.That(service, Does.Not.Contain("private static void Normalize("));
+            Assert.That(service, Does.Not.Contain("Math.Max(0, profile.Version)"));
+        }
+
+        [Test]
+        public void CampaignPerformanceProjection_UsesCanonicalStateWithoutRecoveryProjection()
+        {
+            var mapper = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignProfileDocumentMapper.cs");
+            var policy = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSlotDocument.cs");
+            var achievement = File.ReadAllText(
+                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/CampaignStageAchievementIntegration.cs");
+
+            Assert.That(mapper, Does.Not.Contain(
+                "NormalStagePerformanceRecordPolicy.Normalize"));
+            Assert.That(mapper, Does.Not.Contain("Math.Max(0, document.Version)"));
+            Assert.That(mapper, Does.Not.Contain("Math.Max(0, record.ClearCount)"));
+            Assert.That(policy, Does.Not.Contain(
+                "public static NormalStagePerformanceRecord[] Normalize("));
+            Assert.That(policy, Does.Not.Contain(
+                "public static class NormalStagePerformanceRecordPolicy"));
+            Assert.That(achievement, Does.Contain("CampaignStagePerformanceState"));
+            Assert.That(achievement, Does.Contain(
+                "committedSlot.NormalStagePerformanceRecords"));
+            Assert.That(achievement, Does.Not.Contain(
+                "CampaignStageAchievementReadModelBuilder"));
+            Assert.That(achievement, Does.Not.Contain(
+                "NormalStagePerformanceRecordPolicy.Normalize"));
+        }
+
+        [Test]
+        public void NormalStagePerformanceRecord_RoundTripsCanonicalRecordExactly()
         {
             var stageId = StageId.CreateOrThrow("stage-1-2");
-            var records = NormalStagePerformanceRecordPolicy.UpsertBest(
-                Array.Empty<NormalStagePerformanceRecord>(),
-                stageId,
-                25);
-            records = NormalStagePerformanceRecordPolicy.UpsertBest(records, stageId, 30);
-            records = NormalStagePerformanceRecordPolicy.UpsertBest(records, stageId, 24);
 
-            var documents = CampaignProfileDocumentMapper.ToPerformanceRecordDocuments(records);
-            var roundTripped = CampaignProfileDocumentMapper.ToPerformanceRecords(documents);
+            var slot = new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
+                NormalStagePerformanceRecords = new[]
+                {
+                    new NormalStagePerformanceRecord
+                    {
+                        Version = NormalStagePerformanceRecord.CurrentVersion,
+                        StageId = stageId,
+                        BestCombinedPushFlipUses = 24,
+                    },
+                },
+                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
+            };
+            var document = CampaignSlotRawDataMapper.ToDocument(slot);
+            var roundTripped = CampaignSlotRawDataMapper.FromDocument(document)
+                .NormalStagePerformanceRecords;
 
             Assert.That(roundTripped, Has.Length.EqualTo(1));
             Assert.That(roundTripped[0].StageId, Is.EqualTo(stageId));
@@ -199,16 +281,17 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignProfileDocumentMapper_NullStageClearProfileMapsToEmptyDocument()
+        public void CampaignSlotRawDataMapper_NullStageClearProfileMapsToEmptyDocument()
         {
             var slot = new SaveSlotData
             {
                 SlotNumber = 1,
                 CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
             };
             slot.StageClearProfileSnapshot = null;
 
-            var document = CampaignProfileDocumentMapper.ToSlotDocument(slot);
+            var document = CampaignSlotRawDataMapper.ToDocument(slot);
 
             Assert.That(document.StageClearProfileSnapshot, Is.Not.Null);
             Assert.That(document.StageClearProfileSnapshot.Version, Is.EqualTo(0));
@@ -221,9 +304,17 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignProfileDocumentMapper_EmptyStageClearProfileMapsDeterministically()
+        public void CampaignSlotRawDataMapper_EmptyStageClearProfileMapsDeterministically()
         {
-            var document = CampaignProfileDocumentMapper.ToStageClearProfileDocument(new StageClearProfileSnapshot());
+            var slot = new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
+                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
+            };
+            var document = CampaignSlotRawDataMapper.ToDocument(slot)
+                .StageClearProfileSnapshot;
 
             Assert.That(document, Is.Not.Null);
             Assert.That(document.Version, Is.EqualTo(0));
@@ -538,8 +629,12 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [TestCase("slot-stage-noncanonical")]
+        [TestCase("slot-chances-zero")]
         [TestCase("slot-chances-negative")]
+        [TestCase("slot-chances-over-cap")]
         [TestCase("slot-deaths-negative")]
+        [TestCase("receipt-invalid")]
+        [TestCase("receipt-absent-populated")]
         [TestCase("performance-null")]
         [TestCase("performance-version")]
         [TestCase("performance-stage")]
@@ -572,8 +667,12 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [TestCase("performance-duplicate")]
+        [TestCase("slot-chances-zero")]
         [TestCase("slot-chances-negative")]
+        [TestCase("slot-chances-over-cap")]
         [TestCase("slot-deaths-negative")]
+        [TestCase("receipt-invalid")]
+        [TestCase("receipt-absent-populated")]
         public void CampaignProfileRepository_MalformedCanonicalRecoversValidBackup(
             string malformedCase)
         {
@@ -592,7 +691,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignProfileRepository_NullNestedContainersNormalizeToEmpty()
+        public void CampaignProfileRepository_NullNestedContainersMaterializeToEmpty()
         {
             using var harness = CreateHarness();
             var document = CreateDocument("null-nested-containers");
@@ -610,23 +709,54 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignProfileRepository_ZeroRemainingChancesRemainsValid()
+        public void CampaignProfileDocumentMaterializer_MaterializesOnlyAllowedAbsence()
         {
-            using var harness = CreateHarness();
-            var document = CreateDocument("zero-remaining-chances");
-            document.Slots[0].RemainingChances = 0;
-            Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(harness.ProfilePath, JsonUtility.ToJson(document));
+            var document = CreateDocument("materializer-contract");
+            var slot = document.Slots[0];
+            document.ProductVersion = null;
+            document.SavedAtUtc = null;
+            slot.LevelGroupId = null;
+            slot.LastPlayedAtUtc = null;
+            slot.HasNormalCampaignCompletionReceipt = false;
+            slot.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceiptDocument();
+            slot.NormalStagePerformanceRecords = null;
+            slot.StageClearProfileSnapshot.Records[0].ProcessedStageRunIds = null;
+            slot.StageClearProfileSnapshot.ProcessedStageRunIds = null;
+            slot.StageClearProfileSnapshot.ProcessedClearAttemptIds = null;
 
-            var result = harness.Repository.Load();
+            var validation = CampaignProfileDocumentValidator.Validate(document);
 
-            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
-            Assert.That(result.Document.Slots[0].RemainingChances, Is.Zero);
+            Assert.That(validation, Is.EqualTo(CampaignProfileDocumentValidationResult.Valid));
+            Assert.That(document.ProductVersion, Is.Null);
+            Assert.That(slot.NormalCampaignCompletionReceipt, Is.Not.Null);
+            Assert.That(slot.NormalStagePerformanceRecords, Is.Null);
+            Assert.That(slot.StageClearProfileSnapshot.ProcessedStageRunIds, Is.Null);
+
+            CampaignProfileDocumentMaterializer.MaterializeValidated(document);
+
+            Assert.That(document.ProductVersion, Is.Empty);
+            Assert.That(document.SavedAtUtc, Is.Empty);
+            Assert.That(slot.LevelGroupId, Is.Empty);
+            Assert.That(slot.LastPlayedAtUtc, Is.Empty);
+            Assert.That(slot.NormalCampaignCompletionReceipt, Is.Null);
+            Assert.That(slot.NormalStagePerformanceRecords, Is.Empty);
+            Assert.That(slot.StageClearProfileSnapshot.Records[0].ProcessedStageRunIds, Is.Empty);
+            Assert.That(slot.StageClearProfileSnapshot.ProcessedStageRunIds, Is.Empty);
+            Assert.That(slot.StageClearProfileSnapshot.ProcessedClearAttemptIds, Is.Empty);
         }
 
         [TestCase("clear-negative")]
+        [TestCase("slot-chances-zero")]
         [TestCase("slot-chances-negative")]
+        [TestCase("slot-chances-over-cap")]
         [TestCase("slot-deaths-negative")]
+        [TestCase("receipt-invalid")]
+        [TestCase("receipt-absent-populated")]
+        [TestCase("receipt-absent-mixed-default-strings")]
+        [TestCase("receipt-absent-null-pair-version-nonzero")]
+        [TestCase("receipt-absent-empty-pair-version-nonzero")]
+        [TestCase("receipt-absent-null-pair-source-nonzero")]
+        [TestCase("receipt-absent-empty-pair-source-nonzero")]
         public void CampaignProfileRepository_SaveRejectsMalformedPersistedSlotDataBeforeWriting(
             string malformedCase)
         {
@@ -660,6 +790,47 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Version, Is.EqualTo(2));
             Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Records, Has.Length.EqualTo(1));
             Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Records[0].StageId, Is.EqualTo("stage-1-1"));
+        }
+
+        [TestCase(CampaignReceiptPresence.Absent)]
+        [TestCase(CampaignReceiptPresence.PresentWithoutPayload)]
+        [TestCase(CampaignReceiptPresence.PresentWithPayload)]
+        public void CampaignProfileRepository_SaveJsonLoadPreservesReceiptPresence(
+            CampaignReceiptPresence presence)
+        {
+            using var harness = CreateHarness();
+            var document = CreateDocument($"receipt-{presence}");
+            var slot = document.Slots[0];
+            slot.HasNormalCampaignCompletionReceipt =
+                presence != CampaignReceiptPresence.Absent;
+            slot.NormalCampaignCompletionReceipt =
+                presence == CampaignReceiptPresence.PresentWithPayload
+                    ? new NormalCampaignCompletionReceiptDocument
+                    {
+                        Version = NormalCampaignCompletionReceipt.CurrentVersion,
+                        CompletedStageId = "stage-1-1",
+                        StageRunId = string.Empty,
+                        ClearSource = NormalCampaignCompletionReceipt.LegacyClearSourceAbsent,
+                    }
+                    : null;
+
+            harness.Repository.Save(document);
+            var loaded = harness.Repository.Load();
+
+            Assert.That(loaded.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
+            var parsed = CampaignSlotParser.ParseEntry(1, loaded.Document.Slots[0]);
+            Assert.That(parsed.IsSuccess, Is.True);
+            Assert.That(parsed.Entry.State.Receipt.Presence, Is.EqualTo(presence));
+            if (presence == CampaignReceiptPresence.PresentWithPayload)
+            {
+                Assert.That(parsed.Entry.State.Receipt.Payload.Version,
+                    Is.EqualTo(NormalCampaignCompletionReceipt.CurrentVersion));
+                Assert.That(parsed.Entry.State.Receipt.Payload.CompletedStageId.Value,
+                    Is.EqualTo("stage-1-1"));
+                Assert.That(parsed.Entry.State.Receipt.Payload.StageRunId, Is.Empty);
+                Assert.That(parsed.Entry.State.Receipt.Payload.ClearSource,
+                    Is.EqualTo(NormalCampaignCompletionReceipt.LegacyClearSourceAbsent));
+            }
         }
 
         [Test]
@@ -1309,6 +1480,22 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(source, Does.Contain("persisted slot counters"));
             Assert.That(source, Does.Contain("archives the backup before the"));
             Assert.That(source, Does.Contain("rollbacks are normalized before"));
+            Assert.That(source, Does.Contain("`CampaignSlotStateDocumentMapper`"));
+            Assert.That(source, Does.Contain("`ICampaignSlotSeedImportPort`"));
+            Assert.That(source, Does.Contain("exactly two valid in-memory string shapes"));
+            Assert.That(source, Does.Contain("both receipt strings are null"));
+            Assert.That(source, Does.Contain("both are empty"));
+            Assert.That(source, Does.Contain("Mixed null/empty receipt strings"));
+            Assert.That(source, Does.Contain("non-mutating validating raw conversion boundary"));
+            Assert.That(source, Does.Contain("post-`JsonUtility`"));
+            Assert.That(source, Does.Contain("reject rather than"));
+            Assert.That(source, Does.Contain("restores `PresentWithoutPayload`"));
+            Assert.That(source, Does.Contain("`CampaignSlotState` construction owns"));
+            Assert.That(source, Does.Contain("`CampaignSlotTransitionEngine.UpsertPerformance` owns"));
+            Assert.That(source, Does.Not.Contain("NormalStagePerformanceRecordPolicy"));
+            Assert.That(source, Does.Not.Contain("Complete maintenance replacement"));
+            Assert.That(source, Does.Not.Contain("shared slot canonicalizer"));
+            Assert.That(source, Does.Not.Contain("pending Phase 5 removal"));
         }
 
         [Test]
@@ -1342,14 +1529,676 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(section, Does.Contain("Current Production semantic use"));
             Assert.That(section, Does.Contain("| 없음 |"));
             Assert.That(section, Does.Contain("active idempotency mechanism"));
+            Assert.That(section, Does.Contain("CampaignSlotStateDocumentMapper"));
+            Assert.That(section, Does.Contain("CampaignSlotRawDataMapper"));
+            Assert.That(section, Does.Contain("non-mutating validating raw conversion"));
+            Assert.That(section, Does.Contain("post-`JsonUtility` object shape"));
+            Assert.That(section, Does.Contain("paired shape로 보정하지 않는다"));
+            Assert.That(section, Does.Contain("CampaignSlotTransitionEngine"));
+            Assert.That(section, Does.Contain("`CampaignSlotState` construction"));
+            Assert.That(section, Does.Contain("`CampaignSlotTransitionEngine.UpsertPerformance`"));
+            Assert.That(section, Does.Contain(
+                "두 문자열이 모두 null이거나 모두 빈 문자열"));
+            Assert.That(section, Does.Contain("혼합된 null/빈 문자열 residue"));
+            Assert.That(section, Does.Contain("`PresentWithoutPayload`로 복원"));
+            Assert.That(section, Does.Not.Contain("NormalStagePerformanceRecordPolicy"));
+            Assert.That(section, Does.Contain("CampaignSlotLaunchEvaluator"));
+            Assert.That(section, Does.Contain("CampaignSlotActionPolicy"));
+            Assert.That(section, Does.Not.Contain("CampaignProfileDocumentMapper.ToDocument"));
+            Assert.That(section, Does.Not.Contain("CampaignSlotCanonicalizer"));
+            Assert.That(section, Does.Not.Contain("CampaignStageAchievementReadModelBuilder"));
+            Assert.That(section, Does.Not.Contain("제거는 Phase 5 범위다"));
             Assert.That(section, Does.Contain("first-public schema freeze"));
             Assert.That(section, Does.Contain("release exposure"));
-            Assert.That(section, Does.Contain("ApplyStageClear"));
-            Assert.That(section, Does.Contain("current Production caller"));
+            Assert.That(section, Does.Contain("ICampaignProgressionCommitter.CommitStageClear"));
+            Assert.That(section, Does.Contain("휴면 `CampaignSaveService.ApplyDeath` / `ApplyStageClear` command는 제거"));
             Assert.That(section, Does.Contain("normalization 전에 검증"));
             Assert.That(section, Does.Contain("음수 slot counter"));
             Assert.That(section, Does.Contain("`LoadAllWithReport`만 blocked profile"));
             Assert.That(section, Does.Contain("backup을 canonical보다 먼저"));
+        }
+
+        [Test]
+        public void CampaignReceiptSerializerResidue_UsesOnlyExactPairedStringShapes()
+        {
+            var documentSource = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignProfileDocument.cs");
+            var stateSource = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSlotState.cs");
+
+            Assert.That(documentSource, Does.Contain("IsExactDefaultReceiptResidue"));
+            Assert.That(documentSource, Does.Contain("receipt.Version == 0"));
+            Assert.That(documentSource, Does.Contain("receipt.ClearSource == 0"));
+            Assert.That(documentSource, Does.Contain("receipt.CompletedStageId == null"));
+            Assert.That(documentSource, Does.Contain("receipt.StageRunId == null"));
+            Assert.That(documentSource, Does.Contain("receipt.CompletedStageId == string.Empty"));
+            Assert.That(documentSource, Does.Contain("receipt.StageRunId == string.Empty"));
+            Assert.That(documentSource, Does.Not.Contain(
+                "string.IsNullOrEmpty(receipt.CompletedStageId)"));
+            Assert.That(stateSource, Does.Contain(
+                "CampaignSlotDocumentValidator.IsExactDefaultReceiptResidue(receipt)"));
+
+            var rawMapperSource = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignProfileDocumentMapper.cs");
+            Assert.That(rawMapperSource, Does.Not.Contain(
+                "CompletedStageId = receipt.CompletedStageId ?? string.Empty"));
+            Assert.That(rawMapperSource, Does.Not.Contain(
+                "StageRunId = receipt.StageRunId ?? string.Empty"));
+        }
+
+        [Test]
+        public void GameplayTestGuide_LabelsSupersededCampaignSaveRowsAsHistorical()
+        {
+            var guide = File.ReadAllText(
+                "Docs/Testing/Gameplay-Test-Automation-Guide.md");
+
+            Assert.That(guide, Does.Contain(
+                "두 행은 당시 과도기 구조의 역사 기록이다"));
+            Assert.That(guide, Does.Contain(
+                "two 2026-08-24 typed-committer and slot-clone/canonicalization rows are historical records"));
+            Assert.That(guide, Does.Contain(
+                "campaign-save exact serializer-residue follow-up"));
+            Assert.That(guide, Does.Contain(
+                "two exact paired string shapes"));
+            Assert.That(guide, Does.Contain(
+                "physical Save→JSON→Load preserves absent, present-null, and present-payload states"));
+            Assert.That(guide, Does.Contain(
+                "campaign-save raw receipt mapper boundary closeout"));
+            Assert.That(guide, Does.Contain("EditMode `179/4`"));
+            Assert.That(guide, Does.Contain("15-fixture touched cluster `590/0`"));
+
+            const string englishHeading = "### English Original";
+            const string nextHeading =
+                "## Visual runner interruption contract / visual runner 중단 계약";
+            var englishStart = guide.IndexOf(englishHeading, StringComparison.Ordinal);
+            var englishEnd = guide.IndexOf(nextHeading, StringComparison.Ordinal);
+            Assert.That(englishStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(englishEnd, Is.GreaterThan(englishStart));
+            var englishSection = guide.Substring(
+                englishStart,
+                englishEnd - englishStart);
+            Assert.That(englishSection, Does.Contain(
+                "campaign-save raw receipt mapper boundary closeout"));
+            Assert.That(englishSection, Does.Contain("EditMode `179/4`"));
+            Assert.That(englishSection, Does.Contain(
+                "15-fixture touched cluster `590/0`"));
+            Assert.That(englishSection, Does.Contain(
+                "/mnt/d/J2M/evidence/20260825-075401-campaign-save-receipt-raw-boundary-closeout/"));
+            Assert.That(englishSection, Does.Contain(
+                "broad unfiltered `full` lane and manual Player/build smoke were not run"));
+            Assert.That(englishSection, Does.Contain(
+                "campaign-save final structural audit closeout"));
+            Assert.That(englishSection, Does.Contain("EditMode `160/3`"));
+            Assert.That(englishSection, Does.Contain(
+                "15-fixture touched cluster `592/0`"));
+            Assert.That(englishSection, Does.Contain(
+                "/mnt/d/J2M/evidence/20260825-084058-campaign-save-final-structure-closeout/"));
+
+            var remediation = File.ReadAllText(
+                "Docs/Architecture/Campaign-Save-Long-Term-Structural-Remediation.md");
+            Assert.That(remediation, Does.Contain(
+                "### 13.3 Raw receipt mapper boundary closeout"));
+            Assert.That(remediation, Does.Contain(
+                "### Historical post-package verification notes"));
+            Assert.That(remediation, Does.Contain(
+                "post-`JsonUtility` object-shape 계약"));
+            Assert.That(remediation, Does.Contain(
+                "### 13.4 Final structural audit closeout"));
+            Assert.That(remediation, Does.Contain(
+                "`FromDocuments`/`ToRawSlots` duplicate-slot 경로"));
+        }
+
+        [Test]
+        public void CampaignMutationBoundary_ExposesOnlyTypedPortsAndCommands()
+        {
+            var ports = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/CampaignSavePorts.cs");
+            var service = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveService.cs");
+            var gameplayFlow = File.ReadAllText(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs");
+            var mainMenu = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
+
+            Assert.That(ports, Does.Not.Contain("interface ICampaignSaveSlotStore"));
+            Assert.That(ports, Does.Not.Contain("Action<SaveSlotData>"));
+            Assert.That(ports, Does.Contain("ICampaignProgressionCommitter"));
+            Assert.That(ports, Does.Contain("ICampaignContinuePreparationPort"));
+            Assert.That(ports, Does.Not.Contain("ICampaignSlotMaintenancePort"));
+            Assert.That(ports, Does.Not.Contain("ReplaceValidatedSlot"));
+            Assert.That(service, Does.Not.Contain(
+                "public CampaignSaveServiceResult ApplyDeath("));
+            Assert.That(service, Does.Not.Contain(
+                "public CampaignSaveServiceResult ApplyStageClear("));
+            Assert.That(service, Does.Not.Contain("UpdateSlot("));
+            Assert.That(gameplayFlow, Does.Not.Contain("UpdateSlot("));
+            Assert.That(gameplayFlow, Does.Contain("CommitDeath("));
+            Assert.That(gameplayFlow, Does.Contain("CommitStageClear("));
+            Assert.That(mainMenu, Does.Contain("ICampaignContinuePreparationPort"));
+            Assert.That(mainMenu, Does.Contain("PrepareContinue("));
+            Assert.That(mainMenu, Does.Not.Contain("ICampaignSlotMaintenancePort"));
+            Assert.That(mainMenu, Does.Not.Contain("ReplaceValidatedSlot("));
+        }
+
+        [Test]
+        public void CampaignTransitionEngine_UsesImmutableStateAndOwnsComicCompletion()
+        {
+            var engineType = typeof(CampaignSlotTransitionEngine);
+            var death = engineType.GetMethod(
+                "ApplyDeath",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            var clear = engineType.GetMethod(
+                "ApplyStageClear",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            var comic = engineType.GetMethod(
+                "ApplyComicCompletion",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            var resultSlot = typeof(CampaignSlotTransitionResult).GetProperty("Slot");
+            var introServiceMethod = typeof(CampaignSaveService).GetMethod(
+                "SetIntroComicCompleted");
+            var outroServiceMethod = typeof(CampaignSaveService).GetMethod(
+                "SetOutroComicCompleted");
+
+            Assert.That(death, Is.Not.Null);
+            Assert.That(clear, Is.Not.Null);
+            Assert.That(comic, Is.Not.Null);
+            Assert.That(introServiceMethod, Is.Not.Null);
+            Assert.That(outroServiceMethod, Is.Not.Null);
+            Assert.That(death.GetParameters()[0].ParameterType,
+                Is.EqualTo(typeof(CampaignSlotState)));
+            Assert.That(clear.GetParameters()[0].ParameterType,
+                Is.EqualTo(typeof(CampaignSlotState)));
+            Assert.That(comic.GetParameters()[0].ParameterType,
+                Is.EqualTo(typeof(CampaignSlotState)));
+            Assert.That(resultSlot.PropertyType, Is.EqualTo(typeof(CampaignSlotState)));
+            Assert.That(introServiceMethod.GetParameters(), Has.Length.EqualTo(1));
+            Assert.That(outroServiceMethod.GetParameters(), Has.Length.EqualTo(1));
+        }
+
+        [Test]
+        public void CampaignStoreInternals_UseImmutableStateWithoutCanonicalizerEntryAdapter()
+        {
+            var service = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveService.cs");
+            var transient = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/TransientCampaignState.cs");
+
+            Assert.That(transient,
+                Does.Contain("Dictionary<string, CampaignSlotEntry[]>"));
+            Assert.That(transient,
+                Does.Not.Contain("Dictionary<string, SaveSlotData[]>"));
+            Assert.That(transient,
+                Does.Not.Contain("CampaignSlotCanonicalizer.CreateValidatedCopy"));
+            Assert.That(transient, Does.Contain("CampaignSlotStateFactory.CreateNewGame"));
+            Assert.That(transient, Does.Contain("ApplyComicCompletion"));
+            Assert.That(service, Does.Contain("CampaignSlotParser.ParseEntry"));
+            Assert.That(service, Does.Contain("CampaignSlotStateDocumentMapper.ToDocument"));
+            Assert.That(service, Does.Contain("CampaignSlotStateFactory.CreateNewGame"));
+            Assert.That(service, Does.Contain("ApplyComicCompletion"));
+            Assert.That(service, Does.Not.Contain("CampaignSlotMapper.ToDomain"));
+            Assert.That(service, Does.Not.Contain("CampaignSlotMapper.ToDocument"));
+        }
+
+        [Test]
+        public void CampaignMutableCompatibilitySurface_IsRemovedAfterConsumerMigration()
+        {
+            var concreteRuntimeTypes = new[]
+            {
+                typeof(CampaignSaveSlotStoreAdapter),
+                typeof(TransientCampaignSaveSlotStore),
+            };
+            foreach (var runtimeType in concreteRuntimeTypes)
+            {
+                var publicMethods = runtimeType.GetMethods(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                foreach (var method in publicMethods)
+                {
+                    Assert.That(method.ReturnType.FullName,
+                        Is.Not.EqualTo("Game.Feature.Stages.SaveSlotData"),
+                        $"{runtimeType.Name}.{method.Name} returns the mutable carrier.");
+                    Assert.That(method.ReturnType.FullName,
+                        Is.Not.EqualTo("Game.Feature.Stages.SaveSlotData[]"),
+                        $"{runtimeType.Name}.{method.Name} returns mutable carriers.");
+                    Assert.That(Array.Exists(method.GetParameters(), parameter =>
+                            parameter.ParameterType.FullName ==
+                            "Game.Feature.Stages.SaveSlotData"),
+                        Is.False,
+                        $"{runtimeType.Name}.{method.Name} accepts the mutable carrier.");
+                }
+            }
+
+            var removedRuntimeTokens = new[]
+            {
+                "CampaignSlotStateCompatibilityAdapter",
+                "CampaignSlotFixtureCompatibilityProjection",
+                "CampaignSaveTestFixture",
+                "CampaignSlotPlanningCompatibilityExtensions",
+                "ReplaceValidatedSlot",
+                "CampaignSlotCanonicalizer",
+                "CampaignSlotDomainValidator",
+            };
+            var runtimePaths = Directory.GetFiles(
+                "Assets/_Features",
+                "*.cs",
+                SearchOption.AllDirectories);
+            foreach (var path in runtimePaths)
+            {
+                var normalizedPath = path.Replace('\\', '/');
+                if (!normalizedPath.Contains("/Runtime/"))
+                {
+                    continue;
+                }
+
+                var source = File.ReadAllText(path);
+                foreach (var token in removedRuntimeTokens)
+                {
+                    Assert.That(source, Does.Not.Contain(token),
+                        $"{normalizedPath} retains Phase 5 compatibility token {token}.");
+                }
+            }
+
+            var rawBoundary = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/" +
+                "CampaignProfileDocumentMapper.cs");
+            Assert.That(rawBoundary, Does.Not.Contain("class CampaignProfileDocumentMapper"));
+            Assert.That(rawBoundary, Does.Not.Contain("class CampaignSlotMapper"));
+            Assert.That(rawBoundary, Does.Contain("class CampaignSlotRawDataMapper"));
+        }
+
+        [Test]
+        public void CampaignConsumerPorts_ExposeImmutableSlotEntriesAndPurposeNamedCommands()
+        {
+            var loadAll = typeof(ICampaignSaveQuery).GetMethod("LoadAll");
+            var loadSlot = typeof(ICampaignSaveQuery).GetMethod("LoadSlot");
+            var initialize = typeof(ICampaignSlotLifecyclePort).GetMethod("InitializeNewGame");
+            var diagnostic = typeof(ICampaignDiagnosticSlotPort).GetMethod(
+                "SetActiveStageForDiagnostics");
+            var intro = typeof(ICampaignComicProgressPort).GetMethod(
+                "MarkIntroComicCompleted");
+            var outro = typeof(ICampaignComicProgressPort).GetMethod(
+                "MarkOutroComicCompleted");
+
+            Assert.That(loadAll.ReturnType, Is.EqualTo(typeof(CampaignSlotEntry[])));
+            Assert.That(loadSlot.ReturnType, Is.EqualTo(typeof(CampaignSlotEntry)));
+            Assert.That(initialize.ReturnType, Is.EqualTo(typeof(CampaignSlotState)));
+            Assert.That(diagnostic.ReturnType, Is.EqualTo(typeof(CampaignSlotState)));
+            Assert.That(typeof(CampaignDeathCommitResult).GetProperty("Slot").PropertyType,
+                Is.EqualTo(typeof(CampaignSlotState)));
+            Assert.That(typeof(CampaignStageClearCommitResult).GetProperty("Slot").PropertyType,
+                Is.EqualTo(typeof(CampaignSlotState)));
+            Assert.That(intro.GetParameters(), Has.Length.EqualTo(1));
+            Assert.That(outro.GetParameters(), Has.Length.EqualTo(1));
+            Assert.That(typeof(ICampaignSlotSeedImportPort).GetMethod("ImportSlotSeed"),
+                Is.Not.Null);
+        }
+
+        [Test]
+        public void CampaignRuntimeConsumers_DoNotNameTheMutableSlotCarrier()
+        {
+            var consumerPaths = new[]
+            {
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs",
+                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/CampaignStageAchievementIntegration.cs",
+                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/NormalCampaignCompletionAchievementIntegration.cs",
+                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/NormalCampaignCompletionAchievementStartupReconciler.cs",
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs",
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuSlotViewModelMapper.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs",
+                "Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs",
+                "Assets/_Features/Stages/Runtime/Load/PlayerCaptureLaunchBootstrap.cs",
+            };
+
+            foreach (var path in consumerPaths)
+            {
+                Assert.That(File.ReadAllText(path), Does.Not.Contain("SaveSlotData"), path);
+            }
+        }
+
+        [Test]
+        public void MainMenuPresentation_ConsumesSeparatedLaunchResultsWithoutValidationFacade()
+        {
+            const string validationFacadePath =
+                "Assets/_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs";
+            var controller = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
+            var mapper = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuSlotViewModelMapper.cs");
+
+            Assert.That(File.Exists(validationFacadePath), Is.False);
+            Assert.That(controller, Does.Contain("CampaignSlotLaunchEvaluator"));
+            Assert.That(controller, Does.Not.Contain("SaveSlotValidationResult"));
+            Assert.That(controller, Does.Not.Contain("SaveSlotValidationStatus"));
+            Assert.That(controller, Does.Not.Contain("SaveSlotValidationService"));
+            Assert.That(mapper, Does.Contain("CampaignSlotLaunchEvaluation"));
+            Assert.That(mapper, Does.Contain("CampaignSlotActionPolicy"));
+            Assert.That(mapper, Does.Not.Contain("SaveSlotValidationResult"));
+            Assert.That(mapper, Does.Not.Contain("SaveSlotValidationStatus"));
+            Assert.That(mapper, Does.Not.Contain("SaveSlotValidationService"));
+        }
+
+        [Test]
+        public void CampaignConsumers_RequestNarrowPortsWithoutRuntimeCastingOrMaintenanceWrites()
+        {
+            var consumerPaths = new[]
+            {
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
+                "Assets/_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
+                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/CampaignStageAchievementIntegration.cs",
+                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/NormalCampaignCompletionAchievementIntegration.cs",
+            };
+
+            foreach (var path in consumerPaths)
+            {
+                var source = File.ReadAllText(path);
+                Assert.That(source, Does.Not.Contain(" as ICampaign"), path);
+                Assert.That(source, Does.Not.Contain("ICampaignSlotMaintenancePort"), path);
+                Assert.That(source, Does.Not.Contain("ReplaceValidatedSlot("), path);
+            }
+        }
+
+        [Test]
+        public void CampaignCanonicalState_ConstructionAndMutationSurfaceIsOwnerRestricted()
+        {
+            var stateTypes = new[]
+            {
+                typeof(CampaignSlotState),
+                typeof(CampaignSlotEntry),
+                typeof(CampaignReceiptState),
+                typeof(CampaignCompletionReceiptState),
+                typeof(CampaignStagePerformanceState),
+                typeof(CampaignStageClearProfileState),
+                typeof(CampaignStageClearRecordState),
+            };
+
+            foreach (var stateType in stateTypes)
+            {
+                Assert.That(
+                    stateType.GetConstructors(BindingFlags.Public | BindingFlags.Instance),
+                    Is.Empty,
+                    $"{stateType.FullName} exposes a public constructor.");
+                foreach (var property in stateType.GetProperties(
+                             BindingFlags.Public | BindingFlags.Instance))
+                {
+                    Assert.That(property.SetMethod, Is.Null,
+                        $"{stateType.FullName}.{property.Name} exposes a public setter.");
+                }
+            }
+
+            var constructionTokens = new[]
+            {
+                "new CampaignSlotState(",
+                "new CampaignCompletionReceiptState(",
+                "new CampaignStagePerformanceState(",
+                "new CampaignStageClearProfileState(",
+                "new CampaignStageClearRecordState(",
+            };
+            var allowedOwnerPaths = new[]
+            {
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSlotState.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/CampaignSlotTransitionEngine.cs",
+            };
+            var runtimePaths = Directory.GetFiles(
+                "Assets/_Features",
+                "*.cs",
+                SearchOption.AllDirectories);
+            foreach (var path in runtimePaths)
+            {
+                var normalizedPath = path.Replace('\\', '/');
+                if (!normalizedPath.Contains("/Runtime/"))
+                {
+                    continue;
+                }
+
+                var source = File.ReadAllText(path);
+                foreach (var token in constructionTokens)
+                {
+                    if (!source.Contains(token))
+                    {
+                        continue;
+                    }
+
+                    Assert.That(allowedOwnerPaths, Does.Contain(normalizedPath),
+                        $"Canonical state construction escaped its parser/factory/engine owners: {path}");
+                }
+            }
+        }
+
+        [Test]
+        public void CampaignProductionAndTransient_ComposeTheSameAuthoritativeTransitionEngine()
+        {
+            var service = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveService.cs");
+            var transient = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/TransientCampaignState.cs");
+
+            foreach (var source in new[] { service, transient })
+            {
+                Assert.That(CountOccurrences(
+                    source,
+                    "CampaignSlotTransitionEngine.ApplyDeath"), Is.EqualTo(1));
+                Assert.That(CountOccurrences(
+                    source,
+                    "CampaignSlotTransitionEngine.ApplyStageClear"), Is.EqualTo(1));
+                Assert.That(CountOccurrences(
+                    source,
+                    "CampaignSlotTransitionEngine.ApplyComicCompletion"),
+                    Is.GreaterThanOrEqualTo(1));
+            }
+
+            Assert.That(service, Does.Not.Contain("CommitDeathCore"));
+            Assert.That(service, Does.Not.Contain("CommitStageClearCore"));
+            Assert.That(transient, Does.Not.Contain("CommitDeathCore"));
+            Assert.That(transient, Does.Not.Contain("CommitStageClearCore"));
+        }
+
+        [Test]
+        public void CampaignServiceTransientUiAndDirectPlay_DoNotDirectlyAssignGameplaySlotFields()
+        {
+            var guardedPaths = new[]
+            {
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveService.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/TransientCampaignState.cs",
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs",
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuSlotViewModelMapper.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
+                "Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs",
+                "Assets/_Features/Stages/Editor/StageEditorDirectPlayWindow.cs",
+                "Assets/_Features/Stages/Runtime/Load/PlayerCaptureLaunchBootstrap.cs",
+            };
+            var directAssignment = new Regex(
+                @"\.(CurrentStageId|CurrentLevelGroupId|RemainingChances|CampaignCompleted|" +
+                @"IntroComicCompleted|OutroComicCompleted|TotalDeaths|" +
+                @"NormalStagePerformanceRecords|StageClearProfile|Receipt)\s*" +
+                @"(=(?!=)|\+=|-=|\+\+|--)",
+                RegexOptions.CultureInvariant);
+
+            foreach (var path in guardedPaths)
+            {
+                var source = File.ReadAllText(path);
+                Assert.That(directAssignment.IsMatch(source), Is.False,
+                    $"{path} directly assigns an authoritative gameplay slot field.");
+            }
+        }
+
+        [Test]
+        public void CampaignStrictPersistenceMapper_HasOneCompleteWriteSurfaceAndNoRepairLogic()
+        {
+            var stateSource = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSlotState.cs");
+            var mapperStart = stateSource.IndexOf(
+                "internal static class CampaignSlotStateDocumentMapper",
+                StringComparison.Ordinal);
+            var mapperEnd = stateSource.IndexOf(
+                "internal static class CampaignSlotRawDocumentCloner",
+                mapperStart,
+                StringComparison.Ordinal);
+            Assert.That(mapperStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(mapperEnd, Is.GreaterThan(mapperStart));
+            var mapperSource = stateSource.Substring(
+                mapperStart,
+                mapperEnd - mapperStart);
+
+            Assert.That(mapperSource, Does.Not.Contain("continue;"));
+            Assert.That(mapperSource, Does.Not.Contain("Math.Max("));
+            Assert.That(mapperSource, Does.Not.Contain("Math.Min("));
+            Assert.That(mapperSource, Does.Not.Contain("Mathf.Clamp("));
+            Assert.That(mapperSource, Does.Not.Contain(".Normalize("));
+            Assert.That(mapperSource, Does.Not.Contain("DocumentValidator"));
+
+            var mapperType = typeof(CampaignSlotState).Assembly.GetType(
+                "Game.Feature.Stages.CampaignSlotStateDocumentMapper");
+            Assert.That(mapperType, Is.Not.Null);
+            var methods = mapperType.GetMethods(
+                BindingFlags.Static |
+                BindingFlags.Public |
+                BindingFlags.NonPublic |
+                BindingFlags.DeclaredOnly);
+            foreach (var method in methods)
+            {
+                if (method.Name == "ToDocument")
+                {
+                    Assert.That(method.GetParameters(), Has.Length.EqualTo(1));
+                    Assert.That(method.GetParameters()[0].ParameterType,
+                        Is.EqualTo(typeof(CampaignSlotState)));
+                    Assert.That(method.ReturnType,
+                        Is.EqualTo(typeof(CampaignSlotDocument)));
+                    continue;
+                }
+
+                Assert.That(method.IsPrivate, Is.True,
+                    $"Strict persistence fragment {method.Name} is externally callable.");
+            }
+        }
+
+        [Test]
+        public void CampaignRuntimeConsumers_CannotRequestRawFragmentsOrFullReplacement()
+        {
+            var rawMapperPublicMethods = typeof(CampaignSlotRawDataMapper).GetMethods(
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly);
+            foreach (var method in rawMapperPublicMethods)
+            {
+                Assert.That(method.Name, Does.Not.Contain("Receipt"));
+                Assert.That(method.Name, Does.Not.Contain("PerformanceRecord"));
+                Assert.That(method.Name, Does.Not.Contain("StageClearProfile"));
+                Assert.That(method.Name, Does.Not.Contain("PlayerStageClearRecord"));
+            }
+
+            var allowedRawBoundaryPaths = new[]
+            {
+                "Assets/_Features/Stages/Runtime/Campaign/SaveSlotModels.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignProfileDocumentMapper.cs",
+            };
+            var runtimePaths = Directory.GetFiles(
+                "Assets/_Features",
+                "*.cs",
+                SearchOption.AllDirectories);
+            foreach (var path in runtimePaths)
+            {
+                var normalizedPath = path.Replace('\\', '/');
+                if (!normalizedPath.Contains("/Runtime/"))
+                {
+                    continue;
+                }
+
+                var source = File.ReadAllText(path);
+                Assert.That(source, Does.Not.Contain("ReplaceValidatedSlot"), path);
+                if (source.Contains("CampaignSlotRawDataMapper"))
+                {
+                    Assert.That(allowedRawBoundaryPaths, Does.Contain(normalizedPath),
+                        $"Runtime consumer requested the public raw mapper: {path}");
+                }
+            }
+        }
+
+        [Test]
+        public void CampaignPersistenceComposition_HasNoPlayerPrefsCompatibilityPath()
+        {
+            var compositionPaths = new[]
+            {
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveServiceFactory.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/ActiveSlotStorage.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/Save/FileCampaignProfileRepository.cs",
+            };
+            var forbiddenTokens = new[]
+            {
+                "PlayerPrefs.",
+                "LegacyPlayerPrefsCampaignImporter",
+                "CampaignSaveMigrationCoordinator",
+                "PlayerPrefsCampaign",
+                "PlayerPrefsActiveSlot",
+                "DeleteKey(",
+            };
+
+            foreach (var path in compositionPaths)
+            {
+                var source = File.ReadAllText(path);
+                foreach (var token in forbiddenTokens)
+                {
+                    Assert.That(source, Does.Not.Contain(token),
+                        $"Campaign persistence composition regained {token}: {path}");
+                }
+            }
+
+            var assembly = typeof(CampaignSaveCompositionProvider).Assembly;
+            Assert.That(assembly.GetType(
+                "Game.Feature.Stages.LegacyPlayerPrefsCampaignImporter"), Is.Null);
+            Assert.That(assembly.GetType(
+                "Game.Feature.Stages.CampaignSaveMigrationCoordinator"), Is.Null);
+        }
+
+        [Test]
+        public void CampaignSavedChanceContract_RejectsZeroAtPolicyCommandAndDocumentBoundaries()
+        {
+            Assert.That(CampaignSaveSlotPolicy.DefaultRemainingChances, Is.EqualTo(3));
+            Assert.That(CampaignSaveSlotPolicy.MaxRemainingChances, Is.EqualTo(3));
+            Assert.That(CampaignSaveSlotPolicy.IsValidRemainingChances(0), Is.False);
+            Assert.That(CampaignSaveSlotPolicy.IsValidRemainingChances(1), Is.True);
+            Assert.That(CampaignSaveSlotPolicy.IsValidRemainingChances(2), Is.True);
+            Assert.That(CampaignSaveSlotPolicy.IsValidRemainingChances(3), Is.True);
+            Assert.That(CampaignSaveSlotPolicy.IsValidRemainingChances(4), Is.False);
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new CampaignSlotSeedImportRequest(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    "level-1",
+                    0,
+                    string.Empty));
+
+            var invalidDocument = CreateDocument("chance-zero-guard");
+            invalidDocument.Slots[0].RemainingChances = 0;
+            Assert.That(CampaignProfileDocumentValidator.Validate(invalidDocument),
+                Is.EqualTo(CampaignProfileDocumentValidationResult.InvalidDocument));
+            var parse = CampaignSlotParser.ParseEntry(1, invalidDocument.Slots[0]);
+            Assert.That(parse.IsSuccess, Is.False);
+            Assert.That(parse.Entry, Is.Null);
+
+            var saveBoundaryPaths = new[]
+            {
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSlotState.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/CampaignSlotTransitionEngine.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveService.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/TransientCampaignState.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/CampaignSavePorts.cs",
+                "Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs",
+                "Assets/_Features/Stages/Runtime/Load/PlayerCaptureLaunchBootstrap.cs",
+            };
+            foreach (var path in saveBoundaryPaths)
+            {
+                var source = File.ReadAllText(path);
+                Assert.That(source, Does.Not.Match(@"\bRemainingChances\s*=\s*0\b"),
+                    $"Saved chance zero sentinel re-entered {path}.");
+                Assert.That(source, Does.Not.Match(
+                        @"(?:Math\.Max|Mathf\.Clamp)\([^\r\n]*0[^\r\n]*RemainingChances"),
+                    $"Saved chance zero normalization re-entered {path}.");
+            }
         }
 
         [Test]
@@ -1362,6 +2211,19 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(source, Does.Contain("persisted current-schema profile"));
             Assert.That(source, Does.Contain("duplicate `StageId` performance records is invalid"));
             Assert.That(source, Does.Contain("fails closed before normalization"));
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            var count = 0;
+            var index = 0;
+            while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += value.Length;
+            }
+
+            return count;
         }
 
         private static CampaignProfileDocument CreateDocument(string profileId)
@@ -1429,8 +2291,59 @@ namespace Game.Feature.Stages.Editor.Tests
                 case "slot-chances-negative":
                     slot.RemainingChances = -1;
                     break;
+                case "slot-chances-zero":
+                    slot.RemainingChances = 0;
+                    break;
+                case "slot-chances-over-cap":
+                    slot.RemainingChances = CampaignSaveSlotPolicy.MaxRemainingChances + 1;
+                    break;
                 case "slot-deaths-negative":
                     slot.TotalDeaths = -1;
+                    break;
+                case "receipt-invalid":
+                    slot.HasNormalCampaignCompletionReceipt = true;
+                    slot.NormalCampaignCompletionReceipt =
+                        new NormalCampaignCompletionReceiptDocument
+                        {
+                            Version = NormalCampaignCompletionReceipt.CurrentVersion + 1,
+                            CompletedStageId = "stage-1-1",
+                            StageRunId = string.Empty,
+                            ClearSource = NormalCampaignCompletionReceipt.LegacyClearSourceAbsent,
+                        };
+                    break;
+                case "receipt-absent-populated":
+                    slot.HasNormalCampaignCompletionReceipt = false;
+                    slot.NormalCampaignCompletionReceipt =
+                        new NormalCampaignCompletionReceiptDocument
+                        {
+                            Version = NormalCampaignCompletionReceipt.CurrentVersion,
+                            CompletedStageId = "stage-1-1",
+                            StageRunId = string.Empty,
+                            ClearSource = NormalCampaignCompletionReceipt.LegacyClearSourceAbsent,
+                        };
+                    break;
+                case "receipt-absent-mixed-default-strings":
+                    slot.HasNormalCampaignCompletionReceipt = false;
+                    slot.NormalCampaignCompletionReceipt =
+                        new NormalCampaignCompletionReceiptDocument
+                        {
+                            Version = 0,
+                            CompletedStageId = string.Empty,
+                            StageRunId = null,
+                            ClearSource = 0,
+                        };
+                    break;
+                case "receipt-absent-null-pair-version-nonzero":
+                    SetAbsentReceiptResidue(slot, 1, null, null, 0);
+                    break;
+                case "receipt-absent-empty-pair-version-nonzero":
+                    SetAbsentReceiptResidue(slot, 1, string.Empty, string.Empty, 0);
+                    break;
+                case "receipt-absent-null-pair-source-nonzero":
+                    SetAbsentReceiptResidue(slot, 0, null, null, 1);
+                    break;
+                case "receipt-absent-empty-pair-source-nonzero":
+                    SetAbsentReceiptResidue(slot, 0, string.Empty, string.Empty, 1);
                     break;
                 case "performance-null":
                     slot.NormalStagePerformanceRecords = new NormalStagePerformanceRecordDocument[] { null };
@@ -1503,6 +2416,24 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             return document;
+        }
+
+        private static void SetAbsentReceiptResidue(
+            CampaignSlotDocument slot,
+            int version,
+            string completedStageId,
+            string stageRunId,
+            int clearSource)
+        {
+            slot.HasNormalCampaignCompletionReceipt = false;
+            slot.NormalCampaignCompletionReceipt =
+                new NormalCampaignCompletionReceiptDocument
+                {
+                    Version = version,
+                    CompletedStageId = completedStageId,
+                    StageRunId = stageRunId,
+                    ClearSource = clearSource,
+                };
         }
 
         private static SaveSlotData CreateLegacySlotFixture()

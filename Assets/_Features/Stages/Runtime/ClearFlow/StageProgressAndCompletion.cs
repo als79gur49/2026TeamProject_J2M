@@ -143,7 +143,9 @@ namespace Game.Feature.Stages
                 HasAttempted = HasAttempted,
                 HasCleared = HasCleared,
                 ClearCount = ClearCount,
-                ProcessedStageRunIds = (string[])(ProcessedStageRunIds ?? Array.Empty<string>()).Clone(),
+                ProcessedStageRunIds = ProcessedStageRunIds == null
+                    ? null
+                    : (string[])ProcessedStageRunIds.Clone(),
             };
         }
     }
@@ -160,26 +162,32 @@ namespace Game.Feature.Stages
 
         public StageClearProfileSnapshot Clone()
         {
-            var clearRecordsByStageId = new Dictionary<StageId, PlayerStageClearRecord>();
-            foreach (var pair in ClearRecordsByStageId)
+            Dictionary<StageId, PlayerStageClearRecord> clearRecordsByStageId = null;
+            if (ClearRecordsByStageId != null)
             {
-                clearRecordsByStageId[pair.Key] = pair.Value?.Clone();
+                clearRecordsByStageId = new Dictionary<StageId, PlayerStageClearRecord>(
+                    ClearRecordsByStageId.Count,
+                    ClearRecordsByStageId.Comparer);
+                foreach (var pair in ClearRecordsByStageId)
+                {
+                    clearRecordsByStageId[pair.Key] = pair.Value?.Clone();
+                }
             }
 
             return new StageClearProfileSnapshot
             {
                 Version = Version,
                 ClearRecordsByStageId = clearRecordsByStageId,
-                ProcessedStageRunIds = new HashSet<string>(ProcessedStageRunIds, StringComparer.Ordinal),
-                ProcessedClearAttemptIds = new HashSet<string>(ProcessedClearAttemptIds, StringComparer.Ordinal),
+                ProcessedStageRunIds = ProcessedStageRunIds == null
+                    ? null
+                    : new HashSet<string>(ProcessedStageRunIds, ProcessedStageRunIds.Comparer),
+                ProcessedClearAttemptIds = ProcessedClearAttemptIds == null
+                    ? null
+                    : new HashSet<string>(
+                        ProcessedClearAttemptIds,
+                        ProcessedClearAttemptIds.Comparer),
             };
         }
     }
 
-    public interface IStageClearProfileStore
-    {
-        StageClearProfileSnapshot Load();
-
-        void Save(StageClearProfileSnapshot snapshot);
-    }
 }

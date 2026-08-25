@@ -176,7 +176,8 @@ namespace Game.Feature.Stages.Editor.Tests
             PlayerPrefs.Save();
             var facade = CampaignSaveFacadeFactory.Create(harness.Options());
 
-            facade.CampaignSaveSlots.SaveSlot(CreateSlot(1));
+            facade.CampaignSaveSlots.ImportSlotSeed(
+                CampaignSlotRawDataMapper.ToSeedImportRequest(CreateSlot(1)));
             facade.CampaignSaveSlots.DeleteSlot(1);
             facade.CampaignSaveSlots.ClearAll();
 
@@ -190,7 +191,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void MissingLocalState_DoesNotReadActiveSlotPlayerPrefs()
         {
             using var harness = new SaveHarness();
-            var profileDocument = CampaignProfileDocumentMapper.ToDocument(
+            var profileDocument = CampaignSlotRawDataMapper.ToProfileDocument(
                 new[] { CreateSlot(2) },
                 "profile",
                 2,
@@ -325,7 +326,7 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
-        private sealed class RecordingSaveSlotStore : ICampaignSaveSlotStore
+        private sealed class RecordingSaveSlotStore : ICampaignSaveRuntime
         {
             private SaveSlotData _slot;
 
@@ -345,23 +346,49 @@ namespace Game.Feature.Stages.Editor.Tests
                 ? Array.Empty<SaveSlotData>()
                 : new[] { _slot };
 
+            CampaignSlotEntry[] ICampaignSaveQuery.LoadAll() => _slot == null
+                ? Array.Empty<CampaignSlotEntry>()
+                : new[]
+                {
+                    CampaignSlotEntry.Occupied(
+                        CampaignSlotRawDataMapper.ToState(_slot)),
+                };
+
             public CampaignSaveLoadResult LoadAllWithReport() =>
-                new CampaignSaveLoadResult(LoadAll(), LastCampaignLoadReport);
+                new CampaignSaveLoadResult(
+                    ((ICampaignSaveQuery)this).LoadAll(),
+                    LastCampaignLoadReport);
 
             public SaveSlotData LoadSlot(int slotNumber) =>
                 _slot != null && _slot.SlotNumber == slotNumber
                     ? _slot
                     : SaveSlotData.CreateEmpty(slotNumber);
 
-            public void SaveSlot(SaveSlotData slot) => _slot = slot;
+            CampaignSlotEntry ICampaignSaveQuery.LoadSlot(int slotNumber) =>
+                _slot != null && _slot.SlotNumber == slotNumber
+                    ? CampaignSlotEntry.Occupied(
+                        CampaignSlotRawDataMapper.ToState(_slot))
+                    : CampaignSlotEntry.Empty(slotNumber);
+
+            public CampaignContinuePreparationResult PrepareContinue(
+                CampaignContinuePreparationCommand command)
+            {
+                return CampaignContinuePreparationPolicy.Evaluate(
+                    _slot == null
+                        ? null
+                        : CampaignSlotRawDataMapper.ToState(_slot),
+                    command);
+            }
 
             public SaveSlotData InitializeNewGame(
                 int slotNumber,
                 CampaignStageSequenceResolver sequenceResolver,
                 string lastPlayedAt) => throw new NotSupportedException();
 
-            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation) =>
-                mutation(_slot);
+            CampaignSlotState ICampaignSlotLifecyclePort.InitializeNewGame(
+                int slotNumber,
+                CampaignStageSequenceResolver sequenceResolver,
+                string lastPlayedAt) => throw new NotSupportedException();
 
             public void DeleteSlot(int slotNumber)
             {
@@ -370,6 +397,39 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             public void ClearAll() => _slot = null;
+
+            public void MarkIntroComicCompleted(int slotNumber, StageId stageId) =>
+                throw new NotSupportedException();
+
+            public void MarkIntroComicCompleted(int slotNumber) =>
+                throw new NotSupportedException();
+
+            public void MarkOutroComicCompleted(int slotNumber, StageId stageId) =>
+                throw new NotSupportedException();
+
+            public void MarkOutroComicCompleted(int slotNumber) =>
+                throw new NotSupportedException();
+
+            public SaveSlotData SetActiveStageForDiagnostics(
+                int slotNumber,
+                StageId stageId,
+                string levelGroupId) => throw new NotSupportedException();
+
+            CampaignSlotState ICampaignDiagnosticSlotPort.SetActiveStageForDiagnostics(
+                int slotNumber,
+                StageId stageId,
+                string levelGroupId) => throw new NotSupportedException();
+
+            public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request) =>
+                throw new NotSupportedException();
+
+            public CampaignDeathCommitResult CommitDeath(
+                int slotNumber,
+                CampaignDeathTransitionPlan plan) => throw new NotSupportedException();
+
+            public CampaignStageClearCommitResult CommitStageClear(
+                int slotNumber,
+                CampaignStageClearCommitRequest request) => throw new NotSupportedException();
         }
 
         private sealed class RecordingActiveSlotStorage : IActiveSlotStorage

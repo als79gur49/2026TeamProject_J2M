@@ -56,10 +56,10 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly CampaignChanceDisplayOverride _displayOverride;
         private readonly CampaignRunningSlotContext _runningSlotContext;
-        private readonly ICampaignSaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveQuery _saveSlotStore;
 
         public SaveSlotCampaignChancesReadSource(
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSaveQuery saveSlotStore,
             CampaignRunningSlotContext runningSlotContext,
             CampaignChanceDisplayOverride displayOverride = null)
         {
@@ -102,12 +102,18 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var runningSlotNumber = _runningSlotContext.SlotNumber;
-            var slot = _saveSlotStore.LoadSlot(runningSlotNumber);
+            var entry = _saveSlotStore.LoadSlot(runningSlotNumber);
+            if (entry == null || entry.IsEmpty)
+            {
+                throw new InvalidOperationException(
+                    $"Campaign slot '{runningSlotNumber}' is empty or missing.");
+            }
+
+            var slot = entry.State;
             var launchStageId = StageLaunchContextStore.CurrentStageId;
-            var normalizedRemainingChances = slot.RemainingChances <= 0
-                ? CampaignSaveSlotPolicy.DefaultRemainingChances
-                : slot.RemainingChances;
-            remainingChances = Clamp(normalizedRemainingChances, 0, maxChances);
+            var validatedRemainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
+                slot.RemainingChances);
+            remainingChances = Clamp(validatedRemainingChances, 0, maxChances);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.SourceRead)
             {
                 SourceType = GetType().Name,

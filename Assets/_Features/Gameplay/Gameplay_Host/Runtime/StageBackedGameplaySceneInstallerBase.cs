@@ -40,7 +40,7 @@ namespace Game.Feature.Gameplay.Host
         private CampaignRunningSlotContext _runningSlotContext;
         private EditorDirectPlayContext _runtimeDirectPlayContext = EditorDirectPlayContext.None;
         private StagePresentationDefinition _resolvedPresentationDefinition;
-        private ICampaignSaveSlotStore _saveSlotStore;
+        private ICampaignSaveRuntime _saveSlotStore;
         private StageAudioResolvedData _resolvedAudioData = StageAudioAssembler.EmptyResolvedData;
         private readonly StageVisualRuntimeAdapter _stageVisualRuntimeAdapter = new();
         private readonly StageAudioRuntimeRequestSource _stageAudioRuntimeRequestSource = new();
@@ -67,6 +67,7 @@ namespace Game.Feature.Gameplay.Host
             context = new DemoStageControlGameplayContext(
                 stageCatalogProvider,
                 new DemoStageControlCampaignBridge(
+                    _saveSlotStore,
                     _saveSlotStore,
                     _activeSlotProvider,
                     sequenceResolver),
@@ -338,6 +339,7 @@ namespace Game.Feature.Gameplay.Host
             _campaignFlowController = new CampaignGameplayFlowController(
                 host,
                 _saveSlotStore,
+                _saveSlotStore,
                 _runningSlotContext,
                 RequireCampaignStageSequenceResolver(),
                 CreateStageLaunchRouter(gameObject, gameObject.scene.name),
@@ -591,16 +593,16 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private SaveSlotData LoadNonEmptySlot(int slotNumber)
+        private CampaignSlotState LoadNonEmptySlot(int slotNumber)
         {
-            var slot = _saveSlotStore.LoadSlot(slotNumber);
-            if (slot == null || slot.IsEmpty || !slot.CurrentStageId.IsValid)
+            var entry = _saveSlotStore.LoadSlot(slotNumber);
+            if (entry == null || entry.IsEmpty || !entry.State.CurrentStageId.IsValid)
             {
                 throw new System.InvalidOperationException(
                     $"Campaign slot '{slotNumber}' is empty or missing.");
             }
 
-            return slot;
+            return entry.State;
         }
 
         private static void CleanupCapturedLaunch(
@@ -672,14 +674,14 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class CampaignLaunchCommitTransaction
     {
-        private readonly ICampaignSaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveQuery _saveSlotStore;
         private readonly ActiveSlotProvider _activeSlotProvider;
         private readonly ICampaignLaunchHandoffStore _handoffStore;
         private readonly IStageLaunchContextCommitStore _contextStore;
         private readonly ICampaignRunningSlotContextFactory _runningFactory;
 
         public CampaignLaunchCommitTransaction(
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSaveQuery saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             ICampaignLaunchHandoffStore handoffStore,
             IStageLaunchContextCommitStore contextStore,
@@ -853,13 +855,15 @@ namespace Game.Feature.Gameplay.Host
             ValidateStageIds(expectedHandoff.StageId, resolvedStageId);
         }
 
-        private SaveSlotData LoadValidatedSlot(int slotNumber, StageId resolvedStageId)
+        private CampaignSlotState LoadValidatedSlot(int slotNumber, StageId resolvedStageId)
         {
-            var slot = _saveSlotStore.LoadSlot(slotNumber);
-            if (slot == null || slot.IsEmpty || !slot.CurrentStageId.IsValid)
+            var entry = _saveSlotStore.LoadSlot(slotNumber);
+            if (entry == null || entry.IsEmpty || !entry.State.CurrentStageId.IsValid)
             {
                 throw new System.InvalidOperationException($"Campaign slot '{slotNumber}' is empty or missing.");
             }
+
+            var slot = entry.State;
 
             if (!slot.CurrentStageId.Equals(resolvedStageId))
             {

@@ -162,7 +162,6 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SlotMapper_ResolvesEmptyInProgressAndCompletedCardsInEnglishAndKorean()
         {
-            var sequence = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var slots = new[]
             {
                 SaveSlotData.CreateEmpty(1),
@@ -188,7 +187,10 @@ namespace Game.Feature.UI.Tests
             };
             using var resolver = CreateUnityResolver();
 
-            var english = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
+            var english = MainMenuSlotViewModelMapper.Map(
+                CampaignStageSequenceTestAsset.BuildPresentationInputs(
+                    CampaignSlotRawDataMapper.ToEntries(slots)),
+                resolver);
             Assert.That(english.SlotCards[0].TitleText, Is.EqualTo("Slot 1"));
             Assert.That(english.SlotCards[0].StatusText, Is.EqualTo("Empty"));
             Assert.That(english.SlotCards[0].PrimaryActionText, Is.EqualTo("New Game"));
@@ -202,7 +204,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(english.SlotCards[2].PrimaryActionText, Is.EqualTo("Restart"));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
-            var korean = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
+            var korean = MainMenuSlotViewModelMapper.Map(
+                CampaignStageSequenceTestAsset.BuildPresentationInputs(
+                    CampaignSlotRawDataMapper.ToEntries(slots)),
+                resolver);
             Assert.That(korean.SlotCards[0].TitleText, Is.EqualTo("슬롯 1"));
             Assert.That(korean.SlotCards[0].StatusText, Is.EqualTo("비어 있음"));
             Assert.That(korean.SlotCards[0].PrimaryActionText, Is.EqualTo("새 게임"));
@@ -219,7 +224,6 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SlotMapper_ResolvesRepresentativeOfficialStageNamesWithoutChangingSlotFacts()
         {
-            var sequence = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var slots = new[]
             {
                 CreateInProgressSlot(1, "stage-0-1", 3, 1),
@@ -228,13 +232,19 @@ namespace Game.Feature.UI.Tests
             };
             using var resolver = CreateUnityResolver();
 
-            var english = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
+            var english = MainMenuSlotViewModelMapper.Map(
+                CampaignStageSequenceTestAsset.BuildPresentationInputs(
+                    CampaignSlotRawDataMapper.ToEntries(slots)),
+                resolver);
             Assert.That(
                 english.SlotCards.Select(card => card.StageText).ToArray(),
                 Is.EqualTo(new[] { "Stage Lab-01", "Stage Ward[A]-01", "Stage Morgue-01" }));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
-            var korean = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
+            var korean = MainMenuSlotViewModelMapper.Map(
+                CampaignStageSequenceTestAsset.BuildPresentationInputs(
+                    CampaignSlotRawDataMapper.ToEntries(slots)),
+                resolver);
             Assert.That(
                 korean.SlotCards.Select(card => card.StageText).ToArray(),
                 Is.EqualTo(new[] { "스테이지 연구실-01", "스테이지 A병동-01", "스테이지 영안실-01" }));
@@ -261,15 +271,21 @@ namespace Game.Feature.UI.Tests
                 var entry = new CampaignStageSequenceEntry();
                 entry.Set(StageId.CreateOrThrow("stage-0-1"), "level-0");
                 definition.SetEntries(new[] { entry });
+                var immutableEntry = CampaignSlotRawDataMapper.ToEntry(
+                        new SaveSlotData
+                        {
+                            SlotNumber = 1,
+                            CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
+                            CurrentLevelGroupId = "level-0",
+                        });
+                var sequenceResolver = new CampaignStageSequenceResolver(definition);
+                var evaluation = CampaignStageSequenceTestAsset
+                    .LoadProductionLaunchEvaluator(sequenceResolver)
+                    .Evaluate(immutableEntry);
                 var card = MainMenuSlotViewModelMapper.MapSlot(
-                    new SaveSlotData
-                    {
-                        SlotNumber = 1,
-                        CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
-                        CurrentLevelGroupId = "level-0",
-                    },
-                    new CampaignStageSequenceResolver(definition),
-                    null,
+                    immutableEntry,
+                    evaluation,
+                    CampaignSlotActionPolicy.Evaluate(evaluation),
                     PackageFreeLocalizedTextResolver.CreateSettingsDefault());
 
                 Assert.That(card.StageText, Is.EqualTo("Stage Lab-01"));
@@ -407,8 +423,11 @@ namespace Game.Feature.UI.Tests
             });
             var controller = new MainMenuController(
                 store,
+                store,
+                store,
                 new NoOpHandoffStore(),
                 CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                CampaignStageSequenceTestAsset.LoadProductionLaunchEvaluator(),
                 new NoOpLaunchRouter(),
                 new RecordingConfirmPort(),
                 localizedTextResolver: resolver);
@@ -457,8 +476,11 @@ namespace Game.Feature.UI.Tests
                     "CampaignProfileDocument"));
             var controller = new MainMenuController(
                 store,
+                store,
+                store,
                 new NoOpHandoffStore(),
                 CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                CampaignStageSequenceTestAsset.LoadProductionLaunchEvaluator(),
                 new NoOpLaunchRouter(),
                 new RecordingConfirmPort(),
                 localizedTextResolver: resolver);
@@ -540,7 +562,7 @@ namespace Game.Feature.UI.Tests
             var view = File.ReadAllText(
                 "Assets/_Features/UI/UI_Screens/Runtime/SaveSlotCardView.cs");
             var domain = File.ReadAllText(
-                "Assets/_Features/Stages/Runtime/Campaign/ICampaignSaveSlotStore.cs");
+                "Assets/_Features/Stages/Runtime/Campaign/CampaignSavePorts.cs");
 
             foreach (var forbidden in new[]
                      {
@@ -629,7 +651,10 @@ namespace Game.Feature.UI.Tests
         }
     }
 
-    internal sealed class InMemorySaveStore : ICampaignSaveSlotStore
+    internal sealed class InMemorySaveStore :
+        ICampaignSaveQuery,
+        ICampaignContinuePreparationPort,
+        ICampaignSlotLifecyclePort
     {
         private readonly SaveSlotData[] _slots;
         private readonly CampaignSaveLoadReport _report;
@@ -648,14 +673,26 @@ namespace Game.Feature.UI.Tests
 
         public SaveSlotData[] LoadAll() => _slots.Select(slot => slot.Clone()).ToArray();
 
+        CampaignSlotEntry[] ICampaignSaveQuery.LoadAll() =>
+            LoadAll().Select(ToEntry).ToArray();
+
         public CampaignSaveLoadResult LoadAllWithReport() =>
-            new CampaignSaveLoadResult(LoadAll(), LastCampaignLoadReport);
+            new CampaignSaveLoadResult(
+                ((ICampaignSaveQuery)this).LoadAll(),
+                LastCampaignLoadReport);
 
         public SaveSlotData LoadSlot(int slotNumber) =>
             _slots.First(slot => slot.SlotNumber == slotNumber).Clone();
 
-        public void SaveSlot(SaveSlotData slot)
+        CampaignSlotEntry ICampaignSaveQuery.LoadSlot(int slotNumber) =>
+            ToEntry(LoadSlot(slotNumber));
+
+        public CampaignContinuePreparationResult PrepareContinue(
+            CampaignContinuePreparationCommand command)
         {
+            return CampaignContinuePreparationPolicy.Evaluate(
+                ToEntry(LoadSlot(command.SlotNumber)).State,
+                command);
         }
 
         public SaveSlotData InitializeNewGame(
@@ -663,9 +700,11 @@ namespace Game.Feature.UI.Tests
             CampaignStageSequenceResolver sequenceResolver,
             string lastPlayedAt) => SaveSlotData.CreateNewGame(slotNumber, sequenceResolver, lastPlayedAt);
 
-        public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
-        {
-        }
+        CampaignSlotState ICampaignSlotLifecyclePort.InitializeNewGame(
+            int slotNumber,
+            CampaignStageSequenceResolver sequenceResolver,
+            string lastPlayedAt) => CampaignSlotRawDataMapper.ToState(
+                InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt));
 
         public void DeleteSlot(int slotNumber)
         {
@@ -674,6 +713,11 @@ namespace Game.Feature.UI.Tests
         public void ClearAll()
         {
         }
+
+        private static CampaignSlotEntry ToEntry(SaveSlotData slot) => slot.IsEmpty
+            ? CampaignSlotEntry.Empty(slot.SlotNumber)
+            : CampaignSlotEntry.Occupied(
+                CampaignSlotRawDataMapper.ToState(slot));
     }
 
     internal sealed class NoOpHandoffStore : ICampaignLaunchHandoffStore

@@ -1336,14 +1336,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var activeSlotProvider = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = launchStageId,
-                CurrentLevelGroupId = "level-01",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                launchStageId,
+                "level-01",
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                DateTimeOffset.UtcNow.ToString("O")));
             activeSlotProvider.SetActiveSlot(1);
 
             EditorDirectPlayContextStore.SetCurrent(

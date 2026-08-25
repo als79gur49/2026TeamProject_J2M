@@ -59,42 +59,293 @@ namespace Game.Feature.Stages
     public readonly struct CampaignSaveLoadResult
     {
         public CampaignSaveLoadResult(
-            SaveSlotData[] slots,
+            CampaignSlotEntry[] slots,
             CampaignSaveLoadReport report)
         {
-            Slots = slots ?? Array.Empty<SaveSlotData>();
+            Slots = slots == null
+                ? Array.Empty<CampaignSlotEntry>()
+                : (CampaignSlotEntry[])slots.Clone();
             Report = report;
         }
 
-        public SaveSlotData[] Slots { get; }
+        public CampaignSlotEntry[] Slots { get; }
 
         public CampaignSaveLoadReport Report { get; }
     }
 
-    public interface ICampaignSaveSlotStore
+    public sealed class CampaignStageClearCommitRequest
+    {
+        public CampaignStageClearTransitionPlan Plan { get; set; }
+
+        public NormalCampaignCompletionReceipt CompletionReceipt { get; set; }
+
+        public NormalStagePerformanceRecord PerformanceRecord { get; set; }
+    }
+
+    public sealed class CampaignDeathCommitResult
+    {
+        public CampaignDeathCommitResult(CampaignSlotState slot)
+        {
+            Slot = slot ?? throw new ArgumentNullException(nameof(slot));
+        }
+
+        public CampaignSlotState Slot { get; }
+    }
+
+    public sealed class CampaignStageClearCommitResult
+    {
+        public CampaignStageClearCommitResult(
+            CampaignSlotState slot,
+            int previousRemainingChances)
+        {
+            Slot = slot ?? throw new ArgumentNullException(nameof(slot));
+            PreviousRemainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
+                previousRemainingChances);
+        }
+
+        public CampaignSlotState Slot { get; }
+
+        public int PreviousRemainingChances { get; }
+    }
+
+    public interface ICampaignProgressionCommitter
+    {
+        CampaignDeathCommitResult CommitDeath(
+            int slotNumber,
+            CampaignDeathTransitionPlan plan);
+
+        CampaignStageClearCommitResult CommitStageClear(
+            int slotNumber,
+            CampaignStageClearCommitRequest request);
+    }
+
+    public interface ICampaignSaveQuery
     {
         string DiagnosticsKey { get; }
 
         CampaignSaveLoadReport LastCampaignLoadReport { get; }
 
-        SaveSlotData[] LoadAll();
+        CampaignSlotEntry[] LoadAll();
 
         CampaignSaveLoadResult LoadAllWithReport();
 
-        SaveSlotData LoadSlot(int slotNumber);
+        CampaignSlotEntry LoadSlot(int slotNumber);
+    }
 
-        void SaveSlot(SaveSlotData slot);
+    public sealed class CampaignContinuePreparationCommand
+    {
+        public CampaignContinuePreparationCommand(
+            int slotNumber,
+            StageId expectedStageId,
+            string expectedPersistedLevelGroupId,
+            string targetLevelGroupId)
+        {
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!expectedStageId.IsValid)
+            {
+                throw new ArgumentException(
+                    "Continue preparation requires a valid expected StageId.",
+                    nameof(expectedStageId));
+            }
 
-        SaveSlotData InitializeNewGame(
+            SlotNumber = slotNumber;
+            ExpectedStageId = expectedStageId;
+            ExpectedPersistedLevelGroupId = expectedPersistedLevelGroupId ??
+                throw new ArgumentNullException(nameof(expectedPersistedLevelGroupId));
+            TargetLevelGroupId = targetLevelGroupId ??
+                throw new ArgumentNullException(nameof(targetLevelGroupId));
+        }
+
+        public int SlotNumber { get; }
+
+        public StageId ExpectedStageId { get; }
+
+        public string ExpectedPersistedLevelGroupId { get; }
+
+        public string TargetLevelGroupId { get; }
+    }
+
+    public enum CampaignContinuePreparationStatus
+    {
+        Prepared = 0,
+        SlotMissing = 1,
+        StalePrecondition = 2,
+    }
+
+    public sealed class CampaignContinuePreparationResult
+    {
+        private CampaignContinuePreparationResult(
+            CampaignContinuePreparationStatus status,
+            CampaignSlotState committedState,
+            bool levelGroupSynchronized)
+        {
+            Status = status;
+            CommittedState = committedState;
+            LevelGroupSynchronized = levelGroupSynchronized;
+        }
+
+        public CampaignContinuePreparationStatus Status { get; }
+
+        public bool Succeeded => Status == CampaignContinuePreparationStatus.Prepared;
+
+        public CampaignSlotState CommittedState { get; }
+
+        public bool LevelGroupSynchronized { get; }
+
+        public static CampaignContinuePreparationResult Prepared(
+            CampaignSlotState committedState,
+            bool levelGroupSynchronized)
+        {
+            return new CampaignContinuePreparationResult(
+                CampaignContinuePreparationStatus.Prepared,
+                committedState ?? throw new ArgumentNullException(nameof(committedState)),
+                levelGroupSynchronized);
+        }
+
+        public static CampaignContinuePreparationResult SlotMissing()
+        {
+            return new CampaignContinuePreparationResult(
+                CampaignContinuePreparationStatus.SlotMissing,
+                null,
+                levelGroupSynchronized: false);
+        }
+
+        public static CampaignContinuePreparationResult StalePrecondition()
+        {
+            return new CampaignContinuePreparationResult(
+                CampaignContinuePreparationStatus.StalePrecondition,
+                null,
+                levelGroupSynchronized: false);
+        }
+    }
+
+    public interface ICampaignContinuePreparationPort
+    {
+        CampaignContinuePreparationResult PrepareContinue(
+            CampaignContinuePreparationCommand command);
+    }
+
+    internal static class CampaignContinuePreparationPolicy
+    {
+        internal static CampaignContinuePreparationResult Evaluate(
+            CampaignSlotState current,
+            CampaignContinuePreparationCommand command)
+        {
+            if (command == null)
+            {
+                throw new ArgumentNullException(nameof(command));
+            }
+
+            if (current == null)
+            {
+                return CampaignContinuePreparationResult.SlotMissing();
+            }
+
+            if (current.CampaignCompleted ||
+                current.SlotNumber != command.SlotNumber ||
+                !current.CurrentStageId.Equals(command.ExpectedStageId) ||
+                !string.Equals(
+                    current.CurrentLevelGroupId,
+                    command.ExpectedPersistedLevelGroupId,
+                    StringComparison.Ordinal))
+            {
+                return CampaignContinuePreparationResult.StalePrecondition();
+            }
+
+            var synchronized = !string.Equals(
+                current.CurrentLevelGroupId,
+                command.TargetLevelGroupId,
+                StringComparison.Ordinal);
+            return CampaignContinuePreparationResult.Prepared(
+                synchronized
+                    ? CampaignSlotStateFactory.WithCurrentLevelGroup(
+                        current,
+                        command.TargetLevelGroupId)
+                    : current,
+                synchronized);
+        }
+    }
+
+    public interface ICampaignSlotLifecyclePort
+    {
+        CampaignSlotState InitializeNewGame(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
             string lastPlayedAt);
 
-        void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation);
-
         void DeleteSlot(int slotNumber);
 
         void ClearAll();
+    }
+
+    public interface ICampaignComicProgressPort
+    {
+        void MarkIntroComicCompleted(int slotNumber);
+
+        void MarkOutroComicCompleted(int slotNumber);
+    }
+
+    public interface ICampaignDiagnosticSlotPort
+    {
+        CampaignSlotState SetActiveStageForDiagnostics(
+            int slotNumber,
+            StageId stageId,
+            string levelGroupId);
+    }
+
+    public sealed class CampaignSlotSeedImportRequest
+    {
+        public CampaignSlotSeedImportRequest(
+            int slotNumber,
+            StageId stageId,
+            string levelGroupId,
+            int remainingChances,
+            string lastPlayedAt)
+        {
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!stageId.IsValid)
+            {
+                throw new ArgumentException(
+                    "Campaign slot seed import requires a valid StageId.",
+                    nameof(stageId));
+            }
+
+            SlotNumber = slotNumber;
+            StageId = stageId;
+            LevelGroupId = levelGroupId ?? string.Empty;
+            RemainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
+                remainingChances);
+            LastPlayedAt = lastPlayedAt ?? string.Empty;
+        }
+
+        public int SlotNumber { get; }
+
+        public StageId StageId { get; }
+
+        public string LevelGroupId { get; }
+
+        public int RemainingChances { get; }
+
+        public string LastPlayedAt { get; }
+    }
+
+    public interface ICampaignSlotSeedImportPort
+    {
+        CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request);
+    }
+
+    /// <summary>
+    /// Composition-root aggregate. Runtime consumers should request the narrowest port above.
+    /// </summary>
+    public interface ICampaignSaveRuntime :
+        ICampaignSaveQuery,
+        ICampaignContinuePreparationPort,
+        ICampaignSlotLifecyclePort,
+        ICampaignComicProgressPort,
+        ICampaignDiagnosticSlotPort,
+        ICampaignSlotSeedImportPort,
+        ICampaignProgressionCommitter
+    {
     }
 
     [Flags]

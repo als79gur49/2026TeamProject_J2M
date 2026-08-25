@@ -16,11 +16,11 @@ namespace Game.Feature.Stages
     public sealed class LocalStateActiveSlotStorage : IActiveSlotStorage
     {
         private readonly ICampaignLocalLaunchStateRepository _repository;
-        private readonly ICampaignSaveSlotStore _profileSlots;
+        private readonly ICampaignSaveQuery _profileSlots;
 
         public LocalStateActiveSlotStorage(
             ICampaignLocalLaunchStateRepository repository,
-            ICampaignSaveSlotStore profileSlots)
+            ICampaignSaveQuery profileSlots)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _profileSlots = profileSlots ?? throw new ArgumentNullException(nameof(profileSlots));
@@ -138,14 +138,14 @@ namespace Game.Feature.Stages
         }
     }
 
-    public sealed class CampaignLaunchStateRepairingCampaignSaveSlotStore : ICampaignSaveSlotStore
+    public sealed class CampaignLaunchStateRepairingCampaignSaveSlotStore : ICampaignSaveRuntime
     {
-        private readonly ICampaignSaveSlotStore _inner;
+        private readonly ICampaignSaveRuntime _inner;
         private readonly IActiveSlotStorage _activeSlotStorage;
         private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
 
         public CampaignLaunchStateRepairingCampaignSaveSlotStore(
-            ICampaignSaveSlotStore inner,
+            ICampaignSaveRuntime inner,
             IActiveSlotStorage activeSlotStorage,
             ICampaignLaunchHandoffStore launchHandoffStore)
         {
@@ -158,7 +158,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveLoadReport LastCampaignLoadReport => _inner.LastCampaignLoadReport;
 
-        public SaveSlotData[] LoadAll()
+        public CampaignSlotEntry[] LoadAll()
         {
             return _inner.LoadAll();
         }
@@ -168,80 +168,66 @@ namespace Game.Feature.Stages
             return _inner.LoadAllWithReport();
         }
 
-        public SaveSlotData LoadSlot(int slotNumber)
+        public CampaignSlotEntry LoadSlot(int slotNumber)
         {
             return _inner.LoadSlot(slotNumber);
         }
 
-        public void SaveSlot(SaveSlotData slot)
+        public CampaignContinuePreparationResult PrepareContinue(
+            CampaignContinuePreparationCommand command)
         {
-            if (slot == null)
-            {
-                throw new ArgumentNullException(nameof(slot));
-            }
-
-            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slot.SlotNumber);
-            if (slot.IsEmpty)
-            {
-                DeleteSlot(slot.SlotNumber);
-                return;
-            }
-
-            _inner.SaveSlot(slot);
+            return _inner.PrepareContinue(command);
         }
 
-        public SaveSlotData InitializeNewGame(
+        public CampaignSlotState InitializeNewGame(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
             string lastPlayedAt)
         {
-            return _inner.InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt);
+            return _inner.InitializeNewGame(
+                slotNumber,
+                sequenceResolver,
+                lastPlayedAt);
         }
 
-        public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
+        public void MarkIntroComicCompleted(int slotNumber)
         {
-            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            if (mutation == null)
-            {
-                throw new ArgumentNullException(nameof(mutation));
-            }
+            _inner.MarkIntroComicCompleted(slotNumber);
+        }
 
-            var updatedSlotIsEmpty = false;
-            var updatedSlotWasActive = false;
-            var updatedSlotWasPending = false;
-            CampaignLaunchHandoff pendingHandoff = null;
-            _inner.UpdateSlot(slotNumber, slot =>
-            {
-                mutation(slot);
-                slot.SlotNumber = slotNumber;
-                updatedSlotIsEmpty = slot.IsEmpty;
-                if (!updatedSlotIsEmpty)
-                {
-                    return;
-                }
+        public void MarkOutroComicCompleted(int slotNumber)
+        {
+            _inner.MarkOutroComicCompleted(slotNumber);
+        }
 
-                updatedSlotWasActive =
-                    _activeSlotStorage.TryGetActiveSlot(out var activeSlotNumber) &&
-                    activeSlotNumber == slotNumber;
-                updatedSlotWasPending =
-                    _launchHandoffStore.TryPeek(out pendingHandoff) &&
-                    pendingHandoff.SlotNumber == slotNumber;
-            });
+        public CampaignSlotState SetActiveStageForDiagnostics(
+            int slotNumber,
+            StageId stageId,
+            string levelGroupId)
+        {
+            return _inner.SetActiveStageForDiagnostics(
+                slotNumber,
+                stageId,
+                levelGroupId);
+        }
 
-            if (!updatedSlotIsEmpty)
-            {
-                return;
-            }
+        public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request)
+        {
+            return _inner.ImportSlotSeed(request);
+        }
 
-            if (updatedSlotWasPending)
-            {
-                _launchHandoffStore.TryClear(pendingHandoff.Token);
-            }
+        public CampaignDeathCommitResult CommitDeath(
+            int slotNumber,
+            CampaignDeathTransitionPlan plan)
+        {
+            return _inner.CommitDeath(slotNumber, plan);
+        }
 
-            if (updatedSlotWasActive)
-            {
-                _activeSlotStorage.ClearActiveSlot();
-            }
+        public CampaignStageClearCommitResult CommitStageClear(
+            int slotNumber,
+            CampaignStageClearCommitRequest request)
+        {
+            return _inner.CommitStageClear(slotNumber, request);
         }
 
         public void DeleteSlot(int slotNumber)
@@ -275,6 +261,7 @@ namespace Game.Feature.Stages
 
             _activeSlotStorage.ClearActiveSlot();
         }
+
     }
 
     public sealed class CampaignLaunchStateRepairingCampaignSaveRecoveryPort : ICampaignSaveRecoveryPort

@@ -52,8 +52,8 @@ namespace Game.Feature.UI.Tests
             var router = new RecordingStageLaunchRouter();
             var selectedStage = StageId.CreateOrThrow("stage-1-2");
             var otherStage = StageId.CreateOrThrow("stage-3-1");
-            saveStore.SaveSlot(CreateExistingSlot(1, selectedStage));
-            saveStore.SaveSlot(CreateExistingSlot(3, otherStage));
+            saveStore.ImportSlotSeed(CreateExistingSlot(1, selectedStage));
+            saveStore.ImportSlotSeed(CreateExistingSlot(3, otherStage));
             var controller = CreateController(saveStore, handoffStore, router);
 
             controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.Continue));
@@ -73,7 +73,9 @@ namespace Game.Feature.UI.Tests
                 saveStore,
                 new RecordingCampaignLaunchHandoffStore(),
                 new RecordingStageLaunchRouter());
-            saveStore.SaveSlot(CreateExistingSlot(2, StageId.CreateOrThrow("stage-2-1")));
+            saveStore.ImportSlotSeed(CreateExistingSlot(
+                2,
+                StageId.CreateOrThrow("stage-2-1")));
 
             var viewModel = controller.BuildViewModel();
 
@@ -118,20 +120,25 @@ namespace Game.Feature.UI.Tests
         {
             return new MainMenuController(
                 saveStore,
+                saveStore,
+                saveStore,
                 handoffStore,
                 CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                CampaignStageSequenceTestAsset.LoadProductionLaunchEvaluator(),
                 router,
                 new ImmediateConfirmPopupPort());
         }
 
-        private static SaveSlotData CreateExistingSlot(int slotNumber, StageId stageId)
+        private static CampaignSlotSeedImportRequest CreateExistingSlot(
+            int slotNumber,
+            StageId stageId)
         {
-            return new SaveSlotData
-            {
-                SlotNumber = slotNumber,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = $"level-{slotNumber}",
-            };
+            return new CampaignSlotSeedImportRequest(
+                slotNumber,
+                stageId,
+                $"level-{slotNumber}",
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                string.Empty);
         }
 
         private static string CreateTransientNamespace(string suffix)

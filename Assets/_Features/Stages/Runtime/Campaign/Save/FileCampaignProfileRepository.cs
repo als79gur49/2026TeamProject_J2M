@@ -101,7 +101,7 @@ namespace Game.Feature.Stages
 
         private void Save(CampaignProfileDocument document, bool destructive)
         {
-            if (Validate(document) != CampaignProfileLoadStatus.Loaded)
+            if (ValidateAndMaterialize(document) != CampaignProfileLoadStatus.Loaded)
             {
                 throw new ArgumentException("Campaign profile document is invalid.", nameof(document));
             }
@@ -267,7 +267,7 @@ namespace Game.Feature.Stages
                 return ProfileReadResult.Corrupt;
             }
 
-            switch (Validate(document))
+            switch (ValidateAndMaterialize(document))
             {
                 case CampaignProfileLoadStatus.Loaded:
                     return ProfileReadResult.Valid;
@@ -278,7 +278,8 @@ namespace Game.Feature.Stages
             }
         }
 
-        private static CampaignProfileLoadStatus Validate(CampaignProfileDocument document)
+        private static CampaignProfileLoadStatus ValidateAndMaterialize(
+            CampaignProfileDocument document)
         {
             var validation = CampaignProfileDocumentValidator.Validate(document);
             if (validation == CampaignProfileDocumentValidationResult.UnsupportedVersion)
@@ -291,41 +292,9 @@ namespace Game.Feature.Stages
                 return CampaignProfileLoadStatus.InvalidDocument;
             }
 
-            document.Slots ??= Array.Empty<CampaignSlotDocument>();
-            for (var i = 0; i < document.Slots.Length; i++)
-            {
-                Normalize(document.Slots[i]);
-            }
+            CampaignProfileDocumentMaterializer.MaterializeValidated(document);
 
             return CampaignProfileLoadStatus.Loaded;
-        }
-
-        private static void Normalize(CampaignSlotDocument slot)
-        {
-            if (slot == null)
-            {
-                return;
-            }
-
-            if (!slot.HasNormalCampaignCompletionReceipt)
-            {
-                slot.NormalCampaignCompletionReceipt = null;
-            }
-
-            slot.StageClearProfileSnapshot ??= new CampaignStageClearProfileDocument();
-            slot.NormalStagePerformanceRecords ??=
-                Array.Empty<NormalStagePerformanceRecordDocument>();
-            slot.StageClearProfileSnapshot.Records ??= Array.Empty<PlayerStageClearRecordDocument>();
-            slot.StageClearProfileSnapshot.ProcessedStageRunIds ??= Array.Empty<string>();
-            slot.StageClearProfileSnapshot.ProcessedClearAttemptIds ??= Array.Empty<string>();
-            for (var i = 0; i < slot.StageClearProfileSnapshot.Records.Length; i++)
-            {
-                var record = slot.StageClearProfileSnapshot.Records[i];
-                if (record != null)
-                {
-                    record.ProcessedStageRunIds ??= Array.Empty<string>();
-                }
-            }
         }
 
         private enum ProfileReadResult

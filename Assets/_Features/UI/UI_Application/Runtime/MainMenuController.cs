@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
@@ -16,9 +17,11 @@ namespace Game.Feature.UI.Application
         private readonly IConfirmPopupPort _confirmPopupPort;
         private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
         private readonly IStageLaunchRouter _stageLaunchRouter;
-        private readonly ICampaignSaveSlotStore _saveSlotStore;
-        private readonly SaveSlotValidationService _saveSlotValidationService;
+        private readonly ICampaignSaveQuery _saveSlotStore;
+        private readonly ICampaignSlotLifecyclePort _slotLifecyclePort;
+        private readonly ICampaignContinuePreparationPort _continuePreparationPort;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
+        private readonly CampaignSlotLaunchEvaluator _slotLaunchEvaluator;
         private readonly ILocalizedTextResolver _localizedTextResolver;
         private readonly IMainMenuSaveDiagnosticPort _saveDiagnosticPort;
         private readonly ICampaignSaveRecoveryPort _saveRecoveryPort;
@@ -27,23 +30,30 @@ namespace Game.Feature.UI.Application
         private bool _isDisposed;
 
         public MainMenuController(
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSaveQuery saveSlotStore,
+            ICampaignSlotLifecyclePort slotLifecyclePort,
+            ICampaignContinuePreparationPort continuePreparationPort,
             ICampaignLaunchHandoffStore launchHandoffStore,
             CampaignStageSequenceResolver sequenceResolver,
+            CampaignSlotLaunchEvaluator slotLaunchEvaluator,
             IStageLaunchRouter stageLaunchRouter,
             IConfirmPopupPort confirmPopupPort,
-            SaveSlotValidationService saveSlotValidationService = null,
             ILocalizedTextResolver localizedTextResolver = null,
             IMainMenuSaveDiagnosticPort saveDiagnosticPort = null,
             ICampaignSaveRecoveryPort saveRecoveryPort = null)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
+            _slotLifecyclePort = slotLifecyclePort ??
+                throw new ArgumentNullException(nameof(slotLifecyclePort));
+            _continuePreparationPort = continuePreparationPort ??
+                throw new ArgumentNullException(nameof(continuePreparationPort));
             _launchHandoffStore = launchHandoffStore ??
                 throw new ArgumentNullException(nameof(launchHandoffStore));
             _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
+            _slotLaunchEvaluator = slotLaunchEvaluator ??
+                throw new ArgumentNullException(nameof(slotLaunchEvaluator));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _confirmPopupPort = confirmPopupPort ?? throw new ArgumentNullException(nameof(confirmPopupPort));
-            _saveSlotValidationService = saveSlotValidationService;
             _localizedTextResolver = localizedTextResolver ??
                 InvariantSettingsLocalizedTextResolver.Instance;
             _saveDiagnosticPort = saveDiagnosticPort ??
@@ -71,9 +81,7 @@ namespace Game.Feature.UI.Application
             }
 
             return MainMenuSlotViewModelMapper.Map(
-                loadResult.Slots,
-                _sequenceResolver,
-                _saveSlotValidationService,
+                BuildPresentationInputs(loadResult.Slots),
                 _localizedTextResolver);
         }
 
@@ -123,8 +131,10 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            var validation = Validate(slotNumber);
-            if (validation.Status == SaveSlotValidationStatus.Empty)
+            var entry = _saveSlotStore.LoadSlot(slotNumber);
+            var evaluation = _slotLaunchEvaluator.Evaluate(entry);
+            var actionPolicy = CampaignSlotActionPolicy.Evaluate(evaluation);
+            if (entry.IsEmpty)
             {
                 StartNewGame(
                     slotNumber,
@@ -133,7 +143,7 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            if (!validation.CanContinue)
+            if (!actionPolicy.CanContinue || evaluation.State == null)
             {
                 RefreshViewModel();
                 return;
@@ -141,7 +151,7 @@ namespace Game.Feature.UI.Application
 
             if (!TryReserveLaunch(
                     slotNumber,
-                    validation.Slot.CurrentStageId,
+                    evaluation.ResolvedStageId,
                     StageNavigationKind.Continue,
                     "main-menu-continue",
                     out var handoff))
@@ -151,9 +161,26 @@ namespace Game.Feature.UI.Application
 
             try
             {
-                if (validation.RequiresSaveSync)
+                var preparation = _continuePreparationPort.PrepareContinue(
+                    new CampaignContinuePreparationCommand(
+                        slotNumber,
+                        evaluation.State.CurrentStageId,
+                        evaluation.State.CurrentLevelGroupId,
+                        evaluation.ResolvedLevelGroupId));
+                var committedState = preparation.CommittedState;
+                if (!preparation.Succeeded ||
+                    committedState == null ||
+                    committedState.CampaignCompleted ||
+                    committedState.SlotNumber != handoff.SlotNumber ||
+                    !committedState.CurrentStageId.Equals(handoff.StageId) ||
+                    !string.Equals(
+                        committedState.CurrentLevelGroupId,
+                        evaluation.ResolvedLevelGroupId,
+                        StringComparison.Ordinal))
                 {
-                    _saveSlotStore.SaveSlot(validation.Slot);
+                    _launchHandoffStore.TryClear(handoff.Token);
+                    RefreshViewModel();
+                    return;
                 }
 
                 TryRouteOwnedLaunch(handoff);
@@ -161,6 +188,7 @@ namespace Game.Feature.UI.Application
             catch
             {
                 _launchHandoffStore.TryClear(handoff.Token);
+                RefreshViewModel();
                 throw;
             }
         }
@@ -244,7 +272,7 @@ namespace Game.Feature.UI.Application
                             return;
                         }
 
-                        _saveSlotStore.DeleteSlot(slotNumber);
+                        _slotLifecyclePort.DeleteSlot(slotNumber);
                         if (_launchHandoffStore.TryPeek(out var pendingHandoff) &&
                             pendingHandoff.SlotNumber == slotNumber)
                         {
@@ -352,20 +380,23 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            var existingValidation = Validate(slotNumber);
+            var existingEntry = _saveSlotStore.LoadSlot(slotNumber);
+            var existingEvaluation = _slotLaunchEvaluator.Evaluate(existingEntry);
+            var existingActionPolicy = CampaignSlotActionPolicy.Evaluate(existingEvaluation);
             if (operationKind == MainMenuLaunchOperationKind.Restart &&
-                !existingValidation.CanRestart)
+                !existingActionPolicy.CanRestart)
             {
                 RefreshViewModel();
                 return;
             }
 
-            var candidate = SaveSlotData.CreateNewGame(
+            var candidate = CampaignSlotStateFactory.CreateNewGame(
                 slotNumber,
                 _sequenceResolver,
                 string.Empty);
-            var candidateValidation = Validate(candidate);
-            if (!candidateValidation.CanContinue)
+            var candidateEvaluation = _slotLaunchEvaluator.Evaluate(candidate);
+            var candidateActionPolicy = CampaignSlotActionPolicy.Evaluate(candidateEvaluation);
+            if (!candidateActionPolicy.CanContinue)
             {
                 RefreshViewModel();
                 return;
@@ -373,7 +404,7 @@ namespace Game.Feature.UI.Application
 
             if (!TryReserveLaunch(
                     slotNumber,
-                    candidateValidation.Slot.CurrentStageId,
+                    candidateEvaluation.ResolvedStageId,
                     StageNavigationKind.Continue,
                     ResolveLaunchSource(operationKind),
                     out var handoff))
@@ -383,8 +414,7 @@ namespace Game.Feature.UI.Application
 
             var requiresConfirmation =
                 operationKind == MainMenuLaunchOperationKind.Restart ||
-                (confirmIfOccupied &&
-                 existingValidation.Status != SaveSlotValidationStatus.Empty);
+                (confirmIfOccupied && !existingEntry.IsEmpty);
             if (requiresConfirmation)
             {
                 RequestLaunchConfirmation(handoff, operationKind);
@@ -471,14 +501,17 @@ namespace Game.Feature.UI.Application
 
             try
             {
-                _saveSlotStore.InitializeNewGame(
+                _slotLifecyclePort.InitializeNewGame(
                     handoff.SlotNumber,
                     _sequenceResolver,
                     DateTimeOffset.UtcNow.ToString("O"));
-                var validation = Validate(handoff.SlotNumber);
-                if (!validation.CanContinue ||
-                    validation.Slot.SlotNumber != handoff.SlotNumber ||
-                    !validation.Slot.CurrentStageId.Equals(handoff.StageId))
+                var entry = _saveSlotStore.LoadSlot(handoff.SlotNumber);
+                var evaluation = _slotLaunchEvaluator.Evaluate(entry);
+                var actionPolicy = CampaignSlotActionPolicy.Evaluate(evaluation);
+                if (!actionPolicy.CanContinue ||
+                    evaluation.State == null ||
+                    evaluation.State.SlotNumber != handoff.SlotNumber ||
+                    !evaluation.ResolvedStageId.Equals(handoff.StageId))
                 {
                     _launchHandoffStore.TryClear(handoff.Token);
                     return;
@@ -582,24 +615,21 @@ namespace Game.Feature.UI.Application
             };
         }
 
-        private SaveSlotValidationResult Validate(int slotNumber)
+        private IReadOnlyList<MainMenuSlotPresentationInput> BuildPresentationInputs(
+            IReadOnlyList<CampaignSlotEntry> entries)
         {
-            return Validate(_saveSlotStore.LoadSlot(slotNumber));
-        }
+            var inputs = new List<MainMenuSlotPresentationInput>(entries.Count);
+            for (var index = 0; index < entries.Count; index++)
+            {
+                var entry = entries[index];
+                var evaluation = _slotLaunchEvaluator.Evaluate(entry);
+                inputs.Add(new MainMenuSlotPresentationInput(
+                    entry,
+                    evaluation,
+                    CampaignSlotActionPolicy.Evaluate(evaluation)));
+            }
 
-        private SaveSlotValidationResult Validate(SaveSlotData slot)
-        {
-            return _saveSlotValidationService != null
-                ? _saveSlotValidationService.Validate(slot)
-                : new SaveSlotValidationResult(
-                    slot,
-                    slot.IsEmpty
-                        ? SaveSlotValidationStatus.Empty
-                        : slot.CampaignCompleted
-                            ? SaveSlotValidationStatus.Completed
-                            : SaveSlotValidationStatus.Valid,
-                    string.Empty,
-                    levelGroupWasSynced: false);
+            return inputs;
         }
 
         private void RefreshViewModel()

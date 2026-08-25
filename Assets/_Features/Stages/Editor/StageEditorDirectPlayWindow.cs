@@ -42,7 +42,7 @@ namespace Game.Feature.Stages.Editor
             _mode = (EditorDirectPlayMode)EditorGUILayout.EnumPopup("Mode", _mode);
             _remainingChances = EditorGUILayout.IntPopup(
                 "Remaining Chances",
-                Mathf.Clamp(_remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances),
+                _remainingChances,
                 new[] { "3", "2", "1" },
                 new[] { 3, 2, 1 });
 

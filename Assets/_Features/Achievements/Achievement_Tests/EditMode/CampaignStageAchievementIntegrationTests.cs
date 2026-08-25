@@ -41,10 +41,44 @@ namespace Game.Product.Achievements.Tests
                 GameAchievementIds.CampaignStage1_2PushFlipWithin25,
                 StageId.CreateOrThrow("stage-1-2"),
                 maxCombinedPushFlipUses: 25);
+            var readModel = CreateState(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
+                CurrentLevelGroupId = "level-1",
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
+                NormalStagePerformanceRecords = new[]
+                {
+                    CreateRecord("stage-1-2", combinedUses),
+                },
+            }).NormalStagePerformanceRecords[0];
 
             Assert.That(
-                rule.IsSatisfiedBy(CreateRecord("stage-1-2", combinedUses)),
+                rule.IsSatisfiedBy(readModel),
                 Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void CommittedState_ProvidesCanonicalPerformanceRecordsWithoutRecoveryProjection()
+        {
+            var readModels = CreateState(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
+                CurrentLevelGroupId = "level-1",
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
+                NormalStagePerformanceRecords = new[]
+                {
+                    CreateRecord("stage-1-2", 25),
+                    CreateRecord("stage-1-1", 8),
+                },
+            }).NormalStagePerformanceRecords;
+
+            Assert.That(readModels, Has.Count.EqualTo(2));
+            Assert.That(readModels[0].StageId.Value, Is.EqualTo("stage-1-1"));
+            Assert.That(readModels[0].BestCombinedPushFlipUses, Is.EqualTo(8));
+            Assert.That(readModels[1].StageId.Value, Is.EqualTo("stage-1-2"));
+            Assert.That(readModels[1].BestCombinedPushFlipUses, Is.EqualTo(25));
         }
 
         [TestCase(25, 2)]
@@ -55,11 +89,17 @@ namespace Game.Product.Achievements.Tests
         {
             var sink = new RecordingSink();
             var integration = new CampaignStageAchievementIntegration(sink);
-            var slot = SaveSlotData.CreateEmpty(1);
-            slot.NormalStagePerformanceRecords = new[]
+            var slot = CreateState(new SaveSlotData
             {
-                CreateRecord("stage-1-2", combinedUses),
-            };
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
+                CurrentLevelGroupId = "level-1",
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
+                NormalStagePerformanceRecords = new[]
+                {
+                    CreateRecord("stage-1-2", combinedUses),
+                },
+            });
 
             integration.TryEarnFromCommittedSlot(slot, _resolver);
 
@@ -79,10 +119,16 @@ namespace Game.Product.Achievements.Tests
             var reconciler = new NormalCampaignCompletionAchievementStartupReconciler(
                 new NormalCampaignCompletionAchievementIntegration(sink),
                 stageIntegration);
-            var slot = SaveSlotData.CreateEmpty(1);
-            slot.NormalStagePerformanceRecords = new[]
+            var slot = new SaveSlotData
             {
-                CreateRecord("stage-1-2", 25),
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
+                CurrentLevelGroupId = "level-1",
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
+                NormalStagePerformanceRecords = new[]
+                {
+                    CreateRecord("stage-1-2", 25),
+                },
             };
             var store = new ReadOnlyCampaignStore(slot);
 
@@ -142,13 +188,13 @@ namespace Game.Product.Achievements.Tests
             }
         }
 
-        private sealed class ReadOnlyCampaignStore : ICampaignSaveSlotStore
+        private sealed class ReadOnlyCampaignStore : ICampaignSaveQuery
         {
-            private readonly SaveSlotData _slot;
+            private readonly CampaignSlotEntry _slot;
 
             internal ReadOnlyCampaignStore(SaveSlotData slot)
             {
-                _slot = slot;
+                _slot = CreateEntry(slot);
             }
 
             public string DiagnosticsKey => nameof(ReadOnlyCampaignStore);
@@ -159,7 +205,7 @@ namespace Game.Product.Achievements.Tests
 
             internal int MutationCount { get; private set; }
 
-            public SaveSlotData[] LoadAll()
+            public CampaignSlotEntry[] LoadAll()
             {
                 return LoadAllWithReport().Slots;
             }
@@ -167,17 +213,12 @@ namespace Game.Product.Achievements.Tests
             public CampaignSaveLoadResult LoadAllWithReport()
             {
                 LoadCount++;
-                return new CampaignSaveLoadResult(new[] { _slot.Clone() }, CreateReport());
+                return new CampaignSaveLoadResult(new[] { _slot }, CreateReport());
             }
 
-            public SaveSlotData LoadSlot(int slotNumber)
+            public CampaignSlotEntry LoadSlot(int slotNumber)
             {
-                return _slot.Clone();
-            }
-
-            public void SaveSlot(SaveSlotData slot)
-            {
-                MutationCount++;
+                return _slot;
             }
 
             public SaveSlotData InitializeNewGame(
@@ -187,11 +228,6 @@ namespace Game.Product.Achievements.Tests
             {
                 MutationCount++;
                 return SaveSlotData.CreateEmpty(slotNumber);
-            }
-
-            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
-            {
-                MutationCount++;
             }
 
             public void DeleteSlot(int slotNumber)
@@ -211,6 +247,21 @@ namespace Game.Product.Achievements.Tests
                     "loaded",
                     nameof(ReadOnlyCampaignStore));
             }
+        }
+
+        private static CampaignSlotState CreateState(SaveSlotData slot)
+        {
+            return CreateEntry(slot).State;
+        }
+
+        private static CampaignSlotEntry CreateEntry(SaveSlotData slot)
+        {
+            if (slot == null || slot.IsEmpty)
+            {
+                return CampaignSlotStateFactory.CreateEmptyEntry(slot?.SlotNumber ?? 1);
+            }
+
+            return CampaignSlotRawDataMapper.ToEntry(slot);
         }
     }
 }

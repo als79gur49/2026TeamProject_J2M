@@ -30,7 +30,6 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenuSlotViewModelMapper_MapsEmptyExistingAndCompletedSlots()
         {
-            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var slots = new[]
             {
                 SaveSlotData.CreateEmpty(1),
@@ -54,7 +53,9 @@ namespace Game.Feature.UI.Tests
                 },
             };
 
-            var viewModel = MainMenuSlotViewModelMapper.Map(slots, resolver);
+            var entries = CampaignSlotRawDataMapper.ToEntries(slots);
+            var viewModel = MainMenuSlotViewModelMapper.Map(
+                CampaignStageSequenceTestAsset.BuildPresentationInputs(entries));
 
             Assert.That(viewModel.SlotCards[0].State, Is.EqualTo(SaveSlotCardState.Empty));
             Assert.That(viewModel.SlotCards[0].PrimaryActionText, Is.EqualTo("New Game"));
@@ -64,6 +65,64 @@ namespace Game.Feature.UI.Tests
             Assert.That(viewModel.SlotCards[2].State, Is.EqualTo(SaveSlotCardState.Completed));
             Assert.That(viewModel.SlotCards[2].PrimaryActionText, Is.EqualTo("Restart"));
             Assert.That(viewModel.SlotCards[2].ShowDelete, Is.True);
+        }
+
+        [Test]
+        public void MainMenuSlotViewModelMapper_MapsPerSlotLaunchFailureFromSeparatedResults()
+        {
+            var entry = CampaignSlotRawDataMapper.ToEntry(
+                new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-5-1"),
+                    CurrentLevelGroupId = "level-5",
+                    RemainingChances = 2,
+                });
+            var evaluation = CampaignStageSequenceTestAsset
+                .LoadProductionLaunchEvaluator()
+                .Evaluate(entry);
+            var actionPolicy = CampaignSlotActionPolicy.Evaluate(evaluation);
+
+            var card = MainMenuSlotViewModelMapper.MapSlot(
+                entry,
+                evaluation,
+                actionPolicy);
+
+            Assert.That(
+                evaluation.Status,
+                Is.EqualTo(CampaignSlotLaunchStatus.StageMissingFromSequence));
+            Assert.That(card.State, Is.EqualTo(SaveSlotCardState.Corrupted));
+            Assert.That(card.FailureKind, Is.EqualTo(SaveSlotFailurePresentationKind.NeedsRepair));
+            Assert.That(card.PrimaryIntentKind, Is.EqualTo(SaveSlotIntentKind.Restart));
+            Assert.That(card.ShowDelete, Is.True);
+        }
+
+        [Test]
+        public void MainMenuSlotViewModelMapper_CompletedStateRemainsCompletedWhenGroupSyncIsRequired()
+        {
+            var entry = CampaignSlotRawDataMapper.ToEntry(
+                new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-4-3"),
+                    CurrentLevelGroupId = "stale-group",
+                    RemainingChances = 2,
+                    CampaignCompleted = true,
+                });
+            var evaluation = CampaignStageSequenceTestAsset
+                .LoadProductionLaunchEvaluator()
+                .Evaluate(entry);
+
+            var card = MainMenuSlotViewModelMapper.MapSlot(
+                entry,
+                evaluation,
+                CampaignSlotActionPolicy.Evaluate(evaluation));
+
+            Assert.That(
+                evaluation.Status,
+                Is.EqualTo(CampaignSlotLaunchStatus.LevelGroupSynchronizationRequired));
+            Assert.That(card.State, Is.EqualTo(SaveSlotCardState.Completed));
+            Assert.That(card.PrimaryIntentKind, Is.EqualTo(SaveSlotIntentKind.Restart));
         }
 
         [Test]
@@ -82,18 +141,21 @@ namespace Game.Feature.UI.Tests
             var confirmPort = new FakeConfirmPopupPort();
             var controller = new MainMenuController(
                 repairingStore,
+                repairingStore,
+                repairingStore,
                 launchHandoffStore,
                 CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                CampaignStageSequenceTestAsset.LoadProductionLaunchEvaluator(),
                 new FakeStageLaunchRouter(),
                 confirmPort);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
+            saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                StageId.CreateOrThrow("stage-1-1"),
+                "level-1",
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                string.Empty));
             activeSlotProvider.SetActiveSlot(1);
 
             controller.RequestDelete(1);
@@ -112,17 +174,20 @@ namespace Game.Feature.UI.Tests
         {
             var saveStore = new TransientCampaignSaveSlotStore(
                 CreateTransientNamespace(nameof(MainMenuController_DeleteConfirmationAfterDisposeDoesNotMutateOrRefresh)));
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-            });
+            saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                StageId.CreateOrThrow("stage-1-1"),
+                "level-1",
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                string.Empty));
             var confirmPort = new FakeConfirmPopupPort();
             var controller = new MainMenuController(
                 saveStore,
+                saveStore,
+                saveStore,
                 new RecordingCampaignLaunchHandoffStore(),
                 CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                CampaignStageSequenceTestAsset.LoadProductionLaunchEvaluator(),
                 new FakeStageLaunchRouter(),
                 confirmPort);
             var refreshCount = 0;

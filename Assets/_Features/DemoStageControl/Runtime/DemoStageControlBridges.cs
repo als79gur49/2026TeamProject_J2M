@@ -6,15 +6,19 @@ namespace Game.Feature.DemoStageControl
     public sealed class DemoStageControlCampaignBridge : IDemoStageControlCampaignBridge
     {
         private readonly ActiveSlotProvider _activeSlotProvider;
-        private readonly ICampaignSaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveQuery _saveSlotStore;
+        private readonly ICampaignDiagnosticSlotPort _diagnosticSlotPort;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
 
         public DemoStageControlCampaignBridge(
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSaveQuery saveSlotStore,
+            ICampaignDiagnosticSlotPort diagnosticSlotPort,
             ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
+            _diagnosticSlotPort = diagnosticSlotPort ??
+                throw new ArgumentNullException(nameof(diagnosticSlotPort));
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
             _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
         }
@@ -28,7 +32,10 @@ namespace Game.Feature.DemoStageControl
                     return StageId.None;
                 }
 
-                return _saveSlotStore.LoadSlot(slotNumber).CurrentStageId;
+                var entry = _saveSlotStore.LoadSlot(slotNumber);
+                return entry == null || entry.IsEmpty
+                    ? StageId.None
+                    : entry.State.CurrentStageId;
             }
         }
 
@@ -54,21 +61,10 @@ namespace Game.Feature.DemoStageControl
             }
 
             var levelGroupId = _sequenceResolver.GetLevelGroupId(stageId);
-            _saveSlotStore.UpdateSlot(
+            _diagnosticSlotPort.SetActiveStageForDiagnostics(
                 slotNumber,
-                slot =>
-                {
-                    slot.CurrentStageId = stageId;
-                    slot.CurrentLevelGroupId = levelGroupId;
-                    slot.CampaignCompleted = false;
-                    slot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
-                    slot.StageClearProfileSnapshot ??= new StageClearProfileSnapshot();
-                    if (!slot.StageClearProfileSnapshot.ClearRecordsByStageId.ContainsKey(stageId))
-                    {
-                        slot.StageClearProfileSnapshot.ClearRecordsByStageId[stageId] =
-                            PlayerStageClearRecord.CreateEmpty(stageId);
-                    }
-                });
+                stageId,
+                levelGroupId);
 
             message = $"Campaign active stage set to '{stageId.Value}'.";
             return true;

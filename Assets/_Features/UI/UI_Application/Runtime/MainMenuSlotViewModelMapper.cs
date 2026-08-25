@@ -6,35 +6,65 @@ using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
+    public sealed class MainMenuSlotPresentationInput
+    {
+        public MainMenuSlotPresentationInput(
+            CampaignSlotEntry entry,
+            CampaignSlotLaunchEvaluation launchEvaluation,
+            CampaignSlotActionPolicy actionPolicy)
+        {
+            Entry = entry ?? throw new ArgumentNullException(nameof(entry));
+            var expectedActionPolicy = CampaignSlotActionPolicy.Evaluate(launchEvaluation);
+            if (expectedActionPolicy.CanContinue != actionPolicy.CanContinue ||
+                expectedActionPolicy.CanRestart != actionPolicy.CanRestart ||
+                expectedActionPolicy.CanDelete != actionPolicy.CanDelete)
+            {
+                throw new ArgumentException(
+                    "The slot action policy must be derived from the supplied launch evaluation.",
+                    nameof(actionPolicy));
+            }
+
+            if (entry.IsEmpty)
+            {
+                if (launchEvaluation.Status != CampaignSlotLaunchStatus.Empty ||
+                    launchEvaluation.State != null)
+                {
+                    throw new ArgumentException(
+                        "An empty slot entry requires an empty launch evaluation.",
+                        nameof(launchEvaluation));
+                }
+            }
+            else if (launchEvaluation.Status == CampaignSlotLaunchStatus.Empty ||
+                     !ReferenceEquals(entry.State, launchEvaluation.State))
+            {
+                throw new ArgumentException(
+                    "An occupied slot entry and launch evaluation must carry the same immutable state.",
+                    nameof(launchEvaluation));
+            }
+
+            LaunchEvaluation = launchEvaluation;
+            ActionPolicy = actionPolicy;
+        }
+
+        public CampaignSlotEntry Entry { get; }
+
+        public CampaignSlotLaunchEvaluation LaunchEvaluation { get; }
+
+        public CampaignSlotActionPolicy ActionPolicy { get; }
+    }
+
     public static class MainMenuSlotViewModelMapper
     {
         public static SaveSlotPanelViewModel Map(
-            IReadOnlyList<SaveSlotData> slots,
-            CampaignStageSequenceResolver sequenceResolver)
+            IReadOnlyList<MainMenuSlotPresentationInput> slots)
         {
             return Map(
                 slots,
-                sequenceResolver,
-                validationService: null,
                 InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotPanelViewModel Map(
-            IReadOnlyList<SaveSlotData> slots,
-            CampaignStageSequenceResolver sequenceResolver,
-            SaveSlotValidationService validationService)
-        {
-            return Map(
-                slots,
-                sequenceResolver,
-                validationService,
-                InvariantSettingsLocalizedTextResolver.Instance);
-        }
-
-        public static SaveSlotPanelViewModel Map(
-            IReadOnlyList<SaveSlotData> slots,
-            CampaignStageSequenceResolver sequenceResolver,
-            SaveSlotValidationService validationService,
+            IReadOnlyList<MainMenuSlotPresentationInput> slots,
             ILocalizedTextResolver localizedTextResolver)
         {
             if (slots == null)
@@ -51,13 +81,10 @@ namespace Game.Feature.UI.Application
             for (var slotNumber = 1; slotNumber <= CampaignSaveSlotPolicy.SlotCount; slotNumber++)
             {
                 var slot = ResolveSlot(slots, slotNumber);
-                var validation = validationService != null
-                    ? validationService.Validate(slot)
-                    : default;
                 cards.Add(MapSlot(
-                    slot,
-                    sequenceResolver,
-                    validationService != null ? validation : (SaveSlotValidationResult?)null,
+                    slot.Entry,
+                    slot.LaunchEvaluation,
+                    slot.ActionPolicy,
                     localizedTextResolver));
             }
 
@@ -112,55 +139,45 @@ namespace Game.Feature.UI.Application
         }
 
         public static SaveSlotCardViewModel MapSlot(
-            SaveSlotData slot,
-            CampaignStageSequenceResolver sequenceResolver)
+            CampaignSlotEntry slot,
+            CampaignSlotLaunchEvaluation launchEvaluation,
+            CampaignSlotActionPolicy actionPolicy)
         {
             return MapSlot(
                 slot,
-                sequenceResolver,
-                null,
+                launchEvaluation,
+                actionPolicy,
                 InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotCardViewModel MapSlot(
-            SaveSlotData slot,
-            CampaignStageSequenceResolver sequenceResolver,
-            SaveSlotValidationResult? validationResult)
-        {
-            return MapSlot(
-                slot,
-                sequenceResolver,
-                validationResult,
-                InvariantSettingsLocalizedTextResolver.Instance);
-        }
-
-        public static SaveSlotCardViewModel MapSlot(
-            SaveSlotData slot,
-            CampaignStageSequenceResolver sequenceResolver,
-            SaveSlotValidationResult? validationResult,
+            CampaignSlotEntry slot,
+            CampaignSlotLaunchEvaluation launchEvaluation,
+            CampaignSlotActionPolicy actionPolicy,
             ILocalizedTextResolver localizedTextResolver)
         {
-            if (slot == null)
-            {
-                throw new ArgumentNullException(nameof(slot));
-            }
+            var input = new MainMenuSlotPresentationInput(
+                slot,
+                launchEvaluation,
+                actionPolicy);
 
             if (localizedTextResolver == null)
             {
                 throw new ArgumentNullException(nameof(localizedTextResolver));
             }
 
+            var entry = input.Entry;
             var title = MainMenuLocalization.Resolve(
                 localizedTextResolver,
                 MainMenuLocalizationEntryId.SlotLabel,
-                slot.SlotNumber);
+                entry.SlotNumber);
             var deleteAction = MainMenuLocalization.Resolve(
                 localizedTextResolver,
                 MainMenuLocalizationEntryId.SlotDelete);
-            if (slot.IsEmpty)
+            if (entry.IsEmpty)
             {
                 return new SaveSlotCardViewModel(
-                    slot.SlotNumber,
+                    entry.SlotNumber,
                     SaveSlotCardState.Empty,
                     title,
                     MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotEmpty),
@@ -174,35 +191,33 @@ namespace Game.Feature.UI.Application
                     deleteActionText: deleteAction);
             }
 
-            var validation = validationResult ?? new SaveSlotValidationResult(
-                slot,
-                slot.CampaignCompleted ? SaveSlotValidationStatus.Completed : SaveSlotValidationStatus.Valid,
-                sequenceResolver != null ? sequenceResolver.GetLevelGroupId(slot.CurrentStageId) : slot.CurrentLevelGroupId,
-                levelGroupWasSynced: false);
-            var displayStage = slot.CurrentStageId.IsValid
-                ? localizedTextResolver.Resolve(StageDisplayNameTextDescriptors.ForStage(slot.CurrentStageId))
+            var evaluation = input.LaunchEvaluation;
+            var action = input.ActionPolicy;
+            var state = evaluation.State;
+            var displayStage = evaluation.ResolvedStageId.IsValid
+                ? localizedTextResolver.Resolve(StageDisplayNameTextDescriptors.ForStage(evaluation.ResolvedStageId))
                 : string.Empty;
 
-            if (validation.Status == SaveSlotValidationStatus.Completed)
+            if (state.CampaignCompleted)
             {
                 return new SaveSlotCardViewModel(
-                    slot.SlotNumber,
+                    entry.SlotNumber,
                     SaveSlotCardState.Completed,
                     title,
                     MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotCompleted),
                     FormatStageText(localizedTextResolver, displayStage),
-                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotChances, slot.RemainingChances),
-                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotDeaths, slot.TotalDeaths),
-                    FormatLastPlayedText(slot.LastPlayedAt, localizedTextResolver),
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotChances, state.RemainingChances),
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotDeaths, state.TotalDeaths),
+                    FormatLastPlayedText(state.LastPlayedAt, localizedTextResolver),
                     MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotRestart),
                     SaveSlotIntentKind.Restart,
-                    showDelete: true,
+                    showDelete: action.CanDelete,
                     deleteActionText: deleteAction);
             }
 
-            if (!validation.CanContinue)
+            if (!action.CanContinue)
             {
-                var failureKind = MapFailureKind(validation.Status);
+                var failureKind = MapFailureKind(evaluation.Status);
                 if (failureKind == SaveSlotFailurePresentationKind.None)
                 {
                     failureKind = SaveSlotFailurePresentationKind.NeedsRepair;
@@ -210,7 +225,7 @@ namespace Game.Feature.UI.Application
 
                 var failureText = MainMenuLocalization.FailureDescriptor(failureKind);
                 return new SaveSlotCardViewModel(
-                    slot.SlotNumber,
+                    entry.SlotNumber,
                     failureKind == SaveSlotFailurePresentationKind.UnsupportedVersion
                         ? SaveSlotCardState.Unsupported
                         : SaveSlotCardState.Corrupted,
@@ -222,23 +237,23 @@ namespace Game.Feature.UI.Application
                     string.Empty,
                     MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotRestart),
                     SaveSlotIntentKind.Restart,
-                    showDelete: true,
+                    showDelete: action.CanDelete,
                     deleteActionText: deleteAction,
                     failureKind: failureKind);
             }
 
             return new SaveSlotCardViewModel(
-                slot.SlotNumber,
+                entry.SlotNumber,
                 SaveSlotCardState.Existing,
                 title,
                 MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotContinue),
                 FormatStageText(localizedTextResolver, displayStage),
-                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotChances, slot.RemainingChances),
-                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotDeaths, slot.TotalDeaths),
-                FormatLastPlayedText(slot.LastPlayedAt, localizedTextResolver),
+                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotChances, state.RemainingChances),
+                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotDeaths, state.TotalDeaths),
+                FormatLastPlayedText(state.LastPlayedAt, localizedTextResolver),
                 MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotContinue),
                 SaveSlotIntentKind.Continue,
-                showDelete: true,
+                showDelete: action.CanDelete,
                 deleteActionText: deleteAction);
         }
 
@@ -293,33 +308,33 @@ namespace Game.Feature.UI.Application
         }
 
         public static SaveSlotFailurePresentationKind MapFailureKind(
-            SaveSlotValidationStatus status)
+            CampaignSlotLaunchStatus status)
         {
             switch (status)
             {
-                case SaveSlotValidationStatus.UnsupportedVersion:
-                    return SaveSlotFailurePresentationKind.UnsupportedVersion;
-                case SaveSlotValidationStatus.Corrupted:
-                    return SaveSlotFailurePresentationKind.CorruptedData;
-                case SaveSlotValidationStatus.StageMissingFromSequence:
-                case SaveSlotValidationStatus.StageMissingFromCatalog:
+                case CampaignSlotLaunchStatus.StageMissingFromSequence:
+                case CampaignSlotLaunchStatus.StageMissingFromCatalog:
                     return SaveSlotFailurePresentationKind.NeedsRepair;
                 default:
                     return SaveSlotFailurePresentationKind.None;
             }
         }
 
-        private static SaveSlotData ResolveSlot(IReadOnlyList<SaveSlotData> slots, int slotNumber)
+        private static MainMenuSlotPresentationInput ResolveSlot(
+            IReadOnlyList<MainMenuSlotPresentationInput> slots,
+            int slotNumber)
         {
             for (var i = 0; i < slots.Count; i++)
             {
-                if (slots[i] != null && slots[i].SlotNumber == slotNumber)
+                if (slots[i] != null && slots[i].Entry.SlotNumber == slotNumber)
                 {
                     return slots[i];
                 }
             }
 
-            return SaveSlotData.CreateEmpty(slotNumber);
+            throw new ArgumentException(
+                $"Slot presentation input {slotNumber} is missing.",
+                nameof(slots));
         }
     }
 }

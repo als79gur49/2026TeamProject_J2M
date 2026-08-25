@@ -44,8 +44,8 @@ namespace Game.Feature.Stages
             return new NormalCampaignCompletionReceipt
             {
                 Version = Version,
-                CompletedStageId = CompletedStageId ?? string.Empty,
-                StageRunId = StageRunId ?? string.Empty,
+                CompletedStageId = CompletedStageId,
+                StageRunId = StageRunId,
                 ClearSource = ClearSource,
             };
         }

@@ -182,17 +182,7 @@ namespace Game.Feature.Stages
 
         public StageClearProfileSnapshot StageClearProfileSnapshot { get; set; } = new();
 
-        public bool IsEmpty => !CurrentStageId.IsValid &&
-                               !CampaignCompleted &&
-                               !HasNormalCampaignCompletionReceipt &&
-                               NormalCampaignCompletionReceipt == null &&
-                               !IntroComicCompleted &&
-                               !OutroComicCompleted &&
-                               TotalDeaths == 0 &&
-                               string.IsNullOrWhiteSpace(LastPlayedAt) &&
-                               (NormalStagePerformanceRecords == null ||
-                                NormalStagePerformanceRecords.Length == 0) &&
-                               IsClearProfileEmpty(StageClearProfileSnapshot);
+        public bool IsEmpty => CampaignSlotRawDataMapper.IsEmpty(this);
 
         public SaveSlotData Clone()
         {
@@ -200,7 +190,7 @@ namespace Game.Feature.Stages
             {
                 SlotNumber = SlotNumber,
                 CurrentStageId = CurrentStageId,
-                CurrentLevelGroupId = CurrentLevelGroupId ?? string.Empty,
+                CurrentLevelGroupId = CurrentLevelGroupId,
                 RemainingChances = RemainingChances,
                 CampaignCompleted = CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =
@@ -208,11 +198,11 @@ namespace Game.Feature.Stages
                 NormalCampaignCompletionReceipt = NormalCampaignCompletionReceipt?.Clone(),
                 IntroComicCompleted = IntroComicCompleted,
                 OutroComicCompleted = OutroComicCompleted,
-                NormalStagePerformanceRecords = NormalStagePerformanceRecordPolicy.Normalize(
+                NormalStagePerformanceRecords = ClonePerformanceRecords(
                     NormalStagePerformanceRecords),
                 TotalDeaths = TotalDeaths,
-                LastPlayedAt = LastPlayedAt ?? string.Empty,
-                StageClearProfileSnapshot = StageClearProfileSnapshot?.Clone() ?? new StageClearProfileSnapshot(),
+                LastPlayedAt = LastPlayedAt,
+                StageClearProfileSnapshot = StageClearProfileSnapshot?.Clone(),
             };
         }
 
@@ -265,13 +255,21 @@ namespace Game.Feature.Stages
             };
         }
 
-        private static bool IsClearProfileEmpty(StageClearProfileSnapshot snapshot)
+        private static NormalStagePerformanceRecord[] ClonePerformanceRecords(
+            NormalStagePerformanceRecord[] records)
         {
-            return snapshot == null ||
-                   (snapshot.Version == 0 &&
-                    snapshot.ClearRecordsByStageId.Count == 0 &&
-                    snapshot.ProcessedStageRunIds.Count == 0 &&
-                    snapshot.ProcessedClearAttemptIds.Count == 0);
+            if (records == null)
+            {
+                return null;
+            }
+
+            var clone = new NormalStagePerformanceRecord[records.Length];
+            for (var index = 0; index < records.Length; index++)
+            {
+                clone[index] = records[index]?.Clone();
+            }
+
+            return clone;
         }
     }
 
@@ -405,6 +403,7 @@ namespace Game.Feature.Stages
         StageMissingFromCatalog = 10,
         Exception = 11,
         EditorRuntimeSkipped = 12,
+        InvalidRemainingChances = 13,
     }
 
     public readonly struct StandaloneCampaignSaveSeedImportResult
@@ -454,7 +453,13 @@ namespace Game.Feature.Stages
             }
 
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            remainingChances = Mathf.Clamp(remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances);
+            if (!CampaignSaveSlotPolicy.IsValidRemainingChances(remainingChances))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(remainingChances),
+                    $"Standalone campaign seed chances must be between 1 and {CampaignSaveSlotPolicy.MaxRemainingChances}.");
+            }
+
             return JsonUtility.ToJson(
                 new StandaloneCampaignSaveSeedDto
                 {
@@ -467,7 +472,7 @@ namespace Game.Feature.Stages
         }
 
         public static bool TryImportDefaultSeed(
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSlotSeedImportPort saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver,
             IStageCatalogProvider stageCatalogProvider,
@@ -521,7 +526,7 @@ namespace Game.Feature.Stages
 
         public static bool TryImportSeedFile(
             string seedPath,
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSlotSeedImportPort saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver,
             IStageCatalogProvider stageCatalogProvider,
@@ -588,6 +593,15 @@ namespace Game.Feature.Stages
                     return false;
                 }
 
+                if (!CampaignSaveSlotPolicy.IsValidRemainingChances(seed.RemainingChances))
+                {
+                    result = Failure(
+                        StandaloneCampaignSaveSeedImportStatus.InvalidRemainingChances,
+                        seedPath,
+                        $"Seed remaining chances must be between 1 and {CampaignSaveSlotPolicy.MaxRemainingChances}.");
+                    return false;
+                }
+
                 if (!StageId.TryCreate(seed.StageId, out var stageId))
                 {
                     result = Failure(
@@ -616,18 +630,12 @@ namespace Game.Feature.Stages
                     return false;
                 }
 
-                var remainingChances = Mathf.Clamp(
+                saveSlotStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                    seed.SlotNumber,
+                    stageId,
+                    sequenceResolver.GetLevelGroupId(stageId),
                     seed.RemainingChances,
-                    1,
-                    CampaignSaveSlotPolicy.DefaultRemainingChances);
-                saveSlotStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = seed.SlotNumber,
-                    CurrentStageId = stageId,
-                    CurrentLevelGroupId = sequenceResolver.GetLevelGroupId(stageId),
-                    RemainingChances = remainingChances,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
+                    DateTimeOffset.UtcNow.ToString("O")));
                 activeSlotProvider.SetActiveSlot(seed.SlotNumber);
 
                 if (deleteAfterImport)

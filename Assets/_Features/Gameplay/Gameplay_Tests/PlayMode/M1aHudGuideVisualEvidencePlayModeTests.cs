@@ -755,14 +755,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var activeSlot = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlot.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = "level-01",
-                RemainingChances = ExpectedRemainingChances,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                stageId,
+                "level-01",
+                ExpectedRemainingChances,
+                DateTimeOffset.UtcNow.ToString("O")));
             activeSlot.SetActiveSlot(1);
             StageLaunchContextStore.SetCurrent(stageId);
             EditorDirectPlayContextStore.SetCurrent(

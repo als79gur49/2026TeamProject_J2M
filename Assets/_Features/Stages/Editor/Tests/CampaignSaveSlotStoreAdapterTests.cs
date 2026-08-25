@@ -12,166 +12,154 @@ namespace Game.Feature.Stages.Editor.Tests
             "Game.Feature.Stages.Tests.CampaignSaveSlotStoreAdapter.saves";
 
         [SetUp]
-        public void SetUp()
-        {
-            ClearTransientState();
-            new TransientCampaignSaveSlotStore().ClearAll();
-        }
+        public void SetUp() => ClearTransientState();
 
         [TearDown]
-        public void TearDown()
-        {
-            ClearTransientState();
-            new TransientCampaignSaveSlotStore().ClearAll();
-        }
+        public void TearDown() => ClearTransientState();
 
         [Test]
-        public void LoadAll_Parity()
+        public void LoadAll_ProductionAndTransientReturnEquivalentImmutableEntries()
         {
-            var legacy = CreateLegacyStore();
+            var transient = CreateTransientStore();
             var adapter = CreateAdapter();
-            legacy.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 2));
-            legacy.SaveSlot(CreateSlot(3, "stage-3-1", "level-3", 1));
-            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 2));
-            adapter.SaveSlot(CreateSlot(3, "stage-3-1", "level-3", 1));
+            ImportSeed(transient, 1, "stage-1-1", "level-1", 2);
+            ImportSeed(transient, 3, "stage-3-1", "level-3", 1);
+            ImportSeed(adapter, 1, "stage-1-1", "level-1", 2);
+            ImportSeed(adapter, 3, "stage-3-1", "level-3", 1);
 
-            AssertSlotsEquivalent(legacy.LoadAll(), adapter.LoadAll());
-            Assert.That(adapter.LastCampaignLoadReport.Status, Is.EqualTo(CampaignSaveLoadStatus.Loaded));
+            AssertEntriesEquivalent(transient.LoadAll(), adapter.LoadAll());
+            Assert.That(adapter.LastCampaignLoadReport.Status,
+                Is.EqualTo(CampaignSaveLoadStatus.Loaded));
         }
 
         [Test]
-        public void LoadSlot_Parity()
+        public void LoadSlot_ReturnsImmutableEntryWithImmutableState()
         {
-            var legacy = CreateLegacyStore();
             var adapter = CreateAdapter();
-            legacy.SaveSlot(CreateSlot(2, "stage-2-1", "level-2", 1));
-            adapter.SaveSlot(CreateSlot(2, "stage-2-1", "level-2", 1));
+            ImportSeed(adapter, 2, "stage-2-1", "level-2", 1);
 
-            AssertSlotEquivalent(legacy.LoadSlot(2), adapter.LoadSlot(2));
+            var entry = adapter.LoadSlot(2);
+
+            Assert.That(entry.IsEmpty, Is.False);
+            Assert.That(entry.State.SlotNumber, Is.EqualTo(2));
+            Assert.That(entry.State.CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(entry.State.RemainingChances, Is.EqualTo(1));
         }
 
         [Test]
-        public void SaveSlot_Parity()
+        public void ComicCompletion_ProductionAndTransientMutateOnlyComicProgress()
         {
-            var legacy = CreateLegacyStore();
+            var transient = CreateTransientStore();
             var adapter = CreateAdapter();
-            var slot = CreateSlot(1, "stage-1-1", "level-1", 2);
-            slot.IntroComicCompleted = true;
-            slot.TotalDeaths = 4;
-            slot.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
-            {
-                Version = 1,
-                CompletedStageId = "stage-4-3",
-                StageRunId = "adapter-receipt-run",
-                ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource,
-            };
+            ImportSeed(transient, 1, "stage-1-1", "level-1", 2);
+            ImportSeed(adapter, 1, "stage-1-1", "level-1", 2);
 
-            legacy.SaveSlot(slot);
-            adapter.SaveSlot(slot);
+            transient.MarkIntroComicCompleted(1);
+            adapter.MarkIntroComicCompleted(1);
+            transient.MarkOutroComicCompleted(1);
+            adapter.MarkOutroComicCompleted(1);
 
-            AssertSlotEquivalent(legacy.LoadSlot(1), adapter.LoadSlot(1));
+            Assert.That(transient.LoadSlot(1).State.IntroComicCompleted, Is.True);
+            Assert.That(adapter.LoadSlot(1).State.IntroComicCompleted, Is.True);
+            Assert.That(transient.LoadSlot(1).State.OutroComicCompleted, Is.True);
+            Assert.That(adapter.LoadSlot(1).State.OutroComicCompleted, Is.True);
+            Assert.That(adapter.LoadSlot(1).State.CurrentStageId.Value,
+                Is.EqualTo("stage-1-1"));
         }
 
         [Test]
-        public void SaveSlot_NullReceiptClearsExistingReceiptAsFullReplacement()
+        public void PrepareContinue_ProductionAndTransientSynchronizeOnlyLevelGroup()
+        {
+            var transient = CreateTransientStore();
+            var adapter = CreateAdapter();
+            ImportSeed(transient, 1, "stage-2-2", "level-5", 2);
+            ImportSeed(adapter, 1, "stage-2-2", "level-5", 2);
+            var command = new CampaignContinuePreparationCommand(
+                1,
+                StageId.CreateOrThrow("stage-2-2"),
+                "level-5",
+                "level-2");
+
+            var transientResult = transient.PrepareContinue(command);
+            var productionResult = adapter.PrepareContinue(command);
+
+            Assert.That(transientResult.Succeeded, Is.True);
+            Assert.That(productionResult.Succeeded, Is.True);
+            Assert.That(transientResult.LevelGroupSynchronized, Is.True);
+            Assert.That(productionResult.LevelGroupSynchronized, Is.True);
+            AssertEntriesEquivalent(transient.LoadAll(), adapter.LoadAll());
+        }
+
+        [Test]
+        public void PrepareContinue_StalePreconditionDoesNotWrite()
         {
             var repository = new RecordingRepository();
             var adapter = CreateAdapter(repository);
-            var completed = CreateSlot(1, "stage-4-3", "level-4", 3);
-            completed.CampaignCompleted = true;
-            completed.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
-            {
-                Version = 1,
-                CompletedStageId = "stage-4-3",
-                StageRunId = "receipt-to-clear",
-                ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource,
-            };
-            adapter.SaveSlot(completed);
+            ImportSeed(adapter, 1, "stage-2-2", "level-5", 2);
+            repository.ResetCounts();
 
-            var replacement = CreateSlot(1, "stage-0-1", "level-0", 3);
-            adapter.SaveSlot(replacement);
+            var result = adapter.PrepareContinue(new CampaignContinuePreparationCommand(
+                1,
+                StageId.CreateOrThrow("stage-2-2"),
+                "level-4",
+                "level-2"));
 
-            Assert.That(adapter.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
-            Assert.That(
-                repository.SavedDocument.Slots[0].HasNormalCampaignCompletionReceipt,
-                Is.False);
-            Assert.That(
-                repository.SavedDocument.Slots[0].NormalCampaignCompletionReceipt,
-                Is.Null);
+            Assert.That(result.Status,
+                Is.EqualTo(CampaignContinuePreparationStatus.StalePrecondition));
+            Assert.That(adapter.LoadSlot(1).State.CurrentLevelGroupId,
+                Is.EqualTo("level-5"));
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(repository.DestructiveSaveCount, Is.Zero);
         }
 
-        [Test]
-        public void SaveSlot_EmptyInputDeletesSlotAndRemainsEmpty()
+        [TestCase(3, 2, "stage-1-1", "stage-1-1", "level-1")]
+        [TestCase(1, 3, "stage-2-2", "stage-2-1", "level-2")]
+        public void DeathCommit_ProductionAndTransientHaveSameChanceContract(
+            int initialChances,
+            int expectedChances,
+            string initialStageId,
+            string expectedStageId,
+            string levelGroupId)
         {
+            var transient = CreateTransientStore();
             var adapter = CreateAdapter();
-            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 2));
+            var planner = new CampaignProgressionTransitionPlanner(
+                CampaignStageSequenceTestAsset.LoadProductionResolver());
+            ImportSeed(transient, 1, initialStageId, levelGroupId, initialChances);
+            ImportSeed(adapter, 1, initialStageId, levelGroupId, initialChances);
 
-            adapter.SaveSlot(SaveSlotData.CreateEmpty(1));
+            var transientResult = transient.CommitDeath(
+                1,
+                planner.PlanDeath(transient.LoadSlot(1).State));
+            var productionResult = adapter.CommitDeath(
+                1,
+                planner.PlanDeath(adapter.LoadSlot(1).State));
 
-            Assert.That(adapter.LoadSlot(1).IsEmpty, Is.True);
+            Assert.That(transientResult.Slot.RemainingChances, Is.EqualTo(expectedChances));
+            Assert.That(productionResult.Slot.RemainingChances, Is.EqualTo(expectedChances));
+            Assert.That(transientResult.Slot.CurrentStageId.Value, Is.EqualTo(expectedStageId));
+            Assert.That(productionResult.Slot.CurrentStageId.Value, Is.EqualTo(expectedStageId));
+            Assert.That(transientResult.Slot.TotalDeaths,
+                Is.EqualTo(productionResult.Slot.TotalDeaths));
         }
 
-        [Test]
-        public void InitializeNewGame_Parity()
-        {
-            var legacy = CreateLegacyStore();
-            var adapter = CreateAdapter();
-            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
-
-            var legacySlot = legacy.InitializeNewGame(1, resolver, FixedNowUtc);
-            var adapterSlot = adapter.InitializeNewGame(1, resolver, FixedNowUtc);
-
-            AssertSlotEquivalent(legacySlot, adapterSlot);
-        }
-
-        [Test]
-        public void UpdateSlot_Parity()
-        {
-            var legacy = CreateLegacyStore();
-            var adapter = CreateAdapter();
-            legacy.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
-            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
-
-            legacy.UpdateSlot(1, slot =>
-            {
-                slot.CurrentStageId = StageId.CreateOrThrow("stage-1-2");
-                slot.RemainingChances = 1;
-                slot.TotalDeaths = 2;
-                slot.StageClearProfileSnapshot.Version = 5;
-            });
-            adapter.UpdateSlot(1, slot =>
-            {
-                slot.CurrentStageId = StageId.CreateOrThrow("stage-1-2");
-                slot.RemainingChances = 1;
-                slot.TotalDeaths = 2;
-                slot.StageClearProfileSnapshot.Version = 5;
-            });
-
-            AssertSlotEquivalent(legacy.LoadSlot(1), adapter.LoadSlot(1));
-        }
-
-        [Test]
-        public void UpdateSlot_PreservesInvalidReceiptPresenceAcrossCompatibilityRoundTrip()
+        [TestCase(0)]
+        [TestCase(-1)]
+        [TestCase(CampaignSaveSlotPolicy.MaxRemainingChances + 1)]
+        public void SeedImport_InvalidChancesFailBeforeRepositoryWrite(int invalidChances)
         {
             var repository = new RecordingRepository();
-            var adapter = CreateAdapter(repository);
-            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
-            repository.CurrentDocument.Slots[0].HasNormalCampaignCompletionReceipt = true;
-            repository.CurrentDocument.Slots[0].NormalCampaignCompletionReceipt = null;
+            CreateAdapter(repository);
 
-            adapter.UpdateSlot(1, slot =>
-            {
-                Assert.That(slot.HasNormalCampaignCompletionReceipt, Is.True);
-                Assert.That(slot.NormalCampaignCompletionReceipt, Is.Null);
-                slot.RemainingChances = 2;
-            });
-
-            Assert.That(
-                repository.SavedDocument.Slots[0].HasNormalCampaignCompletionReceipt,
-                Is.True);
-            Assert.That(
-                repository.SavedDocument.Slots[0].NormalCampaignCompletionReceipt,
-                Is.Null);
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new CampaignSlotSeedImportRequest(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    "level-1",
+                    invalidChances,
+                    FixedNowUtc));
+            Assert.That(repository.LoadCount, Is.Zero);
+            Assert.That(repository.SaveCount, Is.Zero);
         }
 
         [TestCase(CampaignProfileLoadStatus.CorruptNoFallback, CampaignSaveLoadStatus.CorruptRepairRequired)]
@@ -179,65 +167,28 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase(CampaignProfileLoadStatus.UnsupportedVersion, CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
         [TestCase(CampaignProfileLoadStatus.Unauthorized, CampaignSaveLoadStatus.Unauthorized)]
         [TestCase(CampaignProfileLoadStatus.IoFailed, CampaignSaveLoadStatus.IoFailed)]
-        public void UpdateSlot_FirstLoadBlocked_DoesNotMutateRetryOrWrite(
+        public void SeedImport_BlockedLoadDoesNotWrite(
             CampaignProfileLoadStatus profileStatus,
             CampaignSaveLoadStatus expectedStatus)
         {
             var repository = new RecordingRepository();
             var adapter = CreateAdapter(repository);
-            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
-            repository.ResetCounts();
-            repository.EnqueueLoadResult(new CampaignProfileLoadResult(profileStatus, null, "blocked"));
-            var mutationInvoked = false;
+            repository.EnqueueLoadResult(new CampaignProfileLoadResult(
+                profileStatus,
+                null,
+                "blocked"));
 
-            Assert.Throws<InvalidOperationException>(() => adapter.UpdateSlot(1, slot =>
-            {
-                mutationInvoked = true;
-                slot.RemainingChances = 1;
-            }));
+            Assert.Throws<InvalidOperationException>(() =>
+                ImportSeed(adapter, 1, "stage-1-1", "level-1", 3));
 
-            Assert.That(mutationInvoked, Is.False);
             Assert.That(repository.LoadCount, Is.EqualTo(1));
             Assert.That(repository.SaveCount, Is.Zero);
             Assert.That(repository.DestructiveSaveCount, Is.Zero);
-            Assert.That(repository.CurrentDocument.Slots[0].StageId, Is.EqualTo("stage-1-1"));
             Assert.That(adapter.LastCampaignLoadReport.Status, Is.EqualTo(expectedStatus));
-            Assert.That(adapter.LastCampaignLoadReport.Reason, Is.EqualTo("blocked"));
         }
 
         [Test]
-        public void UpdateSlot_SecondLoadBlocked_DoesNotWriteAndReportsLatestFailure()
-        {
-            var repository = new RecordingRepository();
-            var adapter = CreateAdapter(repository);
-            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
-            repository.ResetCounts();
-            repository.EnqueueLoadResult(new CampaignProfileLoadResult(
-                CampaignProfileLoadStatus.Loaded,
-                repository.CurrentDocument,
-                "loaded"));
-            repository.EnqueueLoadResult(new CampaignProfileLoadResult(
-                CampaignProfileLoadStatus.IoFailed,
-                null,
-                "second load failed"));
-            var mutationInvoked = false;
-
-            Assert.Throws<InvalidOperationException>(() => adapter.UpdateSlot(1, slot =>
-            {
-                mutationInvoked = true;
-                slot.RemainingChances = 1;
-            }));
-
-            Assert.That(mutationInvoked, Is.True);
-            Assert.That(repository.LoadCount, Is.EqualTo(2));
-            Assert.That(repository.SaveCount, Is.Zero);
-            Assert.That(repository.DestructiveSaveCount, Is.Zero);
-            Assert.That(adapter.LastCampaignLoadReport.Status, Is.EqualTo(CampaignSaveLoadStatus.IoFailed));
-            Assert.That(adapter.LastCampaignLoadReport.Reason, Is.EqualTo("second load failed"));
-        }
-
-        [Test]
-        public void RecoveryPending_BlocksImplicitLoadsAndEveryWriteWithoutRepositoryAccess()
+        public void RecoveryPending_BlocksQueriesAndMutationsWithoutRepositoryAccess()
         {
             var repository = new RecordingRepository();
             var recovery = new StubRecoveryPort { HasPendingReset = true };
@@ -246,62 +197,40 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var diagnostic = adapter.LoadAllWithReport();
 
-            Assert.That(diagnostic.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.RecoveryPending));
-            Assert.That(diagnostic.Slots, Has.Length.EqualTo(CampaignSaveSlotPolicy.SlotCount));
+            Assert.That(diagnostic.Report.Status,
+                Is.EqualTo(CampaignSaveLoadStatus.RecoveryPending));
             Assert.Throws<InvalidOperationException>(() => adapter.LoadAll());
             Assert.Throws<InvalidOperationException>(() => adapter.LoadSlot(1));
-            Assert.Throws<InvalidOperationException>(() => adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3)));
-            Assert.Throws<InvalidOperationException>(() => adapter.UpdateSlot(1, _ => { }));
+            Assert.Throws<InvalidOperationException>(() =>
+                ImportSeed(adapter, 1, "stage-1-1", "level-1", 3));
             Assert.Throws<InvalidOperationException>(() => adapter.DeleteSlot(1));
             Assert.Throws<InvalidOperationException>(() => adapter.ClearAll());
-            Assert.Throws<InvalidOperationException>(() => adapter.InitializeNewGame(1, resolver, FixedNowUtc));
+            Assert.Throws<InvalidOperationException>(() =>
+                adapter.InitializeNewGame(1, resolver, FixedNowUtc));
             Assert.That(repository.LoadCount, Is.Zero);
             Assert.That(repository.SaveCount, Is.Zero);
             Assert.That(repository.DestructiveSaveCount, Is.Zero);
-            Assert.That(adapter.LastCampaignLoadReport.Status, Is.EqualTo(CampaignSaveLoadStatus.RecoveryPending));
         }
 
         [Test]
-        public void DeleteSlot_Parity()
+        public void DeleteAndClear_ProductionAndTransientRemainEquivalent()
         {
-            var legacy = CreateLegacyStore();
-            var adapter = CreateAdapter();
-            legacy.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
-            legacy.SaveSlot(CreateSlot(2, "stage-2-1", "level-2", 2));
-            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
-            adapter.SaveSlot(CreateSlot(2, "stage-2-1", "level-2", 2));
-
-            legacy.DeleteSlot(1);
-            adapter.DeleteSlot(1);
-
-            AssertSlotsEquivalent(legacy.LoadAll(), adapter.LoadAll());
-        }
-
-        [Test]
-        public void ClearAll_Parity()
-        {
-            var legacy = CreateLegacyStore();
+            var transient = CreateTransientStore();
             var repository = new RecordingRepository();
             var adapter = CreateAdapter(repository);
-            legacy.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
-            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
+            ImportSeed(transient, 1, "stage-1-1", "level-1", 3);
+            ImportSeed(transient, 2, "stage-2-1", "level-2", 2);
+            ImportSeed(adapter, 1, "stage-1-1", "level-1", 3);
+            ImportSeed(adapter, 2, "stage-2-1", "level-2", 2);
 
-            legacy.ClearAll();
+            transient.DeleteSlot(1);
+            adapter.DeleteSlot(1);
+            AssertEntriesEquivalent(transient.LoadAll(), adapter.LoadAll());
+
+            transient.ClearAll();
             adapter.ClearAll();
-
-            AssertSlotsEquivalent(legacy.LoadAll(), adapter.LoadAll());
+            AssertEntriesEquivalent(transient.LoadAll(), adapter.LoadAll());
             Assert.That(repository.SavedDocument.Slots, Is.Empty);
-        }
-
-        [Test]
-        public void TransientStore_DefaultNamespaceRemainsNonPersistent()
-        {
-            var store = new TransientCampaignSaveSlotStore();
-
-            store.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 2));
-
-            Assert.That(store.DiagnosticsKey, Is.EqualTo(TransientCampaignSaveSlotStore.DefaultDiagnosticsKey));
-            Assert.That(store.LoadSlot(1).CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-1-1")));
         }
 
         [Test]
@@ -318,88 +247,61 @@ namespace Game.Feature.Stages.Editor.Tests
                 Does.Not.Contain("CampaignSaveSlotStoreAdapter"));
         }
 
-        private static TransientCampaignSaveSlotStore CreateLegacyStore()
-        {
-            return new TransientCampaignSaveSlotStore(TransientStoreNamespace);
-        }
+        private static TransientCampaignSaveSlotStore CreateTransientStore() =>
+            new(TransientStoreNamespace);
 
         private static CampaignSaveSlotStoreAdapter CreateAdapter(
             RecordingRepository repository = null,
             ICampaignSaveRecoveryPort recoveryPort = null)
         {
             repository ??= new RecordingRepository();
-            var service = new CampaignSaveService(
-                repository,
-                () => FixedNowUtc,
-                "adapter-test-profile",
-                "adapter-test-product");
-            return new CampaignSaveSlotStoreAdapter(service, recoveryPort);
+            return new CampaignSaveSlotStoreAdapter(
+                new CampaignSaveService(
+                    repository,
+                    () => FixedNowUtc,
+                    "adapter-test-profile",
+                    "adapter-test-product"),
+                recoveryPort);
         }
 
-        private static SaveSlotData CreateSlot(
+        private static CampaignSlotState ImportSeed(
+            ICampaignSlotSeedImportPort store,
             int slotNumber,
             string stageId,
             string levelGroupId,
             int remainingChances)
         {
-            return new SaveSlotData
-            {
-                SlotNumber = slotNumber,
-                CurrentStageId = StageId.CreateOrThrow(stageId),
-                CurrentLevelGroupId = levelGroupId,
-                RemainingChances = remainingChances,
-                LastPlayedAt = FixedNowUtc,
-                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
-            };
+            return store.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                slotNumber,
+                StageId.CreateOrThrow(stageId),
+                levelGroupId,
+                remainingChances,
+                FixedNowUtc));
         }
 
-        private static void AssertSlotsEquivalent(SaveSlotData[] expected, SaveSlotData[] actual)
+        private static void AssertEntriesEquivalent(
+            CampaignSlotEntry[] expected,
+            CampaignSlotEntry[] actual)
         {
             Assert.That(actual, Has.Length.EqualTo(expected.Length));
-            for (var i = 0; i < expected.Length; i++)
+            for (var index = 0; index < expected.Length; index++)
             {
-                AssertSlotEquivalent(expected[i], actual[i]);
-            }
-        }
+                Assert.That(actual[index].SlotNumber, Is.EqualTo(expected[index].SlotNumber));
+                Assert.That(actual[index].IsEmpty, Is.EqualTo(expected[index].IsEmpty));
+                if (expected[index].IsEmpty)
+                {
+                    continue;
+                }
 
-        private static void AssertSlotEquivalent(SaveSlotData expected, SaveSlotData actual)
-        {
-            Assert.That(actual.SlotNumber, Is.EqualTo(expected.SlotNumber));
-            Assert.That(actual.CurrentStageId, Is.EqualTo(expected.CurrentStageId));
-            Assert.That(actual.CurrentLevelGroupId, Is.EqualTo(expected.CurrentLevelGroupId));
-            Assert.That(actual.RemainingChances, Is.EqualTo(expected.RemainingChances));
-            Assert.That(actual.CampaignCompleted, Is.EqualTo(expected.CampaignCompleted));
-            Assert.That(
-                actual.HasNormalCampaignCompletionReceipt,
-                Is.EqualTo(expected.HasNormalCampaignCompletionReceipt));
-            Assert.That(
-                actual.NormalCampaignCompletionReceipt?.Version,
-                Is.EqualTo(expected.NormalCampaignCompletionReceipt?.Version));
-            Assert.That(
-                actual.NormalCampaignCompletionReceipt?.CompletedStageId,
-                Is.EqualTo(expected.NormalCampaignCompletionReceipt?.CompletedStageId));
-            Assert.That(
-                actual.NormalCampaignCompletionReceipt?.StageRunId,
-                Is.EqualTo(expected.NormalCampaignCompletionReceipt?.StageRunId));
-            Assert.That(
-                actual.NormalCampaignCompletionReceipt?.ClearSource,
-                Is.EqualTo(expected.NormalCampaignCompletionReceipt?.ClearSource));
-            Assert.That(actual.IntroComicCompleted, Is.EqualTo(expected.IntroComicCompleted));
-            Assert.That(actual.OutroComicCompleted, Is.EqualTo(expected.OutroComicCompleted));
-            Assert.That(actual.TotalDeaths, Is.EqualTo(expected.TotalDeaths));
-            Assert.That(actual.LastPlayedAt, Is.EqualTo(expected.LastPlayedAt));
-            Assert.That(
-                actual.StageClearProfileSnapshot.Version,
-                Is.EqualTo(expected.StageClearProfileSnapshot.Version));
-            Assert.That(
-                actual.StageClearProfileSnapshot.ClearRecordsByStageId.Count,
-                Is.EqualTo(expected.StageClearProfileSnapshot.ClearRecordsByStageId.Count));
-            Assert.That(
-                actual.StageClearProfileSnapshot.ProcessedStageRunIds,
-                Is.EquivalentTo(expected.StageClearProfileSnapshot.ProcessedStageRunIds));
-            Assert.That(
-                actual.StageClearProfileSnapshot.ProcessedClearAttemptIds,
-                Is.EquivalentTo(expected.StageClearProfileSnapshot.ProcessedClearAttemptIds));
+                Assert.That(actual[index].State.CurrentStageId,
+                    Is.EqualTo(expected[index].State.CurrentStageId));
+                Assert.That(actual[index].State.CurrentLevelGroupId,
+                    Is.EqualTo(expected[index].State.CurrentLevelGroupId));
+                Assert.That(actual[index].State.RemainingChances,
+                    Is.EqualTo(expected[index].State.RemainingChances));
+                Assert.That(actual[index].State.TotalDeaths,
+                    Is.EqualTo(expected[index].State.TotalDeaths));
+            }
         }
 
         private static void ClearTransientState()
@@ -411,20 +313,14 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             private readonly Queue<CampaignProfileLoadResult> _queuedLoadResults = new();
 
-            public CampaignProfileDocument CurrentDocument { get; set; }
-
+            public CampaignProfileDocument CurrentDocument { get; private set; }
             public CampaignProfileDocument SavedDocument { get; private set; }
-
             public int LoadCount { get; private set; }
-
             public int SaveCount { get; private set; }
-
             public int DestructiveSaveCount { get; private set; }
 
-            public void EnqueueLoadResult(CampaignProfileLoadResult result)
-            {
+            public void EnqueueLoadResult(CampaignProfileLoadResult result) =>
                 _queuedLoadResults.Enqueue(result);
-            }
 
             public void ResetCounts()
             {
@@ -444,7 +340,10 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 return CurrentDocument == null
                     ? new CampaignProfileLoadResult(CampaignProfileLoadStatus.Missing, null, "missing")
-                    : new CampaignProfileLoadResult(CampaignProfileLoadStatus.Loaded, CurrentDocument, "loaded");
+                    : new CampaignProfileLoadResult(
+                        CampaignProfileLoadStatus.Loaded,
+                        CurrentDocument,
+                        "loaded");
             }
 
             public void Save(CampaignProfileDocument document)
@@ -466,16 +365,11 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             public bool HasPendingReset { get; set; }
 
-            public CampaignSaveResetResult ResetBlockedProfile(CampaignSaveLoadStatus expectedStatus)
-            {
-                return CampaignSaveResetResult.NotAllowed;
-            }
+            public CampaignSaveResetResult ResetBlockedProfile(
+                CampaignSaveLoadStatus expectedStatus) => CampaignSaveResetResult.NotAllowed;
 
-            public CampaignSaveResetResult RetryPendingReset()
-            {
-                return CampaignSaveResetResult.NotAllowed;
-            }
+            public CampaignSaveResetResult RetryPendingReset() =>
+                CampaignSaveResetResult.NotAllowed;
         }
-
     }
 }

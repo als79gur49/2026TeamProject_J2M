@@ -156,7 +156,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var store = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
             Assert.That(primed, Is.True, error);
-            Assert.That(store.LoadSlot(1).RemainingChances, Is.EqualTo(remainingChances));
+            Assert.That(store.LoadSlot(1).State.RemainingChances, Is.EqualTo(remainingChances));
             Assert.That(
                 EditorDirectPlayContextStore.GetCurrentOrNone().RemainingChances,
                 Is.EqualTo(remainingChances));

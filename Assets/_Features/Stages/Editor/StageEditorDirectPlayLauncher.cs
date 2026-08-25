@@ -297,7 +297,7 @@ namespace Game.Feature.Stages.Editor
             CampaignStageSequenceResolver sequenceResolver,
             int remainingChances,
             int productionSlotNumber,
-            ICampaignSaveSlotStore saveStore,
+            ICampaignSlotSeedImportPort saveStore,
             ActiveSlotProvider activeSlotProvider)
         {
             PrimeCampaignProductionSlotCore(
@@ -466,21 +466,20 @@ namespace Game.Feature.Stages.Editor
             CampaignStageSequenceResolver sequenceResolver,
             int remainingChances)
         {
-            remainingChances = Mathf.Clamp(remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances);
+            remainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
+                remainingChances);
             EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
             var activeSlotProvider = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(
                 saveStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = sequenceResolver.GetLevelGroupId(stageId),
-                RemainingChances = remainingChances,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                stageId,
+                sequenceResolver.GetLevelGroupId(stageId),
+                remainingChances,
+                DateTimeOffset.UtcNow.ToString("O")));
             activeSlotProvider.SetActiveSlot(1);
             EditorDirectPlayContextStore.SetCurrent(
                 EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances));
@@ -493,7 +492,8 @@ namespace Game.Feature.Stages.Editor
             int productionSlotNumber)
         {
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(productionSlotNumber);
-            remainingChances = Mathf.Clamp(remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances);
+            remainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
+                remainingChances);
             if (!EditorUtility.DisplayDialog(
                     "Overwrite Production Campaign Slot",
                     $"Overwrite production campaign slot {productionSlotNumber} for Direct Play?",
@@ -519,7 +519,7 @@ namespace Game.Feature.Stages.Editor
             CampaignStageSequenceResolver sequenceResolver,
             int remainingChances,
             int productionSlotNumber,
-            ICampaignSaveSlotStore saveStore,
+            ICampaignSlotSeedImportPort saveStore,
             ActiveSlotProvider activeSlotProvider)
         {
             if (saveStore == null)
@@ -533,15 +533,14 @@ namespace Game.Feature.Stages.Editor
             }
 
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(productionSlotNumber);
-            remainingChances = Mathf.Clamp(remainingChances, 1, CampaignSaveSlotPolicy.DefaultRemainingChances);
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = productionSlotNumber,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = sequenceResolver.GetLevelGroupId(stageId),
-                RemainingChances = remainingChances,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            remainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
+                remainingChances);
+            saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                productionSlotNumber,
+                stageId,
+                sequenceResolver.GetLevelGroupId(stageId),
+                remainingChances,
+                DateTimeOffset.UtcNow.ToString("O")));
             activeSlotProvider.SetActiveSlot(productionSlotNumber);
             EditorDirectPlayContextStore.SetCurrent(new EditorDirectPlayContext(
                 EditorDirectPlayMode.CampaignProductionSlot,

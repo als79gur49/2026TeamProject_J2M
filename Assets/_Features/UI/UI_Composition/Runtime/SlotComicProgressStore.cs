@@ -5,11 +5,16 @@ namespace Game.Feature.UI.Composition
 {
     public sealed class SlotComicProgressStore
     {
-        private readonly ICampaignSaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveQuery _saveSlotStore;
+        private readonly ICampaignComicProgressPort _comicProgressPort;
 
-        public SlotComicProgressStore(ICampaignSaveSlotStore saveSlotStore)
+        public SlotComicProgressStore(
+            ICampaignSaveQuery saveSlotStore,
+            ICampaignComicProgressPort comicProgressPort)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
+            _comicProgressPort = comicProgressPort ??
+                throw new ArgumentNullException(nameof(comicProgressPort));
         }
 
         public bool IsIntroComicCompleted(int slotNumber)
@@ -24,18 +29,27 @@ namespace Game.Feature.UI.Composition
 
         public void MarkIntroComicCompleted(int slotNumber)
         {
-            _saveSlotStore.UpdateSlot(slotNumber, slot => slot.IntroComicCompleted = true);
+            LoadSlot(slotNumber);
+            _comicProgressPort.MarkIntroComicCompleted(slotNumber);
         }
 
         public void MarkOutroComicCompleted(int slotNumber)
         {
-            _saveSlotStore.UpdateSlot(slotNumber, slot => slot.OutroComicCompleted = true);
+            LoadSlot(slotNumber);
+            _comicProgressPort.MarkOutroComicCompleted(slotNumber);
         }
 
-        private SaveSlotData LoadSlot(int slotNumber)
+        private CampaignSlotState LoadSlot(int slotNumber)
         {
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            return _saveSlotStore.LoadSlot(slotNumber);
+            var entry = _saveSlotStore.LoadSlot(slotNumber);
+            if (entry == null || entry.IsEmpty)
+            {
+                throw new InvalidOperationException(
+                    $"Campaign slot '{slotNumber}' is empty or missing.");
+            }
+
+            return entry.State;
         }
     }
 }

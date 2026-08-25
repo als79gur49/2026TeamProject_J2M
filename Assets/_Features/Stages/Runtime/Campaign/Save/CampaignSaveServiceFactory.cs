@@ -19,7 +19,7 @@ namespace Game.Feature.Stages
     internal sealed class CampaignSaveFacadeFactoryResult
     {
         internal CampaignSaveFacadeFactoryResult(
-            ICampaignSaveSlotStore campaignSaveSlots,
+            ICampaignSaveRuntime campaignSaveSlots,
             CampaignSaveServiceFactoryResult profileServices,
             CampaignSaveResetResult recoveryResumeResult)
         {
@@ -30,7 +30,7 @@ namespace Game.Feature.Stages
             RecoveryResumeResult = recoveryResumeResult;
         }
 
-        public ICampaignSaveSlotStore CampaignSaveSlots { get; }
+        public ICampaignSaveRuntime CampaignSaveSlots { get; }
 
         internal CampaignSaveServiceFactoryResult ProfileServices { get; }
 

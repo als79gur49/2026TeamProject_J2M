@@ -53,7 +53,7 @@ namespace Game.Product.Achievements.Tests
             var result = integration.TryEarnAfterCommittedCompletion(
                 CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(1));
+                CreateState(CreateValidCompletedSlot(1)));
 
             Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
             Assert.That(sink.EarnCount, Is.EqualTo(1));
@@ -63,9 +63,6 @@ namespace Game.Product.Achievements.Tests
         [TestCase("presence-false")]
         [TestCase("present-null")]
         [TestCase("campaign-incomplete")]
-        [TestCase("version-zero")]
-        [TestCase("future-version")]
-        [TestCase("invalid-stage")]
         [TestCase("non-final-stage")]
         public void Immediate_InvalidPersistedReceiptMatrix_EarnsZero(string invalidCase)
         {
@@ -76,7 +73,7 @@ namespace Game.Product.Achievements.Tests
             var result = integration.TryEarnAfterCommittedCompletion(
                 CreateCompletionFact("stage-4-3"),
                 _resolver,
-                slot);
+                CreateState(slot));
 
             Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.InvalidReceipt));
             Assert.That(sink.EarnCount, Is.Zero);
@@ -94,7 +91,7 @@ namespace Game.Product.Achievements.Tests
             var result = integration.TryEarnAfterCommittedCompletion(
                 CreateCompletionFact("stage-4-3"),
                 _resolver,
-                slot);
+                CreateState(slot));
 
             Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
             Assert.That(sink.EarnCount, Is.EqualTo(1));
@@ -110,7 +107,7 @@ namespace Game.Product.Achievements.Tests
             var nonFinalResult = integration.TryEarnAfterCommittedCompletion(
                 CreateCompletionFact("stage-4-2"),
                 _resolver,
-                historicalSlot);
+                CreateState(historicalSlot));
 
             Assert.That(nonFinalResult, Is.EqualTo(NormalCampaignCompletionAchievementResult.NotAttempted));
             Assert.That(sink.EarnCount, Is.Zero);
@@ -138,7 +135,7 @@ namespace Game.Product.Achievements.Tests
             var result = integration.TryEarnAfterCommittedCompletion(
                 CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(1));
+                CreateState(CreateValidCompletedSlot(1)));
 
             Assert.That(result, Is.EqualTo(expected));
         }
@@ -154,7 +151,7 @@ namespace Game.Product.Achievements.Tests
             var result = integration.TryEarnAfterCommittedCompletion(
                 CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(1));
+                CreateState(CreateValidCompletedSlot(1)));
 
             Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.ExceptionContained));
         }
@@ -181,9 +178,6 @@ namespace Game.Product.Achievements.Tests
         [TestCase("presence-false")]
         [TestCase("present-null")]
         [TestCase("campaign-incomplete")]
-        [TestCase("version-zero")]
-        [TestCase("future-version")]
-        [TestCase("invalid-stage")]
         [TestCase("non-final-stage")]
         public void Startup_InvalidOrBareReceiptMatrix_EarnsZero(string invalidCase)
         {
@@ -340,17 +334,22 @@ namespace Game.Product.Achievements.Tests
                     new FileCampaignProfileRepository(
                         new AtomicTextFileStore(_saveRoot))));
             campaignStore.InitializeNewGame(1, _resolver, "2026-08-10T00:00:00.0000000Z");
-            campaignStore.UpdateSlot(
+            var finalStageId = StageId.CreateOrThrow("stage-4-3");
+            campaignStore.SetActiveStageForDiagnostics(
                 1,
-                slot =>
+                finalStageId,
+                _resolver.GetLevelGroupId(finalStageId));
+            campaignStore.CommitStageClear(
+                1,
+                new CampaignStageClearCommitRequest
                 {
-                    slot.CurrentStageId = StageId.CreateOrThrow("stage-4-3");
-                    slot.CurrentLevelGroupId = "level-4";
-                    slot.CampaignCompleted = true;
-                    slot.HasNormalCampaignCompletionReceipt = true;
-                    slot.NormalCampaignCompletionReceipt =
-                        CreateValidCompletedSlot(1, "canonical-profile-run")
-                            .NormalCampaignCompletionReceipt;
+                    Plan = new CampaignProgressionTransitionPlanner(_resolver)
+                        .PlanStageClear(finalStageId),
+                    CompletionReceipt = new NormalCampaignCompletionReceipt
+                    {
+                        Version = NormalCampaignCompletionReceipt.CurrentVersion,
+                        CompletedStageId = finalStageId.Value,
+                    },
                 });
             Assert.That(File.Exists(Path.Combine(_saveRoot, "profile.json")), Is.True);
             Assert.That(File.Exists(AchievementPath), Is.False);
@@ -411,11 +410,11 @@ namespace Game.Product.Achievements.Tests
             var first = integration.TryEarnAfterCommittedCompletion(
                 CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(1, "slot-one-receipt"));
+                CreateState(CreateValidCompletedSlot(1, "slot-one-receipt")));
             var second = integration.TryEarnAfterCommittedCompletion(
                 CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(2, "slot-two-receipt"));
+                CreateState(CreateValidCompletedSlot(2, "slot-two-receipt")));
             var snapshot = host.Coordinator.GetSnapshot();
 
             Assert.That(first, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
@@ -489,22 +488,13 @@ namespace Game.Product.Achievements.Tests
             {
                 case "presence-false":
                     slot.HasNormalCampaignCompletionReceipt = false;
+                    slot.NormalCampaignCompletionReceipt = null;
                     break;
                 case "present-null":
                     slot.NormalCampaignCompletionReceipt = null;
                     break;
                 case "campaign-incomplete":
                     slot.CampaignCompleted = false;
-                    break;
-                case "version-zero":
-                    slot.NormalCampaignCompletionReceipt.Version = 0;
-                    break;
-                case "future-version":
-                    slot.NormalCampaignCompletionReceipt.Version =
-                        NormalCampaignCompletionReceipt.CurrentVersion + 1;
-                    break;
-                case "invalid-stage":
-                    slot.NormalCampaignCompletionReceipt.CompletedStageId = "invalid stage";
                     break;
                 case "non-final-stage":
                     slot.NormalCampaignCompletionReceipt.CompletedStageId = "stage-4-2";
@@ -592,17 +582,22 @@ namespace Game.Product.Achievements.Tests
             }
         }
 
-        private sealed class RecordingCampaignStore : ICampaignSaveSlotStore
+        private sealed class RecordingCampaignStore : ICampaignSaveQuery
         {
             private readonly CampaignSaveLoadStatus _status;
-            private readonly SaveSlotData[] _slots;
+            private readonly CampaignSlotEntry[] _slots;
 
             public RecordingCampaignStore(
                 CampaignSaveLoadStatus status,
                 params SaveSlotData[] slots)
             {
                 _status = status;
-                _slots = slots ?? Array.Empty<SaveSlotData>();
+                var source = slots ?? Array.Empty<SaveSlotData>();
+                _slots = new CampaignSlotEntry[source.Length];
+                for (var index = 0; index < source.Length; index++)
+                {
+                    _slots[index] = CreateEntry(source[index]);
+                }
             }
 
             public string DiagnosticsKey => nameof(RecordingCampaignStore);
@@ -615,7 +610,7 @@ namespace Game.Product.Achievements.Tests
 
             public Exception LoadException { get; set; }
 
-            public SaveSlotData[] LoadAll()
+            public CampaignSlotEntry[] LoadAll()
             {
                 return LoadAllWithReport().Slots;
             }
@@ -628,23 +623,12 @@ namespace Game.Product.Achievements.Tests
                     throw LoadException;
                 }
 
-                var clones = new SaveSlotData[_slots.Length];
-                for (var i = 0; i < _slots.Length; i++)
-                {
-                    clones[i] = _slots[i]?.Clone();
-                }
-
-                return new CampaignSaveLoadResult(clones, CreateReport());
+                return new CampaignSaveLoadResult(_slots, CreateReport());
             }
 
-            public SaveSlotData LoadSlot(int slotNumber)
+            public CampaignSlotEntry LoadSlot(int slotNumber)
             {
                 throw new NotSupportedException();
-            }
-
-            public void SaveSlot(SaveSlotData slot)
-            {
-                MutationCount++;
             }
 
             public SaveSlotData InitializeNewGame(
@@ -654,11 +638,6 @@ namespace Game.Product.Achievements.Tests
             {
                 MutationCount++;
                 return SaveSlotData.CreateEmpty(slotNumber);
-            }
-
-            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
-            {
-                MutationCount++;
             }
 
             public void DeleteSlot(int slotNumber)
@@ -678,6 +657,21 @@ namespace Game.Product.Achievements.Tests
                     "recording campaign profile status",
                     nameof(RecordingCampaignStore));
             }
+        }
+
+        private static CampaignSlotState CreateState(SaveSlotData slot)
+        {
+            return CreateEntry(slot).State;
+        }
+
+        private static CampaignSlotEntry CreateEntry(SaveSlotData slot)
+        {
+            if (slot == null || slot.IsEmpty)
+            {
+                return CampaignSlotStateFactory.CreateEmptyEntry(slot?.SlotNumber ?? 1);
+            }
+
+            return CampaignSlotRawDataMapper.ToEntry(slot);
         }
 
         private sealed class RecordingRepository : IAchievementDocumentRepository

@@ -5,7 +5,7 @@ namespace Game.Feature.Stages
         private static ProductionComposition productionComposition;
         private static ProductionComposition productionCompositionOverride;
 
-        public static ICampaignSaveSlotStore CreateProductionProfileBacked()
+        public static ICampaignSaveRuntime CreateProductionProfileBacked()
         {
             return GetOrCreateProductionComposition().SlotStore;
         }
@@ -15,13 +15,13 @@ namespace Game.Feature.Stages
             return GetOrCreateProductionComposition().RecoveryPort;
         }
 
-        internal static ICampaignSaveSlotStore Create(CampaignSaveCompositionOptions options)
+        internal static ICampaignSaveRuntime Create(CampaignSaveCompositionOptions options)
         {
             return CampaignSaveFacadeFactory.Create(options).CampaignSaveSlots;
         }
 
         public static ActiveSlotProvider CreateProductionActiveSlotProvider(
-            ICampaignSaveSlotStore profileSlots)
+            ICampaignSaveQuery profileSlots)
         {
             if (profileSlots == null)
             {
@@ -37,13 +37,13 @@ namespace Game.Feature.Stages
             return new ActiveSlotProvider(storage);
         }
 
-        public static ICampaignSaveSlotStore CreateTemporaryProfileBacked()
+        public static ICampaignSaveRuntime CreateTemporaryProfileBacked()
         {
             return Create(CreateTemporaryProfileBackedOptions());
         }
 
         public static ActiveSlotProvider CreateTemporaryActiveSlotProvider(
-            ICampaignSaveSlotStore profileSlots)
+            ICampaignSaveQuery profileSlots)
         {
             if (profileSlots == null)
             {
@@ -98,7 +98,7 @@ namespace Game.Feature.Stages
         }
 
         internal static void SetProductionCompositionForTests(
-            ICampaignSaveSlotStore slotStore,
+            ICampaignSaveRuntime slotStore,
             ICampaignSaveRecoveryPort recoveryPort,
             IActiveSlotStorage activeSlotStorage)
         {
@@ -148,7 +148,7 @@ namespace Game.Feature.Stages
         }
 
         private static IActiveSlotStorage CreateLocalStateActiveSlotStorage(
-            ICampaignSaveSlotStore profileSlots,
+            ICampaignSaveQuery profileSlots,
             ISavePathProvider pathProvider)
         {
             pathProvider ??= new ApplicationPersistentDataSavePathProvider();
@@ -161,7 +161,7 @@ namespace Game.Feature.Stages
         private sealed class ProductionComposition
         {
             public ProductionComposition(
-                ICampaignSaveSlotStore slotStore,
+                ICampaignSaveRuntime slotStore,
                 ICampaignSaveRecoveryPort recoveryPort,
                 IActiveSlotStorage activeSlotStorage)
             {
@@ -170,7 +170,7 @@ namespace Game.Feature.Stages
                 ActiveSlotStorage = activeSlotStorage;
             }
 
-            public ICampaignSaveSlotStore SlotStore { get; }
+            public ICampaignSaveRuntime SlotStore { get; }
 
             public ICampaignSaveRecoveryPort RecoveryPort { get; }
 

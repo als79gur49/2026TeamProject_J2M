@@ -12,7 +12,7 @@ namespace Game.Product.Achievements.Composition
         private readonly SwitchableAchievementPublicationSink _publicationSink;
         private readonly Func<string, IAchievementPublicationSink, IProductAchievementHostLifetime>
             _hostFactory;
-        private readonly Func<ICampaignSaveSlotStore> _campaignSaveSlotStoreFactory;
+        private readonly Func<ICampaignSaveQuery> _campaignSaveSlotStoreFactory;
         private readonly Func<EditorDirectPlayContext> _directPlayContextProvider;
         private readonly Func<CampaignStageSequenceResolver> _sequenceResolverFactory;
 
@@ -29,7 +29,7 @@ namespace Game.Product.Achievements.Composition
             ISavePathProvider savePathProvider,
             IAchievementPublicationSink publicationSink = null,
             Func<string, IAchievementPublicationSink, IProductAchievementHostLifetime> hostFactory = null,
-            Func<ICampaignSaveSlotStore> campaignSaveSlotStoreFactory = null,
+            Func<ICampaignSaveQuery> campaignSaveSlotStoreFactory = null,
             Func<EditorDirectPlayContext> directPlayContextProvider = null,
             Func<CampaignStageSequenceResolver> sequenceResolverFactory = null)
         {

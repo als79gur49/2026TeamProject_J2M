@@ -68,11 +68,9 @@ namespace Game.Product.Achievements.CampaignIntegration
 
         internal int? MaxCombinedPushFlipUses { get; }
 
-        internal bool IsSatisfiedBy(NormalStagePerformanceRecord record)
+        internal bool IsSatisfiedBy(CampaignStagePerformanceState record)
         {
-            return record != null &&
-                   record.IsStructurallyValid &&
-                   record.StageId.Equals(RequiredStageId) &&
+            return record.StageId.Equals(RequiredStageId) &&
                    (!MaxCombinedPushFlipUses.HasValue ||
                     record.BestCombinedPushFlipUses <= MaxCombinedPushFlipUses.Value);
         }
@@ -151,7 +149,7 @@ namespace Game.Product.Achievements.CampaignIntegration
     internal interface ICampaignStageAchievementIntegration
     {
         void TryEarnFromCommittedSlot(
-            SaveSlotData committedSlot,
+            CampaignSlotState committedSlot,
             CampaignStageSequenceResolver sequenceResolver);
     }
 
@@ -170,7 +168,7 @@ namespace Game.Product.Achievements.CampaignIntegration
         }
 
         public void TryEarnFromCommittedSlot(
-            SaveSlotData committedSlot,
+            CampaignSlotState committedSlot,
             CampaignStageSequenceResolver sequenceResolver)
         {
             if (committedSlot == null || sequenceResolver == null)
@@ -178,8 +176,7 @@ namespace Game.Product.Achievements.CampaignIntegration
                 return;
             }
 
-            var records = NormalStagePerformanceRecordPolicy.Normalize(
-                committedSlot.NormalStagePerformanceRecords);
+            var records = committedSlot.NormalStagePerformanceRecords;
             var earnedFromCommittedFact = new List<GameAchievementId>();
             for (var ruleIndex = 0; ruleIndex < _rules.Rules.Count; ruleIndex++)
             {
@@ -189,7 +186,7 @@ namespace Game.Product.Achievements.CampaignIntegration
                     continue;
                 }
 
-                for (var recordIndex = 0; recordIndex < records.Length; recordIndex++)
+                for (var recordIndex = 0; recordIndex < records.Count; recordIndex++)
                 {
                     if (!rule.IsSatisfiedBy(records[recordIndex]))
                     {
@@ -227,7 +224,7 @@ namespace Game.Product.Achievements.CampaignIntegration
         }
 
         public void TryEarnFromCommittedSlot(
-            SaveSlotData committedSlot,
+            CampaignSlotState committedSlot,
             CampaignStageSequenceResolver sequenceResolver)
         {
         }

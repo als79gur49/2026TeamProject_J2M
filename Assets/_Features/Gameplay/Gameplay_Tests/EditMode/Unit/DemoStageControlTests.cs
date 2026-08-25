@@ -96,17 +96,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var first = CreateEntry("stage-0-1");
             var selected = CreateEntry("stage-0-2", initiallyAvailable: false);
             var service = CreateService(new[] { first, selected }, out var saveStore, out _);
-            saveStore.UpdateSlot(
-                1,
-                slot => slot.StageClearProfileSnapshot.ClearRecordsByStageId[first.StageId] =
-                    PlayerStageClearRecord.CreateEmpty(first.StageId));
 
             var result = service.StartStage(selected.StageId);
 
             Assert.That(result.Success, Is.True);
             Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(selected.StageId));
-            var previousRecord = saveStore.LoadSlot(1).StageClearProfileSnapshot.ClearRecordsByStageId[first.StageId];
-            Assert.That(previousRecord.HasCleared, Is.False);
+            Assert.That(saveStore.LoadSlot(1).State.StageClearProfile.Records, Is.Empty);
         }
 
         [Test]
@@ -172,15 +167,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var saveStore = new TransientCampaignSaveSlotStore(_saveSlotNamespace);
             var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(_activeSlotNamespace));
             activeSlotProvider.SetActiveSlot(1);
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = first.StageId,
-                CurrentLevelGroupId = "level-0",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
-            });
+            saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                first.StageId,
+                "level-0",
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                string.Empty));
             var bridge = new DemoStageControlCampaignBridge(
+                saveStore,
                 saveStore,
                 activeSlotProvider,
                 LoadProductionSequenceResolver());
@@ -360,15 +354,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             saveStore = new TransientCampaignSaveSlotStore(_saveSlotNamespace);
             var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(_activeSlotNamespace));
             activeSlotProvider.SetActiveSlot(1);
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = entries[0].StageId,
-                CurrentLevelGroupId = "level-0",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
-            });
+            saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                entries[0].StageId,
+                "level-0",
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                string.Empty));
             var campaignBridge = new DemoStageControlCampaignBridge(
+                saveStore,
                 saveStore,
                 activeSlotProvider,
                 sequenceResolver);

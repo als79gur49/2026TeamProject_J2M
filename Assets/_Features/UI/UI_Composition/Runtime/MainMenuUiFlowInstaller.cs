@@ -480,20 +480,25 @@ namespace Game.Feature.UI.Composition
             var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore);
             ImportStandaloneCampaignSaveSeed(saveSlotStore, activeSlotProvider, sequenceResolver);
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
-            var validationService = new SaveSlotValidationService(sequenceResolver, _stageCatalogProvider);
+            var slotLaunchEvaluator = new CampaignSlotLaunchEvaluator(
+                sequenceResolver,
+                _stageCatalogProvider);
             IStageLaunchRouter stageLaunchRouter = new ConfiguredGameplayStageLaunchRouter(_routeConfig);
             stageLaunchRouter = new ComicIntroStageLaunchRouter(
                 stageLaunchRouter,
+                saveSlotStore,
                 saveSlotStore,
                 launchHandoffStore,
                 EnsureComicSequenceFlowCoordinator());
             Controller = new MainMenuController(
                 saveSlotStore,
+                saveSlotStore,
+                saveSlotStore,
                 launchHandoffStore,
                 sequenceResolver,
+                slotLaunchEvaluator,
                 stageLaunchRouter,
                 _confirmPopupPort,
-                validationService,
                 _localizedTextResolver,
                 new UnityMainMenuSaveDiagnosticPort(),
                 saveRecoveryPort);
@@ -506,7 +511,7 @@ namespace Game.Feature.UI.Composition
         }
 
         private void ImportStandaloneCampaignSaveSeed(
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSaveRuntime saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver)
         {

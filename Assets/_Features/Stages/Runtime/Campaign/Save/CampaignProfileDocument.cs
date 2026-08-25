@@ -16,6 +16,46 @@ namespace Game.Feature.Stages
         public CampaignSlotDocument[] Slots = Array.Empty<CampaignSlotDocument>();
     }
 
+    internal static class CampaignProfileDocumentMaterializer
+    {
+        public static void MaterializeValidated(CampaignProfileDocument document)
+        {
+            if (document == null)
+            {
+                throw new ArgumentNullException(nameof(document));
+            }
+
+            document.ProductVersion ??= string.Empty;
+            document.SavedAtUtc ??= string.Empty;
+            document.Slots ??= Array.Empty<CampaignSlotDocument>();
+            for (var slotIndex = 0; slotIndex < document.Slots.Length; slotIndex++)
+            {
+                var slot = document.Slots[slotIndex];
+                slot.LevelGroupId ??= string.Empty;
+                slot.LastPlayedAtUtc ??= string.Empty;
+                if (!slot.HasNormalCampaignCompletionReceipt ||
+                    CampaignSlotDocumentValidator.IsExactDefaultReceiptResidue(
+                        slot.NormalCampaignCompletionReceipt))
+                {
+                    slot.NormalCampaignCompletionReceipt = null;
+                }
+
+                slot.NormalStagePerformanceRecords ??=
+                    Array.Empty<NormalStagePerformanceRecordDocument>();
+                slot.StageClearProfileSnapshot ??= new CampaignStageClearProfileDocument();
+                var profile = slot.StageClearProfileSnapshot;
+                profile.Records ??= Array.Empty<PlayerStageClearRecordDocument>();
+                profile.ProcessedStageRunIds ??= Array.Empty<string>();
+                profile.ProcessedClearAttemptIds ??= Array.Empty<string>();
+                for (var recordIndex = 0; recordIndex < profile.Records.Length; recordIndex++)
+                {
+                    profile.Records[recordIndex].ProcessedStageRunIds ??=
+                        Array.Empty<string>();
+                }
+            }
+        }
+    }
+
     internal enum CampaignProfileDocumentValidationResult
     {
         Valid,
@@ -29,11 +69,63 @@ namespace Game.Feature.Stages
         {
             return slot != null &&
                    CampaignSaveSlotPolicy.IsValidSlotNumber(slot.SlotNumber) &&
-                   slot.RemainingChances >= 0 &&
+                   CampaignSaveSlotPolicy.IsValidRemainingChances(
+                       slot.RemainingChances) &&
                    slot.TotalDeaths >= 0 &&
                    IsCanonicalStageId(slot.StageId) &&
+                   ValidateCompletionReceipt(
+                       slot.HasNormalCampaignCompletionReceipt,
+                       slot.NormalCampaignCompletionReceipt) &&
                    ValidatePerformanceRecords(slot.NormalStagePerformanceRecords) &&
                    ValidateStageClearProfile(slot.StageClearProfileSnapshot);
+        }
+
+        private static bool ValidateCompletionReceipt(
+            bool hasReceipt,
+            NormalCampaignCompletionReceiptDocument receipt)
+        {
+            if (receipt == null)
+            {
+                return true;
+            }
+
+            // JsonUtility serializes a null nested object as an empty object and
+            // materializes that shape with exact CLR defaults. It represents either
+            // receipt absence or PresentWithoutPayload, depending on the presence flag.
+            if (IsExactDefaultReceiptResidue(receipt))
+            {
+                return true;
+            }
+
+            if (!hasReceipt)
+            {
+                return false;
+            }
+
+            if (!IsCanonicalStageId(receipt.CompletedStageId))
+            {
+                return false;
+            }
+
+            return receipt.Version switch
+            {
+                NormalCampaignCompletionReceipt.LegacyVersion =>
+                    !string.IsNullOrWhiteSpace(receipt.StageRunId) &&
+                    receipt.ClearSource == NormalCampaignCompletionReceipt.LegacyObjectiveClearSource,
+                NormalCampaignCompletionReceipt.CurrentVersion => true,
+                _ => false,
+            };
+        }
+
+        internal static bool IsExactDefaultReceiptResidue(
+            NormalCampaignCompletionReceiptDocument receipt)
+        {
+            return receipt != null &&
+                   receipt.Version == 0 &&
+                   receipt.ClearSource == 0 &&
+                   (receipt.CompletedStageId == null && receipt.StageRunId == null ||
+                    receipt.CompletedStageId == string.Empty &&
+                    receipt.StageRunId == string.Empty);
         }
 
         private static bool ValidatePerformanceRecords(

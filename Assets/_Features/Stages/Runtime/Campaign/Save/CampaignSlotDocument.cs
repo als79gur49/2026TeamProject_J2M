@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace Game.Feature.Stages
 {
@@ -76,75 +75,4 @@ namespace Game.Feature.Stages
         public int BestCombinedPushFlipUses;
     }
 
-    public static class NormalStagePerformanceRecordPolicy
-    {
-        public static NormalStagePerformanceRecord[] Normalize(
-            IEnumerable<NormalStagePerformanceRecord> records)
-        {
-            var bestByStage = new Dictionary<StageId, int>();
-            if (records != null)
-            {
-                foreach (var record in records)
-                {
-                    if (record == null || !record.IsStructurallyValid)
-                    {
-                        continue;
-                    }
-
-                    if (!bestByStage.TryGetValue(record.StageId, out var currentBest) ||
-                        record.BestCombinedPushFlipUses < currentBest)
-                    {
-                        bestByStage[record.StageId] = record.BestCombinedPushFlipUses;
-                    }
-                }
-            }
-
-            var normalized = new List<NormalStagePerformanceRecord>(bestByStage.Count);
-            foreach (var pair in bestByStage)
-            {
-                normalized.Add(new NormalStagePerformanceRecord
-                {
-                    Version = NormalStagePerformanceRecord.CurrentVersion,
-                    StageId = pair.Key,
-                    BestCombinedPushFlipUses = pair.Value,
-                });
-            }
-
-            normalized.Sort((left, right) =>
-                StringComparer.Ordinal.Compare(left.StageId.Value, right.StageId.Value));
-            return normalized.ToArray();
-        }
-
-        public static NormalStagePerformanceRecord[] UpsertBest(
-            IEnumerable<NormalStagePerformanceRecord> records,
-            StageId stageId,
-            int combinedPushFlipUses)
-        {
-            if (!stageId.IsValid)
-            {
-                throw new ArgumentException(
-                    "Normal stage performance requires a valid StageId.",
-                    nameof(stageId));
-            }
-
-            if (combinedPushFlipUses < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(combinedPushFlipUses));
-            }
-
-            var candidate = new List<NormalStagePerformanceRecord>();
-            if (records != null)
-            {
-                candidate.AddRange(records);
-            }
-
-            candidate.Add(new NormalStagePerformanceRecord
-            {
-                Version = NormalStagePerformanceRecord.CurrentVersion,
-                StageId = stageId,
-                BestCombinedPushFlipUses = combinedPushFlipUses,
-            });
-            return Normalize(candidate);
-        }
-    }
 }

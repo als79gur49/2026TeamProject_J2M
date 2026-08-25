@@ -171,14 +171,14 @@ namespace Game.Feature.UI.Tests
                 var controllerResolver = GetPrivateField<CampaignStageSequenceResolver>(
                     installer.Controller,
                     "_sequenceResolver");
-                var validationService = GetPrivateField<SaveSlotValidationService>(
+                var launchEvaluator = GetPrivateField<CampaignSlotLaunchEvaluator>(
                     installer.Controller,
-                    "_saveSlotValidationService");
-                var validationResolver = GetPrivateField<CampaignStageSequenceResolver>(
-                    validationService,
+                    "_slotLaunchEvaluator");
+                var evaluationResolver = GetPrivateField<CampaignStageSequenceResolver>(
+                    launchEvaluator,
                     "_sequenceResolver");
                 Assert.That(controllerResolver, Is.SameAs(compositionResolver));
-                Assert.That(validationResolver, Is.SameAs(compositionResolver));
+                Assert.That(evaluationResolver, Is.SameAs(compositionResolver));
                 UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(root);
                 Assert.That(installer.MainMenuScreenView, Is.Not.Null);
                 Assert.That(installer.MainMenuScreenView.SaveSlotPanel, Is.Not.Null);
@@ -334,12 +334,7 @@ namespace Game.Feature.UI.Tests
             var harness = CreateControllerHarness("stage-2-2");
             try
             {
-                harness.SaveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 2,
-                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                    CurrentLevelGroupId = "stale",
-                });
+                SeedSlot(harness.SaveStore, 2, "stage-2-2", "stale");
 
                 harness.Controller.Continue(2);
 
@@ -379,16 +374,19 @@ namespace Game.Feature.UI.Tests
                 });
                 var resolver = new CampaignStageSequenceResolver(definition);
                 var router = new FakeStageLaunchRouter();
+                var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                    saveStore,
+                    activeStorage,
+                    handoffStore);
                 using var controller = new MainMenuController(
-                    new CampaignLaunchStateRepairingCampaignSaveSlotStore(
-                        saveStore,
-                        activeStorage,
-                        handoffStore),
+                    repairingStore,
+                    repairingStore,
+                    repairingStore,
                     handoffStore,
                     resolver,
+                    new CampaignSlotLaunchEvaluator(resolver, provider.Provider),
                     router,
-                    new FakeConfirmPopupPort(),
-                    new SaveSlotValidationService(resolver, provider.Provider));
+                    new FakeConfirmPopupPort());
                 saveStore.ClearAll();
 
                 controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
@@ -399,13 +397,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(handoffStore.TryPeek(out var newGameHandoff), Is.True);
                 Assert.That(handoffStore.TryClear(newGameHandoff.Token), Is.True);
 
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 2,
-                    CurrentStageId = StageId.CreateOrThrow("fixture-c"),
-                    CurrentLevelGroupId = "stale-group",
-                    RemainingChances = 2,
-                });
+                SeedSlot(saveStore, 2, "fixture-c", "stale-group", 2);
                 controller.Continue(2);
 
                 Assert.That(saveStore.LoadSlot(2).CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
@@ -429,16 +421,10 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CompletedSlot_Continue_IsRejectedAtControllerLevel()
         {
-            var harness = CreateControllerHarness("stage-4-2");
+            var harness = CreateControllerHarness("stage-4-3");
             try
             {
-                harness.SaveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
-                    CurrentLevelGroupId = "level-4",
-                    CampaignCompleted = true,
-                });
+                CompleteCampaign(harness.SaveStore);
 
                 harness.Controller.Continue(1);
 
@@ -454,16 +440,10 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CompletedSlot_RestartRequiresConfirm_AndOverwritesOnlyAfterConfirmed()
         {
-            var harness = CreateControllerHarness("stage-0-1", "stage-4-2");
+            var harness = CreateControllerHarness("stage-0-1", "stage-4-3");
             try
             {
-                harness.SaveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
-                    CurrentLevelGroupId = "level-4",
-                    CampaignCompleted = true,
-                });
+                CompleteCampaign(harness.SaveStore);
 
                 harness.Controller.RequestRestart(1);
                 harness.ConfirmPort.Complete(false);
@@ -494,12 +474,7 @@ namespace Game.Feature.UI.Tests
             var harness = CreateControllerHarness("stage-0-1");
             try
             {
-                harness.SaveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-9-9"),
-                    CurrentLevelGroupId = "level-9",
-                });
+                SeedSlot(harness.SaveStore, 1, "stage-9-9", "level-9");
 
                 harness.Controller.Continue(1);
 
@@ -517,7 +492,7 @@ namespace Game.Feature.UI.Tests
             var harness = CreateControllerHarness("stage-0-1");
             try
             {
-                harness.SaveStore.SaveSlot(new SaveSlotData { SlotNumber = 1, CurrentStageId = StageId.CreateOrThrow("stage-0-1") });
+                SeedSlot(harness.SaveStore, 1, "stage-0-1", string.Empty);
                 harness.ActiveSlotProvider.SetActiveSlot(1);
 
                 harness.Controller.RequestDelete(1);
@@ -1150,15 +1125,21 @@ namespace Game.Feature.UI.Tests
                 entry.Set(StageId.CreateOrThrow("stage-4-2"), "level-4");
                 definition.SetEntries(new[] { entry });
                 var resolver = new CampaignStageSequenceResolver(definition);
+                var immutableEntry = CampaignSlotRawDataMapper.ToEntry(
+                        new SaveSlotData
+                        {
+                            SlotNumber = 1,
+                            CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
+                            CurrentLevelGroupId = "level-4",
+                            CampaignCompleted = true,
+                        });
+                var evaluation = CampaignStageSequenceTestAsset
+                    .LoadProductionLaunchEvaluator(resolver)
+                    .Evaluate(immutableEntry);
                 var viewModel = MainMenuSlotViewModelMapper.MapSlot(
-                    new SaveSlotData
-                    {
-                        SlotNumber = 1,
-                        CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
-                        CurrentLevelGroupId = "level-4",
-                        CampaignCompleted = true,
-                    },
-                    resolver);
+                    immutableEntry,
+                    evaluation,
+                    CampaignSlotActionPolicy.Evaluate(evaluation));
 
                 Assert.That(viewModel.StageText, Is.EqualTo("Stage Morgue-02"));
             }
@@ -1877,6 +1858,35 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static CampaignSlotState SeedSlot(
+            ICampaignSlotSeedImportPort store,
+            int slotNumber,
+            string stageId,
+            string levelGroupId,
+            int remainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances)
+        {
+            return store.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                slotNumber,
+                StageId.CreateOrThrow(stageId),
+                levelGroupId,
+                remainingChances,
+                DateTimeOffset.UtcNow.ToString("O")));
+        }
+
+        private static void CompleteCampaign(TransientCampaignSaveSlotStore store)
+        {
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
+            var finalStageId = StageId.CreateOrThrow("stage-4-3");
+            SeedSlot(store, 1, finalStageId.Value, resolver.GetLevelGroupId(finalStageId));
+            store.CommitStageClear(
+                1,
+                new CampaignStageClearCommitRequest
+                {
+                    Plan = new CampaignProgressionTransitionPlanner(resolver)
+                        .PlanStageClear(finalStageId),
+                });
+        }
+
         private static ControllerHarness CreateControllerHarness(params string[] catalogStageIds)
         {
             var provider = CreateProvider(catalogStageIds);
@@ -1895,14 +1905,16 @@ namespace Game.Feature.UI.Tests
             var resolver = new CampaignStageSequenceResolver(LoadProductionCampaignSequence());
             var confirmPort = new FakeConfirmPopupPort();
             var router = new FakeStageLaunchRouter();
-            var validationService = new SaveSlotValidationService(resolver, provider.Provider);
+            var launchEvaluator = new CampaignSlotLaunchEvaluator(resolver, provider.Provider);
             var controller = new MainMenuController(
+                repairingStore,
+                repairingStore,
                 repairingStore,
                 launchHandoffStore,
                 resolver,
+                launchEvaluator,
                 router,
-                confirmPort,
-                validationService);
+                confirmPort);
             return new ControllerHarness(
                 provider,
                 saveStore,
@@ -2121,7 +2133,7 @@ namespace Game.Feature.UI.Tests
 
         private static void AssignCampaignStores(
             StageBackedGameplaySceneInstaller installer,
-            ICampaignSaveSlotStore saveStore,
+            ICampaignSaveQuery saveStore,
             ActiveSlotProvider activeSlotProvider)
         {
             var saveStoreField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
@@ -2396,7 +2408,7 @@ namespace Game.Feature.UI.Tests
 
             public string SaveRootPath { get; }
 
-            public ICampaignSaveSlotStore SaveStore { get; }
+            public ICampaignSaveRuntime SaveStore { get; }
 
             public ActiveSlotProvider ActiveSlotProvider { get; }
 
@@ -2417,26 +2429,25 @@ namespace Game.Feature.UI.Tests
 
                 SaveStore.ClearAll();
                 ActiveSlotProvider.ClearActiveSlot();
-                SaveStore.SaveSlot(originalSlot);
+                SaveStore.ImportSlotSeed(
+                    CampaignSlotRawDataMapper.ToSeedImportRequest(originalSlot));
                 ActiveSlotProvider.SetActiveSlot(1);
 
-                Assert.That(SaveStore.LoadSlot(1).RemainingChances, Is.EqualTo(remainingChances));
+                Assert.That(SaveStore.LoadSlot(1).State.RemainingChances, Is.EqualTo(remainingChances));
                 Assert.That(ActiveSlotProvider.TryGetActiveSlotNumber(out var activeSlot), Is.True);
                 Assert.That(activeSlot, Is.EqualTo(1));
                 AssertExpectedFileSet();
 
-                SaveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = stageId,
-                    CurrentLevelGroupId = "level-01",
-                    RemainingChances = remainingChances - 1,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
+                SeedSlot(
+                    SaveStore,
+                    1,
+                    stageId.Value,
+                    "level-01",
+                    remainingChances - 1);
                 Assert.That(
                     _profileTextFileStore.TryRestoreBackup(FileCampaignProfileRepository.ProfileFileName),
                     Is.True);
-                Assert.That(SaveStore.LoadSlot(1).RemainingChances, Is.EqualTo(remainingChances));
+                Assert.That(SaveStore.LoadSlot(1).State.RemainingChances, Is.EqualTo(remainingChances));
 
                 ActiveSlotProvider.ClearActiveSlot();
                 Assert.That(

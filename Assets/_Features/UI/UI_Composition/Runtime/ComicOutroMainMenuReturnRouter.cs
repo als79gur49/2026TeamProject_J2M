@@ -18,11 +18,19 @@ namespace Game.Feature.UI.Composition
 
         public ComicOutroMainMenuReturnRouter(
             IMainMenuReturnRouter inner,
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSaveQuery saveSlotStore,
+            ICampaignComicProgressPort comicProgressPort,
             ActiveSlotProvider activeSlotProvider,
             IComicIntroOutroFlow comicFlow,
             Func<bool> isFinalClearMainReturn)
-            : this(inner, new SlotComicProgressStore(saveSlotStore), activeSlotProvider, comicFlow, isFinalClearMainReturn)
+            : this(
+                inner,
+                new SlotComicProgressStore(
+                    saveSlotStore,
+                    comicProgressPort),
+                activeSlotProvider,
+                comicFlow,
+                isFinalClearMainReturn)
         {
         }
 

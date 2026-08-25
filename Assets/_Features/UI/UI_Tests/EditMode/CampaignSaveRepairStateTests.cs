@@ -111,48 +111,42 @@ namespace Game.Feature.UI.Tests
             Assert.That(MainMenuSlotViewModelMapper.MapFailureKind(status), Is.EqualTo(expected));
         }
 
-        [TestCase(SaveSlotValidationStatus.Empty, SaveSlotFailurePresentationKind.None)]
-        [TestCase(SaveSlotValidationStatus.Valid, SaveSlotFailurePresentationKind.None)]
-        [TestCase(SaveSlotValidationStatus.Completed, SaveSlotFailurePresentationKind.None)]
-        [TestCase(SaveSlotValidationStatus.Corrupted, SaveSlotFailurePresentationKind.CorruptedData)]
-        [TestCase(SaveSlotValidationStatus.UnsupportedVersion, SaveSlotFailurePresentationKind.UnsupportedVersion)]
-        [TestCase(SaveSlotValidationStatus.StageMissingFromSequence, SaveSlotFailurePresentationKind.NeedsRepair)]
-        [TestCase(SaveSlotValidationStatus.StageMissingFromCatalog, SaveSlotFailurePresentationKind.NeedsRepair)]
-        public void SlotValidationStatus_MapsToTypedUiFailureKind(
-            SaveSlotValidationStatus status,
+        [TestCase(CampaignSlotLaunchStatus.Empty, SaveSlotFailurePresentationKind.None)]
+        [TestCase(CampaignSlotLaunchStatus.Ready, SaveSlotFailurePresentationKind.None)]
+        [TestCase(CampaignSlotLaunchStatus.Completed, SaveSlotFailurePresentationKind.None)]
+        [TestCase(CampaignSlotLaunchStatus.LevelGroupSynchronizationRequired, SaveSlotFailurePresentationKind.None)]
+        [TestCase(CampaignSlotLaunchStatus.StageMissingFromSequence, SaveSlotFailurePresentationKind.NeedsRepair)]
+        [TestCase(CampaignSlotLaunchStatus.StageMissingFromCatalog, SaveSlotFailurePresentationKind.NeedsRepair)]
+        public void SlotLaunchStatus_MapsToTypedUiFailureKind(
+            CampaignSlotLaunchStatus status,
             SaveSlotFailurePresentationKind expected)
         {
             Assert.That(MainMenuSlotViewModelMapper.MapFailureKind(status), Is.EqualTo(expected));
         }
 
-        [TestCase(SaveSlotValidationStatus.UnsupportedVersion, SaveSlotFailurePresentationKind.UnsupportedVersion, "Unsupported Save", "This save was created by an unsupported version.")]
-        [TestCase(SaveSlotValidationStatus.Corrupted, SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.")]
-        [TestCase(SaveSlotValidationStatus.StageMissingFromSequence, SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.")]
-        [TestCase(SaveSlotValidationStatus.StageMissingFromCatalog, SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.")]
-        public void InvalidSlot_UsesSafeLocalizedCopyAndOnlySupportedActions(
-            SaveSlotValidationStatus status,
-            SaveSlotFailurePresentationKind expectedKind,
-            string expectedTitle,
-            string expectedDetail)
+        [Test]
+        public void SlotLaunchFailure_UsesSafeLocalizedCopyAndOnlySupportedActions()
         {
             var slot = CreateExistingSlot(1);
+            slot.CurrentStageId = StageId.CreateOrThrow("stage-5-1");
+            slot.CurrentLevelGroupId = "level-5";
             slot.TotalDeaths = 99;
             slot.LastPlayedAt = "2026-07-30T01:23:45+09:00";
-            var validation = new SaveSlotValidationResult(
-                slot,
-                status,
-                "untrusted-level",
-                levelGroupWasSynced: false);
+            var entry = CampaignSlotRawDataMapper.ToEntry(slot);
+            var evaluation = CampaignStageSequenceTestAsset
+                .LoadProductionLaunchEvaluator()
+                .Evaluate(entry);
 
             var card = MainMenuSlotViewModelMapper.MapSlot(
-                slot,
-                null,
-                validation,
+                entry,
+                evaluation,
+                CampaignSlotActionPolicy.Evaluate(evaluation),
                 PackageFreeLocalizedTextResolver.CreateSettingsDefault());
 
-            Assert.That(card.FailureKind, Is.EqualTo(expectedKind));
-            Assert.That(card.StatusText, Is.EqualTo(expectedTitle));
-            Assert.That(card.StageText, Is.EqualTo(expectedDetail));
+            Assert.That(evaluation.Status, Is.EqualTo(CampaignSlotLaunchStatus.StageMissingFromSequence));
+            Assert.That(card.FailureKind, Is.EqualTo(SaveSlotFailurePresentationKind.NeedsRepair));
+            Assert.That(card.StatusText, Is.EqualTo("Save Data Unavailable"));
+            Assert.That(card.StageText, Is.EqualTo("This save cannot be used in its current state."));
             Assert.That(card.ChancesText, Is.Empty);
             Assert.That(card.DeathsText, Is.Empty);
             Assert.That(card.LastPlayedText, Is.Empty);
@@ -484,8 +478,11 @@ namespace Game.Feature.UI.Tests
         {
             return new MainMenuController(
                 store,
+                store,
+                store,
                 launchHandoffStore ?? new RecordingCampaignLaunchHandoffStore(),
                 CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                CampaignStageSequenceTestAsset.LoadProductionLaunchEvaluator(),
                 router ?? new RecordingStageLaunchRouter(),
                 confirmPopupPort ?? new RecordingConfirmPopupPort(),
                 saveDiagnosticPort: saveDiagnosticPort,
@@ -527,7 +524,10 @@ namespace Game.Feature.UI.Tests
             };
         }
 
-        private sealed class RecordingSaveSlotStore : ICampaignSaveSlotStore
+        private sealed class RecordingSaveSlotStore :
+            ICampaignSaveQuery,
+            ICampaignContinuePreparationPort,
+            ICampaignSlotLifecyclePort
         {
             private readonly SaveSlotData[] _slots = new SaveSlotData[CampaignSaveSlotPolicy.SlotCount];
 
@@ -550,14 +550,12 @@ namespace Game.Feature.UI.Tests
 
             public int InitializeNewGameCount { get; private set; }
 
-            public int UpdateSlotCount { get; private set; }
-
             public int DeleteSlotCount { get; private set; }
 
             public int ClearAllCount { get; private set; }
 
             public int ProfileWriteCount =>
-                SaveSlotCount + InitializeNewGameCount + UpdateSlotCount + DeleteSlotCount + ClearAllCount;
+                SaveSlotCount + InitializeNewGameCount + DeleteSlotCount + ClearAllCount;
 
             public string DiagnosticsKey => "recording-campaign-save";
 
@@ -571,13 +569,18 @@ namespace Game.Feature.UI.Tests
 
             public SaveSlotData[] LoadAll()
             {
-                return LoadAllWithReport().Slots;
+                return _slots.ToArray();
             }
+
+            CampaignSlotEntry[] ICampaignSaveQuery.LoadAll() =>
+                LoadAll().Select(ToEntry).ToArray();
 
             public CampaignSaveLoadResult LoadAllWithReport()
             {
                 LoadAllWithReportCount++;
-                return new CampaignSaveLoadResult(_slots.ToArray(), Report);
+                return new CampaignSaveLoadResult(
+                    ((ICampaignSaveQuery)this).LoadAll(),
+                    Report);
             }
 
             public SaveSlotData LoadSlot(int slotNumber)
@@ -587,10 +590,23 @@ namespace Game.Feature.UI.Tests
                 return _slots[slotNumber - 1];
             }
 
-            public void SaveSlot(SaveSlotData slot)
+            CampaignSlotEntry ICampaignSaveQuery.LoadSlot(int slotNumber) =>
+                ToEntry(LoadSlot(slotNumber));
+
+            public CampaignContinuePreparationResult PrepareContinue(
+                CampaignContinuePreparationCommand command)
             {
-                SaveSlotCount++;
-                SetSlot(slot);
+                var preparation = CampaignContinuePreparationPolicy.Evaluate(
+                    ToEntry(LoadSlot(command.SlotNumber)).State,
+                    command);
+                if (preparation.Succeeded && preparation.LevelGroupSynchronized)
+                {
+                    SaveSlotCount++;
+                    SetSlot(CampaignSlotRawDataMapper.ToRaw(
+                        preparation.CommittedState));
+                }
+
+                return preparation;
             }
 
             public SaveSlotData InitializeNewGame(
@@ -606,12 +622,11 @@ namespace Game.Feature.UI.Tests
                 return slot;
             }
 
-            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
-            {
-                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-                UpdateSlotCount++;
-                mutation?.Invoke(_slots[slotNumber - 1]);
-            }
+            CampaignSlotState ICampaignSlotLifecyclePort.InitializeNewGame(
+                int slotNumber,
+                CampaignStageSequenceResolver sequenceResolver,
+                string lastPlayedAt) => CampaignSlotRawDataMapper.ToState(
+                    InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt));
 
             public void DeleteSlot(int slotNumber)
             {
@@ -628,6 +643,11 @@ namespace Game.Feature.UI.Tests
                     _slots[i] = SaveSlotData.CreateEmpty(i + 1);
                 }
             }
+
+            private static CampaignSlotEntry ToEntry(SaveSlotData slot) => slot.IsEmpty
+                ? CampaignSlotEntry.Empty(slot.SlotNumber)
+                : CampaignSlotEntry.Occupied(
+                    CampaignSlotRawDataMapper.ToState(slot));
         }
 
         private sealed class RecordingStageLaunchRouter : IStageLaunchRouter

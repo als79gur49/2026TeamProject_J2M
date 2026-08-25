@@ -1004,14 +1004,43 @@ namespace Game.Feature.UI.Composition.Editor
                 }
 
                 var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
+                var stageCatalogProvider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
+                    StageContentPaths.StageCatalogProviderAssetPath);
+                if (stageCatalogProvider == null)
+                {
+                    capture.AddError(
+                        $"{target.Name}: authoritative stage catalog provider was not found at '{StageContentPaths.StageCatalogProviderAssetPath}'.");
+                    return scope;
+                }
+
                 var slots = CreateStageVisualSaveSlots(target.FileStem);
+                var entries = CampaignSlotRawDataMapper
+                    .ToEntries(slots)
+                    .ToArray();
+                var launchEvaluator = new CampaignSlotLaunchEvaluator(
+                    sequenceResolver,
+                    stageCatalogProvider);
+                var presentationInputs = new List<Game.Feature.UI.Application.MainMenuSlotPresentationInput>(
+                    entries.Length);
+                for (var index = 0; index < entries.Length; index++)
+                {
+                    var evaluation = launchEvaluator.Evaluate(entries[index]);
+                    presentationInputs.Add(
+                        new Game.Feature.UI.Application.MainMenuSlotPresentationInput(
+                            entries[index],
+                            evaluation,
+                            CampaignSlotActionPolicy.Evaluate(evaluation)));
+                }
+
                 view.BindStaticLocalization(
                     MainMenuStaticTextPayload.Default,
                     resolver,
                     DefaultLocalizedTypographyResolver.Instance,
                     typographyTheme: theme);
                 view.SaveSlotPanel.Bind(
-                    MainMenuSlotViewModelMapper.Map(slots, sequenceResolver, null, resolver));
+                    MainMenuSlotViewModelMapper.Map(
+                        presentationInputs,
+                        resolver));
                 view.SetVisible(true);
                 view.ShowSection(MainMenuSectionId.SaveSlots);
 

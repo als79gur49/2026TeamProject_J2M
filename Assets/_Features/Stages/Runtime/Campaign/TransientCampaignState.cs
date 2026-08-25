@@ -7,20 +7,30 @@ namespace Game.Feature.Stages
     /// Non-persistent campaign slot storage for tests and short-lived diagnostic compositions.
     /// Production and DirectPlay campaign flows use the JSON-backed composition provider.
     /// </summary>
-    public sealed class TransientCampaignSaveSlotStore : ICampaignSaveSlotStore
+    public sealed class TransientCampaignSaveSlotStore : ICampaignSaveRuntime
     {
         public const string DefaultDiagnosticsKey = "transient-campaign-state";
 
         private static readonly object Gate = new();
-        private static readonly Dictionary<string, SaveSlotData[]> SlotsByNamespace = new();
+        private static readonly Dictionary<string, CampaignSlotEntry[]> EntriesByNamespace = new();
 
         private readonly string _diagnosticsKey;
+        private readonly Func<string> _utcNowProvider;
 
         public TransientCampaignSaveSlotStore(string diagnosticsKey = DefaultDiagnosticsKey)
+            : this(diagnosticsKey, DefaultUtcNow)
+        {
+        }
+
+        internal TransientCampaignSaveSlotStore(
+            string diagnosticsKey,
+            Func<string> utcNowProvider)
         {
             _diagnosticsKey = string.IsNullOrWhiteSpace(diagnosticsKey)
                 ? throw new ArgumentException("A transient campaign namespace is required.", nameof(diagnosticsKey))
                 : diagnosticsKey;
+            _utcNowProvider = utcNowProvider ??
+                throw new ArgumentNullException(nameof(utcNowProvider));
             LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Transient campaign state has not been read.");
         }
 
@@ -28,7 +38,12 @@ namespace Game.Feature.Stages
 
         public CampaignSaveLoadReport LastCampaignLoadReport { get; private set; }
 
-        public SaveSlotData[] LoadAll()
+        public CampaignSlotEntry[] LoadAll()
+        {
+            return LoadAllEntries();
+        }
+
+        private CampaignSlotEntry[] LoadAllEntries()
         {
             return LoadAllWithReport().Slots;
         }
@@ -37,66 +52,277 @@ namespace Game.Feature.Stages
         {
             lock (Gate)
             {
-                if (!SlotsByNamespace.TryGetValue(_diagnosticsKey, out var slots))
+                if (!EntriesByNamespace.TryGetValue(_diagnosticsKey, out var entries))
                 {
                     LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Transient campaign state is empty.");
-                    return new CampaignSaveLoadResult(CreateEmptySlots(), LastCampaignLoadReport);
+                    return new CampaignSaveLoadResult(CreateEmptyEntries(), LastCampaignLoadReport);
                 }
 
                 LastCampaignLoadReport = CampaignSaveLoadReport.Loaded(
                     "Transient campaign state loaded.",
                     _diagnosticsKey);
-                return new CampaignSaveLoadResult(CloneSlots(slots), LastCampaignLoadReport);
+                return new CampaignSaveLoadResult(
+                    (CampaignSlotEntry[])entries.Clone(),
+                    LastCampaignLoadReport);
             }
         }
 
-        public SaveSlotData LoadSlot(int slotNumber)
+        public CampaignSlotEntry LoadSlot(int slotNumber)
+        {
+            return LoadEntry(slotNumber);
+        }
+
+        private CampaignSlotEntry LoadEntry(int slotNumber)
         {
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            return LoadAll()[slotNumber - 1];
+            return LoadAllEntries()[slotNumber - 1];
         }
 
-        public void SaveSlot(SaveSlotData slot)
+        public CampaignContinuePreparationResult PrepareContinue(
+            CampaignContinuePreparationCommand command)
         {
-            if (slot == null)
+            if (command == null)
             {
-                throw new ArgumentNullException(nameof(slot));
+                throw new ArgumentNullException(nameof(command));
             }
 
-            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slot.SlotNumber);
             lock (Gate)
             {
-                var slots = GetOrCreateSlots();
-                var storedSlot = slot.Clone();
-                storedSlot.HasNormalCampaignCompletionReceipt =
-                    storedSlot.HasNormalCampaignCompletionReceipt ||
-                    storedSlot.NormalCampaignCompletionReceipt != null;
-                slots[slot.SlotNumber - 1] = storedSlot;
+                var preparation = CampaignContinuePreparationPolicy.Evaluate(
+                    GetOccupiedState(command.SlotNumber),
+                    command);
+                if (preparation.Succeeded && preparation.LevelGroupSynchronized)
+                {
+                    StoreState(preparation.CommittedState);
+                }
+
+                return preparation;
             }
         }
 
-        public SaveSlotData InitializeNewGame(
+        public CampaignSlotState InitializeNewGame(
+            int slotNumber,
+            CampaignStageSequenceResolver sequenceResolver,
+            string lastPlayedAt)
+        {
+            return InitializeNewGameState(slotNumber, sequenceResolver, lastPlayedAt);
+        }
+
+        private CampaignSlotState InitializeNewGameState(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
             string lastPlayedAt)
         {
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            var slot = SaveSlotData.CreateNewGame(slotNumber, sequenceResolver, lastPlayedAt);
-            SaveSlot(slot);
-            return slot.Clone();
+            var state = CampaignSlotStateFactory.CreateNewGame(
+                slotNumber,
+                sequenceResolver,
+                lastPlayedAt);
+            lock (Gate)
+            {
+                if (string.IsNullOrWhiteSpace(state.LastPlayedAt))
+                {
+                    state = CampaignSlotStateFactory.WithLastPlayedAt(state, Now());
+                }
+
+                StoreState(state);
+                return state;
+            }
         }
 
-        public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
+        public void MarkIntroComicCompleted(int slotNumber)
         {
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            if (mutation == null)
+            lock (Gate)
             {
-                throw new ArgumentNullException(nameof(mutation));
+                var transition = CampaignSlotTransitionEngine.ApplyComicCompletion(
+                    GetOccupiedState(slotNumber),
+                    new CampaignComicCompletionCommand(
+                        CampaignComicCompletionKind.Intro),
+                    Now());
+                if (!transition.Succeeded)
+                {
+                    throw CreateComicTransitionException(transition);
+                }
+
+                StoreState(transition.Slot);
+            }
+        }
+
+        public void MarkOutroComicCompleted(int slotNumber)
+        {
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            lock (Gate)
+            {
+                var transition = CampaignSlotTransitionEngine.ApplyComicCompletion(
+                    GetOccupiedState(slotNumber),
+                    new CampaignComicCompletionCommand(
+                        CampaignComicCompletionKind.Outro),
+                    Now());
+                if (!transition.Succeeded)
+                {
+                    throw CreateComicTransitionException(transition);
+                }
+
+                StoreState(transition.Slot);
+            }
+        }
+
+        public CampaignSlotState SetActiveStageForDiagnostics(
+            int slotNumber,
+            StageId stageId,
+            string levelGroupId)
+        {
+            return SetActiveStageForDiagnosticsState(slotNumber, stageId, levelGroupId);
+        }
+
+        private CampaignSlotState SetActiveStageForDiagnosticsState(
+            int slotNumber,
+            StageId stageId,
+            string levelGroupId)
+        {
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!stageId.IsValid)
+            {
+                throw new ArgumentException("Diagnostic stage selection requires a valid stage id.", nameof(stageId));
             }
 
-            var slot = LoadSlot(slotNumber);
-            mutation(slot);
-            SaveSlot(slot);
+            lock (Gate)
+            {
+                var state = CampaignSlotStateFactory.SelectStageForDiagnostics(
+                    GetOccupiedState(slotNumber),
+                    stageId,
+                    levelGroupId,
+                    Now());
+                StoreState(state);
+                return state;
+            }
+        }
+
+        public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request)
+        {
+            var state = CampaignSlotStateFactory.CreateImportedSeed(
+                request ?? throw new ArgumentNullException(nameof(request)));
+            lock (Gate)
+            {
+                if (string.IsNullOrWhiteSpace(state.LastPlayedAt))
+                {
+                    state = CampaignSlotStateFactory.WithLastPlayedAt(state, Now());
+                }
+
+                StoreState(state);
+                return state;
+            }
+        }
+
+        public CampaignDeathCommitResult CommitDeath(
+            int slotNumber,
+            CampaignDeathTransitionPlan plan)
+        {
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            lock (Gate)
+            {
+                var transition = CampaignSlotTransitionEngine.ApplyDeath(
+                    GetOccupiedState(slotNumber),
+                    plan,
+                    Now());
+                if (!transition.Succeeded)
+                {
+                    throw CreateDeathTransitionException(transition);
+                }
+
+                StoreState(transition.Slot);
+                return new CampaignDeathCommitResult(transition.Slot);
+            }
+        }
+
+        public CampaignStageClearCommitResult CommitStageClear(
+            int slotNumber,
+            CampaignStageClearCommitRequest request)
+        {
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            lock (Gate)
+            {
+                var transition = CampaignSlotTransitionEngine.ApplyStageClear(
+                    GetOccupiedState(slotNumber),
+                    request,
+                    Now());
+                if (!transition.Succeeded)
+                {
+                    throw CreateStageClearTransitionException(transition);
+                }
+
+                StoreState(transition.Slot);
+                return new CampaignStageClearCommitResult(
+                    transition.Slot,
+                    transition.PreviousRemainingChances.Value);
+            }
+        }
+
+        private static Exception CreateDeathTransitionException(
+            CampaignSlotTransitionResult transition)
+        {
+            if (transition.ReasonCode == CampaignSlotTransitionReasonCode.DeathPlanInvalid)
+            {
+                return new ArgumentException("Death transition plan is invalid.", "plan");
+            }
+
+            if (transition.ReasonCode ==
+                CampaignSlotTransitionReasonCode.DeathPreconditionChanged)
+            {
+                return new InvalidOperationException(
+                    "Campaign slot changed after the death transition was planned.");
+            }
+
+            if (transition.ReasonCode == CampaignSlotTransitionReasonCode.DeathCounterOverflow)
+            {
+                return new ArgumentException(
+                    "Campaign slot replacement does not satisfy the current runtime slot contract.",
+                    "slot");
+            }
+
+            return new InvalidOperationException(
+                "Campaign slot does not satisfy the current runtime slot contract.");
+        }
+
+        private static Exception CreateStageClearTransitionException(
+            CampaignSlotTransitionResult transition)
+        {
+            if (transition.ReasonCode ==
+                CampaignSlotTransitionReasonCode.StageClearRequestNull)
+            {
+                return new ArgumentNullException("request");
+            }
+
+            if (transition.ReasonCode ==
+                CampaignSlotTransitionReasonCode.StageClearRequestInvalid)
+            {
+                return new ArgumentException(
+                    "Stage clear commit request is invalid.",
+                    "request");
+            }
+
+            if (transition.ReasonCode ==
+                CampaignSlotTransitionReasonCode.StageClearPreconditionChanged)
+            {
+                return new InvalidOperationException(
+                    "Campaign slot changed after the stage clear transition was planned.");
+            }
+
+            return new InvalidOperationException(
+                "Campaign slot does not satisfy the current runtime slot contract.");
+        }
+
+        private static Exception CreateComicTransitionException(
+            CampaignSlotTransitionResult transition)
+        {
+            return transition.ReasonCode ==
+                   CampaignSlotTransitionReasonCode.ComicCommandInvalid
+                ? new ArgumentException(
+                    "Comic completion command is invalid.",
+                    "command")
+                : new InvalidOperationException(
+                    "Campaign slot does not satisfy the current runtime slot contract.");
         }
 
         public void DeleteSlot(int slotNumber)
@@ -104,8 +330,8 @@ namespace Game.Feature.Stages
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             lock (Gate)
             {
-                var slots = GetOrCreateSlots();
-                slots[slotNumber - 1] = SaveSlotData.CreateEmpty(slotNumber);
+                var entries = GetOrCreateEntries();
+                entries[slotNumber - 1] = CampaignSlotEntry.Empty(slotNumber);
             }
         }
 
@@ -113,44 +339,66 @@ namespace Game.Feature.Stages
         {
             lock (Gate)
             {
-                SlotsByNamespace.Remove(_diagnosticsKey);
+                EntriesByNamespace.Remove(_diagnosticsKey);
             }
 
             LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Transient campaign state cleared.");
         }
 
-        private SaveSlotData[] GetOrCreateSlots()
+        private CampaignSlotEntry[] GetOrCreateEntries()
         {
-            if (!SlotsByNamespace.TryGetValue(_diagnosticsKey, out var slots))
+            if (!EntriesByNamespace.TryGetValue(_diagnosticsKey, out var entries))
             {
-                slots = CreateEmptySlots();
-                SlotsByNamespace.Add(_diagnosticsKey, slots);
+                entries = CreateEmptyEntries();
+                EntriesByNamespace.Add(_diagnosticsKey, entries);
             }
 
-            return slots;
+            return entries;
         }
 
-        private static SaveSlotData[] CreateEmptySlots()
+        private CampaignSlotState GetOccupiedState(int slotNumber)
         {
-            var slots = new SaveSlotData[CampaignSaveSlotPolicy.SlotCount];
-            for (var index = 0; index < slots.Length; index++)
+            var entry = GetOrCreateEntries()[slotNumber - 1];
+            if (entry.IsEmpty)
             {
-                slots[index] = SaveSlotData.CreateEmpty(index + 1);
+                return null;
             }
 
-            return slots;
+            return entry.State;
         }
 
-        private static SaveSlotData[] CloneSlots(SaveSlotData[] slots)
+        private void StoreState(CampaignSlotState state)
         {
-            var clone = new SaveSlotData[slots.Length];
-            for (var index = 0; index < slots.Length; index++)
+            if (state == null)
             {
-                clone[index] = slots[index].Clone();
+                throw new ArgumentNullException(nameof(state));
             }
 
-            return clone;
+            var entries = GetOrCreateEntries();
+            entries[state.SlotNumber - 1] = CampaignSlotEntry.Occupied(state);
         }
+
+        private string Now()
+        {
+            return _utcNowProvider();
+        }
+
+        private static string DefaultUtcNow()
+        {
+            return DateTimeOffset.UtcNow.ToString("O");
+        }
+
+        private static CampaignSlotEntry[] CreateEmptyEntries()
+        {
+            var entries = new CampaignSlotEntry[CampaignSaveSlotPolicy.SlotCount];
+            for (var index = 0; index < entries.Length; index++)
+            {
+                entries[index] = CampaignSlotEntry.Empty(index + 1);
+            }
+
+            return entries;
+        }
+
     }
 
     /// <summary>

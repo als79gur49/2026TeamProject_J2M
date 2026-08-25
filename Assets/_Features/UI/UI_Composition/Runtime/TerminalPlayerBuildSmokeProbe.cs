@@ -434,32 +434,27 @@ namespace Game.Feature.UI.Composition
             var completionReadModel =
                 host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion;
             var savedSlot = normalGameClearScenario
-                ? CampaignSaveCompositionProvider.CreateProductionProfileBacked().LoadSlot(1)
-                : CampaignSaveCompositionProvider.CreateTemporaryProfileBacked().LoadSlot(1);
+                ? CampaignSaveCompositionProvider.CreateProductionProfileBacked().LoadSlot(1).State
+                : CampaignSaveCompositionProvider.CreateTemporaryProfileBacked().LoadSlot(1).State;
             var achievementAfter = File.Exists(achievementPath)
                 ? File.ReadAllText(achievementPath)
                 : null;
             var achievementContractAligned = normalGameClearScenario
-                ? savedSlot.HasNormalCampaignCompletionReceipt &&
-                  savedSlot.NormalCampaignCompletionReceipt != null &&
-                  savedSlot.NormalCampaignCompletionReceipt.Version ==
+                ? savedSlot.Receipt.Presence == CampaignReceiptPresence.PresentWithPayload &&
+                  savedSlot.Receipt.Payload.Version ==
                       NormalCampaignCompletionReceipt.CurrentVersion &&
-                  string.Equals(
-                      savedSlot.NormalCampaignCompletionReceipt.CompletedStageId,
-                      sourceStage.StageId.Value,
-                      StringComparison.Ordinal) &&
-                  string.IsNullOrEmpty(savedSlot.NormalCampaignCompletionReceipt.StageRunId) &&
+                  savedSlot.Receipt.Payload.CompletedStageId.Equals(sourceStage.StageId) &&
+                  string.IsNullOrEmpty(savedSlot.Receipt.Payload.StageRunId) &&
                   !string.IsNullOrEmpty(achievementAfter) &&
                   achievementAfter.Contains("campaign.complete", StringComparison.Ordinal)
-                : !savedSlot.HasNormalCampaignCompletionReceipt &&
-                  savedSlot.NormalCampaignCompletionReceipt == null &&
+                : savedSlot.Receipt.Presence == CampaignReceiptPresence.Absent &&
                   string.Equals(achievementBefore, achievementAfter, StringComparison.Ordinal);
             if (!achievementContractAligned)
             {
                 Fail(
                     $"Campaign Achievement contract diverged scenario={_scenarioId} " +
-                    $"receiptPresent={savedSlot.HasNormalCampaignCompletionReceipt} " +
-                    $"receiptVersion={savedSlot.NormalCampaignCompletionReceipt?.Version ?? 0} " +
+                    $"receiptPresent={savedSlot.Receipt.Presence != CampaignReceiptPresence.Absent} " +
+                    $"receiptVersion={savedSlot.Receipt.Payload?.Version ?? 0} " +
                     $"ledgerChanged={!string.Equals(achievementBefore, achievementAfter, StringComparison.Ordinal)}");
                 yield break;
             }
@@ -1279,7 +1274,7 @@ namespace Game.Feature.UI.Composition
                 ReferenceEquals(destinationResolver, destinationProviderResolver);
             var savedSlot = CampaignSaveCompositionProvider
                 .CreateProductionProfileBacked()
-                .LoadSlot(expectedCard.SlotNumber);
+                .LoadSlot(expectedCard.SlotNumber).State;
             if (destinationHost == null ||
                 destinationResolver == null ||
                 !destinationSameInstance ||
@@ -1853,7 +1848,7 @@ namespace Game.Feature.UI.Composition
                 host.UiAccess?.PresentationFeed.CurrentMinimalStageCompletion;
             var finalSavedSlot = CampaignSaveCompositionProvider
                 .CreateTemporaryProfileBacked()
-                .LoadSlot(1);
+                .LoadSlot(1).State;
             if (finalResolver == null ||
                 !finalResolver.IsFinal(finalStage.StageId) ||
                 finalReadModel == null ||
@@ -1925,7 +1920,7 @@ namespace Game.Feature.UI.Composition
             bool restartAfterLevelFailed)
         {
             var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
-            var initialSlot = saveStore.LoadSlot(1);
+            var initialSlot = saveStore.LoadSlot(1).State;
             if (initialSlot.RemainingChances != initialChances)
             {
                 Fail(
@@ -2117,7 +2112,7 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
-            var savedSlot = saveStore.LoadSlot(1);
+            var savedSlot = saveStore.LoadSlot(1).State;
             var chanceLossCueCount = audioRecorder.Count(UiAudioCueId.ChanceLoss);
             var lastChanceCueCount = audioRecorder.Count(UiAudioCueId.LastChance);
             var levelFailedCueCount = audioRecorder.Count(UiAudioCueId.LevelFailed);
@@ -2293,7 +2288,7 @@ namespace Game.Feature.UI.Composition
                 destinationHost?.UiAccess?.QueryFacade.Stage.Read() ?? default;
             var savedSlot = CampaignSaveCompositionProvider
                 .CreateTemporaryProfileBacked()
-                .LoadSlot(1);
+                .LoadSlot(1).State;
             if (destinationHost == null ||
                 !destinationStage.StageId.Equals(expectedRetryStageId) ||
                 !savedSlot.CurrentStageId.Equals(expectedRetryStageId) ||

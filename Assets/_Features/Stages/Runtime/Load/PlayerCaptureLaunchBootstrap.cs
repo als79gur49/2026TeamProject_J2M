@@ -218,14 +218,12 @@ namespace Game.Feature.Stages
 
             persistence.ClearAll();
             persistence.ClearActiveSlot();
-            persistence.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = levelGroupId,
-                RemainingChances = remainingChances,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            persistence.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                stageId,
+                levelGroupId,
+                remainingChances,
+                DateTimeOffset.UtcNow.ToString("O")));
             persistence.SetActiveSlot(1);
         }
 
@@ -494,7 +492,7 @@ namespace Game.Feature.Stages
 
         void ClearActiveSlot();
 
-        void SaveSlot(SaveSlotData slot);
+        void ImportSlotSeed(CampaignSlotSeedImportRequest request);
 
         void SetActiveSlot(int slotNumber);
     }
@@ -526,11 +524,11 @@ namespace Game.Feature.Stages
 
     internal sealed class PlayerCaptureFixturePersistence : IPlayerCaptureFixturePersistence
     {
-        private readonly ICampaignSaveSlotStore saveStore;
+        private readonly ICampaignSaveRuntime saveStore;
         private readonly ActiveSlotProvider activeSlot;
 
         internal PlayerCaptureFixturePersistence(
-            ICampaignSaveSlotStore saveStore,
+            ICampaignSaveRuntime saveStore,
             ActiveSlotProvider activeSlot)
         {
             this.saveStore = saveStore ?? throw new ArgumentNullException(nameof(saveStore));
@@ -547,9 +545,9 @@ namespace Game.Feature.Stages
             activeSlot.ClearActiveSlot();
         }
 
-        public void SaveSlot(SaveSlotData slot)
+        public void ImportSlotSeed(CampaignSlotSeedImportRequest request)
         {
-            saveStore.SaveSlot(slot);
+            saveStore.ImportSlotSeed(request);
         }
 
         public void SetActiveSlot(int slotNumber)

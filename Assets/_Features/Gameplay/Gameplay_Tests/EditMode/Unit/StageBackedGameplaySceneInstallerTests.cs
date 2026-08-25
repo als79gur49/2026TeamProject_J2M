@@ -700,14 +700,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = launchStageId,
-                    CurrentLevelGroupId = "level-01",
-                    RemainingChances = 2,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
+                ImportSeed(saveStore, 1, launchStageId, "level-01", 2);
                 activeSlotProvider.SetActiveSlot(1);
                 Assert.That(CampaignLaunchHandoffSessionStore.Instance.TryPeek(out _), Is.False);
 
@@ -762,14 +755,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CampaignLaunchHandoffSessionStore.ResetForTests();
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = launchStageId,
-                    CurrentLevelGroupId = "level-01",
-                    RemainingChances = 2,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
+                ImportSeed(saveStore, 1, launchStageId, "level-01", 2);
                 Assert.That(
                     handoffStore.TryBegin(
                         1,
@@ -826,22 +812,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CampaignLaunchHandoffSessionStore.ResetForTests();
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = mismatchedStageId,
-                    CurrentLevelGroupId = "level-0",
-                    RemainingChances = 2,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 2,
-                    CurrentStageId = launchStageId,
-                    CurrentLevelGroupId = "level-01",
-                    RemainingChances = 3,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
+                ImportSeed(saveStore, 1, mismatchedStageId, "level-0", 2);
+                ImportSeed(saveStore, 2, launchStageId, "level-01", 3);
                 activeSlotProvider.SetActiveSlot(2);
                 Assert.That(
                     handoffStore.TryBegin(
@@ -1242,12 +1214,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
             var saveStore = new TransientCampaignSaveSlotStore(CreateTransientNamespace("pendingless-transaction"));
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = "level-01",
-            });
+            ImportSeed(saveStore, 1, stageId, "level-01");
             var activeStorage = new FaultingActiveSlotStorage(1);
             var context = StageLaunchContext.CreatePendinglessReload(
                 new StageNavigationRequest(stageId, StageNavigationKind.Retry, "stage-result-retry"));
@@ -2195,14 +2162,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var activeSlotProvider = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = launchStageId,
-                CurrentLevelGroupId = "level-01",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            ImportSeed(saveStore, 1, launchStageId, "level-01");
             activeSlotProvider.SetActiveSlot(1);
 
             EditorDirectPlayContextStore.SetCurrent(
@@ -2210,6 +2170,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     launchStageId,
                     CampaignSaveSlotPolicy.DefaultRemainingChances));
             StageLaunchContextStore.SetCurrent(launchStageId);
+        }
+
+        private static CampaignSlotState ImportSeed(
+            ICampaignSlotSeedImportPort store,
+            int slotNumber,
+            StageId stageId,
+            string levelGroupId,
+            int remainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances)
+        {
+            return store.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                slotNumber,
+                stageId,
+                levelGroupId,
+                remainingChances,
+                DateTimeOffset.UtcNow.ToString("O")));
         }
 
         private static void ClearCampaignLaunchContext()
@@ -2350,18 +2325,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
             var saveStore = new TransientCampaignSaveSlotStore(CreateTransientNamespace("commit-transaction"));
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = "level-01",
-            });
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 2,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = "level-01",
-            });
+            ImportSeed(saveStore, 1, stageId, "level-01");
+            ImportSeed(saveStore, 2, stageId, "level-01");
             var handoff = new CampaignLaunchHandoff(
                 1,
                 stageId,
@@ -2418,18 +2383,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int activeSlot = 1,
             bool saveActiveSlot = true,
             StageId profileStageId = default,
-            ICampaignSaveSlotStore saveSlotStore = null)
+            ICampaignSaveQuery saveSlotStore = null)
         {
             var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
             var store = saveSlotStore ?? new TransientCampaignSaveSlotStore(CreateTransientNamespace("pendingless-matrix"));
             if (saveActiveSlot && saveSlotStore == null)
             {
-                store.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = profileStageId.IsValid ? profileStageId : stageId,
-                    CurrentLevelGroupId = "level-01",
-                });
+                ImportSeed(
+                    (TransientCampaignSaveSlotStore)store,
+                    1,
+                    profileStageId.IsValid ? profileStageId : stageId,
+                    "level-01");
             }
 
             var activeStorage = new FaultingActiveSlotStorage(activeSlot);
@@ -2707,25 +2671,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private sealed class ThrowingCampaignSaveSlotStore : ICampaignSaveSlotStore
+        private sealed class ThrowingCampaignSaveSlotStore : ICampaignSaveQuery
         {
             public string DiagnosticsKey => "throwing-profile";
             public CampaignSaveLoadReport LastCampaignLoadReport =>
                 CampaignSaveLoadReport.Missing("profile load throws");
 
-            public SaveSlotData[] LoadAll() => throw new NotSupportedException();
+            public CampaignSlotEntry[] LoadAll() => throw new NotSupportedException();
             public CampaignSaveLoadResult LoadAllWithReport() => throw new NotSupportedException();
-            public SaveSlotData LoadSlot(int slotNumber) =>
+            public CampaignSlotEntry LoadSlot(int slotNumber) =>
                 throw new InvalidOperationException("profile load failed");
-            public void SaveSlot(SaveSlotData slot) => throw new NotSupportedException();
-            public SaveSlotData InitializeNewGame(
-                int slotNumber,
-                CampaignStageSequenceResolver sequenceResolver,
-                string lastPlayedAt) => throw new NotSupportedException();
-            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation) =>
-                throw new NotSupportedException();
-            public void DeleteSlot(int slotNumber) => throw new NotSupportedException();
-            public void ClearAll() => throw new NotSupportedException();
         }
 
         private sealed class RecordingRunningSlotContextFactory : ICampaignRunningSlotContextFactory

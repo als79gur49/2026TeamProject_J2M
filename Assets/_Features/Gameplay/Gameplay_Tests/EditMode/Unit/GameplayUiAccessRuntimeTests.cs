@@ -72,13 +72,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                    CurrentLevelGroupId = "level-1",
-                    RemainingChances = 2,
-                });
+                saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    "level-1",
+                    2,
+                    string.Empty));
                 activeSlotProvider.SetActiveSlot(1);
 
                 var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -117,13 +116,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                    CurrentLevelGroupId = "level-1",
-                    RemainingChances = 2,
-                });
+                saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    "level-1",
+                    2,
+                    string.Empty));
                 activeSlotProvider.SetActiveSlot(1);
 
                 var host = hostObject.AddComponent<GameplaySceneHost>();

@@ -19,7 +19,7 @@ namespace Game.Product.Achievements.CampaignIntegration
         }
 
         public NormalCampaignCompletionAchievementResult Reconcile(
-            ICampaignSaveSlotStore campaignSaveSlotStore,
+            ICampaignSaveQuery campaignSaveSlotStore,
             CampaignStageSequenceResolver sequenceResolver,
             EditorDirectPlayContext directPlayContext)
         {
@@ -62,23 +62,29 @@ namespace Game.Product.Achievements.CampaignIntegration
                     return NormalCampaignCompletionAchievementResult.ProfileUnavailable;
             }
 
-            var slots = loadResult.Slots ?? Array.Empty<SaveSlotData>();
+            var slots = loadResult.Slots ?? Array.Empty<CampaignSlotEntry>();
             for (var i = 0; i < slots.Length; i++)
             {
-                _stageIntegration.TryEarnFromCommittedSlot(slots[i], sequenceResolver);
+                if (!slots[i].IsEmpty)
+                {
+                    _stageIntegration.TryEarnFromCommittedSlot(
+                        slots[i].State,
+                        sequenceResolver);
+                }
             }
 
             for (var i = 0; i < slots.Length; i++)
             {
-                if (!NormalCampaignCompletionAchievementIntegration.HasEligiblePersistedReceipt(
-                        slots[i],
+                if (slots[i].IsEmpty ||
+                    !NormalCampaignCompletionAchievementIntegration.HasEligiblePersistedReceipt(
+                        slots[i].State,
                         sequenceResolver))
                 {
                     continue;
                 }
 
                 return _integration.TryEarnFromPersistedReceipt(
-                    slots[i],
+                    slots[i].State,
                     sequenceResolver);
             }
 

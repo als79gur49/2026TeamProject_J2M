@@ -194,7 +194,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
             var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             var originalSlots = saveStore.LoadAllWithReport().Slots
-                .Select(slot => slot.Clone())
+                .Select(CampaignSlotRawDataMapper.ToRaw)
                 .ToArray();
             var activeSlotProvider =
                 CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore);
@@ -204,15 +204,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
-                    CurrentLevelGroupId = "level-0",
-                    RemainingChances = 3,
-                    IntroComicCompleted = true,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
+                saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                    1,
+                    StageId.CreateOrThrow("stage-0-1"),
+                    "level-0",
+                    3,
+                    DateTimeOffset.UtcNow.ToString("O")));
+                saveStore.MarkIntroComicCompleted(1);
 
                 yield return LoadScene(MainMenuScenePath);
                 yield return null;
@@ -345,13 +343,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             finally
             {
                 saveStore.ClearAll();
-                for (var i = 0; i < originalSlots.Length; i++)
-                {
-                    if (!originalSlots[i].IsEmpty)
-                    {
-                        saveStore.SaveSlot(originalSlots[i]);
-                    }
-                }
+                RestoreProductionProfile(originalSlots);
 
                 if (hadActiveSlot)
                 {
@@ -373,14 +365,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var activeSlot = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlot.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = "level-01",
-                RemainingChances = 2,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            ImportSeed(saveStore, stageId, 2);
             activeSlot.SetActiveSlot(1);
             StageLaunchContextStore.SetCurrent(stageId);
             EditorDirectPlayContextStore.SetCurrent(
@@ -942,7 +927,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var saveStore =
                 CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             var originalSlots = saveStore.LoadAllWithReport().Slots
-                .Select(slot => slot.Clone())
+                .Select(CampaignSlotRawDataMapper.ToRaw)
                 .ToArray();
             var activeSlotProvider =
                 CampaignSaveCompositionProvider
@@ -1061,13 +1046,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             finally
             {
                 saveStore.ClearAll();
-                foreach (var slot in originalSlots)
-                {
-                    if (!slot.IsEmpty)
-                    {
-                        saveStore.SaveSlot(slot);
-                    }
-                }
+                RestoreProductionProfile(originalSlots);
 
                 if (hadActiveSlot)
                 {
@@ -1088,7 +1067,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var saveStore =
                 CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             var originalSlots = saveStore.LoadAllWithReport().Slots
-                .Select(slot => slot.Clone())
+                .Select(CampaignSlotRawDataMapper.ToRaw)
                 .ToArray();
             var activeSlotProvider =
                 CampaignSaveCompositionProvider
@@ -1100,17 +1079,23 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             try
             {
                 saveStore.ClearAll();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = stageId,
-                    CurrentLevelGroupId = "level-1",
-                    RemainingChances = 3,
-                    IntroComicCompleted = true,
-                    OutroComicCompleted = false,
-                    CampaignCompleted = true,
-                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-                });
+                var finalStageId = StageId.CreateOrThrow("stage-4-3");
+                ImportSeed(saveStore, finalStageId, 3, "level-4");
+                saveStore.MarkIntroComicCompleted(1);
+                var sequenceDefinition = ScriptableObject.CreateInstance<
+                    CampaignStageSequenceDefinition>();
+                var finalEntry = new CampaignStageSequenceEntry();
+                finalEntry.Set(finalStageId, "level-4");
+                sequenceDefinition.SetEntries(new[] { finalEntry });
+                saveStore.CommitStageClear(
+                    1,
+                    new CampaignStageClearCommitRequest
+                    {
+                        Plan = new CampaignProgressionTransitionPlanner(
+                                new CampaignStageSequenceResolver(sequenceDefinition))
+                            .PlanStageClear(finalStageId),
+                    });
+                Object.DestroyImmediate(sequenceDefinition);
                 activeSlotProvider.SetActiveSlot(1);
                 StageLaunchContextStore.SetCurrent(stageId);
                 EditorDirectPlayContextStore.SetCurrent(
@@ -1136,7 +1121,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(
                     MainMenuEntryPresentationRegistry.Current.TransitionIntent,
                     Is.EqualTo(SceneTransitionIntent.ReturnToMainMenu));
-                Assert.That(saveStore.LoadSlot(1).OutroComicCompleted, Is.False);
+                Assert.That(saveStore.LoadSlot(1).State.OutroComicCompleted, Is.False);
 
                 var sawPersistentRender = false;
                 var sawMenuOpening = false;
@@ -1189,18 +1174,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     MainMenuEntryPresentationRegistry.Current.Phase,
                     Is.EqualTo(SceneEntryPresentationPhase.Completed));
                 Assert.That(destination.IsGameplayEntryInteractionBlocked, Is.False);
-                Assert.That(saveStore.LoadSlot(1).OutroComicCompleted, Is.False);
+                Assert.That(saveStore.LoadSlot(1).State.OutroComicCompleted, Is.False);
             }
             finally
             {
                 saveStore.ClearAll();
-                foreach (var slot in originalSlots)
-                {
-                    if (!slot.IsEmpty)
-                    {
-                        saveStore.SaveSlot(slot);
-                    }
-                }
+                RestoreProductionProfile(originalSlots);
 
                 if (hadActiveSlot)
                 {
@@ -3809,20 +3788,48 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
         }
 
+        private static CampaignSlotState ImportSeed(
+            ICampaignSlotSeedImportPort store,
+            StageId stageId,
+            int remainingChances,
+            string levelGroupId = "level-01")
+        {
+            return store.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1,
+                stageId,
+                levelGroupId,
+                remainingChances,
+                DateTimeOffset.UtcNow.ToString("O")));
+        }
+
+        private static void RestoreProductionProfile(SaveSlotData[] originalSlots)
+        {
+            var occupied = (originalSlots ?? Array.Empty<SaveSlotData>())
+                .Where(slot => slot != null && !slot.IsEmpty)
+                .ToArray();
+            if (occupied.Length == 0)
+            {
+                return;
+            }
+
+            var repository = new FileCampaignProfileRepository(
+                new AtomicTextFileStore(
+                    new ApplicationPersistentDataSavePathProvider().SaveRootPath));
+            repository.Save(CampaignSlotRawDataMapper.ToProfileDocument(
+                occupied,
+                "playmode-profile-restore",
+                occupied[0].SlotNumber,
+                DateTimeOffset.UtcNow.ToString("O"),
+                Application.version));
+        }
+
         private static void PrepareCampaignStage(StageId stageId)
         {
             var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
             var activeSlot = CampaignSaveCompositionProvider.CreateTemporaryActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlot.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = "level-01",
-                RemainingChances = 2,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            ImportSeed(saveStore, stageId, 2);
             activeSlot.SetActiveSlot(1);
             StageLaunchContextStore.SetCurrent(stageId);
             EditorDirectPlayContextStore.SetCurrent(

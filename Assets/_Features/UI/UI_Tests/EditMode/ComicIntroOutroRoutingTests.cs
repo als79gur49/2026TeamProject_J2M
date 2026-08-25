@@ -117,7 +117,7 @@ namespace Game.Feature.UI.Tests
         public void Intro_AlreadyCompleted_DelegatesImmediately()
         {
             using var harness = new IntroHarness(nameof(Intro_AlreadyCompleted_DelegatesImmediately));
-            harness.SaveStore.UpdateSlot(1, slot => slot.IntroComicCompleted = true);
+            harness.SaveStore.MarkIntroComicCompleted(1);
 
             harness.Router.Launch(harness.Request);
 
@@ -223,7 +223,7 @@ namespace Game.Feature.UI.Tests
         public void Outro_AlreadyCompleted_DelegatesImmediately()
         {
             using var harness = new OutroHarness(nameof(Outro_AlreadyCompleted_DelegatesImmediately));
-            harness.SaveStore.UpdateSlot(1, slot => slot.OutroComicCompleted = true);
+            harness.SaveStore.MarkOutroComicCompleted(1);
 
             harness.Router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
 
@@ -273,15 +273,16 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private static SaveSlotData CreateSlot(int slotNumber, StageId stageId)
+        private static CampaignSlotSeedImportRequest CreateSlot(
+            int slotNumber,
+            StageId stageId)
         {
-            return new SaveSlotData
-            {
-                SlotNumber = slotNumber,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = "test-group",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-            };
+            return new CampaignSlotSeedImportRequest(
+                slotNumber,
+                stageId,
+                "test-group",
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                string.Empty);
         }
 
         private readonly struct TestKeys
@@ -384,7 +385,7 @@ namespace Game.Feature.UI.Tests
                     "main-menu-new-game",
                     StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay),
                     SceneTransitionIntent.GameplayEntry);
-                SaveStore.SaveSlot(CreateSlot(1, Request.StageId));
+                SaveStore.ImportSlotSeed(CreateSlot(1, Request.StageId));
                 Assert.That(
                     HandoffStore.TryBegin(
                         1,
@@ -395,6 +396,7 @@ namespace Game.Feature.UI.Tests
                     Is.True);
                 Router = new ComicIntroStageLaunchRouter(
                     Route,
+                    SaveStore,
                     SaveStore,
                     HandoffStore,
                     ComicFlow);
@@ -422,12 +424,15 @@ namespace Game.Feature.UI.Tests
                 _keys = TestKeys.Create(testName);
                 SaveStore = new TransientCampaignSaveSlotStore(_keys.SaveKey);
                 var activeSlot = new ActiveSlotProvider(new TransientActiveSlotStorage(_keys.ActiveKey));
-                SaveStore.SaveSlot(CreateSlot(1, StageId.CreateOrThrow("stage-4-1")));
+                SaveStore.ImportSlotSeed(CreateSlot(
+                    1,
+                    StageId.CreateOrThrow("stage-4-1")));
                 activeSlot.SetActiveSlot(1);
                 Route = new RecordingMainMenuReturnRouter();
                 ComicFlow = new ManualComicFlow();
                 Router = new ComicOutroMainMenuReturnRouter(
                     Route,
+                    SaveStore,
                     SaveStore,
                     activeSlot,
                     ComicFlow,

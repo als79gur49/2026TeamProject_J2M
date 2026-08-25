@@ -958,6 +958,7 @@ namespace Game.Feature.UI.Composition
             return new ComicOutroMainMenuReturnRouter(
                 inner,
                 saveSlotStore,
+                saveSlotStore,
                 CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore),
                 EnsureComicSequenceFlowCoordinator(),
                 () => ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);

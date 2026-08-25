@@ -357,13 +357,13 @@ namespace Game.Product.Achievements.Tests
             return resolver;
         }
 
-        private sealed class ReceiptCampaignStore : ICampaignSaveSlotStore
+        private sealed class ReceiptCampaignStore : ICampaignSaveQuery
         {
-            private readonly SaveSlotData _slot;
+            private readonly CampaignSlotEntry _slot;
 
             public ReceiptCampaignStore(SaveSlotData slot)
             {
-                _slot = slot;
+                _slot = CreateEntry(slot);
             }
 
             public string DiagnosticsKey => nameof(ReceiptCampaignStore);
@@ -373,7 +373,7 @@ namespace Game.Product.Achievements.Tests
 
             public int LoadCount { get; private set; }
 
-            public SaveSlotData[] LoadAll()
+            public CampaignSlotEntry[] LoadAll()
             {
                 return LoadAllWithReport().Slots;
             }
@@ -382,25 +382,30 @@ namespace Game.Product.Achievements.Tests
             {
                 LoadCount++;
                 return new CampaignSaveLoadResult(
-                    new[] { _slot.Clone() },
+                    new[] { _slot },
                     LastCampaignLoadReport);
             }
 
-            public SaveSlotData LoadSlot(int slotNumber) => _slot.Clone();
-
-            public void SaveSlot(SaveSlotData slot) => throw new NotSupportedException();
+            public CampaignSlotEntry LoadSlot(int slotNumber) => _slot;
 
             public SaveSlotData InitializeNewGame(
                 int slotNumber,
                 CampaignStageSequenceResolver sequenceResolver,
                 string lastPlayedAt) => throw new NotSupportedException();
 
-            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation) =>
-                throw new NotSupportedException();
-
             public void DeleteSlot(int slotNumber) => throw new NotSupportedException();
 
             public void ClearAll() => throw new NotSupportedException();
+        }
+
+        private static CampaignSlotEntry CreateEntry(SaveSlotData slot)
+        {
+            if (slot == null || slot.IsEmpty)
+            {
+                return CampaignSlotStateFactory.CreateEmptyEntry(slot?.SlotNumber ?? 1);
+            }
+
+            return CampaignSlotRawDataMapper.ToEntry(slot);
         }
 
         private sealed class StubSequenceResolverProvider : ICampaignStageSequenceResolverProvider

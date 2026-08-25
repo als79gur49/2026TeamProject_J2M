@@ -18,10 +18,17 @@ namespace Game.Feature.UI.Composition
 
         public ComicIntroStageLaunchRouter(
             IStageLaunchRouter inner,
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSaveQuery saveSlotStore,
+            ICampaignComicProgressPort comicProgressPort,
             ICampaignLaunchHandoffStore launchHandoffStore,
             IComicIntroOutroFlow comicFlow)
-            : this(inner, new SlotComicProgressStore(saveSlotStore), launchHandoffStore, comicFlow)
+            : this(
+                inner,
+                new SlotComicProgressStore(
+                    saveSlotStore,
+                    comicProgressPort),
+                launchHandoffStore,
+                comicFlow)
         {
         }
 

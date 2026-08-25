@@ -99,7 +99,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(factory.Persistence.SavedSlots, Has.Count.EqualTo(1));
             Assert.That(factory.Persistence.SavedSlots[0].SlotNumber, Is.EqualTo(1));
             Assert.That(
-                factory.Persistence.SavedSlots[0].CurrentStageId,
+                factory.Persistence.SavedSlots[0].StageId,
                 Is.EqualTo(StageId.CreateOrThrow("stage-4-3")));
             Assert.That(factory.Persistence.ActiveSlotNumber, Is.EqualTo(1));
             Assert.That(StageLaunchContextStore.CurrentStageId.Value, Is.EqualTo("stage-4-3"));
@@ -459,7 +459,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             public int ActiveSlotNumber { get; private set; }
 
-            public List<SaveSlotData> SavedSlots { get; } = new();
+            public List<CampaignSlotSeedImportRequest> SavedSlots { get; } = new();
 
             public void ClearAll()
             {
@@ -473,10 +473,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 ActiveSlotNumber = 0;
             }
 
-            public void SaveSlot(SaveSlotData slot)
+            public void ImportSlotSeed(CampaignSlotSeedImportRequest request)
             {
                 SaveSlotCount++;
-                SavedSlots.Add(slot);
+                SavedSlots.Add(request);
             }
 
             public void SetActiveSlot(int slotNumber)

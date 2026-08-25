@@ -121,9 +121,10 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplaySceneHost _host;
         private readonly CampaignRunningSlotContext _runningSlotContext;
         private readonly IStageLaunchRouter _stageLaunchRouter;
-        private readonly ICampaignSaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveQuery _saveSlotStore;
+        private readonly ICampaignProgressionCommitter _progressionCommitter;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
-        private readonly StageRetryChanceTracker _retryChanceTracker;
+        private readonly CampaignProgressionTransitionPlanner _progressionPlanner;
         private readonly ITerminalTransitionPort _terminalTransitionPort;
         private readonly EditorDirectPlayContext _editorDirectPlayContext;
         private readonly INormalCampaignCompletionAchievementIntegration
@@ -137,7 +138,8 @@ namespace Game.Feature.Gameplay.Host
 
         public CampaignGameplayFlowController(
             GameplaySceneHost host,
-            ICampaignSaveSlotStore saveSlotStore,
+            ICampaignSaveQuery saveSlotStore,
+            ICampaignProgressionCommitter progressionCommitter,
             CampaignRunningSlotContext runningSlotContext,
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,
@@ -150,6 +152,8 @@ namespace Game.Feature.Gameplay.Host
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
+            _progressionCommitter = progressionCommitter ??
+                throw new ArgumentNullException(nameof(progressionCommitter));
             _runningSlotContext = runningSlotContext ?? throw new ArgumentNullException(nameof(runningSlotContext));
             _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
@@ -164,7 +168,7 @@ namespace Game.Feature.Gameplay.Host
             _campaignStageAchievementIntegration =
                 campaignStageAchievementIntegration ??
                 UnavailableCampaignStageAchievementIntegration.Instance;
-            _retryChanceTracker = new StageRetryChanceTracker(_sequenceResolver);
+            _progressionPlanner = new CampaignProgressionTransitionPlanner(_sequenceResolver);
         }
 
         public void Bind()
@@ -273,23 +277,19 @@ namespace Game.Feature.Gameplay.Host
             _handledDeath = true;
 
             var runningSlotNumber = _runningSlotContext.SlotNumber;
-            var slot = _saveSlotStore.LoadSlot(runningSlotNumber);
-            var route = _retryChanceTracker.ResolveDeathRoute(slot);
-            var previousRemainingChances = slot.RemainingChances <= 0
-                ? CampaignSaveSlotPolicy.DefaultRemainingChances
-                : slot.RemainingChances;
+            var entry = _saveSlotStore.LoadSlot(runningSlotNumber);
+            if (entry == null || entry.IsEmpty)
+            {
+                throw new InvalidOperationException(
+                    $"Campaign slot '{runningSlotNumber}' is empty or missing.");
+            }
+
+            var slot = entry.State;
+            var plan = _progressionPlanner.PlanDeath(slot);
+            var route = plan.Route;
+            var previousRemainingChances = plan.ExpectedRemainingChances;
             var deathCount = slot.TotalDeaths + 1;
-            var routeLevelGroupId = _sequenceResolver.GetLevelGroupId(route.NextStageId);
-            _saveSlotStore.UpdateSlot(
-                runningSlotNumber,
-                mutableSlot =>
-                {
-                    mutableSlot.CurrentStageId = route.NextStageId;
-                    mutableSlot.CurrentLevelGroupId = routeLevelGroupId;
-                    mutableSlot.RemainingChances = route.RemainingChances;
-                    mutableSlot.TotalDeaths += 1;
-                    mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
-                });
+            _progressionCommitter.CommitDeath(runningSlotNumber, plan);
 
             _host.InputHost.EnterTerminalHold(claim.Token);
             _chanceDisplayOverride?.Set(
@@ -500,7 +500,8 @@ namespace Game.Feature.Gameplay.Host
                 out var normalStageClearFact)
                 ? normalStageClearFact
                 : (NormalCampaignStageClearFact?)null;
-            if (_sequenceResolver.IsFinal(completedStageId))
+            var transitionPlan = _progressionPlanner.PlanStageClear(completedStageId);
+            if (transitionPlan.IsCampaignCompleted)
             {
                 if (!TerminalSessionRegistry.Authority.TrySetDestinationKind(
                         claim.Token,
@@ -510,31 +511,22 @@ namespace Game.Feature.Gameplay.Host
                         $"Accepted terminal token {claim.Token} could not bind the GameClear destination.");
                 }
 
-                _saveSlotStore.UpdateSlot(
+                var commit = _progressionCommitter.CommitStageClear(
                     runningSlotNumber,
-                    mutableSlot =>
-                    {
-                        mutableSlot.CurrentStageId = completedStageId;
-                        mutableSlot.CurrentLevelGroupId = _sequenceResolver.GetLevelGroupId(completedStageId);
-                        mutableSlot.CampaignCompleted = true;
-                        if (normalCompletion.HasValue &&
-                            !mutableSlot.HasNormalCampaignCompletionReceipt &&
-                            mutableSlot.NormalCampaignCompletionReceipt == null)
-                        {
-                            mutableSlot.HasNormalCampaignCompletionReceipt = true;
-                            mutableSlot.NormalCampaignCompletionReceipt =
-                                NormalCampaignCompletionReceiptPolicy.CreateV2(
-                                    normalCompletion.Value.StageId);
-                        }
-
-                        mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
-                        ApplyNormalStagePerformanceRecord(mutableSlot, normalStageClear);
-                    });
+                    CreateStageClearCommitRequest(
+                        transitionPlan,
+                        normalCompletion,
+                        normalStageClear));
                 if (normalCompletion.HasValue)
                 {
                     TryEarnNormalCampaignCompletionAchievement(
-                        runningSlotNumber,
-                        normalCompletion.Value);
+                        normalCompletion.Value,
+                        commit.Slot);
+                }
+
+                if (normalStageClear.HasValue)
+                {
+                    TryEarnCampaignStageAchievements(commit.Slot);
                 }
             }
             else
@@ -547,76 +539,60 @@ namespace Game.Feature.Gameplay.Host
                         $"Accepted terminal token {claim.Token} could not bind the StageResult destination.");
                 }
 
-                if (!_sequenceResolver.TryGetNext(completedStageId, out var nextStageId))
-                {
-                    throw new InvalidOperationException(
-                        $"Campaign sequence could not resolve a next stage for '{completedStageId.Value}'.");
-                }
-
-                var completedLevelGroupId = _sequenceResolver.GetLevelGroupId(completedStageId);
-                var nextLevelGroupId = _sequenceResolver.GetLevelGroupId(nextStageId);
-                var restoresChances = !string.Equals(
-                    completedLevelGroupId,
-                    nextLevelGroupId,
-                    StringComparison.Ordinal);
-                var currentSceneRemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances;
-                _saveSlotStore.UpdateSlot(
+                var commit = _progressionCommitter.CommitStageClear(
                     runningSlotNumber,
-                    mutableSlot =>
-                    {
-                        if (restoresChances)
-                        {
-                            currentSceneRemainingChances = mutableSlot.RemainingChances <= 0
-                                ? CampaignSaveSlotPolicy.DefaultRemainingChances
-                                : Math.Min(
-                                    mutableSlot.RemainingChances,
-                                    CampaignSaveSlotPolicy.DefaultRemainingChances);
-                            mutableSlot.RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances;
-                        }
-
-                        mutableSlot.CurrentStageId = nextStageId;
-                        mutableSlot.CurrentLevelGroupId = nextLevelGroupId;
-                        mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
-                        ApplyNormalStagePerformanceRecord(mutableSlot, normalStageClear);
-                    });
-                if (restoresChances)
+                    CreateStageClearCommitRequest(
+                        transitionPlan,
+                        normalCompletion,
+                        normalStageClear));
+                if (transitionPlan.RestoresChances)
                 {
                     _chanceDisplayOverride?.Set(
-                        currentSceneRemainingChances,
+                        commit.PreviousRemainingChances,
                         CampaignSaveSlotPolicy.DefaultRemainingChances,
                         GameplayChanceAudioPolicy.SuppressChanceChangeCue);
                 }
-            }
 
-            if (normalStageClear.HasValue)
-            {
-                TryEarnCampaignStageAchievements(runningSlotNumber);
+                if (normalStageClear.HasValue)
+                {
+                    TryEarnCampaignStageAchievements(commit.Slot);
+                }
             }
 
             BeginVictoryTerminal(claim);
         }
 
-        private static void ApplyNormalStagePerformanceRecord(
-            SaveSlotData mutableSlot,
+        private static CampaignStageClearCommitRequest CreateStageClearCommitRequest(
+            CampaignStageClearTransitionPlan transitionPlan,
+            NormalCampaignCompletionFact? normalCompletion,
             NormalCampaignStageClearFact? normalStageClear)
         {
-            if (!normalStageClear.HasValue)
+            NormalStagePerformanceRecord performanceRecord = null;
+            if (normalStageClear.HasValue)
             {
-                return;
+                performanceRecord = new NormalStagePerformanceRecord
+                {
+                    Version = NormalStagePerformanceRecord.CurrentVersion,
+                    StageId = normalStageClear.Value.StageId,
+                    BestCombinedPushFlipUses = normalStageClear.Value.CombinedPushFlipUses,
+                };
             }
 
-            mutableSlot.NormalStagePerformanceRecords =
-                NormalStagePerformanceRecordPolicy.UpsertBest(
-                    mutableSlot.NormalStagePerformanceRecords,
-                    normalStageClear.Value.StageId,
-                    normalStageClear.Value.CombinedPushFlipUses);
+            return new CampaignStageClearCommitRequest
+            {
+                Plan = transitionPlan,
+                CompletionReceipt = normalCompletion.HasValue
+                    ? NormalCampaignCompletionReceiptPolicy.CreateV2(
+                        normalCompletion.Value.StageId)
+                    : null,
+                PerformanceRecord = performanceRecord,
+            };
         }
 
-        private void TryEarnCampaignStageAchievements(int runningSlotNumber)
+        private void TryEarnCampaignStageAchievements(CampaignSlotState committedSlot)
         {
             try
             {
-                var committedSlot = _saveSlotStore.LoadSlot(runningSlotNumber);
                 _campaignStageAchievementIntegration.TryEarnFromCommittedSlot(
                     committedSlot,
                     _sequenceResolver);
@@ -657,12 +633,11 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private void TryEarnNormalCampaignCompletionAchievement(
-            int runningSlotNumber,
-            NormalCampaignCompletionFact completion)
+            NormalCampaignCompletionFact completion,
+            CampaignSlotState committedSlot)
         {
             try
             {
-                var committedSlot = _saveSlotStore.LoadSlot(runningSlotNumber);
                 _normalCampaignCompletionAchievementIntegration
                     .TryEarnAfterCommittedCompletion(
                         completion,
@@ -774,7 +749,10 @@ namespace Game.Feature.Gameplay.Host
 
         private StageId ResolveCurrentSlotStageId()
         {
-            return _saveSlotStore.LoadSlot(_runningSlotContext.SlotNumber).CurrentStageId;
+            var entry = _saveSlotStore.LoadSlot(_runningSlotContext.SlotNumber);
+            return entry == null || entry.IsEmpty
+                ? StageId.None
+                : entry.State.CurrentStageId;
         }
 
     }

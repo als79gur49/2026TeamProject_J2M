@@ -40,7 +40,7 @@ namespace Game.Product.Achievements.CampaignIntegration
         NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
             NormalCampaignCompletionFact completion,
             CampaignStageSequenceResolver sequenceResolver,
-            SaveSlotData committedSlot);
+            CampaignSlotState committedSlot);
     }
 
     internal sealed class NormalCampaignCompletionAchievementIntegration :
@@ -57,7 +57,7 @@ namespace Game.Product.Achievements.CampaignIntegration
         public NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
             NormalCampaignCompletionFact completion,
             CampaignStageSequenceResolver sequenceResolver,
-            SaveSlotData committedSlot)
+            CampaignSlotState committedSlot)
         {
             if (sequenceResolver == null ||
                 !sequenceResolver.Contains(completion.StageId) ||
@@ -66,11 +66,9 @@ namespace Game.Product.Achievements.CampaignIntegration
                 return NormalCampaignCompletionAchievementResult.NotAttempted;
             }
 
-            if (committedSlot?.NormalCampaignCompletionReceipt == null ||
-                !StageId.TryCreate(
-                    committedSlot.NormalCampaignCompletionReceipt.CompletedStageId,
-                    out var receiptStageId) ||
-                !receiptStageId.Equals(completion.StageId))
+            if (committedSlot?.Receipt?.Presence !=
+                    CampaignReceiptPresence.PresentWithPayload ||
+                !committedSlot.Receipt.Payload.CompletedStageId.Equals(completion.StageId))
             {
                 return NormalCampaignCompletionAchievementResult.InvalidReceipt;
             }
@@ -79,7 +77,7 @@ namespace Game.Product.Achievements.CampaignIntegration
         }
 
         internal NormalCampaignCompletionAchievementResult TryEarnFromPersistedReceipt(
-            SaveSlotData committedSlot,
+            CampaignSlotState committedSlot,
             CampaignStageSequenceResolver sequenceResolver)
         {
             if (!HasEligiblePersistedReceipt(committedSlot, sequenceResolver))
@@ -98,16 +96,15 @@ namespace Game.Product.Achievements.CampaignIntegration
         }
 
         internal static bool HasEligiblePersistedReceipt(
-            SaveSlotData slot,
+            CampaignSlotState slot,
             CampaignStageSequenceResolver sequenceResolver)
         {
             return slot != null &&
                    slot.CampaignCompleted &&
-                   slot.HasNormalCampaignCompletionReceipt &&
-                   slot.NormalCampaignCompletionReceipt != null &&
-                   NormalCampaignCompletionReceiptPolicy.IsEligiblePersistedReceipt(
-                       slot.NormalCampaignCompletionReceipt,
-                       sequenceResolver);
+                   slot.Receipt.Presence == CampaignReceiptPresence.PresentWithPayload &&
+                   sequenceResolver != null &&
+                   sequenceResolver.Contains(slot.Receipt.Payload.CompletedStageId) &&
+                   sequenceResolver.IsFinal(slot.Receipt.Payload.CompletedStageId);
         }
 
         private static NormalCampaignCompletionAchievementResult Map(
@@ -143,7 +140,7 @@ namespace Game.Product.Achievements.CampaignIntegration
         public NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
             NormalCampaignCompletionFact completion,
             CampaignStageSequenceResolver sequenceResolver,
-            SaveSlotData committedSlot)
+            CampaignSlotState committedSlot)
         {
             return NormalCampaignCompletionAchievementResult.ProductUnavailable;
         }

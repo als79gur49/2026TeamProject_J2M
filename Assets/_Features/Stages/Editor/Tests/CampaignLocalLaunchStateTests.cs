@@ -52,7 +52,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void LocalStateRepository_ValidFileIsCanonicalAndDoesNotTouchPlayerPrefs()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(2));
+            harness.Profile.ImportSlotSeed(CreateSlot(2));
             harness.Repository.SaveActiveSlot(2);
             PlayerPrefs.SetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey, 1);
             PlayerPrefs.Save();
@@ -68,7 +68,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void LocalStateMissing_DoesNotImportPlayerPrefsActiveSlot()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             PlayerPrefs.SetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey, 1);
             PlayerPrefs.Save();
 
@@ -83,7 +83,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void LocalStateMissing_DoesNotMutatePlayerPrefsActiveSlot()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             PlayerPrefs.SetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey, 1);
             PlayerPrefs.Save();
 
@@ -97,7 +97,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void LocalStateMissing_IgnoresInvalidPlayerPrefsActiveSlot()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             PlayerPrefs.SetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey, 2);
             PlayerPrefs.Save();
 
@@ -112,7 +112,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void LocalStateCorrupt_DoesNotSilentlyFallbackToPlayerPrefs()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             Directory.CreateDirectory(harness.SaveRootPath);
             File.WriteAllText(harness.LocalStatePath, "{not-json");
             PlayerPrefs.SetInt(RemovedCampaignPlayerPrefsKeys.ActiveSaveSlotKey, 1);
@@ -129,7 +129,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void LocalStateCorrupt_WithValidBackupDoesNotFallback()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
             harness.Repository.SaveActiveSlot(1);
             var backupPath = harness.LocalStatePath + ".bak";
@@ -165,7 +165,7 @@ namespace Game.Feature.Stages.Editor.Tests
             CampaignSaveLoadStatus status)
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(2));
+            harness.Profile.ImportSlotSeed(CreateSlot(2));
             harness.Repository.SaveActiveSlot(2);
             harness.Profile.SetLoadStatus(status);
 
@@ -179,7 +179,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DeleteSlot_ClearsLocalStateActiveSlotWhenDeleted()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
             var storage = harness.CreateStorage();
             var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
@@ -198,8 +198,8 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DeleteSlot_KeepsLocalStateActiveSlotWhenDeletedSlotDiffers()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
-            harness.Profile.SaveSlot(CreateSlot(2));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(2));
             harness.Repository.SaveActiveSlot(2);
             var storage = harness.CreateStorage();
             var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
@@ -217,7 +217,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void ClearAll_ClearsLocalStateActiveSlot()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
             var storage = harness.CreateStorage();
             var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
@@ -236,8 +236,8 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DeleteSlot_RepairsMatchingActiveAndPendingIndependently()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
-            harness.Profile.SaveSlot(CreateSlot(2));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(2));
             harness.Repository.SaveActiveSlot(2);
             var storage = harness.CreateStorage();
             var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
@@ -262,10 +262,10 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void SaveEmptySlot_RepairsMatchingActiveAndPending()
+        public void MaintenanceReplacement_RejectsEmptySlotWithoutChangingLaunchState()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
             var storage = harness.CreateStorage();
             var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
@@ -282,18 +282,21 @@ namespace Game.Feature.Stages.Editor.Tests
                 storage,
                 handoffStore);
 
-            repairingStore.SaveSlot(SaveSlotData.CreateEmpty(1));
+            Assert.Throws<ArgumentException>(() =>
+                repairingStore.ImportSlotSeed(
+                    CampaignSlotRawDataMapper.ToSeedImportRequest(
+                        SaveSlotData.CreateEmpty(1))));
 
-            Assert.That(harness.Profile.LoadSlot(1).IsEmpty, Is.True);
-            Assert.That(storage.TryGetActiveSlot(out _), Is.False);
-            Assert.That(handoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.Profile.LoadSlot(1).IsEmpty, Is.False);
+            Assert.That(storage.TryGetActiveSlot(out _), Is.True);
+            Assert.That(handoffStore.TryPeek(out _), Is.True);
         }
 
         [Test]
-        public void UpdateSlotToEmpty_RepairsMatchingActiveAndPending()
+        public void DeleteSlot_RepairsMatchingActiveAndPending()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
             var storage = harness.CreateStorage();
             var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
@@ -310,22 +313,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 storage,
                 handoffStore);
 
-            repairingStore.UpdateSlot(1, slot =>
-            {
-                var empty = SaveSlotData.CreateEmpty(1);
-                slot.CurrentStageId = empty.CurrentStageId;
-                slot.CurrentLevelGroupId = empty.CurrentLevelGroupId;
-                slot.RemainingChances = empty.RemainingChances;
-                slot.CampaignCompleted = empty.CampaignCompleted;
-                slot.HasNormalCampaignCompletionReceipt = empty.HasNormalCampaignCompletionReceipt;
-                slot.NormalCampaignCompletionReceipt = empty.NormalCampaignCompletionReceipt;
-                slot.IntroComicCompleted = empty.IntroComicCompleted;
-                slot.OutroComicCompleted = empty.OutroComicCompleted;
-                slot.NormalStagePerformanceRecords = empty.NormalStagePerformanceRecords;
-                slot.TotalDeaths = empty.TotalDeaths;
-                slot.LastPlayedAt = empty.LastPlayedAt;
-                slot.StageClearProfileSnapshot = empty.StageClearProfileSnapshot;
-            });
+            repairingStore.DeleteSlot(1);
 
             Assert.That(harness.Profile.LoadSlot(1).IsEmpty, Is.True);
             Assert.That(storage.TryGetActiveSlot(out _), Is.False);
@@ -333,12 +321,12 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void UpdateSlot_WhenInnerRejectsBeforeMutation_DoesNotInvokeMutationOrRepairLaunchState()
+        public void DeleteSlot_WhenInnerRejects_DoesNotRepairLaunchState()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
-            harness.Profile.UpdateFailure = new IOException("Injected recovery-pending update failure.");
+            harness.Profile.DeleteFailure = new IOException("Injected recovery-pending delete failure.");
             var storage = harness.CreateStorage();
             var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
             Assert.That(
@@ -353,11 +341,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 harness.Profile,
                 storage,
                 handoffStore);
-            var mutationInvoked = false;
+            Assert.Throws<IOException>(() => repairingStore.DeleteSlot(1));
 
-            Assert.Throws<IOException>(() => repairingStore.UpdateSlot(1, _ => mutationInvoked = true));
-
-            Assert.That(mutationInvoked, Is.False);
             Assert.That(storage.TryGetActiveSlot(out var activeSlotNumber), Is.True);
             Assert.That(activeSlotNumber, Is.EqualTo(1));
             Assert.That(handoffStore.TryPeek(out var pending), Is.True);
@@ -368,7 +353,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void ClearAll_ClearsActiveAndPending()
         {
             using var harness = new Harness();
-            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.ImportSlotSeed(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
             var storage = harness.CreateStorage();
             var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
@@ -503,17 +488,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 File.ReadAllText(harness.LocalStatePath));
         }
 
-        private static SaveSlotData CreateSlot(int slotNumber)
+        private static CampaignSlotSeedImportRequest CreateSlot(int slotNumber)
         {
-            return new SaveSlotData
-            {
-                SlotNumber = slotNumber,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                CurrentLevelGroupId = "level-1",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                LastPlayedAt = FixedNowUtc,
-                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
-            };
+            return new CampaignSlotSeedImportRequest(
+                slotNumber,
+                StageId.CreateOrThrow("stage-1-1"),
+                "level-1",
+                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                FixedNowUtc);
         }
 
         private static string ReadRepoFile(string relativePath)
@@ -576,13 +558,13 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
-        private sealed class FakeCampaignSaveSlotStore : ICampaignSaveSlotStore
+        private sealed class FakeCampaignSaveSlotStore : ICampaignSaveRuntime
         {
-            private readonly SaveSlotData[] _slots =
+            private readonly CampaignSlotEntry[] _slots =
             {
-                SaveSlotData.CreateEmpty(1),
-                SaveSlotData.CreateEmpty(2),
-                SaveSlotData.CreateEmpty(3),
+                CampaignSlotStateFactory.CreateEmptyEntry(1),
+                CampaignSlotStateFactory.CreateEmptyEntry(2),
+                CampaignSlotStateFactory.CreateEmptyEntry(3),
             };
 
             public string DiagnosticsKey => "FakeCampaignSaveSlotStore";
@@ -590,64 +572,98 @@ namespace Game.Feature.Stages.Editor.Tests
             public CampaignSaveLoadReport LastCampaignLoadReport { get; private set; } =
                 CampaignSaveLoadReport.Loaded("fake profile loaded.", "fake");
 
-            public Exception UpdateFailure { get; set; }
+            public Exception DeleteFailure { get; set; }
 
-            public SaveSlotData[] LoadAll()
+            public CampaignSlotEntry[] LoadAll()
             {
-                return _slots.Select(slot => slot.Clone()).ToArray();
+                return (CampaignSlotEntry[])_slots.Clone();
             }
 
             public CampaignSaveLoadResult LoadAllWithReport()
             {
-                return new CampaignSaveLoadResult(LoadAll(), LastCampaignLoadReport);
+                return new CampaignSaveLoadResult(
+                    LoadAll(),
+                    LastCampaignLoadReport);
             }
 
-            public SaveSlotData LoadSlot(int slotNumber)
+            public CampaignSlotEntry LoadSlot(int slotNumber)
             {
                 CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-                return _slots[slotNumber - 1].Clone();
+                return _slots[slotNumber - 1];
             }
 
-            public void SaveSlot(SaveSlotData slot)
+            public CampaignContinuePreparationResult PrepareContinue(
+                CampaignContinuePreparationCommand command)
             {
-                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slot.SlotNumber);
-                _slots[slot.SlotNumber - 1] = slot.Clone();
+                var preparation = CampaignContinuePreparationPolicy.Evaluate(
+                    LoadSlot(command.SlotNumber).State,
+                    command);
+                if (preparation.Succeeded && preparation.LevelGroupSynchronized)
+                {
+                    _slots[command.SlotNumber - 1] =
+                        CampaignSlotEntry.Occupied(preparation.CommittedState);
+                }
+
+                return preparation;
             }
 
-            public SaveSlotData InitializeNewGame(
+            public CampaignSlotState InitializeNewGame(
                 int slotNumber,
                 CampaignStageSequenceResolver sequenceResolver,
                 string lastPlayedAt)
             {
-                var slot = SaveSlotData.CreateNewGame(slotNumber, sequenceResolver, lastPlayedAt);
-                SaveSlot(slot);
-                return slot.Clone();
-            }
-
-            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
-            {
-                if (UpdateFailure != null)
-                {
-                    throw UpdateFailure;
-                }
-
-                var slot = LoadSlot(slotNumber);
-                mutation(slot);
-                SaveSlot(slot);
+                var state = CampaignSlotStateFactory.CreateNewGame(
+                    slotNumber,
+                    sequenceResolver,
+                    lastPlayedAt);
+                _slots[slotNumber - 1] = CampaignSlotEntry.Occupied(state);
+                return state;
             }
 
             public void DeleteSlot(int slotNumber)
             {
-                _slots[slotNumber - 1] = SaveSlotData.CreateEmpty(slotNumber);
+                if (DeleteFailure != null)
+                {
+                    throw DeleteFailure;
+                }
+
+                _slots[slotNumber - 1] =
+                    CampaignSlotStateFactory.CreateEmptyEntry(slotNumber);
             }
 
             public void ClearAll()
             {
                 for (var i = 0; i < _slots.Length; i++)
                 {
-                    _slots[i] = SaveSlotData.CreateEmpty(i + 1);
+                    _slots[i] = CampaignSlotStateFactory.CreateEmptyEntry(i + 1);
                 }
             }
+
+            public void MarkIntroComicCompleted(int slotNumber) =>
+                throw new NotSupportedException();
+
+            public void MarkOutroComicCompleted(int slotNumber) =>
+                throw new NotSupportedException();
+
+            public CampaignSlotState SetActiveStageForDiagnostics(
+                int slotNumber,
+                StageId stageId,
+                string levelGroupId) => throw new NotSupportedException();
+
+            public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request)
+            {
+                var state = CampaignSlotStateFactory.CreateImportedSeed(request);
+                _slots[request.SlotNumber - 1] = CampaignSlotEntry.Occupied(state);
+                return state;
+            }
+
+            public CampaignDeathCommitResult CommitDeath(
+                int slotNumber,
+                CampaignDeathTransitionPlan plan) => throw new NotSupportedException();
+
+            public CampaignStageClearCommitResult CommitStageClear(
+                int slotNumber,
+                CampaignStageClearCommitRequest request) => throw new NotSupportedException();
 
             public void SetLoadStatus(CampaignSaveLoadStatus status)
             {

@@ -2,7 +2,7 @@ using System;
 
 namespace Game.Feature.Stages
 {
-    public sealed class CampaignSaveSlotStoreAdapter : ICampaignSaveSlotStore
+    public sealed class CampaignSaveSlotStoreAdapter : ICampaignSaveRuntime
     {
         private readonly CampaignSaveService _campaignSaveService;
         private readonly ICampaignSaveRecoveryPort _recoveryPort;
@@ -20,7 +20,12 @@ namespace Game.Feature.Stages
 
         public CampaignSaveLoadReport LastCampaignLoadReport { get; private set; }
 
-        public SaveSlotData[] LoadAll()
+        public CampaignSlotEntry[] LoadAll()
+        {
+            return LoadAllEntries();
+        }
+
+        private CampaignSlotEntry[] LoadAllEntries()
         {
             var result = LoadAllWithReport();
             ThrowIfCampaignAccessBlocked(result.Report);
@@ -32,14 +37,14 @@ namespace Game.Feature.Stages
             if (IsRecoveryPending())
             {
                 LastCampaignLoadReport = CreateRecoveryPendingReport();
-                return new CampaignSaveLoadResult(CreateEmptySlots(), LastCampaignLoadReport);
+                return new CampaignSaveLoadResult(CreateEmptyEntries(), LastCampaignLoadReport);
             }
 
             var result = _campaignSaveService.GetSlots();
             if (!result.Succeeded)
             {
                 LastCampaignLoadReport = ToCampaignLoadReport(result);
-                return new CampaignSaveLoadResult(CreateEmptySlots(), LastCampaignLoadReport);
+                return new CampaignSaveLoadResult(CreateEmptyEntries(), LastCampaignLoadReport);
             }
 
             LastCampaignLoadReport = result.HasProfileLoadStatus
@@ -48,37 +53,60 @@ namespace Game.Feature.Stages
                     "Campaign profile loaded successfully.",
                     CampaignSaveServiceResultStatusToken);
             return new CampaignSaveLoadResult(
-                CampaignProfileDocumentMapper.ToDomainSlots(result.Document),
+                CreateEntries(result.Slots),
                 LastCampaignLoadReport);
         }
 
-        public SaveSlotData LoadSlot(int slotNumber)
+        public CampaignSlotEntry LoadSlot(int slotNumber)
+        {
+            return LoadEntry(slotNumber);
+        }
+
+        private CampaignSlotEntry LoadEntry(int slotNumber)
         {
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            return LoadAll()[slotNumber - 1].Clone();
+            return LoadAllEntries()[slotNumber - 1];
         }
 
-        public void SaveSlot(SaveSlotData slot)
+        public CampaignContinuePreparationResult PrepareContinue(
+            CampaignContinuePreparationCommand command)
         {
             ThrowIfRecoveryPending();
-            if (slot == null)
+            if (command == null)
             {
-                throw new ArgumentNullException(nameof(slot));
+                throw new ArgumentNullException(nameof(command));
             }
 
-            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slot.SlotNumber);
-            if (slot.IsEmpty)
+            var result = _campaignSaveService.PrepareContinue(command);
+            switch (result.Status)
             {
-                DeleteSlot(slot.SlotNumber);
-                return;
+                case CampaignSaveCommandStatus.Succeeded:
+                    return CampaignContinuePreparationResult.Prepared(
+                        ParseOccupied(result.Slot),
+                        !string.Equals(
+                            command.ExpectedPersistedLevelGroupId,
+                            command.TargetLevelGroupId,
+                            StringComparison.Ordinal));
+                case CampaignSaveCommandStatus.SlotNotFound:
+                    return CampaignContinuePreparationResult.SlotMissing();
+                case CampaignSaveCommandStatus.StalePrecondition:
+                    return CampaignContinuePreparationResult.StalePrecondition();
+                default:
+                    ThrowIfFailed(result);
+                    throw new InvalidOperationException(
+                        "Campaign Continue preparation returned an unsupported result.");
             }
-
-            ThrowIfFailed(_campaignSaveService.UpdateSlot(
-                slot.SlotNumber,
-                CampaignProfileDocumentMapper.ToFullReplacementUpdate(slot)));
         }
 
-        public SaveSlotData InitializeNewGame(
+        public CampaignSlotState InitializeNewGame(
+            int slotNumber,
+            CampaignStageSequenceResolver sequenceResolver,
+            string lastPlayedAt)
+        {
+            return InitializeNewGameState(slotNumber, sequenceResolver, lastPlayedAt);
+        }
+
+        private CampaignSlotState InitializeNewGameState(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
             string lastPlayedAt)
@@ -99,22 +127,96 @@ namespace Game.Feature.Stages
                 LastPlayedAtUtc = lastPlayedAt ?? string.Empty,
             }));
 
-            return LoadSlot(slotNumber);
+            return RequireOccupied(LoadEntry(slotNumber));
         }
 
-        public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
+        public void MarkIntroComicCompleted(int slotNumber)
         {
             ThrowIfRecoveryPending();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            if (mutation == null)
+            ThrowIfFailed(_campaignSaveService.SetIntroComicCompleted(slotNumber));
+        }
+
+        public void MarkOutroComicCompleted(int slotNumber)
+        {
+            ThrowIfRecoveryPending();
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            ThrowIfFailed(_campaignSaveService.SetOutroComicCompleted(slotNumber));
+        }
+
+        public CampaignSlotState SetActiveStageForDiagnostics(
+            int slotNumber,
+            StageId stageId,
+            string levelGroupId)
+        {
+            return SetActiveStageForDiagnosticsState(slotNumber, stageId, levelGroupId);
+        }
+
+        private CampaignSlotState SetActiveStageForDiagnosticsState(
+            int slotNumber,
+            StageId stageId,
+            string levelGroupId)
+        {
+            ThrowIfRecoveryPending();
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!stageId.IsValid)
             {
-                throw new ArgumentNullException(nameof(mutation));
+                throw new ArgumentException("Diagnostic stage selection requires a valid stage id.", nameof(stageId));
             }
 
-            var slot = LoadSlot(slotNumber);
-            mutation(slot);
-            slot.SlotNumber = slotNumber;
-            SaveSlot(slot);
+            var result = _campaignSaveService.SetActiveStageForDiagnostics(
+                slotNumber,
+                stageId,
+                levelGroupId);
+            ThrowIfFailed(result);
+            return ParseOccupied(result.Slot);
+        }
+
+        public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request)
+        {
+            ThrowIfRecoveryPending();
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            ThrowIfFailed(_campaignSaveService.ImportSlotSeed(request));
+            return RequireOccupied(LoadEntry(request.SlotNumber));
+        }
+
+        public CampaignDeathCommitResult CommitDeath(
+            int slotNumber,
+            CampaignDeathTransitionPlan plan)
+        {
+            ThrowIfRecoveryPending();
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            var result = _campaignSaveService.CommitDeath(slotNumber, plan);
+            ThrowIfFailed(result);
+            return new CampaignDeathCommitResult(ParseOccupied(result.Slot));
+        }
+
+        public CampaignStageClearCommitResult CommitStageClear(
+            int slotNumber,
+            CampaignStageClearCommitRequest request)
+        {
+            ThrowIfRecoveryPending();
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            var result = _campaignSaveService.CommitStageClear(slotNumber, request);
+            ThrowIfFailed(result);
+            if (!result.PreviousRemainingChances.HasValue)
+            {
+                throw new InvalidOperationException(
+                    "Successful stage clear commit did not return the previous chance count.");
+            }
+
+            return new CampaignStageClearCommitResult(
+                ParseOccupied(result.Slot),
+                result.PreviousRemainingChances.Value);
         }
 
         public void DeleteSlot(int slotNumber)
@@ -226,15 +328,55 @@ namespace Game.Feature.Stages
             }
         }
 
-        private static SaveSlotData[] CreateEmptySlots()
+        private static CampaignSlotEntry[] CreateEmptyEntries()
         {
-            var slots = new SaveSlotData[CampaignSaveSlotPolicy.SlotCount];
-            for (var i = 0; i < slots.Length; i++)
+            var entries = new CampaignSlotEntry[CampaignSaveSlotPolicy.SlotCount];
+            for (var i = 0; i < entries.Length; i++)
             {
-                slots[i] = SaveSlotData.CreateEmpty(i + 1);
+                entries[i] = CampaignSlotEntry.Empty(i + 1);
             }
 
-            return slots;
+            return entries;
+        }
+
+        private static CampaignSlotEntry[] CreateEntries(CampaignSlotDocument[] documents)
+        {
+            var entries = CreateEmptyEntries();
+            var source = documents ?? Array.Empty<CampaignSlotDocument>();
+            for (var index = 0; index < source.Length; index++)
+            {
+                var state = ParseOccupied(source[index]);
+                entries[state.SlotNumber - 1] = CampaignSlotEntry.Occupied(state);
+            }
+
+            return entries;
+        }
+
+        private static CampaignSlotState ParseOccupied(CampaignSlotDocument document)
+        {
+            if (document == null)
+            {
+                throw new ArgumentNullException(nameof(document));
+            }
+
+            var parse = CampaignSlotParser.ParseEntry(document.SlotNumber, document);
+            if (!parse.IsSuccess || parse.Entry.IsEmpty)
+            {
+                throw new InvalidOperationException(
+                    "Campaign save service returned a non-canonical occupied slot.");
+            }
+
+            return parse.Entry.State;
+        }
+
+        private static CampaignSlotState RequireOccupied(CampaignSlotEntry entry)
+        {
+            if (entry == null || entry.IsEmpty)
+            {
+                throw new InvalidOperationException("Campaign slot is empty or missing.");
+            }
+
+            return entry.State;
         }
 
         private void ThrowIfFailed(CampaignSaveServiceResult result)
@@ -256,4 +398,5 @@ namespace Game.Feature.Stages
             }
         }
     }
+
 }

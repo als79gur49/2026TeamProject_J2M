@@ -91,7 +91,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void CampaignDocumentSerialization_RoundTripsV2WithoutRootSchemaMigration()
         {
-            var document = CampaignProfileDocumentMapper.ToDocument(
+            var document = CampaignSlotRawDataMapper.ToProfileDocument(
                 new[]
                 {
                     new SaveSlotData
@@ -112,8 +112,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var json = JsonUtility.ToJson(document);
             var roundTripped = JsonUtility.FromJson<CampaignProfileDocument>(json);
-            var receipt = CampaignProfileDocumentMapper.ToReceipt(
-                roundTripped.Slots[0].NormalCampaignCompletionReceipt);
+            var receipt = CampaignSlotRawDataMapper.FromProfileDocument(roundTripped)[0]
+                .NormalCampaignCompletionReceipt;
 
             Assert.That(roundTripped.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
             Assert.That(receipt.Version, Is.EqualTo(2));
@@ -128,7 +128,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
-                    $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"current-profile\",\"Slots\":[{{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true}}]}}");
+                    $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"current-profile\",\"Slots\":[{{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"RemainingChances\":3,\"CampaignCompleted\":true}}]}}");
                 var repository = new FileCampaignProfileRepository(new AtomicTextFileStore(root));
 
                 var load = repository.Load();
@@ -153,15 +153,15 @@ namespace Game.Feature.Stages.Editor.Tests
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
                     $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"v1-receipt-profile\",\"Slots\":[" +
-                    "{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true," +
+                    "{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"RemainingChances\":3,\"CampaignCompleted\":true," +
                     "\"HasNormalCampaignCompletionReceipt\":true," +
                     "\"NormalCampaignCompletionReceipt\":{\"Version\":1,\"CompletedStageId\":\"stage-4-3\"," +
                     "\"StageRunId\":\"legacy-run\",\"ClearSource\":0}}]}");
                 var repository = new FileCampaignProfileRepository(new AtomicTextFileStore(root));
 
                 var load = repository.Load();
-                var receipt = CampaignProfileDocumentMapper.ToReceipt(
-                    load.Document.Slots[0].NormalCampaignCompletionReceipt);
+                var receipt = CampaignSlotRawDataMapper.FromProfileDocument(load.Document)[0]
+                    .NormalCampaignCompletionReceipt;
 
                 Assert.That(receipt.Version, Is.EqualTo(1));
                 Assert.That(receipt.IsStructurallyValid, Is.True);
@@ -182,17 +182,32 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var invalid = CreateV1Receipt();
             invalid.Version = 99;
-            var mapped = CampaignProfileDocumentMapper.ToReceipt(
-                CampaignProfileDocumentMapper.ToReceiptDocument(invalid));
-            var presentNullSlot = SaveSlotData.CreateEmpty(1);
+            var invalidSlot = new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-4-3"),
+                CampaignCompleted = true,
+                HasNormalCampaignCompletionReceipt = true,
+                NormalCampaignCompletionReceipt = invalid,
+            };
+            var invalidClone = invalidSlot.Clone().NormalCampaignCompletionReceipt;
+            var presentNullSlot = new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-4-3"),
+            };
             presentNullSlot.CampaignCompleted = true;
             presentNullSlot.HasNormalCampaignCompletionReceipt = true;
             presentNullSlot.NormalCampaignCompletionReceipt = null;
+            var presentNullRoundTrip = CampaignSlotRawDataMapper.FromDocument(
+                CampaignSlotRawDataMapper.ToDocument(presentNullSlot));
 
-            Assert.That(mapped.Version, Is.EqualTo(99));
-            Assert.That(mapped.IsStructurallyValid, Is.False);
-            Assert.That(presentNullSlot.Clone().HasNormalCampaignCompletionReceipt, Is.True);
-            Assert.That(presentNullSlot.Clone().NormalCampaignCompletionReceipt, Is.Null);
+            Assert.Throws<ArgumentException>(() =>
+                CampaignSlotRawDataMapper.ToDocument(invalidSlot));
+            Assert.That(invalidClone.Version, Is.EqualTo(99));
+            Assert.That(invalidClone.IsStructurallyValid, Is.False);
+            Assert.That(presentNullRoundTrip.HasNormalCampaignCompletionReceipt, Is.True);
+            Assert.That(presentNullRoundTrip.NormalCampaignCompletionReceipt, Is.Null);
         }
 
         [Test]
@@ -225,9 +240,9 @@ namespace Game.Feature.Stages.Editor.Tests
             slot.NormalCampaignCompletionReceipt = receipt;
 
             var clone = slot.Clone().NormalCampaignCompletionReceipt;
-            var profile = CampaignProfileDocumentMapper.ToReceipt(
-                CampaignProfileDocumentMapper.ToSlotDocument(slot)
-                    .NormalCampaignCompletionReceipt);
+            var profile = CampaignSlotRawDataMapper.FromDocument(
+                CampaignSlotRawDataMapper.ToDocument(slot))
+                .NormalCampaignCompletionReceipt;
 
             AssertPhysicalEquality(receipt, clone);
             AssertPhysicalEquality(receipt, profile);

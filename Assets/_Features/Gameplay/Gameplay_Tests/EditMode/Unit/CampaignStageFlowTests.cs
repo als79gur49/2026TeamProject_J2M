@@ -51,9 +51,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolver.FinalStageId.Value, Is.EqualTo("stage-4-3"));
             Assert.That(resolver.IsFinal(StageId.CreateOrThrow("stage-4-3")), Is.True);
             Assert.That(resolver.Contains(StageId.CreateOrThrow("stage-5-1")), Is.False);
-            Assert.That(
-                RetiredCampaignSaveCompatibilityPolicy.IsRetiredCompletedStageId(StageId.CreateOrThrow("stage-5-1")),
-                Is.True);
             Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-2-1")).Value, Is.EqualTo("stage-2-2"));
             Assert.That(resolver.GetFirstStageInLevelGroupOrNone("level-2").Value, Is.EqualTo("stage-2-1"));
             Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-0-2")).Value, Is.EqualTo("stage-0-3"));
@@ -111,8 +108,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(source, Does.Contain("PlayerStageClearRecord"));
             Assert.That(source, Does.Contain("StageClearProfileSnapshot"));
-            Assert.That(source, Does.Contain("IStageClearProfileStore"));
-            Assert.That(source, Does.Contain("ICampaignSaveSlotStore"));
+            Assert.That(source, Does.Not.Contain("IStageClearProfileStore"));
+            Assert.That(source, Does.Contain("ICampaignProgressionCommitter"));
         }
 
         [Test]
@@ -158,18 +155,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
 
             slot.RemainingChances = 3;
-            var first = tracker.ResolveDeathRoute(slot);
+            var first = tracker.ResolveDeathRoute(CampaignSlotRawDataMapper.ToState(slot));
             Assert.That(first.RouteKind, Is.EqualTo(StageRetryRouteKind.RetrySameStage));
             Assert.That(first.NextStageId.Value, Is.EqualTo("stage-2-2"));
             Assert.That(first.RemainingChances, Is.EqualTo(2));
 
             slot.RemainingChances = 2;
-            var second = tracker.ResolveDeathRoute(slot);
+            var second = tracker.ResolveDeathRoute(CampaignSlotRawDataMapper.ToState(slot));
             Assert.That(second.RouteKind, Is.EqualTo(StageRetryRouteKind.RetrySameStage));
             Assert.That(second.RemainingChances, Is.EqualTo(1));
 
             slot.RemainingChances = 1;
-            var last = tracker.ResolveDeathRoute(slot);
+            var last = tracker.ResolveDeathRoute(CampaignSlotRawDataMapper.ToState(slot));
             Assert.That(last.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
             Assert.That(last.NextStageId.Value, Is.EqualTo("stage-2-1"));
             Assert.That(last.RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
@@ -235,13 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 saveStore.ClearAll();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("fixture-a"),
-                    CurrentLevelGroupId = "group-a",
-                    RemainingChances = 2,
-                });
+                ImportSeed(saveStore, 1, "fixture-a", "group-a", 2);
                 var readModel = MinimalStageCompletionReadModelBuilder.Build(
                     entry: null,
                     clearResult: CreateClearResult("fixture-a"),
@@ -249,6 +240,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     resolver,
@@ -262,13 +254,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
                 Assert.That(saveStore.LoadSlot(1).CurrentLevelGroupId, Is.EqualTo("group-b"));
 
-                var retryRoute = new StageRetryChanceTracker(resolver).ResolveDeathRoute(new SaveSlotData
+                var retryRoute = new StageRetryChanceTracker(resolver).ResolveDeathRoute(
+                    CampaignSlotRawDataMapper.ToState(new SaveSlotData
                 {
                     SlotNumber = 1,
                     CurrentStageId = StageId.CreateOrThrow("fixture-b"),
                     CurrentLevelGroupId = "group-b",
                     RemainingChances = 1,
-                });
+                }));
                 Assert.That(retryRoute.NextStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
                 Assert.That(retryRoute.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
             }
@@ -291,13 +284,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 saveStore.ClearAll();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("fixture-b"),
-                    CurrentLevelGroupId = "group-b",
-                    RemainingChances = 2,
-                });
+                ImportSeed(saveStore, 1, "fixture-b", "group-b", 2);
                 var readModel = MinimalStageCompletionReadModelBuilder.Build(
                     entry: null,
                     clearResult: CreateClearResult("fixture-b"),
@@ -305,6 +292,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     resolver,
@@ -467,6 +455,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AttachUiAccess(host, presenter, uiAccess, respawnDelayTicks: 3);
                 controller = new CampaignGameplayFlowController(
                     host,
+                    store,
                     store,
                     new CampaignRunningSlotContext(1),
                     resolver,
@@ -681,7 +670,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FinalClear_InvalidExistingReceiptIsNotSilentlyReplaced()
+        public void FinalClear_InvalidExistingReceiptFailsClosedBeforeCommit()
         {
             var slot = CreateCampaignSlot(1, "stage-4-3");
             slot.HasNormalCampaignCompletionReceipt = true;
@@ -705,10 +694,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     achievementIntegration:
                         new NormalCampaignCompletionAchievementIntegration(earningSink));
 
-                InvokeStageClear(
-                    controller,
-                    CreateMinimalStageCompletionReadModel("stage-4-3", tickIndex: 106));
+                Assert.Throws<TargetInvocationException>(() =>
+                    InvokeStageClear(
+                        controller,
+                        CreateMinimalStageCompletionReadModel("stage-4-3", tickIndex: 106)));
 
+                Assert.That(store.UpdateCount, Is.Zero);
+                Assert.That(store.SaveCount, Is.Zero);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt.Version, Is.EqualTo(99));
                 Assert.That(
                     store.LoadSlot(1).NormalCampaignCompletionReceipt.StageRunId,
@@ -916,6 +908,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new CampaignGameplayFlowController(
                         host,
                         saveStore,
+                        saveStore,
                         new CampaignRunningSlotContext(1),
                         CreateResolver(),
                         new FakeStageLaunchRouter(),
@@ -944,25 +937,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                    CurrentLevelGroupId = "level-1",
-                    RemainingChances = 2,
-                });
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 2,
-                    CurrentStageId = StageId.CreateOrThrow("stage-3-1"),
-                    CurrentLevelGroupId = "level-3",
-                    RemainingChances = 1,
-                });
+                ImportSeed(saveStore, 1, "stage-1-1", "level-1", 2);
+                ImportSeed(saveStore, 2, "stage-3-1", "level-3", 1);
                 activeSlotProvider.SetActiveSlot(1);
 
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1008,25 +990,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                    CurrentLevelGroupId = "level-2",
-                    RemainingChances = 2,
-                });
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 2,
-                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                    CurrentLevelGroupId = "level-1",
-                    RemainingChances = 3,
-                });
+                ImportSeed(saveStore, 1, "stage-2-2", "level-2", 2);
+                ImportSeed(saveStore, 2, "stage-1-1", "level-1", 3);
                 activeSlotProvider.SetActiveSlot(1);
 
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1065,20 +1036,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                    CurrentLevelGroupId = "level-2",
-                    RemainingChances = 2,
-                });
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 2,
-                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                    CurrentLevelGroupId = "level-1",
-                    RemainingChances = 1,
-                });
+                ImportSeed(saveStore, 1, "stage-2-2", "level-2", 2);
+                ImportSeed(saveStore, 2, "stage-1-1", "level-1", 1);
                 activeSlotProvider.SetActiveSlot(1);
                 var source = new SaveSlotCampaignChancesReadSource(
                     saveStore,
@@ -1405,13 +1364,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void CampaignDirectPlay_RemainingChances1_DeathPublishesLevelFailedRoute()
         {
             var tracker = new StageRetryChanceTracker(CreateResolver());
-            var route = tracker.ResolveDeathRoute(new SaveSlotData
+            var route = tracker.ResolveDeathRoute(
+                CampaignSlotRawDataMapper.ToState(new SaveSlotData
             {
                 SlotNumber = 1,
                 CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
                 CurrentLevelGroupId = "level-2",
                 RemainingChances = 1,
-            });
+            }));
 
             Assert.That(route.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
             Assert.That(route.NextStageId.Value, Is.EqualTo("stage-2-1"));
@@ -1433,18 +1393,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                    CurrentLevelGroupId = "level-2",
-                    RemainingChances = 2,
-                });
+                ImportSeed(saveStore, 1, "stage-2-2", "level-2", 2);
                 activeSlotProvider.SetActiveSlot(1);
 
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1479,13 +1434,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [TestCase(3, 0, 2)]
-        [TestCase(3, 4, 2)]
-        [TestCase(2, 0, 1)]
+        [TestCase(3, 2)]
+        [TestCase(3, 2)]
+        [TestCase(2, 1)]
         [Category("Extended")]
         public void CampaignDeath_RetryableMutationPublishesHudAudioSuppression(
             int remainingBefore,
-            int totalDeathsBefore,
             int remainingAfter)
         {
             var saveKey = CreateTransientNamespace(nameof(CampaignDeath_RetryableMutationPublishesHudAudioSuppression));
@@ -1506,19 +1460,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TerminalSessionRegistry.ResetForTests();
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                    CurrentLevelGroupId = "level-2",
-                    RemainingChances = remainingBefore,
-                    TotalDeaths = totalDeathsBefore,
-                });
+                ImportSeed(saveStore, 1, "stage-2-2", "level-2", remainingBefore);
                 activeSlotProvider.SetActiveSlot(1);
 
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     runningSlotContext,
                     CreateResolver(),
@@ -1543,7 +1491,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(router.LastRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.DeathRetryChanceLost));
                 Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.PreviousRemainingChances, Is.EqualTo(remainingBefore));
                 Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.CurrentRemainingChances, Is.EqualTo(remainingAfter));
-                Assert.That(saveStore.LoadSlot(1).TotalDeaths, Is.EqualTo(totalDeathsBefore + 1));
+                Assert.That(saveStore.LoadSlot(1).TotalDeaths, Is.EqualTo(1));
             }
             finally
             {
@@ -1568,13 +1516,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                    CurrentLevelGroupId = "level-2",
-                    RemainingChances = 2,
-                });
+                ImportSeed(saveStore, 1, "stage-2-2", "level-2", 2);
                 activeSlotProvider.SetActiveSlot(1);
 
                 var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
@@ -1584,6 +1526,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3, presenter: presenter);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1620,13 +1563,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                    CurrentLevelGroupId = "level-2",
-                    RemainingChances = 1,
-                });
+                ImportSeed(saveStore, 1, "stage-2-2", "level-2", 1);
                 activeSlotProvider.SetActiveSlot(1);
 
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
@@ -1636,6 +1573,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var terminalPort = new FakeTerminalTransitionPort();
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1685,6 +1623,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var terminalPort = new FakeTerminalTransitionPort();
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1740,13 +1679,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                    CurrentLevelGroupId = "level-2",
-                    RemainingChances = 1,
-                });
+                ImportSeed(saveStore, 1, "stage-2-2", "level-2", 1);
                 activeSlotProvider.SetActiveSlot(1);
 
                 var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
@@ -1758,6 +1691,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var terminalPort = new FakeTerminalTransitionPort();
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1806,6 +1740,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1857,6 +1792,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -1912,6 +1848,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
+                    saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router,
@@ -1965,6 +1902,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var feed = new GameplayHostPresentationFeed(host.InputHost, presenter);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -2028,6 +1966,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var feed = new GameplayHostPresentationFeed(host.InputHost, presenter, entry);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -2122,6 +2061,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
+                    saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router,
@@ -2178,6 +2118,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
+                    saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router,
@@ -2201,7 +2142,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(slot.CurrentStageId.Value, Is.EqualTo("stage-2-2"));
                 Assert.That(slot.RemainingChances, Is.EqualTo(1));
                 Assert.That(slot.TotalDeaths, Is.EqualTo(1));
-                Assert.That(slot.NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(slot.HasNormalCampaignCompletionReceipt, Is.False);
                 Assert.That(earningSink.EarnCount, Is.Zero);
 
                 Assert.That(router.LaunchCount, Is.EqualTo(1));
@@ -2236,6 +2177,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -2283,6 +2225,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
+                    saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router,
@@ -2328,6 +2271,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -2402,6 +2346,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
+                    saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router,
@@ -2449,6 +2394,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
+                    saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router,
@@ -2488,6 +2434,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var controller = new CampaignGameplayFlowController(
                     host,
+                    saveStore,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
@@ -2529,11 +2476,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                });
+                ImportSeed(saveStore, 1, "stage-1-1", string.Empty,
+                    CampaignSaveSlotPolicy.DefaultRemainingChances);
                 activeSlotProvider.SetActiveSlot(1);
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 SetPrivateField(installer, "_saveSlotStore", saveStore);
@@ -2566,13 +2510,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var tracker = new StageRetryChanceTracker(CreateResolver());
 
-            var route = tracker.ResolveDeathRoute(new SaveSlotData
+            var route = tracker.ResolveDeathRoute(
+                CampaignSlotRawDataMapper.ToState(new SaveSlotData
             {
                 SlotNumber = 1,
                 CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
                 CurrentLevelGroupId = "level-5",
                 RemainingChances = 1,
-            });
+            }));
 
             Assert.That(route.NextStageId.Value, Is.EqualTo("stage-2-1"));
         }
@@ -2669,7 +2614,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static CampaignGameplayFlowController CreateReceiptController(
             GameObject hostObject,
-            ICampaignSaveSlotStore store,
+            RecordingCampaignSaveSlotStore store,
             int slotNumber,
             EditorDirectPlayContext? editorDirectPlayContext = null,
             INormalCampaignCompletionAchievementIntegration achievementIntegration = null,
@@ -2681,6 +2626,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 respawnDelayTicks: 3);
             return new CampaignGameplayFlowController(
                 host,
+                store,
                 store,
                 new CampaignRunningSlotContext(slotNumber),
                 CreateResolver(),
@@ -2759,6 +2705,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
+                    saveStore,
                     runningSlotContext,
                     CreateResolver(),
                     new FakeStageLaunchRouter(),
@@ -2781,7 +2728,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(slot.CurrentStageId.Value, Is.EqualTo(expectedNextStageId));
                 Assert.That(slot.CurrentLevelGroupId, Is.EqualTo(expectedNextLevelGroupId));
                 Assert.That(slot.RemainingChances, Is.EqualTo(expectedSavedChances));
-                Assert.That(slot.NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(slot.HasNormalCampaignCompletionReceipt, Is.False);
                 Assert.That(
                     chancesReadSource.TryReadChances(
                         out var displayedChances,
@@ -2864,14 +2811,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow(stageId),
-                CurrentLevelGroupId = levelGroupId,
-                RemainingChances = remainingChances,
-            });
+            ImportSeed(saveStore, 1, stageId, levelGroupId, remainingChances);
             activeSlotProvider.SetActiveSlot(1);
+        }
+
+        private static CampaignSlotState ImportSeed(
+            ICampaignSlotSeedImportPort store,
+            int slotNumber,
+            string stageId,
+            string levelGroupId,
+            int remainingChances)
+        {
+            return store.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                slotNumber,
+                StageId.CreateOrThrow(stageId),
+                levelGroupId,
+                remainingChances,
+                string.Empty));
         }
 
         private static GameplaySceneHost CreateHostWithInput(
@@ -3185,6 +3141,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 "Assets/_Features/Stages/Runtime/ClearFlow/StageProgressAndCompletion.cs",
                 "Assets/_Features/Stages/Runtime/Campaign/SaveSlotModels.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/CampaignSavePorts.cs",
                 "Assets/_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostStageCompletionRuntime.cs",
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostPresentationFeed.cs",
@@ -3235,7 +3192,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private sealed class RecordingCampaignSaveSlotStore : ICampaignSaveSlotStore
+        private sealed class RecordingCampaignSaveSlotStore :
+            ICampaignSaveQuery,
+            ICampaignProgressionCommitter
         {
             private readonly SaveSlotData[] _slots =
             {
@@ -3284,9 +3243,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 return _slots.Select(slot => slot.Clone()).ToArray();
             }
 
+            CampaignSlotEntry[] ICampaignSaveQuery.LoadAll()
+            {
+                return LoadAll().Select(CreateEntry).ToArray();
+            }
+
             public CampaignSaveLoadResult LoadAllWithReport()
             {
-                return new CampaignSaveLoadResult(LoadAll(), LastCampaignLoadReport);
+                return new CampaignSaveLoadResult(
+                    ((ICampaignSaveQuery)this).LoadAll(),
+                    LastCampaignLoadReport);
             }
 
             public SaveSlotData LoadSlot(int slotNumber)
@@ -3295,7 +3261,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 return _slots[slotNumber - 1].Clone();
             }
 
-            public void SaveSlot(SaveSlotData slot)
+            CampaignSlotEntry ICampaignSaveQuery.LoadSlot(int slotNumber)
+            {
+                return CreateEntry(LoadSlot(slotNumber));
+            }
+
+            private void StoreCandidate(SaveSlotData slot)
             {
                 if (slot == null)
                 {
@@ -3316,31 +3287,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     slotNumber,
                     sequenceResolver,
                     lastPlayedAt);
-                SaveSlot(slot);
+                StoreCandidate(slot);
                 return slot.Clone();
             }
 
-            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
+            public CampaignDeathCommitResult CommitDeath(
+                int slotNumber,
+                CampaignDeathTransitionPlan plan)
             {
                 CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-                if (mutation == null)
+                var current = CreateEntry(LoadSlot(slotNumber)).State;
+                var transition = CampaignSlotTransitionEngine.ApplyDeath(
+                    current,
+                    plan,
+                    current.LastPlayedAt);
+                if (!transition.Succeeded)
                 {
-                    throw new ArgumentNullException(nameof(mutation));
+                    throw new InvalidOperationException(
+                        $"Recording store death transition failed: {transition.ReasonCode}.");
                 }
 
                 UpdateCount++;
                 LastUpdatedSlotNumber = slotNumber;
-                var candidate = LoadSlot(slotNumber);
-                mutation(candidate);
-                LastMutationObservedCampaignCompleted = candidate.CampaignCompleted;
+                LastMutationObservedCampaignCompleted = transition.Slot.CampaignCompleted;
                 LastMutationObservedReceipt =
-                    candidate.NormalCampaignCompletionReceipt != null;
+                    transition.Slot.Receipt.Presence == CampaignReceiptPresence.PresentWithPayload;
                 if (ThrowOnUpdate)
                 {
                     throw new IOException("Simulated atomic save failure.");
                 }
 
-                SaveSlot(candidate);
+                var candidate = CampaignSlotRawDataMapper.FromDocument(
+                    CampaignSlotStateDocumentMapper.ToDocument(transition.Slot));
+                StoreCandidate(candidate);
+                return new CampaignDeathCommitResult(transition.Slot);
+            }
+
+            public CampaignStageClearCommitResult CommitStageClear(
+                int slotNumber,
+                CampaignStageClearCommitRequest request)
+            {
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+                var current = CreateEntry(LoadSlot(slotNumber)).State;
+                var transition = CampaignSlotTransitionEngine.ApplyStageClear(
+                    current,
+                    request,
+                    current.LastPlayedAt);
+                if (!transition.Succeeded)
+                {
+                    throw new InvalidOperationException(
+                        $"Recording store stage-clear transition failed: {transition.ReasonCode}.");
+                }
+
+                UpdateCount++;
+                LastUpdatedSlotNumber = slotNumber;
+                LastMutationObservedCampaignCompleted = transition.Slot.CampaignCompleted;
+                LastMutationObservedReceipt =
+                    transition.Slot.Receipt.Presence == CampaignReceiptPresence.PresentWithPayload;
+                if (ThrowOnUpdate)
+                {
+                    throw new IOException("Simulated atomic save failure.");
+                }
+
+                var candidate = CampaignSlotRawDataMapper.FromDocument(
+                    CampaignSlotStateDocumentMapper.ToDocument(transition.Slot));
+                StoreCandidate(candidate);
+                return new CampaignStageClearCommitResult(
+                    transition.Slot,
+                    transition.PreviousRemainingChances.Value);
             }
 
             public void DeleteSlot(int slotNumber)
@@ -3355,6 +3369,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     _slots[i] = SaveSlotData.CreateEmpty(i + 1);
                 }
+            }
+
+            private static CampaignSlotEntry CreateEntry(SaveSlotData slot)
+            {
+                if (slot == null || slot.IsEmpty)
+                {
+                    return CampaignSlotStateFactory.CreateEmptyEntry(slot?.SlotNumber ?? 1);
+                }
+
+                return CampaignSlotRawDataMapper.ToEntry(slot);
             }
         }
 
@@ -3479,7 +3503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
                 NormalCampaignCompletionFact completion,
                 CampaignStageSequenceResolver sequenceResolver,
-                SaveSlotData committedSlot)
+                CampaignSlotState committedSlot)
             {
                 throw new InvalidOperationException("simulated integration failure");
             }
