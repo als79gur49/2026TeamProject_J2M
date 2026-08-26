@@ -62,6 +62,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var finalEntities = new List<EntityState>();
             finalSnapshot.EnumerateEntitiesOrdered(finalEntities);
+            GameplayTickWorkloadDiagnostics.RecordFinalEntityEnumeration(finalEntities.Count);
 
             var eventLog = new List<string>(
                 movementPhaseResult.CommitEvents.Count +
@@ -147,7 +148,9 @@ namespace Game.Feature.Gameplay.Loop
 
             _presentationData = presentationData ?? throw new ArgumentNullException(nameof(presentationData));
             _objectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
-            _finalEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities));
+            var copiedFinalEntities = new List<EntityState>(finalEntities);
+            _finalEntities = new ReadOnlyCollection<EntityState>(copiedFinalEntities);
+            GameplayTickWorkloadDiagnostics.RecordFinalEntityDefensiveCopy(copiedFinalEntities.Count);
             _pendingDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(pendingDelayedAttackEffects));
             _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
         }

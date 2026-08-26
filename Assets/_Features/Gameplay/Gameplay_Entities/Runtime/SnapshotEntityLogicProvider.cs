@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Entities
@@ -48,6 +49,11 @@ namespace Game.Feature.Gameplay.Entities
             var orderedEntities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
+            var diagnosticsEnabled = GameplayTickWorkloadDiagnostics.IsEnabled;
+            var workloadMetrics = diagnosticsEnabled
+                ? new EntityLogicBuildMetricsAccumulator(_entityLogicFactories.Count)
+                : default;
+
             var entityLogics = new List<IEntityLogic>(staticEntityLogics.Count + orderedEntities.Count);
             var phaseOwnerIndex = new PhaseOwnerIndex();
 
@@ -61,9 +67,19 @@ namespace Game.Feature.Gameplay.Entities
                 var entity = orderedEntities[entityIndex];
                 var creationContext = new EntityLogicCreationContext(snapshot, entity);
 
+                if (diagnosticsEnabled)
+                {
+                    workloadMetrics.RecordEntityVisited(entity.type);
+                }
+
                 for (var factoryIndex = 0; factoryIndex < _entityLogicFactories.Count; factoryIndex++)
                 {
                     var factory = _entityLogicFactories[factoryIndex];
+                    if (diagnosticsEnabled)
+                    {
+                        workloadMetrics.RecordCanCreateProbe(entity.type);
+                    }
+
                     if (!factory.CanCreate(creationContext))
                     {
                         continue;
@@ -75,11 +91,32 @@ namespace Game.Feature.Gameplay.Entities
                         throw new InvalidOperationException("Entity logic factories must not return null.");
                     }
 
+                    if (diagnosticsEnabled)
+                    {
+                        workloadMetrics.RecordCreated(entity.type);
+                    }
+
                     if (!TryAddDynamicEntityLogic(candidate, entityLogics, phaseOwnerIndex))
                     {
+                        if (diagnosticsEnabled)
+                        {
+                            workloadMetrics.RecordConflictRejected(entity.type);
+                        }
+
                         continue;
                     }
+
+                    if (diagnosticsEnabled)
+                    {
+                        workloadMetrics.RecordAccepted(entity.type);
+                    }
                 }
+            }
+
+            if (diagnosticsEnabled)
+            {
+                var metrics = workloadMetrics.Build();
+                GameplayTickWorkloadDiagnostics.RecordEntityLogicBuild(metrics);
             }
 
             return BuildEntityLogicSet(entityLogics);

@@ -112,7 +112,9 @@ namespace Game.Feature.Gameplay.Loop
             TickIndex = tickIndex;
             _completedPhases = new ReadOnlyCollection<TickPhase>(new List<TickPhase>(completedPhases));
             _phaseTrace = new ReadOnlyCollection<string>(new List<string>(phaseTrace));
-            _finalEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities));
+            var copiedFinalEntities = new List<EntityState>(finalEntities);
+            _finalEntities = new ReadOnlyCollection<EntityState>(copiedFinalEntities);
+            GameplayTickWorkloadDiagnostics.RecordFinalEntityDefensiveCopy(copiedFinalEntities.Count);
             _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
             FinalTopology = finalTopology;
             DeterminismHash = determinismHash;
