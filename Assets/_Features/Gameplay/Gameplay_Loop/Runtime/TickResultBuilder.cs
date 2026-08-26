@@ -63,6 +63,8 @@ namespace Game.Feature.Gameplay.Loop
             var finalEntities = new List<EntityState>();
             finalSnapshot.EnumerateEntitiesOrdered(finalEntities);
             GameplayTickWorkloadDiagnostics.RecordFinalEntityEnumeration(finalEntities.Count);
+            var ownedFinalEntities = finalEntities.AsReadOnly();
+            GameplayTickWorkloadDiagnostics.RecordOwnedFinalEntityWrapperCreated(finalEntities.Count);
 
             var eventLog = new List<string>(
                 movementPhaseResult.CommitEvents.Count +
@@ -86,8 +88,8 @@ namespace Game.Feature.Gameplay.Loop
             AddRange(eventLog, cleanupPhaseResult.EventLogEntries);
             AddRange(eventLog, respawnPhaseResult.EventLogEntries);
 
-            return new TickResultData(
-                finalEntities,
+            return TickResultData.CreateFromOwnedFinalEntities(
+                ownedFinalEntities,
                 pendingDelayedAttackEffects,
                 eventLog,
                 _presentationDataBuilder.Build(presentationBuildContext),
@@ -110,6 +112,63 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _pendingDelayedAttackEffects;
         private readonly TickPresentationData _presentationData;
         private readonly StageObjectiveTickResult _objectiveResult;
+
+        internal static TickResultData CreateFromOwnedFinalEntities(
+            ReadOnlyCollection<EntityState> ownedFinalEntities,
+            IEnumerable<DelayedAttackEffectRecord> pendingDelayedAttackEffects,
+            IEnumerable<string> eventLog,
+            TickPresentationData presentationData,
+            StageObjectiveTickResult objectiveResult = null)
+        {
+            if (ownedFinalEntities == null)
+            {
+                throw new ArgumentNullException(nameof(ownedFinalEntities));
+            }
+
+            return new TickResultData(
+                OwnedFinalEntitiesToken.Instance,
+                ownedFinalEntities,
+                pendingDelayedAttackEffects,
+                eventLog,
+                presentationData,
+                objectiveResult);
+        }
+
+        private TickResultData(
+            OwnedFinalEntitiesToken ownershipToken,
+            ReadOnlyCollection<EntityState> ownedFinalEntities,
+            IEnumerable<DelayedAttackEffectRecord> pendingDelayedAttackEffects,
+            IEnumerable<string> eventLog,
+            TickPresentationData presentationData,
+            StageObjectiveTickResult objectiveResult)
+        {
+            if (!ownershipToken.IsValid)
+            {
+                throw new ArgumentException("A trusted FinalEntities ownership token is required.", nameof(ownershipToken));
+            }
+
+            if (ownedFinalEntities == null)
+            {
+                throw new ArgumentNullException(nameof(ownedFinalEntities));
+            }
+
+            if (pendingDelayedAttackEffects == null)
+            {
+                throw new ArgumentNullException(nameof(pendingDelayedAttackEffects));
+            }
+
+            if (eventLog == null)
+            {
+                throw new ArgumentNullException(nameof(eventLog));
+            }
+
+            _presentationData = presentationData ?? throw new ArgumentNullException(nameof(presentationData));
+            _objectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
+            _finalEntities = ownedFinalEntities;
+            _pendingDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(
+                new List<DelayedAttackEffectRecord>(pendingDelayedAttackEffects));
+            _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
+        }
 
         public TickResultData(
             IEnumerable<EntityState> finalEntities,
@@ -166,6 +225,18 @@ namespace Game.Feature.Gameplay.Loop
         public TickPresentationData PresentationData => _presentationData;
 
         public StageObjectiveTickResult ObjectiveResult => _objectiveResult;
+
+        private readonly struct OwnedFinalEntitiesToken
+        {
+            internal static readonly OwnedFinalEntitiesToken Instance = new(true);
+
+            private OwnedFinalEntitiesToken(bool isValid)
+            {
+                IsValid = isValid;
+            }
+
+            internal bool IsValid { get; }
+        }
     }
 
     internal readonly struct RespawnTopologyResetRequest

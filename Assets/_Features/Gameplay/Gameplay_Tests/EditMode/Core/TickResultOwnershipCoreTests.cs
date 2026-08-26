@@ -84,6 +84,30 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(result.FinalEntities[0].entityId, Is.EqualTo(10));
         }
 
+        [Test]
+        [Category("Core")]
+        public void OwnedWrapperFactory_SharesExactWrapperWithoutDefensiveCopy()
+        {
+            var owned = new System.Collections.ObjectModel.ReadOnlyCollection<EntityState>(
+                new List<EntityState> { CreateEntity(10) });
+            TickResultData data;
+            GameplayTickWorkloadCounts counts;
+
+            using (var capture = GameplayTickWorkloadDiagnostics.BeginCapture())
+            {
+                data = TickResultData.CreateFromOwnedFinalEntities(
+                    owned,
+                    Array.Empty<DelayedAttackEffectRecord>(),
+                    Array.Empty<string>(),
+                    TickPresentationData.Empty);
+                counts = capture.Counts;
+            }
+
+            Assert.That(data.FinalEntities, Is.SameAs(owned));
+            Assert.That(counts.FinalEntityDefensiveCopyCount, Is.Zero);
+            Assert.That(counts.FinalEntityDefensiveCopiedItemCount, Is.Zero);
+        }
+
         private static TickResult CreateFromOwnedData(TickResultData data)
         {
             return TickResult.CreateFromOwnedData(
