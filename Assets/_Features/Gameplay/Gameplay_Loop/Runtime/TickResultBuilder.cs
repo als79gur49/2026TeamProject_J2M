@@ -157,6 +157,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<EntityState> FinalEntities => _finalEntities;
 
+        internal ReadOnlyCollection<EntityState> OwnedFinalEntities => _finalEntities;
+
         public IReadOnlyList<DelayedAttackEffectRecord> PendingDelayedAttackEffects => _pendingDelayedAttackEffects;
 
         public IReadOnlyList<string> EventLog => _eventLog;

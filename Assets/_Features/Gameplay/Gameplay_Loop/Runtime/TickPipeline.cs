@@ -331,19 +331,16 @@ namespace Game.Feature.Gameplay.Loop
                     determinismHash)
                 : TickTrace.Empty;
 
-            return new TickResult(
+            return TickResult.CreateFromOwnedData(
                 input.TickIndex,
                 completedPhases,
                 phaseTrace,
                 movementPhaseResult,
                 attackPhaseResult,
-                tickResultData.FinalEntities,
-                tickResultData.EventLog,
+                tickResultData,
                 finalAuthoritativeSnapshot.Topology,
-                tickResultData.PresentationData,
                 determinismHash,
-                tickTrace,
-                objectiveResult);
+                tickTrace);
         }
 
         private void BindTileFeatureDefinitionContext(EntityLogicSet entityLogicsForTick)

@@ -15,6 +15,103 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<EntityState> _finalEntities;
         private readonly ReadOnlyCollection<string> _phaseTrace;
 
+        internal static TickResult CreateFromOwnedData(
+            int tickIndex,
+            IEnumerable<TickPhase> completedPhases,
+            IEnumerable<string> phaseTrace,
+            MovementPhaseResult movementPhaseResult,
+            AttackPhaseResult attackPhaseResult,
+            TickResultData tickResultData,
+            CubeTopologyState finalTopology,
+            string determinismHash,
+            TickTrace trace)
+        {
+            if (tickResultData == null)
+            {
+                throw new ArgumentNullException(nameof(tickResultData));
+            }
+
+            return new TickResult(
+                OwnedFinalEntitiesToken.Instance,
+                tickIndex,
+                completedPhases,
+                phaseTrace,
+                movementPhaseResult,
+                attackPhaseResult,
+                tickResultData.OwnedFinalEntities,
+                tickResultData.EventLog,
+                finalTopology,
+                tickResultData.PresentationData,
+                determinismHash,
+                trace,
+                tickResultData.ObjectiveResult);
+        }
+
+        private TickResult(
+            OwnedFinalEntitiesToken ownershipToken,
+            int tickIndex,
+            IEnumerable<TickPhase> completedPhases,
+            IEnumerable<string> phaseTrace,
+            MovementPhaseResult movementPhaseResult,
+            AttackPhaseResult attackPhaseResult,
+            ReadOnlyCollection<EntityState> ownedFinalEntities,
+            IEnumerable<string> eventLog,
+            CubeTopologyState finalTopology,
+            TickPresentationData presentationData,
+            string determinismHash,
+            TickTrace trace,
+            StageObjectiveTickResult objectiveResult)
+        {
+            if (!ownershipToken.IsValid)
+            {
+                throw new ArgumentException("A trusted FinalEntities ownership token is required.", nameof(ownershipToken));
+            }
+
+            if (completedPhases == null)
+            {
+                throw new ArgumentNullException(nameof(completedPhases));
+            }
+
+            if (phaseTrace == null)
+            {
+                throw new ArgumentNullException(nameof(phaseTrace));
+            }
+
+            if (ownedFinalEntities == null)
+            {
+                throw new ArgumentNullException(nameof(ownedFinalEntities));
+            }
+
+            if (eventLog == null)
+            {
+                throw new ArgumentNullException(nameof(eventLog));
+            }
+
+            if (determinismHash == null)
+            {
+                throw new ArgumentNullException(nameof(determinismHash));
+            }
+
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
+            AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
+            PresentationData = presentationData;
+            Trace = trace ?? throw new ArgumentNullException(nameof(trace));
+            ObjectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
+            TickIndex = tickIndex;
+            _completedPhases = new ReadOnlyCollection<TickPhase>(new List<TickPhase>(completedPhases));
+            _phaseTrace = new ReadOnlyCollection<string>(new List<string>(phaseTrace));
+            _finalEntities = ownedFinalEntities;
+            GameplayTickWorkloadDiagnostics.RecordTickResultFinalEntitiesShared(ownedFinalEntities.Count);
+            _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
+            FinalTopology = finalTopology;
+            DeterminismHash = determinismHash;
+        }
+
         public TickResult(int tickIndex, IEnumerable<TickPhase> completedPhases, IEnumerable<string> phaseTrace)
             : this(
                 tickIndex,
@@ -155,5 +252,17 @@ namespace Game.Feature.Gameplay.Loop
             _completedPhases[2] == TickPhase.Finalize &&
             _completedPhases[3] == TickPhase.Cleanup &&
             _completedPhases[4] == TickPhase.Respawn;
+
+        private readonly struct OwnedFinalEntitiesToken
+        {
+            internal static readonly OwnedFinalEntitiesToken Instance = new(true);
+
+            private OwnedFinalEntitiesToken(bool isValid)
+            {
+                IsValid = isValid;
+            }
+
+            internal bool IsValid { get; }
+        }
     }
 }
