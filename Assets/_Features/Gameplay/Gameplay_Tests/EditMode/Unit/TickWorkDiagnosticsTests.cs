@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void BuilderResultPath_B1RecordsOneEnumerationOneCopyAndOneTrustedShare()
+        public void BuilderResultPath_B2RecordsOneEnumerationNoCopyOneWrapperAndOneTrustedShare()
         {
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()));
@@ -28,9 +28,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(counts.FinalEntityEnumerationCount, Is.EqualTo(1));
             Assert.That(counts.FinalEntityEnumeratedItemCount, Is.Zero);
-            Assert.That(counts.FinalEntityDefensiveCopyCount, Is.EqualTo(1));
+            Assert.That(counts.FinalEntityDefensiveCopyCount, Is.Zero);
             Assert.That(counts.FinalEntityDefensiveCopiedItemCount, Is.Zero);
-            Assert.That(counts.FinalEntityOwnedWrapperCreationCount, Is.Zero);
+            Assert.That(counts.FinalEntityOwnedWrapperCreationCount, Is.EqualTo(1));
             Assert.That(counts.TickResultFinalEntityTrustedShareCount, Is.EqualTo(1));
             Assert.That(counts.EntityLogicProviderBuildCount, Is.EqualTo(1));
         }
