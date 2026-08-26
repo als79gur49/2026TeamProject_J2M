@@ -2059,6 +2059,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(inputRouter.LastSubmitDispatchResult, Is.True);
                 Assert.That(
                     coordinator.AcceptedTransitionCount - baselineAccepted,
+                    Is.Zero,
+                    "The first terminal Submit must reveal the hidden selection without navigating.");
+
+                var revealedSubmit = inputRouter.SubmitPerformedCount;
+                QueueKeyboardEnterState(keyboard, pressed: true);
+                yield return null;
+                QueueKeyboardEnterState(keyboard, pressed: false);
+                yield return null;
+
+                inputDeadline = Time.realtimeSinceStartup + 1f;
+                while (inputRouter.SubmitPerformedCount == revealedSubmit &&
+                       Time.realtimeSinceStartup < inputDeadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(inputRouter.SubmitPerformedCount - revealedSubmit, Is.EqualTo(1));
+                Assert.That(inputRouter.LastSubmitDispatchResult, Is.True);
+                Assert.That(
+                    coordinator.AcceptedTransitionCount - baselineAccepted,
                     Is.EqualTo(1),
                     $"Navigation request was not accepted. inProgress={coordinator.IsTransitionInProgress}");
                 Assert.That(coordinator.IsTransitionInProgress, Is.True);
@@ -2405,6 +2425,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 Assert.That(inputRouter.SubmitPerformedCount - baselineSubmit, Is.EqualTo(1));
+                Assert.That(inputRouter.LastSubmitDispatchResult, Is.True);
+                Assert.That(
+                    mainDispatchCount,
+                    Is.Zero,
+                    "The first terminal Submit must reveal the hidden selection without dispatching Main.");
+
+                var revealedSubmit = inputRouter.SubmitPerformedCount;
+                QueueKeyboardEnterState(keyboard, pressed: true);
+                yield return null;
+                QueueKeyboardEnterState(keyboard, pressed: false);
+                yield return null;
+
+                deadline = Time.realtimeSinceStartup + 1f;
+                while (inputRouter.SubmitPerformedCount == revealedSubmit &&
+                       Time.realtimeSinceStartup < deadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(inputRouter.SubmitPerformedCount - revealedSubmit, Is.EqualTo(1));
                 Assert.That(inputRouter.LastSubmitDispatchResult, Is.True);
                 Assert.That(mainDispatchCount, Is.EqualTo(1));
                 Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
