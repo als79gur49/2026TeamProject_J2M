@@ -82,6 +82,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ProviderBuild_CandidateArraysRecordConstructorCacheAndExactKnownTypeSkips()
+        {
+            var custom = new RecordingFactory();
+            GameplayTickWorkloadCounts counts;
+            using (var capture = GameplayTickWorkloadDiagnostics.BeginCapture())
+            {
+                var provider = new SnapshotEntityLogicProvider(new IEntityLogicFactory[]
+                {
+                    new EnemyEntityLogicFactory(),
+                    new EnemyActionStateEntityLogicFactory(),
+                    new EnemyCombatEntityLogicFactory(),
+                    new SlidingBoxEntityLogicFactory(),
+                    custom,
+                });
+                provider.Build(
+                    CreateSnapshot(
+                        CreateEntity(10, 0, EntityType.None),
+                        CreateEntity(20, 1, EntityType.Unit),
+                        CreateEntity(30, 2, EntityType.Box)),
+                    Array.Empty<IEntityLogic>());
+                counts = capture.Counts;
+            }
+
+            var metrics = counts.EntityLogicBuildMetrics;
+            Assert.That(counts.EntityLogicCandidateCacheConstructionCount, Is.EqualTo(1));
+            Assert.That(metrics.FactoryOpportunityCount, Is.EqualTo(15));
+            Assert.That(metrics.PrefilterSkipCount, Is.EqualTo(8));
+            Assert.That(metrics.CanCreateProbeCount, Is.EqualTo(7));
+            Assert.That(metrics.None.PrefilterSkipCount, Is.EqualTo(4));
+            Assert.That(metrics.None.CanCreateProbeCount, Is.EqualTo(1));
+            Assert.That(custom.CanCreateCount, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Capture_DoesNotChangeCanonicalOutputs_AndNestedScopesRestoreWithoutLeak()
         {
             var uncaptured = GameplayCompositionRoot
