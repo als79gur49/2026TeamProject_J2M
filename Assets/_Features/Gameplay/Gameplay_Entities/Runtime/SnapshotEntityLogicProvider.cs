@@ -8,7 +8,10 @@ namespace Game.Feature.Gameplay.Entities
 {
     internal sealed class SnapshotEntityLogicProvider : ISnapshotEntityLogicProvider, IEnemyGlidePresentationSettingsResolver
     {
+        private readonly IReadOnlyList<IEntityLogicFactory> _boxEntityLogicFactories;
         private readonly IReadOnlyList<IEntityLogicFactory> _entityLogicFactories;
+        private readonly IReadOnlyList<IEntityLogicFactory> _noneEntityLogicFactories;
+        private readonly IReadOnlyList<IEntityLogicFactory> _unitEntityLogicFactories;
 
         public SnapshotEntityLogicProvider(IEnumerable<IEntityLogicFactory> entityLogicFactories)
         {
@@ -30,6 +33,10 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             _entityLogicFactories = factories.AsReadOnly();
+            BuildEntityTypeCandidateCache(
+                out _noneEntityLogicFactories,
+                out _unitEntityLogicFactories,
+                out _boxEntityLogicFactories);
         }
 
         public EntityLogicSet Build(
@@ -72,9 +79,18 @@ namespace Game.Feature.Gameplay.Entities
                     workloadMetrics.RecordEntityVisited(entity.type);
                 }
 
-                for (var factoryIndex = 0; factoryIndex < _entityLogicFactories.Count; factoryIndex++)
+                var candidateFactories = ResolveCandidateFactories(entity.type);
+                if (diagnosticsEnabled)
                 {
-                    var factory = _entityLogicFactories[factoryIndex];
+                    for (var skipped = candidateFactories.Count; skipped < _entityLogicFactories.Count; skipped++)
+                    {
+                        workloadMetrics.RecordPrefilterSkip(entity.type);
+                    }
+                }
+
+                for (var factoryIndex = 0; factoryIndex < candidateFactories.Count; factoryIndex++)
+                {
+                    var factory = candidateFactories[factoryIndex];
                     if (diagnosticsEnabled)
                     {
                         workloadMetrics.RecordCanCreateProbe(entity.type);
@@ -120,6 +136,53 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return BuildEntityLogicSet(entityLogics);
+        }
+
+        private void BuildEntityTypeCandidateCache(
+            out IReadOnlyList<IEntityLogicFactory> noneFactories,
+            out IReadOnlyList<IEntityLogicFactory> unitFactories,
+            out IReadOnlyList<IEntityLogicFactory> boxFactories)
+        {
+            noneFactories = BuildCandidatesForKnownEntityType(EntityType.None);
+            unitFactories = BuildCandidatesForKnownEntityType(EntityType.Unit);
+            boxFactories = BuildCandidatesForKnownEntityType(EntityType.Box);
+            GameplayTickWorkloadDiagnostics.RecordEntityLogicCandidateCacheConstructed();
+        }
+
+        private IReadOnlyList<IEntityLogicFactory> BuildCandidatesForKnownEntityType(EntityType entityType)
+        {
+            var candidates = new List<IEntityLogicFactory>(_entityLogicFactories.Count);
+            for (var i = 0; i < _entityLogicFactories.Count; i++)
+            {
+                var factory = _entityLogicFactories[i];
+                if (factory is not IEntityLogicFactoryEntityTypePrefilter prefilter ||
+                    prefilter.MayCreateForEntityType(entityType))
+                {
+                    candidates.Add(factory);
+                }
+            }
+
+            return candidates.AsReadOnly();
+        }
+
+        private IReadOnlyList<IEntityLogicFactory> ResolveCandidateFactories(EntityType entityType)
+        {
+            if (entityType == EntityType.None)
+            {
+                return _noneEntityLogicFactories;
+            }
+
+            if (entityType == EntityType.Unit)
+            {
+                return _unitEntityLogicFactories;
+            }
+
+            if (entityType == EntityType.Box)
+            {
+                return _boxEntityLogicFactories;
+            }
+
+            return _entityLogicFactories;
         }
 
         public bool TryResolveEnemyGlidePresentationSettings(
