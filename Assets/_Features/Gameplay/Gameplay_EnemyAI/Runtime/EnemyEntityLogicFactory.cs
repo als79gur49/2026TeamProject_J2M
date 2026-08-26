@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Entities
         bool TryGetJumpCooldownTicks(out int cooldownTicks);
     }
 
-    internal sealed class EnemyEntityLogicFactory : IEntityLogicFactory, IEntityLogicFactoryEntityTypePrefilter, IEnemyGlidePresentationSettingsResolver
+    internal sealed class EnemyEntityLogicFactory : IEntityLogicFactory, IEnemyGlidePresentationSettingsResolver
     {
         private readonly EnemyAiRuntimeDefinition _defaultDefinition;
         private readonly bool _hasDefaultDefinition;
@@ -52,8 +52,6 @@ namespace Game.Feature.Gameplay.Entities
             return entity.type == EntityType.Unit &&
                    entity.aiMode != EnemyAiMode.None;
         }
-
-        public bool MayCreateForEntityType(EntityType entityType) => entityType == EntityType.Unit;
 
         public IEntityLogic Create(in EntityLogicCreationContext context)
         {
@@ -114,7 +112,7 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal sealed class EnemyCombatEntityLogicFactory : IEntityLogicFactory, IEntityLogicFactoryEntityTypePrefilter
+    internal sealed class EnemyCombatEntityLogicFactory : IEntityLogicFactory
     {
         private readonly EnemyEntityLogicFactory _enemyLogicFactory;
 
@@ -147,8 +145,6 @@ namespace Game.Feature.Gameplay.Entities
             return definition.Capabilities.TryGetCombat(out _) ||
                    definition.Capabilities.TryGetPassiveContact(out _);
         }
-
-        public bool MayCreateForEntityType(EntityType entityType) => entityType == EntityType.Unit;
 
         public IEntityLogic Create(in EntityLogicCreationContext context)
         {

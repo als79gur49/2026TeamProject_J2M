@@ -552,7 +552,7 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal sealed class EnemyActionStateEntityLogicFactory : IEntityLogicFactory, IEntityLogicFactoryEntityTypePrefilter
+    internal sealed class EnemyActionStateEntityLogicFactory : IEntityLogicFactory
     {
         private readonly EnemyEntityLogicFactory _enemyLogicFactory;
 
@@ -584,8 +584,6 @@ namespace Game.Feature.Gameplay.Entities
             var definition = _enemyLogicFactory.ResolveDefinition(context.Snapshot, context.Entity);
             return definition.Capabilities.TryGetCombat(out _);
         }
-
-        public bool MayCreateForEntityType(EntityType entityType) => entityType == EntityType.Unit;
 
         public IEntityLogic Create(in EntityLogicCreationContext context)
         {
