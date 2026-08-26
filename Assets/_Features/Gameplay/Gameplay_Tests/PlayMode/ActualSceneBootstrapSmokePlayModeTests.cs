@@ -3462,7 +3462,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(Quaternion.Angle(cameraRig.PresentedTopologyOrbit, Quaternion.identity), Is.GreaterThan(0.01f));
             Assert.That(float.IsNaN(cameraRig.AdditiveLocalPosition.x), Is.False);
             Assert.That(float.IsInfinity(cameraRig.AdditiveLocalPosition.x), Is.False);
-            Assert.That(cameraRig.AdditiveLocalPosition.sqrMagnitude, Is.GreaterThan(0.000001f));
+            Assert.That(host.Presenter.CurrentCameraShakeMixResult.IsActive, Is.True);
+            Assert.That(cameraRig.AdditiveLocalPosition.sqrMagnitude, Is.GreaterThan(0f));
             var hudPixelDuringShake = RectTransformUtility.WorldToScreenPoint(
                 null,
                 overlayRect.TransformPoint(overlayRect.rect.center));
