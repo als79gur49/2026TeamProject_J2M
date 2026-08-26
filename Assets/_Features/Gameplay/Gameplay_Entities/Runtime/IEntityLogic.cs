@@ -103,11 +103,6 @@ namespace Game.Feature.Gameplay.Entities
         IEntityLogic Create(in EntityLogicCreationContext context);
     }
 
-    internal interface IEntityLogicFactoryEntityTypePrefilter
-    {
-        bool MayCreateForEntityType(EntityType entityType);
-    }
-
     public sealed class EntityLogicSet
     {
         public EntityLogicSet(

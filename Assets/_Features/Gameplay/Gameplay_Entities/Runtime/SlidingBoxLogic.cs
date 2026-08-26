@@ -98,10 +98,8 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal sealed class SlidingBoxEntityLogicFactory : IEntityLogicFactory, IEntityLogicFactoryEntityTypePrefilter
+    internal sealed class SlidingBoxEntityLogicFactory : IEntityLogicFactory
     {
-        public bool MayCreateForEntityType(EntityType entityType) => entityType == EntityType.Box;
-
         public bool CanCreate(in EntityLogicCreationContext context)
         {
             var entity = context.Entity;
