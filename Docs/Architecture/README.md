@@ -110,6 +110,10 @@ For current Summon production ownership, read the final umbrella closeout first.
   - historical decision record superseded by ADR-007; occupancy lane ownership remains active
 - [ADR/ADR-007-Runtime-Terrain-Truth-Removal.md](./ADR/ADR-007-Runtime-Terrain-Truth-Removal.md)
   - active decision record for runtime terrain truth removal, terrain-free in-bounds cells, and remaining blocker vocabulary
+- [Gameplay-Wall-Tick-Cost-Optimization-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Plan.md)
+  - audited bounded implementation plan for reducing Wall-related Factory, Cleanup, final-result, and live diagnostics cost without changing authoritative Solid occupancy or canonical replay/hash contracts
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md)
+  - Goal-ready tests-first execution plan for workload diagnostics, trusted owned FinalEntities sharing, and conservative per-EntityType Factory prefiltering
 - [ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md](./ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md)
   - active decision record for SurfaceCell-based TileFeature overlay ownership, terrain-free boundary, lazy TileEffect snapshot rules, and presentation-only VFX boundaries
 - [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)
