@@ -6038,16 +6038,15 @@ run_gameplay_performance() {
         tail -n 160 "$runtime_log" || true
         return 1
     fi
-    if ! python3 -m json.tool "$metrics_path" >/dev/null; then
-        echo "ERROR: Gameplay performance metrics are not valid JSON."
-        return 1
-    fi
-    if ! rg -qF '"developmentBuild": false' "$metrics_path" ||
-       ! rg -qF '"phase":"render-idle"' "$metrics_path" ||
-       ! rg -qF '"phase":"gameplay-neutral-tick"' "$metrics_path" ||
-       ! rg -qF "\"validCpuMainSamples\":$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" "$metrics_path" ||
-       ! rg -qF "\"validGpuSamples\":$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" "$metrics_path"; then
-        echo "ERROR: Gameplay performance metrics identity is incomplete."
+    if ! python3 "$PROJECT_PATH_WSL/Tools/gameplay_performance_admission.py" metrics \
+            --metrics "$metrics_path" \
+            --planned-revision "$revision_sha" \
+            --expected-width "$GAMEPLAY_PERFORMANCE_WIDTH" \
+            --expected-height "$GAMEPLAY_PERFORMANCE_HEIGHT" \
+            --expected-warmup-frames "$GAMEPLAY_PERFORMANCE_WARMUP_FRAMES" \
+            --expected-sample-frames "$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" \
+            --expected-tick-interval "$GAMEPLAY_PERFORMANCE_TICK_INTERVAL"; then
+        echo "ERROR: Gameplay performance metrics admission failed."
         return 1
     fi
 

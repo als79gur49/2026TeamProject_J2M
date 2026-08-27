@@ -66,8 +66,29 @@ namespace Game.Feature.UI.Composition
             UnityEngine.Application.targetFrameRate = -1;
             Screen.SetResolution(width, height, FullScreenMode.Windowed);
 
-            GameplaySceneHost host = null;
+            var resolutionReady = false;
             var deadline = Time.realtimeSinceStartup + HostReadyTimeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if (Screen.width == width && Screen.height == height)
+                {
+                    resolutionReady = true;
+                    break;
+                }
+
+                yield return null;
+            }
+
+            if (!resolutionReady)
+            {
+                Fail(
+                    $"requested resolution did not become active: " +
+                    $"requested={width}x{height} actual={Screen.width}x{Screen.height}");
+                yield break;
+            }
+
+            GameplaySceneHost host = null;
+            deadline = Time.realtimeSinceStartup + HostReadyTimeoutSeconds;
             while (Time.realtimeSinceStartup < deadline)
             {
                 host = FindFirstObjectByType<GameplaySceneHost>(FindObjectsInactive.Include);
