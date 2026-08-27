@@ -113,7 +113,11 @@ For current Summon production ownership, read the final umbrella closeout first.
 - [Gameplay-Wall-Tick-Cost-Optimization-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Plan.md)
   - audited bounded implementation plan for reducing Wall-related Factory, Cleanup, final-result, and live diagnostics cost without changing authoritative Solid occupancy or canonical replay/hash contracts
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md)
-  - Goal-ready tests-first execution plan for workload diagnostics, trusted owned FinalEntities sharing, and conservative per-EntityType Factory prefiltering
+  - completed Slice 1 tests-first execution record for workload diagnostics, trusted owned FinalEntities sharing, conservative per-EntityType Factory prefiltering, corrected focused/core/replay evidence, and fixed-cohort performance acceptance
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md)
+  - current audit and recovery truth preserving the invalid historical C2 evidence while recording admission hardening, focused proof closure, the completed fixed 5-state/15-run cohort, and restored Goal-complete status
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Recovery-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Recovery-Goal-Prompt.md)
+  - sub-agent-reviewed execution prompt for admission hardening, focused contract closure, fixed 5-state/15-run recovery measurement, and final retain/reject decisions
 - [ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md](./ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md)
   - active decision record for SurfaceCell-based TileFeature overlay ownership, terrain-free boundary, lazy TileEffect snapshot rules, and presentation-only VFX boundaries
 - [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)

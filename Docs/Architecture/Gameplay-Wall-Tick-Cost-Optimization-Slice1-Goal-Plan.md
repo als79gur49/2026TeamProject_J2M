@@ -1,10 +1,14 @@
 # Gameplay Wall Tick Cost Optimization — Slice 1 Goal Plan
 
-- 상태: Slice 1 구현·검증 완료 / S1-A, S1-B1, 재설계 S1-B2, 재설계 S1-C 유지
+- 상태: Goal complete — corrected focused/core/replay evidence와 고정 5-state/15-run 성능 acceptance 통과 / runtime retain
 - 작성일: 2026-08-26
-- 감사 기준 revision: `5d338c54a890bb5225ddda9d769f880846b8f1ca`
+- 초기 계획 감사 기준 revision: `5d338c54a890bb5225ddda9d769f880846b8f1ca`
+- 사후 감사 대상 runtime revision: `29d26ab18b0023a2a7815786f71dfbd2efd5c083`
 - 상위 문서: [Gameplay Wall Tick Cost Optimization Plan](./Gameplay-Wall-Tick-Cost-Optimization-Plan.md)
+- 사후 감사 및 복구 계획: [Slice 1 Post-Closeout Audit and Recovery Plan](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md)
 - 적용 가드레일: `gameplay-contract-hardening`
+
+> Current truth: 2026-08-27 독립 사후 감사로 기존 C2 performance verdict와 당시 완료 선언을 철회한 뒤, phase별 admission을 동결한 새 고정 5-state/15-run campaign을 처음부터 수행했다. 아래 historical 기록은 provenance로 유지하며, 현재 판정은 문서 끝의 `2026-08-27 — recovery campaign complete` closeout이 supersede한다.
 
 ## 1. Goal 정의
 
@@ -71,7 +75,7 @@ final WorldSnapshot
 - `Gameplay_Loop/Runtime/TickResult.cs`
 - `Gameplay_Loop/Runtime/TickPipeline.cs`
 
-첫 ordered materialization은 최종 스냅샷의 정렬된 결과를 얻기 위해 필요하다. Slice 1은 이름 있는 internal ownership 경로에서만 그 List의 소유권을 이전하고, 일반 `IEnumerable` 경로의 방어 복사는 그대로 둔다. B1은 이미 단독 소유가 확정된 `TickResultData`에서 `TickResult`로 넘어가는 마지막 복사를 제거하고, B2는 Builder가 더 이상 사용하지 않는 List를 `TickResultData`가 인수해 첫 복사를 제거한다.
+첫 ordered materialization은 최종 스냅샷의 정렬된 결과를 얻기 위해 필요하다. Slice 1은 이름 있는 internal ownership 경로에서만 Builder가 List를 exact `ReadOnlyCollection`으로 감싼 뒤 그 wrapper의 소유권을 이전하고, 일반 `IEnumerable` 경로의 방어 복사는 그대로 둔다. B1은 이미 단독 소유가 확정된 `TickResultData`에서 `TickResult`로 넘어가는 마지막 복사를 제거하고, 최종 재설계 B2는 Builder가 더 이상 사용하지 않는 List의 exact wrapper를 `TickResultData`가 인수해 첫 복사를 제거한다.
 
 ### 3.2 Entity Logic Factory
 
@@ -223,7 +227,7 @@ S1-A에서는 최적화 전 의미를 비교할 test-only reference도 준비한
 // TickResultData
 internal ReadOnlyCollection<EntityState> OwnedFinalEntities => _finalEntities;
 internal static TickResultData CreateFromOwnedFinalEntities(
-    List<EntityState> ownedFinalEntities,
+    ReadOnlyCollection<EntityState> ownedFinalEntities,
     ...);
 
 // TickResult
@@ -233,11 +237,11 @@ internal static TickResult CreateFromOwnedData(
     ...);
 ```
 
-두 named factory가 호출하는 private constructor는 일반 overload와 구분되는 private ownership marker/token 인자를 반드시 가진다. 첫 인자 타입만 `List<EntityState>` 또는 `ReadOnlyCollection<EntityState>`으로 다른 overload는 만들지 않는다. 그래야 향후 exact-type internal caller가 overload resolution으로 trusted 경로를 우발적으로 선택하지 않는다.
+두 named factory가 호출하는 private constructor는 일반 overload와 구분되는 private ownership marker/token 인자를 반드시 가진다. 첫 인자 타입만 `ReadOnlyCollection<EntityState>`으로 다른 overload는 만들지 않는다. 그래야 향후 exact-type internal caller가 overload resolution으로 trusted 경로를 우발적으로 선택하지 않는다.
 
 `TickResultData`는 일반 경로에서 임의 입력을 새 private `List<EntityState>`로 복사한 뒤 `ReadOnlyCollection<EntityState>`으로 감싸고, backing List를 노출하지 않는다. `EntityState`는 현재 reference field가 없는 value struct이고 생성 뒤 mutation API도 없다. 따라서 **`TickResultData`가 소유한 구체 collection**만 `TickResult`가 신뢰할 수 있다.
 
-B1은 이 기존 단독 소유 storage를 `TickResult`와 공유한다. B2는 `TickResultBuilder`가 새로 생성하고 ordered enumeration을 끝낸 뒤 더는 사용하지 않는 `List<EntityState>`만 `CreateFromOwnedFinalEntities`로 넘긴다. 이 메서드는 새 `ReadOnlyCollection<EntityState>(ownedFinalEntities)` wrapper를 만들고 mutable List 참조를 외부로 반환하지 않는다.
+B1은 이 기존 단독 소유 storage를 `TickResult`와 공유한다. 최종 재설계 B2는 `TickResultBuilder`가 새로 생성하고 ordered enumeration을 끝낸 뒤 더는 사용하지 않는 `List<EntityState>`를 Builder 안에서 정확히 한 번 `AsReadOnly()`로 감싼다. Builder는 이 exact `ReadOnlyCollection<EntityState>`만 `CreateFromOwnedFinalEntities`로 넘기며, named factory는 wrapper를 다시 만들거나 mutable List 참조를 외부로 반환하지 않는다.
 
 B2의 owned factory는 production에서 `TickResultBuilder.Build` 한 곳만 호출할 수 있다. `TickResultOwnershipCoreTests`의 source architecture guard는 `Gameplay_Tests`를 제외한 production `.cs`에서 qualified invocation `TickResultData.CreateFromOwnedFinalEntities(`가 정확히 한 번이고 위치가 `TickResultBuilder.cs`인지 pin한다. 다른 caller가 필요해지면 ownership/lifetime 감사를 다시 수행한다.
 
@@ -269,12 +273,13 @@ if (finalEntities is ReadOnlyCollection<EntityState> readOnly)
 TickResultBuilder
   1. 새 List 생성
   2. finalSnapshot.EnumerateEntitiesOrdered(list)
-  3. list를 더 사용하지 않음
-  4. TickResultData.CreateFromOwnedFinalEntities(list, ...)로 소유권 이전
+  3. exact ReadOnlyCollection wrapper를 한 번 생성
+  4. list를 더 사용하지 않음
+  5. TickResultData.CreateFromOwnedFinalEntities(wrapper, ...)로 소유권 이전
 
 TickResultData
   - 일반 IEnumerable 생성자: 기존처럼 새 private List에 방어 복사 유지
-  - named owned factory: 전달된 List를 ReadOnlyCollection으로 감싸고 단독 소유
+  - named owned factory: Builder가 만든 exact ReadOnlyCollection을 ownership token constructor에 전달
   - internal OwnedFinalEntities: 소유한 ReadOnlyCollection을 구체 타입으로 반환
   - 기존 FinalEntities: IReadOnlyList로만 노출
 
@@ -451,7 +456,7 @@ git diff --stat
 1. compile-only `TickResultData.CreateFromOwnedFinalEntities` scaffold를 추가하되 기존 enumerable-copy constructor로 위임해 semantic을 바꾸지 않는다.
 2. B1이 green인 뒤에만 B2의 `copy=0/wrapper=1`, previous-result lifetime, production call-site allowlist 테스트를 추가한다.
 3. 기존 Builder-to-Data 복사 때문에 B2 budget이 실패하는 assertion red를 확인한다. compile red는 유효 evidence가 아니다.
-4. ownership-token private constructor를 구현해 named factory가 전달된 Builder List를 한 번만 감싸게 한다.
+4. Builder가 ordered List를 exact `ReadOnlyCollection`으로 한 번만 감싸고, ownership-token private constructor를 사용하는 named factory가 그 wrapper를 그대로 인수하게 한다.
 5. six reflection fixture, focused/core/replay를 모두 green으로 만든 뒤 B2 commit을 만든다.
 6. A+B1+B2 상태 성능을 3회 수집한다.
 
@@ -549,40 +554,63 @@ GAMEPLAY_PERFORMANCE_TICK_INTERVAL=1 \
 4. S1-A + S1-B1 + S1-B2
 5. S1-A + S1-B1 + S1-B2 + S1-C
 
+2026-08-27 사후 감사 이후 재측정은 [Post-Closeout Audit and Recovery Plan](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md)의 고정 block 순서를 따른다. 각 revision의 full measurement warm-up은 정확히 1회만 사전 폐기하고, official 15 run을 시작한 뒤 admission을 통과한 값은 p95를 본 후 제외하거나 warm-up으로 재분류하지 않는다.
+
 각 증거에 revision, worktree diff hash, metrics path를 남긴다. 서로 다른 revision의 절대 수치를 한 revision의 동시 비교처럼 표현하지 않는다.
 
-각 run은 비교 전에 다음 표본 동일성 preflight를 통과해야 한다. 위 고정 명령은 매 frame Tick을 요청하므로 `gameplay-neutral-tick`의 `attemptedTicks`, `executedTicks`, `tickWallMilliseconds.count`가 모두 1,200이어야 한다. 하나라도 다르면 해당 run은 p95 비교 증거로 사용하지 않고 Tick 누락 원인을 조사한 뒤 다시 수집한다. 15개 run 모두 이 gate를 개별 통과해야 하므로 상태 간 표본 수도 자동으로 같아진다.
+각 run은 p95 집계 전에 다음 identity/표본 동일성 preflight를 통과해야 한다. requested와 actual resolution은 모두 `1920x1080`이어야 하고, 두 phase의 CPU/GPU 표본은 각각 1,200이어야 한다. 위 고정 명령은 매 frame Tick을 요청하므로 `gameplay-neutral-tick`의 `attemptedTicks`, `executedTicks`, `tickWallMilliseconds.count`도 모두 1,200이어야 한다. 하나라도 다르면 해당 run은 p95 비교 증거로 사용하지 않고 같은 사전 지정 slot에서 다시 수집한다. 실패 evidence와 사유는 삭제하지 않는다.
 
 ```bash
 slice1_metrics_path=/absolute/path/to/performance-metrics.json
-python3 - "$slice1_metrics_path" <<'PY'
+slice1_expected_revision=/full/planned/revision
+python3 - "$slice1_metrics_path" "$slice1_expected_revision" <<'PY'
 import json
+import math
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as stream:
     metrics = json.load(stream)
 
-phases = [
-    phase for phase in metrics.get("phases", [])
-    if phase.get("phase") == "gameplay-neutral-tick"
-]
+phases = {phase.get("phase"): phase for phase in metrics.get("phases", [])}
+idle = phases.get("render-idle", {})
+gameplay = phases.get("gameplay-neutral-tick", {})
 valid = (
-    metrics.get("sampleFramesPerPhase") == 1200
+    metrics.get("developmentBuild") is False
+    and metrics.get("revision") == sys.argv[2]
+    and metrics.get("requestedResolution") == [1920, 1080]
+    and metrics.get("actualResolution") == [1920, 1080]
+    and metrics.get("warmupFrames") == 120
+    and metrics.get("sampleFramesPerPhase") == 1200
     and metrics.get("gameplayTickIntervalFrames") == 1
-    and len(phases) == 1
-    and phases[0].get("attemptedTicks") == 1200
-    and phases[0].get("executedTicks") == 1200
-    and phases[0].get("tickWallMilliseconds", {}).get("count") == 1200
+    and metrics.get("vSyncCount") == 0
+    and metrics.get("targetFrameRate") == -1
+    and len(metrics.get("phases", [])) == 2
+    and set(phases) == {"render-idle", "gameplay-neutral-tick"}
+    and all(
+        phase.get("sampleCount") == 1200
+        and phase.get("validCpuMainSamples") == 1200
+        and phase.get("validGpuSamples") == 1200
+        for phase in (idle, gameplay)
+    )
+    and idle.get("attemptedTicks") == 0
+    and idle.get("executedTicks") == 0
+    and idle.get("tickWallMilliseconds", {}).get("count") == 0
+    and gameplay.get("attemptedTicks") == 1200
+    and gameplay.get("executedTicks") == 1200
+    and gameplay.get("tickWallMilliseconds", {}).get("count") == 1200
+    and isinstance(gameplay.get("tickWallMilliseconds", {}).get("p95"), (int, float))
+    and math.isfinite(gameplay.get("tickWallMilliseconds", {}).get("p95"))
+    and gameplay.get("tickWallMilliseconds", {}).get("p95") > 0
 )
 if not valid:
-    print("invalid Slice 1 Tick sample admission", file=sys.stderr)
+    print("invalid Slice 1 metrics-local sample admission", file=sys.stderr)
     raise SystemExit(1)
 
-print("valid Slice 1 Tick sample admission")
+print("valid Slice 1 metrics-local sample; external identity admission pending")
 PY
 ```
 
-`run_tests.sh`가 필수 dependency로 확인하는 `python3`만 사용한다. 현재 wrapper는 CPU/GPU sample 수는 확인하지만 위 Tick 표본 동일성까지 강제하지 않으므로, Slice 1 closeout 담당자가 이 preflight와 결과를 evidence에 별도로 남긴다.
+위 snippet은 metrics 한 파일의 하위 조건만 검사하며 formal admission 완료를 뜻하지 않는다. formal external validator는 metrics path, manifest path, planned runtime revision, expected clean diff hash, campaign identity baseline을 입력으로 받아 manifest `HEAD`, clean diff, Unity/OS/CPU/GPU/quality/backend cohort까지 함께 비교해야 한다. campaign 시작 전에 validator content SHA-256과 immutable `campaign-plan.json` SHA-256을 고정하고 모든 admission record가 두 hash를 참조해야 한다. `run_tests.sh`가 필수 dependency로 확인하는 `python3`만 사용한다. 2026-08-27 감사 시점의 wrapper는 CPU/GPU를 phase별로 구조 검증하지 않고 actual resolution 및 Tick 표본 동일성도 강제하지 않으므로, historical revision을 측정할 때는 full external validator의 판정을 p95 집계 전에 evidence에 남긴다.
 
 판정 pair와 metric은 다음으로 고정한다.
 
@@ -783,7 +811,9 @@ Slice 1의 성공 기준은 Wall의 의미를 약화시키는 것이 아니라, 
 - Goal status: 원래 objective는 Builder-path copy `0`과 기본 Wall probe `0`을 모두 요구하지만 B2와 C가 성능 gate로 reject되어 충족되지 않는다. §12에 따라 objective scope amendment 또는 두 패키지의 별도 redesign/evidence 없이는 Goal을 완료로 표시할 수 없다.
 - Next safe action: objective를 retained S1-A + S1-B1 결과로 축소 승인하거나, B2/C 각각에 대해 현재 rejected 구현과 다른 설계의 후속 Goal을 정의한다.
 
-### 2026-08-27 — redesigned S1-B2 and S1-C retained; Goal complete
+### 2026-08-27 — redesigned S1-B2 and S1-C retained; Goal complete (historical, superseded)
+
+> Superseded: 후속 독립 감사에서 C2 official triplet의 actual resolution 불일치와 고정 15-run protocol 이탈이 확인됐다. 아래 구조·기능 결과와 당시 산술은 provenance로 유지하지만, redesigned B2/C2 performance pass 및 Goal complete 선언은 철회한다. 현재 판정과 복구 순서는 [Post-Closeout Audit and Recovery Plan](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md)을 따른다.
 
 - Goal objective: Wall의 authoritative entity/Solid occupancy 의미를 바꾸지 않고 Builder 경로 `FinalEntities` defensive copy를 `0`으로 줄이고, 기본 Factory의 Wall/`None` probe를 `0`으로 줄이면서 결과·순서·hash·trace·replay 계약을 유지한다.
 - Final revision / branch: `29d26ab18`, `codex/third-party-license-inventory`.
@@ -810,23 +840,73 @@ Slice 1의 성공 기준은 Wall의 의미를 약화시키는 것이 아니라, 
 - B2 control evidence: `20260826T193032Z`, `20260826T193648Z`, `20260826T194232Z`; p95 `6.571880 / 7.106730 / 6.379365 ms`, median `6.571880 ms`, range `6.379365..7.106730 ms`.
 - C2 evidence: `20260826T200124Z`, `20260826T200536Z`, `20260826T200711Z`; p95 `7.123190 / 5.678465 / 5.715655 ms`, median `5.715655 ms`, range `5.678465..7.123190 ms`.
 - Tick sample preflight: B2/C2 여섯 admitted run 모두 sample frames `1200`, interval `1`, attempted/executed/count `1200/1200/1200`. C2 warm-up `20260826T195900Z`는 판정에서 제외했다. `20260826T200329Z`는 gameplay Tick count는 같았지만 runner identity failure로 판정 집합에서 제외하고 재수집했다.
-- Decision: adjacent median `-13.028616%`; 5% non-regression gate 통과. 범위가 겹치므로 확정적인 wall-clock 개선으로 표현하지 않고 구조 감소 + 비악화 gate 증거로만 사용한다. GC counter는 unavailable이었다.
+- Historical decision, invalidated: 당시 adjacent median을 `-13.028616%`로 계산해 5% non-regression pass로 판정했다. 후속 감사에서 official C2 세 run 중 두 run의 actual resolution이 `1080x1080`임을 확인했으므로 이 triplet과 performance verdict는 formal acceptance에서 제외한다. GC counter는 unavailable이었다.
 
-#### Final validation and five-state audit
+#### Historical closeout table (not one fixed five-state cohort)
 
 | Decision pair | Baseline median | Candidate median | Delta | Verdict |
 |---|---:|---:|---:|---|
-| initial baseline -> S1-A | `7.348720 ms` | `7.188575 ms` | `-2.179223%` | pass |
-| stabilized S1-A -> S1-B1 | `7.467520 ms` | `7.251195 ms` | `-2.896879%` | pass |
-| same-session S1-B1 -> redesigned S1-B2 | `8.019165 ms` | `7.877540 ms` | `-1.766082%` | pass |
-| same-session redesigned S1-B2 -> C2 | `6.571880 ms` | `5.715655 ms` | `-13.028616%` | pass |
-| initial baseline -> final C2 arithmetic | `7.348720 ms` | `5.715655 ms` | `-22.222441%` | pass with cross-window caveat |
+| initial baseline -> S1-A | `7.348720 ms` | `7.188575 ms` | `-2.179223%` | historical pair pass |
+| stabilized S1-A -> S1-B1 | `7.467520 ms` | `7.251195 ms` | `-2.896879%` | pair-specific pass |
+| same-session S1-B1 -> redesigned S1-B2 | `8.019165 ms` | `7.877540 ms` | `-1.766082%` | supporting only; B2 provisional |
+| same-session redesigned S1-B2 -> C2 | `6.571880 ms` | `5.715655 ms` | `-13.028616%` | invalid resolution |
+| initial baseline -> final C2 arithmetic | `7.348720 ms` | `5.715655 ms` | `-22.222441%` | invalid final evidence |
 
-- 각 adjacent 판정은 해당 시점의 control/candidate triplet을 사용했다. 마지막 initial-to-final 값은 서로 다른 시간대의 절대값 산술 비교이며 동시 측정 개선으로 해석하지 않는다.
+- 각 adjacent 판정은 해당 시점의 서로 다른 control/candidate triplet을 사용했으므로 원래 요구한 하나의 15-run cohort가 아니다. 마지막 initial-to-final 값은 서로 다른 시간대의 절대값 산술 비교이고 C2 resolution도 불일치하므로 formal acceptance로 사용하지 않는다.
 - Final core on `29d26ab18`: commit hook EditMode `225/0`, PlayMode `111/0`.
 - Final replay: `./run_tests.sh --integration-replay --filter TickReplayDeterminismTests` EditMode `59/0`.
 - Broad replay audit: unfiltered replay EditMode `141 total / 1 failed`; `EnemyProfileContractReplayTests.Replay_MigratedSummonProfile_SummonedMetadataAndPlacementRemainDeterministic`의 기존 summon placement expectation이며 untouched B2 `4498148ad`에서도 동일하게 재현됐다. touched-cluster regression으로 분류하지 않는다.
 - Storage/evidence: `j2m-worktree-audit` PASS. 성능 비교 worktree는 `/mnt/d/J2M/worktrees/slice1-redesign-perf`, evidence는 `/mnt/d/J2M/evidence/gameplay-performance`, builds는 `/mnt/d/J2M/builds/gameplay-performance`에 있다. worktree별 private `Library`를 사용했다.
 - Final structural state: Builder enumeration `1`, defensive FinalEntities copy `0`, owned wrapper `1`, trusted share `1`; 기본 Wall/`None` probe `0`; unscoped/unknown compatibility 및 authoritative Wall/Solid occupancy는 유지된다.
 - Not-run/limits: broad unfiltered `full`은 문서상 baseline red이므로 실행하지 않았다. Scene/Prefab/ScriptableObject 변경과 manual/editor asset validation 대상은 없다. release-like GC allocation counter가 unavailable해 sustained allocation 비악화는 미검증이며 구조 계측과 source guard가 primary evidence다.
-- Goal status: objective의 Builder copy `0`과 기본 Wall probe `0`을 모두 충족했고 retained package의 구조·의미·focused/core/replay·adjacent performance gate가 닫혔다. Slice 1 Goal은 완료다.
+- Historical Goal status, superseded: 당시 objective의 Builder copy `0`과 기본 Wall probe `0` 및 recorded gate가 닫혔다고 판단해 완료 처리했다. 2026-08-27 사후 감사로 performance acceptance가 재개방됐으며 현재 Goal은 완료가 아니다.
+
+### 2026-08-27 — independent audit correction; Goal reopened
+
+- Goal objective: 변경 없음. Builder copy `0`, 기본 Wall/`None` probe `0`, authoritative/replay/hash 계약 유지, 동일 조건 성능 비악화를 모두 요구한다.
+- Current package: performance revalidation. Production runtime은 `provisional retain candidate`이고 final retain은 보류한다.
+- Audit method: 요구사항, 성능 evidence, production 계약/테스트를 세 서브 에이전트가 독립 재검토한 뒤 상호 반론 검토했다.
+- Blocking finding: C2 official run `20260826T200536Z`, `20260826T200711Z`는 requested `1920x1080`과 달리 actual `1080x1080`이다. 기존 C2 median `5.715655 ms`, `-13.028616%`, pass는 무효다.
+- Protocol finding: closeout은 원래의 하나의 5-state/15-run cohort 대신 pair-specific control triplet을 사용했다. local B1 -> B2 `-1.766082%`는 supporting evidence지만 strict fixed chain의 B1 -> B2 `+8.637818%`를 대체하지 않는다.
+- Runner finding: `validGpuSamples`는 phase별 JSON 검사가 아니라 전역 문자열 검색이며 actual resolution도 admission하지 않는다. corrected runner/external validator 없이 새 p95를 formal evidence로 사용하지 않는다.
+- Structural/semantic state retained: Builder enumeration `1`, defensive copy `0`, owned wrapper `1`, trusted share `1`, 기본 Wall/`None` probe `0`; 감사한 production 경로에서 authoritative Wall/Solid occupancy 및 순서 계약의 차단 위반은 발견되지 않았다.
+- Pending focused evidence: actual Build unknown fallback, observable legacy accepted-owner parity, glide fail-then-success/first-success ordering, diagnostics execution tests의 Integration stratification, A-only replay.
+- Required campaign: baseline `5d338c54a`, A `2dc8e5c53`, retained B1 `bfe16e8dd`, redesigned B2 `4498148ad`, C2 `29d26ab18`을 한 번의 사전 고정 counterbalanced campaign에서 상태별 3회, 총 15 admitted run으로 재측정한다. B1 production runtime은 original B1 `79889c4b7`과 동일하다.
+- Admission: requested/actual `1920x1080`, phase별 CPU/GPU `1200`, gameplay Tick `1200/1200/1200`, revision/manifest/clean diff, Unity/quality/hardware identity를 p95 확인 전에 자동 검증한다. state별 full-run warm-up은 정확히 1회만 사전 폐기한다.
+- Open risks: C2는 현재 pass/reject 판정 불가다. B2도 원 protocol 기준 provisional이다. GC/allocation은 계속 미검증이며 broad unfiltered `full`은 실행되지 않았다.
+- Next safe action: admission/runner와 focused proof gap을 먼저 보강하고, [사후 감사 복구 계획](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md)의 5-state/15-run 순서로 재측정한다. 같은 cohort의 네 adjacent 및 final delta가 모두 `<= +5%`일 때만 새 closeout에서 Goal complete를 재판정한다.
+
+### 2026-08-27 — recovery campaign complete; Goal complete
+
+- Goal objective: Wall의 authoritative entity/Solid occupancy 의미를 바꾸지 않고 Builder 경로 `FinalEntities` defensive copy를 `0`, 기본 Factory의 Wall/`None` probe를 `0`으로 줄이며 general-copy, 결과 lifetime, 순서, hash, trace, replay 계약을 유지한다.
+- Working revision / branch: 주 작업트리 HEAD `e1b8238` / `codex/third-party-license-inventory`; 측정 runtime은 immutable plan의 baseline `5d338c54a`, A `2dc8e5c53`, B1 `bfe16e8dd`, B2 `4498148ad`, C2 `29d26ab18`이다. commit/push는 수행하지 않았다.
+- Pre-existing changes preserved: recovery 준비 allowlist의 Goal Plan, README, Post-Closeout Audit, Recovery Goal Prompt 변경을 보존했고, 관련 없는 user change를 stage/revert하지 않았다.
+- Admission tests-first: 초기 validator fixture `12 total / 10 failed / 2 error` assertion red에서 시작했다. 외부 validator, immutable campaign plan/index, retry 연속성, artifact hash 불변성, median-of-three aggregation regression을 구현한 뒤 Python suite `19/19` green, `py_compile`, `bash -n`을 통과했다.
+- Automation hardening: current HEAD Player probe는 requested/actual resolution이 실제로 일치한 뒤 측정을 시작하며, `run_tests.sh gameplay-performance`는 두 phase 각각 CPU/GPU/sample `1200`, gameplay Tick `1200/1200/1200`, finite positive p95를 구조적으로 검사한다. historical SHA에는 이 patch를 섞지 않았고 external validator를 authoritative admission으로 사용했다.
+- Focused proof closure: 실제 `Build` unknown branch의 full-registration fallback, legacy observable accepted-owner/order parity, glide fail-then-success 및 first-success ordering을 직접 고정했다. legacy-owner/glide Core proof는 재감사 후 composition root helper 대신 raw `WorldSnapshot`을 사용하도록 교정해 pure deterministic Core로 유지했다. `TickPipeline.RunTick` diagnostics 실행 테스트는 Unit에서 Scenario로 이동했다.
+- Durable focused evidence: 8-fixture 명령 `TEST_RESULTS_ROOT=/mnt/d/J2M/evidence/slice1-recovery-closeout-20260827T113317Z/focused-editmode ./run_tests.sh full --filter 'SnapshotEntityLogicProviderPrefilterCoreTests;SnapshotEntityLogicProviderPrefilterSimulationTests;SnapshotEntityLogicProviderPrefilterInfrastructureTests;TickWorkDiagnosticsTests;TickWorkDiagnosticsSimulationTests;TickResultOwnershipCoreTests;TickResultOwnershipSimulationTests;TickResultOwnershipInfrastructureTests'`는 EditMode `20 total / 20 passed / 0 failed / 0 skipped`였다. six-fixture 명령은 별도 `focused-playmode` root에서 PlayMode `101 total / 97 passed / 0 failed / 4 skipped`였고 topology runtime gate test도 `Passed`였다. 두 root를 분리해 후속 0-match stage가 앞선 XML을 덮지 않게 했다.
+- Functional validation: 교정 후 고유 `core` root에서 다시 실행한 `./run_tests.sh core`는 EditMode `228 total / 228 passed / 0 failed / 0 skipped`, PlayMode `111 total / 107 passed / 0 failed / 4 skipped`였다. current replay는 `59/59`, pinned A-only `2dc8e5c53` replay도 `59/59`였다. 테스트 중 드러난 topology PlayMode order dependency는 실제 destination topology와 동기식 presentation 계약에 맞춰 수정한 후 최종 fixture group이 green이다.
+- Structural counters: Builder ordered enumeration `1`, Builder defensive FinalEntities copy `0`, owned read-only wrapper creation `1`, trusted backing share `1`, 기본 provider Wall/`None` probe `0`. authoritative Wall/Solid occupancy, unscoped/unknown fallback, entity-major/Factory order, static/first-owner 및 previous-result lifetime 계약은 유지된다.
+- Campaign freeze: campaign ID `slice1-recovery-20260827T084937Z`; plan SHA-256 `f5bf38ca65deb29d5403d67e01d8c257be6bd0699edaee38ec6d38a0f51d5f3b`; validator SHA-256 `0e9947a9780f49a2513684b175c2db50064408805e23e20d97bffa510b7ac813`; campaign tool SHA-256 `be90eaf2a04f1982f3ac1db077ebf365aa1bec64c82d37453d737491016d4f31`. 종료 시 해시는 동결 값과 같았다.
+- Admission result: 계획된 warm-up `5/5`, official `15/15`가 admitted 되었고 index issues는 `0`이다. 총 `29` attempt 중 `20` admitted, `9` rejected였다. rejected는 GPU sample `1198/1199` 네 건과 missing/interrupted runtime artifact 다섯 건이며 모두 같은 slot의 연속 attempt로 보존했다. admitted artifact의 metrics/manifest hash는 사후 검증에서도 일치했다.
+
+| State | Official raw Tick p95 (ms) | Median (ms) | Range (ms) |
+|---|---|---:|---:|
+| baseline | `6.038355 / 6.152735 / 6.268645` | `6.152735` | `6.038355..6.268645` |
+| A | `6.238940 / 6.072130 / 9.177435` | `6.238940` | `6.072130..9.177435` |
+| B1 | `6.359005 / 5.938340 / 6.074515` | `6.074515` | `5.938340..6.359005` |
+| B2 | `5.917215 / 6.087410 / 6.057070` | `6.057070` | `5.917215..6.087410` |
+| C2 | `5.944025 / 6.070845 / 6.039985` | `6.039985` | `5.944025..6.070845` |
+
+| Fixed-cohort gate | Delta | Verdict |
+|---|---:|---|
+| baseline -> A | `+1.401084%` | pass |
+| A -> B1 | `-2.635464%` | pass |
+| B1 -> B2 | `-0.287183%` | pass |
+| B2 -> C2 | `-0.282067%` | pass |
+| baseline -> C2 | `-1.832518%` | pass |
+
+- Performance interpretation: 사전 고정한 raw-double median-of-three 규칙에서 다섯 gate가 모두 `<= +5%`다. A의 세 번째 값 `9.177435 ms`와 범위 겹침을 그대로 보존하므로 speedup은 주장하지 않으며, fixed-cohort 시간 비악화만 판정한다. `gcAllocationVerdict`는 계측 부재로 `UNVERIFIED`다.
+- Evidence: campaign root `/mnt/d/J2M/evidence/gameplay-performance/slice1-recovery-20260827T084937Z`; immutable plan `campaign-plan.json`; verified index `campaign-index.json`; raw aggregation `aggregate.json`; captures/admissions는 같은 root 아래에 있다. 보존된 closeout validation은 `/mnt/d/J2M/evidence/slice1-recovery-closeout-20260827T113317Z/{focused-editmode,focused-playmode,core}`에 있고 각 root가 자체 XML/log/font-mutation evidence를 가진다. build output은 `/mnt/d/J2M/builds/gameplay-performance/slice1-recovery-20260827T084937Z`에 있다. `j2m-worktree-audit`는 PASS였고 `/mnt/d/J2M/worktrees/slice1-redesign-perf`의 private `Library`를 사용했다.
+- Not run / limits: broad unfiltered `full`은 문서화된 red baseline과 scoped recovery 요구 때문에 실행하지 않았다. Scene/Prefab/ScriptableObject/asset 변경이 없어 manual/editor asset validation 대상은 없다. GC/allocation 비악화는 미검증이다.
+- Final decision: S1-A, S1-B1, redesigned S1-B2, C2를 `retain`한다. 구조·의미·focused/core/replay와 고정 cohort의 다섯 시간 gate가 닫혔으므로 Slice 1 Goal을 다시 `complete`로 판정한다. 후속 대형 최적화는 별도 Goal로 시작한다.
