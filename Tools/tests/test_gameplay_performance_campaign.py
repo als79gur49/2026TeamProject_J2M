@@ -5,10 +5,12 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -144,6 +146,122 @@ class GameplayPerformanceCampaignTests(unittest.TestCase):
         self.assertFalse(report["complete"])
         self.assertTrue(any("changed after admission" in issue for issue in report["issues"]))
 
+    def test_index_rejects_deleted_admitted_artifacts(self) -> None:
+        for field in ("metricsPath", "manifestPath"):
+            with self.subTest(field=field):
+                self.admissions.mkdir(parents=True, exist_ok=True)
+                self.materialize_complete_campaign()
+                record = CAMPAIGN.read_json(next(self.admissions.rglob("attempt-01.json")))
+                Path(record[field]).unlink()
+
+                report = CAMPAIGN.verify_index(
+                    self.plan_path,
+                    VALIDATOR_PATH,
+                    self.admissions,
+                    require_complete=True,
+                )
+
+                self.assertFalse(report["complete"])
+                self.assertTrue(
+                    any(f"{field} missing" in issue for issue in report["issues"]),
+                    report["issues"],
+                )
+                for child in tuple(self.admissions.iterdir()):
+                    if child.is_dir():
+                        shutil.rmtree(child)
+
+    def test_index_rejects_empty_admitted_artifact_hash(self) -> None:
+        self.materialize_complete_campaign()
+        record_path = next(self.admissions.rglob("attempt-01.json"))
+        record = CAMPAIGN.read_json(record_path)
+        record["metricsSha256"] = ""
+        CAMPAIGN.atomic_json(record_path, record)
+
+        report = CAMPAIGN.verify_index(
+            self.plan_path,
+            VALIDATOR_PATH,
+            self.admissions,
+            require_complete=True,
+        )
+
+        self.assertFalse(report["complete"])
+        self.assertTrue(
+            any("metricsSha256" in issue and "lowercase SHA-256" in issue for issue in report["issues"]),
+            report["issues"],
+        )
+
+    def test_create_plan_output_cannot_alias_identity_input(self) -> None:
+        metrics_path = self.root / "identity.json"
+        manifest_path = self.root / "identity.txt"
+        metrics_path.write_text(json.dumps(identity_metrics()), encoding="utf-8")
+        manifest_path.write_text(
+            "\n".join(f"{key}={value}" for key, value in identity_manifest().items())
+            + "\nGitStatusShort:\n",
+            encoding="utf-8",
+        )
+        original = metrics_path.read_bytes()
+
+        with self.assertRaises(ValueError):
+            CAMPAIGN.main(
+                [
+                    "create-plan",
+                    "--campaign-id", "alias-test",
+                    "--identity-metrics", str(metrics_path),
+                    "--identity-manifest", str(manifest_path),
+                    "--output", str(metrics_path),
+                ]
+            )
+
+        self.assertEqual(original, metrics_path.read_bytes())
+
+    def test_verify_index_rejects_record_mutated_after_validation_snapshot(self) -> None:
+        self.materialize_complete_campaign()
+        output = self.root / "index.json"
+        record_path = next(self.admissions.rglob("attempt-01.json"))
+        original_writer = CAMPAIGN.evidence_atomic_json
+
+        def mutate_then_write(*args: object, **kwargs: object) -> None:
+            record = CAMPAIGN.read_json(record_path)
+            record["reason"] = "mutated"
+            record_path.write_text(json.dumps(record), encoding="utf-8")
+            original_writer(*args, **kwargs)
+
+        with mock.patch.object(CAMPAIGN, "evidence_atomic_json", side_effect=mutate_then_write):
+            with self.assertRaises(ValueError):
+                CAMPAIGN.main(
+                    [
+                        "verify-index",
+                        "--campaign-plan", str(self.plan_path),
+                        "--validator", str(VALIDATOR_PATH),
+                        "--admissions-root", str(self.admissions),
+                        "--output", str(output),
+                    ]
+                )
+        self.assertFalse(output.exists())
+
+    def test_verify_index_rejects_new_attempt_added_before_replace(self) -> None:
+        self.materialize_complete_campaign()
+        output = self.root / "index.json"
+        injected = self.admissions / "block-1" / "slot-01" / "attempt-02.json"
+        original_writer = CAMPAIGN.evidence_atomic_json
+
+        def add_record_then_write(*args: object, **kwargs: object) -> None:
+            injected.write_text('{"injected":true}\n', encoding="utf-8")
+            original_writer(*args, **kwargs)
+
+        with mock.patch.object(CAMPAIGN, "evidence_atomic_json", side_effect=add_record_then_write):
+            with self.assertRaises(ValueError):
+                CAMPAIGN.main(
+                    [
+                        "verify-index",
+                        "--campaign-plan", str(self.plan_path),
+                        "--validator", str(VALIDATOR_PATH),
+                        "--admissions-root", str(self.admissions),
+                        "--output", str(output),
+                    ]
+                )
+        self.assertFalse(output.exists())
+
     def test_aggregate_uses_raw_median_of_three_and_all_five_gates(self) -> None:
         self.materialize_complete_campaign()
         result = CAMPAIGN.aggregate(self.plan_path, VALIDATOR_PATH, self.admissions)
@@ -159,6 +277,49 @@ class GameplayPerformanceCampaignTests(unittest.TestCase):
         gate = next(item for item in result["gates"] if item["gate"] == "baseline->C2")
         self.assertFalse(gate["passed"])
         self.assertFalse(result["allGatesPassed"])
+
+    def test_v4_plan_rejects_historical_schema_one_admission_records(self) -> None:
+        self.materialize_complete_campaign()
+        plan = CAMPAIGN.read_json(self.plan_path)
+        plan["evidenceContractVersion"] = 4
+        CAMPAIGN.atomic_json(self.plan_path, plan)
+        for record_path in self.admissions.rglob("attempt-01.json"):
+            record = CAMPAIGN.read_json(record_path)
+            record["campaignPlanSha256"] = hashlib.sha256(self.plan_path.read_bytes()).hexdigest()
+            CAMPAIGN.atomic_json(record_path, record)
+
+        report = CAMPAIGN.verify_index(
+            self.plan_path,
+            VALIDATOR_PATH,
+            self.admissions,
+            require_complete=True,
+        )
+
+        self.assertFalse(report["complete"])
+        self.assertTrue(
+            any("historical schemaVersion 1" in issue for issue in report["issues"]),
+            report["issues"],
+        )
+
+    def test_duplicate_member_admission_record_makes_index_incomplete(self) -> None:
+        self.materialize_complete_campaign()
+        record_path = next(self.admissions.rglob("attempt-01.json"))
+        payload = record_path.read_text(encoding="utf-8").replace(
+            '"schemaVersion": 1',
+            '"schemaVersion": 999, "schemaVersion": 1',
+            1,
+        )
+        record_path.write_text(payload, encoding="utf-8")
+
+        report = CAMPAIGN.verify_index(
+            self.plan_path,
+            VALIDATOR_PATH,
+            self.admissions,
+            require_complete=True,
+        )
+
+        self.assertFalse(report["complete"])
+        self.assertTrue(any("strict load failed" in issue for issue in report["issues"]), report["issues"])
 
 
 if __name__ == "__main__":

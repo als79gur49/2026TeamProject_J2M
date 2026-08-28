@@ -12,10 +12,13 @@ import argparse
 import hashlib
 import json
 import math
-import os
-import tempfile
 from pathlib import Path
 from typing import Any, Iterable
+
+try:
+    from Tools.gameplay_evidence_v4 import EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, reason, validate_attempt_identity
+except ModuleNotFoundError:
+    from gameplay_evidence_v4 import EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, reason, validate_attempt_identity
 
 
 ADMITTED = "ADMITTED"
@@ -37,14 +40,7 @@ def _sha256(path: Path) -> str:
 
 
 def _read_json_object(path: Path, label: str) -> dict[str, Any]:
-    try:
-        with path.open(encoding="utf-8-sig") as stream:
-            value = json.load(stream)
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise ValueError(f"{label} is unreadable or invalid JSON: {error}") from error
-    if not isinstance(value, dict):
-        raise ValueError(f"{label} root must be a JSON object")
-    return value
+    return load_json_object(path, label)
 
 
 def _parse_manifest(path: Path) -> dict[str, str]:
@@ -81,8 +77,91 @@ def _mismatch(actual: Any, expected: Any) -> bool:
     return type(actual) is not type(expected) or actual != expected
 
 
+def _summary_issue(
+    value: Any,
+    *,
+    expected_count: int,
+    allow_zero_metric: bool = False,
+    unavailable_sentinel: bool = False,
+    integers: bool = False,
+) -> str | None:
+    fields = {"count", "median", "p95", "p99", "maximum"}
+    if not isinstance(value, dict) or set(value) != fields:
+        return f"exact summary fields expected {sorted(fields)!r}, observed {value!r}"
+    if type(value.get("count")) is not int or value["count"] != expected_count:
+        return f"count expected {expected_count}, observed {value.get('count')!r}"
+    samples = [value[name] for name in ("median", "p95", "p99", "maximum")]
+    if unavailable_sentinel:
+        return None if samples == [-1, -1, -1, -1] else f"unavailable sentinel expected, observed {samples!r}"
+    for sample in samples:
+        if isinstance(sample, bool) or not isinstance(sample, (int, float)):
+            return f"summary values must be JSON numbers, observed {samples!r}"
+        if integers and type(sample) is not int:
+            return f"summary values must be JSON integers, observed {samples!r}"
+        if not math.isfinite(sample) or sample < 0:
+            return f"summary values must be finite and nonnegative, observed {samples!r}"
+    if samples != sorted(samples):
+        return f"summary values must be nondecreasing, observed {samples!r}"
+    if expected_count == 0 and not allow_zero_metric:
+        return "zero-count summary is not allowed for this field"
+    return None
+
+
 def _format_issues(issues: Iterable[str]) -> str:
     return "; ".join(issues)
+
+
+def build_metrics_report(
+    metrics: dict[str, Any],
+    *,
+    metrics_sha256: str,
+    validator_path: Path,
+    planned_revision: str,
+    expected_width: int,
+    expected_height: int,
+    expected_warmup_frames: int,
+    expected_sample_frames: int,
+    expected_tick_interval: int,
+) -> dict[str, Any]:
+    verdict, issues = validate_metrics(
+        metrics,
+        planned_revision=planned_revision,
+        expected_width=expected_width,
+        expected_height=expected_height,
+        expected_warmup_frames=expected_warmup_frames,
+        expected_sample_frames=expected_sample_frames,
+        expected_tick_interval=expected_tick_interval,
+    )
+    if metrics.get("schemaVersion") != 2 or metrics.get("evidenceContractVersion") != 4:
+        verdict = REJECTED_IDENTITY
+        issues = [
+            "UNSUPPORTED_ARTIFACT_VERSION: v4 requires metrics schemaVersion=2 and evidenceContractVersion=4"
+        ]
+    report_reasons = [
+        issue
+        if isinstance(issue, dict)
+        else reason(
+            "UNSUPPORTED_ARTIFACT_VERSION"
+            if str(issue).startswith("UNSUPPORTED_ARTIFACT_VERSION:")
+            else "SEMANTIC_INVARIANT_INVALID",
+            "metrics",
+            None,
+            str(issue),
+        )
+        for issue in issues
+    ]
+    return {
+        "schemaVersion": 2,
+        "evidenceContractVersion": 4,
+        "verdict": verdict,
+        "reasons": report_reasons,
+        "identity": evidence_identity(metrics, metrics_sha256),
+        "provenance": {
+            "metricsSha256": metrics_sha256,
+            "performanceValidatorSha256": _sha256(validator_path),
+        },
+        "inputHashes": {"metricsSha256": metrics_sha256},
+    }
 
 
 def validate_metrics(
@@ -94,7 +173,7 @@ def validate_metrics(
     expected_warmup_frames: int,
     expected_sample_frames: int,
     expected_tick_interval: int,
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[Any]]:
     """Validate the phase-local metrics contract in deterministic verdict order."""
 
     runtime_issues: list[str] = []
@@ -103,8 +182,9 @@ def validate_metrics(
     sample_issues: list[str] = []
     identity_issues: list[str] = []
 
+    is_v4 = metrics.get("schemaVersion") == 2 and metrics.get("evidenceContractVersion") == 4
     expected_identity = {
-        "schemaVersion": 1,
+        "schemaVersion": 2 if is_v4 else 1,
         "measurementKind": "release-like-player-headroom",
         "developmentBuild": False,
         "warmupFrames": expected_warmup_frames,
@@ -113,6 +193,84 @@ def validate_metrics(
         "vSyncCount": 0,
         "targetFrameRate": -1,
     }
+    if is_v4:
+        expected_identity["evidenceContractVersion"] = 4
+        exact_top_level = {
+            "schemaVersion", "evidenceContractVersion", "captureIdentity", "measurementKind",
+            "budgetVerdict", "revision", "unityVersion", "developmentBuild", "productName",
+            "operatingSystem", "processorType", "processorCount", "systemMemorySizeMB",
+            "graphicsDeviceType", "graphicsDeviceName", "graphicsDeviceVersion",
+            "graphicsMemorySizeMB", "qualityLevel", "qualityName", "requestedResolution",
+            "actualResolution", "vSyncCount", "targetFrameRate", "warmupFrames",
+            "sampleFramesPerPhase", "gameplayTickIntervalFrames", "drawCallsCounterAvailable",
+            "gcAllocatedCounterAvailable", "phases", "cleanupSlice3Calibration",
+        }
+        for field in sorted(exact_top_level - set(metrics)):
+            identity_issues.append(f"FIELD_MISSING: metrics.{field}")
+        for field in sorted(set(metrics) - exact_top_level):
+            identity_issues.append(f"FIELD_UNEXPECTED: metrics.{field}")
+        capture_identity = metrics.get("captureIdentity")
+        capture_fields = {
+            "campaignId", "attemptId", "attemptOrdinal", "attemptKind", "captureNonce", "stage",
+            "activeStrategies", "preBuildHeadSha", "preBuildWorktreeSha256", "postRestoreHeadSha",
+            "postRestoreWorktreeSha256", "runtimeTreeSha256", "playerArtifactSha256",
+            "buildPayloadSha256", "runnerSha256", "performanceValidatorSha256",
+            "cleanupValidatorSha256", "aggregatorSha256", "manifestToolSha256",
+            "workloadContractSha256", "harnessSha256",
+        }
+        if not isinstance(capture_identity, dict):
+            identity_issues.append("IDENTITY_FIELD_MISSING: captureIdentity must be an object")
+        else:
+            for field in sorted(capture_fields - set(capture_identity)):
+                identity_issues.append(f"IDENTITY_FIELD_MISSING: captureIdentity.{field}")
+            for field in sorted(set(capture_identity) - capture_fields):
+                identity_issues.append(f"FIELD_UNEXPECTED: captureIdentity.{field}")
+            if type(capture_identity.get("attemptOrdinal")) is not int or capture_identity.get("attemptOrdinal") <= 0:
+                identity_issues.append("NUMERIC_DOMAIN_INVALID: captureIdentity.attemptOrdinal")
+            if capture_identity.get("activeStrategies") != ["A"] or capture_identity.get("stage") != "S3-A":
+                identity_issues.append("STRATEGY_MISMATCH: captureIdentity stage/strategies")
+            if capture_identity.get("preBuildHeadSha") != capture_identity.get("postRestoreHeadSha"):
+                revision_issues.append("PRE_POST_HEAD_MISMATCH: captureIdentity")
+            if capture_identity.get("preBuildWorktreeSha256") != capture_identity.get("postRestoreWorktreeSha256"):
+                revision_issues.append("PRE_POST_WORKTREE_MISMATCH: captureIdentity")
+            if capture_identity.get("postRestoreHeadSha") != planned_revision:
+                revision_issues.append("METRICS_REVISION_MISMATCH: captureIdentity.postRestoreHeadSha")
+            identity_issues.extend(validate_attempt_identity(capture_identity))
+        expected_strings = {
+            "budgetVerdict": "NOT_CONFIGURED",
+        }
+        for field, expected in expected_strings.items():
+            if metrics.get(field) != expected:
+                identity_issues.append(
+                    reason("SEMANTIC_INVARIANT_INVALID", f"metrics.{field}", expected, metrics.get(field))
+                )
+        for field in (
+            "revision", "unityVersion", "productName", "operatingSystem", "processorType",
+            "graphicsDeviceType", "graphicsDeviceName", "graphicsDeviceVersion", "qualityName",
+        ):
+            value = metrics.get(field)
+            if not isinstance(value, str) or not value:
+                identity_issues.append(
+                    reason("FIELD_TYPE_INVALID", f"metrics.{field}", "non-empty string", value)
+                )
+        for field in ("processorCount", "systemMemorySizeMB"):
+            value = metrics.get(field)
+            if type(value) is not int or value <= 0:
+                identity_issues.append(f"NUMERIC_DOMAIN_INVALID: {field} must be a positive integer")
+        for field in ("graphicsMemorySizeMB", "qualityLevel"):
+            value = metrics.get(field)
+            if type(value) is not int or value < 0:
+                identity_issues.append(f"NUMERIC_DOMAIN_INVALID: {field} must be a nonnegative integer")
+        for field in ("developmentBuild", "drawCallsCounterAvailable", "gcAllocatedCounterAvailable"):
+            if type(metrics.get(field)) is not bool:
+                identity_issues.append(f"FIELD_TYPE_INVALID: {field} must be a boolean")
+        for field in ("requestedResolution", "actualResolution"):
+            value = metrics.get(field)
+            if (
+                not isinstance(value, list) or len(value) != 2 or
+                any(type(dimension) is not int or dimension <= 0 for dimension in value)
+            ):
+                identity_issues.append(f"NUMERIC_DOMAIN_INVALID: {field} must contain two positive integers")
     for key, expected in expected_identity.items():
         actual = metrics.get(key)
         if _mismatch(actual, expected):
@@ -153,6 +311,20 @@ def validate_metrics(
                 sample_issues.append(f"exact phases contain duplicate {name!r}")
                 continue
             phase_by_name[name] = phase_value
+            if is_v4:
+                exact_phase_fields = {
+                    "phase", "sampleCount", "attemptedTicks", "executedTicks",
+                    "validCpuMainSamples", "validCpuRenderSamples", "validGpuSamples",
+                    "validDrawCallSamples", "validGcAllocatedSamples",
+                    "frameIntervalMilliseconds", "cpuMainMilliseconds", "cpuRenderMilliseconds",
+                    "gpuMilliseconds", "tickWallMilliseconds", "drawCalls", "gcAllocatedBytes",
+                }
+                if set(phase_value) != exact_phase_fields:
+                    sample_issues.append(
+                        f"FIELD_UNEXPECTED: phases[{index}] exact fields mismatch "
+                        f"missing={sorted(exact_phase_fields - set(phase_value))!r} "
+                        f"extra={sorted(set(phase_value) - exact_phase_fields)!r}"
+                    )
         if len(phases_value) != 2 or set(phase_by_name) != set(EXPECTED_PHASES):
             sample_issues.append(
                 f"exact phases expected {list(EXPECTED_PHASES)!r}, "
@@ -164,15 +336,57 @@ def validate_metrics(
             phase_value = phase_by_name[phase_name]
             for key in ("sampleCount", "validCpuMainSamples", "validGpuSamples"):
                 actual_count = phase_value.get(key)
-                if actual_count != expected_sample_frames:
+                if (type(actual_count) is not int if is_v4 else False) or actual_count != expected_sample_frames:
                     sample_issues.append(
                         f"{phase_name}.{key} expected {expected_sample_frames}, "
                         f"observed {actual_count!r}"
                     )
+            if is_v4:
+                for key in ("validCpuRenderSamples",):
+                    count = phase_value.get(key)
+                    if type(count) is not int or count < 0 or count > expected_sample_frames:
+                        sample_issues.append(f"NUMERIC_DOMAIN_INVALID: {phase_name}.{key}={count!r}")
+                for counter_name, available_name, valid_name in (
+                    ("drawCalls", "drawCallsCounterAvailable", "validDrawCallSamples"),
+                    ("gcAllocatedBytes", "gcAllocatedCounterAvailable", "validGcAllocatedSamples"),
+                ):
+                    available = metrics.get(available_name)
+                    expected_counter_count = expected_sample_frames if available else 0
+                    valid_count = phase_value.get(valid_name)
+                    if type(valid_count) is not int or valid_count != expected_counter_count:
+                        sample_issues.append(
+                            f"{phase_name}.{valid_name} expected {expected_counter_count}, observed {valid_count!r}"
+                        )
+                    issue = _summary_issue(
+                        phase_value.get(counter_name),
+                        expected_count=expected_counter_count,
+                        unavailable_sentinel=not available,
+                        integers=True,
+                    )
+                    if issue:
+                        sample_issues.append(f"{phase_name}.{counter_name}: {issue}")
+                for summary_name in (
+                    "frameIntervalMilliseconds", "cpuMainMilliseconds", "cpuRenderMilliseconds", "gpuMilliseconds"
+                ):
+                    summary_count = phase_value.get(f"valid{summary_name[0].upper()}{summary_name[1:].replace('Milliseconds', '')}Samples")
+                    if summary_name == "frameIntervalMilliseconds":
+                        summary_count = expected_sample_frames
+                    elif summary_name == "cpuMainMilliseconds":
+                        summary_count = phase_value.get("validCpuMainSamples")
+                    elif summary_name == "cpuRenderMilliseconds":
+                        summary_count = phase_value.get("validCpuRenderSamples")
+                    elif summary_name == "gpuMilliseconds":
+                        summary_count = phase_value.get("validGpuSamples")
+                    issue = _summary_issue(
+                        phase_value.get(summary_name),
+                        expected_count=summary_count if type(summary_count) is int else -1,
+                    )
+                    if issue:
+                        sample_issues.append(f"{phase_name}.{summary_name}: {issue}")
 
         idle = phase_by_name["render-idle"]
         for key in ("attemptedTicks", "executedTicks"):
-            if idle.get(key) != 0:
+            if (is_v4 and type(idle.get(key)) is not int) or idle.get(key) != 0:
                 sample_issues.append(f"render-idle.{key} expected 0, observed {idle.get(key)!r}")
         idle_tick = idle.get("tickWallMilliseconds")
         if not isinstance(idle_tick, dict) or idle_tick.get("count") != 0:
@@ -180,14 +394,29 @@ def validate_metrics(
             sample_issues.append(
                 f"render-idle.tickWallMilliseconds.count expected 0, observed {observed!r}"
             )
+        elif is_v4:
+            issue = _summary_issue(idle_tick, expected_count=0, allow_zero_metric=True)
+            if issue:
+                sample_issues.append(f"render-idle.tickWallMilliseconds: {issue}")
 
         gameplay = phase_by_name["gameplay-neutral-tick"]
-        expected_tick_count = (
-            expected_sample_frames + expected_tick_interval - 1
-        ) // expected_tick_interval
+        if type(expected_tick_interval) is not int or expected_tick_interval <= 0:
+            sample_issues.append(
+                reason(
+                    "NUMERIC_DOMAIN_INVALID",
+                    "expectedTickInterval",
+                    "positive integer",
+                    expected_tick_interval,
+                )
+            )
+            expected_tick_count = -1
+        else:
+            expected_tick_count = (
+                expected_sample_frames + expected_tick_interval - 1
+            ) // expected_tick_interval
         for key in ("attemptedTicks", "executedTicks"):
             actual_count = gameplay.get(key)
-            if actual_count != expected_tick_count:
+            if (is_v4 and type(actual_count) is not int) or actual_count != expected_tick_count:
                 sample_issues.append(
                     f"gameplay-neutral-tick.{key} expected {expected_tick_count}, "
                     f"observed {actual_count!r}"
@@ -197,7 +426,7 @@ def validate_metrics(
             sample_issues.append("gameplay-neutral-tick.tickWallMilliseconds must be an object")
         else:
             count = gameplay_tick.get("count")
-            if count != expected_tick_count:
+            if (is_v4 and type(count) is not int) or count != expected_tick_count:
                 sample_issues.append(
                     "gameplay-neutral-tick.tickWallMilliseconds.count "
                     f"expected {expected_tick_count}, observed {count!r}"
@@ -213,6 +442,10 @@ def validate_metrics(
                     "gameplay-neutral-tick.tickWallMilliseconds.p95 must be finite and positive, "
                     f"observed {p95!r}"
                 )
+            if is_v4:
+                issue = _summary_issue(gameplay_tick, expected_count=expected_tick_count)
+                if issue:
+                    sample_issues.append(f"gameplay-neutral-tick.tickWallMilliseconds: {issue}")
 
     for verdict, issues in (
         (REJECTED_RUNTIME, runtime_issues),
@@ -224,28 +457,6 @@ def validate_metrics(
         if issues:
             return verdict, issues
     return ADMITTED, []
-
-
-def _atomic_write_json(path: Path, document: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    file_descriptor, temporary_name = tempfile.mkstemp(
-        prefix=path.name + ".",
-        suffix=".tmp",
-        dir=path.parent,
-    )
-    try:
-        with os.fdopen(file_descriptor, "w", encoding="utf-8") as stream:
-            json.dump(document, stream, indent=2, sort_keys=True, allow_nan=False)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary_name, path)
-    except BaseException:
-        try:
-            os.unlink(temporary_name)
-        except FileNotFoundError:
-            pass
-        raise
 
 
 def admit_run(
@@ -272,6 +483,8 @@ def admit_run(
     campaign_plan_path = campaign_plan_path.resolve()
     record_path = record_path.resolve()
     validator_path = Path(__file__).resolve()
+    input_paths = (metrics_path, manifest_path, campaign_plan_path, validator_path)
+    input_snapshots = capture_input_snapshots(input_paths)
     validator_hash = _sha256(validator_path)
     plan_hash = _sha256(campaign_plan_path) if campaign_plan_path.is_file() else ""
 
@@ -487,7 +700,12 @@ def admit_run(
         record["verdict"] = REJECTED_RUNTIME
         record["reason"] = str(error)
 
-    _atomic_write_json(record_path, record)
+    atomic_json(
+        record_path,
+        record,
+        inputs=input_paths,
+        expected_input_snapshots=input_snapshots,
+    )
     return record
 
 
@@ -503,6 +721,7 @@ def _build_parser() -> argparse.ArgumentParser:
     metrics_parser.add_argument("--expected-warmup-frames", required=True, type=int)
     metrics_parser.add_argument("--expected-sample-frames", required=True, type=int)
     metrics_parser.add_argument("--expected-tick-interval", required=True, type=int)
+    metrics_parser.add_argument("--output", type=Path)
 
     formal = subparsers.add_parser("formal", help="write a formal campaign admission record")
     formal.add_argument("--metrics", required=True, type=Path)
@@ -525,10 +744,17 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     arguments = _build_parser().parse_args(argv)
     if arguments.command == "metrics":
+        metrics_hash = None
         try:
-            metrics = _read_json_object(arguments.metrics.resolve(), "metrics")
-            verdict, issues = validate_metrics(
+            metrics_path = arguments.metrics.resolve()
+            input_paths = (metrics_path, Path(__file__).resolve())
+            input_snapshots = capture_input_snapshots(input_paths)
+            metrics_hash = _sha256(metrics_path)
+            metrics = load_json_object(metrics_path, "metrics")
+            report = build_metrics_report(
                 metrics,
+                metrics_sha256=metrics_hash,
+                validator_path=Path(__file__).resolve(),
                 planned_revision=arguments.planned_revision,
                 expected_width=arguments.expected_width,
                 expected_height=arguments.expected_height,
@@ -536,9 +762,35 @@ def main(argv: list[str] | None = None) -> int:
                 expected_sample_frames=arguments.expected_sample_frames,
                 expected_tick_interval=arguments.expected_tick_interval,
             )
+            verdict = report["verdict"]
+        except EvidenceError as error:
+            verdict, issues = REJECTED_RUNTIME, [error.reason]
         except (OSError, ValueError, TypeError, KeyError, IndexError) as error:
             verdict, issues = REJECTED_RUNTIME, [str(error)]
-        print(json.dumps({"verdict": verdict, "reason": _format_issues(issues)}, sort_keys=True))
+        if "report" not in locals():
+            report = {
+                "schemaVersion": 2,
+                "evidenceContractVersion": 4,
+                "verdict": verdict,
+                "reasons": [
+                    issue if isinstance(issue, dict) else reason("SEMANTIC_INVARIANT_INVALID", "metrics", None, str(issue))
+                    for issue in issues
+                ],
+                "identity": {},
+                "provenance": {"metricsSha256": metrics_hash, "performanceValidatorSha256": _sha256(Path(__file__).resolve())},
+                "inputHashes": {"metricsSha256": metrics_hash},
+            }
+        if arguments.output is not None:
+            try:
+                atomic_json(
+                    arguments.output,
+                    report,
+                    inputs=input_paths,
+                    expected_input_snapshots=input_snapshots,
+                )
+            except (EvidenceError, OSError):
+                return 2
+        print(json.dumps(report, sort_keys=True, allow_nan=False))
         return 0 if verdict == ADMITTED else 1
 
     record = admit_run(

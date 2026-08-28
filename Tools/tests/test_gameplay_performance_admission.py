@@ -7,6 +7,8 @@ import hashlib
 import importlib.util
 import json
 import math
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -33,6 +35,12 @@ def distribution(count: int, p95: float) -> dict[str, float | int]:
     }
 
 
+def long_distribution(count: int, p95: int) -> dict[str, int]:
+    if count == 0:
+        return {"count": 0, "median": -1, "p95": -1, "p99": -1, "maximum": -1}
+    return {"count": count, "median": p95, "p95": p95, "p99": p95, "maximum": p95}
+
+
 def phase(name: str, *, gameplay: bool) -> dict[str, object]:
     tick_count = 1200 if gameplay else 0
     return {
@@ -50,8 +58,8 @@ def phase(name: str, *, gameplay: bool) -> dict[str, object]:
         "cpuRenderMilliseconds": distribution(1200, 2.5),
         "gpuMilliseconds": distribution(1200, 3.5),
         "tickWallMilliseconds": distribution(tick_count, 7.12319 if gameplay else 0),
-        "drawCalls": distribution(1200, 2042),
-        "gcAllocatedBytes": distribution(0, -1),
+        "drawCalls": long_distribution(1200, 2042),
+        "gcAllocatedBytes": long_distribution(0, -1),
     }
 
 
@@ -85,6 +93,37 @@ def admitted_metrics() -> dict[str, object]:
         "gcAllocatedCounterAvailable": False,
         "phases": [phase("render-idle", gameplay=False), phase("gameplay-neutral-tick", gameplay=True)],
     }
+
+
+def v4_metrics() -> dict[str, object]:
+    value = admitted_metrics()
+    value["schemaVersion"] = 2
+    value["evidenceContractVersion"] = 4
+    value["captureIdentity"] = {
+        "campaignId": "fixture-campaign",
+        "attemptId": "fixture-attempt",
+        "attemptOrdinal": 1,
+        "attemptKind": "calibration",
+        "captureNonce": "fixture-nonce",
+        "stage": "S3-A",
+        "activeStrategies": ["A"],
+        "preBuildHeadSha": REVISION,
+        "preBuildWorktreeSha256": "1" * 64,
+        "postRestoreHeadSha": REVISION,
+        "postRestoreWorktreeSha256": "1" * 64,
+        "runtimeTreeSha256": "2" * 64,
+        "playerArtifactSha256": "3" * 64,
+        "buildPayloadSha256": "4" * 64,
+        "runnerSha256": "5" * 64,
+        "performanceValidatorSha256": "6" * 64,
+        "cleanupValidatorSha256": "7" * 64,
+        "aggregatorSha256": "8" * 64,
+        "manifestToolSha256": "9" * 64,
+        "workloadContractSha256": "a" * 64,
+        "harnessSha256": "b" * 64,
+    }
+    value["cleanupSlice3Calibration"] = {}
+    return value
 
 
 def campaign_plan() -> dict[str, object]:
@@ -231,6 +270,158 @@ class GameplayPerformanceAdmissionTests(unittest.TestCase):
         )
         self.assertEqual(record, json.loads(self.record_path.read_text(encoding="utf-8")))
 
+    def test_formal_record_cannot_alias_metrics_input(self) -> None:
+        self.write_inputs()
+        original = self.metrics_path.read_bytes()
+
+        with self.assertRaises(ADMISSION.EvidenceError):
+            ADMISSION.admit_run(
+                metrics_path=self.metrics_path,
+                manifest_path=self.manifest_path,
+                campaign_plan_path=self.plan_path,
+                planned_revision=REVISION,
+                expected_clean_diff_hash=CLEAN_DIFF_HASH,
+                campaign_id="slice1-recovery-fixture",
+                block="block-1",
+                slot="slot-04",
+                state="C2",
+                kind="official",
+                attempt=2,
+                record_path=self.metrics_path,
+            )
+
+        self.assertEqual(original, self.metrics_path.read_bytes())
+
+    def test_valid_v4_metrics_are_admitted(self) -> None:
+        verdict, reasons = ADMISSION.validate_metrics(
+            v4_metrics(),
+            planned_revision=REVISION,
+            expected_width=1920,
+            expected_height=1080,
+            expected_warmup_frames=120,
+            expected_sample_frames=1200,
+            expected_tick_interval=1,
+        )
+        self.assertEqual("ADMITTED", verdict, reasons)
+
+    def test_v4_identity_domains_are_fail_closed(self) -> None:
+        value = v4_metrics()
+        value["captureIdentity"]["campaignId"] = ""
+        value["captureIdentity"]["attemptKind"] = "unknown"
+        value["captureIdentity"]["captureNonce"] = ""
+
+        verdict, reasons = ADMISSION.validate_metrics(
+            value,
+            planned_revision=REVISION,
+            expected_width=1920,
+            expected_height=1080,
+            expected_warmup_frames=120,
+            expected_sample_frames=1200,
+            expected_tick_interval=1,
+        )
+
+        self.assertEqual("REJECTED_IDENTITY", verdict)
+        self.assertIn("IDENTITY_FIELD_INVALID", {item["code"] for item in reasons if isinstance(item, dict)})
+
+    def test_v4_ignored_producer_fields_are_fail_closed(self) -> None:
+        value = v4_metrics()
+        value["budgetVerdict"] = {"wrong": "type"}
+        value["unityVersion"] = None
+        value["productName"] = []
+
+        verdict, reasons = ADMISSION.validate_metrics(
+            value,
+            planned_revision=REVISION,
+            expected_width=1920,
+            expected_height=1080,
+            expected_warmup_frames=120,
+            expected_sample_frames=1200,
+            expected_tick_interval=1,
+        )
+
+        self.assertEqual("REJECTED_IDENTITY", verdict)
+        self.assertTrue(any(isinstance(item, dict) and item["path"] == "metrics.budgetVerdict" for item in reasons))
+
+    def test_v4_zero_expected_tick_interval_is_rejected_without_exception(self) -> None:
+        verdict, reasons = ADMISSION.validate_metrics(
+            v4_metrics(),
+            planned_revision=REVISION,
+            expected_width=1920,
+            expected_height=1080,
+            expected_warmup_frames=120,
+            expected_sample_frames=1200,
+            expected_tick_interval=0,
+        )
+
+        self.assertEqual("REJECTED_SAMPLE_COUNT", verdict)
+        self.assertIn("NUMERIC_DOMAIN_INVALID", {item["code"] for item in reasons if isinstance(item, dict)})
+
+    def test_v4_float_counts_and_nested_extra_fields_are_rejected(self) -> None:
+        value = v4_metrics()
+        value["phases"][1]["executedTicks"] = 1200.0
+        value["phases"][0]["unexpected"] = True
+
+        verdict, reasons = ADMISSION.validate_metrics(
+            value,
+            planned_revision=REVISION,
+            expected_width=1920,
+            expected_height=1080,
+            expected_warmup_frames=120,
+            expected_sample_frames=1200,
+            expected_tick_interval=1,
+        )
+
+        self.assertEqual("REJECTED_SAMPLE_COUNT", verdict)
+        self.assertTrue(any("executedTicks" in reason for reason in reasons), reasons)
+        self.assertTrue(any("FIELD_UNEXPECTED" in reason for reason in reasons), reasons)
+
+    def test_metrics_cli_rejects_duplicate_json_member_with_reason_artifact(self) -> None:
+        self.metrics = v4_metrics()
+        payload = json.dumps(self.metrics).replace(
+            '"schemaVersion": 2',
+            '"schemaVersion": 999, "schemaVersion": 2',
+            1,
+        )
+        self.metrics_path.write_text(payload, encoding="utf-8")
+        output = self.root / "duplicate-report.json"
+
+        completed = subprocess.run(
+            [
+                sys.executable, str(VALIDATOR_PATH), "metrics", "--metrics", str(self.metrics_path),
+                "--planned-revision", REVISION, "--expected-width", "1920", "--expected-height", "1080",
+                "--expected-warmup-frames", "120", "--expected-sample-frames", "1200",
+                "--expected-tick-interval", "1", "--output", str(output),
+            ],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(1, completed.returncode)
+        report = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual("JSON_DUPLICATE_MEMBER", report["reasons"][0]["code"])
+
+    def test_metrics_cli_output_alias_returns_exit_two_without_truncation(self) -> None:
+        self.metrics_path.write_text(json.dumps(v4_metrics()), encoding="utf-8")
+        before = self.metrics_path.read_bytes()
+
+        completed = subprocess.run(
+            [
+                sys.executable, str(VALIDATOR_PATH), "metrics", "--metrics", str(self.metrics_path),
+                "--planned-revision", REVISION, "--expected-width", "1920", "--expected-height", "1080",
+                "--expected-warmup-frames", "120", "--expected-sample-frames", "1200",
+                "--expected-tick-interval", "1", "--output", str(self.metrics_path),
+            ],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(2, completed.returncode)
+        self.assertEqual(before, self.metrics_path.read_bytes())
+
     def test_resolution_mismatch_is_rejected_before_p95_admission(self) -> None:
         self.metrics["actualResolution"] = [1080, 1080]
         record = self.admit()
@@ -262,7 +453,7 @@ class GameplayPerformanceAdmissionTests(unittest.TestCase):
         self.metrics["phases"][1]["tickWallMilliseconds"]["p95"] = math.nan
         record = self.admit()
         self.assertEqual("REJECTED_RUNTIME", record["verdict"])
-        self.assertIn("p95", record["reason"])
+        self.assertIn("JSON_PARSE_FAILED", record["reason"])
 
     def test_schema_and_capture_settings_are_identity_contracts(self) -> None:
         self.metrics["warmupFrames"] = 121
@@ -343,6 +534,74 @@ class GameplayPerformanceAdmissionTests(unittest.TestCase):
         self.assertLess(set_resolution, resolution_check)
         self.assertLess(resolution_check, timeout_failure)
         self.assertLess(timeout_failure, warmup)
+
+    def test_player_emits_v4_capture_identity_and_captures_only_cleanup_schema(self) -> None:
+        source = (
+            REPO_ROOT
+            / "Assets/_Features/UI/UI_Composition/Runtime/GameplayPerformancePlayerProbe.cs"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('builder.AppendLine("  \\"schemaVersion\\": 2,")', source)
+        self.assertIn('builder.AppendLine("  \\"evidenceContractVersion\\": 4,")', source)
+        self.assertIn('"  \\"captureIdentity\\": "', source)
+        self.assertIn("BuildCaptureIdentityJson", source)
+        self.assertIn("NormalizeCleanupCalibrationSchema2", source)
+        self.assertIn('",\\\"captures\\\":[{\\\"strategy\\\":\\\"A\\\",\\\"workloads\\\":["', source)
+        self.assertIn('"\\\"runKey\\\":\\\"A/"', source)
+        self.assertIn("PostRestoreWorktreeArgument", source)
+
+    def test_runner_passes_every_v4_identity_carrier_to_player(self) -> None:
+        runner = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        for argument in (
+            "--gameplay-evidence-campaign-id",
+            "--gameplay-evidence-attempt-id",
+            "--gameplay-evidence-capture-nonce",
+            "--gameplay-evidence-pre-build-head",
+            "--gameplay-evidence-post-restore-head",
+            "--gameplay-evidence-runtime-tree-sha256",
+            "--gameplay-evidence-player-artifact-sha256",
+            "--gameplay-evidence-build-payload-sha256",
+            "--gameplay-evidence-harness-sha256",
+        ):
+            self.assertIn(argument, runner)
+
+    def test_metrics_cli_persists_authoritative_schema_two_report(self) -> None:
+        self.write_inputs()
+        output_path = self.root / "performance-admission.json"
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(VALIDATOR_PATH),
+                "metrics",
+                "--metrics",
+                str(self.metrics_path),
+                "--planned-revision",
+                REVISION,
+                "--expected-width",
+                "1920",
+                "--expected-height",
+                "1080",
+                "--expected-warmup-frames",
+                "120",
+                "--expected-sample-frames",
+                "1200",
+                "--expected-tick-interval",
+                "1",
+                "--output",
+                str(output_path),
+            ],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertTrue(output_path.is_file(), completed.stderr)
+        report = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual(2, report["schemaVersion"])
+        self.assertEqual(4, report["evidenceContractVersion"])
+        self.assertIn("reasons", report)
 
 
 if __name__ == "__main__":

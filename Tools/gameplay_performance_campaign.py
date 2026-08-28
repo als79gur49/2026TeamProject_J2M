@@ -7,13 +7,28 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import statistics
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import gameplay_performance_admission as admission
+try:
+    from Tools.gameplay_evidence_v4 import (
+        InputSnapshot,
+        atomic_json as evidence_atomic_json,
+        capture_input_snapshots,
+        directory_snapshot_sha256,
+    )
+except ModuleNotFoundError:
+    from gameplay_evidence_v4 import (
+        InputSnapshot,
+        atomic_json as evidence_atomic_json,
+        capture_input_snapshots,
+        directory_snapshot_sha256,
+    )
 
 
 CLEAN_DIFF_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -43,6 +58,7 @@ IDENTITY_KEYS = (
     "qualityLevel",
     "qualityName",
 )
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def sha256(path: Path) -> str:
@@ -50,14 +66,43 @@ def sha256(path: Path) -> str:
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} root must be an object")
-    return value
+    return admission.load_json_object(path, str(path))
 
 
-def atomic_json(path: Path, value: dict[str, Any]) -> None:
-    admission._atomic_write_json(path, value)
+def atomic_json(
+    path: Path,
+    value: dict[str, Any],
+    *,
+    inputs: Iterable[Path] = (),
+    expected_input_snapshots: Iterable[tuple[Path, InputSnapshot]] = (),
+    tree_inputs: Iterable[Path] = (),
+    tree_input_hashes: Iterable[tuple[Path, str]] = (),
+    directory_input_hashes: Iterable[tuple[Path, str]] = (),
+) -> None:
+    evidence_atomic_json(
+        path,
+        value,
+        inputs=inputs,
+        expected_input_snapshots=expected_input_snapshots,
+        tree_inputs=tree_inputs,
+        tree_input_hashes=tree_input_hashes,
+        directory_input_hashes=directory_input_hashes,
+    )
+
+
+def _capture_once(
+    inventory: list[tuple[Path, InputSnapshot]], paths: Iterable[Path]
+) -> None:
+    known = {snapshot.lexical_path for _, snapshot in inventory}
+    pending: list[Path] = []
+    for path in paths:
+        candidate = Path(path)
+        lexical = os.path.abspath(os.fspath(candidate))
+        if lexical in known:
+            continue
+        known.add(lexical)
+        pending.append(candidate)
+    inventory.extend(capture_input_snapshots(pending))
 
 
 def planned_slots() -> list[dict[str, str]]:
@@ -130,12 +175,24 @@ def record_key(value: dict[str, Any]) -> tuple[str, str, str]:
     return str(value.get("kind")), str(value.get("block")), str(value.get("slot"))
 
 
-def load_records(root: Path) -> list[dict[str, Any]]:
+def load_records(
+    root: Path,
+    issues: list[str] | None = None,
+    *,
+    record_paths: Iterable[Path] | None = None,
+) -> list[dict[str, Any]]:
     if not root.exists():
         return []
     records = []
-    for path in sorted(root.rglob("attempt-*.json")):
-        record = read_json(path)
+    paths = sorted(root.rglob("attempt-*.json")) if record_paths is None else sorted(record_paths)
+    for path in paths:
+        try:
+            record = read_json(path)
+        except ValueError as error:
+            if issues is None:
+                raise
+            issues.append(f"{path} strict load failed: {error}")
+            continue
         record["_recordPath"] = str(path.resolve())
         records.append(record)
     return records
@@ -147,17 +204,44 @@ def verify_index(
     admissions_root: Path,
     *,
     require_complete: bool,
+    input_inventory: list[tuple[Path, InputSnapshot]] | None = None,
+    directory_input_hashes: list[tuple[Path, str]] | None = None,
+    records_out: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    inventory = input_inventory if input_inventory is not None else []
+    _capture_once(inventory, (plan_path, validator_path, Path(__file__), Path(admission.__file__)))
+    record_paths = tuple(sorted(admissions_root.rglob("attempt-*.json"))) if admissions_root.exists() else ()
+    if directory_input_hashes is not None:
+        directory_input_hashes.append(
+            (admissions_root, directory_snapshot_sha256(admissions_root))
+        )
+    _capture_once(inventory, record_paths)
     plan = read_json(plan_path)
-    records = load_records(admissions_root)
+    issues: list[str] = []
+    records = load_records(admissions_root, issues, record_paths=record_paths)
+    artifact_paths = tuple(
+        Path(value)
+        for record in records
+        for field in ("metricsPath", "manifestPath")
+        if isinstance((value := record.get(field)), str) and value
+    )
+    _capture_once(inventory, artifact_paths)
+    if records_out is not None:
+        records_out.extend(records)
     plan_hash = sha256(plan_path)
     validator_hash = sha256(validator_path)
     expected = {record_key(slot): slot for slot in plan.get("slots", [])}
-    issues: list[str] = []
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for record in records:
         key = record_key(record)
         grouped.setdefault(key, []).append(record)
+        if plan.get("evidenceContractVersion") == 4 and (
+            record.get("schemaVersion") != 2 or record.get("evidenceContractVersion") != 4
+        ):
+            issues.append(
+                f"{key} historical schemaVersion {record.get('schemaVersion')!r} "
+                "cannot satisfy Evidence Contract v4"
+            )
         slot = expected.get(key)
         if slot is None:
             issues.append(f"unexpected admission record slot {key}")
@@ -172,10 +256,30 @@ def verify_index(
             if record.get(field) != expected_value:
                 issues.append(f"{key} {field} expected {expected_value!r}, observed {record.get(field)!r}")
         for path_field, hash_field in (("metricsPath", "metricsSha256"), ("manifestPath", "manifestSha256")):
-            artifact = Path(str(record.get(path_field, "")))
+            path_value = record.get(path_field)
             recorded_hash = record.get(hash_field)
-            if artifact.is_file() and recorded_hash and sha256(artifact) != recorded_hash:
-                issues.append(f"{key} {path_field} changed after admission")
+            if not isinstance(path_value, str) or not path_value or not Path(path_value).is_absolute():
+                issues.append(f"{key} {path_field} expected non-empty absolute path, observed {path_value!r}")
+                continue
+            artifact = Path(path_value)
+            hash_valid = isinstance(recorded_hash, str) and SHA256_PATTERN.fullmatch(recorded_hash) is not None
+            admitted = record.get("verdict") == admission.ADMITTED
+            if admitted:
+                if not artifact.is_file() or artifact.is_symlink():
+                    issues.append(f"{key} {path_field} missing or not a regular non-symlink file")
+                    continue
+                if not hash_valid:
+                    issues.append(f"{key} {hash_field} expected lowercase SHA-256, observed {recorded_hash!r}")
+                    continue
+                if sha256(artifact) != recorded_hash:
+                    issues.append(f"{key} {path_field} changed after admission")
+            elif artifact.is_file() and not artifact.is_symlink():
+                if not hash_valid:
+                    issues.append(f"{key} {hash_field} expected lowercase SHA-256 for present artifact, observed {recorded_hash!r}")
+                elif sha256(artifact) != recorded_hash:
+                    issues.append(f"{key} {path_field} changed after admission")
+            elif recorded_hash != "":
+                issues.append(f"{key} {hash_field} expected empty string for missing artifact, observed {recorded_hash!r}")
 
     admitted_slots = 0
     official_admitted = 0
@@ -225,11 +329,27 @@ def tick_p95(record: dict[str, Any]) -> float:
     return float(value)
 
 
-def aggregate(plan_path: Path, validator_path: Path, admissions_root: Path) -> dict[str, Any]:
-    index = verify_index(plan_path, validator_path, admissions_root, require_complete=True)
+def aggregate(
+    plan_path: Path,
+    validator_path: Path,
+    admissions_root: Path,
+    *,
+    input_inventory: list[tuple[Path, InputSnapshot]] | None = None,
+    directory_input_hashes: list[tuple[Path, str]] | None = None,
+) -> dict[str, Any]:
+    all_records: list[dict[str, Any]] = []
+    index = verify_index(
+        plan_path,
+        validator_path,
+        admissions_root,
+        require_complete=True,
+        input_inventory=input_inventory,
+        directory_input_hashes=directory_input_hashes,
+        records_out=all_records,
+    )
     if not index["complete"]:
         raise ValueError("campaign index is incomplete or invalid: " + "; ".join(index["issues"]))
-    records = [record for record in load_records(admissions_root) if record.get("verdict") == admission.ADMITTED]
+    records = [record for record in all_records if record.get("verdict") == admission.ADMITTED]
     official = [record for record in records if record.get("kind") == "official"]
     raw: dict[str, list[float]] = {state: [] for state in STATE_REVISIONS}
     ordered_runs = []
@@ -274,7 +394,7 @@ def aggregate(plan_path: Path, validator_path: Path, admissions_root: Path) -> d
                     "displayDeltaPercent": f"{delta:.6f}",
                 }
             )
-    rejected = [record for record in load_records(admissions_root) if record.get("verdict") != admission.ADMITTED]
+    rejected = [record for record in all_records if record.get("verdict") != admission.ADMITTED]
     return {
         "schemaVersion": 1,
         "campaignId": index["campaignId"],
@@ -314,8 +434,23 @@ def run_campaign(args: argparse.Namespace) -> int:
                 pending = (slot, len(matching) + 1)
                 break
         if pending is None:
-            report = verify_index(plan_path, validator_path, admissions_root, require_complete=True)
-            atomic_json(campaign_root / "campaign-index.json", report)
+            inventory: list[tuple[Path, InputSnapshot]] = []
+            directory_hashes: list[tuple[Path, str]] = []
+            report = verify_index(
+                plan_path,
+                validator_path,
+                admissions_root,
+                require_complete=True,
+                input_inventory=inventory,
+                directory_input_hashes=directory_hashes,
+            )
+            atomic_json(
+                campaign_root / "campaign-index.json",
+                report,
+                inputs=tuple(path for path, _ in inventory),
+                expected_input_snapshots=inventory,
+                directory_input_hashes=directory_hashes,
+            )
             return 0 if report["complete"] else 1
         slot, attempt_number = pending
         if sha256(plan_path) != frozen_plan_hash or sha256(validator_path) != frozen_validator_hash:
@@ -368,8 +503,23 @@ def run_campaign(args: argparse.Namespace) -> int:
             f"record={record_path} reason={record['reason']}",
             flush=True,
         )
-        report = verify_index(plan_path, validator_path, admissions_root, require_complete=False)
-        atomic_json(campaign_root / "campaign-index.json", report)
+        inventory = []
+        directory_hashes = []
+        report = verify_index(
+            plan_path,
+            validator_path,
+            admissions_root,
+            require_complete=False,
+            input_inventory=inventory,
+            directory_input_hashes=directory_hashes,
+        )
+        atomic_json(
+            campaign_root / "campaign-index.json",
+            report,
+            inputs=tuple(path for path, _ in inventory),
+            expected_input_snapshots=inventory,
+            directory_input_hashes=directory_hashes,
+        )
     return 2
 
 
@@ -404,19 +554,61 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.command == "create-plan":
+        inventory = capture_input_snapshots(
+            (
+                args.identity_metrics,
+                args.identity_manifest,
+                Path(__file__),
+                Path(admission.__file__),
+            )
+        )
         plan = build_plan(args.campaign_id, read_json(args.identity_metrics), read_manifest(args.identity_manifest))
-        atomic_json(args.output.resolve(), plan)
+        atomic_json(
+            args.output.resolve(),
+            plan,
+            inputs=tuple(path for path, _ in inventory),
+            expected_input_snapshots=inventory,
+        )
         print(json.dumps({"campaignPlan": str(args.output.resolve()), "sha256": sha256(args.output.resolve())}, sort_keys=True))
         return 0
     if args.command == "verify-index":
-        report = verify_index(args.campaign_plan.resolve(), args.validator.resolve(), args.admissions_root.resolve(), require_complete=True)
+        inventory: list[tuple[Path, InputSnapshot]] = []
+        directory_hashes: list[tuple[Path, str]] = []
+        report = verify_index(
+            args.campaign_plan.resolve(),
+            args.validator.resolve(),
+            args.admissions_root.resolve(),
+            require_complete=True,
+            input_inventory=inventory,
+            directory_input_hashes=directory_hashes,
+        )
         if args.output:
-            atomic_json(args.output.resolve(), report)
+            atomic_json(
+                args.output.resolve(),
+                report,
+                inputs=tuple(path for path, _ in inventory),
+                expected_input_snapshots=inventory,
+                directory_input_hashes=directory_hashes,
+            )
         print(json.dumps(report, sort_keys=True))
         return 0 if report["complete"] else 1
     if args.command == "aggregate":
-        result = aggregate(args.campaign_plan.resolve(), args.validator.resolve(), args.admissions_root.resolve())
-        atomic_json(args.output.resolve(), result)
+        inventory = []
+        directory_hashes = []
+        result = aggregate(
+            args.campaign_plan.resolve(),
+            args.validator.resolve(),
+            args.admissions_root.resolve(),
+            input_inventory=inventory,
+            directory_input_hashes=directory_hashes,
+        )
+        atomic_json(
+            args.output.resolve(),
+            result,
+            inputs=tuple(path for path, _ in inventory),
+            expected_input_snapshots=inventory,
+            directory_input_hashes=directory_hashes,
+        )
         print(json.dumps(result, sort_keys=True))
         return 0 if result["allGatesPassed"] else 1
     return run_campaign(args)
