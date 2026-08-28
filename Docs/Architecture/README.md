@@ -111,13 +111,23 @@ For current Summon production ownership, read the final umbrella closeout first.
 - [ADR/ADR-007-Runtime-Terrain-Truth-Removal.md](./ADR/ADR-007-Runtime-Terrain-Truth-Removal.md)
   - active decision record for runtime terrain truth removal, terrain-free in-bounds cells, and remaining blocker vocabulary
 - [Gameplay-Wall-Tick-Cost-Optimization-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Plan.md)
-  - audited bounded implementation plan for reducing Wall-related Factory, Cleanup, final-result, and live diagnostics cost without changing authoritative Solid occupancy or canonical replay/hash contracts
+  - audited bounded implementation plan for reducing Wall-related Factory, Cleanup, final-result, and live diagnostics cost without changing authoritative Solid occupancy or canonical replay/hash contracts; Slice 3 production entry is conditional on its dedicated Goal gates
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md)
   - completed Slice 1 tests-first execution record for workload diagnostics, trusted owned FinalEntities sharing, conservative per-EntityType Factory prefiltering, corrected focused/core/replay evidence, and fixed-cohort performance acceptance
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md)
   - current audit and recovery truth preserving the invalid historical C2 evidence while recording admission hardening, focused proof closure, the completed fixed 5-state/15-run cohort, and restored Goal-complete status
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Recovery-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Recovery-Goal-Prompt.md)
   - sub-agent-reviewed execution prompt for admission hardening, focused contract closure, fixed 5-state/15-run recovery measurement, and final retain/reject decisions
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md)
+  - current tests-first Slice 3 execution gate separating Cleanup attribution, candidate maintenance/snapshot-carriage tax, indexed-executor benefit, semantic/replay parity, and retain/reject rollback decisions; official S3-A capture remains blocked pending the separately approved S3-EV-016 exact full-scan oracle/frozen amendment and all remaining measurement prerequisites
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md)
+  - current Slice 3 execution prompt enforcing the S3-EV-016 oracle amendment gate before official S3-A capture, followed by S3-B pre-C and S3-C pre-campaign hard gates, same-revision evidence, terminal status, storage, and rollback rules
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md)
+  - current post-amendment audit and v4 closure/open-blocker register: known P0/P1 false-PASS/schema/lifecycle/transport paths are closed, while S3-EV-016 keeps the repository on Hold and S3-B/S3-C forbidden
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md)
+  - completed bounded execution Goal for Evidence Contract v4 approval, formal tests-first P0/P1 harness remediation, green validation, and independent re-audit; no official S3-A capture or S3-B/S3-C production implementation was performed
+- [Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v4.md](../../Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v4.md)
+  - approved normative S3-A remediation evidence contract for exact identity/cohort binding, canonical verdict recomputation, strict schema, artifact lifecycle, compatibility rejection, terminal transport, and the S3-EV-016 fail-closed oracle gate; it does not approve the oracle amendment or authorize a new official capture
 - [ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md](./ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md)
   - active decision record for SurfaceCell-based TileFeature overlay ownership, terrain-free boundary, lazy TileEffect snapshot rules, and presentation-only VFX boundaries
 - [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)

@@ -1,10 +1,12 @@
 # Gameplay Wall Tick Cost Optimization Plan
 
-- Status: Audited / implementation-ready by bounded slice
-- Audit date: 2026-08-26
-- Audited revision: `5d338c54a890bb5225ddda9d769f880846b8f1ca`
+- Status: Slice 1/2 complete; Slice 3 Goal/Prompt hardened, S3-A first and B/C hard-gated; later slices unchanged
+- Audit date: 2026-08-27
+- Audited revision: `25e623a94890f803142990fbeb7c2e11615b2ed0`
 - Scope: item 2 only — reduce per-tick work caused by Wall and other non-participating entities
 - Slice 1 execution document: [Gameplay Wall Tick Cost Optimization — Slice 1 Goal Plan](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md)
+- Slice 3 execution document: [Gameplay Wall Tick Cost Optimization — Slice 3 Goal Plan](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md)
+- Slice 3 execution prompt: [Gameplay Wall Tick Cost Optimization — Slice 3 Goal Prompt](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md)
 
 ## 1. Decision
 
@@ -18,7 +20,7 @@ The audited slice verdict is:
 |---|---|---|
 | Factory type prefilter cache | Approve | Implement as an internal conservative opt-in prefilter with per-`EntityType` ordered Factory lists |
 | `FinalEntities` trusted owned read-only sharing | Approve | Implement first; retain defensive copying on general/internal enumerable constructors |
-| Cleanup candidate indexes | Modify | Use three ordered derived indexes and preserve same-Cleanup timer-to-transition behavior |
+| Cleanup candidate indexes | Modify / conditional entry | Measure Cleanup attribution first, then isolate maintenance/carriage cost before enabling indexed execution |
 | Live compact diagnostics | Modify | Add a separate mode; never replace canonical `TickTrace` or hash |
 | Static presentation cache | Conditional | Require explicit static provenance, entity generation, and revisions first |
 | Immutable/static snapshot partition | Defer | Reconsider only if profiling still identifies snapshot copying as a dominant cost |
@@ -65,6 +67,7 @@ The following behavior is not changed by this plan:
 - an unscoped Custom `IEntityLogicFactory` continues to observe every entity type.
 - Wall and `EntityType.None` may still be spawned, damaged, state-changed, marked, and removed through generic runtime seams.
 - Cleanup order remains removal, then timer changes, then state transitions.
+- every `CleanupPhaseResult` field, removal pose EventLog, and the resulting kinematic/continuous presentation tracks remain ordered and observationally identical.
 - `FinalEntities`, EventLog ordering, occupancy, determinism hash, and FullCanonical trace contents remain observationally identical.
 - partition/index/cache metadata is derived optimization state and is not added to the canonical hash.
 
@@ -171,35 +174,57 @@ Rules:
 
 This removes default Wall probes while preserving Custom Factory compatibility and first-owner ordering. It is a bounded micro-optimization, not the primary trace-on fix.
 
-### Slice 3 — Ordered Cleanup candidate indexes
+### Slice 3 — Ordered Cleanup candidate views
 
-Maintain three derived, entity-ID-ordered candidate sets:
+Slice 3 is not unconditionally implementation-ready. Its entry and close gates are owned by the separate [Slice 3 Goal Plan](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md), and its hard pauses, evidence procedure, and terminal states are fixed by the [Slice 3 Goal Prompt](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md).
+
+The 2026-08-28 Evidence Contract v4 remediation closed the known S3-A evidence false-PASS, strict-schema, lifecycle, and terminal-transport defects without running a new official capture or changing the production full-scan Cleanup executor. This is harness closure only: repository Slice 3 remains Hold pending an allocation-capable or approved-equivalent signal and a separate Measurement Goal.
+
+If entry permission and an execution hard pause conflict, the stricter hard pause wins. A dated progress block does not override a normative gate unless it is explicitly marked as an approved normative amendment.
+
+The semantic target is three derived, entity-ID-ordered candidate views:
 
 - removal: `hp <= 0 || markedForDeath`;
 - timer: `stateTimer > 0`;
 - immediate transition: `stateTimer <= 0 && state is Acting or Cooldown`.
 
-Update membership only at the authoritative entity mutation seams:
+`SortedSet<int>` is a prototype option, not a contract. The retained representation must be selected from same-revision maintenance, snapshot-carriage, fast-import, timing, and allocation evidence.
+
+Candidate membership changes only through the audited authoritative mutation seams:
 
 - spawn;
 - remove;
-- central stored-entity update;
+- central stored-entity update, with old/new predicate comparison before membership writes;
 - fast snapshot restore/import.
 
-Cleanup execution remains:
+Cleanup execution preserves these StrongContracts:
 
-1. process ordered removal candidates;
-2. process ordered timer candidates, skipping removed entities and `spawnTick == tickIndex`;
-3. collect IDs whose timer became zero;
-4. ordered merge/dedupe those IDs with the pre-existing immediate-transition candidates;
-5. emit every timer event before every transition event;
-6. process the merged transition candidates using post-timer entity state.
+1. keep `CleanupProcessor.Process` as the base Cleanup direct-write entrypoint and introduce indexed execution only inside that boundary;
+2. preserve the direct-write order `CleanupProcessor.Process` → box lock → aura field → pending reaction on one Cleanup write context;
+3. process ordered removal candidates;
+4. exclude removed IDs from every later Cleanup processor;
+5. process ordered timer candidates, skipping `spawnTick == tickIndex` only for timer decrement;
+6. retain the updated local entity state for IDs whose timer became zero;
+7. ordered merge/dedupe those IDs with pre-existing immediate-transition candidates;
+8. exclude removed IDs from the merged transition work;
+9. emit every timer event before every transition event;
+10. process transitions from post-timer local state, not the stale pre-Cleanup snapshot.
 
-The candidate sets must be carried through snapshot/fast restore without rebuilding them by an O(N) full scan during projected materialization. They remain derived internal indexes and are excluded from canonical hash and trace.
+The candidate carrier must be snapshot-owned and immutable. It must not alias mutable `WorldState` storage, empty carriers must use shared storage, and projected fast import must not add a separate O(N) candidate-predicate scan beyond its existing entity copy. Candidate metadata remains derived internal state and is excluded from canonical hash and trace.
 
-Add a Development/test invariant checker that compares index results with the current full-scan reference implementation. Keep the reference path until parity and performance evidence are established.
+The Development/test reference oracle must be independent of the candidate carrier and indexed predicate implementation. It uses a pure operation plan by default. Any isolated-world supplemental check must reuse only the existing approved direct-write entrypoints; it must not add a production mutation entrypoint or execute both mutating processors against the same live write context. Reference comparison is explicit test/capture instrumentation, is off during official performance candidates, and fails fast on mismatch rather than silently falling back.
 
-If index maintenance or snapshot carriage costs erase the measured benefit, retain the reference/full-scan implementation and do not merge the index structure merely for architectural appearance.
+An empty-candidate fast path may skip only the base `CleanupProcessor` work. `RunCleanupPhase` must still run box-lock, aura-field, and pending-reaction expiry routines.
+
+Slice 3 rolls out as three measured packages:
+
+- S3-A: Cleanup/reference diagnostics, synthetic A/B/C schema validation, and actual A-only capture; B/C selection is unavailable and fail-closed;
+- S3-B: candidate maintenance and immutable snapshot carriage plus actual A/B capture while production Cleanup still uses the full-scan executor;
+- S3-C: indexed Cleanup execution, the base-processor empty fast path, and actual A/B/C capture.
+
+S3-A-only measurement is preliminary attribution/calibration. S3-B has a pre-C correctness/maintenance-tax gate. S3-C first passes a provisional semantic/structural gate while ordinary production remains full scan; after explicit user approval, ordinary production selects indexed Cleanup directly and that final candidate revision must rerun focused/core/replay before the same-revision official A/B/C campaign decides B/C retention.
+
+Defer the slice only when admitted, noise-valid timing/allocation evidence proves that S3-A does not attribute material cost to Cleanup. Incomplete admission, allocation liveness, noise, or workload signal is `Hold`, not defer. If S3-B maintenance/carriage cost or S3-C net result erases the measured benefit, reject the complete production index package and retain the full-scan implementation.
 
 ### Slice 4 — Diagnostics policy split
 
@@ -284,14 +309,26 @@ Topology rotation changes visibility, not stored `SurfaceCell.face`; it must not
 ### Cleanup tests
 
 - `timer=1` Acting/Cooldown reaches Idle in the same Cleanup;
-- pre-existing zero-timer transition;
+- pre-existing zero- and negative-timer Acting/Cooldown transition;
+- all current `EntityPhaseState` values and unknown casts preserve immediate-transition eligibility;
 - same-tick spawned entity timer is not decremented;
+- same-tick spawned zero-timer Acting/Cooldown entity still transitions;
+- same-tick spawned dead or marked entity is still removed;
 - entity that is both removal and timer candidate is removed only;
+- entity that is both removal and immediate-transition candidate is removed only and emits no transition event;
 - Wall/`EntityType.None` damage, mark, state, timer, and removal behavior;
-- removed entity auxiliary state and occupancy cleanup;
+- exact entity-owned auxiliary-state and occupancy cleanup matrix;
+- independently-lived pending impact and emitted aura/derived-lock lifetime after source removal;
+- removal pose carriers, pose-removal EventLog, and final kinematic/continuous presentation tracks;
 - timer event ordering before transition event ordering;
 - ID ordering within each event family;
-- candidate indexes equal the full-scan reference over deterministic fixtures and generated state matrices.
+- mixed Cleanup event log preserves removal-family, timer-family, transition-family, and later expiry ordering;
+- candidate views equal an independent full-scan reference over deterministic fixtures and generated state matrices;
+- mutation sequences cover damage, mark, state change, irrelevant entity updates, remove plus same-ID respawn, and multi-operation finalization;
+- an older snapshot's candidate carrier remains immutable after later world mutations;
+- fast import preserves all non-empty candidate groups without a separate O(N) predicate rebuild;
+- strategy counters prove that the intended reference or indexed executor ran and that hidden fallback count is zero.
+- final-candidate wiring guards prove that ordinary non-capture composition selects indexed Cleanup directly without a capture selector or hidden fallback.
 
 ### Diagnostics tests
 
@@ -346,7 +383,7 @@ The broad full baseline is documented as red and is not a substitute for touched
 
 ## 8. Performance Acceptance Gates
 
-Use three paired baseline/candidate runs on the same revision window and machine configuration.
+Each child slice must pre-register its campaign order and material threshold before official runs. Slice 3 uses alternating A/B/C runs on the same revision window and machine configuration: three runs per state for a candidate-empty/Wall-heavy workload and three runs per state for a deterministic candidate-dense/mutation-heavy workload. Report A→B maintenance tax, B→C execution benefit, and A→C net benefit separately. Historical Slice 1 evidence cannot be substituted.
 
 Structural gates:
 
@@ -354,18 +391,35 @@ Structural gates:
 - unscoped Custom Factory Wall probes: unchanged;
 - created logic set and phase owner ordering: unchanged;
 - Cleanup index/reference output: identical;
+- Cleanup full-scan entity visits and survivor-copy counts are explicit;
+- candidate visits, membership checks/adds/removes, snapshot-carried items, and fast-import items are explicit;
+- projected fast import adds zero separate entity visits for candidate predicate rebuilding;
+- invariant mismatch and production fallback counts are exactly zero;
 - EventLog, FinalEntities, occupancy, determinism hash, and FullCanonical trace: identical;
+- all `CleanupPhaseResult` fields, removal pose EventLog, and final kinematic/continuous presentation tracks: identical;
 - trusted final-entity wrapper count: one on the internal Builder path.
 
 Performance gates:
 
-- total tick p95 regression no greater than 5%;
+- total tick p95 regression no greater than 5%; this is a safety ceiling, not proof of benefit;
 - no new sustained GC allocation regression in trace-off mode;
 - when a targeted component marker or valid allocation sample exists, it must improve or at minimum remain non-regressed as specified by the child slice gate;
 - when neither is available for a bounded micro-optimization, deterministic structural counters must prove the intended work removal, total tick p95 must remain within the non-regression gate, and the unverified allocation scope must be reported explicitly;
 - LiveCompact must avoid full formatter/hash work and show a material trace-on cost reduction;
 - deterministic removal of entity copies or default Factory probes is a valid measured benefit for the bounded Slice 1 micro-optimizations; when those structural gates pass, semantic parity holds, and p95 remains within the non-regression gate, wall-clock movement inside run-to-run noise does not by itself require rollback;
 - if neither measured timing/allocation nor deterministic structural counters prove the targeted work removal, defer or revert the slice instead of retaining unproven complexity.
+
+Slice 3 additionally requires:
+
+- S3-A must measure both `CleanupProcessor` and the complete `RunCleanupPhase`, plus valid main-thread allocated bytes per tick or another approved allocation sample;
+- S3-A preliminary calibration must freeze exact material/noise/B-tax/allocation thresholds before the first official run;
+- S3-B pre-C must prove exact candidate parity, zero separate O(N) candidate rebuild, and preliminary whole-tick/allocation maintenance tax within its pre-registered ceiling; B does not require allocation 0 by itself;
+- S3-C must reduce base Cleanup full-scan visits from N to zero on the target workload and preserve exact semantic/replay/presentation-carrier parity before the final campaign;
+- final target workload A→C must meet the pre-registered `CleanupProcessor` component material-improvement threshold, complete `RunCleanupPhase` containment threshold, whole-tick end-to-end benefit threshold, and allocation safety gate;
+- final dense/mutation stress workload does not require speedup, but must meet whole-tick `<= +5%` and its pre-registered allocation safety ceiling;
+- the two workload results must not be averaged into one acceptance value;
+- a missing valid allocation signal holds the Goal at S3-A and blocks S3-B/S3-C entry; an equivalent signal requires an explicit Goal amendment and user approval before a new S3-A recapture;
+- target improvement only inside run-to-run noise, or a slower target A→C result masked by the `+5%` safety ceiling, is a reject/defer outcome rather than a speedup claim.
 
 Do not combine historical performance artifacts from other revisions into a same-revision acceptance claim.
 
@@ -376,12 +430,13 @@ Each slice must remain independently revertible:
 1. diagnostics/counters;
 2. `FinalEntities` trusted sharing;
 3. Factory type prefilter cache;
-4. Cleanup candidate indexes;
-5. diagnostics policy and LiveCompact sink;
-6. static presentation provenance/cache;
-7. snapshot partition, if ever approved.
+4. Cleanup S3-A diagnostics/reference seam;
+5. Cleanup S3-B/S3-C production candidate package as one rollback unit;
+6. diagnostics policy and LiveCompact sink;
+7. static presentation provenance/cache;
+8. snapshot partition, if ever approved.
 
-Keep the Cleanup full-scan reference path behind a test/development comparison seam until the candidate index has parity and performance evidence. FullCanonical trace remains available regardless of LiveCompact rollout.
+Keep the Cleanup full-scan reference executor as the production path through S3-B. The independent comparison oracle remains test/capture-only after parity is established; do not retain a hidden production fallback that can mask stale-index defects. FullCanonical trace remains available regardless of LiveCompact rollout.
 
 ## 10. Commit Intent Split
 
@@ -390,15 +445,19 @@ Recommended commit intents:
 1. `test: Gameplay - Wall tick optimization contracts add`
 2. `refactor: Gameplay - Final entity result ownership share`
 3. `refactor: Gameplay - Entity logic Factory type prefilter add`
-4. `refactor: Gameplay - Cleanup ordered candidate indexes add`
-5. `feat: Gameplay - Live compact tick diagnostics mode add`
-6. conditional later commits for presentation cache or snapshot partition
+4. `test: Gameplay - Cleanup reference oracle and contracts add`
+5. `chore: Gameplay - Cleanup attribution diagnostics add`
+6. `refactor: Gameplay - Cleanup candidate maintenance and carriage add`
+7. `refactor: Gameplay - Cleanup indexed executor add`
+8. `docs: Gameplay - Cleanup indexed execution evidence close out`
+9. `feat: Gameplay - Live compact tick diagnostics mode add`
+10. conditional later commits for presentation cache or snapshot partition
 
 Do not combine production refactors, diagnostics behavior, and performance evidence into one commit.
 
 ## 11. Final Readiness Verdict
 
-Slices 1–4 are implementable after their tests-first guards are added. They preserve the authoritative world and optimize redundant participation, copying, and diagnostics work rather than redefining Wall semantics.
+Slices 1 and 2 are complete under the Slice 1 Goal and its recovery closeout. Slice 3 has a valid target and may enter only S3-A under its dedicated Goal Prompt; S3-B/S3-C production work is not approved until the preceding hard gates pass. Slice 4 remains implementable after its tests-first guards are added. These slices preserve the authoritative world and optimize redundant participation, copying, and diagnostics work rather than redefining Wall semantics.
 
 Static presentation caching requires provenance and revision carriers and is therefore conditional. Immutable/static snapshot partitioning is not approved for the first implementation series because its authority, restore, occupancy, ID reuse, and replay surface is substantially wider.
 
@@ -408,3 +467,5 @@ The first implementation milestone is complete only when:
 - FullCanonical output remains identical;
 - current-HEAD paired measurements demonstrate component-level improvement where observable, or the approved bounded structural gates plus total p95 non-regression where component/allocation instrumentation is unavailable;
 - no retained slice lacks either observable timing/allocation evidence or an approved deterministic structural reduction with p95 non-regression.
+
+The structural-only exception above applies only to the already approved bounded micro-optimization gates. Slice 3 follows its dedicated Goal and cannot enter S3-B/S3-C without the required valid allocation signal or an equivalent signal approved by Goal amendment before a new S3-A recapture.
