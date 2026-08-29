@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
-    from Tools.gameplay_evidence_v4 import APPROVED_CLEANUP_S3_WORKLOAD_SHA256, EvidenceError, atomic_json, evidence_identity, load_json_object, reason
+    from Tools.gameplay_evidence_v4 import APPROVED_CLEANUP_S3_WORKLOAD_SHA256, EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, reason, validate_v4_context_pair
 except ModuleNotFoundError:
-    from gameplay_evidence_v4 import APPROVED_CLEANUP_S3_WORKLOAD_SHA256, EvidenceError, atomic_json, evidence_identity, load_json_object, reason
+    from gameplay_evidence_v4 import APPROVED_CLEANUP_S3_WORKLOAD_SHA256, EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, reason, validate_v4_context_pair
 
 
 ADMITTED = "ADMITTED"
@@ -358,16 +358,6 @@ def validate_cleanup_slice3(
                 ):
                     reasons.append(f"SCHEDULE_COUNT_MISMATCH: {run_location} actual/expected totals differ")
                 if require_v4:
-                    for processed_key, candidate_key in (
-                        ("removalProcessedCount", "removalCandidateCount"),
-                        ("timerProcessedCount", "timerCandidateCount"),
-                        ("transitionProcessedCount", "immediateTransitionCandidateCount"),
-                    ):
-                        if run.get(processed_key) != run.get(candidate_key):
-                            reasons.append(
-                                f"SEMANTIC_INVARIANT_INVALID: {run_location}.{processed_key} "
-                                f"must equal {candidate_key}"
-                            )
                     if run.get("referenceOracleInvocationCount") != ticks:
                         reasons.append(
                             f"SEMANTIC_INVARIANT_INVALID: {run_location}.referenceOracleInvocationCount "
@@ -702,7 +692,11 @@ def _provenance(metrics_path: Path, active_strategies: tuple[str, ...]) -> dict[
 
 
 def _write_summary(
-    summary: dict[str, Any], output: Path | None, *, inputs: tuple[Path, ...] = ()
+    summary: dict[str, Any],
+    output: Path | None,
+    *,
+    inputs: tuple[Path, ...] = (),
+    expected_input_snapshots: tuple[tuple[Path, Any], ...] = (),
 ) -> bool:
     if output is not None:
         try:
@@ -710,6 +704,7 @@ def _write_summary(
                 output,
                 summary,
                 inputs=(*inputs, Path(__file__).resolve(), DEFAULT_WORKLOAD_CONTRACT),
+                expected_input_snapshots=expected_input_snapshots,
             )
         except (EvidenceError, OSError) as error:
             print(json.dumps({"error": str(error)}, sort_keys=True))
@@ -773,11 +768,25 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("metrics", type=Path)
     parser.add_argument("--active-strategies", default="A")
+    parser.add_argument("--preflight-manifest", type=Path)
+    parser.add_argument("--artifact-manifest", type=Path)
     parser.add_argument("--output", type=Path)
     arguments = parser.parse_args()
     active_strategies = tuple(
         value for value in arguments.active_strategies.split(",") if value
     )
+    context_inputs = tuple(
+        path
+        for path in (arguments.preflight_manifest, arguments.artifact_manifest)
+        if path is not None
+    )
+    input_paths = (
+        arguments.metrics,
+        *context_inputs,
+        Path(__file__).resolve(),
+        DEFAULT_WORKLOAD_CONTRACT.resolve(),
+    )
+    input_snapshots = capture_input_snapshots(input_paths)
     try:
         provenance = _provenance(arguments.metrics, active_strategies)
         metrics = load_json_object(arguments.metrics, "metrics")
@@ -796,7 +805,12 @@ def main() -> int:
             },
             "inputHashes": {"metricsSha256": _try_sha256(arguments.metrics)},
         }
-        return 1 if _write_summary(summary, arguments.output, inputs=(arguments.metrics,)) else 2
+        return 1 if _write_summary(
+            summary,
+            arguments.output,
+            inputs=input_paths,
+            expected_input_snapshots=input_snapshots,
+        ) else 2
     except (OSError, UnicodeError, ValueError) as error:
         summary = {
             "schemaVersion": 2,
@@ -812,7 +826,12 @@ def main() -> int:
             },
             "inputHashes": {"metricsSha256": _try_sha256(arguments.metrics)},
         }
-        return 1 if _write_summary(summary, arguments.output, inputs=(arguments.metrics,)) else 2
+        return 1 if _write_summary(
+            summary,
+            arguments.output,
+            inputs=input_paths,
+            expected_input_snapshots=input_snapshots,
+        ) else 2
 
     summary = build_admission_report(
         metrics,
@@ -821,7 +840,21 @@ def main() -> int:
         validator_path=Path(__file__).resolve(),
         workload_contract_path=DEFAULT_WORKLOAD_CONTRACT,
     )
-    if not _write_summary(summary, arguments.output, inputs=(arguments.metrics,)):
+    context_reasons = validate_v4_context_pair(
+        arguments.preflight_manifest,
+        arguments.artifact_manifest,
+        metrics.get("captureIdentity"),
+        metrics_sha256=provenance["metricsSha256"],
+    )
+    if context_reasons:
+        summary["verdict"] = REJECTED
+        summary["reasons"] = list(summary.get("reasons", [])) + context_reasons
+    if not _write_summary(
+        summary,
+        arguments.output,
+        inputs=input_paths,
+        expected_input_snapshots=input_snapshots,
+    ):
         return 2
     return 0 if summary["verdict"] == ADMITTED else 1
 

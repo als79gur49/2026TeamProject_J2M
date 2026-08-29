@@ -10,9 +10,9 @@ import re
 import stat
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 
 EVIDENCE_CONTRACT_VERSION = 4
@@ -68,7 +68,12 @@ REASON_CODES = frozenset(
 class EvidenceError(ValueError):
     def __init__(self, code: str, path: str, expected: Any, observed: Any) -> None:
         super().__init__(f"{code}: {path}: expected={expected!r} observed={observed!r}")
-        self.reason = reason(code, path, expected, observed)
+        self.reason = reason(
+            code,
+            path,
+            _json_reason_value(expected),
+            _json_reason_value(observed),
+        )
 
 
 @dataclass(frozen=True)
@@ -85,6 +90,18 @@ class InputSnapshot:
     target_inode: int | None
     target_mode: int | None
     sha256: str | None
+
+
+def _json_reason_value(value: Any) -> Any:
+    if is_dataclass(value) and not isinstance(value, type):
+        return _json_reason_value(asdict(value))
+    if isinstance(value, dict):
+        return {str(key): _json_reason_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_reason_value(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
+    return value
 
 
 def reason(code: str, path: str, expected: Any = None, observed: Any = None) -> dict[str, Any]:
@@ -222,8 +239,12 @@ def validate_runtime_marker(path: Path) -> list[dict[str, Any]]:
         lines = path.read_text(encoding="utf-8-sig").splitlines()
     except (OSError, UnicodeError) as error:
         return [reason("MARKER_VALIDATION_FAILED", "runtimeLog", "readable UTF-8 log", str(error))]
-    pass_count = sum(line.strip() == "GAMEPLAY_PERFORMANCE:PASS" for line in lines)
-    fail_count = sum(line.strip() == "GAMEPLAY_PERFORMANCE:FAIL" for line in lines)
+    def is_marker(line: str, marker: str) -> bool:
+        stripped = line.strip()
+        return stripped == marker or stripped.startswith(marker + " ")
+
+    pass_count = sum(is_marker(line, "GAMEPLAY_PERFORMANCE:PASS") for line in lines)
+    fail_count = sum(is_marker(line, "GAMEPLAY_PERFORMANCE:FAIL") for line in lines)
     if pass_count != 1 or fail_count != 0:
         return [
             reason(
@@ -376,6 +397,184 @@ def load_strict_kv(path: Path, label: str = "manifest") -> dict[str, str]:
     return values
 
 
+_V4_CONTEXT_SHARED_KEYS = (
+    "CampaignId", "AttemptId", "AttemptOrdinal", "AttemptKind", "CaptureNonce",
+    "Stage", "ActiveStrategies", "PreBuildHeadSha", "PreBuildWorktreeSha256",
+    "RuntimeTreeSha256", "RunnerSha256", "PerformanceValidatorSha256",
+    "CleanupValidatorSha256", "AggregatorSha256", "ManifestToolSha256",
+    "WorkloadContractSha256", "HarnessSha256", "ExpectedWidth", "ExpectedHeight",
+    "ExpectedWarmupFrames", "ExpectedSampleFrames", "ExpectedTickInterval",
+    "GitStatusShort",
+)
+_V4_CONTEXT_PREFLIGHT_KEYS = frozenset(
+    ("SchemaVersion", "EvidenceContractVersion", "EvidencePhase", *_V4_CONTEXT_SHARED_KEYS)
+)
+_V4_CONTEXT_CAPTURED_KEYS = _V4_CONTEXT_PREFLIGHT_KEYS | {
+    "PostRestoreHeadSha", "PostRestoreWorktreeSha256", "PlayerArtifactSha256",
+    "BuildPayloadSHA256", "MetricsSHA256", "RuntimeLogSHA256",
+}
+
+
+def validate_v4_context_pair(
+    preflight_manifest: Path | None,
+    captured_manifest: Path | None,
+    capture_identity: Any,
+    *,
+    metrics_sha256: str | None,
+) -> list[dict[str, Any]]:
+    """Validate supplied v4 context as an internal-consistency boundary only."""
+
+    issues: list[dict[str, Any]] = []
+    if preflight_manifest is None:
+        issues.append(reason(
+            "IDENTITY_FIELD_MISSING",
+            "evidenceContext.preflightManifest",
+            "supplied v4 preflight manifest",
+            None,
+        ))
+    if captured_manifest is None:
+        issues.append(reason(
+            "IDENTITY_FIELD_MISSING",
+            "evidenceContext.artifactManifest",
+            "supplied v4 artifact-captured manifest",
+            None,
+        ))
+    if issues:
+        return issues
+
+    try:
+        preflight = load_strict_kv(preflight_manifest, "preflightManifest")
+        captured = load_strict_kv(captured_manifest, "artifactManifest")
+    except EvidenceError as error:
+        return [error.reason]
+
+    for label, values, phase in (
+        ("preflight", preflight, "preflight"),
+        ("captured", captured, "artifact-captured"),
+    ):
+        if values.get("SchemaVersion") != "2":
+            issues.append(reason("SCHEMA_VERSION_INVALID", f"{label}.SchemaVersion", "2", values.get("SchemaVersion")))
+        if values.get("EvidenceContractVersion") != "4":
+            issues.append(reason("CONTRACT_VERSION_INVALID", f"{label}.EvidenceContractVersion", "4", values.get("EvidenceContractVersion")))
+        if values.get("EvidencePhase") != phase:
+            issues.append(reason("SEMANTIC_INVARIANT_INVALID", f"{label}.EvidencePhase", phase, values.get("EvidencePhase")))
+
+    for label, values, expected_keys in (
+        ("preflight", preflight, _V4_CONTEXT_PREFLIGHT_KEYS),
+        ("captured", captured, _V4_CONTEXT_CAPTURED_KEYS),
+    ):
+        for key in sorted(expected_keys - set(values)):
+            issues.append(reason("FIELD_MISSING", f"{label}.{key}", "present", None))
+        for key in sorted(set(values) - expected_keys):
+            issues.append(reason("FIELD_UNEXPECTED", f"{label}.{key}", None, values[key]))
+
+    for key in _V4_CONTEXT_SHARED_KEYS:
+        expected = preflight.get(key)
+        observed = captured.get(key)
+        if expected is None or observed is None:
+            issues.append(reason("IDENTITY_FIELD_MISSING", f"evidenceContext.{key}", "present in both manifests", None))
+        elif expected != observed:
+            issues.append(reason("IDENTITY_MISMATCH", f"evidenceContext.{key}", expected, observed))
+
+    if not isinstance(capture_identity, dict):
+        issues.append(reason("IDENTITY_FIELD_MISSING", "metrics.captureIdentity", "object", capture_identity))
+        return issues
+    issues.extend(validate_attempt_identity(capture_identity))
+    identity_map = {
+        "campaignId": "CampaignId",
+        "attemptId": "AttemptId",
+        "attemptKind": "AttemptKind",
+        "captureNonce": "CaptureNonce",
+        "stage": "Stage",
+        "preBuildHeadSha": "PreBuildHeadSha",
+        "preBuildWorktreeSha256": "PreBuildWorktreeSha256",
+        "runtimeTreeSha256": "RuntimeTreeSha256",
+        "runnerSha256": "RunnerSha256",
+        "performanceValidatorSha256": "PerformanceValidatorSha256",
+        "cleanupValidatorSha256": "CleanupValidatorSha256",
+        "aggregatorSha256": "AggregatorSha256",
+        "manifestToolSha256": "ManifestToolSha256",
+        "workloadContractSha256": "WorkloadContractSha256",
+        "harnessSha256": "HarnessSha256",
+    }
+    for json_key, kv_key in identity_map.items():
+        observed = capture_identity.get(json_key)
+        expected = preflight.get(kv_key)
+        if observed != expected:
+            issues.append(reason("IDENTITY_MISMATCH", f"metrics.captureIdentity.{json_key}", expected, observed))
+    try:
+        ordinal = int(preflight.get("AttemptOrdinal", ""))
+    except ValueError:
+        ordinal = None
+    if capture_identity.get("attemptOrdinal") != ordinal:
+        issues.append(reason("IDENTITY_MISMATCH", "metrics.captureIdentity.attemptOrdinal", ordinal, capture_identity.get("attemptOrdinal")))
+    expected_strategies = [value for value in preflight.get("ActiveStrategies", "").split(",") if value]
+    if capture_identity.get("activeStrategies") != expected_strategies:
+        issues.append(reason("STRATEGY_MISMATCH", "metrics.captureIdentity.activeStrategies", expected_strategies, capture_identity.get("activeStrategies")))
+    if capture_identity.get("postRestoreHeadSha") != captured.get("PostRestoreHeadSha"):
+        issues.append(reason("IDENTITY_MISMATCH", "metrics.captureIdentity.postRestoreHeadSha", captured.get("PostRestoreHeadSha"), capture_identity.get("postRestoreHeadSha")))
+    if capture_identity.get("postRestoreWorktreeSha256") != captured.get("PostRestoreWorktreeSha256"):
+        issues.append(reason("IDENTITY_MISMATCH", "metrics.captureIdentity.postRestoreWorktreeSha256", captured.get("PostRestoreWorktreeSha256"), capture_identity.get("postRestoreWorktreeSha256")))
+    if captured.get("PostRestoreHeadSha") != preflight.get("PreBuildHeadSha"):
+        issues.append(reason(
+            "PRE_POST_HEAD_MISMATCH",
+            "evidenceContext.PostRestoreHeadSha",
+            preflight.get("PreBuildHeadSha"),
+            captured.get("PostRestoreHeadSha"),
+        ))
+    if captured.get("PostRestoreWorktreeSha256") != preflight.get("PreBuildWorktreeSha256"):
+        issues.append(reason(
+            "PRE_POST_WORKTREE_MISMATCH",
+            "evidenceContext.PostRestoreWorktreeSha256",
+            preflight.get("PreBuildWorktreeSha256"),
+            captured.get("PostRestoreWorktreeSha256"),
+        ))
+    try:
+        expected_runtime_tree = runtime_tree_sha256(
+            preflight["PreBuildHeadSha"],
+            preflight["PreBuildWorktreeSha256"],
+        )
+    except (KeyError, AttributeError, UnicodeError):
+        expected_runtime_tree = None
+    if preflight.get("RuntimeTreeSha256") != expected_runtime_tree:
+        issues.append(reason(
+            "RUNTIME_TREE_MISMATCH",
+            "evidenceContext.RuntimeTreeSha256",
+            expected_runtime_tree,
+            preflight.get("RuntimeTreeSha256"),
+        ))
+    if captured.get("PlayerArtifactSha256") != capture_identity.get("playerArtifactSha256"):
+        issues.append(reason(
+            "PLAYER_ARTIFACT_HASH_MISMATCH",
+            "evidenceContext.PlayerArtifactSha256",
+            capture_identity.get("playerArtifactSha256"),
+            captured.get("PlayerArtifactSha256"),
+        ))
+    if captured.get("BuildPayloadSHA256") != capture_identity.get("buildPayloadSha256"):
+        issues.append(reason(
+            "BUILD_PAYLOAD_HASH_MISMATCH",
+            "evidenceContext.BuildPayloadSHA256",
+            capture_identity.get("buildPayloadSha256"),
+            captured.get("BuildPayloadSHA256"),
+        ))
+    if captured.get("MetricsSHA256") != metrics_sha256:
+        issues.append(reason(
+            "METRICS_HASH_MISMATCH",
+            "evidenceContext.MetricsSHA256",
+            metrics_sha256,
+            captured.get("MetricsSHA256"),
+        ))
+    for key in (
+        "PreBuildWorktreeSha256", "RuntimeTreeSha256", "PostRestoreWorktreeSha256",
+        "PlayerArtifactSha256", "BuildPayloadSHA256", "MetricsSHA256", "RuntimeLogSHA256",
+    ):
+        values = captured if key in _V4_CONTEXT_CAPTURED_KEYS - _V4_CONTEXT_PREFLIGHT_KEYS else preflight
+        observed = values.get(key)
+        if not isinstance(observed, str) or SHA256_PATTERN.fullmatch(observed) is None:
+            issues.append(reason("SHA_FORMAT_INVALID", f"evidenceContext.{key}", "lowercase SHA-256", observed))
+    return issues
+
+
 def _is_within(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root)
@@ -426,6 +625,19 @@ def capture_input_snapshots(paths: Iterable[Path]) -> tuple[tuple[Path, InputSna
     """Capture caller-owned input identity before parsing or validation begins."""
 
     return tuple((Path(path), _path_snapshot(Path(path))) for path in paths)
+
+
+def validate_input_snapshots(
+    snapshots: Iterable[tuple[Path, InputSnapshot]],
+) -> None:
+    """Fail closed when any lexical input identity changed after capture."""
+
+    for source, expected in snapshots:
+        observed = _path_snapshot(source)
+        if observed != expected:
+            raise EvidenceError(
+                "INPUT_MUTATED_DURING_VALIDATION", str(source), expected, observed
+            )
 
 
 def ensure_safe_output(
@@ -479,6 +691,7 @@ def atomic_json(
     tree_input_hashes: Iterable[tuple[Path, str]] = (),
     directory_input_hashes: Iterable[tuple[Path, str]] = (),
     expected_input_snapshots: Iterable[tuple[Path, InputSnapshot]] = (),
+    pre_replace_check: Callable[[], None] | None = None,
 ) -> None:
     input_paths = tuple(inputs)
     tree_paths = tuple(tree_inputs)
@@ -561,6 +774,8 @@ def atomic_json(
                 raise EvidenceError(
                     "INPUT_MUTATED_DURING_VALIDATION", str(source), expected, observed
                 )
+        if pre_replace_check is not None:
+            pre_replace_check()
         os.replace(temporary, destination)
         try:
             directory_fd = os.open(destination.parent, os.O_RDONLY)

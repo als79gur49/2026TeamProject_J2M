@@ -17,6 +17,153 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class CleanupSlice3RunnerLifecycleTests(unittest.TestCase):
+    def test_capture_smoke_dry_run_uses_non_official_roots_and_uuid_leaf(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            evidence_root = root / "smoke-evidence"
+            build_root = root / "smoke-build"
+            completed = subprocess.run(
+                ["bash", "-c", (
+                    'CLEANUP_S3_CAPTURE_SMOKE_EVIDENCE_ROOT="$1" '
+                    'CLEANUP_S3_CAPTURE_SMOKE_BUILD_ROOT="$2" '
+                    './run_tests.sh --dry-run cleanup-s3-capture-smoke'
+                ), "smoke-probe", str(evidence_root), str(build_root)],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn(str(evidence_root), completed.stdout)
+        self.assertIn(str(build_root), completed.stdout)
+        self.assertNotIn("/gameplay-performance/", completed.stdout)
+
+    def test_capture_smoke_has_exact_non_official_terminal_contract(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        function = source.split("run_gameplay_performance() {", 1)[1].split(
+            "\n}\n\nrun_typography_visual()", 1
+        )[0]
+
+        self.assertIn("validate_cleanup_s3_capture_smoke_terminal", source)
+        self.assertIn(
+            "Cleanup S3 capture smoke: PASS (non-official; authoritative manifest remains HOLD)",
+            function,
+        )
+        self.assertIn('campaign_id="cleanup-s3-capture-smoke-$attempt_uuid"', function)
+        self.assertIn('evidence_dir="$capture_evidence_root/$attempt_uuid"', function)
+        self.assertIn('build_dir="$capture_build_root/$attempt_uuid"', function)
+
+    def test_capture_smoke_rejects_an_incomplete_allocation_hold_manifest(self) -> None:
+        manifest = {
+            "manifestState": "FINAL",
+            "terminalStatus": "HOLD",
+            "authoritativeVerdict": "HOLD_CLEANUP_ADMISSION",
+            "reasons": [{"code": "CLEANUP_REJECTED"}],
+        }
+        performance = {"verdict": "ADMITTED", "reasons": []}
+        cleanup = {
+            "verdict": "REJECTED",
+            "reasons": [{
+                "code": "SEMANTIC_INVARIANT_INVALID",
+                "path": "cleanupSlice3Calibration",
+                "observed": "ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0",
+            }],
+        }
+        calibration = {
+            "status": "HOLD_INVALID_EVIDENCE",
+            "reasons": [{
+                "code": "SEMANTIC_INVARIANT_INVALID",
+                "path": "cleanupSlice3Calibration",
+                "observed": (
+                    "S3-A calibration was not admitted: "
+                    "ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0"
+                ),
+            }],
+        }
+        metrics = {
+            "cleanupSlice3Calibration": {
+                "captures": [{
+                    "strategy": "A",
+                    "workloads": [{
+                        "workloadId": "fixture",
+                        "oracleParityVerified": True,
+                        "runs": [{
+                            "runKey": "A/fixture/1",
+                            "repetition": 1,
+                            "executedTicks": 2,
+                            "referenceOracleInvocationCount": 2,
+                            "invariantMismatchCount": 0,
+                        }],
+                    }],
+                }],
+            },
+        }
+        script = r'''
+export RUN_TESTS_LIBRARY_ONLY=1
+source "$1/run_tests.sh"
+validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
+'''
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            paths = []
+            for name, value in (
+                ("manifest.json", manifest),
+                ("metrics.json", metrics),
+                ("performance.json", performance),
+                ("cleanup.json", cleanup),
+                ("calibration.json", calibration),
+            ):
+                path = root / name
+                path.write_text(json.dumps(value), encoding="utf-8")
+                paths.append(path)
+            official_calibration = root / "official-calibration.json"
+            terminal_paths = [*paths[:4], official_calibration, paths[4]]
+
+            rejected_incomplete_manifest = subprocess.run(
+                [
+                    "bash", "-c", script, "smoke-envelope", str(REPO_ROOT),
+                    *map(str, terminal_paths),
+                ],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(0, rejected_incomplete_manifest.returncode)
+
+            cleanup["reasons"].append({"code": "IDENTITY_MISMATCH"})
+            paths[3].write_text(json.dumps(cleanup), encoding="utf-8")
+            rejected = subprocess.run(
+                [
+                    "bash", "-c", script, "smoke-envelope", str(REPO_ROOT),
+                    *map(str, terminal_paths),
+                ],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(0, rejected.returncode)
+
+    def test_allocation_smoke_routes_diagnostic_without_advancing_calibration(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        function = source.split("run_gameplay_performance() {", 1)[1].split(
+            "\n}\n\nrun_typography_visual()", 1
+        )[0]
+        allocation_branch = function.split(
+            '"$cleanup_allocation_diagnostic_path" calibration; then', 1
+        )[1].split('elif [ "$cleanup_allocation_only" -eq 1 ]; then', 1)[0]
+
+        self.assertIn("--allocation-diagnostic", function)
+        self.assertIn('calibration_validation_path="$cleanup_allocation_diagnostic_path"', function)
+        self.assertIn('"$cleanup_calibration_report_path"', function)
+        self.assertIn('"$cleanup_allocation_diagnostic_path"', function)
+        self.assertIn("--stage cleanupAdmission --stage-status HOLD", allocation_branch)
+        self.assertNotIn("--stage calibration", allocation_branch)
+        self.assertNotIn("--finalize-lifecycle", allocation_branch)
+
     def test_pre_provisional_failure_returns_transport_error_without_terminal_line(self) -> None:
         script = r'''
 set +e
@@ -181,7 +328,8 @@ exit 0
         )[0]
         self.assertIn('attempt_uuid="$(tr -d', function)
         self.assertIn('campaign_id="cleanup-s3a-$timestamp-$attempt_uuid"', function)
-        self.assertIn('evidence_dir="$GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT/$campaign_id"', function)
+        self.assertIn('capture_evidence_root="$GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT"', function)
+        self.assertIn('evidence_dir="$capture_evidence_root/$campaign_id"', function)
         self.assertIn('if ! mkdir -- "$evidence_dir"; then', function)
         self.assertIn('if ! mkdir -- "$build_dir"; then', function)
         self.assertNotIn('mkdir -p "$evidence_dir" "$build_dir"', function)
@@ -196,16 +344,109 @@ exit 0
         self.assertIn(" ERR", function)
         self.assertIn(" INT", function)
         self.assertIn(" TERM", function)
-        self.assertNotIn("return 130", function)
-        self.assertNotIn("return 143", function)
+        self.assertIn("return 130", function)
+        self.assertIn("return 143", function)
+        self.assertIn("trap '' INT TERM", source)
         self.assertGreaterEqual(function.count("trap - RETURN ERR INT TERM;"), 4)
-        self.assertGreaterEqual(function.count("gameplay_performance_attempt_return_guard"), 4)
-        self.assertIn('if [ "$attempt_manifest_ready" -ne 1 ]; then return 2; fi', function)
-        self.assertGreaterEqual(function.count("gameplay_performance_terminal_exit_from_manifest"), 2)
+        self.assertGreaterEqual(function.count("gameplay_performance_attempt_return_guard"), 2)
+        self.assertGreaterEqual(function.count("gameplay_performance_signal_return_guard"), 2)
+        self.assertIn('if [ "$attempt_manifest_ready" -ne 1 ]; then', function)
+        self.assertGreaterEqual(function.count("gameplay_performance_terminal_exit_from_manifest"), 1)
         self.assertGreaterEqual(
             function.count("require_gameplay_performance_hold_manifest"),
             8,
         )
+
+    def test_attempt_guard_rejects_and_cleans_owned_process_survivors(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        helper = source.split("gameplay_performance_attempt_return_guard() {", 1)[1].split(
+            "\n}\n\ngameplay_performance_signal_return_guard()", 1
+        )[0]
+        self.assertIn('wait_for_terminal_player_exit "$player_path_win"', helper)
+        self.assertIn('terminate_terminal_player_processes "$player_path_win"', helper)
+        self.assertIn("gameplay_performance_wait_for_no_unity_processes", helper)
+        self.assertIn("terminate_current_project_unity_processes", helper)
+
+    def test_unexpected_err_cannot_be_converted_to_smoke_success(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        function = source.split("run_gameplay_performance() {", 1)[1].split(
+            "\n}\n\nrun_typography_visual()", 1
+        )[0]
+        err_traps = [
+            line.strip()
+            for line in function.splitlines()
+            if line.strip().startswith("trap '") and line.rstrip().endswith(" ERR")
+        ]
+        self.assertGreaterEqual(len(err_traps), 2)
+        self.assertTrue(all("return 2" in line for line in err_traps))
+
+    def test_success_line_follows_explicit_final_process_inventory(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        function = source.split("run_gameplay_performance() {", 1)[1].split(
+            "\n}\n\nrun_typography_visual()", 1
+        )[0]
+        manifest_write = function.index('} > "$evidence_dir/manifest.txt"')
+        final_inventory = function.index(
+            "gameplay_performance_attempt_return_guard", manifest_write
+        )
+        success_line = function.index('echo "$terminal_message"', final_inventory)
+        self.assertLess(manifest_write, final_inventory)
+        self.assertLess(final_inventory, success_line)
+
+    def test_all_cleanup_entry_paths_ignore_repeated_signals(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        ignored_signal_traps = source.count("trap '' INT TERM") + source.count(
+            'trap "" INT TERM'
+        )
+        self.assertGreaterEqual(ignored_signal_traps, 3)
+
+    def test_smoke_verifier_is_single_process_atomic_and_transport_strict(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        helper = source.split("validate_cleanup_s3_capture_smoke_terminal() {", 1)[1].split(
+            "\n}\n\nis_cleanup_s3_capture_smoke_allocation_only_report()", 1
+        )[0]
+        self.assertNotIn("--print-terminal-status", helper)
+        self.assertIn("validate_final_manifest_transport(manifest)", helper)
+        self.assertIn("capture_input_snapshots", helper)
+        self.assertIn("validate_input_snapshots", helper)
+
+    def test_process_inventory_queries_fail_closed(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        player_query = source.split("terminal_player_windows_pids() {", 1)[1].split(
+            "\n}\n\nwait_for_terminal_player_exit()", 1
+        )[0]
+        self.assertNotIn("|| true", player_query)
+        self.assertIn("command -v powershell.exe", player_query)
+        self.assertIn("ExecutablePath", player_query)
+        self.assertIn("throw", player_query)
+        unity_query = source.split(
+            "visual_guard_iter_windows_unity_process_records() {", 1
+        )[1].split("\n}\n\nvisual_guard_iter_unity_process_records()", 1)[0]
+        self.assertIn("Unity process command line is unavailable", unity_query)
+        self.assertIn("Unity process command line parsing failed", unity_query)
+        self.assertIn("Unity project path is indeterminate", unity_query)
+
+    def test_final_cleanup_latches_first_signal_and_waits_for_unity_quiet_period(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        function = source.split("run_gameplay_performance() {", 1)[1].split(
+            "\n}\n\nrun_typography_visual()", 1
+        )[0]
+        self.assertIn("final_signal_status=130", function)
+        self.assertIn("final_signal_status=143", function)
+        self.assertEqual(
+            2,
+            function.count('if [ "$final_signal_status" -eq 0 ]; then'),
+        )
+        self.assertIn('return "$final_signal_status"', function)
+        guard = source.split("gameplay_performance_attempt_return_guard() {", 1)[1].split(
+            "\n}\n\ngameplay_performance_signal_return_guard()", 1
+        )[0]
+        self.assertIn("gameplay_performance_wait_for_no_unity_processes", guard)
+        quiet = source.split("gameplay_performance_wait_for_no_unity_processes() {", 1)[1].split(
+            "\n}\n\nfind_current_project_windows_unity_processes()", 1
+        )[0]
+        self.assertIn("grace_deadline_ms", quiet)
+        self.assertIn("quiet_started_at_ms", quiet)
 
     def test_runner_preserves_admission_infrastructure_exit_class(self) -> None:
         source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
@@ -230,7 +471,7 @@ exit 0
     def test_attempt_fallback_strictly_reads_the_finalized_hold(self) -> None:
         source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
         helper = source.split("gameplay_performance_attempt_return_guard() {", 1)[1].split(
-            "\n}\n\nrequire_gameplay_performance_hold_manifest()", 1
+            "\n}\n\ngameplay_performance_signal_return_guard()", 1
         )[0]
         self.assertIn("--finalize-infrastructure-failure", helper)
         self.assertIn('require_gameplay_performance_hold_manifest "$manifest_path"', helper)

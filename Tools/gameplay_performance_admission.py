@@ -16,9 +16,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
-    from Tools.gameplay_evidence_v4 import EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, reason, validate_attempt_identity
+    from Tools.gameplay_evidence_v4 import EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, reason, validate_attempt_identity, validate_v4_context_pair
 except ModuleNotFoundError:
-    from gameplay_evidence_v4 import EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, reason, validate_attempt_identity
+    from gameplay_evidence_v4 import EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, reason, validate_attempt_identity, validate_v4_context_pair
 
 
 ADMITTED = "ADMITTED"
@@ -721,6 +721,8 @@ def _build_parser() -> argparse.ArgumentParser:
     metrics_parser.add_argument("--expected-warmup-frames", required=True, type=int)
     metrics_parser.add_argument("--expected-sample-frames", required=True, type=int)
     metrics_parser.add_argument("--expected-tick-interval", required=True, type=int)
+    metrics_parser.add_argument("--preflight-manifest", type=Path)
+    metrics_parser.add_argument("--artifact-manifest", type=Path)
     metrics_parser.add_argument("--output", type=Path)
 
     formal = subparsers.add_parser("formal", help="write a formal campaign admission record")
@@ -746,8 +748,13 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.command == "metrics":
         metrics_hash = None
         try:
-            metrics_path = arguments.metrics.resolve()
-            input_paths = (metrics_path, Path(__file__).resolve())
+            metrics_path = arguments.metrics
+            context_paths = tuple(
+                path
+                for path in (arguments.preflight_manifest, arguments.artifact_manifest)
+                if path is not None
+            )
+            input_paths = (metrics_path, Path(__file__).resolve(), *context_paths)
             input_snapshots = capture_input_snapshots(input_paths)
             metrics_hash = _sha256(metrics_path)
             metrics = load_json_object(metrics_path, "metrics")
@@ -780,6 +787,16 @@ def main(argv: list[str] | None = None) -> int:
                 "provenance": {"metricsSha256": metrics_hash, "performanceValidatorSha256": _sha256(Path(__file__).resolve())},
                 "inputHashes": {"metricsSha256": metrics_hash},
             }
+        context_reasons = validate_v4_context_pair(
+            arguments.preflight_manifest,
+            arguments.artifact_manifest,
+            metrics.get("captureIdentity") if "metrics" in locals() else None,
+            metrics_sha256=metrics_hash,
+        )
+        if context_reasons:
+            report["verdict"] = REJECTED_IDENTITY
+            report["reasons"] = list(report.get("reasons", [])) + context_reasons
+            verdict = REJECTED_IDENTITY
         if arguments.output is not None:
             try:
                 atomic_json(

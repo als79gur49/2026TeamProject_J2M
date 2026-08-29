@@ -16,9 +16,9 @@ except ModuleNotFoundError:
     from gameplay_cleanup_slice3_admission import ADMITTED, _load_workload_contract, validate_cleanup_slice3
 
 try:
-    from Tools.gameplay_evidence_v4 import EvidenceError, atomic_json, evidence_identity, load_json_object
+    from Tools.gameplay_evidence_v4 import EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, validate_v4_context_pair
 except ModuleNotFoundError:
-    from gameplay_evidence_v4 import EvidenceError, atomic_json, evidence_identity, load_json_object
+    from gameplay_evidence_v4 import EvidenceError, atomic_json, capture_input_snapshots, evidence_identity, load_json_object, validate_v4_context_pair
 
 
 def derive_calibration(
@@ -325,8 +325,27 @@ def build_calibration_report(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("metrics", type=Path)
+    parser.add_argument("--preflight-manifest", type=Path)
+    parser.add_argument("--artifact-manifest", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
+    context_inputs = tuple(
+        path
+        for path in (arguments.preflight_manifest, arguments.artifact_manifest)
+        if path is not None
+    )
+    input_paths = (
+        arguments.metrics,
+        Path(__file__).resolve(),
+        Path(__file__).resolve().with_name("gameplay_cleanup_slice3_admission.py"),
+        (
+            Path(__file__).resolve().parent
+            / "contracts"
+            / "gameplay_cleanup_slice3_workloads_v2.json"
+        ),
+        *context_inputs,
+    )
+    input_snapshots = capture_input_snapshots(input_paths)
     try:
         provenance = _provenance(arguments.metrics)
         metrics = load_json_object(arguments.metrics, "metrics")
@@ -408,16 +427,29 @@ def main() -> int:
             aggregator_path=Path(__file__).resolve(),
             workload_contract_path=Path(__file__).resolve().parent / "contracts" / "gameplay_cleanup_slice3_workloads_v2.json",
         )
+    context_reasons = validate_v4_context_pair(
+        arguments.preflight_manifest,
+        arguments.artifact_manifest,
+        metrics.get("captureIdentity") if "metrics" in locals() else None,
+        metrics_sha256=provenance.get("metricsSha256") if "provenance" in locals() else None,
+    )
+    if context_reasons:
+        report["status"] = "HOLD_INVALID_EVIDENCE"
+        report["admitted"] = False
+        report["officialEvidence"] = False
+        report["attributionMaterial"] = None
+        report["captureOffNonInterfering"] = None
+        report["signalValid"] = None
+        report["observations"] = None
+        report["thresholds"] = None
+        report["campaignRules"] = None
+        report["reasons"] = list(report.get("reasons", [])) + context_reasons
     try:
         atomic_json(
             arguments.output,
             report,
-            inputs=(
-                arguments.metrics,
-                Path(__file__).resolve(),
-                Path(__file__).resolve().with_name("gameplay_cleanup_slice3_admission.py"),
-                Path(__file__).resolve().parent / "contracts" / "gameplay_cleanup_slice3_workloads_v2.json",
-            ),
+            inputs=input_paths,
+            expected_input_snapshots=input_snapshots,
         )
     except (EvidenceError, OSError) as error:
         print(json.dumps({"error": str(error)}, sort_keys=True))

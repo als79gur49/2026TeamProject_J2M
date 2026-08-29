@@ -28,7 +28,7 @@ LIVE_SOURCE_IDENTITY = live_source_identity(REPOSITORY_ROOT)
 
 
 class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
-    def test_input_mutation_before_replace_preserves_provisional_then_falls_back_to_valid_hold(self) -> None:
+    def test_live_identity_failure_before_replace_writes_valid_final_hold(self) -> None:
         repository_root, _ = self._repository_paths()
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -64,50 +64,77 @@ class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
             for stage, artifact_names in manifest_tool.STAGE_ARTIFACTS.items():
                 provisional["stages"][stage]["artifacts"] = list(artifact_names)
             manifest.write_text(json.dumps(provisional) + "\n", encoding="utf-8")
-            original_writer = manifest_tool.atomic_json
-
-            def mutate_then_write(*args: object, **kwargs: object) -> None:
-                paths["preflight_manifest"].write_text("mutated\n", encoding="utf-8")
-                original_writer(*args, **kwargs)
+            def reject_live_identity() -> None:
+                raise EvidenceError(
+                    "PRE_POST_WORKTREE_MISMATCH",
+                    "live.worktreeSha256",
+                    "expected",
+                    "observed",
+                )
 
             arguments = self._manifest_arguments(paths, manifest, 0, 0, 0)
             with contextlib.redirect_stdout(io.StringIO()):
-                with mock.patch.object(manifest_tool, "atomic_json", side_effect=mutate_then_write):
+                with mock.patch.object(
+                    manifest_tool,
+                    "_live_identity_pre_replace_check",
+                    return_value=reject_live_identity,
+                ):
                     status = manifest_tool.main(arguments)
 
-            self.assertEqual(1, status)
-            provisional = json.loads(manifest.read_text(encoding="utf-8"))
-            self.assertEqual("PROVISIONAL", provisional["manifestState"])
-
-            with contextlib.redirect_stdout(io.StringIO()):
-                fallback_status = manifest_tool.main(
-                    [
-                        "--finalize-infrastructure-failure",
-                        "--manifest", str(manifest),
-                        "--output", str(manifest),
-                    ]
-                )
-            self.assertEqual(0, fallback_status)
+            self.assertEqual(0, status)
             final = json.loads(manifest.read_text(encoding="utf-8"))
             self.assertEqual("HOLD", validate_final_manifest_transport(final))
             self.assertEqual("HOLD_INVALID_EVIDENCE", final["authoritativeVerdict"])
-            self.assertIn("FINAL_MANIFEST_UNAVAILABLE", {value["code"] for value in final["reasons"]})
+            self.assertEqual(
+                [
+                    {
+                        "code": "PRE_POST_WORKTREE_MISMATCH",
+                        "path": "live.worktreeSha256",
+                        "expected": "expected",
+                        "observed": "observed",
+                    }
+                ],
+                final["reasons"],
+            )
 
     def test_verified_hold_manifest_binds_rejected_evidence_and_tool_inputs(self) -> None:
         repository_root, script = self._repository_paths()
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             paths = self._create_paths(root, "REJECTED", "HOLD_INVALID_EVIDENCE")
+            allocation_diagnostic = root / "cleanup-s3a-allocation-diagnostic.json"
+            paths["cleanup_calibration"].replace(allocation_diagnostic)
+            paths["cleanup_calibration"] = root / "cleanup-s3a-calibration-report.json"
+            lifecycle = json.loads(paths["lifecycle_manifest"].read_text(encoding="utf-8"))
+            for name in (
+                "preflight", "build", "guardRestore", "player", "markerValidation",
+                "performanceAdmission",
+            ):
+                lifecycle["stages"][name]["status"] = "PASS"
+            lifecycle["stages"]["cleanupAdmission"]["status"] = "HOLD"
+            lifecycle["stages"]["cleanupAdmission"]["reasons"] = [
+                {
+                    "code": "CLEANUP_REJECTED",
+                    "path": "stages.cleanupAdmission",
+                    "expected": None,
+                    "observed": None,
+                }
+            ]
+            lifecycle["stages"]["calibration"]["status"] = "NOT_RUN"
+            lifecycle["stages"]["consistencyFinalization"]["status"] = "NOT_RUN"
+            paths["lifecycle_manifest"].write_text(
+                json.dumps(lifecycle) + "\n",
+                encoding="utf-8",
+            )
             output_path = root / "evidence-verdict-manifest.json"
-
-            completed = self._run_manifest(
-                repository_root,
-                script,
-                paths,
-                output_path,
-                performance_status=0,
-                cleanup_admission_status=1,
-                cleanup_calibration_status=1,
+            arguments = self._manifest_arguments(paths, output_path, 0, 1, 1)
+            arguments.extend(("--allocation-diagnostic", str(allocation_diagnostic)))
+            completed = subprocess.run(
+                [sys.executable, str(script), *arguments],
+                cwd=repository_root,
+                check=False,
+                capture_output=True,
+                text=True,
             )
 
             self.assertEqual(0, completed.returncode, completed.stderr)
@@ -130,11 +157,92 @@ class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
                 "preflightManifest",
                 "artifactManifest",
                 "cleanupAdmission",
-                "cleanupCalibration",
             ):
                 source_key = self._source_key(name)
                 self.assertEqual("PRESENT", result["artifacts"][name]["state"])
                 self.assertEqual(hashlib.sha256(paths[source_key].read_bytes()).hexdigest(), result["artifacts"][name]["sha256"])
+            self.assertEqual(
+                "NOT_APPLICABLE",
+                result["artifacts"]["cleanupCalibration"]["state"],
+            )
+            self.assertEqual(result["identity"]["metricsRevision"], result["identity"]["preBuildHeadSha"])
+            self.assertTrue(result["identity"]["workloadIds"])
+            self.assertTrue(result["identity"]["orderedRunKeys"])
+            self.assertEqual("HOLD", validate_final_manifest_transport(result))
+
+            terminal_script = r'''
+export RUN_TESTS_LIBRARY_ONLY=1
+source "$1/run_tests.sh"
+validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
+'''
+            terminal_arguments = [
+                "bash", "-c", terminal_script, "allocation-terminal",
+                str(repository_root), str(output_path), str(paths["metrics"]),
+                str(paths["performance_admission"]), str(paths["cleanup_admission"]),
+                str(paths["cleanup_calibration"]), str(allocation_diagnostic),
+            ]
+            accepted_terminal = subprocess.run(
+                terminal_arguments,
+                cwd=repository_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, accepted_terminal.returncode, accepted_terminal.stderr)
+
+            canonical_diagnostic = allocation_diagnostic.read_bytes()
+            allocation_diagnostic.write_text(
+                json.dumps({
+                    "status": "HOLD_INVALID_EVIDENCE",
+                    "reasons": [{
+                        "code": "SEMANTIC_INVARIANT_INVALID",
+                        "path": "cleanupSlice3Calibration",
+                        "expected": None,
+                        "observed": (
+                            "S3-A calibration was not admitted: "
+                            "ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0"
+                        ),
+                    }],
+                }) + "\n",
+                encoding="utf-8",
+            )
+            tampered_terminal = subprocess.run(
+                terminal_arguments,
+                cwd=repository_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(0, tampered_terminal.returncode)
+
+            allocation_diagnostic.write_bytes(canonical_diagnostic)
+            paths["cleanup_calibration"].write_bytes(canonical_diagnostic)
+            collision_output = root / "official-calibration-collision.json"
+            collision_arguments = self._manifest_arguments(
+                paths, collision_output, 0, 1, 1
+            )
+            collision_arguments.extend(
+                ("--allocation-diagnostic", str(allocation_diagnostic))
+            )
+            collision = subprocess.run(
+                [sys.executable, str(script), *collision_arguments],
+                cwd=repository_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, collision.returncode, collision.stderr)
+            collision_manifest = json.loads(
+                collision_output.read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                "HOLD_INVALID_EVIDENCE",
+                collision_manifest["authoritativeVerdict"],
+            )
+            self.assertEqual(
+                "PRESENT",
+                collision_manifest["artifacts"]["cleanupCalibration"]["state"],
+            )
 
     def test_ready_evidence_is_held_until_full_scan_oracle_is_approved(self) -> None:
         repository_root, script = self._repository_paths()
@@ -160,6 +268,10 @@ class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
                 result["identity"]["manifestToolSha256"],
                 result["artifacts"]["manifestTool"]["sha256"],
             )
+            forged_identity = copy.deepcopy(result)
+            forged_identity["identity"]["runnerSha256"] = "f" * 64
+            with self.assertRaises(EvidenceError):
+                validate_final_manifest_transport(forged_identity)
             forged = copy.deepcopy(result)
             forged["terminalStatus"] = "PASS"
             forged["authoritativeVerdict"] = "READY"
@@ -169,6 +281,51 @@ class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
             with self.assertRaises(EvidenceError) as context:
                 validate_final_manifest_transport(forged)
             self.assertIn("FULL_SCAN_EXPECTATION_UNAPPROVED", str(context.exception))
+
+    def test_smoke_terminal_rejects_duplicate_member_in_bound_admission_report(self) -> None:
+        repository_root, script = self._repository_paths()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            paths = self._create_paths(root, "ADMITTED", "READY")
+            output_path = root / "ready.json"
+            completed = self._run_manifest(
+                repository_root, script, paths, output_path, 0, 0, 0
+            )
+            self.assertEqual(0, completed.returncode, completed.stderr)
+
+            performance_path = paths["performance_admission"]
+            original = performance_path.read_text(encoding="utf-8")
+            tampered = original.replace(
+                '"verdict": "ADMITTED"',
+                '"verdict": "REJECTED_IDENTITY", "verdict": "ADMITTED"',
+                1,
+            )
+            self.assertNotEqual(original, tampered)
+            performance_path.write_text(tampered, encoding="utf-8")
+            manifest = json.loads(output_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["performanceAdmission"]["sha256"] = hashlib.sha256(
+                performance_path.read_bytes()
+            ).hexdigest()
+            output_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+
+            terminal_script = r'''
+export RUN_TESTS_LIBRARY_ONLY=1
+source "$1/run_tests.sh"
+validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
+'''
+            terminal = subprocess.run(
+                [
+                    "bash", "-c", terminal_script, "duplicate-admission",
+                    str(repository_root), str(output_path), str(paths["metrics"]),
+                    str(performance_path), str(paths["cleanup_admission"]),
+                    str(paths["cleanup_calibration"]), str(root / "allocation.json"),
+                ],
+                cwd=repository_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(0, terminal.returncode)
 
     def test_pre_post_source_identity_mismatch_cannot_pass_v4(self) -> None:
         repository_root, script = self._repository_paths()
@@ -519,7 +676,7 @@ class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
                 run["runKey"] = f"A/{workload['workloadId']}/{repetition}"
                 workload["runs"].append(run)
         if admission_verdict != "ADMITTED":
-            cleanup["captures"][0]["workloads"][0]["runs"][0]["hiddenFallbackCount"] = 1
+            cleanup["frameAllocationCalibration"]["allocationCounterProbeBytes"] = 0
         if calibration_status == "DEFERRED_NOT_MATERIAL":
             for run in cleanup["captures"][0]["workloads"][0]["runs"]:
                 for key in ("median", "p95", "p99", "maximum"):

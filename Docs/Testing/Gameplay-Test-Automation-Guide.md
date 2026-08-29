@@ -505,6 +505,7 @@ WSL CLI
 ./run_tests.sh climate-glyph-update
 ./run_tests.sh typography-visual
 ./run_tests.sh gameplay-performance
+./run_tests.sh cleanup-s3-capture-smoke
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
@@ -551,6 +552,11 @@ WSL CLI
   - 제품 성능 예산이 아직 고정되지 않았으므로 `GAMEPLAY_PERFORMANCE:PASS`는 capture/instrumentation 성공만 뜻하고 metrics의 `budgetVerdict`는 `NOT_CONFIGURED`로 남긴다.
   - Unity build가 건드릴 수 있는 ProjectSettings, Scriptable Build Pipeline 설정, PC render pipeline asset, Addressables settings/Windows metadata와 generated `link.xml`은 build 전 존재 여부와 byte snapshot으로 복원한다. 기존 사용자 변경을 canonical state로 간주하여 덮어쓰지 않는다.
   - 새 evidence는 `/mnt/d/J2M/evidence/gameplay-performance`, build는 `/mnt/d/J2M/builds/gameplay-performance` 아래 timestamp 디렉터리에 저장한다. 이 lane은 성능 수집이며 `core`, `ui`, `full` 회귀 검증을 대체하지 않는다.
+- `./run_tests.sh cleanup-s3-capture-smoke`
+  - `VECTORQUAKE_CAPTURE_BUILD` Player에서 Cleanup S3-A actual producer JSON을 생성하고 reference cardinality/parity, v4 context, performance/Cleanup admission, calibration, final manifest transport를 한 경계로 검증한다.
+  - 공식 성능 capture나 성능 verdict가 아니다. evidence와 build는 각각 `/mnt/d/J2M/evidence/cleanup-s3-capture-smoke/<uuid>`와 `/mnt/d/J2M/builds/cleanup-s3-capture-smoke/<uuid>`의 exclusive leaf에 저장하며 `gameplay-performance` namespace를 사용하지 않는다.
+  - allocation signal이 유효하면 final v4 manifest는 미승인 full-scan expectation 때문에 authoritative `HOLD`를 유지한다. 현재 머신처럼 allocation liveness가 `0`이면 exact allocation-only Cleanup rejection/Hold만 허용하며 reference sub-contract는 계속 green이어야 한다.
+  - wrapper 성공은 `Cleanup S3 capture smoke: PASS (non-official; authoritative manifest remains HOLD)`만 출력한다. 이는 `core`, `ui`, `full`, 공식 capture를 대체하지 않는다.
 - `./run_tests.sh full`
   - 안정화 직전, 통합 직전, 혹은 넓은 회귀를 조사할 때 사용한다.
   - governance 검사 후 Windows solution build, Unity Full EditMode, Unity Full PlayMode를 실행한다.
@@ -579,6 +585,7 @@ WSL CLI
 ./run_tests.sh climate-glyph-update
 ./run_tests.sh typography-visual
 ./run_tests.sh gameplay-performance
+./run_tests.sh cleanup-s3-capture-smoke
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
@@ -625,6 +632,11 @@ WSL CLI
   - Because no product performance budget is pinned yet, `GAMEPLAY_PERFORMANCE:PASS` means capture/instrumentation success only and `budgetVerdict` remains `NOT_CONFIGURED`.
   - Restores ProjectSettings, Scriptable Build Pipeline settings, the PC render-pipeline asset, Addressables settings/Windows metadata, and generated `link.xml` to their pre-build existence state and byte snapshots, treating pre-existing user changes as the state to preserve.
   - Stores timestamped evidence under `/mnt/d/J2M/evidence/gameplay-performance` and builds under `/mnt/d/J2M/builds/gameplay-performance`. This performance capture does not replace `core`, `ui`, or `full` regression validation.
+- `./run_tests.sh cleanup-s3-capture-smoke`
+  - Produces actual Cleanup S3-A JSON in a `VECTORQUAKE_CAPTURE_BUILD` Player and validates reference cardinality/parity, v4 context, performance/Cleanup admission, calibration, and final-manifest transport as one cross-boundary chain.
+  - This is not an official performance capture or performance verdict. It uses exclusive UUID leaves under `/mnt/d/J2M/evidence/cleanup-s3-capture-smoke` and `/mnt/d/J2M/builds/cleanup-s3-capture-smoke`, never the `gameplay-performance` namespace.
+  - With a valid allocation signal, the final v4 manifest remains authoritatively `HOLD` only because the full-scan expectation is unapproved. If allocation liveness is `0`, only the exact allocation-only Cleanup rejection/Hold envelope is accepted and the reference sub-contract must still be green.
+  - The only wrapper success line is `Cleanup S3 capture smoke: PASS (non-official; authoritative manifest remains HOLD)`. It does not replace `core`, `ui`, `full`, or an official capture.
 - `./run_tests.sh full`
   - Use before stabilization, integration, or when investigating broader regressions.
   - Runs governance first, then Windows solution build, then Unity Full EditMode and Full PlayMode.

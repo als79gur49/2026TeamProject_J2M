@@ -603,6 +603,47 @@ class GameplayPerformanceAdmissionTests(unittest.TestCase):
         self.assertEqual(4, report["evidenceContractVersion"])
         self.assertIn("reasons", report)
 
+    def test_metrics_standalone_missing_v4_context_fails_closed(self) -> None:
+        self.metrics = v4_metrics()
+        self.write_inputs()
+        output_path = self.root / "performance-context-rejection.json"
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(VALIDATOR_PATH),
+                "metrics",
+                "--metrics",
+                str(self.metrics_path),
+                "--planned-revision",
+                REVISION,
+                "--expected-width",
+                "1920",
+                "--expected-height",
+                "1080",
+                "--expected-warmup-frames",
+                "120",
+                "--expected-sample-frames",
+                "1200",
+                "--expected-tick-interval",
+                "1",
+                "--output",
+                str(output_path),
+            ],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertNotEqual(0, completed.returncode)
+        report = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertTrue(any(
+            value.get("code") == "IDENTITY_FIELD_MISSING"
+            and value.get("path") == "evidenceContext.preflightManifest"
+            for value in report["reasons"]
+        ))
+
 
 if __name__ == "__main__":
     unittest.main()

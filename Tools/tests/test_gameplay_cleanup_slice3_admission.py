@@ -9,7 +9,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from Tools import gameplay_cleanup_slice3_admission as admission_tool
 from Tools.gameplay_cleanup_slice3_admission import ADMITTED, REJECTED, build_admission_report, validate_cleanup_slice3
 
 
@@ -146,8 +148,47 @@ def v4_document() -> dict[str, object]:
 
 
 class CleanupSlice3AdmissionTests(unittest.TestCase):
+    def test_standalone_missing_v4_context_fails_closed(self) -> None:
+        from Tools.tests.test_gameplay_performance_admission import v4_metrics
+
+        repository_root = Path(__file__).resolve().parents[2]
+        script = repository_root / "Tools" / "gameplay_cleanup_slice3_admission.py"
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            metrics_path = root / "metrics.json"
+            output_path = root / "cleanup-admission.json"
+            metrics = v4_metrics()
+            metrics["cleanupSlice3Calibration"] = v4_document()
+            metrics_path.write_text(json.dumps(metrics), encoding="utf-8")
+
+            completed = subprocess.run(
+                [sys.executable, str(script), str(metrics_path), "--output", str(output_path)],
+                cwd=repository_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertNotEqual(0, completed.returncode)
+            report = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(any(
+                value.get("code") == "IDENTITY_FIELD_MISSING"
+                and value.get("path") == "evidenceContext.preflightManifest"
+                for value in report["reasons"]
+            ))
+
     def test_valid_v4_captures_only_fixture_is_admitted(self) -> None:
         verdict, reasons = validate_cleanup_slice3(v4_document(), ("A",), require_v4=True)
+        self.assertEqual(ADMITTED, verdict, reasons)
+
+    def test_v4_raw_membership_does_not_require_processed_count_equality(self) -> None:
+        value = v4_document()
+        stress_run = value["captures"][0]["workloads"][1]["runs"][0]
+        stress_run["timerProcessedCount"] -= 1
+        stress_run["transitionProcessedCount"] -= 2
+
+        verdict, reasons = validate_cleanup_slice3(value, ("A",), require_v4=True)
+
         self.assertEqual(ADMITTED, verdict, reasons)
 
     def test_v4_allocation_signal_is_exact_and_typed(self) -> None:
@@ -525,6 +566,66 @@ class CleanupSlice3AdmissionTests(unittest.TestCase):
 
             self.assertEqual(2, completed.returncode)
             self.assertEqual(before, metrics_path.read_bytes())
+
+    def test_metrics_mutation_after_validation_is_rejected_before_output_replace(self) -> None:
+        from Tools.tests.test_gameplay_performance_admission import v4_metrics
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            metrics_path = root / "metrics.json"
+            output_path = root / "admission.json"
+            metrics = v4_metrics()
+            metrics["cleanupSlice3Calibration"] = document("A")
+            metrics_path.write_text(json.dumps(metrics), encoding="utf-8")
+
+            def mutate_metrics(*_args: object, **_kwargs: object) -> list[dict[str, object]]:
+                metrics_path.write_text(json.dumps({"mutated": True}), encoding="utf-8")
+                return []
+
+            argv = [
+                str(Path(admission_tool.__file__).resolve()),
+                str(metrics_path),
+                "--output",
+                str(output_path),
+            ]
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(
+                    admission_tool,
+                    "validate_v4_context_pair",
+                    side_effect=mutate_metrics,
+                ):
+                    status = admission_tool.main()
+
+            self.assertEqual(2, status)
+            self.assertFalse(output_path.exists())
+
+    def test_metrics_symlink_retarget_after_validation_is_rejected(self) -> None:
+        from Tools.tests.test_gameplay_performance_admission import v4_metrics
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            first = root / "first.json"
+            second = root / "second.json"
+            metrics_path = root / "metrics-link.json"
+            output_path = root / "admission.json"
+            metrics = v4_metrics()
+            metrics["cleanupSlice3Calibration"] = document("A")
+            first.write_text(json.dumps(metrics), encoding="utf-8")
+            second.write_text(json.dumps({"mutated": True}), encoding="utf-8")
+            metrics_path.symlink_to(first)
+
+            def retarget(*_args: object, **_kwargs: object) -> list[dict[str, object]]:
+                metrics_path.unlink()
+                metrics_path.symlink_to(second)
+                return []
+
+            argv = [str(Path(admission_tool.__file__).resolve()), str(metrics_path), "--output", str(output_path)]
+            with mock.patch.object(sys, "argv", argv):
+                with mock.patch.object(admission_tool, "validate_v4_context_pair", side_effect=retarget):
+                    status = admission_tool.main()
+
+            self.assertEqual(2, status)
+            self.assertFalse(output_path.exists())
 
     def assert_rejected_with(
         self, value: dict[str, object], strategies: tuple[str, ...], code: str

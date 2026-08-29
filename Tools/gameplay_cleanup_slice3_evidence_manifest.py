@@ -101,6 +101,108 @@ def artifact(path: Path | None, missing_code: str = "ARTIFACT_MISSING") -> dict[
     }
 
 
+def not_applicable_artifact(path: Path) -> dict[str, Any]:
+    return {
+        "path": str(path.resolve(strict=False)),
+        "state": "NOT_APPLICABLE",
+        "sha256": None,
+        "missingReasonCode": None,
+    }
+
+
+def path_lexically_exists(path: Path) -> bool:
+    return path.exists() or path.is_symlink()
+
+
+_ALLOCATION_ONLY_CLEANUP_OBSERVED = (
+    "ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0"
+)
+_ALLOCATION_ONLY_DIAGNOSTIC_OBSERVED = (
+    "S3-A calibration was not admitted: " + _ALLOCATION_ONLY_CLEANUP_OBSERVED
+)
+
+
+def is_allocation_only_cleanup_report(document: Any) -> bool:
+    reasons = document.get("reasons") if isinstance(document, dict) else None
+    return (
+        document.get("verdict") == "REJECTED"
+        and isinstance(reasons, list)
+        and len(reasons) == 1
+        and reasons[0] == {
+            "code": "SEMANTIC_INVARIANT_INVALID",
+            "path": "cleanupSlice3Calibration",
+            "expected": None,
+            "observed": _ALLOCATION_ONLY_CLEANUP_OBSERVED,
+        }
+    )
+
+
+def is_allocation_only_diagnostic_report(document: Any) -> bool:
+    reasons = document.get("reasons") if isinstance(document, dict) else None
+    return (
+        document.get("status") == "HOLD_INVALID_EVIDENCE"
+        and document.get("admitted") is False
+        and isinstance(reasons, list)
+        and len(reasons) == 1
+        and reasons[0] == {
+            "code": "SEMANTIC_INVARIANT_INVALID",
+            "path": "cleanupSlice3Calibration",
+            "expected": None,
+            "observed": _ALLOCATION_ONLY_DIAGNOSTIC_OBSERVED,
+        }
+    )
+
+
+def validate_allocation_diagnostic_contract(
+    *,
+    metrics: Path,
+    allocation_diagnostic: Path,
+    cleanup_calibration: Path,
+    validator: Path,
+    aggregator: Path,
+    workload_contract: Path,
+) -> dict[str, Any]:
+    if path_lexically_exists(cleanup_calibration):
+        raise EvidenceError(
+            "SEMANTIC_INVARIANT_INVALID",
+            "cleanupCalibrationArtifactPath",
+            "absent for allocation-only diagnostic",
+            str(cleanup_calibration.resolve(strict=False)),
+        )
+    metrics_hash = try_sha256(metrics)
+    if metrics_hash is None:
+        raise EvidenceError(
+            "ARTIFACT_MISSING",
+            "metrics",
+            "readable regular file",
+            str(metrics.resolve(strict=False)),
+        )
+    metrics_document = load_json_object(metrics, "metrics")
+    diagnostic = load_json_object(allocation_diagnostic, "allocationDiagnostic")
+    canonical = build_calibration_report(
+        metrics_document,
+        metrics_sha256=metrics_hash,
+        validator_path=validator,
+        aggregator_path=aggregator,
+        workload_contract_path=workload_contract,
+    )
+    if diagnostic != canonical:
+        raise EvidenceError(
+            "PERSISTED_REPORT_MISMATCH",
+            "allocationDiagnostic",
+            canonical,
+            diagnostic,
+        )
+    if not is_allocation_only_diagnostic_report(diagnostic):
+        raise EvidenceError(
+            "SEMANTIC_INVARIANT_INVALID",
+            "allocationDiagnostic",
+            "exact allocation-only Cleanup rejection diagnostic",
+            diagnostic.get("status"),
+        )
+    return diagnostic
+
+
 def empty_stages() -> dict[str, Any]:
     return {name: {"status": "NOT_RUN", "reasons": [], "artifacts": []} for name in STAGE_NAMES}
 
@@ -222,6 +324,27 @@ def finalize_lifecycle(document: dict[str, Any], terminal_status: str, authorita
                 manifest_tool_sha256=identity["manifestToolSha256"],
                 workload_contract_sha256=identity["workloadContractSha256"],
             )
+        metrics_record = document.get("artifacts", {}).get("metrics")
+        if (
+            isinstance(metrics_record, dict)
+            and metrics_record.get("state") == "PRESENT"
+            and isinstance(metrics_record.get("path"), str)
+        ):
+            try:
+                metrics_document = load_json_object(
+                    Path(metrics_record["path"]),
+                    "manifest.artifacts.metrics",
+                )
+            except EvidenceError:
+                identity["metricsSha256"] = metrics_record.get("sha256")
+            else:
+                derived = evidence_identity(metrics_document, metrics_record.get("sha256"))
+                if not validate_attempt_identity(metrics_document.get("captureIdentity")):
+                    document["identity"] = derived
+                else:
+                    for field, value in derived.items():
+                        if value is not None and (not isinstance(value, list) or value):
+                            identity[field] = value
     return document
 
 
@@ -298,6 +421,13 @@ def validate_final_manifest_transport(document: Any) -> str:
             "empty for PASS/DEFERRED",
             reasons,
         )
+    strict_identity_binding = (
+        authoritative != "HOLD_INVALID_EVIDENCE"
+        or (
+            len(reasons) == 1
+            and reasons[0].get("code") == "FULL_SCAN_EXPECTATION_UNAPPROVED"
+        )
+    )
     stages = document.get("stages")
     if not isinstance(stages, dict) or set(stages) != set(STAGE_NAMES):
         raise EvidenceError("FIELD_TYPE_INVALID", "finalManifest.stages", list(STAGE_NAMES), stages)
@@ -361,8 +491,17 @@ def validate_final_manifest_transport(document: Any) -> str:
                 or observed_hash is not None
             ):
                 raise EvidenceError("ARTIFACT_MISSING", f"finalManifest.artifacts.{name}", "missing coherent record", record)
-        elif record.get("sha256") is not None or record.get("missingReasonCode") is not None:
-            raise EvidenceError("SEMANTIC_INVARIANT_INVALID", f"finalManifest.artifacts.{name}", "not-applicable null hashes", record)
+        elif (
+            record.get("sha256") is not None
+            or record.get("missingReasonCode") is not None
+            or path_lexically_exists(Path(path_value))
+        ):
+            raise EvidenceError(
+                "SEMANTIC_INVARIANT_INVALID",
+                f"finalManifest.artifacts.{name}",
+                "not-applicable absent path with null hashes",
+                record,
+            )
     unknown_artifacts = set(artifacts) - REQUIRED_SUCCESS_ARTIFACTS
     if unknown_artifacts:
         raise EvidenceError(
@@ -453,7 +592,11 @@ def validate_final_manifest_transport(document: Any) -> str:
     }
     for field, artifact_name in artifact_identity_hashes.items():
         record = artifacts[artifact_name]
-        if record["state"] == "PRESENT" and identity[field] != record["sha256"]:
+        if (
+            record["state"] == "PRESENT"
+            and identity[field] != record["sha256"]
+            and strict_identity_binding
+        ):
             raise EvidenceError(
                 "IDENTITY_MISMATCH",
                 f"finalManifest.identity.{field}",
@@ -479,36 +622,60 @@ def validate_final_manifest_transport(document: Any) -> str:
                     list(STAGE_ARTIFACTS[name]),
                     stages[name]["artifacts"],
                 )
+    if artifacts["metrics"]["state"] == "PRESENT":
         if set(identity) != expected_identity_fields:
-            raise EvidenceError("FIELD_UNEXPECTED", "finalManifest.identity", sorted(expected_identity_fields), sorted(identity))
-        identity_issues = validate_attempt_identity(
-            {key: identity[key] for key in CAPTURE_IDENTITY_FIELDS}
+            raise EvidenceError(
+                "FIELD_UNEXPECTED",
+                "finalManifest.identity",
+                sorted(expected_identity_fields),
+                sorted(identity),
+            )
+        metrics_document = None
+        try:
+            metrics_document = load_json_object(
+                Path(artifacts["metrics"]["path"]),
+                "finalManifest.artifacts.metrics",
+            )
+        except EvidenceError:
+            if strict_identity_binding:
+                raise
+        complete_metrics_identity = (
+            metrics_document is not None
+            and metrics_document.get("schemaVersion") == 2
+            and metrics_document.get("evidenceContractVersion") == 4
+            and not validate_attempt_identity(metrics_document.get("captureIdentity"))
         )
-        if identity_issues:
-            issue = identity_issues[0]
-            raise EvidenceError(issue["code"], issue["path"], issue["expected"], issue["observed"])
-        expected_identity = evidence_identity(
-            load_json_object(Path(artifacts["metrics"]["path"]), "finalManifest.artifacts.metrics"),
-            artifacts["metrics"]["sha256"],
-        )
-        if identity != expected_identity:
+        if complete_metrics_identity and strict_identity_binding:
+            expected_identity = evidence_identity(
+                metrics_document,
+                artifacts["metrics"]["sha256"],
+            )
+            if identity != expected_identity:
+                raise EvidenceError(
+                    "IDENTITY_MISMATCH",
+                    "finalManifest.identity",
+                    expected_identity,
+                    identity,
+                )
+        elif strict_identity_binding:
             raise EvidenceError(
                 "IDENTITY_MISMATCH",
                 "finalManifest.identity",
-                expected_identity,
+                "complete v4 metrics identity",
                 identity,
             )
-        if any(
-            identity[field] != artifacts[name]["sha256"]
+        if strict_identity_binding and (any(
+            artifacts[name]["state"] == "PRESENT"
+            and identity[field] != artifacts[name]["sha256"]
             for field, name in artifact_identity_hashes.items()
-        ) or identity["workloadContractSha256"] != APPROVED_CLEANUP_S3_WORKLOAD_SHA256:
+        ) or identity["workloadContractSha256"] != APPROVED_CLEANUP_S3_WORKLOAD_SHA256):
             raise EvidenceError(
                 "IDENTITY_MISMATCH",
                 "finalManifest.identity.artifactHashes",
                 artifact_identity_hashes,
                 identity,
             )
-        if (
+        if complete_metrics_identity and (
             identity.get("metricsRevision") != identity.get("preBuildHeadSha")
             or not isinstance(identity.get("metricsSha256"), str)
             or SHA256_PATTERN.fullmatch(identity["metricsSha256"]) is None
@@ -693,11 +860,33 @@ def _validate_report(report: dict[str, Any] | None, label: str, success_field: s
     return value if isinstance(value, str) else None
 
 
+def _live_identity_pre_replace_check(lifecycle_identity: dict[str, Any]):
+    expected = {
+        "headSha": lifecycle_identity.get("preBuildHeadSha"),
+        "worktreeSha256": lifecycle_identity.get("preBuildWorktreeSha256"),
+        "runtimeTreeSha256": lifecycle_identity.get("runtimeTreeSha256"),
+    }
+    repository_root = canonical_repository_root(Path(__file__))
+
+    def check() -> None:
+        observed = live_source_identity(repository_root)
+        for field, code in (
+            ("headSha", "PRE_POST_HEAD_MISMATCH"),
+            ("worktreeSha256", "PRE_POST_WORKTREE_MISMATCH"),
+            ("runtimeTreeSha256", "RUNTIME_TREE_MISMATCH"),
+        ):
+            if observed[field] != expected[field]:
+                raise EvidenceError(code, f"live.{field}", expected[field], observed[field])
+
+    return check
+
+
 def build_manifest(
     *, metrics: Path, runtime_log: Path, preflight_manifest: Path, artifact_manifest: Path,
-    cleanup_admission: Path, cleanup_calibration: Path, validator: Path, aggregator: Path,
+    cleanup_admission: Path, cleanup_calibration: Path | None, validator: Path, aggregator: Path,
     workload_contract: Path, performance_admission_status: int, cleanup_admission_status: int,
     cleanup_calibration_status: int, performance_admission: Path | None = None,
+    allocation_diagnostic: Path | None = None,
     performance_validator: Path | None = None, runner: Path | None = None,
     player_artifact: Path | None = None, build_log: Path | None = None,
     build_root: Path | None = None,
@@ -713,13 +902,16 @@ def build_manifest(
         "runner": runner, "manifestTool": Path(__file__).resolve(),
         "playerArtifact": player_artifact, "buildLog": build_log,
     }
+    validation_paths = dict(input_paths)
+    if allocation_diagnostic is not None:
+        validation_paths["allocationDiagnostic"] = allocation_diagnostic
     initial_hashes = {
         name: try_sha256(path) if path is not None else None
-        for name, path in input_paths.items()
+        for name, path in validation_paths.items()
     }
     seen_paths: dict[Path, str] = {}
     seen_inodes: dict[tuple[int, int], str] = {}
-    for name, path in input_paths.items():
+    for name, path in validation_paths.items():
         if path is None:
             continue
         resolved = path.resolve(strict=False)
@@ -784,7 +976,9 @@ def build_manifest(
         )
     artifacts = {name: artifact(path) for name, path in input_paths.items()}
     for name, value in artifacts.items():
-        if value["state"] != "PRESENT":
+        if value["state"] != "PRESENT" and not (
+            name == "cleanupCalibration" and allocation_diagnostic is not None
+        ):
             _append(reasons, reason("ARTIFACT_MISSING", f"artifacts.{name}", "PRESENT", "MISSING"))
 
     preflight = _load_kv(preflight_manifest, "preflightManifest", reasons)
@@ -792,7 +986,16 @@ def build_manifest(
     metrics_document = _load_json(metrics, "metrics", reasons)
     performance = _load_json(performance_admission, "performanceAdmission", reasons)
     cleanup = _load_json(cleanup_admission, "cleanupAdmission", reasons)
-    calibration = _load_json(cleanup_calibration, "cleanupCalibration", reasons)
+    calibration = (
+        _load_json(cleanup_calibration, "cleanupCalibration", reasons)
+        if cleanup_calibration is not None and allocation_diagnostic is None
+        else None
+    )
+    diagnostic = (
+        _load_json(allocation_diagnostic, "allocationDiagnostic", reasons)
+        if allocation_diagnostic is not None
+        else None
+    )
     for marker_reason in validate_runtime_marker(runtime_log):
         _append(reasons, marker_reason)
 
@@ -811,7 +1014,7 @@ def build_manifest(
 
     identity_keys = (
         "CampaignId", "AttemptId", "AttemptOrdinal", "AttemptKind", "CaptureNonce", "Stage",
-        "ActiveStrategies", "PreBuildHeadSha", "PreBuildWorktreeSha256", "RuntimeTreeSha256",
+        "ActiveStrategies", "GitStatusShort", "PreBuildHeadSha", "PreBuildWorktreeSha256", "RuntimeTreeSha256",
         "RunnerSha256", "PerformanceValidatorSha256",
         "CleanupValidatorSha256", "AggregatorSha256", "ManifestToolSha256",
         "WorkloadContractSha256", "HarnessSha256",
@@ -937,6 +1140,7 @@ def build_manifest(
                 _append(reasons, reason("PERSISTED_REPORT_MISMATCH", "performanceAdmission", canonical_performance, performance))
     cleanup_verdict = _validate_report(cleanup, "cleanupAdmission", "verdict", {"ADMITTED"}, cleanup_admission_status, reasons)
     calibration_status = _validate_report(calibration, "cleanupCalibration", "status", {"READY", "DEFERRED_NOT_MATERIAL"}, cleanup_calibration_status, reasons)
+    canonical_cleanup = None
     if metrics_document is not None and cleanup is not None:
         canonical_cleanup = build_admission_report(
             metrics_document,
@@ -957,6 +1161,88 @@ def build_manifest(
         )
         if calibration != canonical_calibration:
             _append(reasons, reason("PERSISTED_REPORT_MISMATCH", "cleanupCalibration", canonical_calibration, calibration))
+    allocation_only = False
+    if allocation_diagnostic is not None:
+        diagnostic_status = _validate_report(
+            diagnostic,
+            "allocationDiagnostic",
+            "status",
+            {"READY", "DEFERRED_NOT_MATERIAL"},
+            cleanup_calibration_status,
+            reasons,
+        )
+        canonical_diagnostic = None
+        if metrics_document is not None and diagnostic is not None:
+            canonical_diagnostic = build_calibration_report(
+                metrics_document,
+                metrics_sha256=metrics_hash,
+                validator_path=validator,
+                aggregator_path=aggregator,
+                workload_contract_path=workload_contract,
+            )
+            if diagnostic != canonical_diagnostic:
+                _append(
+                    reasons,
+                    reason(
+                        "PERSISTED_REPORT_MISMATCH",
+                        "allocationDiagnostic",
+                        canonical_diagnostic,
+                        diagnostic,
+                    ),
+                )
+        allocation_only = (
+            cleanup is not None
+            and cleanup == canonical_cleanup
+            and is_allocation_only_cleanup_report(cleanup)
+            and diagnostic is not None
+            and diagnostic == canonical_diagnostic
+            and diagnostic_status == "HOLD_INVALID_EVIDENCE"
+            and is_allocation_only_diagnostic_report(diagnostic)
+        )
+        if not allocation_only:
+            _append(
+                reasons,
+                reason(
+                    "SEMANTIC_INVARIANT_INVALID",
+                    "allocationDiagnostic",
+                    "exact allocation-only Cleanup rejection diagnostic",
+                    diagnostic_status,
+                ),
+            )
+
+    if allocation_only:
+        if cleanup_calibration is None:
+            _append(
+                reasons,
+                reason(
+                    "FIELD_MISSING",
+                    "cleanupCalibrationArtifactPath",
+                    "planned authoritative artifact path",
+                    None,
+                ),
+            )
+        elif path_lexically_exists(cleanup_calibration):
+            _append(
+                reasons,
+                reason(
+                    "SEMANTIC_INVARIANT_INVALID",
+                    "cleanupCalibrationArtifactPath",
+                    "absent for allocation-only diagnostic",
+                    str(cleanup_calibration.resolve(strict=False)),
+                ),
+            )
+        else:
+            artifacts["cleanupCalibration"] = not_applicable_artifact(cleanup_calibration)
+    elif artifacts["cleanupCalibration"]["state"] != "PRESENT":
+        _append(
+            reasons,
+            reason(
+                "ARTIFACT_MISSING",
+                "artifacts.cleanupCalibration",
+                "PRESENT",
+                artifacts["cleanupCalibration"]["state"],
+            ),
+        )
     if calibration is not None:
         semantic = {
             "READY": (True, True, True, True, False),
@@ -993,7 +1279,7 @@ def build_manifest(
                 for field in ("captureOffNonInterfering", "observations", "campaignRules"):
                     _equal(reasons, "SEMANTIC_INVARIANT_INVALID", f"cleanupCalibration.{field}", None, calibration.get(field))
 
-    for name, path in input_paths.items():
+    for name, path in validation_paths.items():
         final_hash = try_sha256(path) if path is not None else None
         if final_hash != initial_hashes[name]:
             _append(reasons, reason("INPUT_MUTATED_DURING_VALIDATION", name, initial_hashes[name], final_hash))
@@ -1039,12 +1325,33 @@ def build_manifest(
             )
             stages = empty_stages()
         else:
-            for name in STAGE_NAMES[:-1]:
-                expected_status = (
-                    "DEFERRED"
-                    if name == "calibration" and calibration_status == "DEFERRED_NOT_MATERIAL"
-                    else "PASS"
-                )
+            semantic_hold_stage = None
+            if performance_verdict is not None and performance_verdict != "ADMITTED":
+                semantic_hold_stage = "performanceAdmission"
+            elif cleanup_verdict is not None and cleanup_verdict != "ADMITTED":
+                semantic_hold_stage = "cleanupAdmission"
+            elif calibration_status in {"HOLD_INVALID_SIGNAL", "HOLD_INVALID_EVIDENCE"}:
+                semantic_hold_stage = "calibration"
+            semantic_hold_index = (
+                STAGE_NAMES.index(semantic_hold_stage)
+                if semantic_hold_stage is not None
+                else None
+            )
+            for index, name in enumerate(STAGE_NAMES[:-1]):
+                if semantic_hold_index is not None:
+                    expected_status = (
+                        "PASS"
+                        if index < semantic_hold_index
+                        else "HOLD"
+                        if index == semantic_hold_index
+                        else "NOT_RUN"
+                    )
+                else:
+                    expected_status = (
+                        "DEFERRED"
+                        if name == "calibration" and calibration_status == "DEFERRED_NOT_MATERIAL"
+                        else "PASS"
+                    )
                 _equal(
                     reasons,
                     "STAGE_NOT_RUN",
@@ -1113,17 +1420,25 @@ def build_manifest(
         "HOLD_INVALID_SIGNAL": ("calibration", "SIGNAL_INVALID"),
     }
     semantic_hold = semantic_hold_stages.get(authoritative)
-    if terminal_status == "HOLD" and semantic_hold is not None:
-        hold_stage, hold_code = semantic_hold
+    existing_hold_stages = [
+        name for name in STAGE_NAMES if stages[name].get("status") == "HOLD"
+    ]
+    effective_hold_stage = semantic_hold[0] if semantic_hold is not None else None
+    if (
+        terminal_status == "HOLD"
+        and effective_hold_stage is None
+        and len(existing_hold_stages) == 1
+    ):
+        effective_hold_stage = existing_hold_stages[0]
+    if terminal_status == "HOLD" and effective_hold_stage is not None:
+        hold_stage = effective_hold_stage
         hold_index = STAGE_NAMES.index(hold_stage)
         for name in STAGE_NAMES[hold_index + 1:]:
             stages[name]["status"] = "NOT_RUN"
             stages[name]["reasons"] = []
             stages[name]["artifacts"] = []
         stages[hold_stage]["status"] = "HOLD"
-        stages[hold_stage]["reasons"] = [
-            value for value in reasons if value["code"] == hold_code
-        ]
+        stages[hold_stage]["reasons"] = list(reasons)
     else:
         stages["consistencyFinalization"]["status"] = "HOLD" if terminal_status == "HOLD" else "PASS"
         stages["consistencyFinalization"]["reasons"] = reasons if terminal_status == "HOLD" else []
@@ -1132,20 +1447,32 @@ def build_manifest(
         "cleanupAdmission": cleanup_admission_status,
         "cleanupCalibration": cleanup_calibration_status,
     }
-    if semantic_hold is not None:
-        hold_index = STAGE_NAMES.index(semantic_hold[0])
+    if terminal_status == "HOLD" and effective_hold_stage is not None:
+        hold_index = STAGE_NAMES.index(effective_hold_stage)
         final_exit_status = {
             name: value
             for name, value in final_exit_status.items()
             if STAGE_NAMES.index("calibration" if name == "cleanupCalibration" else name) <= hold_index
         }
-    return {
+    final_identity = {
+        field: (lifecycle_manifest or {}).get("identity", {}).get(field)
+        for field in CAPTURE_IDENTITY_FIELDS | DERIVED_IDENTITY_FIELDS
+    }
+    final_identity["workloadIds"] = final_identity.get("workloadIds") or []
+    final_identity["orderedRunKeys"] = final_identity.get("orderedRunKeys") or []
+    derived_identity = evidence_identity(metrics_document or {}, metrics_hash)
+    for field, value in derived_identity.items():
+        if value is not None and (not isinstance(value, list) or value):
+            final_identity[field] = value
+    document = {
         "schemaVersion": 4, "evidenceContractVersion": 4, "manifestState": "FINAL",
         "terminalStatus": terminal_status, "authoritativeVerdict": authoritative,
-        "identity": evidence_identity(metrics_document or {}, metrics_hash), "reasons": reasons,
+        "identity": final_identity, "reasons": reasons,
         "stages": stages, "artifacts": artifacts,
         "exitStatus": final_exit_status,
     }
+    validate_final_manifest_transport(document)
+    return document
 
 
 def parser() -> argparse.ArgumentParser:
@@ -1164,7 +1491,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--identity-json", default="{}")
     value.add_argument("--artifact-path", action="append", default=[])
     value.add_argument("--record-exit-status", action="append", default=[])
-    for name in ("metrics", "runtime-log", "preflight-manifest", "artifact-manifest", "performance-admission", "cleanup-admission", "cleanup-calibration", "performance-validator", "validator", "aggregator", "workload-contract", "runner", "player-artifact", "build-log", "build-root"):
+    for name in ("metrics", "runtime-log", "preflight-manifest", "artifact-manifest", "performance-admission", "cleanup-admission", "cleanup-calibration", "allocation-diagnostic", "performance-validator", "validator", "aggregator", "workload-contract", "runner", "player-artifact", "build-log", "build-root"):
         value.add_argument(f"--{name}", type=Path)
     value.add_argument("--performance-admission-status", type=int, default=1)
     value.add_argument("--cleanup-admission-status", type=int, default=1)
@@ -1175,6 +1502,8 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     arguments = parser().parse_args(argv)
+    pre_replace_check = None
+    final_evidence_attempt = False
     try:
         if arguments.print_terminal_status:
             if arguments.manifest is None:
@@ -1252,6 +1581,7 @@ def main(argv: list[str] | None = None) -> int:
                 document = finalize_infrastructure_failure(document)
             mutable_input = arguments.manifest
         else:
+            final_evidence_attempt = True
             required = ("manifest", "metrics", "runtime_log", "preflight_manifest", "artifact_manifest", "cleanup_admission", "cleanup_calibration", "validator", "aggregator", "workload_contract", "performance_validator", "runner", "player_artifact", "build_log", "build_root")
             missing = [name for name in required if getattr(arguments, name) is None]
             if missing:
@@ -1260,6 +1590,7 @@ def main(argv: list[str] | None = None) -> int:
                 arguments.manifest,
                 arguments.metrics, arguments.runtime_log, arguments.preflight_manifest, arguments.artifact_manifest,
                 arguments.performance_admission, arguments.cleanup_admission, arguments.cleanup_calibration,
+                arguments.allocation_diagnostic,
                 arguments.performance_validator, arguments.validator, arguments.aggregator, arguments.workload_contract,
                 arguments.runner, Path(__file__).resolve(),
                 arguments.player_artifact, arguments.build_log,
@@ -1272,6 +1603,7 @@ def main(argv: list[str] | None = None) -> int:
                 preflight_manifest=arguments.preflight_manifest, artifact_manifest=arguments.artifact_manifest,
                 performance_admission=arguments.performance_admission, cleanup_admission=arguments.cleanup_admission,
                 cleanup_calibration=arguments.cleanup_calibration, performance_validator=arguments.performance_validator,
+                allocation_diagnostic=arguments.allocation_diagnostic,
                 validator=arguments.validator, aggregator=arguments.aggregator,
                 workload_contract=arguments.workload_contract,
                 performance_admission_status=arguments.performance_admission_status,
@@ -1282,6 +1614,15 @@ def main(argv: list[str] | None = None) -> int:
                 build_root=arguments.build_root,
                 lifecycle_manifest=lifecycle_document,
             )
+            lifecycle_identity = lifecycle_document.get("identity")
+            if not isinstance(lifecycle_identity, dict):
+                raise EvidenceError(
+                    "JSON_ROOT_INVALID",
+                    "lifecycleManifest.identity",
+                    "object",
+                    lifecycle_identity,
+                )
+            pre_replace_check = _live_identity_pre_replace_check(lifecycle_identity)
             mutable_input = arguments.manifest
             forbidden_roots = (repository_root, arguments.build_root)
             tree_inputs = (arguments.build_root,)
@@ -1295,8 +1636,110 @@ def main(argv: list[str] | None = None) -> int:
             tree_inputs=tree_inputs,
             tree_input_hashes=tree_input_hashes,
             expected_input_snapshots=expected_input_snapshots,
+            pre_replace_check=pre_replace_check,
         )
     except (EvidenceError, OSError, ValueError) as error:
+        fallback_error_code = (
+            error.reason.get("code")
+            if isinstance(error, EvidenceError)
+            else None
+        )
+        fallback_safe_error = (
+            not isinstance(error, EvidenceError)
+            or fallback_error_code in {
+                "PRE_POST_HEAD_MISMATCH",
+                "PRE_POST_WORKTREE_MISMATCH",
+                "RUNTIME_TREE_MISMATCH",
+                "INPUT_MUTATED_DURING_VALIDATION",
+                "TREE_INPUT_MUTATED_DURING_VALIDATION",
+                "DIRECTORY_INPUT_MUTATED_DURING_VALIDATION",
+            }
+        )
+        if (
+            final_evidence_attempt
+            and fallback_safe_error
+            and arguments.manifest is not None
+            and arguments.output is not None
+        ):
+            try:
+                fallback_manifest_snapshot = capture_input_snapshots(
+                    (arguments.manifest,)
+                )
+                fallback_document = load_json_object(
+                    arguments.manifest, "lifecycleManifest"
+                )
+                fallback_artifact_inputs = tuple(
+                    Path(value["path"])
+                    for value in fallback_document.get("artifacts", {}).values()
+                    if isinstance(value, dict)
+                    and isinstance(value.get("path"), str)
+                )
+                fallback_inputs = (
+                    arguments.manifest,
+                    *fallback_artifact_inputs,
+                )
+                fallback_snapshots = (
+                    *fallback_manifest_snapshot,
+                    *capture_input_snapshots(fallback_artifact_inputs),
+                )
+                if isinstance(error, EvidenceError):
+                    fallback_stages = fallback_document.get("stages")
+                    if not isinstance(fallback_stages, dict):
+                        raise EvidenceError(
+                            "FIELD_TYPE_INVALID",
+                            "stages",
+                            "object",
+                            fallback_stages,
+                        )
+                    fallback_pending = [
+                        name
+                        for name in STAGE_NAMES
+                        if fallback_stages.get(name, {}).get("status") == "NOT_RUN"
+                    ]
+                    if not fallback_pending:
+                        raise EvidenceError(
+                            "STAGE_NOT_RUN",
+                            "stages",
+                            "at least one NOT_RUN stage",
+                            fallback_stages,
+                        )
+                    fallback_document = transition_manifest(
+                        fallback_document,
+                        fallback_pending[0],
+                        "HOLD",
+                        error.reason,
+                    )
+                    fallback_document = finalize_lifecycle(
+                        fallback_document,
+                        "HOLD",
+                        "HOLD_INVALID_EVIDENCE",
+                    )
+                else:
+                    fallback_document = finalize_infrastructure_failure(
+                        fallback_document
+                    )
+                fallback_forbidden_roots = (repository_root,)
+                if arguments.build_root is not None:
+                    fallback_forbidden_roots = (
+                        repository_root,
+                        arguments.build_root,
+                    )
+                atomic_json(
+                    arguments.output,
+                    fallback_document,
+                    inputs=fallback_inputs,
+                    mutable_input=arguments.manifest,
+                    forbidden_roots=fallback_forbidden_roots,
+                    expected_input_snapshots=fallback_snapshots,
+                )
+            except (EvidenceError, OSError, ValueError) as fallback_error:
+                print(json.dumps({
+                    "error": str(error),
+                    "fallbackError": str(fallback_error),
+                }, sort_keys=True))
+                return 1
+            print(json.dumps(fallback_document, sort_keys=True, allow_nan=False))
+            return 0
         print(json.dumps({"error": str(error)}, sort_keys=True))
         return 1
     print(json.dumps(document, sort_keys=True, allow_nan=False))

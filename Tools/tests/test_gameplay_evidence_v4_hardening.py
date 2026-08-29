@@ -13,13 +13,250 @@ from Tools.gameplay_evidence_v4 import (
     atomic_json,
     build_payload_sha256,
     capture_input_snapshots,
+    runtime_tree_sha256,
     sha256,
     validate_attempt_identity,
     validate_runtime_marker,
+    validate_v4_context_pair,
 )
 
 
 class GameplayEvidenceV4HardeningTests(unittest.TestCase):
+    def test_v4_context_pair_accepts_exact_binding_and_rejects_mixed_attempt(self) -> None:
+        metrics_sha256 = "d" * 64
+        runtime_log_sha256 = "e" * 64
+        identity = {
+            "campaignId": "fixture-campaign",
+            "attemptId": "fixture-attempt",
+            "attemptOrdinal": 1,
+            "attemptKind": "calibration",
+            "captureNonce": "fixture-nonce",
+            "stage": "S3-A",
+            "activeStrategies": ["A"],
+            "preBuildHeadSha": "1" * 40,
+            "preBuildWorktreeSha256": "2" * 64,
+            "postRestoreHeadSha": "1" * 40,
+            "postRestoreWorktreeSha256": "2" * 64,
+            "runtimeTreeSha256": runtime_tree_sha256("1" * 40, "2" * 64),
+            "playerArtifactSha256": "4" * 64,
+            "buildPayloadSha256": "5" * 64,
+            "runnerSha256": "6" * 64,
+            "performanceValidatorSha256": "7" * 64,
+            "cleanupValidatorSha256": "8" * 64,
+            "aggregatorSha256": "9" * 64,
+            "manifestToolSha256": "a" * 64,
+            "workloadContractSha256": "b" * 64,
+            "harnessSha256": "c" * 64,
+        }
+        shared = {
+            "CampaignId": identity["campaignId"],
+            "AttemptId": identity["attemptId"],
+            "AttemptOrdinal": str(identity["attemptOrdinal"]),
+            "AttemptKind": identity["attemptKind"],
+            "CaptureNonce": identity["captureNonce"],
+            "Stage": identity["stage"],
+            "ActiveStrategies": "A",
+            "PreBuildHeadSha": identity["preBuildHeadSha"],
+            "PreBuildWorktreeSha256": identity["preBuildWorktreeSha256"],
+            "RuntimeTreeSha256": identity["runtimeTreeSha256"],
+            "RunnerSha256": identity["runnerSha256"],
+            "PerformanceValidatorSha256": identity["performanceValidatorSha256"],
+            "CleanupValidatorSha256": identity["cleanupValidatorSha256"],
+            "AggregatorSha256": identity["aggregatorSha256"],
+            "ManifestToolSha256": identity["manifestToolSha256"],
+            "WorkloadContractSha256": identity["workloadContractSha256"],
+            "HarnessSha256": identity["harnessSha256"],
+            "ExpectedWidth": "1280",
+            "ExpectedHeight": "720",
+            "ExpectedWarmupFrames": "12",
+            "ExpectedSampleFrames": "24",
+            "ExpectedTickInterval": "2",
+        }
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            preflight = root / "preflight.txt"
+            captured = root / "captured.txt"
+
+            def write_context(
+                path: Path,
+                phase: str,
+                values: dict[str, str],
+                *,
+                git_status: str = "",
+                extra: dict[str, str] | None = None,
+            ) -> None:
+                document = {
+                    "SchemaVersion": "2",
+                    "EvidenceContractVersion": "4",
+                    "EvidencePhase": phase,
+                    **values,
+                }
+                if phase == "artifact-captured":
+                    document["PostRestoreHeadSha"] = identity["postRestoreHeadSha"]
+                    document["PostRestoreWorktreeSha256"] = identity["postRestoreWorktreeSha256"]
+                    document["PlayerArtifactSha256"] = identity["playerArtifactSha256"]
+                    document["BuildPayloadSHA256"] = identity["buildPayloadSha256"]
+                    document["MetricsSHA256"] = metrics_sha256
+                    document["RuntimeLogSHA256"] = runtime_log_sha256
+                document.update(extra or {})
+                path.write_text(
+                    "".join(f"{key}={value}\n" for key, value in document.items())
+                    + "GitStatusShort:\n"
+                    + git_status,
+                    encoding="utf-8",
+                )
+
+            write_context(preflight, "preflight", shared)
+            write_context(captured, "artifact-captured", shared)
+            self.assertEqual(
+                [],
+                validate_v4_context_pair(
+                    preflight,
+                    captured,
+                    identity,
+                    metrics_sha256=metrics_sha256,
+                ),
+            )
+
+            mixed = dict(shared)
+            mixed["AttemptId"] = "different-attempt"
+            write_context(captured, "artifact-captured", mixed)
+            issues = validate_v4_context_pair(
+                preflight,
+                captured,
+                identity,
+                metrics_sha256=metrics_sha256,
+            )
+
+        self.assertIn("IDENTITY_MISMATCH", {value["code"] for value in issues})
+
+    def test_v4_context_pair_rejects_extra_key_git_status_drift_and_forged_hashes(self) -> None:
+        metrics_sha256 = "d" * 64
+        identity = {
+            "campaignId": "fixture-campaign",
+            "attemptId": "fixture-attempt",
+            "attemptOrdinal": 1,
+            "attemptKind": "calibration",
+            "captureNonce": "fixture-nonce",
+            "stage": "S3-A",
+            "activeStrategies": ["A"],
+            "preBuildHeadSha": "1" * 40,
+            "preBuildWorktreeSha256": "2" * 64,
+            "postRestoreHeadSha": "1" * 40,
+            "postRestoreWorktreeSha256": "2" * 64,
+            "runtimeTreeSha256": runtime_tree_sha256("1" * 40, "2" * 64),
+            "playerArtifactSha256": "4" * 64,
+            "buildPayloadSha256": "5" * 64,
+            "runnerSha256": "6" * 64,
+            "performanceValidatorSha256": "7" * 64,
+            "cleanupValidatorSha256": "8" * 64,
+            "aggregatorSha256": "9" * 64,
+            "manifestToolSha256": "a" * 64,
+            "workloadContractSha256": "b" * 64,
+            "harnessSha256": "c" * 64,
+        }
+        shared = {
+            "CampaignId": identity["campaignId"],
+            "AttemptId": identity["attemptId"],
+            "AttemptOrdinal": "1",
+            "AttemptKind": identity["attemptKind"],
+            "CaptureNonce": identity["captureNonce"],
+            "Stage": identity["stage"],
+            "ActiveStrategies": "A",
+            "PreBuildHeadSha": identity["preBuildHeadSha"],
+            "PreBuildWorktreeSha256": identity["preBuildWorktreeSha256"],
+            "RuntimeTreeSha256": identity["runtimeTreeSha256"],
+            "RunnerSha256": identity["runnerSha256"],
+            "PerformanceValidatorSha256": identity["performanceValidatorSha256"],
+            "CleanupValidatorSha256": identity["cleanupValidatorSha256"],
+            "AggregatorSha256": identity["aggregatorSha256"],
+            "ManifestToolSha256": identity["manifestToolSha256"],
+            "WorkloadContractSha256": identity["workloadContractSha256"],
+            "HarnessSha256": identity["harnessSha256"],
+            "ExpectedWidth": "1280",
+            "ExpectedHeight": "720",
+            "ExpectedWarmupFrames": "12",
+            "ExpectedSampleFrames": "24",
+            "ExpectedTickInterval": "2",
+        }
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            preflight = root / "preflight.txt"
+            captured = root / "captured.txt"
+
+            def write(path: Path, phase: str, values: dict[str, str], status: str) -> None:
+                path.write_text(
+                    "".join(
+                        f"{key}={value}\n"
+                        for key, value in {
+                            "SchemaVersion": "2",
+                            "EvidenceContractVersion": "4",
+                            "EvidencePhase": phase,
+                            **values,
+                        }.items()
+                    )
+                    + "GitStatusShort:\n"
+                    + status,
+                    encoding="utf-8",
+                )
+
+            write(preflight, "preflight", shared, " M expected.txt\n")
+            write(
+                captured,
+                "artifact-captured",
+                {
+                    **shared,
+                    "PostRestoreHeadSha": identity["postRestoreHeadSha"],
+                    "PostRestoreWorktreeSha256": identity["postRestoreWorktreeSha256"],
+                    "PlayerArtifactSha256": "f" * 64,
+                    "BuildPayloadSHA256": "f" * 64,
+                    "MetricsSHA256": "f" * 64,
+                    "RuntimeLogSHA256": "f" * 64,
+                    "UnexpectedKey": "forged",
+                },
+                " M forged.txt\n",
+            )
+            issues = validate_v4_context_pair(
+                preflight,
+                captured,
+                identity,
+                metrics_sha256=metrics_sha256,
+            )
+
+        codes = {value["code"] for value in issues}
+        self.assertIn("FIELD_UNEXPECTED", codes)
+        self.assertIn("IDENTITY_MISMATCH", codes)
+        self.assertIn("PLAYER_ARTIFACT_HASH_MISMATCH", codes)
+        self.assertIn("BUILD_PAYLOAD_HASH_MISMATCH", codes)
+        self.assertIn("METRICS_HASH_MISMATCH", codes)
+
+    def test_atomic_json_runs_pre_replace_check_before_persistent_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output = Path(temporary_directory) / "output.json"
+            calls = []
+
+            def reject_changed_live_identity() -> None:
+                calls.append("checked")
+                raise EvidenceError(
+                    "PRE_POST_WORKTREE_MISMATCH",
+                    "live.worktreeSha256",
+                    "validated",
+                    "mutated",
+                )
+
+            with self.assertRaises(EvidenceError) as context:
+                atomic_json(
+                    output,
+                    {"derived": 1},
+                    pre_replace_check=reject_changed_live_identity,
+                )
+
+            self.assertEqual(["checked"], calls)
+            self.assertIn("PRE_POST_WORKTREE_MISMATCH", str(context.exception))
+            self.assertFalse(output.exists())
+
     def test_atomic_json_rejects_input_changed_after_validation_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -38,6 +275,14 @@ class GameplayEvidenceV4HardeningTests(unittest.TestCase):
                     expected_input_snapshots=snapshots,
                 )
             self.assertIn("INPUT_MUTATED_DURING_VALIDATION", str(context.exception))
+            serialized_reason = json.loads(json.dumps(context.exception.reason))
+            self.assertEqual(str(source), serialized_reason["path"])
+            self.assertEqual(64, len(serialized_reason["expected"]["sha256"]))
+            self.assertNotEqual(
+                serialized_reason["expected"]["sha256"],
+                serialized_reason["observed"]["sha256"],
+            )
+            self.assertIsInstance(serialized_reason["observed"], dict)
             self.assertFalse(output.exists())
 
     def test_atomic_json_rejects_symlink_retarget_after_validation_snapshot(self) -> None:
@@ -117,7 +362,11 @@ class GameplayEvidenceV4HardeningTests(unittest.TestCase):
             for text in (
                 "",
                 "GAMEPLAY_PERFORMANCE:FAIL\n",
+                "GAMEPLAY_PERFORMANCE:FAIL diagnostic\n",
+                "prefix GAMEPLAY_PERFORMANCE:PASS resolution=1280x720\n",
+                "GAMEPLAY_PERFORMANCE:PASSING\n",
                 "GAMEPLAY_PERFORMANCE:PASS\nGAMEPLAY_PERFORMANCE:PASS\n",
+                "GAMEPLAY_PERFORMANCE:PASS resolution=1280x720\nGAMEPLAY_PERFORMANCE:PASS\n",
                 "GAMEPLAY_PERFORMANCE:PASS\nGAMEPLAY_PERFORMANCE:FAIL\n",
             ):
                 with self.subTest(text=text):
@@ -125,6 +374,12 @@ class GameplayEvidenceV4HardeningTests(unittest.TestCase):
                     self.assertTrue(validate_runtime_marker(log))
 
             log.write_text("GAMEPLAY_PERFORMANCE:PASS\n", encoding="utf-8")
+            self.assertEqual([], validate_runtime_marker(log))
+            log.write_text(
+                "GAMEPLAY_PERFORMANCE:PASS resolution=1280x720 idleFrames=24 "
+                "gameplayFrames=24 executedTicks=12\n",
+                encoding="utf-8",
+            )
             self.assertEqual([], validate_runtime_marker(log))
 
     def test_build_payload_requires_existing_nonempty_directory(self) -> None:
