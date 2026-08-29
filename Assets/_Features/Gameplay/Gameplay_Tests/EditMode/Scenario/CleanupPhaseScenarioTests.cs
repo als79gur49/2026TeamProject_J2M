@@ -183,6 +183,49 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
+        public void S3A_RunCleanupPhaseCaptureParity_IncludesAuxiliaryExpiry()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var captureOffWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: sourceCell, hp: 3),
+            });
+            var capturedWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: sourceCell, hp: 3),
+            });
+            captureOffWorld.CreateWriteContext().SetPendingEnemyBlockedReaction(
+                10,
+                CreatePendingEnemyBlockedReaction(10, sourceCell, expireTick: 7));
+            capturedWorld.CreateWriteContext().SetPendingEnemyBlockedReaction(
+                10,
+                CreatePendingEnemyBlockedReaction(10, sourceCell, expireTick: 7));
+
+            var captureOff = CreateMinimalRespawnPipeline(captureOffWorld)
+                .RunTick(new TickInput(7));
+            TickResult captured;
+            CleanupSlice3Counts counts;
+            using (var capture = CleanupSlice3Diagnostics.BeginCapture(
+                       CleanupCaptureMode.Structural | CleanupCaptureMode.Reference))
+            {
+                captured = CreateMinimalRespawnPipeline(capturedWorld)
+                    .RunTick(new TickInput(7));
+                counts = capture.Counts;
+            }
+
+            CollectionAssert.AreEqual(captureOff.EventLog, captured.EventLog);
+            CollectionAssert.AreEqual(captureOff.FinalEntities, captured.FinalEntities);
+            Assert.That(captureOff.DeterminismHash, Is.EqualTo(captured.DeterminismHash));
+            Assert.That(captureOff.Trace.Text, Is.EqualTo(captured.Trace.Text));
+            Assert.That(counts.ReferenceOracleInvocationCount, Is.EqualTo(1));
+            Assert.That(counts.InvariantMismatchCount, Is.Zero);
+            Assert.That(
+                CleanupSlice3PlayerCalibrationCore.VerifyWholeCleanupParity(captureOff, captured),
+                Is.True);
+        }
+
+        [Test]
         [Category("Core")]
         public void PlayerDiesOnInitialBottomFace_SameBottomRespawnUnchanged()
         {
