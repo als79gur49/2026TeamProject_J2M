@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 3,
+  "evidenceContractVersion": 5,
+  "workloadKind": "synthetic-entity-type-none",
+  "syntheticEntityTypeNoneMeaning": "authored entity type and provenance only; it does not assert schedule inactivity",
+  "orderedWorkloadIds": [
+    "cleanup-s3-target-generic-inert-v3",
+    "cleanup-s3-stress-generic-inert-v3"
+  ],
+  "repetitions": 3,
+  "instancePolicy": {
+    "timingAndCaptureOffInstancesPerRepetition": 2,
+    "referenceInstancesPerRepetition": 1,
+    "freshInstanceRequiredPerPhase": true,
+    "stateSharingBetweenPhasesAllowed": false
+  },
+  "tickCoordinates": {
+    "warmupTicksPerRepetition": 200,
+    "warmupTickOrdinalRange": {"first": 1, "last": 200},
+    "warmupEngineTickIndexRange": {"first": 2000, "last": 2199},
+    "sampleTicksPerRepetition": 200,
+    "measuredTickOrdinalRange": {"first": 1, "last": 200},
+    "measuredEngineTickIndexRange": {"first": 3000, "last": 3199}
+  },
+  "canonicalization": {
+    "initialWorldCanonicalVersion": 1,
+    "initialWorldPrefix": "board=Floor:0,0..15,15|entities=",
+    "initialEntityFieldOrder": [
+      "entityId", "typeNumeric", "faceNumeric", "x", "y", "hp", "maxHp", "teamId",
+      "stateNumeric", "stateTimer", "facingNumeric", "boardPresenceNumeric",
+      "markedForDeathNumeric", "spawnTick", "unitRoleNumeric", "unitMobilityKindNumeric",
+      "boxCapabilitiesNumeric", "boxArchetypeNumeric", "gravityFieldPhaseNumeric",
+      "gravityFieldTimerTicks", "kineticInstigatorEntityId", "kineticInstigatorTeamId",
+      "aiModeNumeric", "aiStateTimer", "enemyLocomotionCooldownTicks",
+      "enemyAttackCooldownTicks", "enemyAttackCooldownTotalTicks"
+    ],
+    "initialEntitySeparator": ":",
+    "initialEntityTerminator": ";",
+    "scheduleCanonicalVersion": 2,
+    "schedulePrefixTemplate": "v2|seed=<decimal-seed>|operations=",
+    "emptyScheduleBody": "none",
+    "operationEncodings": {
+      "respawnIfMissing": "respawn-if-missing:<decimal-entity-id>;",
+      "damage": "damage:<decimal-entity-id>:<decimal-amount>;",
+      "applyStateChange": "state:<decimal-entity-id>:<enum-name>:<decimal-state-timer>;"
+    },
+    "operationTokenToEncodingKey": {
+      "respawn-if-missing": "respawnIfMissing",
+      "damage": "damage",
+      "apply-state-change": "applyStateChange"
+    },
+    "decimalIntegerFormat": "ASCII base-10, no leading plus, no leading zero except the single digit 0",
+    "rangeEndPolicy": "inclusive",
+    "rangeIterationOrder": "ascending",
+    "scheduleExpansionOrder": "orderedBlocks array order, then ascending scheduleIndex, then operationsPerEntityInOrder array order",
+    "textEncoding": "UTF-8",
+    "hashAlgorithm": "SHA-256"
+  },
+  "initialEntityGenerator": {
+    "indexRange": {"first": 0, "last": 255},
+    "entityIdGenerator": {"kind": "INDEX_PLUS_CONSTANT", "constant": 1},
+    "positionGenerator": {"kind": "SEEDED_MODULO_ROW_MAJOR", "modulus": 256, "width": 16, "xOperation": "MODULO_WIDTH", "yOperation": "INTEGER_DIVIDE_WIDTH"},
+    "template": {
+      "typeName": "None",
+      "typeNumeric": 0,
+      "faceName": "Floor",
+      "faceNumeric": 0,
+      "hp": 1,
+      "maxHp": 1,
+      "teamId": 0,
+      "stateName": "Idle",
+      "stateNumeric": 1,
+      "stateTimer": 0,
+      "facingName": "Right",
+      "facingNumeric": 2,
+      "boardPresenceName": "Occupying",
+      "boardPresenceNumeric": 0,
+      "markedForDeath": false,
+      "markedForDeathNumeric": 0,
+      "spawnTick": 0,
+      "unitRoleNumeric": 0,
+      "unitMobilityKindNumeric": 0,
+      "boxCapabilitiesNumeric": 0,
+      "boxArchetypeNumeric": 0,
+      "gravityFieldPhaseNumeric": 0,
+      "gravityFieldTimerTicks": 0,
+      "kineticInstigatorEntityId": 0,
+      "kineticInstigatorTeamId": 0,
+      "aiModeNumeric": 0,
+      "aiStateTimer": 0,
+      "enemyLocomotionCooldownTicks": 0,
+      "enemyAttackCooldownTicks": 0,
+      "enemyAttackCooldownTotalTicks": 0
+    }
+  },
+  "workloads": [
+    {
+      "workloadId": "cleanup-s3-target-generic-inert-v3",
+      "legacyV2WorkloadId": "cleanup-s3-target-wall-empty-v2",
+      "seed": 31001,
+      "entityType": "None",
+      "entityCount": 256,
+      "syntheticEntityTypeNoneCount": 256,
+      "board": {"face": "Floor", "minimumX": 0, "minimumY": 0, "maximumX": 15, "maximumY": 15},
+      "scheduleHash": "672ce82fe95f40bb5077fa7014ab501a849dc35072a997328bd06108fb1e6385",
+      "initialWorldFingerprint": "6d3a0d63249ca1bf4517ccbc39c808fa4db0efee2f61e80fd14757fa18da39bc",
+      "schedule": {
+        "kind": "none",
+        "orderedBlocks": [],
+        "scheduledOperationCount": 0,
+        "coldFirstTickMutationCount": 0,
+        "mutationsPerMeasuredTick": 0,
+        "removalPredicateMatchesPerMeasuredTick": 0,
+        "timerPredicateMatchesPerMeasuredTick": 0,
+        "immediateTransitionPredicateMatchesPerMeasuredTick": 0
+      },
+      "measuredRecurrence": {
+        "precondition": "each measured phase has completed exactly 200 warmup ticks on the same fresh phase instance",
+        "liveBeforeSchedule": 256,
+        "respawnedBeforeCleanup": 0,
+        "liveBeforeCleanup": 256,
+        "removedDuringCleanup": 0,
+        "liveAfterCleanup": 256
+      }
+    },
+    {
+      "workloadId": "cleanup-s3-stress-generic-inert-v3",
+      "legacyV2WorkloadId": "cleanup-s3-stress-dense-v2",
+      "seed": 31002,
+      "entityType": "None",
+      "entityCount": 256,
+      "syntheticEntityTypeNoneCount": 256,
+      "board": {"face": "Floor", "minimumX": 0, "minimumY": 0, "maximumX": 15, "maximumY": 15},
+      "scheduleHash": "ac786715ea3dd77f89423fb30db33d209c2529da97e7c53d140760522a517b24",
+      "initialWorldFingerprint": "2282b3ceaea055d8d382f7c2c20d4d915d11d54ed37c6cc0231784753e2dc924",
+      "schedule": {
+        "kind": "ordered-restore-damage-timer-transition",
+        "scheduledEntityIdGenerator": {"kind": "SEED_PLUS_INDEX_MODULO_ENTITY_COUNT_PLUS_ONE"},
+        "orderedBlocks": [
+          {
+            "blockKind": "removal",
+            "scheduleIndexRange": {"first": 0, "last": 15},
+            "expandedEntityIdRange": {"first": 27, "last": 42},
+            "operationsPerEntityInOrder": [
+              {"operation": "respawn-if-missing"},
+              {"operation": "damage", "amount": 1}
+            ]
+          },
+          {
+            "blockKind": "timer",
+            "scheduleIndexRange": {"first": 16, "last": 47},
+            "expandedEntityIdRange": {"first": 43, "last": 74},
+            "operationsPerEntityInOrder": [
+              {"operation": "apply-state-change", "stateName": "Acting", "stateTimer": 2}
+            ]
+          },
+          {
+            "blockKind": "immediate-transition",
+            "scheduleIndexRange": {"first": 48, "last": 79},
+            "expandedEntityIdRange": {"first": 75, "last": 106},
+            "operationsPerEntityInOrder": [
+              {"operation": "apply-state-change", "stateName": "Cooldown", "stateTimer": 0}
+            ]
+          }
+        ],
+        "scheduledOperationCount": 96,
+        "coldFirstTickMutationCount": 80,
+        "mutationsPerMeasuredTick": 96,
+        "removalPredicateMatchesPerMeasuredTick": 16,
+        "timerPredicateMatchesPerMeasuredTick": 32,
+        "immediateTransitionPredicateMatchesPerMeasuredTick": 32
+      },
+      "measuredRecurrence": {
+        "precondition": "each measured phase has completed exactly 200 warmup ticks on the same fresh phase instance; the cold first tick mutation count of 80 is never a measured expectation",
+        "liveBeforeSchedule": 240,
+        "respawnedBeforeCleanup": 16,
+        "liveBeforeCleanup": 256,
+        "removedDuringCleanup": 16,
+        "liveAfterCleanup": 240
+      }
+    }
+  ]
+}

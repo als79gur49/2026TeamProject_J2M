@@ -718,3 +718,33 @@ Current entry rule: S3-A official capture and `PASS / DEFERRED` transport remain
 After that oracle amendment is separately approved, implemented, and verified, official capture additionally requires an allocation-capable or pre-approved equivalent signal, a new campaign identity, clean/same-revision identity, and separate S3-A Measurement Goal approval. These are cumulative conditions, not alternatives. Until then the repository Slice 3 state is `Hold — valid evidence incomplete`, and S3-B/S3-C production entry remains forbidden.
 
 Historical validation clarification: the preceding closure block's `80/80` and Unity results are historical touched-scope evidence from the initial remediation snapshot preserved under `/mnt/d/J2M/evidence/20260827T204003Z-cleanup-s3-v4-remediation/`. They are not current-source whole-suite validation after the S3-EV-016 hard block. The carrier's actual core PlayMode result is `111 total / 107 passed / 4 skipped / 0 failed`.
+
+## 2026-08-29 KST — Proposed F1/B0 amendment; I1 not approved
+
+Current proposal: [Slice 3 S3-A F1/B0 Amendment](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md).
+
+Historical pre-I1 record: the amendment proposed bounded A/B/C current-contract remediation and B-Raw vocabulary, and stopped at `Proposed — awaiting I1 implementation-scope approval`. I1 was subsequently approved for the exact amendment identity and the bounded implementation/validation closure completed. Evidence Contract v5 design/activation, allocation resolution, official capture, S3-B/S3-C entry, commit, and push remain unauthorized. Current state remains `Hold — valid evidence incomplete`.
+
+## 2026-08-29 KST — Normative I1 approval and bounded implementation closure
+
+The user approved amendment SHA-256 `3f5db2a84580cadb8289ed1f2a0a8c013964b9313e3fb5eba652d1ac8fae8914` at source `d0310f8b99589157e82f2fe42cb5bd5aab2b6c28 / codex/third-party-license-inventory`, including the four complete I1 scope items. Approval was applied non-retroactively. Source/test/tool implementation already present before approval is not legitimized retroactively, and unavailable original §6 red evidence was not reconstructed.
+
+Post-review tests-first red evidence is retained under `/mnt/d/J2M/evidence/20260829-slice3-i1-postreview-red/red/`. Bounded corrections close admission/calibration input TOCTOU, strict/canonical smoke readback, pre-replace FINAL HOLD fallback, preflight/captured Git status drift, late runner error masking, signal status handling, and owned Unity/Player survivor cleanup.
+
+Historical initial-closure validation passed Python/runner `117 tests`, core EditMode `228/228` and PlayMode `111 total / 0 failed`, focused Cleanup attribution `11/11`, and auxiliary expiry `1/1`. Its non-official capture smoke preserved authoritative `HOLD_CLEANUP_ADMISSION`; performance admission was admitted, while allocation failed closed at `expectedAtLeast=4096 observed=0`. That pre-final-audit evidence remains under `/mnt/d/J2M/evidence/cleanup-s3-capture-smoke/31c30f76-bb71-49bd-991a-9bbfd3f16d13/`; subsequent terminal re-audit corrections require current-source revalidation reported by the terminal execution record.
+
+Broad unfiltered full, replay, UI, and official capture were not run. The repository remains `Hold — valid evidence incomplete`; v5 exact full-scan oracle approval/activation, valid allocation signal, MeasurementAuthorization/Measurement Goal, S3-B/S3-C, commit, and push remain outside this closure.
+
+## 2026-08-29 KST — Proposed D1/E0/I3 authority and measurement recovery
+
+Current proposal: [Slice 3 S3-A D1/E0/I3 Amendment](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-D1-E0-I3-Amendment.md).
+
+The latest non-official smoke encodes one immediate Cleanup rejection, `ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0`. That early rejection leaves calibration unexecuted, but canonical recomputation of the same raw target timing gives `335.781533%` noise against the fixed `10%` ceiling. Allocation liveness and timing stability are therefore separate technical gates; neither threshold relaxation nor result-based repetition exclusion is permitted.
+
+The proposal also records that E0 execution authority and E1 normative adoption do not authorize changes to the Player probe, timing orchestration, runner, validators, calibration, manifest, or identity carriers. Such changes require exact `I3-pre`/`I3` implementation scope and `D3/E2` integrated-diff activation approvals. Exact full-scan oracle D1/I2/D2, E0/E1, clean revision, MeasurementAuthorization/M1, and official S3-A remain cumulative. Repository Slice 3 stays `Hold — valid evidence incomplete`; S3-B/S3-C remain forbidden.
+
+## 2026-08-29 KST — P2 design package drafted; awaiting D1/E0-D approval
+
+P2 approval authorized design-only drafting. The proposed package now consists of Evidence Contract v5, workload v3, full-scan oracle v1, D1 review vectors and the separate E0 characterization protocol v1. Independent reviews added complete entity/schedule canonical ownership, ordinal-versus-engine-tick separation, detached Ed25519 M1 approval with a separately enrolled K1 trust root, finite slots, campaign-level terminal ownership, immutable build binding and diagnostic-only E0 outcomes.
+
+No implementation, Unity/Player run, evidence generation, official capture, commit or push was performed. The next hard pauses are exact D1 approval of the four D1 artifacts and separate exact E0-D approval. I2/D2, I3-pre/E0/E1, K1/I3/D3, clean F2/M1 and S3-B/S3-C remain unauthorized. Current status is `Hold — valid evidence incomplete`.

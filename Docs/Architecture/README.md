@@ -120,10 +120,22 @@ For current Summon production ownership, read the final umbrella closeout first.
   - sub-agent-reviewed execution prompt for admission hardening, focused contract closure, fixed 5-state/15-run recovery measurement, and final retain/reject decisions
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md)
   - current tests-first Slice 3 execution gate separating Cleanup attribution, candidate maintenance/snapshot-carriage tax, indexed-executor benefit, semantic/replay parity, and retain/reject rollback decisions; official S3-A capture remains blocked pending the separately approved S3-EV-016 exact full-scan oracle/frozen amendment and all remaining measurement prerequisites
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-Reaudit-Remediation-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-Reaudit-Remediation-Plan.md)
+  - sub-agent closure-reviewed, proposal-level-GO S3-A remediation design for measured reference cardinality, membership/processing vocabulary, clean/same-revision finalization, strict standalone identity, an Evidence Contract v5 exact full-scan oracle, allocation characterization, tests-first evidence, and explicit approval pauses; it does not authorize implementation or official capture
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Goal-Prompt.md)
+  - historical pre-I1 docs-only execution prompt; its terminal closure records that I1 was subsequently approved and bounded A/B/C implementation/validation completed while repository Slice 3 stayed on Hold
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md)
+  - I1-approved bounded B-Raw and v4-compatible A/B/C remediation contract with completed implementation/validation closure; v5, official capture, S3-B/S3-C, commit, and push remain unauthorized and repository Slice 3 remains on Hold
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-D1-E0-I3-Amendment.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-D1-E0-I3-Amendment.md)
+  - P2-approved design-authority record with proposed D1/E0-D exact candidates, separating allocation liveness from timing-noise stabilization and adding I3/K1/D3 pauses; it authorizes neither source implementation nor Player/official capture
+- [Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v5.md](../../Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v5.md)
+  - proposed, non-active D1 evidence contract candidate for independent workload/oracle binding, signed authorization, finite campaign terminal ownership and fail-closed lifecycle; awaiting exact D1 approval
+- [Tools/contracts/gameplay_cleanup_slice3_e0_characterization_protocol_v1.json](../../Tools/contracts/gameplay_cleanup_slice3_e0_characterization_protocol_v1.json)
+  - proposed, diagnostic-only E0-D protocol candidate for allocation liveness and timing falsification; awaiting separate exact approval and incapable of official success transport
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md)
   - current Slice 3 execution prompt enforcing the S3-EV-016 oracle amendment gate before official S3-A capture, followed by S3-B pre-C and S3-C pre-campaign hard gates, same-revision evidence, terminal status, storage, and rollback rules
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md)
-  - current post-amendment audit and v4 closure/open-blocker register: known P0/P1 false-PASS/schema/lifecycle/transport paths are closed, while S3-EV-016 keeps the repository on Hold and S3-B/S3-C forbidden
+  - historical 2026-08-28 post-amendment audit and v4 closure/open-blocker register: its then-known P0/P1 paths were closed, while the 2026-08-29 S3-A re-audit plan records additional unimplemented gaps; S3-EV-016 keeps the repository on Hold and S3-B/S3-C forbidden
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md)
   - completed bounded execution Goal for Evidence Contract v4 approval, formal tests-first P0/P1 harness remediation, green validation, and independent re-audit; no official S3-A capture or S3-B/S3-C production implementation was performed
 - [Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v4.md](../../Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v4.md)

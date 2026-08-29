@@ -5,8 +5,10 @@
 - S3-B·S3-C: P0/P1 evidence remediation, valid S3-A `PASS`, stage별 pre-entry 조건과 사용자 continuation 승인 전까지 금지
 - 최초 승인일: 2026-08-27
 - authoritative Goal: [Master Plan Slice 3 Goal](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md)
-- 현재 구현 감사 register: [Slice 3 Evidence Post-Amendment Audit](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md)
-- 현재 remediation 실행 문서: [Slice 3 Evidence Remediation Goal Prompt](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md)
+- historical 구현 감사 register: [Slice 3 Evidence Post-Amendment Audit](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md)
+- completed historical remediation 실행 문서: [Slice 3 Evidence Remediation Goal Prompt](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md)
+- current proposal source: [Slice 3 S3-A Reaudit Remediation Plan](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-Reaudit-Remediation-Plan.md)
+- current docs-only workflow: [Slice 3 S3-A F1/B0 Goal Prompt](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Goal-Prompt.md)
 - 상위 계획: [Gameplay Wall Tick Cost Optimization Plan](./Gameplay-Wall-Tick-Cost-Optimization-Plan.md)
 
 ## 실행 지시
@@ -347,3 +349,23 @@ Next safe action:
 ```
 
 Closeout은 actual ordinary production path, final status, rollback revision, executed/not-run lanes, allowed claims와 explicit non-claims를 기록한다. `Hold — valid evidence incomplete`는 비종결 상태다. Reject/defer closeout은 유효한 조사 종결이지만 `Goal complete`나 speedup으로 부르지 않는다.
+
+## 2026-08-29 KST — Proposed F1/B0 authority link
+
+Historical pre-I1 record: [Slice 3 S3-A F1/B0 Amendment](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md)은 B-Raw membership/processing clarification과 A/B/C current-contract remediation의 exact future scope를 작성한 non-normative docs-only artifact였고 `Proposed — awaiting I1 implementation-scope approval`에서 멈췄다. 사용자는 이후 exact amendment identity와 네 scope 항목을 I1로 승인했으며 bounded 구현·검증 closure가 완료됐다. 이 승인은 current `Hold — valid evidence incomplete`, Evidence Contract v4 §7.5 hard block, allocation/MeasurementAuthorization 누적 gate를 대체하지 않고 v5 또는 official capture 권한을 부여하지 않는다.
+
+## 2026-08-29 KST — I1 bounded closure
+
+사용자는 amendment SHA-256 `3f5db2a84580cadb8289ed1f2a0a8c013964b9313e3fb5eba652d1ac8fae8914`, source `d0310f8b99589157e82f2fe42cb5bd5aab2b6c28 / codex/third-party-license-inventory`와 네 scope 항목 전체를 승인했다. Bounded implementation/validation은 완료됐고, initial non-official capture smoke의 authoritative 결과는 allocation liveness 부족으로 `HOLD_CLEANUP_ADMISSION`이었다. 이후 terminal re-audit corrections의 current-source 검증 결과는 terminal report가 소유한다. 원래 formal red 누락은 소급 복원하지 않은 deviation이며 새 재검토 red만 `/mnt/d/J2M/evidence/20260829-slice3-i1-postreview-red/red/`에 보존했다. Repository Slice 3는 계속 Hold이며 v5, official measurement, S3-B/S3-C, commit/push는 승인되지 않았다.
+
+## 2026-08-29 KST — Proposed D1/E0/I3 recovery link
+
+[Slice 3 S3-A D1/E0/I3 Amendment](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-D1-E0-I3-Amendment.md)는 allocation liveness, latest `335.781533%` timing noise와 E0/E1 이후 implementation-authority gap을 하나의 current proposal로 고정한다. E0 external execution과 E1 signal 채택은 runtime/probe/tool 수정 권한이 아니며, 필요한 diagnostic/adoption 변경은 exact `I3-pre`/`I3`와 `D3/E2` activation 승인을 거쳐야 한다.
+
+이 link는 docs-only proposal을 가리킨다. D1/I2/D2, E0/E1, I3/D3, MeasurementAuthorization/M1, official capture, commit/push와 S3-B/S3-C는 승인되지 않았다. 다음 실행자는 threshold 완화, result-based outlier 제외, zero allocation의 성공 해석 또는 diagnostic artifact의 official 승격을 해서는 안 된다.
+
+## 2026-08-29 KST — P2 design handoff
+
+P2 design-only 작성은 완료됐다. 다음 실행자는 [D1/E0/I3 Amendment](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-D1-E0-I3-Amendment.md)의 §12에 기록된 exact candidates를 승인 없이 구현하거나 실행하지 않는다. D1은 v5/workload/oracle/review-vector 네 artifact, E0-D는 characterization protocol 한 artifact의 별도 hard pause다.
+
+Trustworthy M1 transport에는 caller digest가 아니라 별도 K1 승인된 Ed25519 public key와 detached signature가 필요하고, official terminal truth는 individual attempt가 아니라 finite authorized slots를 집계한 campaign FINAL이 소유한다. K1 key 미등록, allocation primary invalid, timing noise invalid, oracle 미활성 또는 어느 authorization/identity gate 누락도 계속 Hold다.

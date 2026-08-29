@@ -178,7 +178,9 @@ This removes default Wall probes while preserving Custom Factory compatibility a
 
 Slice 3 is not unconditionally implementation-ready. Its entry and close gates are owned by the separate [Slice 3 Goal Plan](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md), and its hard pauses, evidence procedure, and terminal states are fixed by the [Slice 3 Goal Prompt](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md).
 
-The 2026-08-28 Evidence Contract v4 remediation closed the known S3-A evidence false-PASS, strict-schema, lifecycle, and terminal-transport defects without running a new official capture or changing the production full-scan Cleanup executor. This is harness closure only: repository Slice 3 remains Hold pending an allocation-capable or approved-equivalent signal and a separate Measurement Goal.
+The 2026-08-28 Evidence Contract v4 remediation closed the known S3-A evidence false-PASS, strict-schema, lifecycle, and terminal-transport defects without running a new official capture or changing the production full-scan Cleanup executor. This is harness closure only: before any official S3-A capture, the S3-EV-016 independent exact full-scan oracle amendment must be separately approved, implemented, and verified. An allocation-capable or pre-approved equivalent signal, a new campaign identity, clean/same-revision identity, and a separate S3-A Measurement Goal are additional cumulative gates, not alternatives; repository Slice 3 remains Hold until all of them are complete.
+
+The 2026-08-29 [S3-A F1/B0 amendment](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md) received explicit I1 approval and its bounded B-Raw plus v4-compatible A/B/C implementation/validation closure is complete. That closure does not draft or activate v5, approve the independent exact full-scan oracle, resolve allocation, authorize an official capture, or permit S3-B/S3-C; repository Slice 3 remains `Hold — valid evidence incomplete`.
 
 If entry permission and an execution hard pause conflict, the stricter hard pause wins. A dated progress block does not override a normative gate unless it is explicitly marked as an approved normative amendment.
 
@@ -418,7 +420,7 @@ Slice 3 additionally requires:
 - final target workload A→C must meet the pre-registered `CleanupProcessor` component material-improvement threshold, complete `RunCleanupPhase` containment threshold, whole-tick end-to-end benefit threshold, and allocation safety gate;
 - final dense/mutation stress workload does not require speedup, but must meet whole-tick `<= +5%` and its pre-registered allocation safety ceiling;
 - the two workload results must not be averaged into one acceptance value;
-- a missing valid allocation signal holds the Goal at S3-A and blocks S3-B/S3-C entry; an equivalent signal requires an explicit Goal amendment and user approval before a new S3-A recapture;
+- before any new S3-A recapture, the S3-EV-016 independent exact full-scan oracle amendment must first be separately approved, implemented, and verified; a valid allocation signal or pre-approved equivalent, a new campaign identity, clean/same-revision identity, and a separate S3-A Measurement Goal are additional cumulative gates, and any missing gate holds the Goal at S3-A and blocks S3-B/S3-C entry;
 - target improvement only inside run-to-run noise, or a slower target A→C result masked by the `+5%` safety ceiling, is a reject/defer outcome rather than a speedup claim.
 
 Do not combine historical performance artifacts from other revisions into a same-revision acceptance claim.
@@ -468,4 +470,8 @@ The first implementation milestone is complete only when:
 - current-HEAD paired measurements demonstrate component-level improvement where observable, or the approved bounded structural gates plus total p95 non-regression where component/allocation instrumentation is unavailable;
 - no retained slice lacks either observable timing/allocation evidence or an approved deterministic structural reduction with p95 non-regression.
 
-The structural-only exception above applies only to the already approved bounded micro-optimization gates. Slice 3 follows its dedicated Goal and cannot enter S3-B/S3-C without the required valid allocation signal or an equivalent signal approved by Goal amendment before a new S3-A recapture.
+The structural-only exception above applies only to the already approved bounded micro-optimization gates. Slice 3 follows its dedicated Goal: before any new S3-A recapture, the S3-EV-016 independent exact full-scan oracle amendment must first be separately approved, implemented, and verified. A valid allocation signal or pre-approved equivalent, a new campaign identity, clean/same-revision identity, and a separate S3-A Measurement Goal are additional cumulative gates; Slice 3 cannot enter S3-B/S3-C while any gate remains open.
+
+The 2026-08-29 [D1/E0/I3 recovery amendment](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-D1-E0-I3-Amendment.md) additionally separates the observed allocation-liveness failure from the independently invalid timing signal and closes the missing implementation-authority stage after characterization/adoption. E0 execution and E1 normative adoption alone do not authorize PlayerProbe, runner, validator, calibration, manifest, timing-procedure, or identity changes; exact I3 scope and post-implementation activation are required. This proposal does not change the current Hold or authorize official capture.
+
+P2 design drafting is now complete and stopped at separate D1/E0-D approvals. The proposed v5 chain adds independent workload/oracle bytes, signed M1 authorization with a K1-enrolled Ed25519 trust root, finite campaign slots/ledger and build-once Player binding; E0 remains diagnostic-only and cannot emit official success. No implementation or measurement was authorized by this design handoff.
