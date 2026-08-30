@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
   m_Name: EnemyAi_PassiveContactMinion
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyAiProfile
-  coreAuthoring: {fileID: 11400000, guid: dce2f8fa5d644b9a83fe945da8067ba1, type: 2}
-  brainAuthoring: {fileID: 11400000, guid: fb9a3d7ab7bd485bb346e93db02d8a74, type: 2}
+  coreAuthoring: {fileID: 11400000, guid: b4717e3993674d9ba47d9229d955219d, type: 2}
+  brainAuthoring: {fileID: 11400000, guid: 99ad4c4714a8409c855ba8312edb3cc3, type: 2}
   capabilityAssets:
-  - {fileID: 11400000, guid: bf094ca1fd8f4a378e18159ddaf0d4f0, type: 2}
+  - {fileID: 11400000, guid: 5e1d102a7f7c4249b2e765830590eef3, type: 2}
   behaviorModuleAssets: []
