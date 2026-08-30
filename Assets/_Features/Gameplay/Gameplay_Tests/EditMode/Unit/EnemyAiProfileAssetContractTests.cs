@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -52,6 +53,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly string[] RequiredCanonicalAssetPaths =
         {
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_PassiveContactMinion.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_PassiveContactPatroller/EnemyAi_PassiveContactPatroller.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset",
@@ -685,6 +687,130 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void PassiveContactMinion_Profile_OwnsDistinctMutableAuthoringGraph()
+        {
+            var minion = LoadRequiredProfile(PassiveContactMinionProfilePath);
+            var patroller = LoadRequiredProfile(PassiveContactPatrollerProfilePath);
+            var minionPassiveContact = minion.CapabilityAssets
+                .OfType<EnemyPassiveContactCapabilityAsset>()
+                .Single();
+            var patrollerPassiveContact = patroller.CapabilityAssets
+                .OfType<EnemyPassiveContactCapabilityAsset>()
+                .Single();
+            var repositoryProfiles = LoadRepositoryProfiles();
+
+            Assert.That(minion.CoreAuthoring, Is.Not.SameAs(patroller.CoreAuthoring));
+            Assert.That(minion.BrainAuthoring, Is.Not.SameAs(patroller.BrainAuthoring));
+            Assert.That(
+                minion.BrainAuthoring.StateResolver,
+                Is.SameAs(patroller.BrainAuthoring.StateResolver),
+                "The stateless default resolver is the only intentionally shared Minion/Patroller brain leaf.");
+            Assert.That(
+                GetVisibleSerializedFieldNames(minion.BrainAuthoring.StateResolver),
+                Is.Empty,
+                "A shared resolver must remain stateless; add profile-owned resolver assets before adding tuning fields.");
+            Assert.That(minion.BrainAuthoring.StateResolver, Is.TypeOf<DefaultEnemyStateResolverAsset>());
+            Assert.That(
+                AssetDatabase.GetAssetPath(minion.BrainAuthoring.StateResolver),
+                Is.EqualTo(DefaultStateResolverPath));
+            Assert.That(
+                GetGameplayInstanceFieldNames(typeof(DefaultEnemyStateResolverAsset)),
+                Is.Empty,
+                "The shared resolver asset type must not acquire hidden or non-serialized instance state.");
+            Assert.That(
+                GetGameplayStaticFieldDescriptions(typeof(DefaultEnemyStateResolverAsset)),
+                Is.Empty,
+                "The shared resolver asset type must not acquire static state.");
+            Assert.That(
+                GetGameplayInstanceFieldNames(typeof(DefaultEnemyAiStateResolver)),
+                Is.Empty,
+                "The shared runtime resolver must remain a stateless singleton.");
+            Assert.That(
+                GetGameplayStaticFieldDescriptions(typeof(DefaultEnemyAiStateResolver)),
+                Is.EqualTo(new[]
+                {
+                    "Game.Feature.Gameplay.Entities.DefaultEnemyAiStateResolver.Instance:readonly",
+                }),
+                "The shared runtime resolver may only keep its readonly singleton instance.");
+            Assert.That(minion.BrainAuthoring.PatrolStrategy, Is.Not.SameAs(patroller.BrainAuthoring.PatrolStrategy));
+            Assert.That(minion.BrainAuthoring.DetectionStrategy, Is.Not.SameAs(patroller.BrainAuthoring.DetectionStrategy));
+            Assert.That(minion.BrainAuthoring.ChaseStrategy, Is.Not.SameAs(patroller.BrainAuthoring.ChaseStrategy));
+            Assert.That(minionPassiveContact, Is.Not.SameAs(patrollerPassiveContact));
+
+            Assert.That(AssetDatabase.GetAssetPath(minion.CoreAuthoring), Is.EqualTo(PassiveContactMinionCorePath));
+            Assert.That(AssetDatabase.GetAssetPath(minion.BrainAuthoring), Is.EqualTo(PassiveContactMinionBrainPath));
+            Assert.That(
+                AssetDatabase.GetAssetPath(minion.BrainAuthoring.PatrolStrategy),
+                Is.EqualTo(PassiveContactMinionPatrolPath));
+            Assert.That(
+                AssetDatabase.GetAssetPath(minion.BrainAuthoring.DetectionStrategy),
+                Is.EqualTo(PassiveContactMinionDetectionPath));
+            Assert.That(
+                AssetDatabase.GetAssetPath(minion.BrainAuthoring.ChaseStrategy),
+                Is.EqualTo(PassiveContactMinionChasePath));
+            Assert.That(AssetDatabase.GetAssetPath(minionPassiveContact), Is.EqualTo(PassiveContactMinionCapabilityPath));
+
+            AssertExclusiveProfileOwner(minion.CoreAuthoring, PassiveContactMinionProfilePath, repositoryProfiles);
+            AssertExclusiveProfileOwner(minion.BrainAuthoring, PassiveContactMinionProfilePath, repositoryProfiles);
+            AssertExclusiveProfileOwner(
+                minion.BrainAuthoring.PatrolStrategy,
+                PassiveContactMinionProfilePath,
+                repositoryProfiles);
+            AssertExclusiveProfileOwner(
+                minion.BrainAuthoring.DetectionStrategy,
+                PassiveContactMinionProfilePath,
+                repositoryProfiles);
+            AssertExclusiveProfileOwner(
+                minion.BrainAuthoring.ChaseStrategy,
+                PassiveContactMinionProfilePath,
+                repositoryProfiles);
+            AssertExclusiveProfileOwner(minionPassiveContact, PassiveContactMinionProfilePath, repositoryProfiles);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PassiveContactMinion_ProfileSplit_PreservesCompiledTuning()
+        {
+            var definition = LoadRequiredProfile(PassiveContactMinionProfilePath)
+                .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(definition.Core.CommonSettings.MovementPriority, Is.EqualTo(50));
+            Assert.That(definition.Core.CommonSettings.AttackPriority, Is.EqualTo(50));
+            Assert.That(definition.Core.CommonSettings.RecoverTicks, Is.EqualTo(10));
+            Assert.That(definition.Core.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(41));
+            Assert.That(definition.Core.LocomotionTimingSettings.OrdinaryKinematicMoveTicks, Is.EqualTo(42));
+
+            Assert.That(definition.Brain.StateResolver.Kind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+            Assert.That(definition.Brain.Patrol.Kind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
+            Assert.That(definition.Brain.Patrol.Settings.LeashRadius, Is.EqualTo(5));
+            Assert.That(definition.Brain.Patrol.Settings.ForwardWeight, Is.EqualTo(4));
+            Assert.That(definition.Brain.Patrol.Settings.SideWeight, Is.EqualTo(2));
+            Assert.That(definition.Brain.Patrol.Settings.BackwardWeight, Is.EqualTo(1));
+            Assert.That(definition.Brain.Patrol.Settings.PreventImmediateBacktrack, Is.True);
+            Assert.That(
+                definition.Brain.Patrol.Settings.BlockedMovementResponse,
+                Is.EqualTo(PatrolBlockedMovementResponse.Stop));
+
+            Assert.That(definition.Brain.Detection.Kind, Is.EqualTo(DetectionStrategyKind.CrossLineOfSightOpponent));
+            Assert.That(definition.Brain.Detection.Settings.SenseRange, Is.EqualTo(20));
+            Assert.That(definition.Brain.Detection.Settings.RequireSameFace, Is.True);
+            Assert.That(definition.Brain.Detection.Settings.CanTargetMarkedForDeath, Is.False);
+
+            Assert.That(definition.Brain.Chase.Kind, Is.EqualTo(ChaseStrategyKind.AxisPriority));
+            Assert.That(definition.Brain.Chase.Settings.AxisPriority, Is.EqualTo(ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak));
+            Assert.That(definition.Brain.Chase.Settings.TrySecondaryAxisWhenBlocked, Is.True);
+            Assert.That(definition.Brain.Chase.Settings.DesiredChaseDistance, Is.Zero);
+
+            Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+            Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+            Assert.That(passiveContact.AttackDecisionSettings.AttackRange, Is.EqualTo(1));
+            Assert.That(definition.Behaviors.HasCharge, Is.False);
+            Assert.That(definition.Behaviors.HasSummon, Is.False);
+            Assert.That(definition.Behaviors.HasGlide, Is.False);
+        }
+
+        [Test]
         [Category("Extended")]
         public void Startis_ProfileBinding_UsesPassiveContactPatrollerGameplayProfile()
         {
@@ -878,6 +1004,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return fieldNames.ToArray();
         }
 
+        private static string[] GetGameplayInstanceFieldNames(System.Type type)
+        {
+            var fieldNames = new List<string>();
+
+            for (var current = type; current != null && current != typeof(ScriptableObject); current = current.BaseType)
+            {
+                fieldNames.AddRange(
+                    current
+                        .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                        .Where(field => !field.IsStatic)
+                        .Select(field => $"{current.FullName}.{field.Name}"));
+            }
+
+            fieldNames.Sort(System.StringComparer.Ordinal);
+            return fieldNames.ToArray();
+        }
+
+        private static string[] GetGameplayStaticFieldDescriptions(System.Type type)
+        {
+            var fields = new List<string>();
+
+            for (var current = type; current != null && current != typeof(ScriptableObject); current = current.BaseType)
+            {
+                fields.AddRange(
+                    current
+                        .GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                        .Select(field =>
+                            $"{current.FullName}.{field.Name}:{(field.IsInitOnly ? "readonly" : "mutable")}"));
+            }
+
+            fields.Sort(System.StringComparer.Ordinal);
+            return fields.ToArray();
+        }
+
+        private static IReadOnlyDictionary<string, EnemyAiProfile> LoadRepositoryProfiles()
+        {
+            return AssetDatabase.FindAssets("t:EnemyAiProfile")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .OrderBy(path => path, System.StringComparer.Ordinal)
+                .ToDictionary(
+                    path => path,
+                    path => AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(path),
+                    System.StringComparer.Ordinal);
+        }
+
+        private static void AssertExclusiveProfileOwner(
+            UnityEngine.Object asset,
+            string expectedProfilePath,
+            IReadOnlyDictionary<string, EnemyAiProfile> repositoryProfiles)
+        {
+            var consumers = repositoryProfiles
+                .Where(pair => ProfileReferencesAsset(pair.Value, asset))
+                .Select(pair => pair.Key)
+                .ToArray();
+
+            Assert.That(
+                consumers,
+                Is.EqualTo(new[] { expectedProfilePath }),
+                $"{AssetDatabase.GetAssetPath(asset)} must be owned exclusively by {expectedProfilePath}.");
+        }
+
+        private static bool ProfileReferencesAsset(EnemyAiProfile profile, UnityEngine.Object asset)
+        {
+            if (profile == null)
+            {
+                return false;
+            }
+
+            if (profile.CoreAuthoring == asset || profile.BrainAuthoring == asset)
+            {
+                return true;
+            }
+
+            var brain = profile.BrainAuthoring;
+            if (brain != null &&
+                (brain.StateResolver == asset ||
+                 brain.PatrolStrategy == asset ||
+                 brain.DetectionStrategy == asset ||
+                 brain.ChaseStrategy == asset))
+            {
+                return true;
+            }
+
+            return (profile.CapabilityAssets != null && profile.CapabilityAssets.Any(candidate => candidate == asset)) ||
+                   (profile.BehaviorModuleAssets != null && profile.BehaviorModuleAssets.Any(candidate => candidate == asset));
+        }
+
         private static bool ContainsRootLevelYamlKey(string yaml, string key)
         {
             return Regex.IsMatch(
@@ -919,6 +1132,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string PassiveContactPatrollerProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_PassiveContactPatroller/EnemyAi_PassiveContactPatroller.asset";
+
+        private const string PassiveContactMinionProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_PassiveContactMinion.asset";
+
+        private const string PassiveContactMinionCorePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Core/Enemy_PassiveContactMinion/EnemyCore_PassiveContactMinion.asset";
+
+        private const string PassiveContactMinionBrainPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_PassiveContactMinion/EnemyBrain_PassiveContactMinion.asset";
+
+        private const string PassiveContactMinionPatrolPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_PassiveContactMinion/EnemyPatrol_RandomWalk_PassiveContactMinion.asset";
+
+        private const string PassiveContactMinionDetectionPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_PassiveContactMinion/EnemyDetection_CrossLineOfSightOpponent_PassiveContactMinion.asset";
+
+        private const string PassiveContactMinionChasePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_PassiveContactMinion/EnemyChase_AxisPriority_Desired0_PassiveContactMinion.asset";
+
+        private const string PassiveContactMinionCapabilityPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Capabilities/Enemy_PassiveContactMinion/EnemyCapability_PassiveContact_PassiveContactMinion.asset";
+
+        private const string DefaultStateResolverPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_Common/EnemyStateResolver_Default.asset";
 
         private const string TutorialPassiveContactProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
