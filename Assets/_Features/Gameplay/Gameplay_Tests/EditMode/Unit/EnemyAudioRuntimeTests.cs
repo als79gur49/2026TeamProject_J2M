@@ -4989,7 +4989,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var view = viewObject.AddComponent<GameplayEntityView>();
                 view.Initialize(entity.entityId);
-                viewObject.AddComponent<EntityEffectPresentationAuthoring>();
 
                 if ((_profile != null || _attachAuthoringWithoutProfile) &&
                     entity.unitRole == UnitRole.Enemy)

@@ -5,11 +5,107 @@ using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayVfxParameterizedMotionRuntimeTests
     {
+        [Test]
+        [Category("Core")]
+        public void SourceHierarchyPoseSnapshot_RestoresDuplicateNamedHierarchyAndBlendShapes()
+        {
+            var source = new GameObject("Source");
+            var target = new GameObject("Target");
+            var mesh = CreateBlendShapeMesh();
+            try
+            {
+                var sourceFirst = CreatePoseChild(source.transform, "Bone", new Vector3(1f, 2f, 3f));
+                var sourceSecond = CreatePoseChild(source.transform, "Bone", new Vector3(-2f, 4f, 6f));
+                sourceFirst.localRotation = Quaternion.Euler(10f, 20f, 30f);
+                sourceSecond.localScale = new Vector3(1.2f, 0.8f, 1.4f);
+                var sourceRenderer = sourceSecond.gameObject.AddComponent<SkinnedMeshRenderer>();
+                sourceRenderer.sharedMesh = mesh;
+                sourceRenderer.localBounds = new Bounds(new Vector3(0.2f, 0.3f, 0.4f), new Vector3(2f, 3f, 4f));
+                sourceRenderer.SetBlendShapeWeight(0, 37f);
+
+                Destroy(target);
+                target = Object.Instantiate(source);
+                var targetFirst = target.transform.GetChild(0);
+                var targetSecond = target.transform.GetChild(1);
+                targetFirst.localPosition = Vector3.zero;
+                targetFirst.localRotation = Quaternion.identity;
+                targetSecond.localPosition = Vector3.one;
+                targetSecond.localScale = Vector3.one;
+                var targetRenderer = targetSecond.GetComponent<SkinnedMeshRenderer>();
+                targetRenderer.localBounds = new Bounds(Vector3.zero, Vector3.one);
+                targetRenderer.SetBlendShapeWeight(0, 0f);
+
+                Assert.That(
+                    VfxSourceHierarchyPoseSnapshot.TryCapture(source.transform, out var snapshot, out var captureFailure),
+                    Is.True,
+                    captureFailure.ToString());
+                Assert.That(snapshot.TryApply(target.transform, out var applyFailure), Is.True, applyFailure.ToString());
+
+                Assert.That(targetFirst.localPosition, Is.EqualTo(sourceFirst.localPosition));
+                Assert.That(Quaternion.Angle(targetFirst.localRotation, sourceFirst.localRotation), Is.LessThan(0.001f));
+                Assert.That(targetSecond.localPosition, Is.EqualTo(sourceSecond.localPosition));
+                Assert.That(targetSecond.localScale, Is.EqualTo(sourceSecond.localScale));
+                Assert.That(targetRenderer.localBounds, Is.EqualTo(sourceRenderer.localBounds));
+                Assert.That(targetRenderer.GetBlendShapeWeight(0), Is.EqualTo(37f).Within(0.001f));
+            }
+            finally
+            {
+                Destroy(source, target, mesh);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SourceHierarchyPoseSnapshot_HierarchyMismatchFailsBeforeMutation()
+        {
+            var source = new GameObject("Source");
+            var target = new GameObject("Target");
+            try
+            {
+                CreatePoseChild(source.transform, "Child", new Vector3(2f, 3f, 4f));
+                var untouchedPosition = new Vector3(8f, 9f, 10f);
+                target.transform.localPosition = untouchedPosition;
+
+                Assert.That(
+                    VfxSourceHierarchyPoseSnapshot.TryCapture(source.transform, out var snapshot, out var captureFailure),
+                    Is.True,
+                    captureFailure.ToString());
+                Assert.That(snapshot.TryApply(target.transform, out var applyFailure), Is.False);
+                Assert.That(applyFailure, Is.EqualTo(VfxSourceHierarchyPoseFailure.HierarchyMismatch));
+                Assert.That(target.transform.localPosition, Is.EqualTo(untouchedPosition));
+            }
+            finally
+            {
+                Destroy(source, target);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SourceHierarchyPoseSnapshot_InactiveSourceIsRejected()
+        {
+            var source = new GameObject("Source");
+            try
+            {
+                source.SetActive(false);
+
+                Assert.That(
+                    VfxSourceHierarchyPoseSnapshot.TryCapture(source.transform, out _, out var failure),
+                    Is.False);
+                Assert.That(failure, Is.EqualTo(VfxSourceHierarchyPoseFailure.InactiveSource));
+            }
+            finally
+            {
+                Destroy(source);
+            }
+        }
+
         [Test]
         [Category("Extended")]
         public void ParameterizedMotion_StartsAtSourcePose()
@@ -799,6 +895,159 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(fixture.Pool.MissingSourceViewCount, Is.Zero);
                 Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
                 Assert.That(fixture.Root.OneShotRoot.GetChild(0).Find("ParameterizedMotionCloneRoot"), Is.Not.Null);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_SourceCloneFreezesCurrentPoseAndDisablesAnimator()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var animatedChild = new GameObject("AnimatedVisual").transform;
+            animatedChild.SetParent(sourceRoot.transform, worldPositionStays: false);
+            animatedChild.localPosition = new Vector3(1.25f, -0.5f, 2.75f);
+            animatedChild.localRotation = Quaternion.Euler(12f, 34f, 56f);
+            animatedChild.localScale = new Vector3(0.8f, 1.1f, 1.3f);
+            var sourceAnimator = sourceRoot.AddComponent<Animator>();
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+                var clone = instance.Find("ParameterizedMotionCloneRoot");
+                var cloneChild = clone.Find("AnimatedVisual");
+                var cloneAnimator = clone.GetComponent<Animator>();
+                Assert.That(cloneAnimator.enabled, Is.False);
+                Assert.That(cloneChild.localPosition, Is.EqualTo(animatedChild.localPosition));
+                Assert.That(Quaternion.Angle(cloneChild.localRotation, animatedChild.localRotation), Is.LessThan(0.001f));
+                Assert.That(cloneChild.localScale, Is.EqualTo(animatedChild.localScale));
+
+                fixture.TimeProvider.TimeSeconds = 0.5f;
+                fixture.Pool.Advance(0.5f);
+
+                Assert.That(cloneChild.localPosition, Is.EqualTo(animatedChild.localPosition));
+                Assert.That(Quaternion.Angle(cloneChild.localRotation, animatedChild.localRotation), Is.LessThan(0.001f));
+                Assert.That(cloneChild.localScale, Is.EqualTo(animatedChild.localScale));
+                Assert.That(Vector3.Distance(instance.localPosition, Vector3.zero), Is.GreaterThan(0.001f));
+                Assert.That(sourceAnimator.enabled, Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_PassiveAttachPointDoesNotRejectSourceClone()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var attachPointObject = new GameObject("VfxAttach_ProjectileMuzzle");
+            attachPointObject.transform.SetParent(sourceRoot.transform, worldPositionStays: false);
+            var sourceAttachPoint = attachPointObject.AddComponent<GameplayVfxAttachPoint>();
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                var clone = fixture.Root.OneShotRoot
+                    .GetChild(0)
+                    .Find("ParameterizedMotionCloneRoot");
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(clone, Is.Not.Null,
+                    "Passive VFX anchor metadata must not force Enemy DeathMotion to the authored fallback.");
+                Assert.That(clone.GetComponentsInChildren<GameplayVfxAttachPoint>(includeInactive: true), Is.Empty,
+                    "The source-only anchor marker must be removed before the visual clone becomes active.");
+                Assert.That(sourceAttachPoint, Is.Not.Null);
+                Assert.That(sourceAttachPoint.enabled, Is.True,
+                    "Sanitizing the transient clone must not mutate the original View metadata.");
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_ReleaseImmediatelyHidesOldCloneBeforePoolReuse()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                var firstHandle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+                var pooledInstance = fixture.Root.OneShotRoot.GetChild(0);
+                var firstClone = pooledInstance.Find("ParameterizedMotionCloneRoot");
+
+                fixture.Pool.Release(firstHandle);
+
+                Assert.That(firstClone == null || !firstClone.gameObject.activeSelf, Is.True);
+                var secondHandle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+                var secondClone = fixture.Root.OneShotRoot
+                    .GetChild(0)
+                    .Find("ParameterizedMotionCloneRoot");
+                Assert.That(secondHandle, Is.Not.Null);
+                Assert.That(secondClone, Is.Not.Null);
+                Assert.That(secondClone.gameObject.activeInHierarchy, Is.True);
+                Assert.That(firstClone == null || !firstClone.gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_UnsupportedPoseWriterFailsClosedToAuthoredFallback()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            sourceRoot.AddComponent<PoseWriterProbe>();
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                LogAssert.Expect(
+                    LogType.Warning,
+                    "GameplayVfxPooledInstance failed to freeze the DeathMotion source pose; " +
+                    "the authored fallback prefab will be used. reason=UnsupportedPoseWriter " +
+                    "detail=PoseWriterProbe sourceEntityId=30 sequenceId=7");
+
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(instance.Find("ParameterizedMotionCloneRoot"), Is.Null);
+                Assert.That(instance.GetComponentInChildren<Renderer>(includeInactive: true).enabled, Is.True);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.Zero,
+                    "A pose-freeze rejection is not a missing-source diagnostic.");
             }
             finally
             {
@@ -1723,6 +1972,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return prefab;
         }
 
+        private static Transform CreatePoseChild(Transform parent, string name, Vector3 localPosition)
+        {
+            var child = new GameObject(name).transform;
+            child.SetParent(parent, worldPositionStays: false);
+            child.localPosition = localPosition;
+            return child;
+        }
+
+        private static Mesh CreateBlendShapeMesh()
+        {
+            var mesh = new Mesh
+            {
+                name = "PoseSnapshotBlendShapeMesh",
+                vertices = new[]
+                {
+                    Vector3.zero,
+                    Vector3.right,
+                    Vector3.up,
+                },
+                triangles = new[] { 0, 1, 2 },
+            };
+            var deltaVertices = new[]
+            {
+                Vector3.forward * 0.1f,
+                Vector3.zero,
+                Vector3.zero,
+            };
+            var zeroDeltas = new Vector3[3];
+            mesh.AddBlendShapeFrame("Pose", 100f, deltaVertices, zeroDeltas, zeroDeltas);
+            return mesh;
+        }
+
         private static SingleCloneSourceProvider CreateCloneSourceProvider(out GameObject sourceRoot)
         {
             sourceRoot = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1893,6 +2174,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         internal sealed class FakeTimeProvider : IGameplayVfxTimeProvider
         {
             public float TimeSeconds { get; set; }
+        }
+
+        private sealed class PoseWriterProbe : MonoBehaviour
+        {
         }
     }
 }

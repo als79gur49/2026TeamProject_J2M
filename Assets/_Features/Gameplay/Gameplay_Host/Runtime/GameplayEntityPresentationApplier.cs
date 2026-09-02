@@ -416,9 +416,6 @@ namespace Game.Feature.Gameplay.Host
                 var isContactDelayedRetained =
                     _trackState.ContactDelayedRetainedEntityIds.Contains(entityId) &&
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
-                var isDeathPresentationPlaying =
-                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
-                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
                 var hasResolvedVisibility =
                     resolvedVisibility.TryGetVisibility(entityId, out var resolvedEntityVisibility);
                 var isVisible = PresentationVisibilityFallbackResolver.Resolve(
@@ -430,7 +427,6 @@ namespace Game.Feature.Gameplay.Host
                         hasActiveOriginalViewMotion,
                         isDeferredExitRetained,
                         isContactDelayedRetained,
-                        isDeathPresentationPlaying,
                         hasResolvedVisibility,
                         hasResolvedVisibility && resolvedEntityVisibility.IsVisible,
                         _stateStore.TransitionVisibilityStates.ContainsKey(entityId)));
@@ -489,8 +485,7 @@ namespace Game.Feature.Gameplay.Host
                         hasActiveOriginalViewMotion,
                         hasResolvedAdditiveLocalOffset || hasResolvedAdditiveRotation,
                         isDeferredExitRetained,
-                        isContactDelayedRetained,
-                        isDeathPresentationPlaying);
+                        isContactDelayedRetained);
 
                     if (_stateStore.LastEnemyApplySignaturesByEntityId.TryGetValue(
                             entityId,
@@ -1228,8 +1223,7 @@ namespace Game.Feature.Gameplay.Host
             bool hasActiveOriginalViewMotion,
             bool hasResolvedAdditiveChannel,
             bool isDeferredExitRetained,
-            bool isContactDelayedRetained,
-            bool isDeathPresentationPlaying)
+            bool isContactDelayedRetained)
         {
             return hasActiveBoardRotationTween ||
                    hasPresentationPoseOverride ||
@@ -1239,7 +1233,6 @@ namespace Game.Feature.Gameplay.Host
                    hasResolvedAdditiveChannel ||
                    isDeferredExitRetained ||
                    isContactDelayedRetained ||
-                   isDeathPresentationPlaying ||
                    _trackState.PresentationEventTargetEntityIds.Contains(entityId) ||
                    _trackState.JumpWindupRotationTracks.ContainsKey(entityId) ||
                    _trackState.PlayerFlipResultTurnTracks.ContainsKey(entityId) ||

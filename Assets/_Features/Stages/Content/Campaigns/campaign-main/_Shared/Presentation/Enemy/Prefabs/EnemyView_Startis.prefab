@@ -44,7 +44,6 @@ GameObject:
   - component: {fileID: 6012007685033310566}
   - component: {fileID: 2743689776297013704}
   - component: {fileID: 4489776886800807404}
-  - component: {fileID: 7788459929001122334}
   - component: {fileID: 5500000000000000103}
   m_Layer: 0
   m_Name: EnemyView_Startis
@@ -141,30 +140,11 @@ MonoBehaviour:
   jumpWindupAnimatorDurationSeconds: -1
   jumpAirborneAnimatorDurationSeconds: -1
   recoverAnimatorDurationSeconds: -1
-  deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: -1
   attackWindupReferenceClip: {fileID: 0}
   jumpWindupReferenceClip: {fileID: 0}
   jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: 0}
-  deathReferenceClip: {fileID: 9067093048684652814, guid: 4a558bdb49c251a40ac087a31f95c2ac, type: 3}
---- !u!114 &7788459929001122334
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1870086140720068720}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6c751b2feb5f4cb9b5bf1a1b799f0684, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EntityEffectPresentationAuthoring
-  hitEffectDurationSeconds: -1
-  deathEffectDurationSeconds: -1
-  deathViewTailSeconds: -1
-  deathOwnershipMode: 0
-  deathAnchorName: Chest
 --- !u!114 &5500000000000000103
 MonoBehaviour:
   m_ObjectHideFlags: 0

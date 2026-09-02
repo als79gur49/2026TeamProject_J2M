@@ -88,7 +88,10 @@ namespace Game.Feature.Gameplay.Host
 
         public int DeathSignalCount { get; private set; }
 
-        public float DeathPresentationDurationSeconds => ResolveDeathPresentationDurationSeconds();
+        [Obsolete(
+            "Enemy animation no longer owns death presentation duration. This compatibility value is always zero.",
+            false)]
+        public float DeathPresentationDurationSeconds => 0f;
 
         public float GetPresentationDurationSeconds(EnemyPresentationPhase phase)
         {
@@ -477,7 +480,7 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public float PlayDeathPresentation(int entityId)
+        internal void PlayDeathCue(int entityId)
         {
             var targetAnimator = ResolveAnimator();
             var currentState = LastPresentationState.EntityId == 0
@@ -499,13 +502,21 @@ namespace Game.Feature.Gameplay.Host
             IsMoving = false;
             if (IsPresentationPaused)
             {
-                return DeathPresentationDurationSeconds;
+                return;
             }
 
             DeathSignalCount++;
             SetTrigger(targetAnimator, deathTriggerName);
             ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.Death);
-            return DeathPresentationDurationSeconds;
+        }
+
+        [Obsolete(
+            "Enemy animation no longer owns death presentation duration. Use the typed enemy presentation playback path.",
+            false)]
+        public float PlayDeathPresentation(int entityId)
+        {
+            PlayDeathCue(entityId);
+            return 0f;
         }
 
         private Animator ResolveAnimator()
@@ -635,9 +646,6 @@ namespace Game.Feature.Gameplay.Host
                 case EnemyPresentationPhase.Recovery:
                     return animationTiming.TryGetRecoverAnimatorDurationOverride(out durationSeconds);
 
-                case EnemyPresentationPhase.Death:
-                    return animationTiming.TryGetDeathAnimatorDurationOverride(out durationSeconds);
-
                 default:
                     durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
                     return false;
@@ -687,10 +695,6 @@ namespace Game.Feature.Gameplay.Host
                     return animationTiming.TryGetRecoverReferenceClipLengthSeconds(
                         out referenceClipLengthSeconds);
 
-                case EnemyPresentationPhase.Death:
-                    return animationTiming.TryGetDeathReferenceClipLengthSeconds(
-                        out referenceClipLengthSeconds);
-
                 default:
                     referenceClipLengthSeconds = 0f;
                     return false;
@@ -719,12 +723,6 @@ namespace Game.Feature.Gameplay.Host
                 default:
                     return string.Empty;
             }
-        }
-
-        private float ResolveDeathPresentationDurationSeconds()
-        {
-            ResolveAnimatorSpeed(EnemyPresentationPhase.Death, out var presentationDurationSeconds);
-            return presentationDurationSeconds;
         }
 
         private static EnemyPresentationPhase ResolvePresentationPhase(in EnemyViewPresentationState state)

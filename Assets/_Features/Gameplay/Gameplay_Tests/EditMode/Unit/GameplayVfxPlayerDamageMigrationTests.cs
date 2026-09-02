@@ -362,8 +362,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
             GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-            var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
-            SetField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
             var binder = new GameplayEntityViewBinder(
                 registry,
                 new DefaultGameplayEntityViewFactory(

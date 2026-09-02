@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 1141000000000008002}
   - component: {fileID: 1141000000000008003}
   - component: {fileID: 1141000000000008004}
-  - component: {fileID: 1141000000000008005}
   - component: {fileID: 1141000000000008006}
   - component: {fileID: 1141000000000008009}
   m_Layer: 0
@@ -82,13 +81,11 @@ MonoBehaviour:
   jumpWindupAnimatorDurationSeconds: -1
   jumpAirborneAnimatorDurationSeconds: -1
   recoverAnimatorDurationSeconds: 0.5
-  deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: -1
   attackWindupReferenceClip: {fileID: 7400000, guid: 19cc367ffcf133f42b0c772ae30ed0b1, type: 2}
   jumpWindupReferenceClip: {fileID: 0}
   jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: 7400000, guid: c0977b05374049f46a273f93a78ed85e, type: 2}
-  deathReferenceClip: {fileID: -5059006814000262888, guid: 53bc3845eefb86f408fcb05d70cdf7b0, type: 3}
 --- !u!114 &1141000000000008004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -112,29 +109,12 @@ MonoBehaviour:
   glideActiveStateName: Fly_Loop
   glideRecoveryStateName: Fly_Done
   windupTriggerName: Windup
-  jumpWindupTriggerName: JumpWindup
-  jumpAirborneTriggerName: JumpAirborne
-  attackTriggerName: Attack
+  jumpWindupTriggerName:
+  jumpAirborneTriggerName:
+  attackTriggerName:
   recoveryTriggerName: Recover
   hitTriggerName: Hit
   deathTriggerName: Death
---- !u!114 &1141000000000008005
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1001000000000008001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6c751b2feb5f4cb9b5bf1a1b799f0684, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EntityEffectPresentationAuthoring
-  hitEffectDurationSeconds: -1
-  deathEffectDurationSeconds: -1
-  deathViewTailSeconds: -1
-  deathOwnershipMode: 0
-  deathAnchorName: Chest
 --- !u!114 &1141000000000008006
 MonoBehaviour:
   m_ObjectHideFlags: 0

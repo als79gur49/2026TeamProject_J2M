@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
@@ -10,6 +11,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly ParticleSystem[] particleSystems;
         private readonly Renderer[] prefabRenderers;
         private readonly bool[] prefabRendererEnabled;
+        private readonly Transform sourceCloneStagingRoot;
         private readonly Transform tailRoot;
         private readonly TrailRenderer[] trailRenderers;
         private GameObject sourceCloneObject;
@@ -34,6 +36,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 prefabRendererEnabled[i] = prefabRenderers[i] != null && prefabRenderers[i].enabled;
             }
 
+            var stagingObject = new GameObject("DeathMotionCloneStagingRoot");
+            stagingObject.SetActive(false);
+            sourceCloneStagingRoot = stagingObject.transform;
+            sourceCloneStagingRoot.SetParent(Transform, worldPositionStays: false);
             suspendedParticleSnapshots = new SuspendedParticleSnapshot[particleSystems.Length];
         }
 
@@ -83,7 +89,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 parent,
                 command,
                 cloneSourceProvider,
-                VfxRendererInactiveVisualSnapshotSet.Empty);
+                VfxRendererInactiveVisualSnapshotSet.Empty,
+                VfxSourceHierarchyPoseCapture.Unattempted);
         }
 
         public void ActivateParameterizedMotion(
@@ -92,7 +99,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform parent,
             in ParameterizedMotionVfxCommand command,
             IGameplayVfxCloneSourceProvider cloneSourceProvider,
-            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
+            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot,
+            in VfxSourceHierarchyPoseCapture sourcePoseCapture)
         {
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
@@ -105,7 +113,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform.localRotation = command.SourceLocalRotation;
             Transform.localScale = Vector3.one;
             GameObject.SetActive(true);
-            ConfigureParameterizedVisuals(command, cloneSourceProvider, sourceVisualSnapshot);
+            ConfigureParameterizedVisuals(
+                command,
+                cloneSourceProvider,
+                sourceVisualSnapshot,
+                sourcePoseCapture);
             ApplyParameterizedMotion(command, elapsedSeconds: 0f);
             if (!usingSourceClone)
             {
@@ -379,10 +391,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private void ConfigureParameterizedVisuals(
             in ParameterizedMotionVfxCommand command,
             IGameplayVfxCloneSourceProvider cloneSourceProvider,
-            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
+            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot,
+            in VfxSourceHierarchyPoseCapture sourcePoseCapture)
         {
             var disableRendererShadows = ShouldDisableParameterizedMotionShadows(command);
-            if (TryCreateSourceClone(command, cloneSourceProvider, out var cloneRenderers, out var liveSourceSnapshot))
+            if (TryCreateSourceClone(
+                    command,
+                    cloneSourceProvider,
+                    sourcePoseCapture,
+                    out var cloneRenderers,
+                    out var liveSourceSnapshot))
             {
                 HidePrefabVisuals();
                 activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(
@@ -419,6 +437,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool TryCreateSourceClone(
             in ParameterizedMotionVfxCommand command,
             IGameplayVfxCloneSourceProvider cloneSourceProvider,
+            in VfxSourceHierarchyPoseCapture sourcePoseCapture,
             out Renderer[] cloneRenderers,
             out VfxRendererInactiveVisualSnapshotSet liveSourceSnapshot)
         {
@@ -435,6 +454,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             liveSourceSnapshot = source.CaptureInactiveVisualSnapshot();
+            if (ShouldFreezeSourcePose(command))
+            {
+                return TryCreateFrozenDeathSourceClone(
+                    command,
+                    source,
+                    sourcePoseCapture,
+                    out cloneRenderers);
+            }
+
             sourceCloneObject = UnityEngine.Object.Instantiate(source.ModelRoot.gameObject, Transform, worldPositionStays: false);
             sourceCloneObject.name = "ParameterizedMotionCloneRoot";
             sourceCloneObject.transform.localPosition = source.ModelRoot.localPosition;
@@ -445,12 +473,151 @@ namespace Game.Feature.Gameplay.Vfx.Host
             cloneRenderers = sourceCloneObject.GetComponentsInChildren<Renderer>(includeInactive: true);
             if (cloneRenderers.Length == 0)
             {
-                SafeDestroy(sourceCloneObject);
-                sourceCloneObject = null;
+                DestroySourceClone();
                 return false;
             }
 
             return true;
+        }
+
+        private bool TryCreateFrozenDeathSourceClone(
+            in ParameterizedMotionVfxCommand command,
+            in GameplayVfxCloneSource source,
+            in VfxSourceHierarchyPoseCapture sourcePoseCapture,
+            out Renderer[] cloneRenderers)
+        {
+            cloneRenderers = Array.Empty<Renderer>();
+            if (TryFindUnsupportedPoseWriter(source.ModelRoot, out var unsupportedPoseWriter))
+            {
+                LogSourceClonePoseFailure(
+                    command,
+                    VfxSourceHierarchyPoseFailure.UnsupportedPoseWriter,
+                    unsupportedPoseWriter != null ? unsupportedPoseWriter.GetType().Name : "Unknown");
+                return false;
+            }
+
+            VfxSourceHierarchyPoseSnapshot poseSnapshot;
+            if (sourcePoseCapture.WasAttempted)
+            {
+                if (!sourcePoseCapture.HasSnapshot)
+                {
+                    LogSourceClonePoseFailure(command, sourcePoseCapture.Failure);
+                    return false;
+                }
+
+                poseSnapshot = sourcePoseCapture.Snapshot;
+            }
+            else if (!VfxSourceHierarchyPoseSnapshot.TryCapture(
+                         source.ModelRoot,
+                         out poseSnapshot,
+                         out var captureFailure))
+            {
+                LogSourceClonePoseFailure(command, captureFailure);
+                return false;
+            }
+
+            sourceCloneObject = UnityEngine.Object.Instantiate(
+                source.ModelRoot.gameObject,
+                sourceCloneStagingRoot,
+                worldPositionStays: false);
+            sourceCloneObject.name = "ParameterizedMotionCloneRoot";
+            sourceCloneObject.SetActive(false);
+            DisableCloneAnimators(sourceCloneObject);
+            RemoveGameplayAffectingComponents(sourceCloneObject);
+            if (!poseSnapshot.TryApply(sourceCloneObject.transform, out var applyFailure))
+            {
+                LogSourceClonePoseFailure(command, applyFailure);
+                DestroySourceClone();
+                return false;
+            }
+
+            sourceCloneObject.transform.SetParent(Transform, worldPositionStays: false);
+            sourceCloneObject.SetActive(true);
+            cloneRenderers = sourceCloneObject.GetComponentsInChildren<Renderer>(includeInactive: true);
+            if (cloneRenderers.Length == 0)
+            {
+                LogSourceClonePoseFailure(command, VfxSourceHierarchyPoseFailure.MissingRenderer);
+                DestroySourceClone();
+                cloneRenderers = Array.Empty<Renderer>();
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool ShouldFreezeSourcePose(in ParameterizedMotionVfxCommand command)
+        {
+            return command.CueId == GameplayVfxCueId.From(EnemyVfxCue.DeathMotion) &&
+                   command.CloneMode == ParameterizedMotionVfxCloneMode.PrefabWithSourceClone &&
+                   command.FadeMode == ParameterizedMotionVfxFadeMode.EnemyDeathFade;
+        }
+
+        private static void DisableCloneAnimators(GameObject root)
+        {
+            var animators = root.GetComponentsInChildren<Animator>(includeInactive: true);
+            for (var i = 0; i < animators.Length; i++)
+            {
+                var animator = animators[i];
+                if (animator == null)
+                {
+                    continue;
+                }
+
+                animator.writeDefaultValuesOnDisable = false;
+                animator.keepAnimatorStateOnDisable = true;
+                animator.enabled = false;
+            }
+        }
+
+        internal static bool TryFindUnsupportedPoseWriter(Transform sourceRoot, out Component unsupportedPoseWriter)
+        {
+            var components = sourceRoot.GetComponentsInChildren<Component>(includeInactive: true);
+            for (var i = 0; i < components.Length; i++)
+            {
+                var component = components[i];
+                if (component == null || component is Animator)
+                {
+                    continue;
+                }
+
+                if (component is GameplayVfxAttachPoint)
+                {
+                    continue;
+                }
+
+                if (component is Animation legacyAnimation && legacyAnimation.enabled)
+                {
+                    unsupportedPoseWriter = component;
+                    return true;
+                }
+
+                if (component is MonoBehaviour behaviour && behaviour.enabled)
+                {
+                    unsupportedPoseWriter = component;
+                    return true;
+                }
+
+                var typeName = component.GetType().Name;
+                if (typeName == "Cloth" || typeName.EndsWith("Constraint", StringComparison.Ordinal))
+                {
+                    unsupportedPoseWriter = component;
+                    return true;
+                }
+            }
+
+            unsupportedPoseWriter = null;
+            return false;
+        }
+
+        private static void LogSourceClonePoseFailure(
+            in ParameterizedMotionVfxCommand command,
+            VfxSourceHierarchyPoseFailure failure,
+            string detail = null)
+        {
+            UnityEngine.Debug.LogWarning(
+                $"{nameof(GameplayVfxPooledInstance)} failed to freeze the DeathMotion source pose; " +
+                $"the authored fallback prefab will be used. reason={failure} detail={detail ?? "None"} " +
+                $"sourceEntityId={command.SourceEntityId} sequenceId={command.SequenceId}");
         }
 
         private void ClearParameterizedVisuals()
@@ -459,8 +626,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             activeMaterialInstances = null;
             if (sourceCloneObject != null)
             {
-                SafeDestroy(sourceCloneObject);
-                sourceCloneObject = null;
+                DestroySourceClone();
             }
 
             usingSourceClone = false;
@@ -607,26 +773,63 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            DestroyComponents(root.GetComponentsInChildren<Collider>(includeInactive: true));
-            DestroyComponents(root.GetComponentsInChildren<Rigidbody>(includeInactive: true));
-            DestroyComponents(root.GetComponentsInChildren<AudioSource>(includeInactive: true));
+            var colliders = root.GetComponentsInChildren<Collider>(includeInactive: true);
+            for (var i = 0; i < colliders.Length; i++)
+            {
+                colliders[i].enabled = false;
+                SafeDestroy(colliders[i]);
+            }
+
+            var rigidbodies = root.GetComponentsInChildren<Rigidbody>(includeInactive: true);
+            for (var i = 0; i < rigidbodies.Length; i++)
+            {
+                rigidbodies[i].detectCollisions = false;
+                rigidbodies[i].isKinematic = true;
+                SafeDestroy(rigidbodies[i]);
+            }
+
+            var audioSources = root.GetComponentsInChildren<AudioSource>(includeInactive: true);
+            for (var i = 0; i < audioSources.Length; i++)
+            {
+                audioSources[i].Stop();
+                audioSources[i].enabled = false;
+                SafeDestroy(audioSources[i]);
+            }
+
+            var attachPoints = root.GetComponentsInChildren<GameplayVfxAttachPoint>(includeInactive: true);
+            for (var i = 0; i < attachPoints.Length; i++)
+            {
+                attachPoints[i].enabled = false;
+                SafeDestroy(attachPoints[i]);
+            }
+
             var components = root.GetComponentsInChildren<Component>(includeInactive: true);
             for (var i = 0; i < components.Length; i++)
             {
                 var component = components[i];
                 if (component != null && component.GetType().Name == "NavMeshAgent")
                 {
+                    if (component is Behaviour behaviour)
+                    {
+                        behaviour.enabled = false;
+                    }
+
                     SafeDestroy(component);
                 }
             }
         }
 
-        private static void DestroyComponents(Component[] components)
+        private void DestroySourceClone()
         {
-            for (var i = 0; i < components.Length; i++)
+            if (sourceCloneObject == null)
             {
-                SafeDestroy(components[i]);
+                return;
             }
+
+            sourceCloneObject.SetActive(false);
+            sourceCloneObject.transform.SetParent(sourceCloneStagingRoot, worldPositionStays: false);
+            SafeDestroy(sourceCloneObject);
+            sourceCloneObject = null;
         }
 
         private static void SafeDestroy(UnityEngine.Object target)
@@ -670,6 +873,243 @@ namespace Game.Feature.Gameplay.Vfx.Host
             public int ParticleCountAtSuspend { get; }
 
             public bool ShouldResumePlayback { get; }
+        }
+    }
+
+    internal enum VfxSourceHierarchyPoseFailure
+    {
+        None = 0,
+        MissingRoot = 1,
+        InactiveSource = 2,
+        HierarchyMismatch = 3,
+        SkinnedRendererMismatch = 4,
+        BlendShapeMismatch = 5,
+        UnsupportedPoseWriter = 6,
+        MissingRenderer = 7,
+        MissingScheduledSource = 8,
+    }
+
+    internal readonly struct VfxSourceHierarchyPoseCapture
+    {
+        private VfxSourceHierarchyPoseCapture(
+            bool wasAttempted,
+            VfxSourceHierarchyPoseSnapshot snapshot,
+            VfxSourceHierarchyPoseFailure failure)
+        {
+            WasAttempted = wasAttempted;
+            Snapshot = snapshot;
+            Failure = failure;
+        }
+
+        public static VfxSourceHierarchyPoseCapture Unattempted => default;
+
+        public bool WasAttempted { get; }
+
+        public bool HasSnapshot => Snapshot != null;
+
+        public VfxSourceHierarchyPoseSnapshot Snapshot { get; }
+
+        public VfxSourceHierarchyPoseFailure Failure { get; }
+
+        public static VfxSourceHierarchyPoseCapture Capture(Transform sourceRoot)
+        {
+            return VfxSourceHierarchyPoseSnapshot.TryCapture(
+                sourceRoot,
+                out var snapshot,
+                out var failure)
+                ? new VfxSourceHierarchyPoseCapture(true, snapshot, VfxSourceHierarchyPoseFailure.None)
+                : Failed(failure);
+        }
+
+        public static VfxSourceHierarchyPoseCapture Failed(VfxSourceHierarchyPoseFailure failure)
+        {
+            if (failure == VfxSourceHierarchyPoseFailure.None)
+            {
+                throw new ArgumentException("A failed pose capture requires a non-None failure reason.", nameof(failure));
+            }
+
+            return new VfxSourceHierarchyPoseCapture(true, null, failure);
+        }
+    }
+
+    internal sealed class VfxSourceHierarchyPoseSnapshot
+    {
+        private readonly NodePose[] nodes;
+
+        private VfxSourceHierarchyPoseSnapshot(NodePose[] nodes)
+        {
+            this.nodes = nodes ?? Array.Empty<NodePose>();
+        }
+
+        public static bool TryCapture(
+            Transform sourceRoot,
+            out VfxSourceHierarchyPoseSnapshot snapshot,
+            out VfxSourceHierarchyPoseFailure failure)
+        {
+            snapshot = null;
+            if (sourceRoot == null)
+            {
+                failure = VfxSourceHierarchyPoseFailure.MissingRoot;
+                return false;
+            }
+
+            if (!sourceRoot.gameObject.activeInHierarchy)
+            {
+                failure = VfxSourceHierarchyPoseFailure.InactiveSource;
+                return false;
+            }
+
+            var sourceNodes = new List<Transform>();
+            CollectPreOrder(sourceRoot, sourceNodes);
+            var capturedNodes = new NodePose[sourceNodes.Count];
+            for (var i = 0; i < sourceNodes.Count; i++)
+            {
+                var sourceNode = sourceNodes[i];
+                var renderers = sourceNode.GetComponents<SkinnedMeshRenderer>();
+                var rendererPoses = new SkinnedRendererPose[renderers.Length];
+                for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+                {
+                    var renderer = renderers[rendererIndex];
+                    var blendShapeCount = renderer.sharedMesh != null
+                        ? renderer.sharedMesh.blendShapeCount
+                        : 0;
+                    var weights = new float[blendShapeCount];
+                    for (var weightIndex = 0; weightIndex < blendShapeCount; weightIndex++)
+                    {
+                        weights[weightIndex] = renderer.GetBlendShapeWeight(weightIndex);
+                    }
+
+                    rendererPoses[rendererIndex] = new SkinnedRendererPose(renderer.localBounds, weights);
+                }
+
+                capturedNodes[i] = new NodePose(
+                    sourceNode.childCount,
+                    sourceNode.localPosition,
+                    sourceNode.localRotation,
+                    sourceNode.localScale,
+                    rendererPoses);
+            }
+
+            snapshot = new VfxSourceHierarchyPoseSnapshot(capturedNodes);
+            failure = VfxSourceHierarchyPoseFailure.None;
+            return true;
+        }
+
+        public bool TryApply(Transform targetRoot, out VfxSourceHierarchyPoseFailure failure)
+        {
+            if (targetRoot == null)
+            {
+                failure = VfxSourceHierarchyPoseFailure.MissingRoot;
+                return false;
+            }
+
+            var targetNodes = new List<Transform>();
+            CollectPreOrder(targetRoot, targetNodes);
+            if (targetNodes.Count != nodes.Length)
+            {
+                failure = VfxSourceHierarchyPoseFailure.HierarchyMismatch;
+                return false;
+            }
+
+            for (var i = 0; i < nodes.Length; i++)
+            {
+                var targetNode = targetNodes[i];
+                var nodePose = nodes[i];
+                if (targetNode.childCount != nodePose.ChildCount)
+                {
+                    failure = VfxSourceHierarchyPoseFailure.HierarchyMismatch;
+                    return false;
+                }
+
+                var renderers = targetNode.GetComponents<SkinnedMeshRenderer>();
+                if (renderers.Length != nodePose.Renderers.Length)
+                {
+                    failure = VfxSourceHierarchyPoseFailure.SkinnedRendererMismatch;
+                    return false;
+                }
+
+                for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+                {
+                    var renderer = renderers[rendererIndex];
+                    var expectedBlendShapeCount = nodePose.Renderers[rendererIndex].BlendShapeWeights.Length;
+                    var actualBlendShapeCount = renderer.sharedMesh != null
+                        ? renderer.sharedMesh.blendShapeCount
+                        : 0;
+                    if (actualBlendShapeCount != expectedBlendShapeCount)
+                    {
+                        failure = VfxSourceHierarchyPoseFailure.BlendShapeMismatch;
+                        return false;
+                    }
+                }
+            }
+
+            for (var i = 0; i < nodes.Length; i++)
+            {
+                var targetNode = targetNodes[i];
+                var nodePose = nodes[i];
+                targetNode.localPosition = nodePose.LocalPosition;
+                targetNode.localRotation = nodePose.LocalRotation;
+                targetNode.localScale = nodePose.LocalScale;
+
+                var renderers = targetNode.GetComponents<SkinnedMeshRenderer>();
+                for (var rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+                {
+                    var renderer = renderers[rendererIndex];
+                    var rendererPose = nodePose.Renderers[rendererIndex];
+                    renderer.localBounds = rendererPose.LocalBounds;
+                    for (var weightIndex = 0; weightIndex < rendererPose.BlendShapeWeights.Length; weightIndex++)
+                    {
+                        renderer.SetBlendShapeWeight(weightIndex, rendererPose.BlendShapeWeights[weightIndex]);
+                    }
+                }
+            }
+
+            failure = VfxSourceHierarchyPoseFailure.None;
+            return true;
+        }
+
+        private static void CollectPreOrder(Transform node, ICollection<Transform> results)
+        {
+            results.Add(node);
+            for (var childIndex = 0; childIndex < node.childCount; childIndex++)
+            {
+                CollectPreOrder(node.GetChild(childIndex), results);
+            }
+        }
+
+        private readonly struct NodePose
+        {
+            public NodePose(
+                int childCount,
+                Vector3 localPosition,
+                Quaternion localRotation,
+                Vector3 localScale,
+                SkinnedRendererPose[] renderers)
+            {
+                ChildCount = childCount;
+                LocalPosition = localPosition;
+                LocalRotation = localRotation;
+                LocalScale = localScale;
+                Renderers = renderers ?? Array.Empty<SkinnedRendererPose>();
+            }
+
+            public int ChildCount { get; }
+            public Vector3 LocalPosition { get; }
+            public Quaternion LocalRotation { get; }
+            public Vector3 LocalScale { get; }
+            public SkinnedRendererPose[] Renderers { get; }
+        }
+
+        private readonly struct SkinnedRendererPose
+        {
+            public SkinnedRendererPose(Bounds localBounds, float[] blendShapeWeights)
+            {
+                LocalBounds = localBounds;
+                BlendShapeWeights = blendShapeWeights ?? Array.Empty<float>();
+            }
+
+            public Bounds LocalBounds { get; }
+            public float[] BlendShapeWeights { get; }
         }
     }
 }
