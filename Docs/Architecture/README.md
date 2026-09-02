@@ -54,6 +54,8 @@
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
+- [Enemy-View-Prefab-Scalability-Maintainability-Audit.md](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
+  - current record of the initial Enemy View Inspector audit, subsequent legacy-lifecycle cleanup, production prefab/controller contracts, and follow-up validation gates
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
   - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Standard-only Charge BehaviorModule production content, and Phase 2 trigger boundaries
 - [Enemy-AI-Phase1-Merge-Gate.md](./Enemy-AI-Phase1-Merge-Gate.md)
