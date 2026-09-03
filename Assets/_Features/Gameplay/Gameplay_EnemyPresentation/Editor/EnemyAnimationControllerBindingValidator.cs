@@ -114,10 +114,11 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
                 if (binding.ReferenceClip != null && !effectiveClips.Contains(binding.ReferenceClip))
                 {
-                    AddError(
+                    AddWarning(
                         diagnostics,
                         "clip.not-effective",
-                        $"{binding.Cue} reference clip is not an effective clip of the assigned controller.");
+                        $"{binding.Cue} timing reference clip is not an effective clip of the assigned controller. " +
+                        "Validate the target state's effective motion separately.");
                 }
             }
 
@@ -369,6 +370,17 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             diagnostics.Add(new EnemyAnimationBindingDiagnostic(
                 code,
                 EnemyAnimationBindingDiagnosticSeverity.Error,
+                message));
+        }
+
+        private static void AddWarning(
+            ICollection<EnemyAnimationBindingDiagnostic> diagnostics,
+            string code,
+            string message)
+        {
+            diagnostics.Add(new EnemyAnimationBindingDiagnostic(
+                code,
+                EnemyAnimationBindingDiagnosticSeverity.Warning,
                 message));
         }
     }

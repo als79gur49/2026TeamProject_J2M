@@ -3,7 +3,7 @@
 ## 1. 문서 상태와 목표
 
 - 작성일: 2026-09-03
-- 상태: 최종 재검토 반영, 구현 착수 전 계획
+- 상태: Slice 0~2 완료, Slice 3 비-production 처리는 미착수
 - 선행 문서: [Enemy View Prefab Scalability and Maintainability Audit](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
 - 기준점: production 10-view Animator Controller 계약 테스트
 
@@ -408,6 +408,8 @@ Gate: prefab YAML은 수정하지 않은 상태에서 legacy-only 테스트가 �
 ### Slice 2 — Production 10개 migration
 
 구체적인 manifest schema, dry-run/apply 순서, production allowlist, evidence와 rollback 절차는 [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md)를 따른다.
+
+상태: **완료 (2026-09-03)**. 최종 inventory, RocketFace timing-reference/effective-motion 재검토 및 검증 evidence는 [Slice 2 Production Migration Closeout](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)에 기록한다.
 
 - exact manifest와 dry-run evidence 작성
 - production 10개에 새 binding 적용

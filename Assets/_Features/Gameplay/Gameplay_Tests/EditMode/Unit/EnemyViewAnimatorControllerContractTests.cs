@@ -35,12 +35,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "black_eye", "EnemyView_BlackEye.prefab",
                 new[]
                 {
-                    new StateBinding("windupStateName", "Windup"),
-                    new StateBinding("recoveryStateName", "Recover"),
+                    State(EnemyAnimationCue.ActionWindup, "Windup"),
+                    State(EnemyAnimationCue.ActionRecovery, "Recover"),
                 },
                 HitAndDeathTriggers(),
-                Parameters("EnemyAiMode", "IsMoving"),
-                requiresNamedStateCrossFade: true),
+                Parameters("EnemyAiMode", "IsMoving")),
             new ViewContract(
                 "startis", "EnemyView_Startis.prefab",
                 Array.Empty<StateBinding>(), HitAndDeathTriggers(), Parameters("IsMoving")),
@@ -48,27 +47,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "rocket_face", "EnemyView_RocketFace.prefab",
                 new[]
                 {
-                    new StateBinding("windupStateName", "Windup"),
-                    new StateBinding("chargeActiveStateName", "Charge"),
-                    new StateBinding("recoveryStateName", "Recover"),
+                    State(EnemyAnimationCue.ChargeWindup, "Windup"),
+                    State(EnemyAnimationCue.ChargeActive, "Charge"),
+                    State(EnemyAnimationCue.ChargeRecovery, "Recover"),
                 },
                 HitAndDeathTriggers(),
-                Parameters("EnemyAiMode", "EnemyChargePhase", "IsMoving"),
-                requiresNamedStateCrossFade: true),
+                Parameters("EnemyAiMode", "EnemyChargePhase", "IsMoving")),
             new ViewContract(
                 "astreton", "EnemyView_Astreton.prefab",
                 new[]
                 {
-                    new StateBinding("jumpWindupStateName", "JumpWindup"),
-                    new StateBinding("jumpAirborneStateName", "JumpAirborne"),
+                    State(EnemyAnimationCue.JumpWindup, "JumpWindup"),
+                    State(EnemyAnimationCue.JumpAirborne, "JumpAirborne"),
+                    State(EnemyAnimationCue.JumpLanding, "Move"),
                 },
                 new[]
                 {
-                    new TriggerBinding("jumpWindupTriggerName", "JumpWindup"),
-                    new TriggerBinding("jumpAirborneTriggerName", "JumpAirborne"),
-                    new TriggerBinding("attackTriggerName", "Attack"),
-                    new TriggerBinding("hitTriggerName", "Hit"),
-                    new TriggerBinding("deathTriggerName", "Death"),
+                    Trigger(EnemyAnimationCue.ActionExecute, "Attack"),
+                    Trigger(EnemyAnimationCue.Hit, "Hit"),
+                    Trigger(EnemyAnimationCue.Death, "Death"),
                 },
                 Parameters("EnemyAiMode", "IsMoving")),
             new ViewContract(
@@ -76,10 +73,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<StateBinding>(),
                 new[]
                 {
-                    new TriggerBinding("windupTriggerName", "Windup"),
-                    new TriggerBinding("recoveryTriggerName", "Recover"),
-                    new TriggerBinding("hitTriggerName", "Hit"),
-                    new TriggerBinding("deathTriggerName", "Death"),
+                    Trigger(EnemyAnimationCue.UtilityWindup, "Windup"),
+                    Trigger(EnemyAnimationCue.UtilityRecovery, "Recover"),
+                    Trigger(EnemyAnimationCue.Hit, "Hit"),
+                    Trigger(EnemyAnimationCue.Death, "Death"),
                 },
                 Parameters("IsMoving")),
             new ViewContract(
@@ -98,16 +95,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "nebulous", "EnemyView_Nebulous.prefab",
                 new[]
                 {
-                    new StateBinding("windupStateName", "Fly_Start"),
-                    new StateBinding("recoveryStateName", "Fly_Done"),
-                    new StateBinding("glideWindupStateName", "Fly_Start"),
-                    new StateBinding("glideActiveStateName", "Fly_Loop"),
-                    new StateBinding("glideRecoveryStateName", "Fly_Done"),
+                    State(EnemyAnimationCue.GlideWindup, "Fly_Start"),
+                    State(EnemyAnimationCue.GlideActive, "Fly_Loop"),
+                    State(EnemyAnimationCue.GlideRecovery, "Fly_Done"),
                 },
                 Array.Empty<TriggerBinding>(),
-                Array.Empty<ParameterBinding>(),
-                requiresNamedStateCrossFade: true,
-                disabledTriggerFields: new[] { "hitTriggerName", "deathTriggerName" }),
+                Array.Empty<ParameterBinding>()),
         };
 
         [Test]
@@ -237,25 +230,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     ValidateActiveTrigger(contract, context, controller, graph, binding, diagnostics);
                 }
-
-                var activeFields = new HashSet<string>(
-                    contract.ActiveTriggers.Select(binding => binding.FieldName), StringComparer.Ordinal);
-                foreach (var fieldName in TriggerBinding.AllFieldNames.Where(field => !activeFields.Contains(field)))
-                {
-                    var triggerName = ReadDriverString(contract, context, fieldName, diagnostics);
-                    if (!string.IsNullOrWhiteSpace(triggerName))
-                    {
-                        ValidateAuthoredTrigger(
-                            contract, context, controller, graph, fieldName, triggerName, diagnostics);
-                    }
-                }
             }
 
             AssertEmpty(diagnostics, "Campaign production active Animator trigger violations");
         }
 
         [Test]
-        public void CampaignMainEnemyViews_ExplicitlyDisabledTriggerBindingsRemainBlank()
+        public void CampaignMainEnemyViews_HaveExactBindingDispositionAndNoLegacyTimingAuthoring()
         {
             var diagnostics = new List<string>();
             var entriesById = IndexEntries(LoadCatalog(), diagnostics);
@@ -266,19 +247,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     continue;
                 }
 
-                foreach (var fieldName in contract.DisabledTriggerFields)
+                var authorings = context.Driver.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true);
+                var expectedCount = contract.HasBinding ? 1 : 0;
+                if (authorings.Length != expectedCount)
                 {
-                    var value = ReadDriverString(contract, context, fieldName, diagnostics);
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        diagnostics.Add(Format(contract, contract.PrefabPath,
-                            DescribeController(context.AssignedController), fieldName,
-                            $"binding is disabled by the View matrix and must be blank, but is '{value}'."));
-                    }
+                    diagnostics.Add(Format(contract, contract.PrefabPath,
+                        DescribeController(context.AssignedController), nameof(EnemyAnimationBindingAuthoring),
+                        $"expected {expectedCount} root binding component(s), but found {authorings.Length}."));
+                }
+
+                if (context.Driver.GetComponent<EnemyAnimationTimingAuthoring>() != null)
+                {
+                    diagnostics.Add(Format(contract, contract.PrefabPath,
+                        DescribeController(context.AssignedController), nameof(EnemyAnimationTimingAuthoring),
+                        "production View must not retain legacy timing authoring."));
                 }
             }
 
-            AssertEmpty(diagnostics, "Campaign production explicitly disabled Animator binding violations");
+            AssertEmpty(diagnostics, "Campaign production sparse binding disposition violations");
         }
 
         [Test]
@@ -461,7 +447,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 return false;
             }
 
-            context = new EntryContext(driver, animator, animator.runtimeAnimatorController);
+            EnemyAnimationBindingSnapshot snapshot = null;
+            var bindingAuthoring = driver.GetComponent<EnemyAnimationBindingAuthoring>();
+            if (contract.HasBinding)
+            {
+                if (bindingAuthoring == null)
+                {
+                    diagnostics.Add(Format(contract, prefabPath, DescribeController(animator.runtimeAnimatorController),
+                        nameof(EnemyAnimationBindingAuthoring), "expected root sparse binding is missing."));
+                    return false;
+                }
+
+                try
+                {
+                    snapshot = bindingAuthoring.CreateSnapshot();
+                }
+                catch (Exception exception)
+                {
+                    diagnostics.Add(Format(contract, prefabPath, DescribeController(animator.runtimeAnimatorController),
+                        nameof(EnemyAnimationBindingAuthoring), $"snapshot is invalid: {exception.Message}"));
+                    return false;
+                }
+            }
+            else if (bindingAuthoring != null)
+            {
+                diagnostics.Add(Format(contract, prefabPath, DescribeController(animator.runtimeAnimatorController),
+                    nameof(EnemyAnimationBindingAuthoring), "ApprovedNoBinding View must not have a binding."));
+                return false;
+            }
+
+            context = new EntryContext(driver, animator, animator.runtimeAnimatorController, snapshot);
             return true;
         }
 
@@ -568,12 +583,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             foreach (var binding in contract.ActiveStates)
             {
-                var stateName = ReadDriverString(contract, context, binding.FieldName, diagnostics);
-                if (!string.Equals(stateName, binding.ExpectedName, StringComparison.Ordinal))
+                if (context.Binding == null ||
+                    !context.Binding.TryGetBinding(binding.Cue, out var runtimeBinding))
                 {
                     diagnostics.Add(Format(contract, contract.PrefabPath,
-                        DescribeController(context.AssignedController), binding.FieldName,
-                        $"expected active state '{binding.ExpectedName}', but is '{stateName}'."));
+                        DescribeController(context.AssignedController), binding.Cue.ToString(),
+                        "expected cue binding is missing."));
+                    continue;
+                }
+
+                var stateName = runtimeBinding.TargetName;
+                if (runtimeBinding.PrimaryDispatchMode != EnemyAnimationDispatchMode.State ||
+                    !string.Equals(stateName, binding.ExpectedName, StringComparison.Ordinal))
+                {
+                    diagnostics.Add(Format(contract, contract.PrefabPath,
+                        DescribeController(context.AssignedController), binding.Cue.ToString(),
+                        $"expected State target '{binding.ExpectedName}', but is " +
+                        $"'{runtimeBinding.PrimaryDispatchMode}:{stateName}'."));
                     continue;
                 }
 
@@ -585,7 +611,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         ? "is missing from controller layer 0"
                         : "is ambiguous: " + string.Join(", ", matches.Select(match => match.FullPath));
                     diagnostics.Add(Format(contract, contract.PrefabPath,
-                        DescribeController(context.AssignedController), binding.FieldName,
+                        DescribeController(context.AssignedController), binding.Cue.ToString(),
                         $"active state '{stateName}' {detail}."));
                     continue;
                 }
@@ -593,14 +619,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 if (!IsDriverReachable(context.AssignedController, stateName))
                 {
                     diagnostics.Add(Format(contract, contract.PrefabPath,
-                        DescribeController(context.AssignedController), binding.FieldName,
+                        DescribeController(context.AssignedController), binding.Cue.ToString(),
                         $"state '{matches[0].FullPath}' is not reachable by the driver's supported layer-0 hashes."));
                 }
 
                 if (!HasEffectiveMotion(context.AssignedController, matches[0].State.motion))
                 {
                     diagnostics.Add(Format(contract, contract.PrefabPath,
-                        DescribeController(context.AssignedController), binding.FieldName,
+                        DescribeController(context.AssignedController), binding.Cue.ToString(),
                         $"active direct state '{matches[0].FullPath}' requires an effective Motion."));
                 }
             }
@@ -688,27 +714,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EntryContext context,
             ICollection<string> diagnostics)
         {
-            if (!contract.RequiresNamedStateCrossFade)
+            if (contract.ActiveStates.Length == 0)
             {
                 return;
             }
 
-            if (!context.Driver.TryGetComponent<EnemyAnimationTimingAuthoring>(out var authoring) ||
-                authoring == null)
-            {
-                diagnostics.Add(Format(contract, contract.PrefabPath,
-                    DescribeController(context.AssignedController), nameof(EnemyAnimationTimingAuthoring),
-                    "direct-state dispatch requires timing authoring with an enabled cross-fade override."));
-                return;
-            }
-
-            if (!EnemyAnimationTimingAuthoring.IsStateTransitionCrossFadeOverride(
-                    authoring.StateTransitionCrossFadeDurationSeconds))
+            if (context.Binding == null ||
+                !EnemyAnimationTimingAuthoring.IsStateTransitionCrossFadeOverride(
+                    context.Binding.DefaultStateCrossFadeDurationSeconds))
             {
                 diagnostics.Add(Format(contract, contract.PrefabPath,
                     DescribeController(context.AssignedController),
-                    nameof(EnemyAnimationTimingAuthoring.StateTransitionCrossFadeDurationSeconds),
-                    "direct-state dispatch requires a nonnegative cross-fade override; exact tuning remains editable."));
+                    nameof(EnemyAnimationBindingSnapshot.DefaultStateCrossFadeDurationSeconds),
+                    "direct-state dispatch requires a nonnegative binding cross-fade override."));
             }
         }
 
@@ -746,17 +764,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TriggerBinding binding,
             ICollection<string> diagnostics)
         {
-            var triggerName = ReadDriverString(contract, context, binding.FieldName, diagnostics);
-            if (!string.Equals(triggerName, binding.ExpectedName, StringComparison.Ordinal))
+            if (context.Binding == null ||
+                !context.Binding.TryGetBinding(binding.Cue, out var runtimeBinding))
             {
                 diagnostics.Add(Format(contract, contract.PrefabPath,
-                    DescribeController(context.AssignedController), binding.FieldName,
-                    $"expected active trigger '{binding.ExpectedName}', but is '{triggerName}'."));
+                    DescribeController(context.AssignedController), binding.Cue.ToString(),
+                    "expected cue binding is missing."));
+                return;
+            }
+
+            var triggerName = runtimeBinding.TargetName;
+            if (runtimeBinding.PrimaryDispatchMode != EnemyAnimationDispatchMode.Trigger ||
+                !string.Equals(triggerName, binding.ExpectedName, StringComparison.Ordinal))
+            {
+                diagnostics.Add(Format(contract, contract.PrefabPath,
+                    DescribeController(context.AssignedController), binding.Cue.ToString(),
+                    $"expected Trigger target '{binding.ExpectedName}', but is " +
+                    $"'{runtimeBinding.PrimaryDispatchMode}:{triggerName}'."));
                 return;
             }
 
             ValidateAuthoredTrigger(
-                contract, context, controller, graph, binding.FieldName, triggerName, diagnostics);
+                contract, context, controller, graph, binding.Cue.ToString(), triggerName, diagnostics);
         }
 
         private static void ValidateAuthoredTrigger(
@@ -791,24 +820,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     DescribeController(context.AssignedController), fieldName,
                     $"trigger '{triggerName}' is not consumed by any transition condition."));
             }
-        }
-
-        private static string ReadDriverString(
-            ViewContract contract,
-            EntryContext context,
-            string fieldName,
-            ICollection<string> diagnostics)
-        {
-            var property = new SerializedObject(context.Driver).FindProperty(fieldName);
-            if (property == null || property.propertyType != SerializedPropertyType.String)
-            {
-                diagnostics.Add(Format(contract, contract.PrefabPath,
-                    DescribeController(context.AssignedController), fieldName,
-                    "driver no longer exposes the expected serialized string binding."));
-                return null;
-            }
-
-            return property.stringValue;
         }
 
         private static bool IsInHierarchy(Transform root, Transform candidate)
@@ -848,9 +859,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new[]
             {
-                new TriggerBinding("hitTriggerName", "Hit"),
-                new TriggerBinding("deathTriggerName", "Death"),
+                Trigger(EnemyAnimationCue.Hit, "Hit"),
+                Trigger(EnemyAnimationCue.Death, "Death"),
             };
+        }
+
+        private static StateBinding State(EnemyAnimationCue cue, string targetName)
+        {
+            return new StateBinding(cue, targetName);
+        }
+
+        private static TriggerBinding Trigger(EnemyAnimationCue cue, string targetName)
+        {
+            return new TriggerBinding(cue, targetName);
         }
 
         private static ParameterBinding[] Parameters(params string[] names)
@@ -861,15 +882,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private readonly struct EntryContext
         {
-            public EntryContext(EnemyAnimatorDriver driver, Animator animator, RuntimeAnimatorController assignedController)
+            public EntryContext(
+                EnemyAnimatorDriver driver,
+                Animator animator,
+                RuntimeAnimatorController assignedController,
+                EnemyAnimationBindingSnapshot binding)
             {
                 Driver = driver;
                 Animator = animator;
                 AssignedController = assignedController;
+                Binding = binding;
             }
             public EnemyAnimatorDriver Driver { get; }
             public Animator Animator { get; }
             public RuntimeAnimatorController AssignedController { get; }
+            public EnemyAnimationBindingSnapshot Binding { get; }
         }
 
         private sealed class ViewContract
@@ -879,51 +906,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 string prefabName,
                 StateBinding[] activeStates,
                 TriggerBinding[] activeTriggers,
-                ParameterBinding[] requiredParameters,
-                bool requiresNamedStateCrossFade = false,
-                string[] disabledTriggerFields = null)
+                ParameterBinding[] requiredParameters)
             {
                 PresentationId = presentationId;
                 PrefabPath = ProductionPrefabRoot + "/" + prefabName;
                 ActiveStates = activeStates;
                 ActiveTriggers = activeTriggers;
                 RequiredParameters = requiredParameters;
-                RequiresNamedStateCrossFade = requiresNamedStateCrossFade;
-                DisabledTriggerFields = disabledTriggerFields ?? Array.Empty<string>();
             }
             public string PresentationId { get; }
             public string PrefabPath { get; }
             public StateBinding[] ActiveStates { get; }
             public TriggerBinding[] ActiveTriggers { get; }
             public ParameterBinding[] RequiredParameters { get; }
-            public bool RequiresNamedStateCrossFade { get; }
-            public string[] DisabledTriggerFields { get; }
+            public bool HasBinding => ActiveStates.Length + ActiveTriggers.Length > 0;
         }
 
         private readonly struct StateBinding
         {
-            public StateBinding(string fieldName, string expectedName)
+            public StateBinding(EnemyAnimationCue cue, string expectedName)
             {
-                FieldName = fieldName;
+                Cue = cue;
                 ExpectedName = expectedName;
             }
-            public string FieldName { get; }
+            public EnemyAnimationCue Cue { get; }
             public string ExpectedName { get; }
         }
 
         private readonly struct TriggerBinding
         {
-            public static readonly string[] AllFieldNames =
+            public TriggerBinding(EnemyAnimationCue cue, string expectedName)
             {
-                "windupTriggerName", "jumpWindupTriggerName", "jumpAirborneTriggerName",
-                "attackTriggerName", "recoveryTriggerName", "hitTriggerName", "deathTriggerName",
-            };
-            public TriggerBinding(string fieldName, string expectedName)
-            {
-                FieldName = fieldName;
+                Cue = cue;
                 ExpectedName = expectedName;
             }
-            public string FieldName { get; }
+            public EnemyAnimationCue Cue { get; }
             public string ExpectedName { get; }
         }
 

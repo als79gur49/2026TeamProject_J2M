@@ -11,10 +11,10 @@ GameObject:
   - component: {fileID: 4001000000000008001}
   - component: {fileID: 1141000000000008001}
   - component: {fileID: 1141000000000008002}
-  - component: {fileID: 1141000000000008003}
   - component: {fileID: 1141000000000008004}
   - component: {fileID: 1141000000000008006}
   - component: {fileID: 1141000000000008009}
+  - component: {fileID: 7321903324161727034}
   m_Layer: 0
   m_Name: EnemyView_DrSaturn
   m_TagString: Untagged
@@ -65,27 +65,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.UnitLocomotionPresentationAuthoring
   moveMotionDurationSeconds: 0.8
---- !u!114 &1141000000000008003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1001000000000008001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 221aa3bf1f4e4fec8fe376442cc63a61, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimationTimingAuthoring
-  attackWindupAnimatorDurationSeconds: 0.5
-  jumpWindupAnimatorDurationSeconds: -1
-  jumpAirborneAnimatorDurationSeconds: -1
-  recoverAnimatorDurationSeconds: 0.5
-  stateTransitionCrossFadeDurationSeconds: -1
-  attackWindupReferenceClip: {fileID: 7400000, guid: 19cc367ffcf133f42b0c772ae30ed0b1, type: 2}
-  jumpWindupReferenceClip: {fileID: 0}
-  jumpAirborneReferenceClip: {fileID: 0}
-  recoverReferenceClip: {fileID: 7400000, guid: c0977b05374049f46a273f93a78ed85e, type: 2}
 --- !u!114 &1141000000000008004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -99,7 +78,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimatorDriver
   animator: {fileID: 8501000000000008001}
-  animationTimingAuthoring: {fileID: 1141000000000008003}
+  animationTimingAuthoring: {fileID: 0}
   windupStateName: Windup
   jumpWindupStateName: JumpWindup
   jumpAirborneStateName: JumpAirborne
@@ -109,9 +88,9 @@ MonoBehaviour:
   glideActiveStateName: Fly_Loop
   glideRecoveryStateName: Fly_Done
   windupTriggerName: Windup
-  jumpWindupTriggerName:
-  jumpAirborneTriggerName:
-  attackTriggerName:
+  jumpWindupTriggerName: 
+  jumpAirborneTriggerName: 
+  attackTriggerName: 
   recoveryTriggerName: Recover
   hitTriggerName: Hit
   deathTriggerName: Death
@@ -144,6 +123,44 @@ MonoBehaviour:
   utilityKind: 2
   cooldownCue: 26
   attachPointId: WeaponAura
+--- !u!114 &7321903324161727034
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1001000000000008001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec56f2a2d2f04a14ac0a0f810100525a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EnemyAnimationBindingAuthoring
+  defaultStateCrossFadeDurationSeconds: -1
+  bindings:
+  - cue: 50
+    primaryDispatchMode: 1
+    targetName: Windup
+    sustainedStateName: 
+    animatorDurationSeconds: 0.5
+    referenceClip: {fileID: 7400000, guid: 19cc367ffcf133f42b0c772ae30ed0b1, type: 2}
+  - cue: 51
+    primaryDispatchMode: 1
+    targetName: Recover
+    sustainedStateName: 
+    animatorDurationSeconds: 0.5
+    referenceClip: {fileID: 7400000, guid: c0977b05374049f46a273f93a78ed85e, type: 2}
+  - cue: 90
+    primaryDispatchMode: 1
+    targetName: Hit
+    sustainedStateName: 
+    animatorDurationSeconds: -1
+    referenceClip: {fileID: 0}
+  - cue: 91
+    primaryDispatchMode: 1
+    targetName: Death
+    sustainedStateName: 
+    animatorDurationSeconds: -1
+    referenceClip: {fileID: 0}
 --- !u!1 &1001000000000008002
 GameObject:
   m_ObjectHideFlags: 0

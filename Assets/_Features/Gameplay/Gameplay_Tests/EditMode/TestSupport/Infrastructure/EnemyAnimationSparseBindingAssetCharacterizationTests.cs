@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
     {
         private const string DriverScriptGuid = "2b6f35d89b0440b0a3897d9c5c63f8a4";
         private const string TimingScriptGuid = "221aa3bf1f4e4fec8fe376442cc63a61";
+        private const string BindingScriptGuid = "ec56f2a2d2f04a14ac0a0f810100525a";
         private const string ProductionRoot =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy";
         private const string PrefabRoot = ProductionRoot + "/Prefabs";
@@ -63,18 +64,6 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 1973374220910874260L, string.Empty),
         };
 
-        private static readonly TimingContract[] ProductionTimingMigrationBaseline =
-        {
-            Timing("EnemyView_BlackEye.prefab", 1f, -1f, -1f, 1f, 0.001f),
-            Timing("EnemyView_Startis.prefab", -1f, -1f, -1f, -1f, -1f),
-            Timing("EnemyView_RocketFace.prefab", 0.4f, -1f, -1f, 0.4f, 0.001f),
-            Timing("EnemyView_Astreton.prefab", -1f, 0.5f, 1.35f, -1f, 0.001f),
-            Timing("EnemyView_DrSaturn.prefab", 0.5f, -1f, -1f, 0.5f, -1f),
-            Timing("EnemyView_JPeter.prefab", -1f, -1f, -1f, -1f, -1f),
-            Timing("EnemyView_Sunwheel.prefab", -1f, -1f, -1f, -1f, 0.001f),
-            Timing("EnemyView_Nebulous.prefab", 0.25f, -1f, -1f, 0.25f, 0f),
-        };
-
         [Test]
         public void ProductionAnimatorWiring_LocksExactResolvedAnimatorAndControllerForTenViewInventory()
         {
@@ -88,10 +77,11 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
-        public void DriverAndTimingGuids_MatchFourteenAndTwelvePrefabInventory_WithNoSceneOrAssetReference()
+        public void DriverBindingAndTimingGuids_MatchPostMigrationFourteenEightAndFourPrefabInventory()
         {
             var allContracts = ProductionContracts.Concat(NonProductionContracts).ToArray();
             var driverPaths = FindYamlReferences("*.prefab", DriverScriptGuid);
+            var bindingPaths = FindYamlReferences("*.prefab", BindingScriptGuid);
             var timingPaths = FindYamlReferences("*.prefab", TimingScriptGuid);
 
             CollectionAssert.AreEquivalent(
@@ -100,21 +90,29 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 "The Driver migration boundary is the exact ten production and four non-production prefabs.");
             Assert.That(driverPaths, Has.Count.EqualTo(14));
 
-            var expectedTimingPaths = allContracts
+            var expectedBindingPaths = ProductionContracts
                 .Where(contract => !contract.PrefabPath.EndsWith("EnemyView_Kali.prefab", StringComparison.Ordinal) &&
                                    !contract.PrefabPath.EndsWith("EnemyView_SecBot.prefab", StringComparison.Ordinal))
                 .Select(contract => contract.PrefabPath)
                 .ToArray();
-            CollectionAssert.AreEquivalent(expectedTimingPaths, timingPaths);
-            Assert.That(timingPaths, Has.Count.EqualTo(12));
+            CollectionAssert.AreEquivalent(expectedBindingPaths, bindingPaths);
+            Assert.That(bindingPaths, Has.Count.EqualTo(8));
+
+            CollectionAssert.AreEquivalent(
+                NonProductionContracts.Select(contract => contract.PrefabPath),
+                timingPaths,
+                "Only the four explicitly deferred non-production prefabs may retain timing authoring after Slice 2.");
+            Assert.That(timingPaths, Has.Count.EqualTo(4));
 
             var directNonPrefabReferences = FindYamlReferences("*.unity", DriverScriptGuid)
                 .Concat(FindYamlReferences("*.asset", DriverScriptGuid))
+                .Concat(FindYamlReferences("*.unity", BindingScriptGuid))
+                .Concat(FindYamlReferences("*.asset", BindingScriptGuid))
                 .Concat(FindYamlReferences("*.unity", TimingScriptGuid))
                 .Concat(FindYamlReferences("*.asset", TimingScriptGuid))
                 .ToArray();
             Assert.That(directNonPrefabReferences, Is.Empty,
-                "Driver and Timing authoring currently have no direct Scene or ScriptableObject references.");
+                "Driver, Binding, and Timing authoring have no direct Scene or ScriptableObject references.");
 
             foreach (var contract in NonProductionContracts)
             {
@@ -123,42 +121,24 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
-        public void ProductionTimingValues_AreMigrationParityBaseline_NotLongTermTuningPolicy()
+        public void ProductionViews_HaveValidRootBindingsOrApprovedNoBindingAndNoLegacyTiming()
         {
-            CollectionAssert.AreEquivalent(
-                ProductionTimingMigrationBaseline.Select(contract => contract.PrefabPath),
-                FindYamlReferences("*.prefab", TimingScriptGuid)
-                    .Where(path => path.StartsWith(PrefabRoot + "/", StringComparison.Ordinal) &&
-                                   !path.EndsWith("EnemyView_Jumping.prefab", StringComparison.Ordinal) &&
-                                   !path.EndsWith("EnemyView_PrototypeGravityFieldChaser.prefab", StringComparison.Ordinal)));
-
-            foreach (var contract in ProductionTimingMigrationBaseline)
+            foreach (var contract in ProductionContracts)
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(contract.PrefabPath);
                 Assert.That(prefab, Is.Not.Null, contract.PrefabPath);
-                var timing = prefab.GetComponent<EnemyAnimationTimingAuthoring>();
-                Assert.That(timing, Is.Not.Null, contract.PrefabPath);
+                Assert.That(prefab.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null, contract.PrefabPath);
 
-                Assert.That(timing.AttackWindupAnimatorDurationSeconds,
-                    Is.EqualTo(contract.AttackWindup).Within(0.0001f), contract.PrefabPath);
-                Assert.That(timing.JumpWindupAnimatorDurationSeconds,
-                    Is.EqualTo(contract.JumpWindup).Within(0.0001f), contract.PrefabPath);
-                Assert.That(timing.JumpAirborneAnimatorDurationSeconds,
-                    Is.EqualTo(contract.JumpAirborne).Within(0.0001f), contract.PrefabPath);
-                Assert.That(timing.RecoverAnimatorDurationSeconds,
-                    Is.EqualTo(contract.Recover).Within(0.0001f), contract.PrefabPath);
-                Assert.That(timing.StateTransitionCrossFadeDurationSeconds,
-                    Is.EqualTo(contract.CrossFade).Within(0.0001f), contract.PrefabPath);
+                var isApprovedNoBinding = contract.PrefabPath.EndsWith("EnemyView_Kali.prefab", StringComparison.Ordinal) ||
+                                          contract.PrefabPath.EndsWith("EnemyView_SecBot.prefab", StringComparison.Ordinal);
+                var bindings = prefab.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true);
+                Assert.That(bindings, Has.Length.EqualTo(isApprovedNoBinding ? 0 : 1), contract.PrefabPath);
+                if (!isApprovedNoBinding)
+                {
+                    Assert.That(bindings[0].transform, Is.SameAs(prefab.transform), contract.PrefabPath);
+                    Assert.DoesNotThrow(() => bindings[0].CreateSnapshot(), contract.PrefabPath);
+                }
             }
-
-            Assert.That(
-                AssetDatabase.LoadAssetAtPath<GameObject>(PrefabRoot + "/EnemyView_Kali.prefab")
-                    .GetComponent<EnemyAnimationTimingAuthoring>(),
-                Is.Null);
-            Assert.That(
-                AssetDatabase.LoadAssetAtPath<GameObject>(PrefabRoot + "/EnemyView_SecBot.prefab")
-                    .GetComponent<EnemyAnimationTimingAuthoring>(),
-                Is.Null);
         }
 
         [Test]
@@ -287,23 +267,6 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 presentationId);
         }
 
-        private static TimingContract Timing(
-            string prefabName,
-            float attackWindup,
-            float jumpWindup,
-            float jumpAirborne,
-            float recover,
-            float crossFade)
-        {
-            return new TimingContract(
-                PrefabRoot + "/" + prefabName,
-                attackWindup,
-                jumpWindup,
-                jumpAirborne,
-                recover,
-                crossFade);
-        }
-
         private readonly struct PrefabContract
         {
             public PrefabContract(
@@ -327,30 +290,5 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             public string ControllerPath { get; }
         }
 
-        private readonly struct TimingContract
-        {
-            public TimingContract(
-                string prefabPath,
-                float attackWindup,
-                float jumpWindup,
-                float jumpAirborne,
-                float recover,
-                float crossFade)
-            {
-                PrefabPath = prefabPath;
-                AttackWindup = attackWindup;
-                JumpWindup = jumpWindup;
-                JumpAirborne = jumpAirborne;
-                Recover = recover;
-                CrossFade = crossFade;
-            }
-
-            public string PrefabPath { get; }
-            public float AttackWindup { get; }
-            public float JumpWindup { get; }
-            public float JumpAirborne { get; }
-            public float Recover { get; }
-            public float CrossFade { get; }
-        }
     }
 }

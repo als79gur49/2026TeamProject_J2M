@@ -318,7 +318,13 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                     animatorDurationSeconds: -1f,
                     referenceClip: invalidReference),
                 crossFade: 0f);
-            Assert.That(Validate(fixture), Does.Contain("clip.not-effective"));
+            var diagnostics = EnemyAnimationControllerBindingValidator.Validate(
+                fixture.Authoring, fixture.Animator);
+            Assert.That(diagnostics.Select(diagnostic => diagnostic.Code),
+                Does.Contain("clip.not-effective"));
+            Assert.That(diagnostics.Single(diagnostic => diagnostic.Code == "clip.not-effective").Severity,
+                Is.EqualTo(EnemyAnimationBindingDiagnosticSeverity.Warning),
+                "A timing reference need not be the motion selected by the target state.");
         }
 
         [Test]

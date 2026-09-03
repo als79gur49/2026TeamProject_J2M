@@ -13,9 +13,9 @@ GameObject:
   - component: {fileID: 8723422497058635667}
   - component: {fileID: 5667579465611550101}
   - component: {fileID: 1395465871142893710}
-  - component: {fileID: 9095932808801300161}
   - component: {fileID: 3687895322971148645}
   - component: {fileID: 6679000000000000002}
+  - component: {fileID: 8320014489884741241}
   m_Layer: 0
   m_Name: EnemyView_RocketFace
   m_TagString: Untagged
@@ -94,7 +94,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EnemyAnimatorDriver
   animator: {fileID: 0}
-  animationTimingAuthoring: {fileID: 9095932808801300161}
+  animationTimingAuthoring: {fileID: 0}
   windupStateName: Windup
   jumpWindupStateName: JumpWindup
   jumpAirborneStateName: JumpAirborne
@@ -103,34 +103,13 @@ MonoBehaviour:
   glideWindupStateName: Fly_Start
   glideActiveStateName: Fly_Loop
   glideRecoveryStateName: Fly_Done
-  windupTriggerName:
-  jumpWindupTriggerName:
-  jumpAirborneTriggerName:
-  attackTriggerName:
-  recoveryTriggerName:
+  windupTriggerName: 
+  jumpWindupTriggerName: 
+  jumpAirborneTriggerName: 
+  attackTriggerName: 
+  recoveryTriggerName: 
   hitTriggerName: Hit
   deathTriggerName: Death
---- !u!114 &9095932808801300161
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1253227309742569353}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 221aa3bf1f4e4fec8fe376442cc63a61, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EnemyAnimationTimingAuthoring
-  attackWindupAnimatorDurationSeconds: 0.4
-  jumpWindupAnimatorDurationSeconds: -1
-  jumpAirborneAnimatorDurationSeconds: -1
-  recoverAnimatorDurationSeconds: 0.4
-  stateTransitionCrossFadeDurationSeconds: 0.001
-  attackWindupReferenceClip: {fileID: 3060872287085348379, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}
-  jumpWindupReferenceClip: {fileID: 0}
-  jumpAirborneReferenceClip: {fileID: 0}
-  recoverReferenceClip: {fileID: -5059006814000262888, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}
 --- !u!114 &3687895322971148645
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -162,9 +141,53 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
   profile: {fileID: 11400000, guid: 35cbdb04368c445bb8d8c3f40a79614b, type: 2}
+--- !u!114 &8320014489884741241
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1253227309742569353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec56f2a2d2f04a14ac0a0f810100525a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EnemyAnimationBindingAuthoring
+  defaultStateCrossFadeDurationSeconds: 0.001
+  bindings:
+  - cue: 30
+    primaryDispatchMode: 2
+    targetName: Windup
+    sustainedStateName: 
+    animatorDurationSeconds: 0.4
+    referenceClip: {fileID: 3060872287085348379, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}
+  - cue: 31
+    primaryDispatchMode: 2
+    targetName: Charge
+    sustainedStateName: 
+    animatorDurationSeconds: -1
+    referenceClip: {fileID: 0}
+  - cue: 32
+    primaryDispatchMode: 2
+    targetName: Recover
+    sustainedStateName: 
+    animatorDurationSeconds: 0.4
+    referenceClip: {fileID: -5059006814000262888, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}
+  - cue: 90
+    primaryDispatchMode: 1
+    targetName: Hit
+    sustainedStateName: 
+    animatorDurationSeconds: -1
+    referenceClip: {fileID: 0}
+  - cue: 91
+    primaryDispatchMode: 1
+    targetName: Death
+    sustainedStateName: 
+    animatorDurationSeconds: -1
+    referenceClip: {fileID: 0}
 --- !u!1 &9172096366852895011
 GameObject:
   m_ObjectHideFlags: 0

@@ -8,7 +8,8 @@
   - Slice 0 characterization
   - Slice 1 runtime/schema/Editor 구현과 최종 검증 evidence
 - 작성일: 2026-09-03
-- 범위 상태: 계획만 작성하며 이 문서 작성 시점에는 prefab migration을 실행하지 않는다.
+- 범위 상태: 2026-09-03 승인/apply/검증 완료. 실행 결과는
+  [Slice 2 Production Migration Closeout](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)에 기록한다.
 
 이 문서는 Slice 1에서 추가한 sparse cue binding runtime을 production Enemy View에 적용하는 실행 계획이다. 목표는 기존 animation 결과를 바꾸는 것이 아니라, production prefab의 flat legacy authoring을 명시적인 cue binding으로 옮기고 같은 revision의 전후 동등성을 증명하는 것이다.
 

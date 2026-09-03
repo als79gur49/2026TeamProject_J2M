@@ -304,11 +304,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 animator.Update(0f);
                 var stateBeforeRecovery = animator.GetCurrentAnimatorStateInfo(0).fullPathHash;
 
-                var serializedDriver = new SerializedObject(driver);
+                var binding = instance.GetComponent<EnemyAnimationBindingAuthoring>();
+                Assert.That(binding, Is.Not.Null);
                 Assert.That(
-                    serializedDriver.FindProperty("recoveryTriggerName").stringValue,
-                    Is.Empty,
-                    "The current JPeter no-visual Summon recovery policy depends on its blank legacy recovery binding.");
+                    binding.CreateSnapshot().TryGetBinding(EnemyAnimationCue.UtilityRecovery, out _),
+                    Is.False,
+                    "JPeter Summon recovery remains intentionally unbound in the production cue matrix.");
 
                 driver.Apply(CreateSummonRecoveryState(tickIndex: 1));
                 animator.Update(0f);
