@@ -58,15 +58,9 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
-        public void Manifest_ApprovalIsAllPendingOrOnePinnedCanonicalDigest()
+        public void Manifest_ApprovalPinsOneCanonicalDigest()
         {
             var digest = EnemyAnimationBindingMigrationManifest.ApprovedDryRunSha256;
-            if (EnemyAnimationBindingMigrationManifest.Approval == EnemyAnimationMigrationApproval.Pending)
-            {
-                Assert.That(digest, Is.Empty);
-                return;
-            }
-
             Assert.That(EnemyAnimationBindingMigrationManifest.Approval,
                 Is.EqualTo(EnemyAnimationMigrationApproval.Approved));
             Assert.That(digest, Does.Match("^[0-9a-f]{64}$"));
@@ -117,16 +111,21 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
-        public void Apply_RemainsClosedWhileCanonicalDigestIsPending()
+        public void ApprovedApply_WhenProductionIsAlreadyMigrated_IsReadOnlyAndIdempotent()
         {
-            if (EnemyAnimationBindingMigrationManifest.Approval == EnemyAnimationMigrationApproval.Approved)
-            {
-                Assert.Pass("Approval is pinned; the production apply gate is exercised by the approved migration run.");
-            }
+            var before = ProductionHashes();
 
-            var exception = Assert.Throws<InvalidOperationException>(
-                () => EnemyAnimationBindingMigrationService.ApplyApprovedProductionMigration());
-            Assert.That(exception.Message, Does.Contain("approved canonical dry-run SHA-256"));
+            var report = EnemyAnimationBindingMigrationService.ApplyApprovedProductionMigration();
+            var after = ProductionHashes();
+
+            Assert.That(report.CanApply, Is.True, report.CanonicalText);
+            Assert.That(report.Rows.Where(row =>
+                    row.Row.Disposition == EnemyAnimationMigrationDisposition.MigratedBinding)
+                .All(row => row.Status == EnemyAnimationMigrationRowStatus.AlreadyMigrated), Is.True);
+            Assert.That(report.Rows.Where(row =>
+                    row.Row.Disposition == EnemyAnimationMigrationDisposition.ApprovedNoBinding)
+                .All(row => row.Status == EnemyAnimationMigrationRowStatus.ApprovedNoBinding), Is.True);
+            CollectionAssert.AreEqual(before, after);
         }
 
         private static string[] ProductionHashes()
@@ -313,10 +312,107 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             var invalid = Clone(synthetic, synthetic.PrefabPath, synthetic.PrefabGuid, invalidBindings);
             var before = File.ReadAllBytes(invalid.PrefabPath);
 
-            Assert.Throws<InvalidOperationException>(
+            var exception = Assert.Throws<EnemyAnimationMigrationRowApplyException>(
                 () => EnemyAnimationBindingMigrationService.ApplyRowForTests(invalid));
 
+            Assert.That(exception.PrefabSaved, Is.False);
             CollectionAssert.AreEqual(before, File.ReadAllBytes(invalid.PrefabPath));
+        }
+
+        [Test]
+        public void SyntheticNebulous_StateOnlyMigration_ReloadsExactSnapshot()
+        {
+            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "Nebulous");
+            var synthetic = CopyAsSynthetic(source, "Nebulous.prefab");
+
+            EnemyAnimationBindingMigrationService.ApplyRowForTests(synthetic);
+
+            var result = EnemyAnimationBindingMigrationService.InspectRowForTests(synthetic);
+            Assert.That(result.Status, Is.EqualTo(EnemyAnimationMigrationRowStatus.AlreadyMigrated),
+                string.Join("; ", result.Errors));
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(synthetic.PrefabPath);
+            var snapshot = prefab.GetComponent<EnemyAnimationBindingAuthoring>().CreateSnapshot();
+            Assert.That(snapshot.Bindings.All(binding =>
+                binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.State), Is.True);
+            Assert.That(snapshot.TryGetBinding(EnemyAnimationCue.GlideWindup, out var windup), Is.True);
+            Assert.That(windup.AnimatorDurationSeconds, Is.EqualTo(0.25f));
+            Assert.That(snapshot.TryGetBinding(EnemyAnimationCue.GlideRecovery, out var recovery), Is.True);
+            Assert.That(recovery.AnimatorDurationSeconds, Is.EqualTo(0.25f));
+        }
+
+        [Test]
+        public void SyntheticStartis_TriggerOnlyMigration_PreservesMinusOneCrossFade()
+        {
+            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "Startis");
+            var synthetic = CopyAsSynthetic(source, "Startis.prefab");
+
+            EnemyAnimationBindingMigrationService.ApplyRowForTests(synthetic);
+
+            var result = EnemyAnimationBindingMigrationService.InspectRowForTests(synthetic);
+            Assert.That(result.Status, Is.EqualTo(EnemyAnimationMigrationRowStatus.AlreadyMigrated),
+                string.Join("; ", result.Errors));
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(synthetic.PrefabPath);
+            var snapshot = prefab.GetComponent<EnemyAnimationBindingAuthoring>().CreateSnapshot();
+            Assert.That(snapshot.DefaultStateCrossFadeDurationSeconds, Is.EqualTo(-1f));
+            Assert.That(snapshot.Bindings.All(binding =>
+                binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.Trigger &&
+                binding.ReferenceClip == null), Is.True);
+        }
+
+        [Test]
+        public void SyntheticKali_ApprovedNoBinding_RemainsByteIdenticalAndExcludedFromMutation()
+        {
+            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "Kali");
+            var synthetic = CopyApprovedNoBindingAsSynthetic(source, "Kali.prefab");
+            var before = File.ReadAllBytes(synthetic.PrefabPath);
+
+            var result = EnemyAnimationBindingMigrationService.InspectRowForTests(synthetic);
+
+            Assert.That(result.Status, Is.EqualTo(EnemyAnimationMigrationRowStatus.ApprovedNoBinding),
+                string.Join("; ", result.Errors));
+            Assert.That(EnemyAnimationBindingMigrationService.ShouldMutateForTests(result), Is.False);
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(synthetic.PrefabPath));
+        }
+
+        [Test]
+        public void SyntheticInvalidController_FailsBeforeAnyPrefabSave()
+        {
+            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "BlackEye");
+            var synthetic = CopyAsSynthetic(source, "InvalidController.prefab");
+            var root = PrefabUtility.LoadPrefabContents(synthetic.PrefabPath);
+            try
+            {
+                root.GetComponentsInChildren<Animator>(true).Single().runtimeAnimatorController = null;
+                PrefabUtility.SaveAsPrefabAsset(root, synthetic.PrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            var before = File.ReadAllBytes(synthetic.PrefabPath);
+            var exception = Assert.Throws<EnemyAnimationMigrationRowApplyException>(
+                () => EnemyAnimationBindingMigrationService.ApplyRowForTests(synthetic));
+            Assert.That(exception.PrefabSaved, Is.False);
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(synthetic.PrefabPath));
+        }
+
+        [Test]
+        public void SyntheticSourceHashDrift_FailsBeforeAnyPrefabSave()
+        {
+            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "BlackEye");
+            var synthetic = CopyAsSynthetic(source, "SourceHashDrift.prefab");
+            var before = File.ReadAllBytes(synthetic.PrefabPath);
+
+            var exception = Assert.Throws<EnemyAnimationMigrationRowApplyException>(() =>
+                EnemyAnimationBindingMigrationService.ApplyRowForTests(
+                    synthetic,
+                    new string('0', 64)));
+
+            Assert.That(exception.PrefabSaved, Is.False);
+            Assert.That(exception.Stage, Is.EqualTo("pre-save"));
+            StringAssert.Contains("source SHA-256 changed after preflight", exception.InnerException?.Message);
+            CollectionAssert.AreEqual(before, File.ReadAllBytes(synthetic.PrefabPath));
         }
 
         private static EnemyAnimationMigrationRow CopyAsSynthetic(
@@ -339,25 +435,26 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 UnityEngine.Object.DestroyImmediate(binding);
 
                 var timing = root.AddComponent<EnemyAnimationTimingAuthoring>();
-                var actionWindup = source.Bindings.Single(bindingRow =>
-                    bindingRow.Cue == EnemyAnimationCue.ActionWindup);
-                var actionRecovery = source.Bindings.Single(bindingRow =>
-                    bindingRow.Cue == EnemyAnimationCue.ActionRecovery);
+                var expectedTiming = BuildExpectedLegacyTiming(source);
                 var serializedTiming = new SerializedObject(timing);
                 serializedTiming.FindProperty("attackWindupAnimatorDurationSeconds").floatValue =
-                    actionWindup.DurationSeconds;
-                serializedTiming.FindProperty("jumpWindupAnimatorDurationSeconds").floatValue = -1f;
-                serializedTiming.FindProperty("jumpAirborneAnimatorDurationSeconds").floatValue = -1f;
+                    expectedTiming[0].DurationSeconds;
+                serializedTiming.FindProperty("jumpWindupAnimatorDurationSeconds").floatValue =
+                    expectedTiming[1].DurationSeconds;
+                serializedTiming.FindProperty("jumpAirborneAnimatorDurationSeconds").floatValue =
+                    expectedTiming[2].DurationSeconds;
                 serializedTiming.FindProperty("recoverAnimatorDurationSeconds").floatValue =
-                    actionRecovery.DurationSeconds;
+                    expectedTiming[3].DurationSeconds;
                 serializedTiming.FindProperty("stateTransitionCrossFadeDurationSeconds").floatValue =
                     source.LegacyCrossFadeSeconds;
                 serializedTiming.FindProperty("attackWindupReferenceClip").objectReferenceValue =
-                    ResolveClipForSynthetic(actionWindup.Clip);
-                serializedTiming.FindProperty("jumpWindupReferenceClip").objectReferenceValue = null;
-                serializedTiming.FindProperty("jumpAirborneReferenceClip").objectReferenceValue = null;
+                    ResolveOptionalClipForSynthetic(expectedTiming[0].Clip);
+                serializedTiming.FindProperty("jumpWindupReferenceClip").objectReferenceValue =
+                    ResolveOptionalClipForSynthetic(expectedTiming[1].Clip);
+                serializedTiming.FindProperty("jumpAirborneReferenceClip").objectReferenceValue =
+                    ResolveOptionalClipForSynthetic(expectedTiming[2].Clip);
                 serializedTiming.FindProperty("recoverReferenceClip").objectReferenceValue =
-                    ResolveClipForSynthetic(actionRecovery.Clip);
+                    ResolveOptionalClipForSynthetic(expectedTiming[3].Clip);
                 serializedTiming.ApplyModifiedPropertiesWithoutUndo();
 
                 var serializedDriver = new SerializedObject(root.GetComponent<EnemyAnimatorDriver>());
@@ -377,6 +474,64 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 persistentTiming, out _, out long timingLocalFileId), Is.True);
             return Clone(source, path, AssetDatabase.AssetPathToGUID(path), source.Bindings.ToArray(),
                 timingLocalFileId);
+        }
+
+        private static EnemyAnimationMigrationRow CopyApprovedNoBindingAsSynthetic(
+            EnemyAnimationMigrationRow source,
+            string fileName)
+        {
+            if (!AssetDatabase.IsValidFolder(TemporaryRoot))
+            {
+                AssetDatabase.CreateFolder("Assets", "__EnemyAnimationBindingMigrationTests");
+            }
+
+            var path = TemporaryRoot + "/" + fileName;
+            Assert.That(AssetDatabase.CopyAsset(source.PrefabPath, path), Is.True);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            return Clone(source, path, AssetDatabase.AssetPathToGUID(path), Array.Empty<EnemyAnimationMigrationBinding>());
+        }
+
+        private static EnemyAnimationMigrationBinding[] BuildExpectedLegacyTiming(
+            EnemyAnimationMigrationRow row)
+        {
+            return new[]
+            {
+                FirstTiming(row, EnemyAnimationCue.ActionWindup, EnemyAnimationCue.ChargeWindup,
+                    EnemyAnimationCue.GlideWindup, EnemyAnimationCue.UtilityWindup),
+                FirstTiming(row, EnemyAnimationCue.JumpWindup),
+                FirstTiming(row, EnemyAnimationCue.JumpAirborne),
+                FirstTiming(row, EnemyAnimationCue.ActionRecovery, EnemyAnimationCue.ChargeRecovery,
+                    EnemyAnimationCue.GlideRecovery, EnemyAnimationCue.UtilityRecovery),
+            };
+        }
+
+        private static EnemyAnimationMigrationBinding FirstTiming(
+            EnemyAnimationMigrationRow row,
+            params EnemyAnimationCue[] cues)
+        {
+            foreach (var cue in cues)
+            {
+                var match = row.Bindings.FirstOrDefault(binding => binding.Cue == cue);
+                if (match.Cue != EnemyAnimationCue.None && match.DurationSeconds > 0f)
+                {
+                    return match;
+                }
+            }
+
+            return new EnemyAnimationMigrationBinding(
+                EnemyAnimationCue.None,
+                EnemyAnimationDispatchMode.None,
+                string.Empty,
+                string.Empty,
+                -1f,
+                default,
+                default);
+        }
+
+        private static AnimationClip ResolveOptionalClipForSynthetic(
+            EnemyAnimationMigrationClipIdentity identity)
+        {
+            return identity.IsEmpty ? null : ResolveClipForSynthetic(identity);
         }
 
         private static AnimationClip ResolveClipForSynthetic(EnemyAnimationMigrationClipIdentity identity)

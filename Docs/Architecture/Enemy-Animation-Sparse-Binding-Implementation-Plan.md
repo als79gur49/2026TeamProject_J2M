@@ -409,7 +409,10 @@ Gate: prefab YAML은 수정하지 않은 상태에서 legacy-only 테스트가 �
 
 구체적인 manifest schema, dry-run/apply 순서, production allowlist, evidence와 rollback 절차는 [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md)를 따른다.
 
-상태: **완료 (2026-09-03)**. 최종 inventory, RocketFace timing-reference/effective-motion 재검토 및 검증 evidence는 [Slice 2 Production Migration Closeout](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)에 기록한다.
+상태: **완료 — production apply, automated contract hardening, 사용자/asset owner 수동
+Inspector 및 visual parity 확인 완료(2026-09-04)**. 최종 inventory, RocketFace
+timing-reference/effective-motion 재검토, Trigger destination/effective Motion 계약과 수동 확인은
+[Slice 2 Production Migration Closeout](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)에 기록한다.
 
 - exact manifest와 dry-run evidence 작성
 - production 10개에 새 binding 적용

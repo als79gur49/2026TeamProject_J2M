@@ -63,6 +63,25 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         internal bool CanApply => GlobalErrors.Count == 0 && Rows.All(row => row.Errors.Count == 0);
     }
 
+    internal sealed class EnemyAnimationMigrationRowApplyException : InvalidOperationException
+    {
+        internal EnemyAnimationMigrationRowApplyException(
+            EnemyAnimationMigrationRow row,
+            bool prefabSaved,
+            string stage,
+            Exception innerException)
+            : base($"{row.Name} failed during {stage} (prefabSaved={prefabSaved}).", innerException)
+        {
+            Row = row;
+            PrefabSaved = prefabSaved;
+            Stage = stage;
+        }
+
+        internal EnemyAnimationMigrationRow Row { get; }
+        internal bool PrefabSaved { get; }
+        internal string Stage { get; }
+    }
+
     internal static class EnemyAnimationBindingMigrationService
     {
         private const string DriverTimingProperty = "animationTimingAuthoring";
@@ -147,21 +166,33 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             var saved = new List<string>();
             try
             {
-                foreach (var result in migratedRows)
+                foreach (var result in migratedRows.Where(ShouldMutate))
                 {
-                    ApplyRow(result.Row);
+                    ApplyRow(result.Row, result.SourcePrefabSha256);
                     saved.Add(result.Row.PrefabPath);
                 }
             }
             catch (Exception exception)
             {
+                var rowFailure = exception as EnemyAnimationMigrationRowApplyException;
+                var failedPath = rowFailure?.Row.PrefabPath;
+                var savedIncludingFailed = saved.Concat(
+                        rowFailure != null && rowFailure.PrefabSaved
+                            ? new[] { rowFailure.Row.PrefabPath }
+                            : Array.Empty<string>())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
                 var unattempted = migratedRows
                     .Select(result => result.Row.PrefabPath)
-                    .Except(saved, StringComparer.Ordinal)
+                    .Except(savedIncludingFailed, StringComparer.Ordinal)
+                    .Where(path => !string.Equals(path, failedPath, StringComparison.Ordinal))
                     .ToArray();
                 throw new InvalidOperationException(
-                    "Production migration stopped after a prefab save failure. " +
-                    $"saved=[{string.Join(",", saved)}], unattempted-or-failed=[{string.Join(",", unattempted)}]. " +
+                    "Production migration stopped after a prefab apply failure. " +
+                    $"saved=[{string.Join(",", savedIncludingFailed)}], " +
+                    $"failed=[{failedPath ?? "<global>"}], " +
+                    $"failedStage=[{rowFailure?.Stage ?? "unknown"}], " +
+                    $"unattempted=[{string.Join(",", unattempted)}]. " +
                     "Restore the complete saved target set from checkpoint commit " +
                     "2fb4a2d4e92cdb1443836eeccb19ec429489d847 before retrying.",
                     exception);
@@ -210,7 +241,19 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
         internal static void ApplyRowForTests(EnemyAnimationMigrationRow row)
         {
-            ApplyRow(row);
+            ApplyRow(row, expectedSourcePrefabSha256: null);
+        }
+
+        internal static void ApplyRowForTests(
+            EnemyAnimationMigrationRow row,
+            string expectedSourcePrefabSha256)
+        {
+            ApplyRow(row, expectedSourcePrefabSha256);
+        }
+
+        internal static bool ShouldMutateForTests(EnemyAnimationMigrationRowResult result)
+        {
+            return ShouldMutate(result);
         }
 
         internal static string BuildHumanReport(EnemyAnimationMigrationReport report)
@@ -572,56 +615,91 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
         }
 
-        private static void ApplyRow(EnemyAnimationMigrationRow row)
+        private static bool ShouldMutate(EnemyAnimationMigrationRowResult result)
         {
-            GameObject root = null;
+            return result.Row.Disposition == EnemyAnimationMigrationDisposition.MigratedBinding &&
+                   result.Status == EnemyAnimationMigrationRowStatus.LegacyReady;
+        }
+
+        private static void ApplyRow(EnemyAnimationMigrationRow row, string expectedSourcePrefabSha256)
+        {
+            var prefabSaved = false;
             try
             {
-                root = PrefabUtility.LoadPrefabContents(row.PrefabPath);
-                var driver = root.GetComponent<EnemyAnimatorDriver>();
-                var timing = root.GetComponent<EnemyAnimationTimingAuthoring>();
-                if (driver == null || timing == null ||
-                    root.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true).Length != 0)
+                if (expectedSourcePrefabSha256 != null)
                 {
-                    throw new InvalidOperationException($"{row.Name} changed after preflight.");
+                    var currentSha256 = Sha256(File.ReadAllBytes(row.PrefabPath));
+                    if (!string.Equals(currentSha256, expectedSourcePrefabSha256, StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            $"{row.Name} source SHA-256 changed after preflight. " +
+                            $"expected={expectedSourcePrefabSha256}, actual={currentSha256}.");
+                    }
                 }
 
-                var binding = root.AddComponent<EnemyAnimationBindingAuthoring>();
-                ConfigureBindingWithSerializedObject(binding, row);
-                var animatorProperty = new SerializedObject(driver).FindProperty("animator");
-                var animator = animatorProperty.objectReferenceValue as Animator ??
-                               root.GetComponentsInChildren<Animator>(true).Single();
-                var errors = new List<string>();
-                ValidateBinding(row, binding, animator, errors);
-                if (errors.Count != 0)
+                GameObject root = null;
+                try
                 {
-                    throw new InvalidOperationException(string.Join("; ", errors));
+                    root = PrefabUtility.LoadPrefabContents(row.PrefabPath);
+                    var driver = root.GetComponent<EnemyAnimatorDriver>();
+                    var timing = root.GetComponent<EnemyAnimationTimingAuthoring>();
+                    if (driver == null || timing == null ||
+                        root.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true).Length != 0)
+                    {
+                        throw new InvalidOperationException($"{row.Name} changed after preflight.");
+                    }
+
+                    var binding = root.AddComponent<EnemyAnimationBindingAuthoring>();
+                    ConfigureBindingWithSerializedObject(binding, row);
+                    var animatorProperty = new SerializedObject(driver).FindProperty("animator");
+                    var animator = animatorProperty.objectReferenceValue as Animator ??
+                                   root.GetComponentsInChildren<Animator>(true).Single();
+                    var errors = new List<string>();
+                    ValidateBinding(row, binding, animator, errors);
+                    if (errors.Count != 0)
+                    {
+                        throw new InvalidOperationException(string.Join("; ", errors));
+                    }
+
+                    var serializedDriver = new SerializedObject(driver);
+                    serializedDriver.FindProperty(DriverTimingProperty).objectReferenceValue = null;
+                    serializedDriver.ApplyModifiedPropertiesWithoutUndo();
+                    UnityEngine.Object.DestroyImmediate(timing, allowDestroyingAssets: true);
+
+                    PrefabUtility.SaveAsPrefabAsset(root, row.PrefabPath, out var success);
+                    if (!success)
+                    {
+                        throw new InvalidOperationException($"Unity failed to save {row.PrefabPath}.");
+                    }
+
+                    prefabSaved = true;
+                }
+                finally
+                {
+                    if (root != null)
+                    {
+                        PrefabUtility.UnloadPrefabContents(root);
+                    }
                 }
 
-                var serializedDriver = new SerializedObject(driver);
-                serializedDriver.FindProperty(DriverTimingProperty).objectReferenceValue = null;
-                serializedDriver.ApplyModifiedPropertiesWithoutUndo();
-                UnityEngine.Object.DestroyImmediate(timing, allowDestroyingAssets: true);
-
-                PrefabUtility.SaveAsPrefabAsset(root, row.PrefabPath, out var success);
-                if (!success)
+                var result = InspectRow(row);
+                if (result.Status != EnemyAnimationMigrationRowStatus.AlreadyMigrated)
                 {
-                    throw new InvalidOperationException($"Unity failed to save {row.PrefabPath}.");
+                    throw new InvalidOperationException(
+                        $"{row.Name} failed immediate reload: {string.Join("; ", result.Errors)}");
                 }
             }
-            finally
+            catch (EnemyAnimationMigrationRowApplyException)
             {
-                if (root != null)
-                {
-                    PrefabUtility.UnloadPrefabContents(root);
-                }
+                throw;
             }
-
-            var result = InspectRow(row);
-            if (result.Status != EnemyAnimationMigrationRowStatus.AlreadyMigrated)
+            catch (Exception exception)
             {
-                throw new InvalidOperationException(
-                    $"{row.Name} failed immediate reload: {string.Join("; ", result.Errors)}");
+                throw new EnemyAnimationMigrationRowApplyException(
+                    row,
+                    prefabSaved,
+                    prefabSaved ? "post-save-reload" : "pre-save",
+                    exception);
             }
         }
 
@@ -1033,7 +1111,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         private static void DryRunProductionMigration()
         {
             var report = EnemyAnimationBindingMigrationService.DryRun();
-            var path = WriteEvidence("02-dry-run", report);
+            var path = CreateEvidencePath("02-dry-run");
+            WriteEvidence(path, report);
             var human = EnemyAnimationBindingMigrationService.BuildHumanReport(report);
             UnityEngine.Debug.Log(human + "\nreport=" + path);
             if (!report.CanApply)
@@ -1045,12 +1124,29 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         [MenuItem("Tools/Enemy/Animation Sparse Binding/Apply Approved Production Migration")]
         private static void ApplyProductionMigration()
         {
-            var report = EnemyAnimationBindingMigrationService.ApplyApprovedProductionMigration();
-            var path = WriteEvidence("03-apply", report);
-            UnityEngine.Debug.Log(EnemyAnimationBindingMigrationService.BuildHumanReport(report) + "\nreport=" + path);
+            var path = CreateEvidencePath("03-apply");
+            File.WriteAllText(path,
+                "status=STARTED\nutc=" + DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture) + "\n",
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            try
+            {
+                var report = EnemyAnimationBindingMigrationService.ApplyApprovedProductionMigration();
+                WriteEvidence(path, report);
+                UnityEngine.Debug.Log(
+                    EnemyAnimationBindingMigrationService.BuildHumanReport(report) + "\nreport=" + path);
+            }
+            catch (Exception exception)
+            {
+                File.WriteAllText(path,
+                    "status=FAILED\nutc=" + DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture) +
+                    "\nexception=\n" + exception + "\n",
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                UnityEngine.Debug.LogError("Production migration failed. report=" + path + "\n" + exception);
+                throw;
+            }
         }
 
-        private static string WriteEvidence(string phase, EnemyAnimationMigrationReport report)
+        private static string CreateEvidencePath(string phase)
         {
             var runId = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             var directory = Path.Combine(
@@ -1058,12 +1154,15 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 runId,
                 phase);
             Directory.CreateDirectory(directory);
-            var path = Path.Combine(directory, "production-migration-report.txt");
+            return Path.Combine(directory, "production-migration-report.txt").Replace('\\', '/');
+        }
+
+        private static void WriteEvidence(string path, EnemyAnimationMigrationReport report)
+        {
             File.WriteAllText(path,
                 EnemyAnimationBindingMigrationService.BuildHumanReport(report) + "\n--- canonical ---\n" +
                 report.CanonicalText,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            return path.Replace('\\', '/');
         }
     }
 }

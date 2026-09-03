@@ -103,6 +103,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<ParameterBinding>()),
         };
 
+        private static readonly IReadOnlyDictionary<string, string> ExpectedTriggerDestinationMotions =
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [TriggerKey("black_eye", EnemyAnimationCue.Hit)] = "<null>",
+                [TriggerKey("black_eye", EnemyAnimationCue.Death)] =
+                    "4d048268569f7314ca6e0610d38303f9:-1493303027246044120",
+                [TriggerKey("startis", EnemyAnimationCue.Hit)] =
+                    "f0cbedca08e0fed419ae5e7a60d0ac4f:7400000",
+                [TriggerKey("startis", EnemyAnimationCue.Death)] =
+                    "4a558bdb49c251a40ac087a31f95c2ac:9067093048684652814",
+                [TriggerKey("rocket_face", EnemyAnimationCue.Hit)] = "<null>",
+                [TriggerKey("rocket_face", EnemyAnimationCue.Death)] =
+                    "1716406119d8be34d841f0d4eb033a2c:-5059006814000262888",
+                [TriggerKey("astreton", EnemyAnimationCue.ActionExecute)] =
+                    "9870afb7c6d615c458c88e0e341207e3:9067093048684652814",
+                [TriggerKey("astreton", EnemyAnimationCue.Hit)] =
+                    "9870afb7c6d615c458c88e0e341207e3:9067093048684652814",
+                [TriggerKey("astreton", EnemyAnimationCue.Death)] =
+                    "9870afb7c6d615c458c88e0e341207e3:-8481709605947105597",
+                [TriggerKey("dr_saturn", EnemyAnimationCue.UtilityWindup)] =
+                    "19cc367ffcf133f42b0c772ae30ed0b1:7400000",
+                [TriggerKey("dr_saturn", EnemyAnimationCue.UtilityRecovery)] =
+                    "c0977b05374049f46a273f93a78ed85e:7400000",
+                [TriggerKey("dr_saturn", EnemyAnimationCue.Hit)] =
+                    "f0cbedca08e0fed419ae5e7a60d0ac4f:7400000",
+                [TriggerKey("dr_saturn", EnemyAnimationCue.Death)] =
+                    "53bc3845eefb86f408fcb05d70cdf7b0:-5059006814000262888",
+                [TriggerKey("j_peter", EnemyAnimationCue.Hit)] = "<null>",
+                [TriggerKey("j_peter", EnemyAnimationCue.Death)] = "<null>",
+                [TriggerKey("sunwheel", EnemyAnimationCue.Hit)] =
+                    "bbf461ea260c63b4785c6c2c72a480bf:1827226128182048838",
+                [TriggerKey("sunwheel", EnemyAnimationCue.Death)] =
+                    "bbf461ea260c63b4785c6c2c72a480bf:9067093048684652814",
+            };
+
         [Test]
         public void CampaignMainCatalog_ContainsExactProductionIdToPrefabMappingWithoutDuplicates()
         {
@@ -233,6 +268,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             AssertEmpty(diagnostics, "Campaign production active Animator trigger violations");
+        }
+
+        [Test]
+        public void CampaignMainEnemyViews_TriggerBindingsHaveExactLayerZeroDestinations()
+        {
+            var diagnostics = new List<string>();
+            Assert.That(ExpectedTriggerDestinationMotions.Count,
+                Is.EqualTo(ProductionContracts.Sum(contract => contract.ActiveTriggers.Length)),
+                "Every production trigger cue must have one pinned effective destination Motion identity.");
+            var entriesById = IndexEntries(LoadCatalog(), diagnostics);
+            foreach (var contract in ProductionContracts)
+            {
+                if (!TryGetControllerContext(contract, entriesById, diagnostics, out var context, out var controller))
+                {
+                    continue;
+                }
+
+                var graph = BuildGraph(controller);
+                foreach (var binding in contract.ActiveTriggers)
+                {
+                    ValidateTriggerDestination(contract, context, graph, binding, diagnostics);
+                }
+            }
+
+            AssertEmpty(diagnostics, "Campaign production trigger destination violations");
         }
 
         [Test]
@@ -517,13 +577,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var states = new List<StateDescriptor>();
             var conditions = new HashSet<string>(StringComparer.Ordinal);
+            var transitions = new List<TransitionDescriptor>();
             for (var layerIndex = 0; layerIndex < controller.layers.Length; layerIndex++)
             {
                 var layer = controller.layers[layerIndex];
-                CollectGraph(layer.stateMachine, layer.name, layerIndex, states, conditions);
+                CollectGraph(layer.stateMachine, layer.name, layerIndex, states, conditions, transitions);
             }
 
-            return new ControllerGraph(states, conditions);
+            return new ControllerGraph(states, conditions, transitions);
         }
 
         private static void CollectGraph(
@@ -531,30 +592,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             string stateMachinePath,
             int layerIndex,
             ICollection<StateDescriptor> states,
-            ISet<string> conditions)
+            ISet<string> conditions,
+            ICollection<TransitionDescriptor> transitions)
         {
             foreach (var childState in stateMachine.states)
             {
-                states.Add(new StateDescriptor(childState.state,
-                    stateMachinePath + "." + childState.state.name, layerIndex));
-                CollectConditions(childState.state.transitions, conditions);
+                var statePath = stateMachinePath + "." + childState.state.name;
+                states.Add(new StateDescriptor(childState.state, statePath, layerIndex));
+                CollectTransitions(childState.state.transitions, statePath, layerIndex, conditions, transitions);
             }
 
-            CollectConditions(stateMachine.anyStateTransitions, conditions);
-            CollectConditions(stateMachine.entryTransitions, conditions);
+            CollectTransitions(stateMachine.anyStateTransitions, stateMachinePath + ".<AnyState>", layerIndex,
+                conditions, transitions);
+            CollectTransitions(stateMachine.entryTransitions, stateMachinePath + ".<Entry>", layerIndex,
+                conditions, transitions);
             foreach (var childStateMachine in stateMachine.stateMachines)
             {
-                CollectConditions(stateMachine.GetStateMachineTransitions(childStateMachine.stateMachine), conditions);
+                var childPath = stateMachinePath + "." + childStateMachine.stateMachine.name;
+                CollectTransitions(stateMachine.GetStateMachineTransitions(childStateMachine.stateMachine),
+                    childPath, layerIndex, conditions, transitions);
                 CollectGraph(childStateMachine.stateMachine,
-                    stateMachinePath + "." + childStateMachine.stateMachine.name,
-                    layerIndex, states, conditions);
+                    childPath, layerIndex, states, conditions, transitions);
             }
         }
 
-        private static void CollectConditions<T>(IEnumerable<T> transitions, ISet<string> conditions)
+        private static void CollectTransitions<T>(
+            IEnumerable<T> authoredTransitions,
+            string sourcePath,
+            int layerIndex,
+            ISet<string> conditions,
+            ICollection<TransitionDescriptor> descriptors)
             where T : AnimatorTransitionBase
         {
-            var transitionSet = transitions.Where(transition => transition != null).ToArray();
+            var transitionSet = authoredTransitions.Where(transition => transition != null).ToArray();
             var hasEnabledSoloTransition = transitionSet.Any(transition =>
                 transition.solo && !transition.mute);
             foreach (var transition in transitionSet)
@@ -572,7 +642,114 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         conditions.Add(condition.parameter);
                     }
                 }
+
+                var destinationName = transition.isExit
+                    ? "<Exit>"
+                    : transition.destinationState != null
+                        ? transition.destinationState.name
+                        : transition.destinationStateMachine != null
+                            ? "<StateMachine:" + transition.destinationStateMachine.name + ">"
+                            : "<null>";
+                descriptors.Add(new TransitionDescriptor(
+                    sourcePath,
+                    destinationName,
+                    layerIndex,
+                    transition.conditions.ToArray()));
             }
+        }
+
+        private static void ValidateTriggerDestination(
+            ViewContract contract,
+            EntryContext context,
+            ControllerGraph graph,
+            TriggerBinding binding,
+            ICollection<string> diagnostics)
+        {
+            var matches = graph.Transitions.Where(transition =>
+                    transition.Conditions.Any(condition =>
+                        string.Equals(condition.parameter, binding.ExpectedName, StringComparison.Ordinal)))
+                .ToArray();
+            if (matches.Length == 0)
+            {
+                diagnostics.Add(Format(contract, contract.PrefabPath,
+                    DescribeController(context.AssignedController), binding.Cue.ToString(),
+                    $"trigger '{binding.ExpectedName}' has no executable transition."));
+                return;
+            }
+
+            foreach (var transition in matches)
+            {
+                if (transition.LayerIndex != 0 ||
+                    !string.Equals(transition.DestinationName, binding.ExpectedDestinationName,
+                        StringComparison.Ordinal))
+                {
+                    diagnostics.Add(Format(contract, contract.PrefabPath,
+                        DescribeController(context.AssignedController), binding.Cue.ToString(),
+                        $"trigger '{binding.ExpectedName}' transition '{transition.SourcePath}' must target " +
+                        $"layer 0 state '{binding.ExpectedDestinationName}', but targets layer " +
+                        $"{transition.LayerIndex} '{transition.DestinationName}'."));
+                }
+
+                foreach (var condition in transition.Conditions.Where(condition =>
+                             string.Equals(condition.parameter, binding.ExpectedName, StringComparison.Ordinal)))
+                {
+                    if (condition.mode != AnimatorConditionMode.If || Math.Abs(condition.threshold) > 0.000001f)
+                    {
+                        diagnostics.Add(Format(contract, contract.PrefabPath,
+                            DescribeController(context.AssignedController), binding.Cue.ToString(),
+                            $"trigger '{binding.ExpectedName}' must use If/0, but uses " +
+                            $"{condition.mode}/{condition.threshold:R}."));
+                    }
+                }
+            }
+
+            var destinationStates = graph.States.Where(state => state.LayerIndex == 0 &&
+                string.Equals(state.State.name, binding.ExpectedDestinationName, StringComparison.Ordinal)).ToArray();
+            if (destinationStates.Length != 1)
+            {
+                diagnostics.Add(Format(contract, contract.PrefabPath,
+                    DescribeController(context.AssignedController), binding.Cue.ToString(),
+                    $"expected exactly one layer 0 destination state '{binding.ExpectedDestinationName}', " +
+                    $"but found {destinationStates.Length}."));
+                return;
+            }
+
+            var motion = ResolveEffectiveMotion(context.AssignedController, destinationStates[0].State.motion);
+            var identity = motion == null ? "<null>" : DescribeAssetIdentity(motion);
+            var key = TriggerKey(contract.PresentationId, binding.Cue);
+            if (!ExpectedTriggerDestinationMotions.TryGetValue(key, out var expectedIdentity))
+            {
+                diagnostics.Add(Format(contract, contract.PrefabPath,
+                    DescribeController(context.AssignedController), binding.Cue.ToString(),
+                    "effective destination Motion identity is not pinned."));
+            }
+            else if (!string.Equals(identity, expectedIdentity, StringComparison.Ordinal))
+            {
+                diagnostics.Add(Format(contract, contract.PrefabPath,
+                    DescribeController(context.AssignedController), binding.Cue.ToString(),
+                    $"effective destination Motion expected '{expectedIdentity}', but is '{identity}'."));
+            }
+
+            TestContext.WriteLine(
+                $"TRIGGER_DESTINATION|{contract.PresentationId}|{binding.Cue}|{binding.ExpectedName}|" +
+                $"{destinationStates[0].FullPath}|{identity}");
+        }
+
+        private static string DescribeAssetIdentity(UnityEngine.Object asset)
+        {
+            if (asset == null)
+            {
+                return "<null>";
+            }
+
+            return AssetDatabase.TryGetGUIDAndLocalFileIdentifier(asset, out string guid, out long localFileId)
+                ? guid + ":" + localFileId
+                : asset.GetType().Name + ":" + asset.name;
+        }
+
+        private static string TriggerKey(string presentationId, EnemyAnimationCue cue)
+        {
+            return presentationId + "|" + cue;
         }
 
         private static void ValidateActiveStates(
@@ -672,6 +849,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             overrideController.GetOverrides(overrides);
             var overridePair = overrides.FirstOrDefault(pair => pair.Key == baseClip);
             return overridePair.Key == null || overridePair.Value != null || baseClip != null;
+        }
+
+        private static Motion ResolveEffectiveMotion(RuntimeAnimatorController assigned, Motion baseMotion)
+        {
+            if (!(assigned is AnimatorOverrideController overrideController) ||
+                !(baseMotion is AnimationClip baseClip))
+            {
+                return baseMotion;
+            }
+
+            var overrides = new List<KeyValuePair<AnimationClip, AnimationClip>>();
+            overrideController.GetOverrides(overrides);
+            var overridePair = overrides.FirstOrDefault(pair => pair.Key == baseClip);
+            return overridePair.Key != null && overridePair.Value != null ? overridePair.Value : baseClip;
         }
 
         private static void ValidateParameters(
@@ -869,9 +1060,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new StateBinding(cue, targetName);
         }
 
-        private static TriggerBinding Trigger(EnemyAnimationCue cue, string targetName)
+        private static TriggerBinding Trigger(
+            EnemyAnimationCue cue,
+            string targetName,
+            string destinationName = null)
         {
-            return new TriggerBinding(cue, targetName);
+            return new TriggerBinding(cue, targetName, destinationName ?? targetName);
         }
 
         private static ParameterBinding[] Parameters(params string[] names)
@@ -935,13 +1129,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private readonly struct TriggerBinding
         {
-            public TriggerBinding(EnemyAnimationCue cue, string expectedName)
+            public TriggerBinding(
+                EnemyAnimationCue cue,
+                string expectedName,
+                string expectedDestinationName)
             {
                 Cue = cue;
                 ExpectedName = expectedName;
+                ExpectedDestinationName = expectedDestinationName;
             }
             public EnemyAnimationCue Cue { get; }
             public string ExpectedName { get; }
+            public string ExpectedDestinationName { get; }
         }
 
         private readonly struct ParameterBinding
@@ -968,17 +1167,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public int LayerIndex { get; }
         }
 
+        private readonly struct TransitionDescriptor
+        {
+            public TransitionDescriptor(
+                string sourcePath,
+                string destinationName,
+                int layerIndex,
+                AnimatorCondition[] conditions)
+            {
+                SourcePath = sourcePath;
+                DestinationName = destinationName;
+                LayerIndex = layerIndex;
+                Conditions = conditions;
+            }
+            public string SourcePath { get; }
+            public string DestinationName { get; }
+            public int LayerIndex { get; }
+            public AnimatorCondition[] Conditions { get; }
+        }
+
         private sealed class ControllerGraph
         {
             public ControllerGraph(
                 IReadOnlyList<StateDescriptor> states,
-                IReadOnlyCollection<string> consumedConditions)
+                IReadOnlyCollection<string> consumedConditions,
+                IReadOnlyList<TransitionDescriptor> transitions)
             {
                 States = states;
                 ConsumedConditions = consumedConditions;
+                Transitions = transitions;
             }
             public IReadOnlyList<StateDescriptor> States { get; }
             public IReadOnlyCollection<string> ConsumedConditions { get; }
+            public IReadOnlyList<TransitionDescriptor> Transitions { get; }
         }
     }
 }
