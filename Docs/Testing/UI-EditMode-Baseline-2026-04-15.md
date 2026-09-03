@@ -24,6 +24,7 @@
 - Comic-sequence terminology rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path was retired and the current runtime remains sprite-sequence only. The 2026-08-21 product follow-up temporarily removed the validation-only outro Definition and left the Gameplay scene reference explicitly null; that scene-wiring state is superseded by the production activation row below.
 - Historical production-outro removal rerun: green on 2026-08-21 KST, Windows UI build passed, Unity UI EditMode `1341 total / 0 failed`, and filtered actual-scene PlayMode `1 total / 0 failed`; at that revision an active completed campaign skipped comic presentation, completed the regular Main Menu lifecycle, and did not mark absent outro content complete
 - Current production-outro activation rerun: green on 2026-09-03 KST, Windows UI build passed, Unity UI EditMode `1340 total / 0 failed`, filtered Full EditMode matched `0`, and filtered actual-scene PlayMode passed `1 total / 0 failed`; the authored one-page sequence cumulatively reveals six independent panels in fixed order, keeps panels 3 and 4 as separate advance steps, completes the opaque Main Menu handoff, and marks outro progress once
+- Current SurfaceBelt center remainder badge rerun: green on 2026-09-04 KST, Windows UI build passed and Unity UI EditMode `1344 total / 0 failed`; only centered `Cell_0` authors one number-free 32x32 `NormalBadge` on the visual's left, its frame/fill use the Objective completion gold, and its active/inactive alpha is selected by the current sector's `HasAnyRemaining` value. Initial binding is immediate; later state changes use DOTween color/scale transitions, and new active sectors receive one runtime-isolated All In 1 Shine without replaying on identical binds
 - Current comic-sequence audio-settings follow-up rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1345 total / 0 failed`; authored intro audio follows both Master and BGM mute/volume settings while retaining the comic-sequence fade gain
 - Current comic-sequence BGM-focus recovery rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1347 total / 0 failed`; cancellation and unsuccessful handoff restore the router's current BGM selection, while synchronously accepted scene routes keep the source-scene BGM stopped for destination takeover
 - Current comic-sequence enter-fade follow-up rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1348 total / 0 failed`; entry keeps the overlay background transparent while the dedicated fade layer transitions the visible source scene to opaque black, then fixes the background to black before the first comic page reveal
@@ -34,8 +35,8 @@
 - Current Pause progression stepper rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; previous/current/upcoming states, larger group-start diamonds, one persistent current ring, informational Left/Right behavior, and real screenshot-preview campaign binding are guarded
 - Current campaign MainMenu separated-launch-result rerun: green on 2026-08-25 KST, Windows UI build passed and Unity UI EditMode `1352 total / 0 failed`; slot cards consume immutable entry/evaluation/action inputs, profile blocked recovery remains a separate global path, and the combined validation facade/corrected clone is retired
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1340 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1340 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1344 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1344 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
@@ -45,6 +46,7 @@
 
 ## Structural Delta
 - Added tests:
+  - SurfaceBelt center remainder badge guards proving the canonical HUD authors exactly one `ButtonBadgeGroup` to the left of the `Cell_0` visual, contains exactly one number-free 32x32 `NormalBadge` whose frame/fill share the Objective completion gold, leaves neighboring cells unbound, uses active style for normal-only, MoonBlock-only, or combined remainder, and uses inactive style only when `HasAnyRemaining` is false; focused transition guards additionally cover immediate first bind, active/inactive tween lifecycle, active-sector confirmation without identical-bind replay, disable-time stabilization, and runtime-isolated All In 1 Shine material wiring
   - blocked-save recovery typography guards proving four authored semantic bindings, en-US/ko-KR font/material round-trip with authored sizing preserved, and fail-fast behavior when a non-card binding is missing instead of applying a card-ordinal fallback
   - blocked-save state classification, retry-only IO/permission policy, destructive reset confirmation/cancel flow, status revalidation, locale refresh, startup reset resumption, and incompatible/corrupt profile archive-and-empty-profile recovery guards
   - comic-sequence import/layout guards, exact intro progression, authored six-panel production-outro scene wiring and order, shared intro/outro routing contracts including missing-content direct return, current comic-sequence component presence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, Master/BGM/fade audio-setting composition, setup-failure cleanup, and pointer-only background click ownership
@@ -108,6 +110,9 @@
   - production-outro removal pre-change and current UI rerun: `1341 total / 0 failed`
   - production-outro removal slice-local UI delta: `+0`; the temporary Definition parity test was replaced one-for-one by explicit null scene wiring coverage, with the renamed actual-scene PlayMode smoke validated separately as `1 total / 0 failed`
   - production-outro activation slice-local UI delta: `+0`; the explicit-null scene guard was replaced one-for-one by authored six-panel order/layout/import/scene-wiring coverage, while the renamed actual-scene PlayMode smoke separately passed `1 total / 0 failed`
+  - SurfaceBelt center remainder badge pre-change observed result: `1340 total / 0 failed`
+  - SurfaceBelt center remainder badge current rerun: `1344 total / 0 failed`
+  - SurfaceBelt center remainder badge slice-local delta: `+4`; one residue-contract test and three focused transition/lifecycle tests were added while existing presenter and canonical prefab guards were updated to the single-center, number-free `HasAnyRemaining` contract and its DOTween/All In 1 presentation behavior
   - comic-sequence audio-settings follow-up pre-change observed result: `1343 total / 0 failed`
   - comic-sequence audio-settings follow-up current rerun: `1345 total / 0 failed`
   - comic-sequence audio-settings follow-up slice-local delta: `+2`; focused guards cover Master/BGM/fade volume composition and Master-or-BGM mute behavior
@@ -191,6 +196,7 @@
 - PlayMode escalation status:
   - no additional UI PlayMode tests were added in Stage 9
   - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
+  - the SurfaceBelt center remainder badge change required no additional PlayMode escalation because its prefab hierarchy, serialized references, remainder-state binding, active/inactive distinction, tween replay rules, disable cleanup, and isolated Shine material are covered by the canonical HUD and focused EditMode tests; manual in-game visual inspection remains not run
   - comic-sequence production scene bootstrap continues to be covered by actual-scene PlayMode smoke: intro presentation remains exercised, while the Gameplay outro case now proves six cumulative panel advances, opaque handoff, Main Menu lifecycle completion, and one-time progress persistence with authored production content; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
 
 ## Covered Freeze Evidence

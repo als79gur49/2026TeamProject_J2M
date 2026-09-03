@@ -37,6 +37,7 @@ This file is the external current-structure source for the completed UI cleanup 
   - HUD is not a gameplay command owner.
   - HUD may raise bounded UI-owned requests such as pause flow, but it must not dispatch gameplay Push/Flip commands.
   - `PlayerStatus` displays current player status/readiness state only; it does not own Push/Flip command routing.
+  - `SurfaceBeltIndicator` authors one number-free 32x32 `NormalBadge` only to the left of the centered `Cell_0` visual. Its frame and fill share the Objective completion gold, and the current sector's `HasAnyRemaining` value selects fully lit or dim inactive alpha. Initial binding is immediate; later state changes use local DOTween color/scale transitions, while entry into a new active sector plays one runtime-isolated All In 1 Shine and identical binds do not replay it. Neighboring sector cells author no badge.
   - The in-game Stage Name resolves `HeaderLarge` through `GameplayUiTypographyTheme` in both locales: en-US uses Orbitron ExtraBold and ko-KR uses Climate Crisis KR 2000, prefab-authored sizing remains unchanged, and the target adds TMP `UpperCase` presentation without mutating localized source strings. World Guide and transition-label default-locale restoration remain separate contracts.
 
 ## Preserved Classification Decisions
