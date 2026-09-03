@@ -329,56 +329,81 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 ValidateManifestRow(row, errors);
             }
 
-            var driverPrefabs = FindYamlReferences("*.prefab", EnemyAnimationBindingMigrationManifest.DriverScriptGuid);
-            if (driverPrefabs.Count != 14)
-            {
-                errors.Add($"inventory.driver: expected 14 prefab references, found {driverPrefabs.Count}.");
-            }
-
-            var productionDriverPaths = driverPrefabs
-                .Where(path => path.StartsWith(
-                    EnemyAnimationBindingMigrationManifest.ProductionPrefabRoot + "/",
-                    StringComparison.Ordinal))
-                .Where(path => !path.EndsWith("EnemyView_Jumping.prefab", StringComparison.Ordinal) &&
-                               !path.EndsWith("EnemyView_PrototypeGravityFieldChaser.prefab", StringComparison.Ordinal))
-                .OrderBy(path => path, StringComparer.Ordinal)
+            var ledgerRows = EnemyAnimationViewDispositionLedger.Rows;
+            var liveRows = ledgerRows
+                .Where(row => row.ExpectedAssetExists)
                 .ToArray();
-            if (!productionDriverPaths.SequenceEqual(
-                    rows.Select(row => row.PrefabPath).OrderBy(path => path, StringComparer.Ordinal),
-                    StringComparer.Ordinal))
+            var expectedDriverPaths = liveRows
+                .Select(row => row.PrefabPath)
+                .ToArray();
+            var driverPrefabs = FindYamlReferences("*.prefab", EnemyAnimationBindingMigrationManifest.DriverScriptGuid);
+            if (!SetEquals(driverPrefabs, expectedDriverPaths))
             {
-                errors.Add("inventory.production-allowlist: production Driver prefabs differ from the exact manifest allowlist.");
+                errors.Add("inventory.driver: Driver prefab references differ from the ten live disposition rows.");
             }
 
-            var deferredTimingPaths = new[]
+            if (EnemyAnimationViewDispositionLedger.SchemaVersion <= 0 || ledgerRows.Count != 14)
             {
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Attacking.prefab",
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_NonAttacking.prefab",
-                EnemyAnimationBindingMigrationManifest.ProductionPrefabRoot + "/EnemyView_Jumping.prefab",
-                EnemyAnimationBindingMigrationManifest.ProductionPrefabRoot +
-                "/EnemyView_PrototypeGravityFieldChaser.prefab",
-            };
+                errors.Add("ledger.schema: expected a positive schema version and exactly 14 disposition rows.");
+            }
+
+            var liveManifestPaths = rows.Select(row => row.PrefabPath).ToArray();
+            if (!SetEquals(expectedDriverPaths, liveManifestPaths))
+            {
+                errors.Add("ledger.live-allowlist: live disposition rows differ from the production manifest.");
+            }
+
+            if (ledgerRows.Count(row => row.Disposition == EnemyAnimationViewDisposition.MigratedBinding) != 8 ||
+                ledgerRows.Count(row => row.Disposition == EnemyAnimationViewDisposition.ApprovedNoBinding) != 2 ||
+                ledgerRows.Count(row => row.Disposition == EnemyAnimationViewDisposition.Deleted) != 4 ||
+                ledgerRows.Any(row => row.Disposition == EnemyAnimationViewDisposition.Archived) ||
+                ledgerRows.Any(row => row.Disposition == EnemyAnimationViewDisposition.LegacyBlocked))
+            {
+                errors.Add("ledger.disposition-count: expected 8 MigratedBinding, 2 ApprovedNoBinding, " +
+                           "4 Deleted, 0 Archived, and 0 LegacyBlocked rows.");
+            }
+
+            foreach (var row in rows)
+            {
+                var ledgerRow = liveRows.SingleOrDefault(candidate =>
+                    string.Equals(candidate.PrefabPath, row.PrefabPath, StringComparison.Ordinal));
+                var expectedDisposition = row.Disposition == EnemyAnimationMigrationDisposition.MigratedBinding
+                    ? EnemyAnimationViewDisposition.MigratedBinding
+                    : EnemyAnimationViewDisposition.ApprovedNoBinding;
+                if (ledgerRow == null || !ledgerRow.IsProduction ||
+                    ledgerRow.Disposition != expectedDisposition)
+                {
+                    errors.Add($"ledger.production-disposition: {row.Name} differs from the production manifest.");
+                }
+            }
+
+            AddDuplicates(ledgerRows.Select(row => row.PrefabPath), "ledger.path-duplicate", errors);
+            AddDuplicates(ledgerRows.Select(row => row.PrefabGuid), "ledger.guid-duplicate", errors);
+            foreach (var deletedRow in ledgerRows.Where(row => row.Disposition == EnemyAnimationViewDisposition.Deleted))
+            {
+                if (File.Exists(deletedRow.PrefabPath) || File.Exists(deletedRow.PrefabPath + ".meta") ||
+                    !string.IsNullOrEmpty(AssetDatabase.GUIDToAssetPath(deletedRow.PrefabGuid)))
+                {
+                    errors.Add($"ledger.deleted-residue: {deletedRow.Name} asset or GUID still resolves.");
+                }
+            }
+
             var productionMigrationPaths = rows
                 .Where(row => row.Disposition == EnemyAnimationMigrationDisposition.MigratedBinding)
                 .Select(row => row.PrefabPath)
                 .ToArray();
             var timingPrefabs = FindYamlReferences(
                 "*.prefab", EnemyAnimationBindingMigrationManifest.TimingScriptGuid);
-            var timingIsPreMigration = SetEquals(
-                timingPrefabs, deferredTimingPaths.Concat(productionMigrationPaths));
-            var timingIsPostMigration = SetEquals(timingPrefabs, deferredTimingPaths);
-            if (!timingIsPreMigration && !timingIsPostMigration)
+            if (timingPrefabs.Count != 0)
             {
-                errors.Add("inventory.timing: expected the four deferred prefabs plus either all eight or no " +
-                           "production migration prefabs.");
+                errors.Add("inventory.timing: expected zero prefab references after legacy View retirement.");
             }
 
             var bindingPrefabs = FindYamlReferences(
                 "*.prefab", EnemyAnimationBindingMigrationManifest.BindingScriptGuid);
-            if (bindingPrefabs.Count != 0 && !SetEquals(bindingPrefabs, productionMigrationPaths))
+            if (!SetEquals(bindingPrefabs, productionMigrationPaths))
             {
-                errors.Add("inventory.binding: expected either zero pre-migration bindings or exactly the eight " +
-                           "production migration prefabs.");
+                errors.Add("inventory.binding: expected exactly the eight production migration prefabs.");
             }
 
             var directReferences = FindYamlReferences("*.unity", EnemyAnimationBindingMigrationManifest.DriverScriptGuid)

@@ -66,11 +66,89 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             Assert.That(digest, Does.Match("^[0-9a-f]{64}$"));
         }
 
+        [Test]
+        public void DispositionLedger_PinsTenLiveAndFourDeletedViewsWithoutLegacyBlockers()
+        {
+            var rows = EnemyAnimationViewDispositionLedger.Rows;
+            Assert.That(EnemyAnimationViewDispositionLedger.SchemaVersion, Is.GreaterThan(0));
+            Assert.That(rows, Has.Count.EqualTo(14));
+            Assert.That(rows.Select(row => row.PrefabPath).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(14));
+            Assert.That(rows.Select(row => row.PrefabGuid).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(14));
+            Assert.That(rows.Count(row => row.Disposition == EnemyAnimationViewDisposition.MigratedBinding),
+                Is.EqualTo(8));
+            Assert.That(rows.Count(row => row.Disposition == EnemyAnimationViewDisposition.ApprovedNoBinding),
+                Is.EqualTo(2));
+            Assert.That(rows.Count(row => row.Disposition == EnemyAnimationViewDisposition.Deleted),
+                Is.EqualTo(4));
+            Assert.That(rows.Count(row => row.Disposition == EnemyAnimationViewDisposition.Archived), Is.Zero);
+            Assert.That(rows.Count(row => row.Disposition == EnemyAnimationViewDisposition.LegacyBlocked), Is.Zero);
+
+            var liveRows = rows.Where(row => row.ExpectedAssetExists).ToArray();
+            Assert.That(liveRows, Has.Length.EqualTo(10));
+            Assert.That(liveRows.All(row => row.IsProduction), Is.True);
+            CollectionAssert.AreEqual(
+                EnemyAnimationBindingMigrationManifest.Rows.Select(row => row.PrefabPath),
+                liveRows.Select(row => row.PrefabPath));
+            CollectionAssert.AreEqual(
+                EnemyAnimationBindingMigrationManifest.Rows.Select(row => row.PrefabGuid),
+                liveRows.Select(row => row.PrefabGuid));
+            foreach (var row in liveRows)
+            {
+                Assert.That(File.Exists(row.PrefabPath), Is.True, row.PrefabPath);
+                Assert.That(AssetDatabase.GUIDToAssetPath(row.PrefabGuid), Is.EqualTo(row.PrefabPath), row.Name);
+                var manifestRow = EnemyAnimationBindingMigrationManifest.Rows.Single(candidate =>
+                    string.Equals(candidate.PrefabPath, row.PrefabPath, StringComparison.Ordinal));
+                var expectedDisposition = manifestRow.Disposition == EnemyAnimationMigrationDisposition.MigratedBinding
+                    ? EnemyAnimationViewDisposition.MigratedBinding
+                    : EnemyAnimationViewDisposition.ApprovedNoBinding;
+                Assert.That(row.Disposition, Is.EqualTo(expectedDisposition), row.Name);
+            }
+
+            var deletedRows = rows.Where(row => row.Disposition == EnemyAnimationViewDisposition.Deleted).ToArray();
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "Attacking|83caa4e85bf10db439b3962f8682e4ce|BlackEye",
+                    "NonAttacking|46a5570e50d3d91459ff0980ae576e65|Startis",
+                    "Jumping|6f32c68c11dbede40b0bc721539b2af5|Astreton",
+                    "PrototypeGravityFieldChaser|63df51ad8ec0533438680ec9b4db5298|DrSaturn",
+                },
+                deletedRows.Select(row => $"{row.Name}|{row.PrefabGuid}|{row.ReplacementName}"));
+            foreach (var row in deletedRows)
+            {
+                Assert.That(row.IsProduction, Is.False, row.Name);
+                Assert.That(row.ExpectedAssetExists, Is.False, row.Name);
+                Assert.That(row.RetirementReason, Is.Not.Empty, row.Name);
+                Assert.That(File.Exists(row.PrefabPath), Is.False, row.PrefabPath);
+                Assert.That(File.Exists(row.PrefabPath + ".meta"), Is.False, row.PrefabPath);
+                Assert.That(AssetDatabase.GUIDToAssetPath(row.PrefabGuid), Is.Empty, row.Name);
+                Assert.That(FindSerializedGuidReferences(row.PrefabGuid), Is.Empty, row.Name);
+            }
+
+            const string jumpingInactiveMaterialFolder =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/" +
+                "Materials/InactiveCompatible/EnemyView_Jumping";
+            Assert.That(Directory.Exists(jumpingInactiveMaterialFolder), Is.False);
+            Assert.That(File.Exists(jumpingInactiveMaterialFolder + ".meta"), Is.False);
+        }
+
         private static string Signature(EnemyAnimationMigrationRow row)
         {
             var bindings = string.Join(",", row.Bindings.Select(binding =>
                 $"{binding.Cue}:{binding.Mode}:{binding.TargetName}:{binding.DurationSeconds:R}"));
             return $"{row.Name}|{bindings}|{row.CrossFadeSeconds:R}";
+        }
+
+        private static string[] FindSerializedGuidReferences(string guid)
+        {
+            return Directory.EnumerateFiles("Assets", "*", SearchOption.AllDirectories)
+                .Where(path => path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase) ||
+                               path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase) ||
+                               path.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
+                .Where(path => File.ReadAllText(path).Contains("guid: " + guid, StringComparison.Ordinal))
+                .Select(path => path.Replace('\\', '/'))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
         }
     }
 

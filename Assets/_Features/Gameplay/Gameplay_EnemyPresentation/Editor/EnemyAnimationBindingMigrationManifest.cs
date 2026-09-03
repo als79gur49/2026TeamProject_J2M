@@ -368,4 +368,130 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             });
         }
     }
+
+    internal enum EnemyAnimationViewDisposition
+    {
+        MigratedBinding = 0,
+        ApprovedNoBinding = 1,
+        Archived = 2,
+        Deleted = 3,
+        LegacyBlocked = 4,
+    }
+
+    internal sealed class EnemyAnimationViewDispositionRow
+    {
+        internal EnemyAnimationViewDispositionRow(
+            string name,
+            string prefabPath,
+            string prefabGuid,
+            bool isProduction,
+            EnemyAnimationViewDisposition disposition,
+            string retirementReason,
+            string replacementName,
+            bool expectedAssetExists)
+        {
+            Name = name ?? string.Empty;
+            PrefabPath = prefabPath ?? string.Empty;
+            PrefabGuid = prefabGuid ?? string.Empty;
+            IsProduction = isProduction;
+            Disposition = disposition;
+            RetirementReason = retirementReason ?? string.Empty;
+            ReplacementName = replacementName ?? string.Empty;
+            ExpectedAssetExists = expectedAssetExists;
+        }
+
+        internal string Name { get; }
+        internal string PrefabPath { get; }
+        internal string PrefabGuid { get; }
+        internal bool IsProduction { get; }
+        internal EnemyAnimationViewDisposition Disposition { get; }
+        internal string RetirementReason { get; }
+        internal string ReplacementName { get; }
+        internal bool ExpectedAssetExists { get; }
+    }
+
+    internal static class EnemyAnimationViewDispositionLedger
+    {
+        internal const int SchemaVersion = 1;
+
+        private const string ProductionRoot =
+            EnemyAnimationBindingMigrationManifest.ProductionPrefabRoot;
+        private const string LegacyRuntimeRoot =
+            "Assets/_Features/Gameplay/Gameplay_Entities/Runtime";
+
+        private static readonly IReadOnlyList<EnemyAnimationViewDispositionRow> LedgerRows =
+            new ReadOnlyCollection<EnemyAnimationViewDispositionRow>(new[]
+            {
+                Live("BlackEye", "EnemyView_BlackEye.prefab", "d25f546e192650048aeec864272891c2",
+                    EnemyAnimationViewDisposition.MigratedBinding),
+                Live("Startis", "EnemyView_Startis.prefab", "d2fcbcdf8d3b4dd4b88dd02f4fb843ae",
+                    EnemyAnimationViewDisposition.MigratedBinding),
+                Live("RocketFace", "EnemyView_RocketFace.prefab", "4b046e9ae49c42b4388ff25a2353c3f7",
+                    EnemyAnimationViewDisposition.MigratedBinding),
+                Live("Astreton", "EnemyView_Astreton.prefab", "7aae229c82bf72e49c105c163ee2d676",
+                    EnemyAnimationViewDisposition.MigratedBinding),
+                Live("DrSaturn", "EnemyView_DrSaturn.prefab", "8fa155d3aa7c4ea4bb582c5fb364e801",
+                    EnemyAnimationViewDisposition.MigratedBinding),
+                Live("JPeter", "EnemyView_JPeter.prefab", "7fa07cb2cf222ca4194569602c56204a",
+                    EnemyAnimationViewDisposition.MigratedBinding),
+                Live("Sunwheel", "EnemyView_Sunwheel.prefab", "40031cd173e7ca9902ba3c3d971f4239",
+                    EnemyAnimationViewDisposition.MigratedBinding),
+                Live("Kali", "EnemyView_Kali.prefab", "6eced58e0a1a4a6881cc0c15aa61f402",
+                    EnemyAnimationViewDisposition.ApprovedNoBinding),
+                Live("SecBot", "EnemyView_SecBot.prefab", "fca7744895a64016aab93a7e38807d41",
+                    EnemyAnimationViewDisposition.ApprovedNoBinding),
+                Live("Nebulous", "EnemyView_Nebulous.prefab", "18e3b2aebc74a9b43b5f5cda65339d6b",
+                    EnemyAnimationViewDisposition.MigratedBinding),
+                Deleted("Attacking", LegacyRuntimeRoot + "/EnemyView_Attacking.prefab",
+                    "83caa4e85bf10db439b3962f8682e4ce", "BlackEye",
+                    "Retired generic test View; production catalog uses the dedicated BlackEye View."),
+                Deleted("NonAttacking", LegacyRuntimeRoot + "/EnemyView_NonAttacking.prefab",
+                    "46a5570e50d3d91459ff0980ae576e65", "Startis",
+                    "Retired generic test View; production catalog uses the dedicated Startis View."),
+                Deleted("Jumping", ProductionRoot + "/EnemyView_Jumping.prefab",
+                    "6f32c68c11dbede40b0bc721539b2af5", "Astreton",
+                    "Retired invalid legacy timing fixture; production catalog uses the dedicated Astreton View."),
+                Deleted("PrototypeGravityFieldChaser",
+                    ProductionRoot + "/EnemyView_PrototypeGravityFieldChaser.prefab",
+                    "63df51ad8ec0533438680ec9b4db5298", "DrSaturn",
+                    "Retired non-catalog prototype; production catalog uses the dedicated DrSaturn View."),
+            });
+
+        internal static IReadOnlyList<EnemyAnimationViewDispositionRow> Rows => LedgerRows;
+
+        private static EnemyAnimationViewDispositionRow Live(
+            string name,
+            string prefabFileName,
+            string prefabGuid,
+            EnemyAnimationViewDisposition disposition)
+        {
+            return new EnemyAnimationViewDispositionRow(
+                name,
+                ProductionRoot + "/" + prefabFileName,
+                prefabGuid,
+                true,
+                disposition,
+                string.Empty,
+                name,
+                true);
+        }
+
+        private static EnemyAnimationViewDispositionRow Deleted(
+            string name,
+            string prefabPath,
+            string prefabGuid,
+            string replacementName,
+            string retirementReason)
+        {
+            return new EnemyAnimationViewDispositionRow(
+                name,
+                prefabPath,
+                prefabGuid,
+                false,
+                EnemyAnimationViewDisposition.Deleted,
+                retirementReason,
+                replacementName,
+                false);
+        }
+    }
 }

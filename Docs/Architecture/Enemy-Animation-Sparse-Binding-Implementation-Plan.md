@@ -3,7 +3,7 @@
 ## 1. 문서 상태와 목표
 
 - 작성일: 2026-09-03
-- 상태: Slice 0~2 완료, Slice 3 비-production 처리는 미착수
+- 상태: Slice 0~3 완료, Slice 4 legacy private Inspector 표면 제거 대기
 - 선행 문서: [Enemy View Prefab Scalability and Maintainability Audit](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
 - 기준점: production 10-view Animator Controller 계약 테스트
 
@@ -19,7 +19,8 @@
 2. `EnemyAnimationBindingAuthoring`은 View별 cue, Animator 대상 이름, 선택적 timing만 소유한다.
 3. `EnemyAnimationCueCatalog`가 cue별 허용 dispatch 방식, timing 허용 여부, 지속 state 필요 여부를 코드 정책으로 관리한다.
 4. Inspector는 실제 binding entry와 catalog metadata에 따라 필요한 필드만 표시한다.
-5. production 10개 프리팹을 명시적 manifest로 먼저 이관하고 비-production 4개는 각각 확인 후 이관한다.
+5. production 10개 프리팹을 명시적 manifest로 먼저 이관하고, 비-production 4개는 별도 확인 후
+   `Deleted` disposition으로 퇴역시킨다.
 6. 기존 public compatibility type/API는 이번 작업에서 삭제하지 않는다.
 
 ### 2.2 기존 초안에서 보완한 사항
@@ -30,7 +31,8 @@
 - Jump의 최초 trigger와 재동기화용 state 이름을 한 필드로 합치지 않는다. 필요한 경우 `sustainedStateName`을 별도로 둔다.
 - v1 crossfade는 entry별 값이 아니라 **컴포넌트 단위 기본 state crossfade**로 둔다. 현행 View별 전역 값과 가장 가깝고 중복도 적다.
 - 새 binding component가 존재하면 새 경로만 사용한다. cue 단위 legacy fallback은 허용하지 않는다.
-- `EnemyView_Jumping`은 자동 이관하지 않는다. trigger 진입/state 재동기화와 불완전한 timing authoring을 먼저 특성화한다.
+- `EnemyView_Jumping`은 자동 이관하지 않는다. trigger 진입/state 재동기화와 불완전한 timing authoring을
+  먼저 특성화한 뒤, production 비참여 및 invalid legacy fixture임을 근거로 Slice 3에서 삭제한다.
 
 ## 3. 선택 이유
 
@@ -279,7 +281,7 @@ source symbol/signature와 현재 production View의 behavior compatibility는 �
 
 ## 8. Prefab inventory와 이관 경계
 
-현재 GUID 기반 inventory:
+Slice 0 착수 시점의 GUID 기반 migration baseline:
 
 - `EnemyAnimatorDriver` 참조 prefab: 14개
 - `EnemyAnimationTimingAuthoring` 참조 prefab: 12개
@@ -287,7 +289,8 @@ source symbol/signature와 현재 production View의 behavior compatibility는 �
 - production: 10개
 - 비-production: `EnemyView_Attacking`, `EnemyView_NonAttacking`, `EnemyView_Jumping`, `EnemyView_PrototypeGravityFieldChaser`
 
-이 숫자는 migration allowlist baseline이다. 알려지지 않은 15번째 prefab이 발견되면 자동 이관을 중단하고 범위를 다시 검토한다.
+이 숫자는 historical migration allowlist baseline이다. Slice 3 완료 후 current live inventory는 Driver 10,
+Binding 8, Timing 0이며 baseline 14개는 disposition ledger로 계속 추적한다.
 
 ### 8.1 `EnemyView_Jumping` blocker
 
@@ -306,7 +309,8 @@ source symbol/signature와 현재 production View의 behavior compatibility는 �
 3. 미사용 prototype이면 archive/delete를 별도 변경으로 수행
 4. 결론이 없으면 legacy 경로를 유지하고 최종 private field 제거를 연기
 
-이 계획은 위 선택을 임의로 대신하지 않는다.
+Slice 3에서는 사용자/asset owner가 3번 삭제를 승인했다. production catalog와 serialized asset에서 inbound
+reference가 없고 전용 Astreton View가 현재 Jump 계약을 소유하므로 해당 prefab은 repair 없이 삭제했다.
 
 ## 9. 직렬화와 migration
 
@@ -346,7 +350,8 @@ Editor migration 도구는 `PrefabUtility.LoadPrefabContents`를 사용해 다�
 
 dry-run, validation, 수동 확인 evidence는 storage policy에 따라 `/mnt/d/J2M/evidence/<change-id>/` 아래에 새로 저장한다.
 
-production 10개를 먼저 이관한다. 비-production 4개는 각각 characterization/asset 결정을 마친 뒤 추가한다. 모든 14개가 해결되기 전에는 legacy Driver private field를 삭제하지 않는다.
+production 10개를 먼저 이관한다. 비-production 4개는 characterization과 owner 결정을 마친 뒤
+`Deleted`로 기록한다. 모든 14개 disposition이 해결되기 전에는 legacy Driver private field를 삭제하지 않는다.
 
 `EnemyAnimatorDriver.cs.meta` GUID는 유지한다. `EnemyAnimationTimingAuthoring`의 prefab 참조가 0이 되어도 public compatibility source와 `.meta`는 보존한다. Residue 검사는 다음처럼 scope를 제한한다.
 
@@ -425,11 +430,15 @@ Gate: production contract, runtime characterization, utility timing, DeathMotion
 
 ### Slice 3 — 비-production 4개 처리
 
-- Attacking, NonAttacking, PrototypeGravityFieldChaser를 개별 characterization 후 manifest 이관
-- Jumping은 8.1의 명시적 결정 반영
-- raw YAML 일괄 치환 및 빈 필드 기반 추론 금지
+- 완료: Attacking, NonAttacking, Jumping, PrototypeGravityFieldChaser를 production 비참여 legacy
+  test/prototype residue로 확정하고 prefab 및 `.meta`를 삭제했다.
+- Jumping 전용 inactive-compatible material도 단일 참조 orphan으로 함께 삭제했다.
+- production manifest 10행은 유지하고 별도 immutable disposition ledger에 `Deleted` 4행을 기록했다.
+- live inventory는 Driver 10, Binding 8, Timing 0이며 `LegacyBlocked == 0`이다.
+- 공유 production controller와 test fixture로 남은 controller/clip/material은 연쇄 삭제하지 않았다.
 
-Gate: baseline 14개 모두 disposition이 있어야 하고 `LegacyBlocked == 0`이어야 한다. Kali/SecBot 및 characterization으로 승인된 무-animation View는 `ApprovedNoBinding`으로 남는다. live prefab count와 disposition 합계도 일치해야 한다.
+Gate: baseline 14개 모두 disposition이 있고 `LegacyBlocked == 0`이다. live Driver 10개는
+`MigratedBinding 8 + ApprovedNoBinding 2`와 일치하며 Timing Authoring prefab reference는 0이다.
 
 ### Slice 4 — Legacy private Inspector 표면 제거
 
@@ -544,7 +553,7 @@ Utility fixture가 별도이면 `EnemyViewPresentationMapperTests`, `GameplayTic
 1. `test: enemy animation - characterize state and trigger contracts`
 2. `refactor: enemy animation - add sparse cue binding runtime`
 3. `refactor: enemy animation - migrate production view prefabs`
-4. `refactor: enemy animation - migrate approved prototype prefabs`
+4. `refactor: enemy animation - retire unused legacy view prefabs`
 5. `refactor: enemy animation - remove retired inspector fields`
 6. `refactor: enemy animation - finalize cue based inspector validation`
 7. `docs: enemy animation - close sparse binding migration`
@@ -553,7 +562,10 @@ Utility fixture가 별도이면 `EnemyViewPresentationMapperTests`, `GameplayTic
 
 Slice 1 runtime/schema는 legacy-only prefab을 지원해야 한다. Slice 2 rollback은 새 component만 지우는 수동 조작이 아니라 **production prefab migration commit 전체의 Git revert**다. 이 revert가 새 component 제거와 기존 TimingAuthoring component/reference/value 복구를 함께 수행해야 한다.
 
-Slice 4 이후 전체 rollback 순서는 legacy schema decommission commit, 비-production migration commit, production migration commit의 역순 Git revert다. raw YAML 수동 복원이나 component enable/disable은 rollback으로 인정하지 않는다. Legacy private field 제거와 필수 prefab reserialize는 하나의 atomic decommission intent로 묶는다.
+Slice 4 이후 전체 rollback 순서는 legacy schema decommission commit, 비-production deletion commit,
+production migration commit의 역순 Git revert다. raw YAML 수동 복원이나 component enable/disable은
+rollback으로 인정하지 않는다. Legacy private field 제거와 필수 prefab reserialize는 하나의 atomic
+decommission intent로 묶는다.
 
 ## 14. 완료 조건
 
@@ -567,8 +579,8 @@ Slice 4 이후 전체 rollback 순서는 legacy schema decommission commit, 비-
 - DrSaturn은 Utility cue로 실행
 - Nebulous의 `Fly_Start`/`Fly_Loop`/`Fly_Done`과 timing 유지
 - Death timing authoring 금지, View lifetime/DeathMotion pose freeze 불변
-- baseline 14 disposition 완료와 `LegacyBlocked == 0` 전 legacy private field 제거 금지
-- Jumping 처리 결정과 증거 기록
+- baseline 14 disposition 완료 및 `LegacyBlocked == 0`
+- Jumping을 포함한 비-production 4개 삭제 결정과 증거 기록
 - Controller/FBX/Scene에 의도하지 않은 diff 없음
 - targeted tests와 `core` 결과를 같은 revision 기준으로 기록
 

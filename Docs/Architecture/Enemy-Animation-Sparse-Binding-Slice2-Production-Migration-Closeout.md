@@ -28,6 +28,8 @@
 남은 Timing Authoring 4개는 Slice 2 범위 밖인 `EnemyView_Attacking`,
 `EnemyView_NonAttacking`, `EnemyView_Jumping`,
 `EnemyView_PrototypeGravityFieldChaser`에만 존재한다. Kali와 SecBot에는 binding을 추가하지 않았다.
+이 표는 Slice 2 완료 시점의 historical snapshot이다. 이후 Slice 3에서 네 legacy prefab을 `Deleted`로
+처리했으며 current inventory는 별도 Slice 3 closeout의 Driver 10, Binding 8, Timing 0을 따른다.
 
 ## RocketFace 재검토 결론
 

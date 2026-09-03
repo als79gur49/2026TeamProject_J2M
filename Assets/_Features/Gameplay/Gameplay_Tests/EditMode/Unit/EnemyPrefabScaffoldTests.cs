@@ -11,33 +11,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Full")]
-        public void EnemyViewNonAttackingPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming()
-        {
-            var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_NonAttacking.prefab");
-
-            StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
-            StringAssert.Contains("moveMotionDurationSeconds: 1", prefabText);
-            StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
-            StringAssert.DoesNotContain("EntityMotionPresentationAuthoring", prefabText);
-            StringAssert.DoesNotContain("pushMotionDurationSeconds", prefabText);
-            StringAssert.DoesNotContain("flipMotionDurationSeconds", prefabText);
-        }
-
-        [Test]
-        [Category("Full")]
-        public void EnemyViewAttackingPrefab_BindsExplicitEnemyTimingReferenceClips()
-        {
-            var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Attacking.prefab");
-
-            StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
-            StringAssert.Contains("attackWindupAnimatorDurationSeconds: 1", prefabText);
-            StringAssert.Contains("recoverAnimatorDurationSeconds: 1", prefabText);
-            StringAssert.Contains("attackWindupReferenceClip:", prefabText);
-            StringAssert.Contains("recoverReferenceClip:", prefabText);
-        }
-
-        [Test]
-        [Category("Full")]
         public void EnemyViewChargePrefab_BindsGenericMoveAuthoringWithoutLegacyChargeEntityMotionRuntimeField()
         {
             var prefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_RocketFace.prefab";

@@ -65,7 +65,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 prefabRoot + "EnemyView_RocketFace.prefab",
                 prefabRoot + "EnemyView_Startis.prefab",
                 prefabRoot + "EnemyView_Sunwheel.prefab",
-                prefabRoot + "EnemyView_PrototypeGravityFieldChaser.prefab",
             };
 
             foreach (var prefabPath in prefabPaths)

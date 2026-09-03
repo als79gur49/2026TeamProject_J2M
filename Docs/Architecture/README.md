@@ -62,6 +62,8 @@
   - execution plan for manifest-driven production 10-view migration, dry-run/apply separation, asset identity validation, rollback, and Slice 2 completion gates
 - [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)
   - completed Slice 2 inventory, approved migration digest, RocketFace clip-role review, validation evidence, rollback boundary, and non-claims
+- [Enemy-Animation-Sparse-Binding-Slice3-Legacy-View-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice3-Legacy-View-Retirement-Closeout.md)
+  - completed retirement of four zero-reference legacy Enemy View prefabs, immutable 14-row disposition ledger, current 10/8/0 inventory, validation evidence, and rollback boundary
 - [Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md](./Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md)
   - active execution prompt for the tests-only Astreton, Jumping, DrSaturn, timing/dispatch, resync, and suppression characterization gate
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)

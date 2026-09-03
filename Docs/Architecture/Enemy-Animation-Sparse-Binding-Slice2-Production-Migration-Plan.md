@@ -38,6 +38,10 @@ Slice 2 직후의 expected global inventory는 다음과 같다.
 
 따라서 Slice 2에서는 global Timing Authoring reference 0이나 `LegacyBlocked == 0`을 요구하지 않는다. 이 두 조건은 비-production 처리가 끝난 뒤 Slice 4 진입 전에 판단한다.
 
+> Historical scope note: 이 문서의 Driver 14/Timing 4는 Slice 2 완료 시점 기준이다. Slice 3에서
+> 비-production 네 prefab을 `Deleted`로 처분한 뒤 current inventory는 Driver 10/Binding 8/Timing 0이며,
+> 상세 결과는 Slice 3 closeout을 따른다.
+
 ## 3. 계약 분류
 
 ### 3.1 StrongContract

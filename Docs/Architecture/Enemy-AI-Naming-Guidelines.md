@@ -59,11 +59,11 @@ Correct separation:
 `dr_saturn` is the presentation binding identity.
 These names must not be forced into one string.
 
-Current aligned residue:
+Current aligned ownership:
 
-- `EnemyView_PrototypeGravityFieldChaser` is an explicit prototype/non-catalog
-  residue prefab. It is not the canonical production view if
-  `StagePresentationDefinition` maps `dr_saturn` to `EnemyView_DrSaturn`.
+- The former `EnemyView_PrototypeGravityFieldChaser` non-catalog prototype was
+  deleted after its zero-reference retirement review. `EnemyView_DrSaturn` is
+  the only canonical production view for `dr_saturn`.
 - `EnemyAnimator_DrSaturn_GravityField` is the visual-first controller name for
   the DrSaturn-specific gravity-field motion set.
 - `Capabilities/GravityFieldAura` is the selected semantic folder for the active
@@ -190,8 +190,8 @@ Do not:
 
 ## Current Follow-Up Decisions
 
-- Decide whether `EnemyView_PrototypeGravityFieldChaser` remains prototype-only,
-  becomes a delete candidate, or needs a real visual archetype name.
+- The `EnemyView_PrototypeGravityFieldChaser` disposition is closed as `Deleted`;
+  do not recreate a behavior-named production View alongside `EnemyView_DrSaturn`.
 - Decide whether remaining `ContactDamage` class/file/default asset names should
   migrate to `PassiveContact` / `ContactSameCell` naming with a compatibility
   plan.

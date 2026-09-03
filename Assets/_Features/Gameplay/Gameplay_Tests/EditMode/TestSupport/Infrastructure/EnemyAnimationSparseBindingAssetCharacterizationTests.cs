@@ -18,7 +18,6 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         private const string ProductionRoot =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy";
         private const string PrefabRoot = ProductionRoot + "/Prefabs";
-        private const string JumpingPrefabPath = PrefabRoot + "/EnemyView_Jumping.prefab";
         private const string DrSaturnProfileGuid = "de83e764216982c1751b31cd7cc75d22";
         private const string GravityFieldAuraCapabilityGuid = "97bbf56322f7f4c260e47dbe5fb697de";
 
@@ -46,24 +45,6 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Glider.controller"),
         };
 
-        private static readonly PrefabContract[] NonProductionContracts =
-        {
-            new(
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Attacking.prefab",
-                true,
-                1973374220910874260L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Attacking.controller"),
-            new(
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_NonAttacking.prefab",
-                true,
-                1973374220910874260L,
-                string.Empty),
-            new(JumpingPrefabPath, true, 1973374220910874260L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Jump.controller"),
-            new(PrefabRoot + "/EnemyView_PrototypeGravityFieldChaser.prefab", true,
-                1973374220910874260L, string.Empty),
-        };
-
         [Test]
         public void ProductionAnimatorWiring_LocksExactResolvedAnimatorAndControllerForTenViewInventory()
         {
@@ -77,18 +58,17 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
-        public void DriverBindingAndTimingGuids_MatchPostMigrationFourteenEightAndFourPrefabInventory()
+        public void DriverBindingAndTimingGuids_MatchPostRetirementTenEightAndZeroPrefabInventory()
         {
-            var allContracts = ProductionContracts.Concat(NonProductionContracts).ToArray();
             var driverPaths = FindYamlReferences("*.prefab", DriverScriptGuid);
             var bindingPaths = FindYamlReferences("*.prefab", BindingScriptGuid);
             var timingPaths = FindYamlReferences("*.prefab", TimingScriptGuid);
 
             CollectionAssert.AreEquivalent(
-                allContracts.Select(contract => contract.PrefabPath),
+                ProductionContracts.Select(contract => contract.PrefabPath),
                 driverPaths,
-                "The Driver migration boundary is the exact ten production and four non-production prefabs.");
-            Assert.That(driverPaths, Has.Count.EqualTo(14));
+                "The live Driver boundary is the exact ten production prefabs.");
+            Assert.That(driverPaths, Has.Count.EqualTo(10));
 
             var expectedBindingPaths = ProductionContracts
                 .Where(contract => !contract.PrefabPath.EndsWith("EnemyView_Kali.prefab", StringComparison.Ordinal) &&
@@ -98,11 +78,8 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             CollectionAssert.AreEquivalent(expectedBindingPaths, bindingPaths);
             Assert.That(bindingPaths, Has.Count.EqualTo(8));
 
-            CollectionAssert.AreEquivalent(
-                NonProductionContracts.Select(contract => contract.PrefabPath),
-                timingPaths,
-                "Only the four explicitly deferred non-production prefabs may retain timing authoring after Slice 2.");
-            Assert.That(timingPaths, Has.Count.EqualTo(4));
+            Assert.That(timingPaths, Is.Empty,
+                "No prefab may retain legacy timing authoring after Slice 3 retirement.");
 
             var directNonPrefabReferences = FindYamlReferences("*.unity", DriverScriptGuid)
                 .Concat(FindYamlReferences("*.asset", DriverScriptGuid))
@@ -113,11 +90,6 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 .ToArray();
             Assert.That(directNonPrefabReferences, Is.Empty,
                 "Driver, Binding, and Timing authoring have no direct Scene or ScriptableObject references.");
-
-            foreach (var contract in NonProductionContracts)
-            {
-                AssertPrefabWiring(contract);
-            }
         }
 
         [Test]
@@ -139,36 +111,6 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                     Assert.DoesNotThrow(() => bindings[0].CreateSnapshot(), contract.PrefabPath);
                 }
             }
-        }
-
-        [Test]
-        public void JumpingPrefab_InvalidTimingAuthoring_IsDetectedWithoutRepairingPersistentAsset()
-        {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(JumpingPrefabPath);
-            Assert.That(prefab, Is.Not.Null, JumpingPrefabPath);
-            var driver = prefab.GetComponent<EnemyAnimatorDriver>();
-            var timing = prefab.GetComponent<EnemyAnimationTimingAuthoring>();
-            Assert.That(driver, Is.Not.Null);
-            Assert.That(timing, Is.Not.Null);
-
-            var serializedDriver = new SerializedObject(driver);
-            var serializedTiming = new SerializedObject(timing);
-            Assert.That(serializedDriver.FindProperty("jumpAirborneTriggerName").stringValue,
-                Is.EqualTo("JumpAirborne"));
-            Assert.That(serializedDriver.FindProperty("jumpAirborneStateName").stringValue,
-                Is.EqualTo("JumpAirborne"));
-            Assert.That(serializedTiming.FindProperty("jumpWindupAnimatorDurationSeconds").floatValue,
-                Is.EqualTo(0.35f).Within(0.0001f));
-            Assert.That(serializedTiming.FindProperty("jumpAirborneAnimatorDurationSeconds").floatValue,
-                Is.EqualTo(1f).Within(0.0001f));
-            Assert.That(serializedTiming.FindProperty("jumpWindupReferenceClip").objectReferenceValue, Is.Null);
-            Assert.That(serializedTiming.FindProperty("jumpAirborneReferenceClip").objectReferenceValue, Is.Null);
-            Assert.That(serializedTiming.FindProperty("stateTransitionCrossFadeDurationSeconds").floatValue,
-                Is.EqualTo(-1f));
-
-            var exception = Assert.Throws<InvalidOperationException>(() => timing.Validate());
-            Assert.That(exception.Message, Does.Contain("jumpWindupReferenceClip"));
-            Assert.That(exception.Message, Does.Contain("jumpWindupAnimatorDurationSeconds"));
         }
 
         [Test]
