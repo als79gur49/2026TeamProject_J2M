@@ -1,8 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Host.EditorTools;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -12,103 +12,148 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
     [Category("Full")]
     public sealed class EnemyAnimationSparseBindingAssetCharacterizationTests
     {
-        private const string DriverScriptGuid = "2b6f35d89b0440b0a3897d9c5c63f8a4";
-        private const string TimingScriptGuid = "221aa3bf1f4e4fec8fe376442cc63a61";
-        private const string BindingScriptGuid = "ec56f2a2d2f04a14ac0a0f810100525a";
-        private const string ProductionRoot =
-            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy";
-        private const string PrefabRoot = ProductionRoot + "/Prefabs";
+        private const string TemporaryRoot = "Assets/__EnemyAnimationSparseBindingAuditTests";
         private const string DrSaturnProfileGuid = "de83e764216982c1751b31cd7cc75d22";
         private const string GravityFieldAuraCapabilityGuid = "97bbf56322f7f4c260e47dbe5fb697de";
 
-        private static readonly PrefabContract[] ProductionContracts =
+        [TearDown]
+        public void TearDown()
         {
-            Production("black_eye", "EnemyView_BlackEye.prefab", true, 5272011485980291436L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Attacking.controller"),
-            Production("startis", "EnemyView_Startis.prefab", true, 5480558589221225980L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_NonAttack.controller"),
-            Production("rocket_face", "EnemyView_RocketFace.prefab", false, 7156270818889048741L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Charge.controller"),
-            Production("astreton", "EnemyView_Astreton.prefab", true, 8501000000000003001L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_JumpChaserAstra.controller"),
-            Production("dr_saturn", "EnemyView_DrSaturn.prefab", true, 8501000000000008001L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_DrSaturn_GravityField.controller"),
-            Production("j_peter", "EnemyView_JPeter.prefab", false, 4338433049514668751L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_JPeter_Fix.controller"),
-            Production("sunwheel", "EnemyView_Sunwheel.prefab", true, 8501000000000002001L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_WallFollowerSun.controller"),
-            Production("kali", "EnemyView_Kali.prefab", false, 3191573246195697018L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Kali.controller"),
-            Production("secbot", "EnemyView_SecBot.prefab", false, 1872103958095815267L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Secbot.controller"),
-            Production("nebulous", "EnemyView_Nebulous.prefab", false, 8883044015288239240L,
-                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Glider.controller"),
-        };
+            AssetDatabase.DeleteAsset(TemporaryRoot);
+            AssetDatabase.Refresh();
+        }
 
         [Test]
         public void ProductionAnimatorWiring_LocksExactResolvedAnimatorAndControllerForTenViewInventory()
         {
-            foreach (var contract in ProductionContracts)
+            foreach (var row in EnemyAnimationBindingMigrationManifest.Rows)
             {
-                AssertPrefabWiring(contract);
+                AssertPrefabWiring(row);
             }
 
-            Assert.That(ProductionContracts.Count(contract => contract.HasExplicitAnimator), Is.EqualTo(5));
-            Assert.That(ProductionContracts.Count(contract => !contract.HasExplicitAnimator), Is.EqualTo(5));
+            Assert.That(EnemyAnimationBindingMigrationManifest.Rows.Count(row => row.AnimatorWasExplicit),
+                Is.EqualTo(5));
+            Assert.That(EnemyAnimationBindingMigrationManifest.Rows.Count(row => !row.AnimatorWasExplicit),
+                Is.EqualTo(5));
         }
 
         [Test]
-        public void DriverBindingAndTimingGuids_MatchPostRetirementTenEightAndZeroPrefabInventory()
+        public void ResolvedPrefabInventory_MatchesExactTenEightAndZeroProductionContract()
         {
-            var driverPaths = FindYamlReferences("*.prefab", DriverScriptGuid);
-            var bindingPaths = FindYamlReferences("*.prefab", BindingScriptGuid);
-            var timingPaths = FindYamlReferences("*.prefab", TimingScriptGuid);
+            var inventory = EnemyAnimationSparseBindingAudit.ScanResolvedPrefabInventory(
+                EnemyAnimationSparseBindingAudit.FindAllPrefabAssetPaths());
+            var errors = EnemyAnimationSparseBindingAudit.ValidateResolvedPrefabInventory(
+                inventory, EnemyAnimationBindingMigrationManifest.Rows);
+            Assert.That(errors, Is.Empty, string.Join(Environment.NewLine, errors));
 
-            CollectionAssert.AreEquivalent(
-                ProductionContracts.Select(contract => contract.PrefabPath),
-                driverPaths,
-                "The live Driver boundary is the exact ten production prefabs.");
-            Assert.That(driverPaths, Has.Count.EqualTo(10));
+            Assert.That(inventory.Count(row => row.DriverCount > 0), Is.EqualTo(10));
+            Assert.That(inventory.Count(row => row.BindingCount > 0), Is.EqualTo(8));
+            Assert.That(inventory.Count(row => row.TimingCount > 0), Is.Zero);
 
-            var expectedBindingPaths = ProductionContracts
-                .Where(contract => !contract.PrefabPath.EndsWith("EnemyView_Kali.prefab", StringComparison.Ordinal) &&
-                                   !contract.PrefabPath.EndsWith("EnemyView_SecBot.prefab", StringComparison.Ordinal))
-                .Select(contract => contract.PrefabPath)
-                .ToArray();
-            CollectionAssert.AreEquivalent(expectedBindingPaths, bindingPaths);
-            Assert.That(bindingPaths, Has.Count.EqualTo(8));
-
-            Assert.That(timingPaths, Is.Empty,
-                "No prefab may retain legacy timing authoring after Slice 3 retirement.");
-
-            var directNonPrefabReferences = FindYamlReferences("*.unity", DriverScriptGuid)
-                .Concat(FindYamlReferences("*.asset", DriverScriptGuid))
-                .Concat(FindYamlReferences("*.unity", BindingScriptGuid))
-                .Concat(FindYamlReferences("*.asset", BindingScriptGuid))
-                .Concat(FindYamlReferences("*.unity", TimingScriptGuid))
-                .Concat(FindYamlReferences("*.asset", TimingScriptGuid))
-                .ToArray();
+            var serializedPaths = EnemyAnimationSparseBindingAudit.FindSerializedAssetPaths(
+                "Assets", ".unity", ".asset");
+            var directNonPrefabReferences = EnemyAnimationSparseBindingAudit.FindSerializedGuidReferences(
+                serializedPaths,
+                new[]
+                {
+                    EnemyAnimationBindingMigrationManifest.DriverScriptGuid,
+                    EnemyAnimationBindingMigrationManifest.BindingScriptGuid,
+                    EnemyAnimationBindingMigrationManifest.TimingScriptGuid,
+                });
             Assert.That(directNonPrefabReferences, Is.Empty,
                 "Driver, Binding, and Timing authoring have no direct Scene or ScriptableObject references.");
         }
 
         [Test]
+        public void ResolvedPrefabInventory_RejectsVariantThatInheritsUnexpectedDriver()
+        {
+            EnsureTemporaryRoot();
+            var basePath = TemporaryRoot + "/UnexpectedDriverBase.prefab";
+            var variantPath = TemporaryRoot + "/UnexpectedDriverVariant.prefab";
+            var baseObject = new GameObject("UnexpectedDriverBase");
+            try
+            {
+                baseObject.AddComponent<EnemyAnimatorDriver>();
+                PrefabUtility.SaveAsPrefabAsset(baseObject, basePath);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(baseObject);
+            }
+
+            var basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(basePath);
+            var variantInstance = PrefabUtility.InstantiatePrefab(basePrefab) as GameObject;
+            Assert.That(variantInstance, Is.Not.Null);
+            try
+            {
+                variantInstance.name = "UnexpectedDriverVariant";
+                PrefabUtility.SaveAsPrefabAsset(variantInstance, variantPath);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(variantInstance);
+            }
+
+            var variantPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(variantPath);
+            Assert.That(PrefabUtility.GetPrefabAssetType(variantPrefab), Is.EqualTo(PrefabAssetType.Variant));
+            var paths = EnemyAnimationBindingMigrationManifest.Rows.Select(row => row.PrefabPath)
+                .Append(variantPath);
+            var inventory = EnemyAnimationSparseBindingAudit.ScanResolvedPrefabInventory(paths);
+            var variantRow = inventory.Single(row => row.PrefabPath == variantPath);
+            Assert.That(variantRow.DriverCount, Is.EqualTo(1), "The inherited Driver must be visible after load.");
+
+            var errors = EnemyAnimationSparseBindingAudit.ValidateResolvedPrefabInventory(
+                inventory, EnemyAnimationBindingMigrationManifest.Rows);
+            Assert.That(errors, Has.Some.EqualTo("driver.unexpected|" + variantPath));
+        }
+
+        [Test]
+        public void DeletedGuidResidueAudit_RejectsTemporarySerializedAssetReference()
+        {
+            var path = Path.Combine(
+                Path.GetTempPath(),
+                "enemy-animation-deleted-guid-" + Guid.NewGuid().ToString("N") + ".asset");
+            try
+            {
+                File.WriteAllText(
+                    path,
+                    "reference: {fileID: 100100000, guid: " +
+                    EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid +
+                    ", type: 3}");
+                var references = EnemyAnimationSparseBindingAudit.FindSerializedGuidReferences(
+                    new[] { path },
+                    new[] { EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid });
+                Assert.That(references, Has.Count.EqualTo(1));
+                Assert.That(references[0], Does.EndWith(
+                    "|" + EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid));
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Test]
         public void ProductionViews_HaveValidRootBindingsOrApprovedNoBindingAndNoLegacyTiming()
         {
-            foreach (var contract in ProductionContracts)
+            foreach (var row in EnemyAnimationBindingMigrationManifest.Rows)
             {
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(contract.PrefabPath);
-                Assert.That(prefab, Is.Not.Null, contract.PrefabPath);
-                Assert.That(prefab.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null, contract.PrefabPath);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(row.PrefabPath);
+                Assert.That(prefab, Is.Not.Null, row.PrefabPath);
+                Assert.That(prefab.GetComponentsInChildren<EnemyAnimationTimingAuthoring>(true), Is.Empty,
+                    row.PrefabPath);
 
-                var isApprovedNoBinding = contract.PrefabPath.EndsWith("EnemyView_Kali.prefab", StringComparison.Ordinal) ||
-                                          contract.PrefabPath.EndsWith("EnemyView_SecBot.prefab", StringComparison.Ordinal);
+                var isApprovedNoBinding =
+                    row.Disposition == EnemyAnimationMigrationDisposition.ApprovedNoBinding;
                 var bindings = prefab.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true);
-                Assert.That(bindings, Has.Length.EqualTo(isApprovedNoBinding ? 0 : 1), contract.PrefabPath);
+                Assert.That(bindings, Has.Length.EqualTo(isApprovedNoBinding ? 0 : 1), row.PrefabPath);
                 if (!isApprovedNoBinding)
                 {
-                    Assert.That(bindings[0].transform, Is.SameAs(prefab.transform), contract.PrefabPath);
-                    Assert.DoesNotThrow(() => bindings[0].CreateSnapshot(), contract.PrefabPath);
+                    Assert.That(bindings[0].transform, Is.SameAs(prefab.transform), row.PrefabPath);
+                    Assert.DoesNotThrow(() => bindings[0].CreateSnapshot(), row.PrefabPath);
                 }
             }
         }
@@ -149,87 +194,57 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 "Animator presentation binding is not inferred from EnemyAiProfile.");
         }
 
-        private static void AssertPrefabWiring(PrefabContract contract)
+        private static void AssertPrefabWiring(EnemyAnimationMigrationRow row)
         {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(contract.PrefabPath);
-            Assert.That(prefab, Is.Not.Null, contract.PrefabPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(row.PrefabPath);
+            Assert.That(prefab, Is.Not.Null, row.PrefabPath);
             var drivers = prefab.GetComponents<EnemyAnimatorDriver>();
-            Assert.That(drivers, Has.Length.EqualTo(1), contract.PrefabPath);
+            Assert.That(drivers, Has.Length.EqualTo(1), row.PrefabPath);
             var explicitAnimator = new SerializedObject(drivers[0]).FindProperty("animator").objectReferenceValue as Animator;
-            Assert.That(explicitAnimator != null, Is.EqualTo(contract.HasExplicitAnimator), contract.PrefabPath);
+            Assert.That(explicitAnimator != null, Is.EqualTo(row.AnimatorWasExplicit), row.PrefabPath);
 
             var animatorCandidates = prefab.GetComponentsInChildren<Animator>(includeInactive: true);
-            if (!contract.HasExplicitAnimator)
+            if (!row.AnimatorWasExplicit)
             {
                 Assert.That(animatorCandidates, Has.Length.EqualTo(1),
-                    $"Fallback resolution must remain unambiguous for '{contract.PrefabPath}'.");
+                    $"Fallback resolution must remain unambiguous for '{row.PrefabPath}'.");
             }
 
             var resolvedAnimator = explicitAnimator != null ? explicitAnimator : animatorCandidates.Single();
-            Assert.That(resolvedAnimator, Is.Not.Null, contract.PrefabPath);
+            Assert.That(resolvedAnimator, Is.Not.Null, row.PrefabPath);
             Assert.That(
                 AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
                     resolvedAnimator,
                     out string resolvedPrefabGuid,
                     out long resolvedLocalId),
                 Is.True,
-                contract.PrefabPath);
-            Assert.That(resolvedPrefabGuid, Is.Not.Empty, contract.PrefabPath);
-            Assert.That(resolvedLocalId, Is.EqualTo(contract.AnimatorLocalId), contract.PrefabPath);
-            var actualControllerPath = AssetDatabase.GetAssetPath(resolvedAnimator.runtimeAnimatorController);
-            Assert.That(actualControllerPath, Is.EqualTo(contract.ControllerPath), contract.PrefabPath);
+                row.PrefabPath);
+            Assert.That(resolvedPrefabGuid, Is.EqualTo(row.PrefabGuid), row.PrefabPath);
+            Assert.That(resolvedLocalId, Is.EqualTo(row.AnimatorLocalFileId), row.PrefabPath);
+            Assert.That(
+                AnimationUtility.CalculateTransformPath(resolvedAnimator.transform, prefab.transform),
+                Is.EqualTo(row.AnimatorTransformPath),
+                row.PrefabPath);
+            Assert.That(
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
+                    resolvedAnimator.runtimeAnimatorController,
+                    out string controllerGuid,
+                    out long controllerLocalId),
+                Is.True,
+                row.PrefabPath);
+            Assert.That(controllerGuid, Is.EqualTo(row.ControllerGuid), row.PrefabPath);
+            Assert.That(controllerLocalId, Is.EqualTo(row.ControllerLocalFileId), row.PrefabPath);
         }
 
-        private static List<string> FindYamlReferences(string pattern, string guid)
+        private static void EnsureTemporaryRoot()
         {
-            return Directory.EnumerateFiles("Assets", pattern, SearchOption.AllDirectories)
-                .Select(NormalizePath)
-                .Where(path => File.ReadAllText(path).Contains("guid: " + guid, StringComparison.Ordinal))
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .ToList();
+            AssetDatabase.DeleteAsset(TemporaryRoot);
+            Assert.That(AssetDatabase.CreateFolder("Assets", Path.GetFileName(TemporaryRoot)), Is.Not.Empty);
         }
 
         private static string NormalizePath(string path)
         {
             return path.Replace('\\', '/');
-        }
-
-        private static PrefabContract Production(
-            string presentationId,
-            string prefabName,
-            bool hasExplicitAnimator,
-            long animatorLocalId,
-            string controllerPath)
-        {
-            return new PrefabContract(
-                PrefabRoot + "/" + prefabName,
-                hasExplicitAnimator,
-                animatorLocalId,
-                controllerPath,
-                presentationId);
-        }
-
-        private readonly struct PrefabContract
-        {
-            public PrefabContract(
-                string prefabPath,
-                bool hasExplicitAnimator,
-                long animatorLocalId,
-                string controllerPath,
-                string presentationId = "")
-            {
-                PrefabPath = prefabPath;
-                HasExplicitAnimator = hasExplicitAnimator;
-                AnimatorLocalId = animatorLocalId;
-                ControllerPath = controllerPath;
-                PresentationId = presentationId;
-            }
-
-            public string PresentationId { get; }
-            public string PrefabPath { get; }
-            public bool HasExplicitAnimator { get; }
-            public long AnimatorLocalId { get; }
-            public string ControllerPath { get; }
         }
 
     }

@@ -3,7 +3,7 @@
 ## 1. 문서 상태와 목표
 
 - 작성일: 2026-09-03
-- 상태: Slice 0~3 완료, Slice 4 legacy private Inspector 표면 제거 대기
+- 상태: Slice 0~3 및 Slice 4A migration tool 퇴역 완료, Slice 4B legacy private Inspector 표면 제거 대기
 - 선행 문서: [Enemy View Prefab Scalability and Maintainability Audit](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
 - 기준점: production 10-view Animator Controller 계약 테스트
 
@@ -440,17 +440,30 @@ Gate: production contract, runtime characterization, utility timing, DeathMotion
 Gate: baseline 14개 모두 disposition이 있고 `LegacyBlocked == 0`이다. live Driver 10개는
 `MigratedBinding 8 + ApprovedNoBinding 2`와 일치하며 Timing Authoring prefab reference는 0이다.
 
-### Slice 4 — Legacy private Inspector 표면 제거
+### Slice 4A — One-time migration tool 퇴역
+
+- 완료: production dry-run/apply menu, apply service, report/status/digest, serialized mutation helper와
+  migration-only synthetic serialization test를 제거했다.
+- production semantic manifest 10행과 disposition ledger 14행은 current asset identity만 담는 read-only
+  계약으로 유지한다.
+- resolved prefab inventory와 Prefab Variant inheritance, deleted GUID inbound reference를 permanent audit으로
+  전환했다.
+- production prefab과 protected asset 및 runtime API는 변경하지 않았다.
+
+Gate: resolved Driver 10, Binding 8, Timing 0, deleted GUID residue 0, retired symbol residue 0과 production
+Controller/runtime characterization을 만족해야 한다. 상세 결과는
+[Migration Tool Retirement Closeout](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md)에 기록한다.
+
+### Slice 4B — Legacy private Inspector 표면 제거
 
 - Driver의 이관 완료 state/trigger/timing private serialized field 제거
 - Driver Inspector에는 Driver 자체 책임만 남김
 - scope가 제한된 retired YAML/C# token 잔존 검사
 - Timing Authoring component asset 참조 0 확인
 - public compatibility source/type/API 유지
-- migration mutation menu/tool 제거, manifest는 read-only 감사/계약 자료로 보존
-- 필요하면 재실행 기능이 없는 audit-only validator만 유지
+- Slice 4A의 read-only manifest/audit을 유지하며 mutation service를 재도입하지 않음
 
-Gate: baseline 14 disposition ledger, live count 식, `LegacyBlocked == 0`, semantic AssetDatabase 검증이 모두 맞아야 한다. public type 제거는 포함하지 않는다. Legacy private field 제거와 그에 따른 prefab reserialize는 중간 revision이 깨지지 않도록 하나의 decommission intent로 묶는다.
+Gate: baseline 14 disposition ledger, live count 식, `LegacyBlocked == 0`, semantic AssetDatabase 검증이 모두 맞아야 한다. public type 제거는 포함하지 않는다. Legacy private field 제거는 Slice 4A가 자동 승인하지 않으며 별도 decommission intent로 진행한다.
 
 ### Slice 5 — Inspector evidence/문서 마감
 

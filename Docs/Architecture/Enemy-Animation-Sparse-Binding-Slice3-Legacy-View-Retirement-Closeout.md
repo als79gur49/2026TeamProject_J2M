@@ -7,6 +7,11 @@
 - live inventory: Driver 10 / Binding 8 / Timing 0
 - rollback: 이 closeout, ledger/tool/test 변경 및 asset 삭제를 포함하는 Slice 3 commit 전체를 Git revert한다.
 
+이 문서는 Slice 3 완료 시점의 historical snapshot이다. 당시 남아 있던 migration menu/tool과 synthetic
+migration fixture는 후속 Slice 4A에서 퇴역했으며, current 상태는
+[Migration Tool Retirement Closeout](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md)을
+따른다.
+
 ## 결정과 삭제 범위
 
 `EnemyView_Attacking`, `EnemyView_NonAttacking`, `EnemyView_Jumping`,
@@ -44,7 +49,7 @@ production visual contract가 아니었다. 이 prefab만 사용하던 inactive-
 | `./run_tests.sh full --filter EnemyAnimation` | EditMode 111/111, PlayMode matching 0 |
 | `./run_tests.sh full --filter EnemyPrefabScaffoldTests,EnemyViewPresentationAuthoringTests,EnemyViewAnimatorControllerContractTests,CampaignStageSequenceValidatorTests` | EditMode 31/31, PlayMode matching 0 |
 | `./run_tests.sh full --filter EnemyViewAnimatorRuntimeCharacterizationPlayModeTests` | EditMode matching 0, PlayMode 18/18 |
-| `./run_tests.sh core` | EditMode 254/254, PlayMode 111/111 |
+| `./run_tests.sh core` | EditMode 254/254, PlayMode 111 total / 107 passed / 4 skipped / 0 failed |
 
 Static residue 결과:
 

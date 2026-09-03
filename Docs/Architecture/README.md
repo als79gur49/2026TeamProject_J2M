@@ -64,6 +64,10 @@
   - completed Slice 2 inventory, approved migration digest, RocketFace clip-role review, validation evidence, rollback boundary, and non-claims
 - [Enemy-Animation-Sparse-Binding-Slice3-Legacy-View-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice3-Legacy-View-Retirement-Closeout.md)
   - completed retirement of four zero-reference legacy Enemy View prefabs, immutable 14-row disposition ledger, current 10/8/0 inventory, validation evidence, and rollback boundary
+- [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Plan.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Plan.md)
+  - executed Slice 4A plan for removing the completed one-time mutation tool while preserving the read-only manifest, resolved prefab inventory, deleted-GUID residue guards, and post-removal re-audit boundary
+- [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md)
+  - current Slice 4A closeout for the retired menu/apply/report surface, permanent resolved-asset audit, validation evidence, remaining BlackEye baseline failures, and Slice 4B non-approval boundary
 - [Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md](./Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md)
   - active execution prompt for the tests-only Astreton, Jumping, DrSaturn, timing/dispatch, resync, and suppression characterization gate
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)

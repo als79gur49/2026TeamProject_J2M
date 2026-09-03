@@ -55,15 +55,11 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             Assert.That(rows.Single(row => row.Name == "JPeter").Bindings
                 .Any(binding => binding.Cue == EnemyAnimationCue.UtilityRecovery), Is.False,
                 "JPeter Summon recovery remains counter-only/no-visual.");
-        }
 
-        [Test]
-        public void Manifest_ApprovalPinsOneCanonicalDigest()
-        {
-            var digest = EnemyAnimationBindingMigrationManifest.ApprovedDryRunSha256;
-            Assert.That(EnemyAnimationBindingMigrationManifest.Approval,
-                Is.EqualTo(EnemyAnimationMigrationApproval.Approved));
-            Assert.That(digest, Does.Match("^[0-9a-f]{64}$"));
+            Assert.That(
+                EnemyAnimationSparseBindingAudit.ValidateManifestAndLedger(
+                    rows, EnemyAnimationViewDispositionLedger.Rows),
+                Is.Empty);
         }
 
         [Test]
@@ -108,12 +104,13 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "Attacking|83caa4e85bf10db439b3962f8682e4ce|BlackEye",
-                    "NonAttacking|46a5570e50d3d91459ff0980ae576e65|Startis",
-                    "Jumping|6f32c68c11dbede40b0bc721539b2af5|Astreton",
-                    "PrototypeGravityFieldChaser|63df51ad8ec0533438680ec9b4db5298|DrSaturn",
+                    "Attacking|Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Attacking.prefab|83caa4e85bf10db439b3962f8682e4ce|BlackEye",
+                    "NonAttacking|Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_NonAttacking.prefab|46a5570e50d3d91459ff0980ae576e65|Startis",
+                    "Jumping|Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_Jumping.prefab|6f32c68c11dbede40b0bc721539b2af5|Astreton",
+                    "PrototypeGravityFieldChaser|Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_PrototypeGravityFieldChaser.prefab|63df51ad8ec0533438680ec9b4db5298|DrSaturn",
                 },
-                deletedRows.Select(row => $"{row.Name}|{row.PrefabGuid}|{row.ReplacementName}"));
+                deletedRows.Select(row =>
+                    $"{row.Name}|{row.PrefabPath}|{row.PrefabGuid}|{row.ReplacementName}"));
             foreach (var row in deletedRows)
             {
                 Assert.That(row.IsProduction, Is.False, row.Name);
@@ -122,14 +119,64 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 Assert.That(File.Exists(row.PrefabPath), Is.False, row.PrefabPath);
                 Assert.That(File.Exists(row.PrefabPath + ".meta"), Is.False, row.PrefabPath);
                 Assert.That(AssetDatabase.GUIDToAssetPath(row.PrefabGuid), Is.Empty, row.Name);
-                Assert.That(FindSerializedGuidReferences(row.PrefabGuid), Is.Empty, row.Name);
             }
 
-            const string jumpingInactiveMaterialFolder =
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/" +
-                "Materials/InactiveCompatible/EnemyView_Jumping";
+            var serializedPaths = EnemyAnimationSparseBindingAudit.FindSerializedAssetPaths("Assets");
+            var deletedGuids = deletedRows.Select(row => row.PrefabGuid)
+                .Append(EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid);
+            Assert.That(
+                EnemyAnimationSparseBindingAudit.FindSerializedGuidReferences(serializedPaths, deletedGuids),
+                Is.Empty);
+
+            var jumpingInactiveMaterialFolder = Path.GetDirectoryName(
+                    EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialPath)
+                ?.Replace('\\', '/');
             Assert.That(Directory.Exists(jumpingInactiveMaterialFolder), Is.False);
             Assert.That(File.Exists(jumpingInactiveMaterialFolder + ".meta"), Is.False);
+            Assert.That(File.Exists(EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialPath), Is.False);
+            Assert.That(File.Exists(EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialPath + ".meta"),
+                Is.False);
+            Assert.That(
+                AssetDatabase.GUIDToAssetPath(EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid),
+                Is.Empty);
+        }
+
+        [Test]
+        public void ManifestAndLedgerAudit_RejectsLiveIdentityAndDeletedContractDrift()
+        {
+            var manifestRows = EnemyAnimationBindingMigrationManifest.Rows;
+            var originalLedgerRows = EnemyAnimationViewDispositionLedger.Rows;
+
+            var liveDrift = originalLedgerRows.ToArray();
+            var live = liveDrift.First(row => row.ExpectedAssetExists);
+            liveDrift[Array.IndexOf(liveDrift, live)] = CloneLedgerRow(
+                live,
+                prefabPath: live.PrefabPath + ".drift");
+            Assert.That(
+                EnemyAnimationSparseBindingAudit.ValidateManifestAndLedger(manifestRows, liveDrift),
+                Has.Some.EqualTo("ledger.live.identity|" + live.Name));
+
+            var deleted = originalLedgerRows.First(row =>
+                row.Disposition == EnemyAnimationViewDisposition.Deleted);
+            AssertDeletedDriftRejected(manifestRows, originalLedgerRows, deleted,
+                CloneLedgerRow(deleted, isProduction: true));
+            AssertDeletedDriftRejected(manifestRows, originalLedgerRows, deleted,
+                CloneLedgerRow(deleted, expectedAssetExists: true));
+            AssertDeletedDriftRejected(manifestRows, originalLedgerRows, deleted,
+                CloneLedgerRow(deleted, replacementName: "SecBot"));
+        }
+
+        private static void AssertDeletedDriftRejected(
+            IReadOnlyList<EnemyAnimationMigrationRow> manifestRows,
+            IReadOnlyList<EnemyAnimationViewDispositionRow> originalLedgerRows,
+            EnemyAnimationViewDispositionRow original,
+            EnemyAnimationViewDispositionRow replacement)
+        {
+            var driftedRows = originalLedgerRows.ToArray();
+            driftedRows[Array.IndexOf(driftedRows, original)] = replacement;
+            Assert.That(
+                EnemyAnimationSparseBindingAudit.ValidateManifestAndLedger(manifestRows, driftedRows),
+                Has.Some.EqualTo("ledger.deleted.contract|" + original.Name));
         }
 
         private static string Signature(EnemyAnimationMigrationRow row)
@@ -139,86 +186,25 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             return $"{row.Name}|{bindings}|{row.CrossFadeSeconds:R}";
         }
 
-        private static string[] FindSerializedGuidReferences(string guid)
+        private static EnemyAnimationViewDispositionRow CloneLedgerRow(
+            EnemyAnimationViewDispositionRow source,
+            string prefabPath = null,
+            string replacementName = null,
+            bool? isProduction = null,
+            bool? expectedAssetExists = null)
         {
-            return Directory.EnumerateFiles("Assets", "*", SearchOption.AllDirectories)
-                .Where(path => path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase) ||
-                               path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase) ||
-                               path.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
-                .Where(path => File.ReadAllText(path).Contains("guid: " + guid, StringComparison.Ordinal))
-                .Select(path => path.Replace('\\', '/'))
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .ToArray();
+            return new EnemyAnimationViewDispositionRow(
+                source.Name,
+                prefabPath ?? source.PrefabPath,
+                source.PrefabGuid,
+                isProduction ?? source.IsProduction,
+                source.Disposition,
+                source.RetirementReason,
+                replacementName ?? source.ReplacementName,
+                expectedAssetExists ?? source.ExpectedAssetExists);
         }
     }
 
-    [Category("Full")]
-    public sealed class EnemyAnimationBindingMigrationDryRunTests
-    {
-        [Test]
-        public void ProductionDryRun_IsDeterministicUniformAndDoesNotMutatePrefabs()
-        {
-            var before = ProductionHashes();
-            var first = EnemyAnimationBindingMigrationService.DryRun();
-            var second = EnemyAnimationBindingMigrationService.DryRun();
-            var after = ProductionHashes();
-
-            TestContext.WriteLine(EnemyAnimationBindingMigrationService.BuildHumanReport(first));
-            foreach (var row in first.Rows)
-            {
-                TestContext.WriteLine($"ANIMATOR_PATH|{row.Row.Name}|{row.AnimatorPath}");
-            }
-
-            Assert.That(first.CanApply, Is.True, first.CanonicalText);
-            var migrationStatuses = first.Rows
-                .Where(row => row.Row.Disposition == EnemyAnimationMigrationDisposition.MigratedBinding)
-                .Select(row => row.Status)
-                .Distinct()
-                .ToArray();
-            Assert.That(migrationStatuses, Has.Length.EqualTo(1),
-                "Production binding rows must be wholly legacy-ready before apply or wholly migrated afterward.");
-            Assert.That(migrationStatuses[0], Is.EqualTo(EnemyAnimationMigrationRowStatus.AlreadyMigrated)
-                .Or.EqualTo(EnemyAnimationMigrationRowStatus.LegacyReady));
-            Assert.That(first.Rows.Count(row => row.Status == EnemyAnimationMigrationRowStatus.ApprovedNoBinding),
-                Is.EqualTo(2));
-            Assert.That(first.Sha256, Is.EqualTo(second.Sha256));
-            Assert.That(first.CanonicalText, Is.EqualTo(second.CanonicalText));
-            CollectionAssert.AreEqual(before, after);
-            Assert.That(first.Rows.All(result => result.AnimatorPath.Length != 0), Is.True,
-                "Every resolved Animator transform path must be pinned in the manifest after baseline capture.");
-        }
-
-        [Test]
-        public void ApprovedApply_WhenProductionIsAlreadyMigrated_IsReadOnlyAndIdempotent()
-        {
-            var before = ProductionHashes();
-
-            var report = EnemyAnimationBindingMigrationService.ApplyApprovedProductionMigration();
-            var after = ProductionHashes();
-
-            Assert.That(report.CanApply, Is.True, report.CanonicalText);
-            Assert.That(report.Rows.Where(row =>
-                    row.Row.Disposition == EnemyAnimationMigrationDisposition.MigratedBinding)
-                .All(row => row.Status == EnemyAnimationMigrationRowStatus.AlreadyMigrated), Is.True);
-            Assert.That(report.Rows.Where(row =>
-                    row.Row.Disposition == EnemyAnimationMigrationDisposition.ApprovedNoBinding)
-                .All(row => row.Status == EnemyAnimationMigrationRowStatus.ApprovedNoBinding), Is.True);
-            CollectionAssert.AreEqual(before, after);
-        }
-
-        private static string[] ProductionHashes()
-        {
-            return EnemyAnimationBindingMigrationManifest.Rows
-                .Select(row => row.PrefabPath + "=" + Sha256(File.ReadAllBytes(row.PrefabPath)))
-                .ToArray();
-        }
-
-        private static string Sha256(byte[] bytes)
-        {
-            using var algorithm = SHA256.Create();
-            return string.Concat(algorithm.ComputeHash(bytes).Select(value => value.ToString("x2")));
-        }
-    }
 
     [Category("Full")]
     public sealed class EnemyAnimationSparseBindingProductionContractTests
@@ -230,7 +216,11 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(row.PrefabPath);
                 Assert.That(prefab, Is.Not.Null, row.PrefabPath);
-                Assert.That(prefab.GetComponents<EnemyAnimatorDriver>(), Has.Length.EqualTo(1), row.Name);
+                AssertAssetIdentity(prefab, row.PrefabGuid, row.RootLocalFileId, row.Name + "/root");
+                var drivers = prefab.GetComponentsInChildren<EnemyAnimatorDriver>(true);
+                Assert.That(drivers, Has.Length.EqualTo(1), row.Name);
+                Assert.That(drivers[0].transform, Is.SameAs(prefab.transform), row.Name);
+                AssertAssetIdentity(drivers[0], row.PrefabGuid, row.DriverLocalFileId, row.Name + "/driver");
                 Assert.That(prefab.GetComponentsInChildren<EnemyAnimationTimingAuthoring>(true), Is.Empty, row.Name);
 
                 var bindingAuthorings = prefab.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true);
@@ -271,7 +261,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
-        public void ProductionViews_ReloadWithoutMissingScriptsAndRemainAlreadyMigrated()
+        public void ProductionViews_ReloadWithoutMissingScriptsAndKeepCurrentSparseComposition()
         {
             foreach (var row in EnemyAnimationBindingMigrationManifest.Rows)
             {
@@ -290,14 +280,26 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 }
             }
 
-            var report = EnemyAnimationBindingMigrationService.DryRun();
-            Assert.That(report.CanApply, Is.True, report.CanonicalText);
-            Assert.That(report.Rows.Count(result =>
-                    result.Status == EnemyAnimationMigrationRowStatus.AlreadyMigrated),
-                Is.EqualTo(8), report.CanonicalText);
-            Assert.That(report.Rows.Count(result =>
-                    result.Status == EnemyAnimationMigrationRowStatus.ApprovedNoBinding),
-                Is.EqualTo(2), report.CanonicalText);
+            var inventory = EnemyAnimationSparseBindingAudit.ScanResolvedPrefabInventory(
+                EnemyAnimationBindingMigrationManifest.Rows.Select(row => row.PrefabPath));
+            Assert.That(
+                EnemyAnimationSparseBindingAudit.ValidateResolvedPrefabInventory(
+                    inventory, EnemyAnimationBindingMigrationManifest.Rows),
+                Is.Empty);
+        }
+
+        private static void AssertAssetIdentity(
+            UnityEngine.Object asset,
+            string expectedGuid,
+            long expectedLocalFileId,
+            string context)
+        {
+            Assert.That(
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(asset, out string guid, out long localFileId),
+                Is.True,
+                context);
+            Assert.That(guid, Is.EqualTo(expectedGuid), context);
+            Assert.That(localFileId, Is.EqualTo(expectedLocalFileId), context);
         }
 
         private static void AssertClipIdentity(
@@ -319,334 +321,6 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
     }
 
-    [Category("Full")]
-    public sealed class EnemyAnimationBindingMigrationSerializationTests
-    {
-        private const string TemporaryRoot = "Assets/__EnemyAnimationBindingMigrationTests";
-
-        [TearDown]
-        public void TearDown()
-        {
-            AssetDatabase.DeleteAsset(TemporaryRoot);
-            AssetDatabase.Refresh();
-        }
-
-        [Test]
-        public void SyntheticPrefab_MigratesReloadsAndSecondInspectionIsAlreadyMigrated()
-        {
-            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "BlackEye");
-            var synthetic = CopyAsSynthetic(source, "BlackEye.prefab");
-
-            EnemyAnimationBindingMigrationService.ApplyRowForTests(synthetic);
-
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(synthetic.PrefabPath);
-            Assert.That(prefab.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true), Has.Length.EqualTo(1));
-            Assert.That(prefab.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
-            Assert.That(new SerializedObject(prefab.GetComponent<EnemyAnimatorDriver>())
-                .FindProperty("animationTimingAuthoring").objectReferenceValue, Is.Null);
-            Assert.That(prefab.GetComponent<EnemyAnimationBindingAuthoring>().CreateSnapshot().Count,
-                Is.EqualTo(source.Bindings.Count));
-
-            var second = EnemyAnimationBindingMigrationService.InspectRowForTests(synthetic);
-            Assert.That(second.Status, Is.EqualTo(EnemyAnimationMigrationRowStatus.AlreadyMigrated),
-                string.Join("; ", second.Errors));
-        }
-
-        [Test]
-        public void SyntheticPartialMigration_IsHardFailure()
-        {
-            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "BlackEye");
-            var synthetic = CopyAsSynthetic(source, "Partial.prefab");
-            var root = PrefabUtility.LoadPrefabContents(synthetic.PrefabPath);
-            try
-            {
-                var binding = root.AddComponent<EnemyAnimationBindingAuthoring>();
-                EnemyAnimationBindingMigrationService.ConfigureBindingWithSerializedObject(binding, synthetic);
-                PrefabUtility.SaveAsPrefabAsset(root, synthetic.PrefabPath);
-            }
-            finally
-            {
-                PrefabUtility.UnloadPrefabContents(root);
-            }
-
-            var result = EnemyAnimationBindingMigrationService.InspectRowForTests(synthetic);
-            Assert.That(result.Status, Is.EqualTo(EnemyAnimationMigrationRowStatus.Blocked));
-            Assert.That(result.Errors, Has.Some.Contains("structure.partial"));
-        }
-
-        [Test]
-        public void SyntheticInvalidClip_FailsBeforeAnyPrefabSave()
-        {
-            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "BlackEye");
-            var synthetic = CopyAsSynthetic(source, "InvalidClip.prefab");
-            var invalidBindings = source.Bindings.Select((binding, index) => index == 0
-                    ? new EnemyAnimationMigrationBinding(
-                        binding.Cue, binding.Mode, binding.TargetName, binding.SustainedStateName,
-                        binding.DurationSeconds,
-                        new EnemyAnimationMigrationClipIdentity("00000000000000000000000000000000", 1L),
-                        binding.EffectiveMotion)
-                    : binding)
-                .ToArray();
-            var invalid = Clone(synthetic, synthetic.PrefabPath, synthetic.PrefabGuid, invalidBindings);
-            var before = File.ReadAllBytes(invalid.PrefabPath);
-
-            var exception = Assert.Throws<EnemyAnimationMigrationRowApplyException>(
-                () => EnemyAnimationBindingMigrationService.ApplyRowForTests(invalid));
-
-            Assert.That(exception.PrefabSaved, Is.False);
-            CollectionAssert.AreEqual(before, File.ReadAllBytes(invalid.PrefabPath));
-        }
-
-        [Test]
-        public void SyntheticNebulous_StateOnlyMigration_ReloadsExactSnapshot()
-        {
-            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "Nebulous");
-            var synthetic = CopyAsSynthetic(source, "Nebulous.prefab");
-
-            EnemyAnimationBindingMigrationService.ApplyRowForTests(synthetic);
-
-            var result = EnemyAnimationBindingMigrationService.InspectRowForTests(synthetic);
-            Assert.That(result.Status, Is.EqualTo(EnemyAnimationMigrationRowStatus.AlreadyMigrated),
-                string.Join("; ", result.Errors));
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(synthetic.PrefabPath);
-            var snapshot = prefab.GetComponent<EnemyAnimationBindingAuthoring>().CreateSnapshot();
-            Assert.That(snapshot.Bindings.All(binding =>
-                binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.State), Is.True);
-            Assert.That(snapshot.TryGetBinding(EnemyAnimationCue.GlideWindup, out var windup), Is.True);
-            Assert.That(windup.AnimatorDurationSeconds, Is.EqualTo(0.25f));
-            Assert.That(snapshot.TryGetBinding(EnemyAnimationCue.GlideRecovery, out var recovery), Is.True);
-            Assert.That(recovery.AnimatorDurationSeconds, Is.EqualTo(0.25f));
-        }
-
-        [Test]
-        public void SyntheticStartis_TriggerOnlyMigration_PreservesMinusOneCrossFade()
-        {
-            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "Startis");
-            var synthetic = CopyAsSynthetic(source, "Startis.prefab");
-
-            EnemyAnimationBindingMigrationService.ApplyRowForTests(synthetic);
-
-            var result = EnemyAnimationBindingMigrationService.InspectRowForTests(synthetic);
-            Assert.That(result.Status, Is.EqualTo(EnemyAnimationMigrationRowStatus.AlreadyMigrated),
-                string.Join("; ", result.Errors));
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(synthetic.PrefabPath);
-            var snapshot = prefab.GetComponent<EnemyAnimationBindingAuthoring>().CreateSnapshot();
-            Assert.That(snapshot.DefaultStateCrossFadeDurationSeconds, Is.EqualTo(-1f));
-            Assert.That(snapshot.Bindings.All(binding =>
-                binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.Trigger &&
-                binding.ReferenceClip == null), Is.True);
-        }
-
-        [Test]
-        public void SyntheticKali_ApprovedNoBinding_RemainsByteIdenticalAndExcludedFromMutation()
-        {
-            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "Kali");
-            var synthetic = CopyApprovedNoBindingAsSynthetic(source, "Kali.prefab");
-            var before = File.ReadAllBytes(synthetic.PrefabPath);
-
-            var result = EnemyAnimationBindingMigrationService.InspectRowForTests(synthetic);
-
-            Assert.That(result.Status, Is.EqualTo(EnemyAnimationMigrationRowStatus.ApprovedNoBinding),
-                string.Join("; ", result.Errors));
-            Assert.That(EnemyAnimationBindingMigrationService.ShouldMutateForTests(result), Is.False);
-            CollectionAssert.AreEqual(before, File.ReadAllBytes(synthetic.PrefabPath));
-        }
-
-        [Test]
-        public void SyntheticInvalidController_FailsBeforeAnyPrefabSave()
-        {
-            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "BlackEye");
-            var synthetic = CopyAsSynthetic(source, "InvalidController.prefab");
-            var root = PrefabUtility.LoadPrefabContents(synthetic.PrefabPath);
-            try
-            {
-                root.GetComponentsInChildren<Animator>(true).Single().runtimeAnimatorController = null;
-                PrefabUtility.SaveAsPrefabAsset(root, synthetic.PrefabPath);
-            }
-            finally
-            {
-                PrefabUtility.UnloadPrefabContents(root);
-            }
-
-            var before = File.ReadAllBytes(synthetic.PrefabPath);
-            var exception = Assert.Throws<EnemyAnimationMigrationRowApplyException>(
-                () => EnemyAnimationBindingMigrationService.ApplyRowForTests(synthetic));
-            Assert.That(exception.PrefabSaved, Is.False);
-            CollectionAssert.AreEqual(before, File.ReadAllBytes(synthetic.PrefabPath));
-        }
-
-        [Test]
-        public void SyntheticSourceHashDrift_FailsBeforeAnyPrefabSave()
-        {
-            var source = EnemyAnimationBindingMigrationManifest.Rows.Single(row => row.Name == "BlackEye");
-            var synthetic = CopyAsSynthetic(source, "SourceHashDrift.prefab");
-            var before = File.ReadAllBytes(synthetic.PrefabPath);
-
-            var exception = Assert.Throws<EnemyAnimationMigrationRowApplyException>(() =>
-                EnemyAnimationBindingMigrationService.ApplyRowForTests(
-                    synthetic,
-                    new string('0', 64)));
-
-            Assert.That(exception.PrefabSaved, Is.False);
-            Assert.That(exception.Stage, Is.EqualTo("pre-save"));
-            StringAssert.Contains("source SHA-256 changed after preflight", exception.InnerException?.Message);
-            CollectionAssert.AreEqual(before, File.ReadAllBytes(synthetic.PrefabPath));
-        }
-
-        private static EnemyAnimationMigrationRow CopyAsSynthetic(
-            EnemyAnimationMigrationRow source,
-            string fileName)
-        {
-            if (!AssetDatabase.IsValidFolder(TemporaryRoot))
-            {
-                AssetDatabase.CreateFolder("Assets", "__EnemyAnimationBindingMigrationTests");
-            }
-
-            var path = TemporaryRoot + "/" + fileName;
-            Assert.That(AssetDatabase.CopyAsset(source.PrefabPath, path), Is.True);
-            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
-            var root = PrefabUtility.LoadPrefabContents(path);
-            try
-            {
-                var binding = root.GetComponent<EnemyAnimationBindingAuthoring>();
-                Assert.That(binding, Is.Not.Null);
-                UnityEngine.Object.DestroyImmediate(binding);
-
-                var timing = root.AddComponent<EnemyAnimationTimingAuthoring>();
-                var expectedTiming = BuildExpectedLegacyTiming(source);
-                var serializedTiming = new SerializedObject(timing);
-                serializedTiming.FindProperty("attackWindupAnimatorDurationSeconds").floatValue =
-                    expectedTiming[0].DurationSeconds;
-                serializedTiming.FindProperty("jumpWindupAnimatorDurationSeconds").floatValue =
-                    expectedTiming[1].DurationSeconds;
-                serializedTiming.FindProperty("jumpAirborneAnimatorDurationSeconds").floatValue =
-                    expectedTiming[2].DurationSeconds;
-                serializedTiming.FindProperty("recoverAnimatorDurationSeconds").floatValue =
-                    expectedTiming[3].DurationSeconds;
-                serializedTiming.FindProperty("stateTransitionCrossFadeDurationSeconds").floatValue =
-                    source.LegacyCrossFadeSeconds;
-                serializedTiming.FindProperty("attackWindupReferenceClip").objectReferenceValue =
-                    ResolveOptionalClipForSynthetic(expectedTiming[0].Clip);
-                serializedTiming.FindProperty("jumpWindupReferenceClip").objectReferenceValue =
-                    ResolveOptionalClipForSynthetic(expectedTiming[1].Clip);
-                serializedTiming.FindProperty("jumpAirborneReferenceClip").objectReferenceValue =
-                    ResolveOptionalClipForSynthetic(expectedTiming[2].Clip);
-                serializedTiming.FindProperty("recoverReferenceClip").objectReferenceValue =
-                    ResolveOptionalClipForSynthetic(expectedTiming[3].Clip);
-                serializedTiming.ApplyModifiedPropertiesWithoutUndo();
-
-                var serializedDriver = new SerializedObject(root.GetComponent<EnemyAnimatorDriver>());
-                serializedDriver.FindProperty("animationTimingAuthoring").objectReferenceValue = timing;
-                serializedDriver.ApplyModifiedPropertiesWithoutUndo();
-                PrefabUtility.SaveAsPrefabAsset(root, path);
-            }
-            finally
-            {
-                PrefabUtility.UnloadPrefabContents(root);
-            }
-
-            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            var persistentTiming = prefab.GetComponent<EnemyAnimationTimingAuthoring>();
-            Assert.That(AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
-                persistentTiming, out _, out long timingLocalFileId), Is.True);
-            return Clone(source, path, AssetDatabase.AssetPathToGUID(path), source.Bindings.ToArray(),
-                timingLocalFileId);
-        }
-
-        private static EnemyAnimationMigrationRow CopyApprovedNoBindingAsSynthetic(
-            EnemyAnimationMigrationRow source,
-            string fileName)
-        {
-            if (!AssetDatabase.IsValidFolder(TemporaryRoot))
-            {
-                AssetDatabase.CreateFolder("Assets", "__EnemyAnimationBindingMigrationTests");
-            }
-
-            var path = TemporaryRoot + "/" + fileName;
-            Assert.That(AssetDatabase.CopyAsset(source.PrefabPath, path), Is.True);
-            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
-            return Clone(source, path, AssetDatabase.AssetPathToGUID(path), Array.Empty<EnemyAnimationMigrationBinding>());
-        }
-
-        private static EnemyAnimationMigrationBinding[] BuildExpectedLegacyTiming(
-            EnemyAnimationMigrationRow row)
-        {
-            return new[]
-            {
-                FirstTiming(row, EnemyAnimationCue.ActionWindup, EnemyAnimationCue.ChargeWindup,
-                    EnemyAnimationCue.GlideWindup, EnemyAnimationCue.UtilityWindup),
-                FirstTiming(row, EnemyAnimationCue.JumpWindup),
-                FirstTiming(row, EnemyAnimationCue.JumpAirborne),
-                FirstTiming(row, EnemyAnimationCue.ActionRecovery, EnemyAnimationCue.ChargeRecovery,
-                    EnemyAnimationCue.GlideRecovery, EnemyAnimationCue.UtilityRecovery),
-            };
-        }
-
-        private static EnemyAnimationMigrationBinding FirstTiming(
-            EnemyAnimationMigrationRow row,
-            params EnemyAnimationCue[] cues)
-        {
-            foreach (var cue in cues)
-            {
-                var match = row.Bindings.FirstOrDefault(binding => binding.Cue == cue);
-                if (match.Cue != EnemyAnimationCue.None && match.DurationSeconds > 0f)
-                {
-                    return match;
-                }
-            }
-
-            return new EnemyAnimationMigrationBinding(
-                EnemyAnimationCue.None,
-                EnemyAnimationDispatchMode.None,
-                string.Empty,
-                string.Empty,
-                -1f,
-                default,
-                default);
-        }
-
-        private static AnimationClip ResolveOptionalClipForSynthetic(
-            EnemyAnimationMigrationClipIdentity identity)
-        {
-            return identity.IsEmpty ? null : ResolveClipForSynthetic(identity);
-        }
-
-        private static AnimationClip ResolveClipForSynthetic(EnemyAnimationMigrationClipIdentity identity)
-        {
-            return AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(identity.Guid))
-                .OfType<AnimationClip>()
-                .Single(clip => AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
-                                    clip, out string guid, out long localFileId) &&
-                                guid == identity.Guid && localFileId == identity.LocalFileId);
-        }
-
-        private static EnemyAnimationMigrationRow Clone(
-            EnemyAnimationMigrationRow source,
-            string path,
-            string guid,
-            EnemyAnimationMigrationBinding[] bindings,
-            long? timingLocalFileId = null)
-        {
-            return new EnemyAnimationMigrationRow(
-                source.Name,
-                path,
-                guid,
-                source.Disposition,
-                source.RootLocalFileId,
-                source.DriverLocalFileId,
-                timingLocalFileId ?? source.TimingLocalFileId,
-                source.AnimatorWasExplicit,
-                source.AnimatorTransformPath,
-                source.AnimatorLocalFileId,
-                source.ControllerGuid,
-                source.ControllerLocalFileId,
-                source.LegacyDriverValues.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
-                source.LegacyCrossFadeSeconds,
-                source.CrossFadeSeconds,
-                bindings);
-        }
-    }
 
     [Category("Full")]
     public sealed class EnemyAnimationBindingMigrationAssetCharacterizationTests
