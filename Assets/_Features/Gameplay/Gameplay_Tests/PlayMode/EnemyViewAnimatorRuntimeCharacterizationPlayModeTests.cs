@@ -29,9 +29,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private const string EnemyPrefabRoot =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs";
         private const string BlackEyePrefabPath = EnemyPrefabRoot + "/EnemyView_BlackEye.prefab";
+        private const string AstretonPrefabPath = EnemyPrefabRoot + "/EnemyView_Astreton.prefab";
         private const string DrSaturnPrefabPath = EnemyPrefabRoot + "/EnemyView_DrSaturn.prefab";
         private const string RocketFacePrefabPath = EnemyPrefabRoot + "/EnemyView_RocketFace.prefab";
         private const string JPeterPrefabPath = EnemyPrefabRoot + "/EnemyView_JPeter.prefab";
+        private const string SunwheelPrefabPath = EnemyPrefabRoot + "/EnemyView_Sunwheel.prefab";
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
 
@@ -41,6 +43,225 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static readonly int HitStateHash = Animator.StringToHash("Hit");
         private static readonly int DeathStateHash = Animator.StringToHash("Death");
         private static readonly int JPeterMoveStateHash = Animator.StringToHash("Base Layer.Locomotion.Move");
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator Astreton_JumpSignalsUseAuthoredStates_LandingAndCompletionReturnToMove()
+        {
+            var instance = InstantiateProductionPrefab(AstretonPrefabPath);
+            try
+            {
+                var driver = RequireDriver(instance.GetComponent<GameplayEntityView>());
+                var animator = RequireAnimator(instance);
+                RebindDeterministically(animator);
+
+                driver.Apply(CreateJumpState(1, EnemyJumpPhase.Windup, startedWindup: true));
+                animator.Update(0.02f);
+                AssertAnimatorState(animator, "JumpWindup");
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("JumpWindup"));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.001f).Within(0.0001f));
+                Assert.That(driver.JumpWindupSignalCount, Is.EqualTo(1));
+
+                driver.Apply(CreateJumpState(2, EnemyJumpPhase.Airborne, startedAirborne: true));
+                animator.Update(0.02f);
+                AssertAnimatorState(animator, "JumpAirborne");
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+                Assert.That(driver.JumpAirborneSignalCount, Is.EqualTo(1));
+
+                Assert.That(driver.ResyncAnimatorStateFromLastPresentation(), Is.True);
+                animator.Update(0.02f);
+                AssertAnimatorState(animator, "JumpAirborne");
+                Assert.That(driver.JumpAirborneSignalCount, Is.EqualTo(1));
+
+                driver.Apply(CreateJumpState(3, EnemyJumpPhase.None, landed: true));
+                animator.Update(0.02f);
+                AssertAnimatorState(animator, "Move");
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Move"));
+
+                driver.Apply(CreateJumpState(4, EnemyJumpPhase.Airborne, startedAirborne: true));
+                animator.Update(0.02f);
+                driver.CompleteJumpLandingPresentation();
+                animator.Update(0.02f);
+                AssertAnimatorState(animator, "Move");
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Move"));
+                Assert.That(driver.JumpAirborneSignalCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator Astreton_DisabledAnimatorQueuesOnlyLatestState_AndConsumeDoesNotRepublishSignals()
+        {
+            var instance = InstantiateProductionPrefab(AstretonPrefabPath);
+            try
+            {
+                var driver = RequireDriver(instance.GetComponent<GameplayEntityView>());
+                var animator = RequireAnimator(instance);
+                RebindDeterministically(animator);
+                animator.enabled = false;
+
+                driver.Apply(CreateJumpState(1, EnemyJumpPhase.Windup, startedWindup: true));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("JumpWindup"));
+                driver.Apply(CreateJumpState(2, EnemyJumpPhase.Airborne, startedAirborne: true));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+                Assert.That(driver.JumpWindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.JumpAirborneSignalCount, Is.EqualTo(1));
+
+                animator.enabled = true;
+                RebindDeterministically(animator);
+                driver.SyncRuntimeState(isVisible: true, isMoving: false);
+                animator.Update(0.02f);
+                AssertAnimatorState(animator, "JumpAirborne");
+
+                driver.SyncRuntimeState(isVisible: true, isMoving: false);
+                Assert.That(driver.JumpWindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.JumpAirborneSignalCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator DrSaturn_UtilityWindupTrackAppliesHalfSecondTiming_ThenRestoresBaseline()
+        {
+            var instance = InstantiateProductionPrefab(DrSaturnPrefabPath);
+            try
+            {
+                var view = instance.GetComponent<GameplayEntityView>();
+                var driver = RequireDriver(view);
+                var animator = RequireAnimator(instance);
+                RebindDeterministically(animator);
+
+                driver.Apply(CreateUtilityState(1, windup: true));
+                animator.Update(0.02f);
+                Assert.That(driver.UtilityWindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero,
+                    "Direct Driver Apply does not own Utility phase timing.");
+
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                var views = new Dictionary<int, GameplayEntityView> { [EnemyEntityId] = view };
+                coordinator.CacheDrivers(EnemyEntityId, view);
+                coordinator.ApplyTickPresentation(
+                    CreateUtilityTickResult(2, EnemyUtilityPresentationPhase.WindupStarted),
+                    views,
+                    (_, _) => 0f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+
+                coordinator.ApplyTickPresentation(CreateUtilityTickResult(3), views, (_, _) => 0f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                coordinator.AdvancePresentation(0.51f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator DrSaturn_UtilityRecoveryTrackAppliesHalfSecondTiming_ThenRestoresBaseline()
+        {
+            var instance = InstantiateProductionPrefab(DrSaturnPrefabPath);
+            try
+            {
+                var view = instance.GetComponent<GameplayEntityView>();
+                var driver = RequireDriver(view);
+                var animator = RequireAnimator(instance);
+                RebindDeterministically(animator);
+
+                driver.Apply(CreateUtilityState(1, windup: false));
+                animator.Update(0.02f);
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                var views = new Dictionary<int, GameplayEntityView> { [EnemyEntityId] = view };
+                coordinator.CacheDrivers(EnemyEntityId, view);
+                coordinator.ApplyTickPresentation(
+                    CreateUtilityTickResult(2, EnemyUtilityPresentationPhase.RecoverStarted),
+                    views,
+                    (_, _) => 0f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+
+                coordinator.ApplyTickPresentation(CreateUtilityTickResult(3), views, (_, _) => 0f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                coordinator.AdvancePresentation(0.51f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+
+            yield break;
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator Sunwheel_UnusedCrossFadeDoesNotCreateHitOrDeathStateCommand()
+        {
+            var instance = InstantiateProductionPrefab(SunwheelPrefabPath);
+            try
+            {
+                var driver = RequireDriver(instance.GetComponent<GameplayEntityView>());
+                var animator = RequireAnimator(instance);
+                RebindDeterministically(animator);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    EnemyEntityId,
+                    tickIndex: 1,
+                    EnemyAiMode.None,
+                    EnemyActionKind.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: true,
+                    didDie: false));
+                animator.Update(0.02f);
+                Assert.That(driver.HitSignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastCrossFadedStateName, Is.Empty);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    EnemyEntityId,
+                    tickIndex: 2,
+                    EnemyAiMode.Dead,
+                    EnemyActionKind.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: true));
+                animator.Update(0.02f);
+                Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastCrossFadedStateName, Is.Empty);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+
+            yield break;
+        }
 
         [UnityTest]
         [Category("Full")]
@@ -67,6 +288,44 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return AssertContactDelayedFatalHitCurrentPolicy(
                 JPeterPrefabPath,
                 "EnemyAnimator_JPeter_Fix");
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator JPeter_SummonRecovery_IncrementsRecoveryCounterWithoutAnimatorDispatch()
+        {
+            var instance = InstantiateProductionPrefab(JPeterPrefabPath);
+            try
+            {
+                var driver = RequireDriver(instance.GetComponent<GameplayEntityView>());
+                var animator = RequireAnimator(instance);
+                RebindDeterministically(animator);
+                animator.Play(JPeterMoveStateHash, layer: 0, normalizedTime: 0.2f);
+                animator.Update(0f);
+                var stateBeforeRecovery = animator.GetCurrentAnimatorStateInfo(0).fullPathHash;
+
+                var serializedDriver = new SerializedObject(driver);
+                Assert.That(
+                    serializedDriver.FindProperty("recoveryTriggerName").stringValue,
+                    Is.Empty,
+                    "The current JPeter no-visual Summon recovery policy depends on its blank legacy recovery binding.");
+
+                driver.Apply(CreateSummonRecoveryState(tickIndex: 1));
+                animator.Update(0f);
+
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastCrossFadedStateName, Is.Empty);
+                Assert.That(
+                    animator.GetCurrentAnimatorStateInfo(0).fullPathHash,
+                    Is.EqualTo(stateBeforeRecovery),
+                    "Summon recovery currently publishes the generic recovery counter but sends no Animator command.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+
+            yield break;
         }
 
         [UnityTest]
@@ -278,6 +537,165 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 context.Dispose();
             }
+        }
+
+        private static GameObject InstantiateProductionPrefab(string prefabPath)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, $"Missing production prefab at '{prefabPath}'.");
+            var instance = UnityEngine.Object.Instantiate(prefab);
+            instance.name = prefab.name + "_CharacterizationClone";
+            instance.SetActive(true);
+            return instance;
+        }
+
+        private static void RebindDeterministically(Animator animator)
+        {
+            animator.enabled = true;
+            animator.Rebind();
+            animator.Update(0f);
+        }
+
+        private static void AssertAnimatorState(Animator animator, string expectedState)
+        {
+            var current = animator.GetCurrentAnimatorStateInfo(0);
+            Assert.That(
+                current.IsName(expectedState) ||
+                current.IsName("Base Layer." + expectedState) ||
+                current.IsName("Base Layer.Locomotion." + expectedState),
+                Is.True,
+                $"Expected production Animator state '{expectedState}', actual short hash={current.shortNameHash}.");
+        }
+
+        private static EnemyViewPresentationState CreateJumpState(
+            int tickIndex,
+            EnemyJumpPhase phase,
+            bool startedWindup = false,
+            bool startedAirborne = false,
+            bool landed = false)
+        {
+            return new EnemyViewPresentationState(
+                EnemyEntityId,
+                tickIndex,
+                EnemyAiMode.Patrol,
+                EnemyActionKind.None,
+                phase,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: startedWindup,
+                startedJumpAirborneThisTick: startedAirborne,
+                landedFromJumpThisTick: landed,
+                retryingJumpAirborneThisTick: false,
+                tookDamage: false,
+                didDie: false);
+        }
+
+        private static EnemyViewPresentationState CreateUtilityState(int tickIndex, bool windup)
+        {
+            return new EnemyViewPresentationState(
+                EnemyEntityId,
+                tickIndex,
+                EnemyAiMode.None,
+                EnemyActionKind.None,
+                EnemyJumpPhase.None,
+                EnemyChargePhase.None,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: !windup,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage: false,
+                didDie: false,
+                utilityPresentationKind: EnemyUtilityPresentationKind.GravityFieldAura,
+                startedUtilityWindupThisTick: windup,
+                utilityPhase: windup ? EnemyUtilityEffectPhase.Windup : EnemyUtilityEffectPhase.Recover,
+                startedUtilityRecoverThisTick: !windup,
+                utilityEffectIndex: 0,
+                utilityActivationSequence: 1);
+        }
+
+        private static EnemyViewPresentationState CreateSummonRecoveryState(int tickIndex)
+        {
+            return new EnemyViewPresentationState(
+                EnemyEntityId,
+                tickIndex,
+                EnemyAiMode.Recover,
+                EnemyActionKind.None,
+                EnemyJumpPhase.None,
+                EnemyChargePhase.None,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: true,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage: false,
+                didDie: false,
+                startedSummonRecoverThisTick: true,
+                summonEffectIndex: 0,
+                summonActivationSequence: 1);
+        }
+
+        private static TickResult CreateUtilityTickResult(
+            int tickIndex,
+            EnemyUtilityPresentationPhase phase = EnemyUtilityPresentationPhase.None)
+        {
+            var utilitySignals = phase == EnemyUtilityPresentationPhase.None
+                ? Array.Empty<TickEnemyUtilityPresentationSignal>()
+                : new[]
+                {
+                    new TickEnemyUtilityPresentationSignal(
+                        EnemyEntityId,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        phase,
+                        startTick: tickIndex,
+                        executeTick: tickIndex + 1,
+                        durationTicks: 1,
+                        effectIndex: 0,
+                        activationSequence: 1),
+                };
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                enemyUtilitySignals: utilitySignals);
+            var result = new TickResult(tickIndex, Array.Empty<TickPhase>(), Array.Empty<string>());
+            SetPrivateField(result, "<PresentationData>k__BackingField", presentationData);
+            SetPrivateField(result, "<FinalTopology>k__BackingField", Topology);
+            SetPrivateField(result, "<Trace>k__BackingField", TickTrace.Empty);
+            SetPrivateField(result, "<ObjectiveResult>k__BackingField", StageObjectiveTickResult.NoObjective);
+            SetPrivateField(
+                result,
+                "_finalEntities",
+                new ReadOnlyCollection<EntityState>(new List<EntityState> { CreateEnemy() }));
+            SetPrivateField(
+                result,
+                "_eventLog",
+                new ReadOnlyCollection<string>(new List<string>()));
+            return result;
         }
 
         private static RuntimeContext CreateContext(

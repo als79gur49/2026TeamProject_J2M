@@ -3608,15 +3608,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Driver.Apply(CreateJumpLandingPresentationState());
 
                 Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("Move"));
-                Assert.That(
-                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
-                    Is.EqualTo("Move"));
                 fixture.Animator.enabled = true;
                 fixture.Animator.Update(0f);
                 AssertAnimatorPlaybackUnchanged(
                     activePlayback,
                     CaptureAnimatorPlayback(fixture.Animator),
-                    "Inactive landing must retain Move without queuing or mutating Animator playback.");
+                    "Inactive landing must retain the pending Move command without mutating Animator playback.");
                 LogAssert.NoUnexpectedReceived();
             }
             finally
@@ -3639,9 +3636,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Animator.enabled = false;
                 fixture.Driver.Apply(CreateJumpLandingPresentationState());
                 Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("Move"));
-                Assert.That(
-                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
-                    Is.EqualTo("Move"));
                 fixture.Animator.enabled = true;
                 fixture.Animator.Update(0f);
                 AssertAnimatorPlaybackUnchanged(
@@ -3656,18 +3650,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     fixture.Animator.GetCurrentAnimatorStateInfo(0).IsName("Move"),
                     Is.True);
-                Assert.That(
-                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
-                    Is.Empty);
 
                 var consumedPlayback = CaptureAnimatorPlayback(fixture.Animator);
                 fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
                 fixture.Animator.Update(0f);
 
-                Assert.That(
-                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
-                    Is.Empty,
-                    "A consumed Move request must not be queued or consumed a second time.");
                 AssertAnimatorPlaybackUnchanged(
                     consumedPlayback,
                     CaptureAnimatorPlayback(fixture.Animator),

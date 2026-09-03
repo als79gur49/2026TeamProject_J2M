@@ -914,24 +914,24 @@ namespace Game.Feature.Gameplay.Host
             EnemyAnimatorDriver driver,
             out EnemyUtilityAnimationPlaybackTrack track)
         {
-            var phase = EnemyAnimatorDriver.EnemyPresentationPhase.None;
+            var cue = EnemyAnimationCue.None;
             if (state.StartedUtilityRecoverThisTick)
             {
-                phase = EnemyAnimatorDriver.EnemyPresentationPhase.Recovery;
+                cue = EnemyAnimationCue.UtilityRecovery;
             }
             else if (state.StartedUtilityWindupThisTick &&
                      SupportsUtilityWindupAnimationTrack(state.UtilityPresentationKind))
             {
-                phase = EnemyAnimatorDriver.EnemyPresentationPhase.Windup;
+                cue = EnemyAnimationCue.UtilityWindup;
             }
 
-            if (phase == EnemyAnimatorDriver.EnemyPresentationPhase.None)
+            if (cue == EnemyAnimationCue.None)
             {
                 track = default;
                 return false;
             }
 
-            var durationSeconds = driver.GetPresentationDurationSeconds(phase);
+            var durationSeconds = driver.GetPresentationDurationSeconds(cue);
             if (durationSeconds <= 0f)
             {
                 track = default;
@@ -939,7 +939,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             track = new EnemyUtilityAnimationPlaybackTrack(
-                phase,
+                cue,
                 state.UtilityPresentationKind,
                 state.UtilityEffectIndex,
                 state.UtilityActivationSequence,
@@ -997,7 +997,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            driver.ApplyPresentationPhaseTiming(track.Phase);
+            driver.ApplyPresentationCueTiming(track.Cue);
         }
 
         private static bool CanApplyEnemyUtilityAnimationTrack(in EnemyViewPresentationState state)
@@ -1589,13 +1589,13 @@ namespace Game.Feature.Gameplay.Host
         private readonly struct EnemyUtilityAnimationPlaybackTrack
         {
             public EnemyUtilityAnimationPlaybackTrack(
-                EnemyAnimatorDriver.EnemyPresentationPhase phase,
+                EnemyAnimationCue cue,
                 EnemyUtilityPresentationKind kind,
                 int effectIndex,
                 int activationSequence,
                 float durationSeconds)
             {
-                Phase = phase;
+                Cue = cue;
                 Kind = kind;
                 EffectIndex = effectIndex;
                 ActivationSequence = activationSequence;
@@ -1604,14 +1604,14 @@ namespace Game.Feature.Gameplay.Host
             }
 
             private EnemyUtilityAnimationPlaybackTrack(
-                EnemyAnimatorDriver.EnemyPresentationPhase phase,
+                EnemyAnimationCue cue,
                 EnemyUtilityPresentationKind kind,
                 int effectIndex,
                 int activationSequence,
                 float durationSeconds,
                 float elapsedSeconds)
             {
-                Phase = phase;
+                Cue = cue;
                 Kind = kind;
                 EffectIndex = effectIndex;
                 ActivationSequence = activationSequence;
@@ -1619,7 +1619,7 @@ namespace Game.Feature.Gameplay.Host
                 ElapsedSeconds = Mathf.Max(0f, elapsedSeconds);
             }
 
-            public EnemyAnimatorDriver.EnemyPresentationPhase Phase { get; }
+            public EnemyAnimationCue Cue { get; }
 
             public EnemyUtilityPresentationKind Kind { get; }
 
@@ -1638,7 +1638,7 @@ namespace Game.Feature.Gameplay.Host
             public EnemyUtilityAnimationPlaybackTrack Advance(float deltaTime)
             {
                 return new EnemyUtilityAnimationPlaybackTrack(
-                    Phase,
+                    Cue,
                     Kind,
                     EffectIndex,
                     ActivationSequence,
