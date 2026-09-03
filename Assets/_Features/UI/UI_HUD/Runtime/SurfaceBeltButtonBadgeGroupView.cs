@@ -6,16 +6,12 @@ namespace Game.Feature.UI.HUD
     public sealed class SurfaceBeltButtonBadgeGroupView : MonoBehaviour
     {
         [SerializeField] private SurfaceBeltButtonBadgeView _normalBadge;
-        [SerializeField] private SurfaceBeltButtonBadgeView _moonBlockOnlyBadge;
 
         public SurfaceBeltButtonBadgeView NormalBadge => _normalBadge;
 
-        public SurfaceBeltButtonBadgeView MoonBlockOnlyBadge => _moonBlockOnlyBadge;
-
         public void Bind(
             SurfaceBeltButtonRemainderViewModel remainder,
-            SurfaceBeltButtonBadgeStyleProfile styleProfile,
-            bool showBadges)
+            SurfaceBeltButtonBadgeStyleProfile styleProfile)
         {
             ValidateAuthoredStructureOrThrow();
             if (styleProfile == null)
@@ -28,23 +24,17 @@ namespace Game.Feature.UI.HUD
                 throw new InvalidOperationException(validationMessage);
             }
 
-            if (!showBadges)
-            {
-                _normalBadge.Hide();
-                _moonBlockOnlyBadge.Hide();
-                return;
-            }
-
-            _normalBadge.Bind(remainder.NormalRemaining, styleProfile.NormalButton);
-            _moonBlockOnlyBadge.Bind(remainder.MoonBlockOnlyRemaining, styleProfile.MoonBlockOnlyButton);
+            _normalBadge.Bind(
+                remainder.SlotIndex,
+                remainder.HasAnyRemaining,
+                styleProfile.NormalButton,
+                styleProfile.Transition);
         }
 
         public void ValidateAuthoredStructureOrThrow()
         {
             RequireReference(_normalBadge, nameof(_normalBadge));
-            RequireReference(_moonBlockOnlyBadge, nameof(_moonBlockOnlyBadge));
             _normalBadge.ValidateAuthoredStructureOrThrow();
-            _moonBlockOnlyBadge.ValidateAuthoredStructureOrThrow();
         }
 
         private static void RequireReference(UnityEngine.Object value, string fieldName)

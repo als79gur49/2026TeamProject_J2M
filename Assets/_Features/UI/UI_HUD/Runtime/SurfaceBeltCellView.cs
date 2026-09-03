@@ -35,17 +35,19 @@ namespace Game.Feature.UI.HUD
                 _slotTintEffectImage.color = effectColor;
             }
 
-            _buttonBadgeGroup.Bind(
-                buttonRemainder,
-                buttonBadgeStyleProfile,
-                viewModel.ShowButtonBadge);
+            if (_buttonBadgeGroup != null)
+            {
+                _buttonBadgeGroup.Bind(buttonRemainder, buttonBadgeStyleProfile);
+            }
         }
 
         public void ValidateAuthoredStructureOrThrow()
         {
             RequireReference(_background, nameof(_background));
-            RequireReference(_buttonBadgeGroup, nameof(_buttonBadgeGroup));
-            _buttonBadgeGroup.ValidateAuthoredStructureOrThrow();
+            if (_buttonBadgeGroup != null)
+            {
+                _buttonBadgeGroup.ValidateAuthoredStructureOrThrow();
+            }
         }
 
         private static void RequireReference(UnityEngine.Object value, string fieldName)

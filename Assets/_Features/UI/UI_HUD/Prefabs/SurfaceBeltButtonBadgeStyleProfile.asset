@@ -14,15 +14,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.UI.HUD::Game.Feature.UI.HUD.SurfaceBeltButtonBadgeStyleProfile
   _normalButton:
     _active:
-      _backgroundColor: {r: 0.15686275, g: 1, b: 0, a: 1}
-      _textColor: {r: 1, g: 1, b: 1, a: 1}
+      _backgroundColor: {r: 0.8980392, g: 0.8392157, b: 0.29411766, a: 1}
     _inactive:
-      _backgroundColor: {r: 0.15686275, g: 1, b: 0, a: 1}
-      _textColor: {r: 0.6509804, g: 0.6039216, b: 0.6039216, a: 1}
-  _moonBlockOnlyButton:
-    _active:
-      _backgroundColor: {r: 1, g: 1, b: 0, a: 1}
-      _textColor: {r: 1, g: 1, b: 1, a: 1}
-    _inactive:
-      _backgroundColor: {r: 1, g: 1, b: 0, a: 1}
-      _textColor: {r: 0.6509434, g: 0.60488605, b: 0.60488605, a: 1}
+      _backgroundColor: {r: 0.8980392, g: 0.8392157, b: 0.29411766, a: 0.2}
+  _transition:
+    _activationDurationSeconds: 0.24
+    _deactivationDurationSeconds: 0.16
+    _slotConfirmationDurationSeconds: 0.18
+    _shineDurationSeconds: 0.24
+    _inactiveScale: 0.92
+    _activationPeakScale: 1.06
+    _slotConfirmationPeakScale: 1.04
+    _activationEase: 27
+    _settleEase: 6
+    _shineWidth: 0.14
+    _shineGlow: 2
+    _shineRotateRadians: 0
+    _shineColor: {r: 1, g: 1, b: 1, a: 1}
+    _useUnscaledTime: 1

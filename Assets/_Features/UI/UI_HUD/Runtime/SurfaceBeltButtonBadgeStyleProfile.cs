@@ -1,4 +1,5 @@
 using System;
+using DG.Tweening;
 using UnityEngine;
 
 namespace Game.Feature.UI.HUD
@@ -11,33 +12,39 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private ButtonBadgeVisualStyle _normalButton =
             new ButtonBadgeVisualStyle(
                 new ButtonBadgeVisualStateStyle(
-                    new Color(0.12f, 0.12f, 0.14f, 0.94f),
-                    Color.white),
+                    new Color(0.8980392f, 0.8392157f, 0.2941177f, 1.0f)),
                 new ButtonBadgeVisualStateStyle(
-                    new Color(0.12f, 0.12f, 0.14f, 0.38f),
-                    new Color(1.0f, 1.0f, 1.0f, 0.58f)));
+                    new Color(0.8980392f, 0.8392157f, 0.2941177f, 0.2f)));
 
-        [SerializeField] private ButtonBadgeVisualStyle _moonBlockOnlyButton =
-            new ButtonBadgeVisualStyle(
-                new ButtonBadgeVisualStateStyle(
-                    new Color(0.16f, 0.28f, 0.72f, 0.94f),
-                    Color.white),
-                new ButtonBadgeVisualStateStyle(
-                    new Color(0.16f, 0.28f, 0.72f, 0.38f),
-                    new Color(1.0f, 1.0f, 1.0f, 0.58f)));
+        [SerializeField] private ButtonBadgeTransitionStyle _transition =
+            new ButtonBadgeTransitionStyle(
+                activationDurationSeconds: 0.24f,
+                deactivationDurationSeconds: 0.16f,
+                slotConfirmationDurationSeconds: 0.18f,
+                shineDurationSeconds: 0.24f,
+                inactiveScale: 0.92f,
+                activationPeakScale: 1.06f,
+                slotConfirmationPeakScale: 1.04f,
+                activationEase: Ease.OutBack,
+                settleEase: Ease.OutQuad,
+                shineWidth: 0.14f,
+                shineGlow: 2.0f,
+                shineRotateRadians: 0.0f,
+                shineColor: Color.white,
+                useUnscaledTime: true);
 
         public ButtonBadgeVisualStyle NormalButton => _normalButton;
 
-        public ButtonBadgeVisualStyle MoonBlockOnlyButton => _moonBlockOnlyButton;
+        public ButtonBadgeTransitionStyle Transition => _transition;
 
         public bool TryValidate(out string message)
         {
-            if (!_normalButton.TryValidate("Normal Button", out message))
+            if (!_normalButton.TryValidate("Button remainder", out message))
             {
                 return false;
             }
 
-            if (!_moonBlockOnlyButton.TryValidate("MoonBlockOnly Button", out message))
+            if (!_transition.TryValidate(out message))
             {
                 return false;
             }
@@ -52,6 +59,117 @@ namespace Game.Feature.UI.HUD
             {
                 Debug.LogWarning(message, this);
             }
+        }
+    }
+
+    [Serializable]
+    public struct ButtonBadgeTransitionStyle
+    {
+        [SerializeField] private float _activationDurationSeconds;
+        [SerializeField] private float _deactivationDurationSeconds;
+        [SerializeField] private float _slotConfirmationDurationSeconds;
+        [SerializeField] private float _shineDurationSeconds;
+        [SerializeField] private float _inactiveScale;
+        [SerializeField] private float _activationPeakScale;
+        [SerializeField] private float _slotConfirmationPeakScale;
+        [SerializeField] private Ease _activationEase;
+        [SerializeField] private Ease _settleEase;
+        [SerializeField] private float _shineWidth;
+        [SerializeField] private float _shineGlow;
+        [SerializeField] private float _shineRotateRadians;
+        [SerializeField] private Color _shineColor;
+        [SerializeField] private bool _useUnscaledTime;
+
+        public ButtonBadgeTransitionStyle(
+            float activationDurationSeconds,
+            float deactivationDurationSeconds,
+            float slotConfirmationDurationSeconds,
+            float shineDurationSeconds,
+            float inactiveScale,
+            float activationPeakScale,
+            float slotConfirmationPeakScale,
+            Ease activationEase,
+            Ease settleEase,
+            float shineWidth,
+            float shineGlow,
+            float shineRotateRadians,
+            Color shineColor,
+            bool useUnscaledTime)
+        {
+            _activationDurationSeconds = activationDurationSeconds;
+            _deactivationDurationSeconds = deactivationDurationSeconds;
+            _slotConfirmationDurationSeconds = slotConfirmationDurationSeconds;
+            _shineDurationSeconds = shineDurationSeconds;
+            _inactiveScale = inactiveScale;
+            _activationPeakScale = activationPeakScale;
+            _slotConfirmationPeakScale = slotConfirmationPeakScale;
+            _activationEase = activationEase;
+            _settleEase = settleEase;
+            _shineWidth = shineWidth;
+            _shineGlow = shineGlow;
+            _shineRotateRadians = shineRotateRadians;
+            _shineColor = shineColor;
+            _useUnscaledTime = useUnscaledTime;
+        }
+
+        public float ActivationDurationSeconds => _activationDurationSeconds;
+        public float DeactivationDurationSeconds => _deactivationDurationSeconds;
+        public float SlotConfirmationDurationSeconds => _slotConfirmationDurationSeconds;
+        public float ShineDurationSeconds => _shineDurationSeconds;
+        public float InactiveScale => _inactiveScale;
+        public float ActivationPeakScale => _activationPeakScale;
+        public float SlotConfirmationPeakScale => _slotConfirmationPeakScale;
+        public Ease ActivationEase => _activationEase;
+        public Ease SettleEase => _settleEase;
+        public float ShineWidth => _shineWidth;
+        public float ShineGlow => _shineGlow;
+        public float ShineRotateRadians => _shineRotateRadians;
+        public Color ShineColor => _shineColor;
+        public bool UseUnscaledTime => _useUnscaledTime;
+
+        public bool TryValidate(out string message)
+        {
+            if (_activationDurationSeconds <= 0.0f ||
+                _deactivationDurationSeconds <= 0.0f ||
+                _slotConfirmationDurationSeconds <= 0.0f ||
+                _shineDurationSeconds <= 0.0f)
+            {
+                message = "Button badge transition durations must be greater than zero.";
+                return false;
+            }
+
+            if (_inactiveScale <= 0.0f || _inactiveScale > 1.0f)
+            {
+                message = "Button badge inactive scale must be greater than zero and no greater than one.";
+                return false;
+            }
+
+            if (_activationPeakScale < 1.0f || _slotConfirmationPeakScale < 1.0f)
+            {
+                message = "Button badge peak scales must be at least one.";
+                return false;
+            }
+
+            if (_shineWidth < 0.05f || _shineWidth > 1.0f)
+            {
+                message = "Button badge shine width must be between 0.05 and 1.";
+                return false;
+            }
+
+            if (_shineGlow <= 0.0f)
+            {
+                message = "Button badge shine glow must be greater than zero.";
+                return false;
+            }
+
+            if (_shineColor.a <= 0.0f)
+            {
+                message = "Button badge shine color alpha must be greater than zero.";
+                return false;
+            }
+
+            message = string.Empty;
+            return true;
         }
     }
 
@@ -97,29 +215,19 @@ namespace Game.Feature.UI.HUD
     public struct ButtonBadgeVisualStateStyle
     {
         [SerializeField] private Color _backgroundColor;
-        [SerializeField] private Color _textColor;
 
-        public ButtonBadgeVisualStateStyle(Color backgroundColor, Color textColor)
+        public ButtonBadgeVisualStateStyle(Color backgroundColor)
         {
             _backgroundColor = backgroundColor;
-            _textColor = textColor;
         }
 
         public Color BackgroundColor => _backgroundColor;
-
-        public Color TextColor => _textColor;
 
         public bool TryValidate(string label, out string message)
         {
             if (_backgroundColor.a <= 0.0f)
             {
                 message = $"{label} badge background alpha must be greater than zero.";
-                return false;
-            }
-
-            if (_textColor.a <= 0.0f)
-            {
-                message = $"{label} badge text alpha must be greater than zero.";
                 return false;
             }
 
