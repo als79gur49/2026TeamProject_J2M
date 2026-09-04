@@ -487,6 +487,7 @@ namespace Game.Feature.Gameplay.Host
         internal bool HasActiveLocalMotionTrack(
             int entityId,
             TickEntityMotionKind motionKind,
+            int sourceTickIndex,
             int sequenceOrActionPlanId)
         {
             return entityId > 0 &&
@@ -495,19 +496,21 @@ namespace Game.Feature.Gameplay.Host
                    track != null &&
                    track.HasClips &&
                    track.HeadMotionKind == motionKind &&
+                   track.HeadSourceTickIndex == sourceTickIndex &&
                    track.HeadSequenceOrActionPlanId == sequenceOrActionPlanId;
         }
 
         internal bool HasLocalMotionTrack(
             int entityId,
             TickEntityMotionKind motionKind,
+            int sourceTickIndex,
             int sequenceOrActionPlanId)
         {
             return entityId > 0 &&
                    sequenceOrActionPlanId > 0 &&
                    _trackState.LocalMotionTracks.TryGetValue(entityId, out var track) &&
                    track != null &&
-                   track.Contains(motionKind, sequenceOrActionPlanId);
+                   track.Contains(motionKind, sourceTickIndex, sequenceOrActionPlanId);
         }
 
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>

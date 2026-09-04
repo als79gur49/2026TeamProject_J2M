@@ -346,7 +346,7 @@ namespace Game.Feature.Gameplay.Host
                         localPose = sample.CompletionPose;
                         motionVisualScaleMultiplier = Vector3.one;
                         _trackState.CompletedOriginalViewMotionTrackIds.Add(entityId);
-                        _trackState.CompletedPresentationMotionKeys.Add(originalViewMotionTrack.InstanceKey);
+                        _trackState.CompletedPresentationMotions.RecordCompleted(originalViewMotionTrack.InstanceKey);
                         _trackState.BoxMotionTelemetry.RecordTrackCompleted(
                             PresentationMotionFactKind.BoxFlipImpact,
                             tickIndex: 0,

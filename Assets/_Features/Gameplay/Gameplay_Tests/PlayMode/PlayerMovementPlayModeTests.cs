@@ -560,6 +560,51 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
+        public IEnumerator GameplayCameraShakeProduction_RepeatedOrdinaryFlipSameBox_ActualActionsSubmitAtEachLanding()
+        {
+            var profile = LoadCampaignCameraShakeProfile();
+            var host = CreateFlipCameraShakeHost();
+            host.Presenter.ConfigureGameplayCameraShakeProfile(profile);
+            host.Presenter.SetCameraMotionLevel(CameraMotionLevel.Full);
+
+            var first = ExecuteFlipLandingCameraShakeOnce(
+                host,
+                CameraMotionLevel.Full,
+                Vector2.left,
+                expectedAcceptedBefore: 0,
+                pauseBeforeContact: false);
+            AssertAuthoritativePosition(host, entityId: 30, new SurfaceCell(FaceId.Floor, 1, 0));
+
+            var cleanupTick = RunTicksUntil(
+                host,
+                _ => CaptureAuthoritativeSnapshot(host).TryGetPlayerControlState(10, out var state) &&
+                     state.activeAction.kind == PlayerActionKind.None,
+                maxTicks: 4);
+            Assert.That(cleanupTick, Is.Not.Null, "The first Flip action must release before the second input.");
+
+            var second = ExecuteFlipLandingCameraShakeOnce(
+                host,
+                CameraMotionLevel.Full,
+                Vector2.right,
+                expectedAcceptedBefore: 1,
+                pauseBeforeContact: false);
+
+            var firstSignal = first.ExecuteTick.PresentationData.FlipFloorImpactSignals.Single();
+            var secondSignal = second.ExecuteTick.PresentationData.FlipFloorImpactSignals.Single();
+            Assert.That(second.ExecuteTick.TickIndex, Is.GreaterThan(first.ExecuteTick.TickIndex));
+            Assert.That(firstSignal.BoxEntityId, Is.EqualTo(30));
+            Assert.That(secondSignal.BoxEntityId, Is.EqualTo(30));
+            Assert.That(secondSignal.SourceActionPlanId, Is.EqualTo(firstSignal.SourceActionPlanId));
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(2));
+            Assert.That(host.Presenter.PendingFlipLandingCameraShakeCount, Is.Zero);
+            AssertAuthoritativePosition(host, entityId: 30, new SurfaceCell(FaceId.Floor, -1, 0));
+            AssertCameraShakeReturnsToIdentity(host);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayCameraShakeProduction_PushAndFlip_DirectAndActualCinemachineShareFiniteLocalContributionAndReset()
         {
             var directPushCameraObject = new GameObject("M2A_DirectPushCamera");
@@ -2381,10 +2426,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             host.Presenter.ConfigureGameplayCameraShakeProfile(profile);
             host.Presenter.SetCameraMotionLevel(motionLevel);
+            return ExecuteFlipLandingCameraShakeOnce(
+                host,
+                motionLevel,
+                Vector2.left,
+                expectedAcceptedBefore: 0,
+                pauseBeforeContact: pauseBeforeContact);
+        }
+
+        private static ProductionCameraShakeSample ExecuteFlipLandingCameraShakeOnce(
+            GameplaySceneHost host,
+            CameraMotionLevel motionLevel,
+            Vector2 flipInput,
+            int expectedAcceptedBefore,
+            bool pauseBeforeContact)
+        {
             var rig = host.GetComponent<GameplayCameraRig>();
             AssertCameraShakePoseIdentity(rig);
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(expectedAcceptedBefore));
 
-            host.InputHost.SetRawMoveInput(Vector2.left);
+            host.InputHost.SetRawMoveInput(flipInput);
             host.InputHost.BufferFlip();
             var startTick = host.InputHost.RunSingleTick();
             Assert.That(startTick, Is.Not.Null);
@@ -2409,6 +2470,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     sample.EntityId == 30 &&
                     sample.MotionKind == TickEntityMotionKind.Flip &&
                     sample.SourceKind == MotionTrackProgressSourceKind.LocalMotion &&
+                    sample.TickIndex == executeTick.TickIndex &&
                     sample.SequenceOrActionPlanId == floorSignal.SourceActionPlanId);
                 Assert.That(progress.IsValid, Is.True, "The ordinary Flip must expose its actual presentation clip progress.");
 
@@ -2446,6 +2508,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(contactCrossingNormalizedTime, Is.GreaterThanOrEqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
             Assert.That(host.Presenter.PendingFlipLandingCameraShakeCount, Is.Zero);
             Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.EqualTo(1));
+            Assert.That(
+                host.Presenter.AcceptedGameplayCameraImpulseCount,
+                Is.EqualTo(expectedAcceptedBefore + 1));
             Assert.That(host.Presenter.CurrentCameraShakeMixResult.IsActive, Is.EqualTo(motionLevel != CameraMotionLevel.Off));
 
             host.Presenter.UpdatePresentation(0.02f);

@@ -147,6 +147,8 @@ namespace Game.Feature.Gameplay.Host
 
         public int SourceActionPlanId { get; private set; }
 
+        public int SourceTickIndex { get; private set; }
+
         public bool IsComplete => Phase == FlipInteractionPhase.Complete;
 
         public void SetPhase(FlipInteractionPhase phase)
@@ -168,17 +170,21 @@ namespace Game.Feature.Gameplay.Host
             FlipOutcome = flipOutcome;
         }
 
-        public void CorrelateSourceActionPlan(int sourceActionPlanId)
+        public void CorrelateSourceActionPlan(int sourceTickIndex, int sourceActionPlanId)
         {
-            if (sourceActionPlanId > 0)
+            if (sourceTickIndex >= 0 &&
+                sourceActionPlanId > 0 &&
+                SourceActionPlanId <= 0)
             {
+                SourceTickIndex = sourceTickIndex;
                 SourceActionPlanId = sourceActionPlanId;
             }
         }
 
         internal bool TryCaptureProgress(out MotionTrackProgressSample progressSample)
         {
-            if (Phase != FlipInteractionPhase.AirborneFollow || SourceActionPlanId <= 0)
+            if (Phase != FlipInteractionPhase.AirborneFollow ||
+                SourceActionPlanId <= 0)
             {
                 progressSample = default;
                 return false;
@@ -186,6 +192,7 @@ namespace Game.Feature.Gameplay.Host
 
             var currentNormalizedTime = GetNormalizedPhaseTime();
             progressSample = new MotionTrackProgressSample(
+                SourceTickIndex,
                 BoxEntityId,
                 TickEntityMotionKind.Flip,
                 _previousPresentedNormalizedTime,

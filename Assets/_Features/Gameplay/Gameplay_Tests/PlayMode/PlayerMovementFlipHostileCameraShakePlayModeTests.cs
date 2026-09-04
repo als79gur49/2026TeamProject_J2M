@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -53,6 +54,64 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return DestroyHost(fullHost);
             yield return DestroyHost(reducedHost);
             yield return DestroyHost(offHost);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayCameraShakeProduction_RepeatedFlipHostileStaySameBox_ActualActionsSubmitAtEachContact()
+        {
+            var host = CreateRepeatedHostileStayCameraShakeHost();
+            host.Presenter.ConfigureGameplayCameraShakeProfile(LoadCampaignCameraShakeProfile());
+            host.Presenter.SetCameraMotionLevel(CameraMotionLevel.Full);
+
+            var first = ExecuteRepeatedHostileStayOnce(
+                host,
+                Vector2.left,
+                expectedAcceptedBefore: 0);
+            AssertAuthoritativePosition(host, entityId: 30, new SurfaceCell(FaceId.Floor, -1, 0));
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEntity(20, out _), Is.False);
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEntity(21, out _), Is.False);
+
+            var actionCleanupTick = RunTicksUntil(
+                host,
+                _ => CaptureAuthoritativeSnapshot(host).TryGetPlayerControlState(10, out var state) &&
+                     state.activeAction.kind == PlayerActionKind.None,
+                maxTicks: 4);
+            Assert.That(actionCleanupTick, Is.Not.Null, "First Flip action did not leave recovery.");
+            var blockerResetTick = RunTicksUntil(
+                host,
+                _ =>
+                {
+                    var snapshot = CaptureAuthoritativeSnapshot(host);
+                    return snapshot.TryGetEntity(12, out var blocker) &&
+                           blocker.position == new SurfaceCell(FaceId.Floor, 1, 1) &&
+                           UnitSpatialQuery.IsSettledAtAnchor(snapshot, 12) &&
+                           UnitSpatialQuery.IsSettledAtAnchor(snapshot, 10);
+                },
+                maxTicks: 128);
+            Assert.That(blockerResetTick, Is.Not.Null,
+                "Player and Stay reservation blocker did not settle before the second Flip.");
+
+            var second = ExecuteRepeatedHostileStayOnce(
+                host,
+                Vector2.left,
+                expectedAcceptedBefore: 1);
+            var firstImpact = first.ExecuteTick.PresentationData.FlipImpactSignals.Single();
+            var secondImpact = second.ExecuteTick.PresentationData.FlipImpactSignals.Single();
+            Assert.That(second.ExecuteTick.TickIndex, Is.GreaterThan(first.ExecuteTick.TickIndex));
+            Assert.That(firstImpact.BoxEntityId, Is.EqualTo(30));
+            Assert.That(secondImpact.BoxEntityId, Is.EqualTo(30));
+            Assert.That(firstImpact.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.Stay));
+            Assert.That(secondImpact.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.Stay));
+            Assert.That(secondImpact.SourceActionPlanId, Is.EqualTo(firstImpact.SourceActionPlanId));
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(2));
+            Assert.That(host.Presenter.PendingFlipHostileImpactCameraShakeCount, Is.Zero);
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEntity(22, out _), Is.False);
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEntity(23, out _), Is.False);
+            AssertAuthoritativePosition(host, entityId: 30, new SurfaceCell(FaceId.Floor, -1, 0));
+            AssertCameraShakeReturnsToIdentity(host);
+
+            yield return DestroyHost(host);
         }
 
         [UnityTest]
@@ -271,6 +330,43 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 viewCamera: viewCamera));
         }
 
+        private static GameplaySceneHost CreateRepeatedHostileStayCameraShakeHost()
+        {
+            var firstEnemy = CreateHostileCameraShakeEnemy(20, new SurfaceCell(FaceId.Floor, 1, 0));
+            var firstEnemyPeer = CreateHostileCameraShakeEnemy(21, new SurfaceCell(FaceId.Floor, 1, 0));
+            var secondEnemy = CreateHostileCameraShakeEnemy(22, new SurfaceCell(FaceId.Floor, 2, 0));
+            var secondEnemyPeer = CreateHostileCameraShakeEnemy(23, new SurfaceCell(FaceId.Floor, 2, 0));
+            return AddFlipInteractionDriver(CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateUnit(entityId: 12, position: new SurfaceCell(FaceId.Floor, 1, 1)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
+                    firstEnemy,
+                    firstEnemyPeer,
+                    secondEnemy,
+                    secondEnemyPeer,
+                },
+                staticEntityLogics: new IEntityLogic[] { new RepeatedHostileStayReservationLogic() },
+                initialMoveDelaySeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                repeatedMoveIntervalSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                playerControlTiming: CreateFlipTimingSettings(
+                    flipExecuteDelayTicks: 1,
+                    flipInputLockDurationTicks: 1),
+                defaultEnemyAiProfile: LoadTutorialPassiveContactProfile()));
+        }
+
+        private static EntityState CreateHostileCameraShakeEnemy(int entityId, SurfaceCell position)
+        {
+            var enemy = CreateUnit(entityId, position);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            enemy.teamId = 2;
+            enemy.unitRole = UnitRole.Enemy;
+            enemy.aiMode = EnemyAiMode.Chase;
+            return enemy;
+        }
+
         private static GameplaySceneHost AddFlipInteractionDriver(GameplaySceneHost host)
         {
             Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
@@ -351,6 +447,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var progress = host.Presenter.CurrentMotionTrackProgressSamples.LastOrDefault(sample =>
                     sample.EntityId == 30 &&
                     sample.MotionKind == TickEntityMotionKind.Flip &&
+                    sample.TickIndex == executeTick.TickIndex &&
                     sample.SequenceOrActionPlanId == floorSignal.SourceActionPlanId &&
                     sample.SourceKind == requiredSource);
                 if (!progress.IsValid)
@@ -413,6 +510,83 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 peakOutputWorldRotation);
         }
 
+        private static HostileProductionCameraShakeSample ExecuteRepeatedHostileStayOnce(
+            GameplaySceneHost host,
+            Vector2 flipInput,
+            int expectedAcceptedBefore)
+        {
+            var rig = host.GetComponent<GameplayCameraRig>();
+            AssertCameraShakePoseIdentity(rig);
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(expectedAcceptedBefore));
+
+            host.InputHost.SetRawMoveInput(flipInput);
+            host.InputHost.BufferFlip();
+            var startTick = host.InputHost.RunSingleTick();
+            Assert.That(startTick, Is.Not.Null);
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetPlayerControlState(10, out var startedState), Is.True);
+            Assert.That(startedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(startedState.activeAction.executionAttempted, Is.False);
+            Assert.That(host.Presenter.PendingFlipHostileImpactCameraShakeCount, Is.Zero);
+
+            host.InputHost.SetRawMoveInput(Vector2.zero);
+            var executeTick = host.InputHost.RunSingleTick();
+            Assert.That(executeTick, Is.Not.Null);
+            var floorSignal = executeTick.PresentationData.FlipFloorImpactSignals.Single();
+            Assert.That(floorSignal.Kind, Is.EqualTo(FlipFloorImpactPresentationKind.Stay));
+            var impactSignal = executeTick.PresentationData.FlipImpactSignals.Single();
+            Assert.That(impactSignal.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.Stay));
+            Assert.That(host.Presenter.PendingFlipHostileImpactCameraShakeCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(expectedAcceptedBefore));
+
+            var crossedContact = false;
+            for (var updateIndex = 0; updateIndex < 160; updateIndex++)
+            {
+                host.Presenter.UpdatePresentation(0.005f);
+                var progress = host.Presenter.CurrentMotionTrackProgressSamples.LastOrDefault(sample =>
+                    sample.EntityId == floorSignal.BoxEntityId &&
+                    sample.MotionKind == TickEntityMotionKind.Flip &&
+                    sample.TickIndex == executeTick.TickIndex &&
+                    sample.SequenceOrActionPlanId == floorSignal.SourceActionPlanId &&
+                    sample.SourceKind == MotionTrackProgressSourceKind.OriginalViewMotion);
+                if (!progress.IsValid ||
+                    progress.CurrentNormalizedTime < GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime)
+                {
+                    Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(expectedAcceptedBefore));
+                    continue;
+                }
+
+                Assert.That(
+                    progress.PreviousNormalizedTime,
+                    Is.LessThan(GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime));
+                crossedContact = true;
+                break;
+            }
+
+            Assert.That(crossedContact, Is.True);
+            Assert.That(host.Presenter.PendingFlipHostileImpactCameraShakeCount, Is.Zero);
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(expectedAcceptedBefore + 1));
+            Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.EqualTo(1));
+
+            host.Presenter.UpdatePresentation(0.02f);
+            var peakPositionMagnitude = rig.AdditiveLocalPosition.magnitude;
+            var peakRotationMagnitude = MeasureSmallQuaternionAngleDegrees(rig.AdditiveLocalRotation);
+            Assert.That(peakPositionMagnitude, Is.GreaterThan(0.000001f));
+            host.Presenter.UpdatePresentation(0.5f);
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(expectedAcceptedBefore + 1));
+            AssertCameraShakeReturnsToIdentity(host);
+
+            return new HostileProductionCameraShakeSample(
+                startTick,
+                executeTick,
+                peakPositionMagnitude,
+                peakRotationMagnitude,
+                beforeMilestoneWasIdentity: true,
+                initialHostileContactWasSilent: true,
+                milestoneNormalizedTime: GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime,
+                peakOutputWorldPosition: Vector3.zero,
+                peakOutputWorldRotation: Quaternion.identity);
+        }
+
         private static void AssertHostileLargeDeltaCompletionCrossing(
             GameplaySceneHost host,
             FlipFloorImpactPresentationKind disposition,
@@ -452,6 +626,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var completionProgress = host.Presenter.CurrentMotionTrackProgressSamples.LastOrDefault(sample =>
                 sample.EntityId == floorSignal.BoxEntityId &&
                 sample.MotionKind == TickEntityMotionKind.Flip &&
+                sample.TickIndex == executeTick.TickIndex &&
                 sample.SequenceOrActionPlanId == floorSignal.SourceActionPlanId &&
                 sample.SourceKind == expectedProgressSource);
 
@@ -563,6 +738,63 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     100,
                     new Vector2Int(-1, 0),
                     MovementCommandKind.Flip));
+            }
+        }
+
+        private sealed class RepeatedHostileStayReservationLogic : IMovementEntityLogic
+        {
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                System.Collections.Generic.List<RawMovementIntent> buffer)
+            {
+                if (!snapshot.TryGetPlayerControlState(10, out var controlState))
+                {
+                    return;
+                }
+
+                var action = controlState.activeAction;
+                if (action.kind == PlayerActionKind.Flip &&
+                    action.sequence >= 2 &&
+                    !action.executionAttempted &&
+                    input.TickIndex == action.startTick)
+                {
+                    buffer.Add(new RawMovementIntent(
+                        sourceId: 22,
+                        priority: 210,
+                        destination: new Vector2Int(1, 0),
+                        commandKind: MovementCommandKind.Move));
+                    buffer.Add(new RawMovementIntent(
+                        sourceId: 23,
+                        priority: 210,
+                        destination: new Vector2Int(1, 0),
+                        commandKind: MovementCommandKind.Move));
+                    return;
+                }
+
+                if (action.kind == PlayerActionKind.Flip &&
+                    action.executionAttempted &&
+                    input.TickIndex == action.executeTick)
+                {
+                    buffer.Add(new RawMovementIntent(
+                        sourceId: 12,
+                        priority: 200,
+                        destination: new Vector2Int(1, 0),
+                        commandKind: MovementCommandKind.Move));
+                    return;
+                }
+
+                if (!snapshot.TryGetEntity(20, out _) &&
+                    !snapshot.TryGetEntity(21, out _) &&
+                    snapshot.TryGetEntity(12, out var blocker) &&
+                    blocker.position == new SurfaceCell(FaceId.Floor, 1, 0))
+                {
+                    buffer.Add(new RawMovementIntent(
+                        sourceId: 12,
+                        priority: 200,
+                        destination: new Vector2Int(1, 1),
+                        commandKind: MovementCommandKind.Move));
+                }
             }
         }
     }

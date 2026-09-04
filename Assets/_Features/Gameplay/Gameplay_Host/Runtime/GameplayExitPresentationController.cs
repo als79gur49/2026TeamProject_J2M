@@ -438,6 +438,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.ContactDelayedRetainedEntityIds.Remove(entityId);
             _trackState.DeathPresentationPlayingEntityIds.Remove(entityId);
             _trackState.DeferredExitRetainedEntityIds.Remove(entityId);
+            _trackState.CompletedPresentationMotions.RemoveEntity(entityId);
             _pendingContactDelayedExits.Remove(entityId);
             _pendingDeathPresentationCleanups.Remove(entityId);
             _stateStore.CommittedLocalTargetPoses.Remove(entityId);

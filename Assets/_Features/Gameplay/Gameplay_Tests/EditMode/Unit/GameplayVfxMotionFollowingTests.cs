@@ -377,15 +377,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlipImpactStayTrail_NewMotionKey_ReplacesOldHandle()
+        public void FlipImpactStayTrail_ReusedCorrelationAcrossTicks_ReplacesOldHandle()
         {
             var fixture = CreateFixture();
             try
             {
-                fixture.TrackState.OriginalViewMotionTracks[30] = CreateTrack(entityId: 30, correlationId: 100);
+                fixture.TrackState.OriginalViewMotionTracks[30] = CreateTrack(
+                    entityId: 30,
+                    tickIndex: 10,
+                    correlationId: 100);
                 fixture.Controller.Refresh(10, fixture.TrackState, fixture.StateStore, fixture.Pool, fixture.BindingResolver, enabled: true);
 
-                fixture.TrackState.OriginalViewMotionTracks[30] = CreateTrack(entityId: 30, correlationId: 101);
+                fixture.TrackState.OriginalViewMotionTracks[30] = CreateTrack(
+                    entityId: 30,
+                    tickIndex: 11,
+                    correlationId: 100);
                 fixture.Controller.Refresh(11, fixture.TrackState, fixture.StateStore, fixture.Pool, fixture.BindingResolver, enabled: true);
 
                 Assert.That(fixture.Controller.ActiveHandleCount, Is.EqualTo(1));
@@ -532,6 +538,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static PresentationMotionTrack CreateTrack(
             int entityId,
             PresentationMotionKind kind = PresentationMotionKind.FlipImpactStay,
+            int tickIndex = 1,
             int correlationId = 100)
         {
             var sourcePose = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
@@ -546,7 +553,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var command = new PresentationMotionCommand(
                 entityId,
                 kind,
-                new PresentationMotionInstanceKey(kind, correlationId, entityId, usesTickFallback: false),
+                new PresentationMotionInstanceKey(
+                    kind,
+                    tickIndex,
+                    correlationId,
+                    entityId,
+                    usesTickFallback: false),
                 sourcePose,
                 contactPose,
                 sourcePose,

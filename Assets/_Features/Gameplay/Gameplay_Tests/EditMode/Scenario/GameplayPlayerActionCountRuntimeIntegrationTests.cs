@@ -168,6 +168,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             harness.Runtime.ObserveMotionProgress(new[]
             {
                 new MotionTrackProgressSample(
+                    tickIndex: 1,
                     entityId: 20,
                     motionKind: TickEntityMotionKind.Flip,
                     previousNormalizedTime: 0f,
@@ -180,6 +181,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             harness.Runtime.ObserveMotionProgress(new[]
             {
                 new MotionTrackProgressSample(
+                    tickIndex: 1,
                     entityId: 20,
                     motionKind: TickEntityMotionKind.Flip,
                     previousNormalizedTime: revealTime - 0.001f,
@@ -190,6 +192,67 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(harness.Runtime.IsVisible, Is.True);
             Assert.That(harness.Runtime.VisibleCount, Is.EqualTo(1));
+            Assert.That(harness.Runtime.PendingRevealCount, Is.Zero);
+        }
+
+        [Test]
+        public void FlipReveal_ReusedActionPlanAcrossTicks_ConsumesOnlyMatchingTickProgress()
+        {
+            using var harness = CreateHarness(ActualActionCase.FlipSuccess);
+            const int actionPlanId = 1;
+            harness.Presenter.Present(CreateResult(
+                tickIndex: 1,
+                GetEntities(harness.WorldState),
+                CreatePresentationData(playerActionSignals: new[]
+                {
+                    CreateActionSignal(
+                        PlayerEntityId,
+                        sequence: 7,
+                        PlayerActionKind.Flip,
+                        TickPlayerActionResolutionKind.Success,
+                        TickPlayerFlipOutcomeKind.FollowThrough,
+                        actionPlanId),
+                })));
+            harness.Presenter.Present(CreateResult(
+                tickIndex: 2,
+                GetEntities(harness.WorldState),
+                CreatePresentationData(playerActionSignals: new[]
+                {
+                    CreateActionSignal(
+                        PlayerEntityId,
+                        sequence: 8,
+                        PlayerActionKind.Flip,
+                        TickPlayerActionResolutionKind.Success,
+                        TickPlayerFlipOutcomeKind.FollowThrough,
+                        actionPlanId),
+                })));
+            var revealTime = GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime -
+                             harness.Runtime.FlipPreContactLeadNormalized;
+
+            harness.Runtime.ObserveMotionProgress(new[]
+            {
+                new MotionTrackProgressSample(
+                    tickIndex: 1,
+                    entityId: 20,
+                    motionKind: TickEntityMotionKind.Flip,
+                    previousNormalizedTime: revealTime - 0.001f,
+                    currentNormalizedTime: revealTime + 0.001f,
+                    sequenceOrActionPlanId: actionPlanId),
+            });
+            Assert.That(harness.Runtime.VisibleCount, Is.EqualTo(1));
+            Assert.That(harness.Runtime.PendingRevealCount, Is.EqualTo(1));
+
+            harness.Runtime.ObserveMotionProgress(new[]
+            {
+                new MotionTrackProgressSample(
+                    tickIndex: 2,
+                    entityId: 20,
+                    motionKind: TickEntityMotionKind.Flip,
+                    previousNormalizedTime: revealTime - 0.001f,
+                    currentNormalizedTime: revealTime + 0.001f,
+                    sequenceOrActionPlanId: actionPlanId),
+            });
+            Assert.That(harness.Runtime.VisibleCount, Is.EqualTo(2));
             Assert.That(harness.Runtime.PendingRevealCount, Is.Zero);
         }
 
@@ -439,7 +502,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int sequence,
             PlayerActionKind actionKind = PlayerActionKind.Push,
             TickPlayerActionResolutionKind resolutionKind = TickPlayerActionResolutionKind.Success,
-            TickPlayerFlipOutcomeKind flipOutcome = TickPlayerFlipOutcomeKind.None)
+            TickPlayerFlipOutcomeKind flipOutcome = TickPlayerFlipOutcomeKind.None,
+            int actionPlanId = 0)
         {
             return new TickPlayerActionPresentationSignal(
                 entityId,
@@ -453,7 +517,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 resolutionKind: resolutionKind,
                 targetEntityId: 20,
                 direction: Direction.Right,
-                actionPlanId: sequence,
+                actionPlanId: actionPlanId > 0 ? actionPlanId : sequence,
                 flipOutcome: flipOutcome,
                 hasFlipImpactContactTiming: flipOutcome == TickPlayerFlipOutcomeKind.Stay ||
                                             flipOutcome == TickPlayerFlipOutcomeKind.DestroySelf,

@@ -46,7 +46,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var staleTrackClearedCount = 0;
-            var staleCompletedKeyClearedCount = 0;
+            var staleCompletedKeyClearedCount = _trackState.CompletedPresentationMotions.Count;
             foreach (var entityId in boxEntityIds)
             {
                 if (_trackState.LocalMotionTracks.Remove(entityId))
@@ -63,9 +63,9 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.CompletedMotionTrackIds.Remove(entityId);
                 _trackState.CompletedMotionVisualScaleEntityIds.Remove(entityId);
                 _trackState.CompletedOriginalViewMotionTrackIds.Remove(entityId);
-                staleCompletedKeyClearedCount +=
-                    _trackState.CompletedPresentationMotionKeys.RemoveWhere(key => key.EntityId == entityId);
             }
+
+            _trackState.CompletedPresentationMotions.Clear();
 
             _trackState.CompletedFlipInteractionTrackIds.Clear();
             foreach (var pair in _trackState.FlipInteractionTracks)

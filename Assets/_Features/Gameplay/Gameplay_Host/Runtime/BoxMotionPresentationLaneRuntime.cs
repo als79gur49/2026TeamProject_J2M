@@ -83,7 +83,7 @@ namespace Game.Feature.Gameplay.Host
             new(
                 _trackState.LocalMotionTracks.Count,
                 _trackState.OriginalViewMotionTracks.Count,
-                _trackState.CompletedPresentationMotionKeys.Count,
+                _trackState.CompletedPresentationMotions.Count,
                 _trackState.CompletedMotionTrackIds.Count,
                 _trackState.CompletedOriginalViewMotionTrackIds.Count,
                 _trackState.MotionVisualScaleEntityIds.Count,

@@ -1652,7 +1652,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedOriginalViewMotionTrackIds = new();
         private readonly List<FlipInteractionResetRequest> _flipInteractionResetRequests = new();
         private readonly Dictionary<int, FlipInteractionTrack> _flipInteractionTracks = new();
-        private readonly HashSet<PresentationMotionInstanceKey> _completedPresentationMotionKeys = new();
+        private readonly PresentationMotionCompletionLedger _completedPresentationMotions = new();
         private readonly HashSet<int> _contactDelayedRetainedEntityIds = new();
         private readonly HashSet<int> _deathPresentationPlayingEntityIds = new();
         private readonly HashSet<int> _deferredExitRetainedEntityIds = new();
@@ -1706,7 +1706,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, FlipInteractionTrack> FlipInteractionTracks => _flipInteractionTracks;
 
-        public HashSet<PresentationMotionInstanceKey> CompletedPresentationMotionKeys => _completedPresentationMotionKeys;
+        public PresentationMotionCompletionLedger CompletedPresentationMotions => _completedPresentationMotions;
 
         public HashSet<int> ContactDelayedRetainedEntityIds => _contactDelayedRetainedEntityIds;
 
@@ -1777,7 +1777,7 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _completedFlipInteractionTrackIds.Clear();
-            _completedPresentationMotionKeys.Clear();
+            _completedPresentationMotions.Clear();
             _completedJumpTrackIds.Clear();
             _completedJumpWindupRotationTrackIds.Clear();
             _completedMotionTrackIds.Clear();

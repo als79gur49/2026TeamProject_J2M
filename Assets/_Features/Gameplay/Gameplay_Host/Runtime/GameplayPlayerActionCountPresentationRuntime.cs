@@ -176,7 +176,7 @@ namespace Game.Feature.Gameplay.Host
                 var signal = signals[i];
                 if (_counterState.TryConsume(signal))
                 {
-                    ScheduleReveal(signal, _counterState.Count);
+                    ScheduleReveal(signal, context.Result.TickIndex, _counterState.Count);
                 }
             }
 
@@ -389,7 +389,10 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void ScheduleReveal(in TickPlayerActionPresentationSignal signal, int count)
+        private void ScheduleReveal(
+            in TickPlayerActionPresentationSignal signal,
+            int tickIndex,
+            int count)
         {
             if (signal.ActiveActionKind == PlayerActionKind.Push)
             {
@@ -414,6 +417,7 @@ namespace Game.Feature.Gameplay.Host
             ResolveFlipReveal(signal.FlipOutcome, out var progressSource, out var contactNormalizedTime);
             _pendingReveals.Add(PendingActionCountReveal.CreateMotionProgress(
                 count,
+                tickIndex,
                 targetBoxEntityId,
                 signal.ActionPlanId,
                 progressSource,
@@ -481,6 +485,7 @@ namespace Game.Feature.Gameplay.Host
                 int count,
                 float remainingDelaySeconds,
                 bool usesMotionProgress,
+                int tickIndex,
                 int boxEntityId,
                 int actionPlanId,
                 MotionTrackProgressSourceKind progressSource,
@@ -489,6 +494,7 @@ namespace Game.Feature.Gameplay.Host
                 Count = count;
                 RemainingDelaySeconds = Mathf.Max(0f, remainingDelaySeconds);
                 UsesMotionProgress = usesMotionProgress;
+                TickIndex = Math.Max(0, tickIndex);
                 BoxEntityId = boxEntityId;
                 ActionPlanId = actionPlanId;
                 ProgressSource = progressSource;
@@ -500,6 +506,8 @@ namespace Game.Feature.Gameplay.Host
             public float RemainingDelaySeconds { get; set; }
 
             public bool UsesMotionProgress { get; }
+
+            public int TickIndex { get; }
 
             public int BoxEntityId { get; }
 
@@ -515,6 +523,7 @@ namespace Game.Feature.Gameplay.Host
                     count,
                     delaySeconds,
                     usesMotionProgress: false,
+                    tickIndex: 0,
                     boxEntityId: 0,
                     actionPlanId: 0,
                     MotionTrackProgressSourceKind.LocalMotion,
@@ -523,6 +532,7 @@ namespace Game.Feature.Gameplay.Host
 
             public static PendingActionCountReveal CreateMotionProgress(
                 int count,
+                int tickIndex,
                 int boxEntityId,
                 int actionPlanId,
                 MotionTrackProgressSourceKind progressSource,
@@ -532,6 +542,7 @@ namespace Game.Feature.Gameplay.Host
                     count,
                     remainingDelaySeconds: 0f,
                     usesMotionProgress: true,
+                    tickIndex,
                     boxEntityId,
                     actionPlanId,
                     progressSource,
@@ -542,6 +553,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 return sample.IsValid &&
                        sample.MotionKind == TickEntityMotionKind.Flip &&
+                       sample.TickIndex == TickIndex &&
                        sample.EntityId == BoxEntityId &&
                        sample.SequenceOrActionPlanId == ActionPlanId &&
                        sample.SourceKind == ProgressSource;

@@ -8,6 +8,8 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
+using Game.Feature.Gameplay.PresentationPlanning;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -138,6 +140,142 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 Quaternion.Angle(end.BoxLocalRotationOffset, Quaternion.identity),
                 Is.LessThan(Quaternion.Angle(start.BoxLocalRotationOffset, Quaternion.identity)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipInteractionTrack_ProgressPreservesSourceTickAndActionPlanIdentity()
+        {
+            var track = new FlipInteractionTrack(
+                playerEntityId: 10,
+                boxEntityId: 20,
+                actionSequence: 3,
+                direction: Direction.Right,
+                windupDurationSeconds: 0.2f,
+                followDurationSeconds: 1f,
+                recoveryDurationSeconds: 0.4f,
+                phase: FlipInteractionPhase.AirborneFollow);
+
+            track.CorrelateSourceActionPlan(sourceTickIndex: 41, sourceActionPlanId: 131);
+            track.CorrelateSourceActionPlan(sourceTickIndex: 42, sourceActionPlanId: 131);
+            track.Advance(0.5f);
+
+            Assert.That(track.TryCaptureProgress(out var progress), Is.True);
+            Assert.That(progress.TickIndex, Is.EqualTo(41));
+            Assert.That(progress.EntityId, Is.EqualTo(20));
+            Assert.That(progress.MotionKind, Is.EqualTo(TickEntityMotionKind.Flip));
+            Assert.That(progress.SequenceOrActionPlanId, Is.EqualTo(131));
+            Assert.That(progress.SourceKind, Is.EqualTo(MotionTrackProgressSourceKind.FlipInteraction));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTrackPlanner_HostileStayCompletedOnPriorTick_ReusedActionPlanStartsNewTrack()
+        {
+            var rootObject = new GameObject(nameof(GameplayTrackPlanner_HostileStayCompletedOnPriorTick_ReusedActionPlanStartsNewTrack));
+
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                const int boxEntityId = 20;
+                const int actionPlanId = 131;
+                const int priorTickIndex = 41;
+                const int currentTickIndex = 42;
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var impactCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                var signal = new FlipImpactPresentationSignal(
+                    actionPlanId,
+                    boxEntityId,
+                    impactTargetEntityId: 30,
+                    actorEntityId: 10,
+                    sourceCell,
+                    impactCell,
+                    topology,
+                    Direction.Right,
+                    Direction.Right,
+                    FlipImpactPresentationDisposition.Stay,
+                    hasLandingCell: true,
+                    landingCell: sourceCell);
+                trackState.CompletedPresentationMotions.RecordCompleted(
+                    PresentationMotionInstanceKey.CreateFlipImpactStay(signal, priorTickIndex));
+                var payload = new PresentationMotionPayload(
+                    PresentationMotionFactKind.BoxFlipImpact,
+                    boxEntityId,
+                    sourceCell,
+                    impactCell,
+                    actorEntityId: 10,
+                    PresentationMotionActionKind.Flip,
+                    Direction.Right,
+                    Direction.Right,
+                    Direction.Right,
+                    sourceSequenceId: actionPlanId,
+                    sourceActionPlanId: actionPlanId,
+                    impactTargetEntityId: 30,
+                    flipDisposition: (int)FlipImpactPresentationDisposition.Stay,
+                    hasLandingCell: true,
+                    landingCell: sourceCell,
+                    topology: topology,
+                    hasTopology: true);
+                var request = new GameplayMotionPlaybackRequest(
+                    new BoxMotionPlaybackKey(
+                        currentTickIndex,
+                        PresentationSemanticSource.BoxFlipImpactMotion,
+                        boxEntityId,
+                        PresentationMotionCueKey.BoxFlipImpact,
+                        sourceCell,
+                        impactCell,
+                        actionPlanId,
+                        sourceSequenceId: actionPlanId),
+                    PresentationMotionCueKey.BoxFlipImpact,
+                    payload,
+                    PresentationTarget.Entity(boxEntityId),
+                    PresentationAnchor.ForEntityVisualRoot(boxEntityId));
+                var result = new TickResult(
+                    currentTickIndex,
+                    Array.Empty<TickPhase>(),
+                    Array.Empty<string>(),
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    new[] { CreateBoxEntity(boxEntityId, sourceCell) },
+                    Array.Empty<string>(),
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                        Array.Empty<TickPlayerDamagePresentationSignal>(),
+                        Array.Empty<TickPlayerDeathPresentationSignal>(),
+                        Array.Empty<TickEnemyDamagePresentationSignal>(),
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>(),
+                        new[] { signal }),
+                    string.Empty,
+                    TickTrace.Empty);
+
+                var started = planner.TryRequestBoxMotionPlayback(
+                    request,
+                    result,
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile,
+                    out var resultKind);
+
+                Assert.That(started, Is.True);
+                Assert.That(resultKind, Is.EqualTo(GameplayMotionPlaybackResultKind.Started));
+                Assert.That(trackState.OriginalViewMotionTracks.TryGetValue(boxEntityId, out var track), Is.True);
+                Assert.That(track.InstanceKey.TickIndex, Is.EqualTo(currentTickIndex));
+                Assert.That(track.InstanceKey.CorrelationId, Is.EqualTo(actionPlanId));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
         }
 
         [Test]
@@ -764,6 +902,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 unitRole = UnitRole.Player,
                 state = EntityPhaseState.Idle,
                 facing = facing,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static EntityState CreateBoxEntity(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
             };
         }

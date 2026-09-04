@@ -2236,7 +2236,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(GetPresentationTrackState(coordinator).LocalMotionTracks.ContainsKey(40), Is.False);
-                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotionKeys.Any(key => key.EntityId == 40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotions.ContainsEntity(40), Is.False);
                 Assert.That(GetPresentationTrackState(coordinator).FlipInteractionTracks, Is.Empty);
                 AssertPositionApproximately(view.ModelRoot.localPosition, Vector3.zero);
                 Assert.That(Quaternion.Angle(view.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
@@ -2249,6 +2249,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     destinationCell,
                     TickEntityMotionKind.BoxSlide));
                 driver.ApplyInteraction(new Vector3(0.25f, 0.1f, 0f), Quaternion.Euler(0f, 0f, 15f), 1f);
+                var trackState = GetPresentationTrackState(coordinator);
+                trackState.CompletedPresentationMotions.RecordCompleted(
+                    new PresentationMotionInstanceKey(
+                        PresentationMotionKind.FlipImpactStay,
+                        tickIndex: 34,
+                        correlationId: 7,
+                        entityId: 999,
+                        usesTickFallback: false));
+                trackState.CompletedPresentationMotions.RecordCompleted(
+                    new PresentationMotionInstanceKey(
+                        PresentationMotionKind.FlipImpactStay,
+                        tickIndex: 34,
+                        correlationId: 8,
+                        entityId: 999,
+                        usesTickFallback: false));
+                Assert.That(trackState.CompletedPresentationMotions.Count, Is.EqualTo(2));
                 coordinator.HardCleanupPresentationExtensions();
 
                 Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
@@ -2259,7 +2275,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(GetPresentationTrackState(coordinator).LocalMotionTracks.ContainsKey(40), Is.False);
-                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotionKeys.Any(key => key.EntityId == 40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotions.ContainsEntity(40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotions.ContainsEntity(999), Is.False);
+                Assert.That(
+                    coordinator.BoxMotionProductionTelemetrySnapshot.CleanupDiagnostics.StaleCompletedKeyClearedCount,
+                    Is.EqualTo(2));
                 Assert.That(GetPresentationTrackState(coordinator).FlipInteractionTracks, Is.Empty);
                 AssertPositionApproximately(view.ModelRoot.localPosition, Vector3.zero);
                 Assert.That(Quaternion.Angle(view.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
