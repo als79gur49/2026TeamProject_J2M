@@ -263,8 +263,8 @@
 ## Companion Smoke Check
 - Command: `./run_tests.sh core`
 - Status: green
-- Core EditMode: `212 total / 0 failed`
-- Core PlayMode: `109 total / 0 failed`
+- Core EditMode: `217 total / 0 failed`
+- Core PlayMode: `111 total / 0 failed`
 - Interpretation:
   - this remains a companion smoke lane, not a replacement for `./run_tests.sh ui`
   - Stage 9 evidence is incomplete if the UI lane passes on a worktree where the companion core lane is not rerun
