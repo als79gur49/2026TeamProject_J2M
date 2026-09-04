@@ -141,20 +141,54 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 Is.Empty);
         }
 
-        [Test]
-        public void ManifestAndLedgerAudit_RejectsLiveIdentityAndDeletedContractDrift()
+        [TestCase(LiveLedgerIdentityField.Name)]
+        [TestCase(LiveLedgerIdentityField.PrefabPath)]
+        [TestCase(LiveLedgerIdentityField.PrefabGuid)]
+        [TestCase(LiveLedgerIdentityField.Disposition)]
+        public void ManifestAndLedgerAudit_RejectsEachLiveIdentityAxis(LiveLedgerIdentityField field)
         {
             var manifestRows = EnemyAnimationBindingMigrationManifest.Rows;
             var originalLedgerRows = EnemyAnimationViewDispositionLedger.Rows;
+            var live = originalLedgerRows.Single(row => row.Name == "BlackEye");
+
+            EnemyAnimationViewDispositionRow replacement;
+            string expectedError;
+            switch (field)
+            {
+                case LiveLedgerIdentityField.Name:
+                    replacement = CloneLedgerRow(live, name: live.Name + ".drift");
+                    expectedError = "ledger.live.match|" + live.Name + "|actual=0";
+                    break;
+                case LiveLedgerIdentityField.PrefabPath:
+                    replacement = CloneLedgerRow(live, prefabPath: live.PrefabPath + ".drift");
+                    expectedError = "ledger.live.identity|" + live.Name;
+                    break;
+                case LiveLedgerIdentityField.PrefabGuid:
+                    replacement = CloneLedgerRow(live, prefabGuid: "00000000000000000000000000000000");
+                    expectedError = "ledger.live.identity|" + live.Name;
+                    break;
+                case LiveLedgerIdentityField.Disposition:
+                    replacement = CloneLedgerRow(
+                        live,
+                        disposition: EnemyAnimationViewDisposition.ApprovedNoBinding);
+                    expectedError = "ledger.live.identity|" + live.Name;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(field), field, null);
+            }
 
             var liveDrift = originalLedgerRows.ToArray();
-            var live = liveDrift.First(row => row.ExpectedAssetExists);
-            liveDrift[Array.IndexOf(liveDrift, live)] = CloneLedgerRow(
-                live,
-                prefabPath: live.PrefabPath + ".drift");
+            liveDrift[Array.IndexOf(liveDrift, live)] = replacement;
             Assert.That(
                 EnemyAnimationSparseBindingAudit.ValidateManifestAndLedger(manifestRows, liveDrift),
-                Has.Some.EqualTo("ledger.live.identity|" + live.Name));
+                Has.Some.EqualTo(expectedError));
+        }
+
+        [Test]
+        public void ManifestAndLedgerAudit_RejectsDeletedContractDrift()
+        {
+            var manifestRows = EnemyAnimationBindingMigrationManifest.Rows;
+            var originalLedgerRows = EnemyAnimationViewDispositionLedger.Rows;
 
             var deleted = originalLedgerRows.First(row =>
                 row.Disposition == EnemyAnimationViewDisposition.Deleted);
@@ -188,20 +222,31 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
 
         private static EnemyAnimationViewDispositionRow CloneLedgerRow(
             EnemyAnimationViewDispositionRow source,
+            string name = null,
             string prefabPath = null,
+            string prefabGuid = null,
+            EnemyAnimationViewDisposition? disposition = null,
             string replacementName = null,
             bool? isProduction = null,
             bool? expectedAssetExists = null)
         {
             return new EnemyAnimationViewDispositionRow(
-                source.Name,
+                name ?? source.Name,
                 prefabPath ?? source.PrefabPath,
-                source.PrefabGuid,
+                prefabGuid ?? source.PrefabGuid,
                 isProduction ?? source.IsProduction,
-                source.Disposition,
+                disposition ?? source.Disposition,
                 source.RetirementReason,
                 replacementName ?? source.ReplacementName,
                 expectedAssetExists ?? source.ExpectedAssetExists);
+        }
+
+        public enum LiveLedgerIdentityField
+        {
+            Name,
+            PrefabPath,
+            PrefabGuid,
+            Disposition,
         }
     }
 

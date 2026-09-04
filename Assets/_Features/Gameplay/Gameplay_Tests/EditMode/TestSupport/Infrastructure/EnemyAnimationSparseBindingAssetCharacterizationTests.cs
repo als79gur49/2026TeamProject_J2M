@@ -96,11 +96,23 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
 
             var variantPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(variantPath);
             Assert.That(PrefabUtility.GetPrefabAssetType(variantPrefab), Is.EqualTo(PrefabAssetType.Variant));
-            var paths = EnemyAnimationBindingMigrationManifest.Rows.Select(row => row.PrefabPath)
-                .Append(variantPath);
-            var inventory = EnemyAnimationSparseBindingAudit.ScanResolvedPrefabInventory(paths);
+            AssetDatabase.ImportAsset(
+                basePath,
+                ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            AssetDatabase.ImportAsset(
+                variantPath,
+                ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+
+            var discoveredPaths = EnemyAnimationSparseBindingAudit.FindAllPrefabAssetPaths();
+            Assert.That(discoveredPaths, Does.Contain(basePath));
+            Assert.That(discoveredPaths, Does.Contain(variantPath),
+                "Production prefab discovery must include Prefab Variants.");
+
+            var inventory = EnemyAnimationSparseBindingAudit.ScanResolvedPrefabInventory(discoveredPaths);
             var variantRow = inventory.Single(row => row.PrefabPath == variantPath);
             Assert.That(variantRow.DriverCount, Is.EqualTo(1), "The inherited Driver must be visible after load.");
+            Assert.That(variantRow.RootDriverCount, Is.EqualTo(1),
+                "The inherited root Driver must be visible after load.");
 
             var errors = EnemyAnimationSparseBindingAudit.ValidateResolvedPrefabInventory(
                 inventory, EnemyAnimationBindingMigrationManifest.Rows);
@@ -108,30 +120,48 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
-        public void DeletedGuidResidueAudit_RejectsTemporarySerializedAssetReference()
+        public void DeletedGuidResidueAudit_RejectsDeletedPrefabAndMaterialReferencesDiscoveredUnderAssets()
         {
-            var path = Path.Combine(
-                Path.GetTempPath(),
-                "enemy-animation-deleted-guid-" + Guid.NewGuid().ToString("N") + ".asset");
+            EnsureTemporaryRoot();
+            var fixturePath = TemporaryRoot + "/DeletedGuidReferences.asset";
+            var deletedGuids = EnemyAnimationViewDispositionLedger.Rows
+                .Where(row => row.Disposition == EnemyAnimationViewDisposition.Deleted)
+                .Select(row => row.PrefabGuid)
+                .Append(EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid)
+                .OrderBy(guid => guid, StringComparer.Ordinal)
+                .ToArray();
             try
             {
                 File.WriteAllText(
-                    path,
-                    "reference: {fileID: 100100000, guid: " +
-                    EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid +
-                    ", type: 3}");
+                    fixturePath,
+                    string.Join(
+                        Environment.NewLine,
+                        deletedGuids.Select(guid =>
+                            "reference: {fileID: 100100000, guid: " + guid + ", type: 3}")));
+
+                var discoveredPaths = EnemyAnimationSparseBindingAudit.FindSerializedAssetPaths("Assets");
+                Assert.That(discoveredPaths, Does.Contain(fixturePath),
+                    "Production serialized-asset discovery must include the fixture.");
+
                 var references = EnemyAnimationSparseBindingAudit.FindSerializedGuidReferences(
-                    new[] { path },
-                    new[] { EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid });
-                Assert.That(references, Has.Count.EqualTo(1));
-                Assert.That(references[0], Does.EndWith(
-                    "|" + EnemyAnimationViewDispositionLedger.DeletedJumpingInactiveMaterialGuid));
+                    discoveredPaths,
+                    deletedGuids);
+                var expectedReferences = deletedGuids
+                    .Select(guid => fixturePath + "|" + guid)
+                    .OrderBy(reference => reference, StringComparer.Ordinal)
+                    .ToArray();
+                CollectionAssert.AreEqual(expectedReferences, references);
             }
             finally
             {
-                if (File.Exists(path))
+                if (File.Exists(fixturePath))
                 {
-                    File.Delete(path);
+                    File.Delete(fixturePath);
+                }
+
+                if (File.Exists(fixturePath + ".meta"))
+                {
+                    File.Delete(fixturePath + ".meta");
                 }
             }
         }

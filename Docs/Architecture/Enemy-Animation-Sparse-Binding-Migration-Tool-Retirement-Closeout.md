@@ -4,6 +4,7 @@
 
 - 완료일: 2026-09-04
 - 범위: Slice 4A one-time production migration tool retirement
+- 상태: 코드·계약 retirement 완료; R0 contemporaneous evidence completeness에는 아래 제한이 있음
 - current inventory: Driver 10 / Binding 8 / Timing 0
 - disposition: MigratedBinding 8 / ApprovedNoBinding 2 / Deleted 4 / LegacyBlocked 0
 - 기준 revision: `cb0cbdbbecdd09c19b370692e73e90b8fb21483d`
@@ -25,7 +26,32 @@
   포함했다.
 - production prefab, Controller/AOC/FBX/AnimationClip, Scene/ScriptableObject와 runtime API는 변경하지 않았다.
 
-## 검증 결과
+## Evidence 귀속과 R0 제한
+
+초기 R0 checkpoint는 base revision, branch, 당시 식별한 사용자 변경, production prefab 10개 SHA-256을
+contemporaneous하게 기록했다. 다음 항목은 R0 시점에 완전한 원문 evidence로 수집되지 않았다.
+
+- `git status --short --branch` 원문
+- `git diff --stat` 원문
+- resolved Driver 10 / Binding 8 / Timing 0 baseline
+- deleted prefab/material GUID inbound reference 0 baseline
+- migration tool의 exact caller graph
+
+이 누락 자료를 사후 실행 결과로 R0 evidence라고 소급 표기하지 않는다. 기존 checkpoint의
+"Tool callers" 목록은 exact caller graph가 아니라 migration 관련 파일/use-site 식별 목록이었다.
+
+다음 post-retirement 결과는 R0를 대체하지 않는 compensating evidence다.
+
+- base-to-retirement protected asset diff 0
+- final resolved inventory Driver 10 / Binding 8 / Timing 0
+- deleted GUID inbound reference 0
+- Enemy Presentation runtime diff 0
+- targeted runtime characterization 및 core 결과
+
+최종 tested commit/tree와 validation 전후 clean status는 기존 evidence run을 덮어쓰지 않고 후속 corrective
+evidence run에 post-commit으로 기록한다.
+
+## 초기 retirement 검증 결과
 
 | 명령 | 결과 |
 |---|---|
@@ -33,6 +59,32 @@
 | `./run_tests.sh full --filter EnemyAnimation` | EditMode 103/103, PlayMode matching 0 |
 | Controller contract + runtime characterization 필터 | EditMode 8/8, PlayMode 18/18 |
 | `./run_tests.sh core` | EditMode 254/254, PlayMode 111 total / 107 passed / 4 skipped / 0 failed |
+
+## 후속 review hardening
+
+retirement 후 독립 검토에서 synthetic fixture가 matcher/validator에는 도달하지만 production discovery
+단계를 직접 통과하지 않는 coverage gap과 live ledger identity의 필드별 negative matrix 누락을 확인했다.
+production mutation code를 되살리지 않고 다음과 같이 permanent audit fixture만 보강했다.
+
+- inherited Driver Prefab Variant는 `FindAllPrefabAssetPaths()`의 실제 전체 discovery 결과로 검사한다.
+- deleted prefab GUID 4개와 deleted Jumping material GUID 1개는 `Assets` 아래 단일 temporary `.asset`에서
+  `FindSerializedAssetPaths("Assets")`와 GUID matcher 전체 경로로 검사한다.
+- live ledger의 name/path/GUID/disposition을 각각 독립적으로 변조해 거부 결과를 고정한다.
+- raw GUID fixture는 Unity import 전에 제거하며 fixture root와 `.meta` residue 0을 별도 검사한다.
+
+Corrective pre-commit 검증 결과:
+
+| 명령 | 결과 |
+|---|---|
+| `./run_tests.sh full --filter EnemyAnimationBindingMigrationManifestTests` | EditMode 7/7, PlayMode matching 0 |
+| `./run_tests.sh full --filter EnemyAnimationSparseBindingAssetCharacterizationTests` | EditMode 6/6, PlayMode matching 0 |
+| `./run_tests.sh full --filter EnemyAnimation` | EditMode 107/107, PlayMode matching 0 |
+| `./run_tests.sh full --filter EnemyViewAnimator` | EditMode 8/8, PlayMode 18/18 |
+| `./run_tests.sh core` | EditMode 254/254, PlayMode 111 total / 107 passed / 4 skipped / 0 failed |
+| `./run_tests.sh full --filter EnemyInactiveMaterialAuthoringTests` | EditMode 8 total / 6 passed / 2 failed; 기존 BlackEye baseline |
+
+최종 same-revision 판정은 corrective commit 후 clean HEAD에서 다시 생성한 XML/log와 external evidence의
+tested commit/tree 기록을 기준으로 한다. 위 pre-commit 결과만으로 final revision을 주장하지 않는다.
 
 Static 재감사 결과:
 
@@ -59,7 +111,7 @@ source, test에는 이번 retirement diff가 없다. 따라서 tool retirement �
 
 ## Evidence
 
-Evidence root:
+Initial evidence root:
 `/mnt/d/J2M/evidence/enemy-animation-sparse-binding-tool-retirement/20260904-042826-KST/`
 
 - `01-tests-first/`: 삭제 직후 stale generated `.csproj` failure
@@ -70,5 +122,16 @@ Evidence root:
 - `04-production-playmode/`: Controller EditMode 8/8 및 runtime PlayMode 18/18
 - `04-inactive-material/`: 기존 BlackEye baseline failure 2건
 - `05-core-final/`: final EditMode 254/254, PlayMode 111 total / 107 passed / 4 skipped / 0 failed
+
+Corrective evidence root:
+`/mnt/d/J2M/evidence/enemy-animation-sparse-binding-tool-retirement/20260904-160640-KST/`
+
+- `00-context/`: corrective scope와 initial run 보존 경계
+- `01-targeted/`: strengthened permanent audit와 EnemyAnimation aggregate
+- `02-runtime/`: Controller/effective motion 및 runtime characterization
+- `03-core/`: core EditMode/PlayMode
+- `04-static/`: retired symbol, deleted GUID, protected asset/runtime diff, temporary residue audit
+- `05-known-baseline/`: 기존 BlackEye baseline failure 2건
+- `06-final-audit/`: post-commit tested revision/tree/status와 artifact checksum
 
 성공 XML/log, tests-first failure와 unrelated baseline failure는 서로 다른 디렉터리에 보존한다.

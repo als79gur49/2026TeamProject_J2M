@@ -57,7 +57,7 @@
 - [Enemy-View-Prefab-Scalability-Maintainability-Audit.md](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
   - current record of the initial Enemy View Inspector audit, subsequent legacy-lifecycle cleanup, production prefab/controller contracts, and follow-up validation gates
 - [Enemy-Animation-Sparse-Binding-Implementation-Plan.md](./Enemy-Animation-Sparse-Binding-Implementation-Plan.md)
-  - implementation-ready plan for sparse per-View animation cue authoring, runtime compatibility, exact 14-prefab migration, and validation gates
+  - completed Slice 0~4A implementation record and remaining Slice 4B/5 plan for sparse per-View animation cue authoring; the one-time migration mutation entrypoint is retired
 - [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md)
   - execution plan for manifest-driven production 10-view migration, dry-run/apply separation, asset identity validation, rollback, and Slice 2 completion gates
 - [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)
@@ -69,7 +69,7 @@
 - [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md)
   - current Slice 4A closeout for the retired menu/apply/report surface, permanent resolved-asset audit, validation evidence, remaining BlackEye baseline failures, and Slice 4B non-approval boundary
 - [Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md](./Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md)
-  - active execution prompt for the tests-only Astreton, Jumping, DrSaturn, timing/dispatch, resync, and suppression characterization gate
+  - historical Slice 0 execution prompt whose Astreton, Jumping, DrSaturn, timing/dispatch, resync, and suppression contracts remain in the permanent test suite; it is not a current execution entrypoint
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
   - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Standard-only Charge BehaviorModule production content, and Phase 2 trigger boundaries
 - [Enemy-AI-Phase1-Merge-Gate.md](./Enemy-AI-Phase1-Merge-Gate.md)

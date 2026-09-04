@@ -473,13 +473,13 @@ Gate: baseline 14 disposition ledger, live count 식, `LegacyBlocked == 0`, sema
 
 ## 11. 예상 변경 범위
 
-새 파일 후보:
+초기 구현 시 예상한 파일군(historical; current file-existence inventory가 아님):
 
 - `EnemyAnimationBindingTypes.cs`
 - `EnemyAnimationCueCatalog.cs`
 - `EnemyAnimationBindingAuthoring.cs`
 - `Editor/EnemyAnimationBindingAuthoringEditor.cs`
-- `Editor/EnemyAnimationBindingMigrationTool.cs` — one-time
+- `Editor/EnemyAnimationBindingMigrationTool.cs` — Slice 2 one-time implementation; Slice 4A에서 퇴역하여 현재는 부재
 - `Editor/Game.Feature.Gameplay.EnemyPresentation.Editor.asmdef` — `includePlatforms: [Editor]`
 - `EnemyAnimationBindingAuthoringTests.cs`
 - `EnemyAnimationBindingDispatchTests.cs`
