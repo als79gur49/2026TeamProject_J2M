@@ -57,7 +57,9 @@
 - [Enemy-View-Prefab-Scalability-Maintainability-Audit.md](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
   - current record of the initial Enemy View Inspector audit, subsequent legacy-lifecycle cleanup, production prefab/controller contracts, and follow-up validation gates
 - [Enemy-Animation-Sparse-Binding-Implementation-Plan.md](./Enemy-Animation-Sparse-Binding-Implementation-Plan.md)
-  - completed Slice 0~4B implementation and validation record plus remaining Slice 5 plan for sparse per-View animation cue authoring; checked-in migration mutation entrypoints remain retired
+  - completed Slice 0~5 implementation and validation record for sparse per-View animation cue authoring; checked-in migration mutation entrypoints remain retired
+- [Enemy-Animation-Sparse-Binding-Slice5-Inspector-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice5-Inspector-Closeout.md)
+  - final closeout for Inspector/runtime diagnostic parity, five representative production Inspector captures, B0 governance disposition, validation evidence, and bounded non-claims
 - [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md)
   - execution plan for manifest-driven production 10-view migration, dry-run/apply separation, asset identity validation, rollback, and Slice 2 completion gates
 - [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)

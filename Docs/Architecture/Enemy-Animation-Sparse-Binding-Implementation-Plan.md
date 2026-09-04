@@ -3,7 +3,7 @@
 ## 1. 문서 상태와 목표
 
 - 작성일: 2026-09-03
-- 상태: Slice 0~4B 구현, targeted/core 검증 및 수동 Editor evidence 완료; Slice 5는 별도 후속
+- 상태: Slice 0~5 구현과 targeted/core 및 수동 Editor evidence 완료; Slice 4B B0 provenance 절차 예외는 governance owner가 명시적으로 수용
 - 선행 문서: [Enemy View Prefab Scalability and Maintainability Audit](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
 - 기준점: production 10-view Animator Controller 계약 테스트
 
@@ -456,7 +456,11 @@ Controller/runtime characterization을 만족해야 한다. 상세 결과는
 
 ### Slice 4B — Legacy private Inspector 표면 제거
 
-상태: **구현 및 독립 재감사 code/report 보정 완료(2026-09-04); Slice 4B B0 clean-preflight provenance owner 판정 대기**.
+상태: **구현 및 독립 재감사 code/report 보정 완료(2026-09-04); Slice 4B B0 clean-preflight provenance 공백은 governance owner가 절차 예외로 명시적으로 수용**.
+
+이 수용은 clean-preflight가 실제로 수행됐다는 소급 주장이 아니다. 재구성된 parent-to-commit asset/code scope와
+최종 runtime/asset 검증은 그대로 요구하며, runtime·asset·rollback StrongContract를 면제하지 않는다. 이 판정으로
+Slice 4B의 B0 owner gate만 닫고 Slice 5는 자동 시작하지 않는 별도 후속으로 유지한다.
 
 구체적인 fallback 정책, tests-first, prefab reserialize, evidence 및 rollback 절차는
 [Slice 4B Legacy Inspector Retirement Plan](./Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md)을
@@ -480,9 +484,17 @@ Gate: baseline 14 disposition ledger, live count 식, `LegacyBlocked == 0`, sema
 
 ### Slice 5 — Inspector evidence/문서 마감
 
+상태: **완료(2026-09-04)**. 상세 결과와 non-claim은
+[Slice 5 Inspector Closeout](./Enemy-Animation-Sparse-Binding-Slice5-Inspector-Closeout.md)에 기록한다.
+
 - unsupported 조합은 HelpBox와 runtime validation에서 같은 오류로 표시
 - 대표 View 수동 확인/screenshot evidence
 - Architecture 문서 상태와 후속 링크 갱신
+
+Inspector는 runtime snapshot validation 예외 메시지를 stable diagnostic code와 함께 그대로 표시한다. Hit의
+State dispatch, timing 금지 cue의 duration override, JumpAirborne Trigger의 sustained-state 누락, State binding 없는
+crossfade의 네 unsupported 조합을 focused fixture로 고정했다. Kali, Startis, Astreton, DrSaturn, Nebulous의 root
+Inspector를 같은 Slice 5 tree에서 수동 확인했으며 prefab/Controller/clip asset은 저장하거나 변경하지 않았다.
 
 ## 11. 예상 변경 범위
 

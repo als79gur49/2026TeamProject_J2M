@@ -84,6 +84,70 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             Assert.That(crossFade.floatValue, Is.Zero);
         }
 
+        [TestCase(
+            EnemyAnimationCue.Hit,
+            EnemyAnimationDispatchMode.State,
+            "Move",
+            "",
+            -1f,
+            0f,
+            TestName = "InspectorHelpBox_RuntimeMessage_HitStateDispatch")]
+        [TestCase(
+            EnemyAnimationCue.Hit,
+            EnemyAnimationDispatchMode.Trigger,
+            "Hit",
+            "",
+            1f,
+            -1f,
+            TestName = "InspectorHelpBox_RuntimeMessage_HitTiming")]
+        [TestCase(
+            EnemyAnimationCue.JumpAirborne,
+            EnemyAnimationDispatchMode.Trigger,
+            "Jump",
+            "",
+            -1f,
+            -1f,
+            TestName = "InspectorHelpBox_RuntimeMessage_JumpAirborneSustainedState")]
+        [TestCase(
+            EnemyAnimationCue.Hit,
+            EnemyAnimationDispatchMode.Trigger,
+            "Hit",
+            "",
+            -1f,
+            0f,
+            TestName = "InspectorHelpBox_RuntimeMessage_TriggerOnlyCrossFade")]
+        public void InspectorHelpBox_UnsupportedAuthoring_PreservesRuntimeValidationMessage(
+            EnemyAnimationCue cue,
+            EnemyAnimationDispatchMode mode,
+            string targetName,
+            string sustainedStateName,
+            float durationSeconds,
+            float crossFadeSeconds)
+        {
+            using var fixture = Fixture.Create();
+            fixture.Configure(
+                EnemyAnimationCueBinding.CreateForTests(
+                    cue,
+                    mode,
+                    targetName,
+                    sustainedStateName,
+                    durationSeconds),
+                crossFadeSeconds);
+
+            var runtimeException = Assert.Catch<Exception>(() => fixture.Authoring.CreateSnapshot());
+            var diagnostic = EnemyAnimationControllerBindingValidator.Validate(
+                    fixture.Authoring,
+                    fixture.Animator)
+                .Single();
+
+            Assert.That(diagnostic.Code, Is.EqualTo("authoring.invalid"));
+            Assert.That(diagnostic.Severity, Is.EqualTo(EnemyAnimationBindingDiagnosticSeverity.Error));
+            Assert.That(diagnostic.Message, Is.EqualTo(runtimeException.Message));
+            Assert.That(
+                EnemyAnimationBindingAuthoringEditor.FormatDiagnostic(diagnostic),
+                Is.EqualTo($"[authoring.invalid] {runtimeException.Message}"));
+        }
+
         [Test]
         public void InspectorDiagnostics_UsesAnimatorResolvedByDriver()
         {

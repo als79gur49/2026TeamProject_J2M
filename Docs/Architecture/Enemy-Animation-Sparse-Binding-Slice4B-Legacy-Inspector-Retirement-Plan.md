@@ -5,7 +5,7 @@
 - 작성일: 2026-09-04
 - 기준 revision: `2617268f586551a06f74f27c897ee8cb93984de6`
 - 대상: Slice 4B — `EnemyAnimatorDriver` legacy private serialized Inspector surface retirement
-- 상태: 구현 및 재감사 보정 완료; B0 clean-preflight provenance owner 판정 대기
+- 상태: 구현 및 재감사 보정 완료; B0 clean-preflight provenance 공백의 governance owner 절차 예외 수용 완료
 - 선행 완료:
   - production View migration 완료
   - legacy View 4개 삭제 완료
@@ -601,3 +601,13 @@ touch set 22개가 이미 dirty인 시점에 저장됐다. 따라서 그 artifac
 부재를 증명하지 않는다. Parent commit blob, baseline prefab SHA, before YAML, atomic parent-to-commit diff로 최종
 scope와 160행 결과는 재구성할 수 있지만 시간 순서상 clean-preflight evidence는 소급 생성하지 않는다. 이
 provenance gap은 runtime/asset 결과와 분리하며 strict 완료 판정에는 governance owner의 명시적 수용이 필요하다.
+
+### 15.6 B0 governance owner 판정
+
+2026-09-04 governance owner는 위 B0 clean-preflight provenance 공백을 runtime/asset 결과와 분리된 절차 예외로
+명시적으로 수용했다. 이 판정은 clean-preflight가 수행됐다고 소급 주장하거나 누락 증거를 생성한 것으로 간주하지
+않는다. parent commit blob, baseline prefab SHA, before YAML, atomic parent-to-commit diff와 최종 validation으로
+재구성된 결과 계약은 유지하며 runtime, asset identity, rollback 및 residual-audit Gate는 면제하지 않는다.
+
+이 판정으로 Slice 4B의 B0 owner gate는 닫혔다. Slice 5 Inspector evidence/문서 마감은 별도 승인과 실행 범위를
+요구하는 후속 단계이며 이 owner 판정만으로 자동 착수하지 않는다.

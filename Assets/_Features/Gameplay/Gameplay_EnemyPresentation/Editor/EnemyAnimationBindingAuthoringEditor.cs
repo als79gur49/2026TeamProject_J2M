@@ -105,11 +105,16 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             foreach (var diagnostic in EnemyAnimationControllerBindingValidator.Validate(authoring, animator))
             {
                 EditorGUILayout.HelpBox(
-                    $"[{diagnostic.Code}] {diagnostic.Message}",
+                    FormatDiagnostic(diagnostic),
                     diagnostic.Severity == EnemyAnimationBindingDiagnosticSeverity.Error
                         ? MessageType.Error
                         : MessageType.Warning);
             }
+        }
+
+        internal static string FormatDiagnostic(EnemyAnimationBindingDiagnostic diagnostic)
+        {
+            return $"[{diagnostic.Code}] {diagnostic.Message}";
         }
 
         internal static Animator ResolveAnimatorForDiagnostics(EnemyAnimationBindingAuthoring authoring)
