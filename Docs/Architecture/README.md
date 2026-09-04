@@ -68,6 +68,8 @@
   - executed Slice 4A plan for removing the completed one-time mutation tool while preserving the read-only manifest, resolved prefab inventory, deleted-GUID residue guards, and post-removal re-audit boundary
 - [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md)
   - current Slice 4A closeout for the retired menu/apply/report surface, permanent resolved-asset audit, validation evidence, remaining BlackEye baseline failures, and Slice 4B non-approval boundary
+- [Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md](./Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md)
+  - reviewed but not-yet-started Slice 4B plan for retiring Driver legacy serialized Inspector fields with a shared Timing opt-in gate, exact production reserialize boundary, Kali/SecBot no-command behavior, and production prefab identity
 - [Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md](./Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md)
   - historical Slice 0 execution prompt whose Astreton, Jumping, DrSaturn, timing/dispatch, resync, and suppression contracts remain in the permanent test suite; it is not a current execution entrypoint
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
