@@ -5,7 +5,7 @@
 - 작성일: 2026-09-04
 - 기준 revision: `2617268f586551a06f74f27c897ee8cb93984de6`
 - 대상: Slice 4B — `EnemyAnimatorDriver` legacy private serialized Inspector surface retirement
-- 상태: 구현, targeted/core 검증, 수동 Editor evidence 완료
+- 상태: 구현 및 재감사 보정 완료; B0 clean-preflight provenance owner 판정 대기
 - 선행 완료:
   - production View migration 완료
   - legacy View 4개 삭제 완료
@@ -562,7 +562,7 @@ menu/API caller를 제거했다. checked-in mutation surface는 남기지 않았
 | `EnemyPresentationReadinessPlayModeTests` | PlayMode 2/2 |
 | `EnemyViewAnimatorControllerContractTests` | EditMode 8/8 |
 | `EnemyViewAnimatorRuntimeCharacterizationPlayModeTests` | PlayMode 18/18 |
-| `./run_tests.sh core` | EditMode 254/254, PlayMode 111/111 |
+| `./run_tests.sh core` | EditMode 254/254, PlayMode 111 total / 107 passed / 4 skipped / 0 failed |
 
 targeted filter의 owning stage count 0은 성공 evidence로 사용하지 않았다. broad unfiltered `full`과 `ui` lane은
 실행하지 않았으며 project-wide/full green을 주장하지 않는다. UI runtime/asset 변경이 없어 `ui`는 비대상이다.
@@ -571,11 +571,33 @@ targeted filter의 owning stage count 0은 성공 evidence로 사용하지 않�
 
 evidence root는
 `/mnt/d/J2M/evidence/enemy-animation-sparse-binding-slice4b/20260904-093328/`이다. tests-first expected
-failure, 최초 ForceReserialize no-op, 승인된 prefab save source/hash와 exact diff, targeted/core XML/log, Editor
-Inspector screenshot, final static audit를 분리했다.
+failure, 최초 ForceReserialize no-op source/hash와 before/after no-diff, 승인된 prefab save source/hash와 exact diff,
+targeted/core XML/log, Editor Inspector screenshot, final static audit를 분리했다. 최초 no-op의 operation excerpt와
+Editor 완료 marker는 남지 않았으므로 evidence root만으로 menu invocation 성공까지 독립 증명하지는 않는다.
 
 Kali, SecBot, BlackEye, JPeter Inspector에서 Driver의 `animator`-only 표면, Kali/SecBot의
 no-Binding/no-Timing, JPeter의 별도 Binding과 inspected prefab의 Missing Script 부재를 수동 확인했다.
+재감사 보정 후 production contract는 allowlist 10개 전체 hierarchy의 Missing Script count 0도 직접 검사한다.
 최종 commit/tree 귀속은 commit hook의 core 재검증 및 closeout evidence로 분리한다.
 Slice 5 screenshot polish, BlackEye material, manifest rename, broad full recovery 및 Slice 4A R0 provenance gap은
 이번 구현의 완료 주장에 포함하지 않는다.
+
+### 15.5 독립 재감사 보정과 B0 provenance
+
+독립 재감사에서 malformed YAML delimiter가 정상 document 뒤에 있을 때 이전 block에 흡수되어 `Clean`으로
+분류될 수 있는 문제를 확인했다. permanent audit은 이제 모든 column-zero YAML document delimiter를 먼저 세고,
+class ID와 numeric anchor 및 optional `stripped`만 허용하는 Unity header grammar와 exact 비교한다. wrong tag,
+generic delimiter, nonnumeric/trailing anchor negative case와 다른 MonoBehaviour block의 retired key 16개 전부에 대한
+clean case를 추가했다.
+
+재감사 corrective evidence는
+`/mnt/d/J2M/evidence/enemy-animation-sparse-binding-slice4b/20260904-reaudit-corrective/`에 분리한다. 최초 새
+negative case는 기존 parser에서 owning fixture `14 total / 1 failed`로 예상대로 red였고, parser와 caller
+allowlist 보정 후 manifest+production contract는 EditMode `16 total / 0 failed`다. Corrective tree의 core는
+EditMode `254/254`, PlayMode `111 total / 107 passed / 4 skipped / 0 failed`로 다시 확인했다.
+
+원 evidence의 `00-preflight/revision-status-diff.txt`는 base revision은 맞지만 clean 착수 시점이 아니라 구현
+touch set 22개가 이미 dirty인 시점에 저장됐다. 따라서 그 artifact로는 착수 당시 clean status와 사용자 변경
+부재를 증명하지 않는다. Parent commit blob, baseline prefab SHA, before YAML, atomic parent-to-commit diff로 최종
+scope와 160행 결과는 재구성할 수 있지만 시간 순서상 clean-preflight evidence는 소급 생성하지 않는다. 이
+provenance gap은 runtime/asset 결과와 분리하며 strict 완료 판정에는 governance owner의 명시적 수용이 필요하다.

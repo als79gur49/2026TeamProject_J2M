@@ -206,17 +206,22 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         {
             foreach (var propertyName in EnemyAnimationSparseBindingAudit.RetiredDriverSerializedPropertyNames)
             {
-                var yaml = ValidYaml(
-                    OtherMonoBehaviourBlock(propertyName) +
-                    DriverMonoBehaviourBlock(propertyName));
-                var result = EnemyAnimationSparseBindingAudit.AuditDriverYamlBytes(
-                    "Assets/Synthetic.prefab",
-                    Encoding.UTF8.GetBytes(yaml));
-
-                Assert.That(result.Status, Is.EqualTo(EnemyAnimationDriverYamlAuditStatus.RetiredPropertiesFound),
+                var otherOnlyResult = EnemyAnimationSparseBindingAudit.AuditDriverYamlBytes(
+                    "Assets/OtherOnly.prefab",
+                    Encoding.UTF8.GetBytes(ValidYaml(OtherMonoBehaviourBlock(propertyName))));
+                Assert.That(otherOnlyResult.Status, Is.EqualTo(EnemyAnimationDriverYamlAuditStatus.Clean),
                     propertyName);
-                Assert.That(result.DriverBlockCount, Is.EqualTo(1), propertyName);
-                Assert.That(result.RetiredPropertyKeys, Is.EqualTo(new[] { propertyName }), propertyName);
+                Assert.That(otherOnlyResult.DriverBlockCount, Is.Zero, propertyName);
+                Assert.That(otherOnlyResult.RetiredPropertyKeys, Is.Empty, propertyName);
+
+                var driverResult = EnemyAnimationSparseBindingAudit.AuditDriverYamlBytes(
+                    "Assets/Synthetic.prefab",
+                    Encoding.UTF8.GetBytes(ValidYaml(DriverMonoBehaviourBlock(propertyName))));
+
+                Assert.That(driverResult.Status, Is.EqualTo(EnemyAnimationDriverYamlAuditStatus.RetiredPropertiesFound),
+                    propertyName);
+                Assert.That(driverResult.DriverBlockCount, Is.EqualTo(1), propertyName);
+                Assert.That(driverResult.RetiredPropertyKeys, Is.EqualTo(new[] { propertyName }), propertyName);
             }
         }
 
@@ -266,6 +271,14 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 Encoding.UTF8.GetBytes("%YAML 1.1\nMonoBehaviour:\n"),
                 Encoding.UTF8.GetBytes("%YAML-nope\n--- !u!114 &1\nMonoBehaviour:\n"),
                 Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!bad &1\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes(
+                    "%YAML 1.1\n--- !u!1 &1\nGameObject:\n--- !x!114 &2\nMonoBehaviour:\n" +
+                    "  m_Script: {fileID: 11500000, guid: " +
+                    EnemyAnimationBindingMigrationManifest.DriverScriptGuid +
+                    ", type: 3}\n  deathTriggerName: Death\n"),
+                Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!1 &1\nGameObject:\n--- malformed\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!114 &invalid\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!114 &1 trailing\nMonoBehaviour:\n"),
                 Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!114 &1\nNotMonoBehaviour:\n"),
             };
             foreach (var bytes in unsupported)
@@ -384,6 +397,8 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                     "|DriverYamlAudit_UsesEveryDocumentHeaderAsBoundary_AndSupportsFinalEof|" + names[0],
                     migrationTestsPath +
                     "|DriverYamlAudit_UsesEveryDocumentHeaderAsBoundary_AndSupportsFinalEof|" + names[15],
+                    migrationTestsPath +
+                    "|DriverYamlAudit_ClassifiesBomAndUnsupportedInputsWithoutSilentPass|" + names[15],
                 })
                 .OrderBy(value => value, StringComparer.Ordinal)
                 .ToArray();
@@ -485,6 +500,12 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 Assert.That(drivers, Has.Length.EqualTo(1), row.Name);
                 Assert.That(drivers[0].transform, Is.SameAs(prefab.transform), row.Name);
                 AssertAssetIdentity(drivers[0], row.PrefabGuid, row.DriverLocalFileId, row.Name + "/driver");
+                Assert.That(
+                    prefab.GetComponentsInChildren<Transform>(true)
+                        .Sum(transform => GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(
+                            transform.gameObject)),
+                    Is.Zero,
+                    row.Name + "/missing-script");
                 Assert.That(prefab.GetComponentsInChildren<EnemyAnimationTimingAuthoring>(true), Is.Empty, row.Name);
 
                 var bindingAuthorings = prefab.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true);

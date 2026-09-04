@@ -456,7 +456,7 @@ Controller/runtime characterization을 만족해야 한다. 상세 결과는
 
 ### Slice 4B — Legacy private Inspector 표면 제거
 
-상태: **구현, targeted/core 검증 및 수동 Editor evidence 완료(2026-09-04)**.
+상태: **구현 및 독립 재감사 code/report 보정 완료(2026-09-04); Slice 4B B0 clean-preflight provenance owner 판정 대기**.
 
 구체적인 fallback 정책, tests-first, prefab reserialize, evidence 및 rollback 절차는
 [Slice 4B Legacy Inspector Retirement Plan](./Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md)을
