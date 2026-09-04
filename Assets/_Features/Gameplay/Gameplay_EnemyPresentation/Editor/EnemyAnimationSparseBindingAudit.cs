@@ -74,13 +74,13 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             @"\A%YAML [0-9]+\.[0-9]+\r?(?:\n|\z)",
             RegexOptions.CultureInvariant);
         private static readonly Regex UnityDocumentHeader = new(
-            @"(?m)^--- !u!(?<classId>[0-9]+)(?: &-?[0-9]+(?: stripped)?)?\r?$",
+            @"(?m)^--- !u!(?<classId>[0-9]+) &-?[0-9]+(?: stripped)?\r?$",
             RegexOptions.CultureInvariant);
-        private static readonly Regex AnyYamlDocumentDelimiter = new(
-            @"(?m)^---(?:[ \t][^\r\n]*)?\r?$",
+        private static readonly Regex AnyColumnZeroDocumentDelimiter = new(
+            @"(?m)^---[^\r\n]*\r?$",
             RegexOptions.CultureInvariant);
         private static readonly Regex MonoBehaviourBodyHeader = new(
-            @"\A--- !u!114(?: &-?[0-9]+(?: stripped)?)?\r?\nMonoBehaviour:\r?(?:\n|\z)",
+            @"\A--- !u!114 &-?[0-9]+(?: stripped)?\r?\nMonoBehaviour:\r?(?:\n|\z)",
             RegexOptions.CultureInvariant);
         internal static readonly IReadOnlyList<string> RetiredDriverSerializedPropertyNames =
             Array.AsReadOnly(new[]
@@ -392,7 +392,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             var documentMatches = UnityDocumentHeader.Matches(text);
-            if (documentMatches.Count == 0 || AnyYamlDocumentDelimiter.Matches(text).Count != documentMatches.Count)
+            if (documentMatches.Count == 0 ||
+                AnyColumnZeroDocumentDelimiter.Matches(text).Count != documentMatches.Count)
             {
                 return Unsupported(assetPath, "missing-or-malformed-document-header");
             }

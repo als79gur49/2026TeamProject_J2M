@@ -611,3 +611,26 @@ provenance gap은 runtime/asset 결과와 분리하며 strict 완료 판정에�
 
 이 판정으로 Slice 4B의 B0 owner gate는 닫혔다. Slice 5 Inspector evidence/문서 마감은 별도 승인과 실행 범위를
 요구하는 후속 단계이며 이 owner 판정만으로 자동 착수하지 않는다.
+
+### 15.7 post-push YAML fail-closed 보정
+
+2026-09-05 post-push 독립 재검토에서 document header의 numeric anchor가 생략된 입력과 delimiter 뒤 공백이
+없는 `---!u!114 &2` 입력이 `Clean`으로 silent pass할 수 있는 Medium finding을 확인했다. production prefab의
+현재 YAML은 모두 정상 anchor를 사용하므로 기존 160행 제거 결과나 runtime/Inspector 계약에는 영향이 없었지만,
+permanent residue audit의 fail-closed StrongContract를 충족하지 못하므로 보정 전 상태는 Hold로 판정했다.
+
+audit grammar는 모든 정상 Unity document header에서 numeric anchor를 필수로 요구하고, column zero에서
+`---`로 시작하는 모든 delimiter 후보 수가 정상 header 수와 정확히 일치해야만 block scan을 진행하도록
+보강했다. anchor 누락과 no-space delimiter를 unsupported-input matrix에 추가했으며, 기존 parser에서는 owning
+fixture가 EditMode `14 total / 13 passed / 1 failed`로 예상된 tests-first red를 냈다. 보정 후 같은 fixture는
+EditMode `14/14`를 통과했고 production Driver block residue 0을 다시 확인했다. matching PlayMode는 0건이므로
+성공 근거로 사용하지 않았다. 같은 working tree의 core는 EditMode `254/254`, PlayMode
+`111 total / 107 passed / 4 skipped / 0 failed`다.
+
+corrective evidence는
+`/mnt/d/J2M/evidence/enemy-animation-sparse-binding-slice4b/20260905-0123-yaml-audit-fail-closed/`에
+tests-first, final targeted, core artifact를 분리해 보존한다. 이 보정은 audit source, negative fixture와 본
+closeout 기록만 변경하며 prefab, `.meta`, runtime dispatch 및 Inspector authoring에는 변경을 만들지 않는다.
+이 결과로 Slice 4B 귀속 unresolved High/Medium finding은 0이며 fail-closed residue audit Gate를 닫는다. broad
+unfiltered `full`, `ui`, BlackEye material baseline과 별도 Low review finding은 이 보정의 완료 주장에 포함하지
+않는다.

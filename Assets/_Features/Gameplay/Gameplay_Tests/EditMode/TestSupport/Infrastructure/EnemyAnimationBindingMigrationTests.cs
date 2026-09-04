@@ -278,6 +278,8 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                     ", type: 3}\n  deathTriggerName: Death\n"),
                 Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!1 &1\nGameObject:\n--- malformed\nMonoBehaviour:\n"),
                 Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!114 &invalid\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!114\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!1 &1\nGameObject:\n---!u!114 &2\nMonoBehaviour:\n"),
                 Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!114 &1 trailing\nMonoBehaviour:\n"),
                 Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!114 &1\nNotMonoBehaviour:\n"),
             };
