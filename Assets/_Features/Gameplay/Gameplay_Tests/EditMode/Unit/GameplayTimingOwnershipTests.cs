@@ -4044,16 +4044,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAnimatorDriver_PlayDeathCue_BlankBindingDoesNotDispatchAnimatorState()
+        public void EnemyAnimatorDriver_PlayDeathCue_NoBindingOrTimingDoesNotDispatchAnimatorState()
         {
-            var rootObject = new GameObject("EnemyAnimatorDriver_PlayDeathCue_BlankBindingDoesNotDispatchAnimatorState");
+            var rootObject = new GameObject(
+                "EnemyAnimatorDriver_PlayDeathCue_NoBindingOrTimingDoesNotDispatchAnimatorState");
 
             try
             {
                 var animator = AttachEnemyDeathTransitionAnimator(rootObject);
-                rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
-                PlayerViewPrefabTestUtility.SetSerializedField(driver, "deathTriggerName", string.Empty);
 
                 animator.Rebind();
                 animator.Update(0f);
@@ -4365,8 +4364,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
                 var enemyView = factory.CreateView(CreateEnemyEntity());
 
-                Assert.That(enemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                var driver = enemyView.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
                 Assert.That(enemyView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
+                Assert.That(enemyView.GetComponent<EnemyAnimationBindingAuthoring>(), Is.Null);
+                Assert.DoesNotThrow(() => driver.Apply(new EnemyViewPresentationState(
+                    entityId: 20,
+                    tickIndex: 1,
+                    EnemyAiMode.Patrol,
+                    EnemyActionKind.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: true,
+                    didDie: false)));
+                Assert.That(driver.HitSignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastCrossFadedStateName, Is.Empty);
             }
             finally
             {

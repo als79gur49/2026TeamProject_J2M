@@ -737,7 +737,17 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var animator = RequireAnimator(instance);
                 Assert.That(instance.GetComponentsInChildren<EnemyAnimationBindingAuthoring>(true), Is.Empty,
                     prefabPath);
+                Assert.That(instance.GetComponentsInChildren<EnemyAnimationTimingAuthoring>(true), Is.Empty,
+                    prefabPath);
                 RebindDeterministically(animator);
+                Assert.That(
+                    animator.parameters.Any(parameter =>
+                        parameter.name == "IsMoving" &&
+                        parameter.type == AnimatorControllerParameterType.Bool),
+                    Is.True,
+                    prefabPath);
+                driver.SyncRuntimeState(isVisible: true, isMoving: true);
+                Assert.That(animator.GetBool("IsMoving"), Is.True, prefabPath);
                 var initialState = animator.GetCurrentAnimatorStateInfo(0).fullPathHash;
 
                 driver.Apply(CreateDamageState(1, tookDamage: true, didDie: false));

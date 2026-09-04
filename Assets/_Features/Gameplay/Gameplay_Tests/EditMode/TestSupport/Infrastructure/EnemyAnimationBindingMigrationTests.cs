@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Host.EditorTools;
 using NUnit.Framework;
@@ -200,6 +201,199 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 CloneLedgerRow(deleted, replacementName: "SecBot"));
         }
 
+        [Test]
+        public void DriverYamlAudit_FindsEveryRetiredPropertyOnlyInsideExactDriverBlock()
+        {
+            foreach (var propertyName in EnemyAnimationSparseBindingAudit.RetiredDriverSerializedPropertyNames)
+            {
+                var yaml = ValidYaml(
+                    OtherMonoBehaviourBlock(propertyName) +
+                    DriverMonoBehaviourBlock(propertyName));
+                var result = EnemyAnimationSparseBindingAudit.AuditDriverYamlBytes(
+                    "Assets/Synthetic.prefab",
+                    Encoding.UTF8.GetBytes(yaml));
+
+                Assert.That(result.Status, Is.EqualTo(EnemyAnimationDriverYamlAuditStatus.RetiredPropertiesFound),
+                    propertyName);
+                Assert.That(result.DriverBlockCount, Is.EqualTo(1), propertyName);
+                Assert.That(result.RetiredPropertyKeys, Is.EqualTo(new[] { propertyName }), propertyName);
+            }
+        }
+
+        [TestCase("\n", true)]
+        [TestCase("\r\n", true)]
+        [TestCase("\n", false)]
+        public void DriverYamlAudit_UsesEveryDocumentHeaderAsBoundary_AndSupportsFinalEof(
+            string newline,
+            bool finalNewline)
+        {
+            var yaml = ValidYaml(
+                DriverMonoBehaviourBlock(null) +
+                "--- !u!1 &20\nGameObject:\n  m_Name: animationTimingAuthoring\n" +
+                OtherMonoBehaviourBlock("deathTriggerName"));
+            yaml = yaml.Replace("\n", newline);
+            if (!finalNewline)
+            {
+                yaml = yaml.TrimEnd('\r', '\n');
+            }
+
+            var result = EnemyAnimationSparseBindingAudit.AuditDriverYamlBytes(
+                "Assets/Synthetic.prefab",
+                Encoding.UTF8.GetBytes(yaml));
+
+            Assert.That(result.Status, Is.EqualTo(EnemyAnimationDriverYamlAuditStatus.Clean));
+            Assert.That(result.DriverBlockCount, Is.EqualTo(1));
+            Assert.That(result.RetiredPropertyKeys, Is.Empty);
+        }
+
+        [Test]
+        public void DriverYamlAudit_ClassifiesBomAndUnsupportedInputsWithoutSilentPass()
+        {
+            var bomYaml = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true)
+                .GetPreamble()
+                .Concat(Encoding.UTF8.GetBytes(ValidYaml(DriverMonoBehaviourBlock(null))))
+                .ToArray();
+            Assert.That(
+                EnemyAnimationSparseBindingAudit.AuditDriverYamlBytes("Assets/Bom.prefab", bomYaml).Status,
+                Is.EqualTo(EnemyAnimationDriverYamlAuditStatus.Clean));
+
+            var unsupported = new[]
+            {
+                Array.Empty<byte>(),
+                new byte[] { 0, 1, 2 },
+                new byte[] { 0xc3, 0x28 },
+                Encoding.UTF8.GetBytes("--- !u!114 &1\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes("%YAML 1.1\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes("%YAML-nope\n--- !u!114 &1\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!bad &1\nMonoBehaviour:\n"),
+                Encoding.UTF8.GetBytes("%YAML 1.1\n--- !u!114 &1\nNotMonoBehaviour:\n"),
+            };
+            foreach (var bytes in unsupported)
+            {
+                var result = EnemyAnimationSparseBindingAudit.AuditDriverYamlBytes(
+                    "Assets/Unsupported.prefab",
+                    bytes);
+                Assert.That(result.Status, Is.EqualTo(EnemyAnimationDriverYamlAuditStatus.UnsupportedTextAsset));
+                Assert.That(result.Diagnostic, Is.Not.Empty);
+            }
+        }
+
+        [Test]
+        public void ProductionSerializedAssets_HaveNoRetiredEnemyAnimatorDriverYamlProperties()
+        {
+            var assetPaths = EnemyAnimationSparseBindingAudit.FindSerializedAssetPaths("Assets");
+            var results = EnemyAnimationSparseBindingAudit.ScanDriverYamlResidue(assetPaths);
+            var productionPaths = EnemyAnimationBindingMigrationManifest.Rows
+                .Select(row => row.PrefabPath)
+                .ToArray();
+
+            Assert.That(
+                EnemyAnimationSparseBindingAudit.ValidateDriverYamlResidue(results, productionPaths),
+                Is.Empty);
+            Assert.That(
+                results.Where(result => productionPaths.Contains(result.AssetPath, StringComparer.Ordinal))
+                    .Sum(result => result.DriverBlockCount),
+                Is.EqualTo(10));
+            foreach (var unsupported in results.Where(result =>
+                         result.Status == EnemyAnimationDriverYamlAuditStatus.UnsupportedTextAsset))
+            {
+                TestContext.WriteLine(
+                    $"UNSUPPORTED_TEXT_ASSET|{unsupported.AssetPath}|{unsupported.Diagnostic}");
+            }
+        }
+
+        [Test]
+        public void RetiredDriverIdentifiers_HaveNoRuntimeSymbolsOrPrivateFieldSetterCallers()
+        {
+            const string driverPath =
+                "Assets/_Features/Gameplay/Gameplay_EnemyPresentation/Runtime/EnemyAnimatorDriver.cs";
+            var driverSource = File.ReadAllText(driverPath);
+            foreach (var propertyName in EnemyAnimationSparseBindingAudit.RetiredDriverSerializedPropertyNames)
+            {
+                Assert.That(
+                    Regex.IsMatch(driverSource, @"\b" + Regex.Escape(propertyName) + @"\b"),
+                    Is.False,
+                    driverPath + "|" + propertyName);
+            }
+
+            var setterPattern = new Regex(
+                @"(?s)\b(?:SetField|SetPrivateField|SetSerializedField)\s*\([^;]{0,1200}?""(?<name>" +
+                string.Join("|", EnemyAnimationSparseBindingAudit.RetiredDriverSerializedPropertyNames
+                    .Select(Regex.Escape)) +
+                @")""",
+                RegexOptions.CultureInvariant);
+            var callers = Directory.EnumerateFiles(
+                    "Assets/_Features/Gameplay/Gameplay_Tests",
+                    "*.cs",
+                    SearchOption.AllDirectories)
+                .SelectMany(path => setterPattern.Matches(File.ReadAllText(path))
+                    .Cast<Match>()
+                    .Select(match => path.Replace('\\', '/') + "|" + match.Groups["name"].Value))
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
+            Assert.That(callers, Is.Empty);
+
+            const string migrationTestsPath =
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/Infrastructure/" +
+                "EnemyAnimationBindingMigrationTests.cs";
+            const string runtimeGuardTestsPath =
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs";
+            var identifierPattern = new Regex(
+                @"\b(?<name>" +
+                string.Join("|", EnemyAnimationSparseBindingAudit.RetiredDriverSerializedPropertyNames
+                    .Select(Regex.Escape)) +
+                @")\b",
+                RegexOptions.CultureInvariant);
+            var methodPattern = new Regex(
+                @"\bpublic\s+(?:void|IEnumerator)\s+(?<method>[A-Za-z0-9_]+)\s*\(",
+                RegexOptions.CultureInvariant);
+            var occurrences = Directory.EnumerateFiles(
+                    "Assets/_Features/Gameplay/Gameplay_Tests",
+                    "*.cs",
+                    SearchOption.AllDirectories)
+                .SelectMany(path =>
+                {
+                    var normalizedPath = path.Replace('\\', '/');
+                    var source = File.ReadAllText(path);
+                    return identifierPattern.Matches(source)
+                        .Cast<Match>()
+                        .Select(match =>
+                        {
+                            var enclosingMethod = methodPattern.Matches(source.Substring(0, match.Index))
+                                .Cast<Match>()
+                                .LastOrDefault();
+                            var methodName = enclosingMethod?.Groups["method"].Value ?? "<none>";
+                            return normalizedPath + "|" + methodName + "|" + match.Groups["name"].Value;
+                        });
+                })
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
+
+            var names = EnemyAnimationSparseBindingAudit.RetiredDriverSerializedPropertyNames;
+            var allowedOccurrences = names.Select(name =>
+                    runtimeGuardTestsPath +
+                    "|EnemyAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields|" +
+                    name)
+                .Concat(new[]
+                {
+                    runtimeGuardTestsPath +
+                    "|PlayerAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields|" + names[0],
+                    runtimeGuardTestsPath +
+                    "|PlayerAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields|" + names[14],
+                    migrationTestsPath +
+                    "|DriverYamlAudit_UsesEveryDocumentHeaderAsBoundary_AndSupportsFinalEof|" + names[0],
+                    migrationTestsPath +
+                    "|DriverYamlAudit_UsesEveryDocumentHeaderAsBoundary_AndSupportsFinalEof|" + names[15],
+                })
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
+            Assert.That(occurrences, Is.EqualTo(allowedOccurrences));
+            foreach (var occurrence in occurrences)
+            {
+                TestContext.WriteLine("ALLOWED_RETIRED_IDENTIFIER|" + occurrence);
+            }
+        }
+
         private static void AssertDeletedDriftRejected(
             IReadOnlyList<EnemyAnimationMigrationRow> manifestRows,
             IReadOnlyList<EnemyAnimationViewDispositionRow> originalLedgerRows,
@@ -211,6 +405,31 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             Assert.That(
                 EnemyAnimationSparseBindingAudit.ValidateManifestAndLedger(manifestRows, driftedRows),
                 Has.Some.EqualTo("ledger.deleted.contract|" + original.Name));
+        }
+
+        private static string ValidYaml(string documents)
+        {
+            return "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n" + documents;
+        }
+
+        private static string DriverMonoBehaviourBlock(string propertyName)
+        {
+            return "--- !u!114 &10\n" +
+                   "MonoBehaviour:\n" +
+                   "  m_ObjectHideFlags: 0\n" +
+                   "  m_Script: {fileID: 11500000, guid: " +
+                   EnemyAnimationBindingMigrationManifest.DriverScriptGuid +
+                   ", type: 3}\n" +
+                   (propertyName == null ? string.Empty : "  " + propertyName + ": legacy\n");
+        }
+
+        private static string OtherMonoBehaviourBlock(string propertyName)
+        {
+            return "--- !u!114 &11\n" +
+                   "MonoBehaviour:\n" +
+                   "  m_ObjectHideFlags: 0\n" +
+                   "  m_Script: {fileID: 11500000, guid: 00000000000000000000000000000000, type: 3}\n" +
+                   "  " + propertyName + ": other\n";
         }
 
         private static string Signature(EnemyAnimationMigrationRow row)

@@ -3,7 +3,7 @@
 ## 1. 문서 상태와 목표
 
 - 작성일: 2026-09-03
-- 상태: Slice 0~3 및 Slice 4A migration tool 퇴역 완료, Slice 4B 구체 실행 계획 재검토/보정 완료 및 구현 미착수
+- 상태: Slice 0~4B 구현, targeted/core 검증 및 수동 Editor evidence 완료; Slice 5는 별도 후속
 - 선행 문서: [Enemy View Prefab Scalability and Maintainability Audit](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
 - 기준점: production 10-view Animator Controller 계약 테스트
 
@@ -456,9 +456,14 @@ Controller/runtime characterization을 만족해야 한다. 상세 결과는
 
 ### Slice 4B — Legacy private Inspector 표면 제거
 
+상태: **구현, targeted/core 검증 및 수동 Editor evidence 완료(2026-09-04)**.
+
 구체적인 fallback 정책, tests-first, prefab reserialize, evidence 및 rollback 절차는
 [Slice 4B Legacy Inspector Retirement Plan](./Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md)을
 따른다. 계획 검토만으로 구현을 자동 승인하지 않는다.
+
+구현 결과와 최초 ForceReserialize no-op 후 별도 승인된 exact prefab save seam, validation count 및 non-claim은
+위 Slice 4B 문서의 구현 Closeout에 기록한다.
 
 2026-09-04 runtime, asset/test, governance 서브 에이전트 재검토에서 High finding은 없었고, JumpAirborne
 restorable-state 우회 차단, exact path/GUID와 assets-only reserialize 절차, 160-line exact diff,

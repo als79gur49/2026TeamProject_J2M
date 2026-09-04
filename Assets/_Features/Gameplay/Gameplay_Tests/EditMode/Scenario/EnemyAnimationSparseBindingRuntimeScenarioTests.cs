@@ -852,7 +852,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var timing = root.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = root.AddComponent<EnemyAnimatorDriver>();
                 SetField(driver, "animator", animator);
-                SetField(driver, "animationTimingAuthoring", timing);
 
                 SetField(timing, "stateTransitionCrossFadeDurationSeconds", crossFade);
                 if (authoredDurations)

@@ -21,6 +21,21 @@ namespace Game.Feature.Gameplay.Host
     public sealed class EnemyAnimatorDriver : MonoBehaviour
     {
         private const string DefaultLocomotionStateName = "Move";
+        private const string LegacyActionWindupState = "Windup";
+        private const string LegacyJumpWindupState = "JumpWindup";
+        private const string LegacyJumpAirborneState = "JumpAirborne";
+        private const string LegacyChargeActiveState = "Charge";
+        private const string LegacyActionRecoveryState = "Recover";
+        private const string LegacyGlideWindupState = "Fly_Start";
+        private const string LegacyGlideActiveState = "Fly_Loop";
+        private const string LegacyGlideRecoveryState = "Fly_Done";
+        private const string LegacyActionWindupTrigger = "Windup";
+        private const string LegacyJumpWindupTrigger = "JumpWindup";
+        private const string LegacyJumpAirborneTrigger = "JumpAirborne";
+        private const string LegacyActionExecuteTrigger = "Attack";
+        private const string LegacyActionRecoveryTrigger = "Recover";
+        private const string LegacyHitTrigger = "Hit";
+        private const string LegacyDeathTrigger = "Death";
         private const string AiModeParameterName = "EnemyAiMode";
         private const string ActiveActionKindParameterName = "EnemyActionKind";
         private const string JumpPhaseParameterName = "EnemyJumpPhase";
@@ -33,22 +48,6 @@ namespace Game.Feature.Gameplay.Host
         private static readonly int MovingParameterHash = Animator.StringToHash(MovingParameterName);
 
         [SerializeField] private Animator animator;
-        [SerializeField] private EnemyAnimationTimingAuthoring animationTimingAuthoring;
-        [SerializeField] private string windupStateName = "Windup";
-        [SerializeField] private string jumpWindupStateName = "JumpWindup";
-        [SerializeField] private string jumpAirborneStateName = "JumpAirborne";
-        [SerializeField] private string chargeActiveStateName = "Charge";
-        [SerializeField] private string recoveryStateName = "Recover";
-        [SerializeField] private string glideWindupStateName = "Fly_Start";
-        [SerializeField] private string glideActiveStateName = "Fly_Loop";
-        [SerializeField] private string glideRecoveryStateName = "Fly_Done";
-        [SerializeField] private string windupTriggerName = "Windup";
-        [SerializeField] private string jumpWindupTriggerName = "JumpWindup";
-        [SerializeField] private string jumpAirborneTriggerName = "JumpAirborne";
-        [SerializeField] private string attackTriggerName = "Attack";
-        [SerializeField] private string recoveryTriggerName = "Recover";
-        [SerializeField] private string hitTriggerName = "Hit";
-        [SerializeField] private string deathTriggerName = "Death";
 
         public EnemyViewPresentationState LastPresentationState { get; private set; }
 
@@ -155,6 +154,11 @@ namespace Game.Feature.Gameplay.Host
             get
             {
                 var stateName = ResolveJumpAirborneRestorableStateName();
+                if (string.IsNullOrWhiteSpace(stateName))
+                {
+                    return 0;
+                }
+
                 return EnemyAnimatorStateNameResolver.TryResolveLayerZeroStateHash(
                     ResolveAnimator(),
                     stateName,
@@ -177,7 +181,6 @@ namespace Game.Feature.Gameplay.Host
         private void Reset()
         {
             animator = GetComponentInChildren<Animator>();
-            animationTimingAuthoring = GetComponent<EnemyAnimationTimingAuthoring>();
         }
 
         public void Apply(in EnemyViewPresentationState state)
@@ -609,12 +612,8 @@ namespace Game.Feature.Gameplay.Host
                 return _hasAnimationTimingAuthoring;
             }
 
-            if (animationTimingAuthoring == null)
-            {
-                animationTimingAuthoring = GetComponent<EnemyAnimationTimingAuthoring>();
-            }
-
-            if (animationTimingAuthoring == null)
+            var authoring = GetComponent<EnemyAnimationTimingAuthoring>();
+            if (authoring == null)
             {
                 _animationTimingResolved = true;
                 _hasAnimationTimingAuthoring = false;
@@ -623,7 +622,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            _animationTiming = animationTimingAuthoring.CreateSnapshot();
+            _animationTiming = authoring.CreateSnapshot();
             _animationTimingResolved = true;
             _hasAnimationTimingAuthoring = true;
             animationTiming = _animationTiming;
@@ -1351,9 +1350,16 @@ namespace Game.Feature.Gameplay.Host
             }
 
             failOnUnresolvedState = false;
+            if (!TryResolveAnimationTiming(out _))
+            {
+                stateName = string.Empty;
+                crossFadeSeconds = 0f;
+                return false;
+            }
+
             if (cue == EnemyAnimationCue.JumpAirborne)
             {
-                stateName = jumpAirborneStateName;
+                stateName = LegacyJumpAirborneState;
                 crossFadeSeconds = TryResolveStateTransitionCrossFadeDurationOverride(out var jumpCrossFade)
                     ? Mathf.Max(0f, jumpCrossFade)
                     : 0f;
@@ -1377,6 +1383,13 @@ namespace Game.Feature.Gameplay.Host
             out EnemyAnimationRuntimeBinding binding,
             out float stateCrossFadeSeconds)
         {
+            if (!TryResolveAnimationTiming(out _))
+            {
+                binding = default;
+                stateCrossFadeSeconds = 0f;
+                return false;
+            }
+
             var hasCrossFade = TryResolveStateTransitionCrossFadeDurationOverride(out var crossFadeSeconds);
             stateCrossFadeSeconds = hasCrossFade ? Mathf.Max(0f, crossFadeSeconds) : 0f;
             var mode = EnemyAnimationDispatchMode.Trigger;
@@ -1388,24 +1401,24 @@ namespace Game.Feature.Gameplay.Host
                 case EnemyAnimationCue.ChargeWindup:
                 case EnemyAnimationCue.UtilityWindup:
                     mode = hasCrossFade ? EnemyAnimationDispatchMode.State : EnemyAnimationDispatchMode.Trigger;
-                    targetName = hasCrossFade ? windupStateName : windupTriggerName;
+                    targetName = hasCrossFade ? LegacyActionWindupState : LegacyActionWindupTrigger;
                     break;
                 case EnemyAnimationCue.ActionExecute:
-                    targetName = attackTriggerName;
+                    targetName = LegacyActionExecuteTrigger;
                     break;
                 case EnemyAnimationCue.ActionRecovery:
                 case EnemyAnimationCue.ChargeRecovery:
                 case EnemyAnimationCue.UtilityRecovery:
                     mode = hasCrossFade ? EnemyAnimationDispatchMode.State : EnemyAnimationDispatchMode.Trigger;
-                    targetName = hasCrossFade ? recoveryStateName : recoveryTriggerName;
+                    targetName = hasCrossFade ? LegacyActionRecoveryState : LegacyActionRecoveryTrigger;
                     break;
                 case EnemyAnimationCue.JumpWindup:
                     mode = hasCrossFade ? EnemyAnimationDispatchMode.State : EnemyAnimationDispatchMode.Trigger;
-                    targetName = hasCrossFade ? jumpWindupStateName : jumpWindupTriggerName;
+                    targetName = hasCrossFade ? LegacyJumpWindupState : LegacyJumpWindupTrigger;
                     break;
                 case EnemyAnimationCue.JumpAirborne:
                     mode = hasCrossFade ? EnemyAnimationDispatchMode.State : EnemyAnimationDispatchMode.Trigger;
-                    targetName = hasCrossFade ? jumpAirborneStateName : jumpAirborneTriggerName;
+                    targetName = hasCrossFade ? LegacyJumpAirborneState : LegacyJumpAirborneTrigger;
                     break;
                 case EnemyAnimationCue.JumpLanding:
                     mode = EnemyAnimationDispatchMode.State;
@@ -1419,7 +1432,7 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     mode = EnemyAnimationDispatchMode.State;
-                    targetName = chargeActiveStateName;
+                    targetName = LegacyChargeActiveState;
                     break;
                 case EnemyAnimationCue.GlideWindup:
                 case EnemyAnimationCue.GlideActive:
@@ -1433,16 +1446,16 @@ namespace Game.Feature.Gameplay.Host
                     mode = EnemyAnimationDispatchMode.State;
                     targetName = cue switch
                     {
-                        EnemyAnimationCue.GlideWindup => glideWindupStateName,
-                        EnemyAnimationCue.GlideActive => glideActiveStateName,
-                        _ => glideRecoveryStateName,
+                        EnemyAnimationCue.GlideWindup => LegacyGlideWindupState,
+                        EnemyAnimationCue.GlideActive => LegacyGlideActiveState,
+                        _ => LegacyGlideRecoveryState,
                     };
                     break;
                 case EnemyAnimationCue.Hit:
-                    targetName = hitTriggerName;
+                    targetName = LegacyHitTrigger;
                     break;
                 case EnemyAnimationCue.Death:
-                    targetName = deathTriggerName;
+                    targetName = LegacyDeathTrigger;
                     break;
                 default:
                     binding = default;
@@ -1459,7 +1472,7 @@ namespace Game.Feature.Gameplay.Host
                 cue,
                 mode,
                 targetName,
-                cue == EnemyAnimationCue.JumpAirborne ? jumpAirborneStateName : string.Empty,
+                cue == EnemyAnimationCue.JumpAirborne ? LegacyJumpAirborneState : string.Empty,
                 EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
                 null,
                 0f);
@@ -1817,7 +1830,7 @@ namespace Game.Feature.Gameplay.Host
                        out _,
                        out _)
                 ? stateName
-                : jumpAirborneStateName;
+                : string.Empty;
         }
 
         private static bool CanDriveAnimator(Animator targetAnimator)

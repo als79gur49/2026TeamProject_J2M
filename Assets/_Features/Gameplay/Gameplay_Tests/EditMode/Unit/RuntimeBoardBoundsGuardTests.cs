@@ -4223,27 +4223,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
 
             CollectionAssert.AreEquivalent(
-                new[]
-                {
-                    "animator",
-                    "animationTimingAuthoring",
-                    "windupStateName",
-                    "jumpWindupStateName",
-                    "jumpAirborneStateName",
-                    "chargeActiveStateName",
-                    "recoveryStateName",
-                    "glideWindupStateName",
-                    "glideActiveStateName",
-                    "glideRecoveryStateName",
-                    "windupTriggerName",
-                    "jumpWindupTriggerName",
-                    "jumpAirborneTriggerName",
-                    "attackTriggerName",
-                    "recoveryTriggerName",
-                    "hitTriggerName",
-                    "deathTriggerName",
-                },
+                new[] { "animator" },
                 serializedFieldNames);
+            foreach (var retiredName in new[]
+                     {
+                         "animationTimingAuthoring",
+                         "windupStateName",
+                         "jumpWindupStateName",
+                         "jumpAirborneStateName",
+                         "chargeActiveStateName",
+                         "recoveryStateName",
+                         "glideWindupStateName",
+                         "glideActiveStateName",
+                         "glideRecoveryStateName",
+                         "windupTriggerName",
+                         "jumpWindupTriggerName",
+                         "jumpAirborneTriggerName",
+                         "attackTriggerName",
+                         "recoveryTriggerName",
+                         "hitTriggerName",
+                         "deathTriggerName",
+                     })
+            {
+                Assert.That(
+                    typeof(EnemyAnimatorDriver).GetField(
+                        retiredName,
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+                    Is.Null,
+                    retiredName);
+            }
             Assert.That(serializedFieldNames, Does.Not.Contain("aiModeParameterName"));
             Assert.That(serializedFieldNames, Does.Not.Contain("activeActionKindParameterName"));
             Assert.That(serializedFieldNames, Does.Not.Contain("movingParameterName"));

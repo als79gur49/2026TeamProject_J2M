@@ -77,22 +77,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EnemyAnimatorDriver
   animator: {fileID: 0}
-  animationTimingAuthoring: {fileID: 0}
-  windupStateName: Fly_Start
-  jumpWindupStateName: 
-  jumpAirborneStateName: 
-  chargeActiveStateName: Charge
-  recoveryStateName: Fly_Done
-  glideWindupStateName: Fly_Start
-  glideActiveStateName: Fly_Loop
-  glideRecoveryStateName: Fly_Done
-  windupTriggerName: 
-  jumpWindupTriggerName: 
-  jumpAirborneTriggerName: 
-  attackTriggerName: 
-  recoveryTriggerName: 
-  hitTriggerName: 
-  deathTriggerName: 
 --- !u!114 &6679000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0

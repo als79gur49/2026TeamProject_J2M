@@ -2,12 +2,44 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.Host;
 using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host.EditorTools
 {
+    internal enum EnemyAnimationDriverYamlAuditStatus
+    {
+        Clean = 0,
+        RetiredPropertiesFound = 1,
+        UnsupportedTextAsset = 2,
+    }
+
+    internal readonly struct EnemyAnimationDriverYamlAuditRow
+    {
+        internal EnemyAnimationDriverYamlAuditRow(
+            string assetPath,
+            EnemyAnimationDriverYamlAuditStatus status,
+            int driverBlockCount,
+            IReadOnlyList<string> retiredPropertyKeys,
+            string diagnostic)
+        {
+            AssetPath = assetPath ?? string.Empty;
+            Status = status;
+            DriverBlockCount = driverBlockCount;
+            RetiredPropertyKeys = retiredPropertyKeys ?? Array.Empty<string>();
+            Diagnostic = diagnostic ?? string.Empty;
+        }
+
+        internal string AssetPath { get; }
+        internal EnemyAnimationDriverYamlAuditStatus Status { get; }
+        internal int DriverBlockCount { get; }
+        internal IReadOnlyList<string> RetiredPropertyKeys { get; }
+        internal string Diagnostic { get; }
+    }
+
     internal readonly struct EnemyAnimationResolvedPrefabInventoryRow
     {
         internal EnemyAnimationResolvedPrefabInventoryRow(
@@ -37,6 +69,39 @@ namespace Game.Feature.Gameplay.Host.EditorTools
     internal static class EnemyAnimationSparseBindingAudit
     {
         private static readonly string[] SerializedAssetExtensions = { ".prefab", ".unity", ".asset" };
+        private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+        private static readonly Regex YamlDirectiveHeader = new(
+            @"\A%YAML [0-9]+\.[0-9]+\r?(?:\n|\z)",
+            RegexOptions.CultureInvariant);
+        private static readonly Regex UnityDocumentHeader = new(
+            @"(?m)^--- !u!(?<classId>[0-9]+)(?: &[^\r\n]+)?\r?$",
+            RegexOptions.CultureInvariant);
+        private static readonly Regex AnyUnityDocumentHeader = new(
+            @"(?m)^--- !u![^\r\n]*\r?$",
+            RegexOptions.CultureInvariant);
+        private static readonly Regex MonoBehaviourBodyHeader = new(
+            @"\A--- !u!114(?: &[^\r\n]+)?\r?\nMonoBehaviour:\r?(?:\n|\z)",
+            RegexOptions.CultureInvariant);
+        internal static readonly IReadOnlyList<string> RetiredDriverSerializedPropertyNames =
+            Array.AsReadOnly(new[]
+            {
+                "animationTimingAuthoring",
+                "windupStateName",
+                "jumpWindupStateName",
+                "jumpAirborneStateName",
+                "chargeActiveStateName",
+                "recoveryStateName",
+                "glideWindupStateName",
+                "glideActiveStateName",
+                "glideRecoveryStateName",
+                "windupTriggerName",
+                "jumpWindupTriggerName",
+                "jumpAirborneTriggerName",
+                "attackTriggerName",
+                "recoveryTriggerName",
+                "hitTriggerName",
+                "deathTriggerName",
+            });
         private static readonly IReadOnlyDictionary<string, string> DeletedReplacementNames =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -285,6 +350,178 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             return references;
+        }
+
+        internal static EnemyAnimationDriverYamlAuditRow AuditDriverYamlBytes(
+            string assetPath,
+            byte[] bytes)
+        {
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                throw new ArgumentException("An asset path is required.", nameof(assetPath));
+            }
+
+            if (bytes == null)
+            {
+                throw new ArgumentNullException(nameof(bytes));
+            }
+
+            if (bytes.Length == 0 || Array.IndexOf(bytes, (byte)0) >= 0)
+            {
+                return Unsupported(assetPath, "empty-or-binary");
+            }
+
+            string text;
+            try
+            {
+                text = StrictUtf8.GetString(bytes);
+            }
+            catch (DecoderFallbackException)
+            {
+                return Unsupported(assetPath, "invalid-utf8");
+            }
+
+            if (text.Length > 0 && text[0] == '\ufeff')
+            {
+                text = text.Substring(1);
+            }
+
+            if (!YamlDirectiveHeader.IsMatch(text))
+            {
+                return Unsupported(assetPath, "missing-or-malformed-yaml-header");
+            }
+
+            var documentMatches = UnityDocumentHeader.Matches(text);
+            if (documentMatches.Count == 0 || AnyUnityDocumentHeader.Matches(text).Count != documentMatches.Count)
+            {
+                return Unsupported(assetPath, "missing-or-malformed-document-header");
+            }
+
+            var retiredKeys = new HashSet<string>(StringComparer.Ordinal);
+            var driverBlockCount = 0;
+            for (var index = 0; index < documentMatches.Count; index++)
+            {
+                var match = documentMatches[index];
+                var end = index + 1 < documentMatches.Count
+                    ? documentMatches[index + 1].Index
+                    : text.Length;
+                var block = text.Substring(match.Index, end - match.Index);
+                if (!string.Equals(match.Groups["classId"].Value, "114", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!MonoBehaviourBodyHeader.IsMatch(block))
+                {
+                    return Unsupported(assetPath, "malformed-monobehaviour-block");
+                }
+
+                if (!Regex.IsMatch(
+                        block,
+                        @"(?m)^  m_Script: \{[^\r\n}]*\bguid: " +
+                        Regex.Escape(EnemyAnimationBindingMigrationManifest.DriverScriptGuid) +
+                        @"(?:,|\s|})",
+                        RegexOptions.CultureInvariant))
+                {
+                    continue;
+                }
+
+                driverBlockCount++;
+                foreach (var propertyName in RetiredDriverSerializedPropertyNames)
+                {
+                    if (Regex.IsMatch(
+                            block,
+                            @"(?m)^  " + Regex.Escape(propertyName) + @":",
+                            RegexOptions.CultureInvariant))
+                    {
+                        retiredKeys.Add(propertyName);
+                    }
+                }
+            }
+
+            var orderedKeys = retiredKeys.OrderBy(key => key, StringComparer.Ordinal).ToArray();
+            return new EnemyAnimationDriverYamlAuditRow(
+                assetPath,
+                orderedKeys.Length == 0
+                    ? EnemyAnimationDriverYamlAuditStatus.Clean
+                    : EnemyAnimationDriverYamlAuditStatus.RetiredPropertiesFound,
+                driverBlockCount,
+                orderedKeys,
+                string.Empty);
+        }
+
+        internal static IReadOnlyList<EnemyAnimationDriverYamlAuditRow> ScanDriverYamlResidue(
+            IEnumerable<string> assetPaths)
+        {
+            if (assetPaths == null)
+            {
+                throw new ArgumentNullException(nameof(assetPaths));
+            }
+
+            return assetPaths
+                .Where(path => !string.IsNullOrEmpty(path))
+                .Select(NormalizePath)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(path => AuditDriverYamlBytes(path, File.ReadAllBytes(path)))
+                .ToArray();
+        }
+
+        internal static IReadOnlyList<string> ValidateDriverYamlResidue(
+            IReadOnlyList<EnemyAnimationDriverYamlAuditRow> rows,
+            IReadOnlyCollection<string> productionPrefabPaths)
+        {
+            if (rows == null)
+            {
+                throw new ArgumentNullException(nameof(rows));
+            }
+
+            if (productionPrefabPaths == null)
+            {
+                throw new ArgumentNullException(nameof(productionPrefabPaths));
+            }
+
+            var normalizedProductionPaths = new HashSet<string>(
+                productionPrefabPaths.Select(NormalizePath),
+                StringComparer.Ordinal);
+            var errors = new List<string>();
+            foreach (var row in rows)
+            {
+                if (row.Status == EnemyAnimationDriverYamlAuditStatus.RetiredPropertiesFound)
+                {
+                    foreach (var key in row.RetiredPropertyKeys)
+                    {
+                        errors.Add($"driver.yaml.retired|{row.AssetPath}|{key}");
+                    }
+
+                    continue;
+                }
+
+                if (row.Status != EnemyAnimationDriverYamlAuditStatus.UnsupportedTextAsset)
+                {
+                    continue;
+                }
+
+                var extension = Path.GetExtension(row.AssetPath);
+                if (normalizedProductionPaths.Contains(row.AssetPath) ||
+                    string.Equals(extension, ".prefab", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(extension, ".unity", StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add($"driver.yaml.unsupported|{row.AssetPath}|{row.Diagnostic}");
+                }
+            }
+
+            return errors.OrderBy(error => error, StringComparer.Ordinal).ToArray();
+        }
+
+        private static EnemyAnimationDriverYamlAuditRow Unsupported(string assetPath, string diagnostic)
+        {
+            return new EnemyAnimationDriverYamlAuditRow(
+                NormalizePath(assetPath),
+                EnemyAnimationDriverYamlAuditStatus.UnsupportedTextAsset,
+                0,
+                Array.Empty<string>(),
+                diagnostic);
         }
 
         private static EnemyAnimationResolvedPrefabInventoryRow ScanResolvedPrefab(string path)

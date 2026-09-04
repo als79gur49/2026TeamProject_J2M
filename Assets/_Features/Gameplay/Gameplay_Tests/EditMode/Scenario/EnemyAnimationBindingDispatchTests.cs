@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -21,8 +22,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     EnemyAnimationCue.ActionExecute,
                     EnemyAnimationDispatchMode.Trigger,
                     "Fire"));
-            SetField(fixture.Driver, "attackTriggerName", "LegacyFire");
-
             Assert.That(
                 fixture.Driver.DispatchCue(EnemyAnimationCue.ActionExecute),
                 Is.EqualTo(EnemyAnimationDispatchResult.Applied));
@@ -317,7 +316,89 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     EnemyAnimatorDriver.EnemyPresentationPhase.Windup));
         }
 
-        private static EnemyViewPresentationState JumpAirborneState()
+        [TestCaseSource(nameof(NonNoneCues))]
+        public void NoBindingWithoutTiming_AllCuesAreUnsupportedAndNeverQueue(
+            EnemyAnimationCue cue)
+        {
+            using var fixture = UnboundFixture.Create();
+            fixture.Animator.enabled = false;
+
+            Assert.That(
+                fixture.Driver.DispatchCue(cue),
+                Is.EqualTo(EnemyAnimationDispatchResult.Unsupported),
+                cue.ToString());
+            Assert.That(fixture.Driver.LastCrossFadedStateName, Is.Empty, cue.ToString());
+            Assert.That(fixture.Driver.LastCrossFadeDurationSeconds, Is.Zero, cue.ToString());
+
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false);
+            fixture.Animator.Update(0f);
+            AssertState(fixture.Animator, "Move", cue + " must not leave a pending command.");
+            Assert.That(fixture.Animator.IsInTransition(0), Is.False, cue.ToString());
+        }
+
+        [Test]
+        public void NoBindingWithoutTiming_NegativeResolutionCacheDoesNotEnableAfterDynamicTimingAdd()
+        {
+            using var fixture = UnboundFixture.Create();
+
+            Assert.That(
+                fixture.Driver.DispatchCue(EnemyAnimationCue.Hit),
+                Is.EqualTo(EnemyAnimationDispatchResult.Unsupported));
+            fixture.Root.AddComponent<EnemyAnimationTimingAuthoring>();
+            Assert.That(
+                fixture.Driver.DispatchCue(EnemyAnimationCue.Hit),
+                Is.EqualTo(EnemyAnimationDispatchResult.Unsupported));
+        }
+
+        [Test]
+        public void NoBindingWithoutTiming_JumpAirborneCannotEnsurePreserveRestoreOrResync()
+        {
+            using var fixture = UnboundFixture.Create();
+            fixture.Driver.Apply(JumpAirborneState(startedAirborne: false));
+            fixture.Animator.Update(0f);
+
+            Assert.That(fixture.Driver.TryRestoreCueState(EnemyAnimationCue.JumpAirborne), Is.False);
+            Assert.That(fixture.Driver.EnsureJumpAirborneBaseAnimation(), Is.False);
+            Assert.That(fixture.Driver.PreserveJumpAirborneAnimatorForTopologySuspend(), Is.False);
+            Assert.That(fixture.Driver.RestoreJumpAirborneAnimatorAfterTopologySuspend(), Is.False);
+            Assert.That(fixture.Driver.ResyncAnimatorStateFromLastPresentation(), Is.False);
+            Assert.That(fixture.Driver.HasJumpAirborneTopologySuspendSnapshot, Is.False);
+            Assert.That(fixture.Driver.DebugLastJumpAirborneStateShortNameHash, Is.Zero);
+            Assert.That(fixture.Driver.LastCrossFadedStateName, Is.Empty);
+            AssertState(fixture.Animator, "Move");
+        }
+
+        [Test]
+        public void NoBindingWithoutTiming_OptionalMovingParameterStillSynchronizes()
+        {
+            using var fixture = UnboundFixture.Create();
+            fixture.Driver.Apply(new EnemyViewPresentationState(
+                entityId: 1,
+                tickIndex: 1,
+                EnemyAiMode.Patrol,
+                EnemyActionKind.None,
+                isMoving: true,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                tookDamage: false,
+                didDie: false));
+
+            Assert.That(fixture.Driver.IsMoving, Is.True);
+            Assert.That(fixture.Animator.GetBool("IsMoving"), Is.True);
+            Assert.That(fixture.Driver.LastCrossFadedStateName, Is.Empty);
+        }
+
+        private static IEnumerable<EnemyAnimationCue> NonNoneCues()
+        {
+            return Enum.GetValues(typeof(EnemyAnimationCue))
+                .Cast<EnemyAnimationCue>()
+                .Where(cue => cue != EnemyAnimationCue.None);
+        }
+
+        private static EnemyViewPresentationState JumpAirborneState(bool startedAirborne = true)
         {
             return new EnemyViewPresentationState(
                 entityId: 1,
@@ -330,7 +411,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 executedThisTick: false,
                 startedRecoveryThisTick: false,
                 startedJumpWindupThisTick: false,
-                startedJumpAirborneThisTick: true,
+                startedJumpAirborneThisTick: startedAirborne,
                 landedFromJumpThisTick: false,
                 retryingJumpAirborneThisTick: false,
                 tookDamage: false,
@@ -583,7 +664,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Authoring.ConfigureForTests(_sourceBindings, crossFade);
                 Driver = Root.AddComponent<EnemyAnimatorDriver>();
                 SetField(Driver, "animator", Animator);
-                SetField(Driver, "animationTimingAuthoring", LegacyTiming);
                 Rebind();
             }
 
@@ -653,6 +733,72 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 transition.hasExitTime = false;
                 transition.duration = 0f;
                 transition.AddCondition(AnimatorConditionMode.If, 0f, parameter);
+            }
+        }
+
+        private sealed class UnboundFixture : IDisposable
+        {
+            private readonly List<UnityEngine.Object> _owned = new();
+
+            private UnboundFixture(GameObject root, Animator animator, EnemyAnimatorDriver driver)
+            {
+                Root = root;
+                Animator = animator;
+                Driver = driver;
+            }
+
+            public GameObject Root { get; }
+            public Animator Animator { get; }
+            public EnemyAnimatorDriver Driver { get; }
+
+            public static UnboundFixture Create()
+            {
+                var root = new GameObject(nameof(UnboundFixture));
+                var animator = root.AddComponent<Animator>();
+                var machine = new AnimatorStateMachine { hideFlags = HideFlags.HideAndDontSave };
+                var move = machine.AddState("Move");
+                machine.AddState("JumpAirborne");
+                machine.defaultState = move;
+                var controller = new AnimatorController
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    layers = new[]
+                    {
+                        new AnimatorControllerLayer
+                        {
+                            name = "Base Layer",
+                            defaultWeight = 1f,
+                            stateMachine = machine,
+                        },
+                    },
+                };
+                controller.AddParameter("IsMoving", AnimatorControllerParameterType.Bool);
+                animator.runtimeAnimatorController = controller;
+                var driver = root.AddComponent<EnemyAnimatorDriver>();
+                SetField(driver, "animator", animator);
+                var fixture = new UnboundFixture(root, animator, driver);
+                fixture._owned.Add(controller);
+                fixture._owned.Add(machine);
+                fixture.Rebind();
+                return fixture;
+            }
+
+            public void Rebind()
+            {
+                Animator.Rebind();
+                Animator.Update(0f);
+            }
+
+            public void Dispose()
+            {
+                UnityEngine.Object.DestroyImmediate(Root);
+                for (var index = _owned.Count - 1; index >= 0; index--)
+                {
+                    if (_owned[index] != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(_owned[index]);
+                    }
+                }
             }
         }
     }

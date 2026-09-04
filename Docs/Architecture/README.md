@@ -57,7 +57,7 @@
 - [Enemy-View-Prefab-Scalability-Maintainability-Audit.md](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
   - current record of the initial Enemy View Inspector audit, subsequent legacy-lifecycle cleanup, production prefab/controller contracts, and follow-up validation gates
 - [Enemy-Animation-Sparse-Binding-Implementation-Plan.md](./Enemy-Animation-Sparse-Binding-Implementation-Plan.md)
-  - completed Slice 0~4A implementation record and remaining Slice 4B/5 plan for sparse per-View animation cue authoring; the one-time migration mutation entrypoint is retired
+  - completed Slice 0~4B implementation and validation record plus remaining Slice 5 plan for sparse per-View animation cue authoring; checked-in migration mutation entrypoints remain retired
 - [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md)
   - execution plan for manifest-driven production 10-view migration, dry-run/apply separation, asset identity validation, rollback, and Slice 2 completion gates
 - [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)
@@ -69,7 +69,7 @@
 - [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md)
   - current Slice 4A closeout for the retired menu/apply/report surface, permanent resolved-asset audit, validation evidence, remaining BlackEye baseline failures, and Slice 4B non-approval boundary
 - [Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md](./Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md)
-  - reviewed but not-yet-started Slice 4B plan for retiring Driver legacy serialized Inspector fields with a shared Timing opt-in gate, exact production reserialize boundary, Kali/SecBot no-command behavior, and production prefab identity
+  - implemented Slice 4B plan and closeout for the Driver `animator`-only serialized surface, Timing opt-in gate, exact 160-line production cleanup, Kali/SecBot no-command behavior, validation evidence, and non-claims
 - [Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md](./Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md)
   - historical Slice 0 execution prompt whose Astreton, Jumping, DrSaturn, timing/dispatch, resync, and suppression contracts remain in the permanent test suite; it is not a current execution entrypoint
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)

@@ -5,7 +5,7 @@
 - 작성일: 2026-09-04
 - 기준 revision: `2617268f586551a06f74f27c897ee8cb93984de6`
 - 대상: Slice 4B — `EnemyAnimatorDriver` legacy private serialized Inspector surface retirement
-- 상태: 서브 에이전트 재검토와 필수 보정 완료; 구현 승인/착수 전이며 C#, 테스트, Prefab을 아직 변경하지 않음
+- 상태: 구현, targeted/core 검증, 수동 Editor evidence 완료
 - 선행 완료:
   - production View migration 완료
   - legacy View 4개 삭제 완료
@@ -518,3 +518,64 @@ protected identity와 validation evidence를 기록한다.
 
 이 Gate가 닫히기 전에는 Slice 4B 또는 전체 sparse binding initiative가 완료됐다고 주장하지 않는다. Slice 5,
 BlackEye material, manifest rename, broad full recovery를 자동으로 시작하거나 해결됐다고 주장하지 않는다.
+
+## 15. 구현 Closeout
+
+### 15.1 구현 결과
+
+2026-09-04 구현 tree에서 Driver의 legacy private serialized field 16개를 제거하고 serialized field를
+`animator` 하나로 제한했다. Binding이 없는 Driver는 첫 timing resolution에서 root
+`EnemyAnimationTimingAuthoring` 존재 여부를 snapshot으로 고정한다. Timing이 없으면 cue counter와 optional
+Animator parameter는 유지하지만 dispatch, pending state, JumpAirborne restore/topology/resync command는 만들지
+않는다. Binding이 있으면 기존 exclusive sparse binding 정책을 유지한다.
+
+production prefab은 allowlist 10개만 변경됐으며 각 Driver block에서 retired key 16행씩 총 160행이 삭제됐다.
+추가행, `.meta`, Controller/AOC/FBX/AnimationClip/Scene/ScriptableObject 변경은 없다. permanent block-aware
+audit은 UTF-8 BOM, LF/CRLF, EOF block, 다른 MonoBehaviour의 동명 property, invalid UTF-8/binary/malformed YAML을
+구분하며 production Driver block residue 0을 고정한다.
+
+### 15.2 operator seam 편차와 처리
+
+최초 승인된 `AssetDatabase.ForceReserializeAssets(paths, ReserializeAssets)` direct-user 메뉴는 exact 10개
+path/GUID 검증과 호출에는 성공했지만 파일을 다시 쓰지 않아 prefab diff 0, retired key 160개 잔존으로
+Hold했다. 해당 transient source와 `.meta`를 제거한 뒤 사용자의 별도 승인을 받아 exact prefab save seam으로
+재설계했다.
+
+재설계 seam은 같은 10개 path/GUID와 Driver serialized field set을 검증하고 각 prefab을
+`PrefabUtility.LoadPrefabContents`/`SaveAsPrefabAsset`으로 저장했다. 각 저장 직후 원문 Driver block에서 retired
+16행만 제거한 예상 text와 실제 file을 exact 비교해 다른 변경이 있으면 다음 prefab 전에 중단하도록 했다.
+10개 모두 내부 검증을 통과했으며 seam source/hash와 최초 no-op 기록을 evidence에 보존한 뒤 source와 `.meta`,
+menu/API caller를 제거했다. checked-in mutation surface는 남기지 않았다.
+
+### 15.3 validation 결과
+
+| Lane/filter | 결과 |
+|---|---:|
+| `EnemyAnimationBindingMigrationManifestTests` | EditMode 14/14 |
+| `EnemyAnimationSparseBindingProductionContractTests` | EditMode 2/2 |
+| `EnemyAnimationSparseBindingAssetCharacterizationTests` | EditMode 6/6 |
+| `EnemyAnimationBindingEditorValidationTests` | EditMode 12/12 |
+| `EnemyAnimationBindingDispatchTests` | EditMode 30/30 |
+| `EnemyAnimationSparseBindingRuntimeScenarioTests` | EditMode 19/19 |
+| `GameplayTimingOwnershipTests` | EditMode 94/94 |
+| `RuntimeBoardBoundsGuardTests` | EditMode 26/26 |
+| `EnemyPresentationReadinessPlayModeTests` | PlayMode 2/2 |
+| `EnemyViewAnimatorControllerContractTests` | EditMode 8/8 |
+| `EnemyViewAnimatorRuntimeCharacterizationPlayModeTests` | PlayMode 18/18 |
+| `./run_tests.sh core` | EditMode 254/254, PlayMode 111/111 |
+
+targeted filter의 owning stage count 0은 성공 evidence로 사용하지 않았다. broad unfiltered `full`과 `ui` lane은
+실행하지 않았으며 project-wide/full green을 주장하지 않는다. UI runtime/asset 변경이 없어 `ui`는 비대상이다.
+
+### 15.4 evidence와 non-claims
+
+evidence root는
+`/mnt/d/J2M/evidence/enemy-animation-sparse-binding-slice4b/20260904-093328/`이다. tests-first expected
+failure, 최초 ForceReserialize no-op, 승인된 prefab save source/hash와 exact diff, targeted/core XML/log, Editor
+Inspector screenshot, final static audit를 분리했다.
+
+Kali, SecBot, BlackEye, JPeter Inspector에서 Driver의 `animator`-only 표면, Kali/SecBot의
+no-Binding/no-Timing, JPeter의 별도 Binding과 inspected prefab의 Missing Script 부재를 수동 확인했다.
+최종 commit/tree 귀속은 commit hook의 core 재검증 및 closeout evidence로 분리한다.
+Slice 5 screenshot polish, BlackEye material, manifest rename, broad full recovery 및 Slice 4A R0 provenance gap은
+이번 구현의 완료 주장에 포함하지 않는다.
