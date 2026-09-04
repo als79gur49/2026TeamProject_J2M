@@ -333,14 +333,22 @@ Hold가 발생하면 migration tool을 되살리기보다 누락된 read-only co
 
 ## 11. Rollback
 
-Tool retirement rollback은 retirement commit 전체의 Git revert다. 다음을 함께 되돌린다.
+실제 execution은 implementation commit `df82bea239d04300d011c8118e0ba2924f016bd2`와 permanent audit
+corrective commit `115602d35713c94647c624b107d22e5f0836be2c`의 연속 경계로 완료됐다. 완전 rollback은 Slice 4A
+관련 후속 commit을 최신순으로 먼저 revert한 뒤 implementation commit을 revert한다. 현재 알려진 code/test
+경계에서는 `115602d...`를 먼저 revert하고 `df82bea...`를 revert해야 한다. 이 rollback 설명 자체처럼 이후
+추가된 Slice 4A 문서-only follow-up이 있으면 그것도 `115602d...`보다 먼저 최신순으로 revert한다.
+
+완전 rollback은 다음을 함께 되돌린다.
 
 - migration tool 및 `.meta`
 - migration implementation tests
 - permanent audit 전환
 - retirement 문서 상태
 
-production prefab은 retirement commit에서 변경하지 않으므로 rollback 대상이 아니다. 과거 production
+corrective audit만 되돌리고 tool retirement를 유지하려면 `115602d...`와 그 이후 관련 follow-up만 최신순으로
+revert하고 `df82bea...`는 유지한다. production prefab은 Slice 4A commit에서 변경하지 않았으므로 rollback
+대상이 아니다. 과거 production
 migration 자체를 되돌려야 한다면 implementation plan에 기록된 역순 commit revert 절차를 사용한다.
 삭제된 tool을 raw file copy로 복구하거나 menu만 수동 재작성하는 방식은 rollback으로 인정하지 않는다.
 
@@ -361,7 +369,7 @@ refactor: Gameplay/EnemyAnimation - one-time migration tool 퇴역
 - manifest/ledger와 permanent read-only audit을 유지한 방식
 - Prefab Variant와 deleted GUID negative coverage
 - production/protected asset zero-diff 및 runtime/core evidence
-- retirement commit 전체 revert가 rollback 경로임
+- Slice 4A follow-up을 최신순으로 되돌린 뒤 implementation commit을 revert하는 rollback 경로
 
 실제 commit 전에는 `commit-push-workflow` skill과 `AI_GIT_COMMIT_RULES.md`를 따른다.
 

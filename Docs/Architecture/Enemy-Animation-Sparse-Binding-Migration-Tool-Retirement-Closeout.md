@@ -8,7 +8,10 @@
 - current inventory: Driver 10 / Binding 8 / Timing 0
 - disposition: MigratedBinding 8 / ApprovedNoBinding 2 / Deleted 4 / LegacyBlocked 0
 - 기준 revision: `cb0cbdbbecdd09c19b370692e73e90b8fb21483d`
-- rollback: 이 retirement commit 전체를 Git revert한다.
+- retirement implementation commit: `df82bea239d04300d011c8118e0ba2924f016bd2`
+- permanent audit corrective commit: `115602d35713c94647c624b107d22e5f0836be2c`
+- rollback: Slice 4A 관련 후속 commit을 최신순으로 먼저 revert한 뒤 implementation commit을 revert한다.
+  현재 알려진 code/test 경계의 필수 순서는 `115602d...` 다음 `df82bea...`다.
 
 ## 구현 결과
 
@@ -74,14 +77,18 @@ production mutation code를 되살리지 않고 다음과 같이 permanent audit
 
 Corrective pre-commit 검증 결과:
 
-| 명령 | 결과 |
+| evidence source | 결과 |
 |---|---|
-| `./run_tests.sh full --filter EnemyAnimationBindingMigrationManifestTests` | EditMode 7/7, PlayMode matching 0 |
-| `./run_tests.sh full --filter EnemyAnimationSparseBindingAssetCharacterizationTests` | EditMode 6/6, PlayMode matching 0 |
+| `EnemyAnimation` aggregate XML의 `EnemyAnimationBindingMigrationManifestTests` fixture | EditMode 7/7 |
+| `EnemyAnimation` aggregate XML의 `EnemyAnimationSparseBindingAssetCharacterizationTests` fixture | EditMode 6/6 |
 | `./run_tests.sh full --filter EnemyAnimation` | EditMode 107/107, PlayMode matching 0 |
 | `./run_tests.sh full --filter EnemyViewAnimator` | EditMode 8/8, PlayMode 18/18 |
 | `./run_tests.sh core` | EditMode 254/254, PlayMode 111 total / 107 passed / 4 skipped / 0 failed |
 | `./run_tests.sh full --filter EnemyInactiveMaterialAuthoringTests` | EditMode 8 total / 6 passed / 2 failed; 기존 BlackEye baseline |
+
+Manifest 7/7과 asset characterization 6/6은
+`01-targeted/precommit-enemy-animation/wsl-unity-full-editmode.xml`의 aggregate suite count에서 산출했다.
+두 fixture의 개별 filter 실행 log/XML은 보존되지 않았으므로 독립 artifact가 있는 것처럼 주장하지 않는다.
 
 최종 same-revision 판정은 corrective commit 후 clean HEAD에서 다시 생성한 XML/log와 external evidence의
 tested commit/tree 기록을 기준으로 한다. 위 pre-commit 결과만으로 final revision을 주장하지 않는다.
@@ -127,7 +134,8 @@ Corrective evidence root:
 `/mnt/d/J2M/evidence/enemy-animation-sparse-binding-tool-retirement/20260904-160640-KST/`
 
 - `00-context/`: corrective scope와 initial run 보존 경계
-- `01-targeted/`: strengthened permanent audit와 EnemyAnimation aggregate
+- `01-targeted/`: strengthened permanent audit의 fixture count를 포함한 EnemyAnimation aggregate; 두 fixture의
+  독립 filter artifact는 없음
 - `02-runtime/`: Controller/effective motion 및 runtime characterization
 - `03-core/`: core EditMode/PlayMode
 - `04-static/`: retired symbol, deleted GUID, protected asset/runtime diff, temporary residue audit
