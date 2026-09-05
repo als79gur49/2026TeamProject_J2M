@@ -408,8 +408,11 @@ namespace Game.Feature.UI.Tests
                 buttonBadgeStyleProfile.NormalButton.Active.BackgroundColor,
                 Is.Not.EqualTo(buttonBadgeStyleProfile.NormalButton.Inactive.BackgroundColor));
             Assert.That(
-                buttonBadgeStyleProfile.NormalButton.Active.BackgroundColor.a,
-                Is.GreaterThan(buttonBadgeStyleProfile.NormalButton.Inactive.BackgroundColor.a));
+                buttonBadgeStyleProfile.NormalButton.Inactive.BackgroundColor,
+                Is.EqualTo(new Color(0.5f, 0.5f, 0.5f, 1.0f)));
+            Assert.That(
+                buttonBadgeStyleProfile.MoonButton.Inactive.BackgroundColor,
+                Is.EqualTo(new Color(0.5f, 0.5f, 0.5f, 1.0f)));
             Assert.DoesNotThrow(() => serializedSurfaceBeltIndicator.ValidateAuthoredStructureOrThrow());
 
             var badgeGroups = serializedSurfaceBeltIndicator.GetComponentsInChildren<SurfaceBeltButtonBadgeGroupView>(true);
@@ -444,6 +447,7 @@ namespace Game.Feature.UI.Tests
 
             var authoredBadgeGroup = badgeGroups[0];
             AssertSerializedReferenceIsAssigned(authoredBadgeGroup, "_normalBadge");
+            AssertSerializedReferenceIsAssigned(authoredBadgeGroup, "_moonBadge");
             Assert.DoesNotThrow(() => authoredBadgeGroup.ValidateAuthoredStructureOrThrow());
             AssertOwnedBy(authoredBadgeGroup.transform, serializedSurfaceBeltIndicator.BeltContent);
             var badgeGroupLayout = authoredBadgeGroup.GetComponent<LayoutElement>();
@@ -452,7 +456,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(badgeGroupLayout.preferredHeight, Is.GreaterThanOrEqualTo(32.0f));
 
             var badgeViews = authoredBadgeGroup.GetComponentsInChildren<SurfaceBeltButtonBadgeView>(true);
-            Assert.That(badgeViews.Length, Is.EqualTo(1));
+            Assert.That(badgeViews.Length, Is.EqualTo(2));
+            Assert.That(authoredBadgeGroup.MoonBadge.name, Is.EqualTo("MoonBadge"));
+            Assert.That(authoredBadgeGroup.MoonBadge, Is.Not.SameAs(authoredBadgeGroup.NormalBadge));
             Assert.That(badgeViews[0].name, Is.EqualTo("NormalBadge"));
             AssertSerializedReferenceIsAssigned(badgeViews[0], "_frame");
             AssertSerializedReferenceIsAssigned(badgeViews[0], "_background");
@@ -462,7 +468,7 @@ namespace Game.Feature.UI.Tests
             var authoredFill = GetSerializedReference<Image>(badgeViews[0], "_background");
             var authoredMotionRoot = GetSerializedReference<RectTransform>(badgeViews[0], "_motionRoot");
             var shineMaterial = GetSerializedReference<Material>(badgeViews[0], "_shineMaterialTemplate");
-            Assert.That(authoredFrame.color, Is.EqualTo(buttonBadgeStyleProfile.NormalButton.Active.BackgroundColor));
+            Assert.That(authoredFrame.color.g, Is.GreaterThan(authoredFrame.color.r));
             Assert.That(authoredFill.color, Is.EqualTo(buttonBadgeStyleProfile.NormalButton.Active.BackgroundColor));
             Assert.That(authoredMotionRoot, Is.SameAs(authoredFrame.rectTransform));
             Assert.That(shineMaterial.shader.name, Is.EqualTo(AllIn1UiMaskShaderName));

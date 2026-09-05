@@ -6,8 +6,11 @@ namespace Game.Feature.UI.HUD
     public sealed class SurfaceBeltButtonBadgeGroupView : MonoBehaviour
     {
         [SerializeField] private SurfaceBeltButtonBadgeView _normalBadge;
+        [SerializeField] private SurfaceBeltButtonBadgeView _moonBadge;
 
         public SurfaceBeltButtonBadgeView NormalBadge => _normalBadge;
+
+        public SurfaceBeltButtonBadgeView MoonBadge => _moonBadge;
 
         public void Bind(
             SurfaceBeltButtonRemainderViewModel remainder,
@@ -26,8 +29,13 @@ namespace Game.Feature.UI.HUD
 
             _normalBadge.Bind(
                 remainder.SlotIndex,
-                remainder.HasAnyRemaining,
+                remainder.NormalRemaining > 0,
                 styleProfile.NormalButton,
+                styleProfile.Transition);
+            _moonBadge.Bind(
+                remainder.SlotIndex,
+                remainder.MoonBlockOnlyRemaining > 0,
+                styleProfile.MoonButton,
                 styleProfile.Transition);
         }
 
@@ -35,6 +43,8 @@ namespace Game.Feature.UI.HUD
         {
             RequireReference(_normalBadge, nameof(_normalBadge));
             _normalBadge.ValidateAuthoredStructureOrThrow();
+            RequireReference(_moonBadge, nameof(_moonBadge));
+            _moonBadge.ValidateAuthoredStructureOrThrow();
         }
 
         private static void RequireReference(UnityEngine.Object value, string fieldName)

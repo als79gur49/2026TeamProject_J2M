@@ -12,9 +12,16 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private ButtonBadgeVisualStyle _normalButton =
             new ButtonBadgeVisualStyle(
                 new ButtonBadgeVisualStateStyle(
+                    new Color(0.3137255f, 0.8980392f, 0.29803923f, 1.0f)),
+                new ButtonBadgeVisualStateStyle(
+                    new Color(0.5f, 0.5f, 0.5f, 1.0f)));
+
+        [SerializeField] private ButtonBadgeVisualStyle _moonButton =
+            new ButtonBadgeVisualStyle(
+                new ButtonBadgeVisualStateStyle(
                     new Color(0.8980392f, 0.8392157f, 0.2941177f, 1.0f)),
                 new ButtonBadgeVisualStateStyle(
-                    new Color(0.8980392f, 0.8392157f, 0.2941177f, 0.2f)));
+                    new Color(0.5f, 0.5f, 0.5f, 1.0f)));
 
         [SerializeField] private ButtonBadgeTransitionStyle _transition =
             new ButtonBadgeTransitionStyle(
@@ -35,11 +42,18 @@ namespace Game.Feature.UI.HUD
 
         public ButtonBadgeVisualStyle NormalButton => _normalButton;
 
+        public ButtonBadgeVisualStyle MoonButton => _moonButton;
+
         public ButtonBadgeTransitionStyle Transition => _transition;
 
         public bool TryValidate(out string message)
         {
             if (!_normalButton.TryValidate("Button remainder", out message))
+            {
+                return false;
+            }
+
+            if (!_moonButton.TryValidate("Moon button remainder", out message))
             {
                 return false;
             }
