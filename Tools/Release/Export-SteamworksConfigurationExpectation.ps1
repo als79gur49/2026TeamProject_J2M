@@ -114,37 +114,17 @@ function Assert-RepositoryRevisionUnchanged {
     }
 }
 
-function Test-IsKnownUnityFontImporterMutation {
+function Test-FontAssetBytesUnchanged {
     param(
         [Parameter(Mandatory)][string]$BeforePath,
         [Parameter(Mandatory)][string]$AfterPath
     )
 
-    $before = [IO.File]::ReadAllText($BeforePath)
-    $newline = if ($before.Contains("`r`n")) { "`r`n" } else { "`n" }
-    $expected = $before.Replace(
-        "  m_MipmapLimitGroupName:$newline", "  m_MipmapLimitGroupName: $newline")
-    $expected = $expected.Replace(
-        "  m_PlatformBlob:$newline", "  m_PlatformBlob: $newline")
-    $expected = $expected.Replace("    path:$newline", "    path: $newline")
-    $expected = $expected.Replace(
-        "    referencedFontAssetGUID:$newline", "    referencedFontAssetGUID: $newline")
-    $expected = $expected.Replace(
-        "    referencedTextAssetGUID:$newline", "    referencedTextAssetGUID: $newline")
-    $expected = $expected.Replace(
-        "  m_SourceFontFilePath:$newline", "  m_SourceFontFilePath: $newline")
-    $expected = $expected.Replace("    Name:$newline", "    Name: $newline")
-    $expected = $expected.Replace(
-        "  m_LockedProperties:$newline", "  m_LockedProperties: $newline")
-    $expected = $expected.Replace(
-        "    - _ScaleRatioA: 1$newline", "    - _ScaleRatioA: 0.9$newline")
-    $expected = $expected.Replace(
-        "    - _ScaleRatioC: 1$newline", "    - _ScaleRatioC: 0.73125$newline")
-    if ($expected -ceq $before) {
+    if (-not (Test-Path -LiteralPath $AfterPath -PathType Leaf)) {
         return $false
     }
-
-    return $expected -ceq [IO.File]::ReadAllText($AfterPath)
+    return (Get-FileHash -LiteralPath $BeforePath -Algorithm SHA256).Hash -ceq `
+        (Get-FileHash -LiteralPath $AfterPath -Algorithm SHA256).Hash
 }
 
 function Enter-ExclusiveRepositoryLock {
@@ -279,7 +259,8 @@ function Invoke-SteamworksConfigurationExpectationExport {
     $statusProbe = Invoke-RepositoryGit $repositoryFull @("status", "--short")
     Assert-RepositoryIsClean -Status $statusProbe
     $guardedRelativePaths = @(
-        "Assets\_Shared\UI\Fonts\ClimateCrisisKR-2000 SDF.asset"
+        "Assets\_Shared\UI\Fonts\KBODiaGothic-Medium SDF.asset",
+        "Assets\_Shared\UI\Fonts\KBODiaGothic-Light SDF.asset"
     )
     $repositoryLocks = Enter-RepositoryMutationLocks -Root $repositoryFull
     $sourceReadLocks = @()
@@ -327,17 +308,10 @@ function Invoke-SteamworksConfigurationExpectationExport {
         foreach ($relativePath in $guardedRelativePaths) {
             $sourcePath = Join-Path $repositoryFull $relativePath
             $snapshotPath = Join-Path $guardRoot $relativePath
-            $beforeHash = (Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash
-            $afterHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash
-            if ($afterHash -cne $beforeHash) {
-                if (Test-IsKnownUnityFontImporterMutation `
-                        -BeforePath $snapshotPath `
-                        -AfterPath $sourcePath) {
-                    Copy-Item -LiteralPath $snapshotPath -Destination $sourcePath -Force
-                    $guardedMutationRestored = $true
-                } else {
-                    $unexpectedGuardedMutation = $sourcePath
-                }
+            if (-not (Test-FontAssetBytesUnchanged `
+                    -BeforePath $snapshotPath `
+                    -AfterPath $sourcePath)) {
+                $unexpectedGuardedMutation = $sourcePath
             }
         }
         Remove-Item -LiteralPath $guardRoot -Recurse -Force

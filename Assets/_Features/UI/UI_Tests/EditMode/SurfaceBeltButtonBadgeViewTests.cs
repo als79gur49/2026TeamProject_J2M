@@ -10,10 +10,11 @@ namespace Game.Feature.UI.Tests
     {
         private const string AllIn1UiMaskShaderName = "AllIn1SpriteShader/AllIn1SpriteShaderUiMask";
 
+        [TestCase(0, 0)]
         [TestCase(2, 0)]
         [TestCase(0, 3)]
         [TestCase(2, 3)]
-        public void Bind_UsesActiveStyleWhenAnyButtonRemains(int normalRemaining, int moonBlockOnlyRemaining)
+        public void Bind_UsesEachButtonTypeRemainderIndependently(int normalRemaining, int moonBlockOnlyRemaining)
         {
             var root = new GameObject("SurfaceBeltButtonBadgeViewTests");
             var styleProfile = ScriptableObject.CreateInstance<SurfaceBeltButtonBadgeStyleProfile>();
@@ -35,9 +36,19 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(group.gameObject.activeSelf, Is.True);
                 Assert.That(badge.gameObject.activeSelf, Is.True);
-                Assert.That(frame.color, Is.EqualTo(styleProfile.NormalButton.Active.BackgroundColor));
-                Assert.That(background.color, Is.EqualTo(styleProfile.NormalButton.Active.BackgroundColor));
-                Assert.That(motionRoot.localScale, Is.EqualTo(Vector3.one));
+                var normalColor = normalRemaining > 0
+                    ? styleProfile.NormalButton.Active.BackgroundColor
+                    : new Color(0.5f, 0.5f, 0.5f, 1.0f);
+                var moonColor = moonBlockOnlyRemaining > 0
+                    ? styleProfile.MoonButton.Active.BackgroundColor
+                    : new Color(0.5f, 0.5f, 0.5f, 1.0f);
+                Assert.That(frame.color, Is.EqualTo(normalColor));
+                Assert.That(background.color, Is.EqualTo(normalColor));
+                Assert.That(group.MoonBadge.gameObject.activeSelf, Is.True);
+                Assert.That(GetFieldValue<Image>(group.MoonBadge, "_frame").color, Is.EqualTo(moonColor));
+                Assert.That(GetFieldValue<Image>(group.MoonBadge, "_background").color, Is.EqualTo(moonColor));
+                Assert.That(motionRoot.localScale, Is.EqualTo(
+                    Vector3.one * (normalRemaining > 0 ? 1.0f : styleProfile.Transition.InactiveScale)));
                 Assert.That(GetFieldValue<object>(badge, "_transitionSequence"), Is.Null);
             }
             finally
@@ -149,7 +160,7 @@ namespace Game.Feature.UI.Tests
                 group.Bind(slotZeroActive, styleProfile);
                 Assert.That(GetFieldValue<object>(badge, "_transitionSequence"), Is.Null);
 
-                group.Bind(new SurfaceBeltButtonRemainderViewModel(1, 0, 1), styleProfile);
+                group.Bind(new SurfaceBeltButtonRemainderViewModel(1, 1, 0), styleProfile);
                 var confirmation = GetFieldValue<object>(badge, "_transitionSequence");
                 Assert.That(confirmation, Is.Not.Null);
 
@@ -202,10 +213,10 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void BadgeContracts_DoNotRetainCountOrMoonSpecificBindings()
+        public void BadgeContracts_KeepSeparateBadgesWithoutNumericLabels()
         {
             Assert.That(GetPrivateField<SurfaceBeltButtonBadgeView>("_countText"), Is.Null);
-            Assert.That(GetPrivateField<SurfaceBeltButtonBadgeGroupView>("_moonBlockOnlyBadge"), Is.Null);
+            Assert.That(GetPrivateField<SurfaceBeltButtonBadgeGroupView>("_moonBadge"), Is.Not.Null);
             Assert.That(typeof(ButtonBadgeVisualStateStyle).GetProperty("TextColor"), Is.Null);
         }
 
@@ -245,6 +256,9 @@ namespace Game.Feature.UI.Tests
 
             var group = groupObject.GetComponent<SurfaceBeltButtonBadgeGroupView>();
             SetField(group, "_normalBadge", badge);
+            var moonBadge = Object.Instantiate(badge, groupObject.transform);
+            moonBadge.name = "MoonBadge";
+            SetField(group, "_moonBadge", moonBadge);
             return group;
         }
 

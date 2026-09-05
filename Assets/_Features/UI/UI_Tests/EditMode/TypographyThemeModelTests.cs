@@ -16,8 +16,8 @@ namespace Game.Feature.UI.Tests
     {
         private const string LiberationSansFontAssetPath =
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
-        private const string ClimateCrisisKrFontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        private const string KboDiaGothicMediumFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
         private const string UiApplicationRuntimePath = "Assets/_Features/UI/UI_Application/Runtime";
         private const string UiViewSharedRuntimePath = "Assets/_Features/UI/UI_ViewShared/Runtime";
         private const string UnityStringTableTextResolverPath =
@@ -409,7 +409,7 @@ namespace Game.Feature.UI.Tests
 
         private static TMP_FontAsset LoadKoreanFont()
         {
-            return LoadFont(ClimateCrisisKrFontAssetPath);
+            return LoadFont(KboDiaGothicMediumFontAssetPath);
         }
 
         private static TMP_FontAsset LoadFont(string assetPath)

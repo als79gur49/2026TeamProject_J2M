@@ -190,6 +190,19 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [TestCase("CI / BI use is permitted.")]
+        [TestCase("KBO has approved TextMesh Pro SDF distribution.")]
+        [TestCase("TextMesh Pro SDF distribution is explicitly approved.")]
+        [TestCase("TextMesh Pro SDF distribution is permitted by KBO.")]
+        public void PublicNoticeContract_RejectsContradictoryKboClaims(string forbiddenClaim)
+        {
+            Assert.That(
+                WindowsDistributionTargetPolicy.HasValidThirdPartyNoticeContent(
+                    ValidThirdPartyNotices + "\n" + forbiddenClaim),
+                Is.False,
+                forbiddenClaim);
+        }
+
         [Test]
         public void PublicNoticeContract_RejectsObsoleteUnityCompanionLicenseUrl()
         {

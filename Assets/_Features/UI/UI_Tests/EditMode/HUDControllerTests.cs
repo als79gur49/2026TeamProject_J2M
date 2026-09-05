@@ -355,6 +355,70 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [TestCase(SurfaceBeltDirection.Forward)]
+        [TestCase(SurfaceBeltDirection.Backward)]
+        public void SurfaceBeltIndicator_PreservesAuthoredPositionDuringRefreshAndTransitions(
+            SurfaceBeltDirection direction)
+        {
+            var rootObject = new GameObject("SurfaceBeltIndicator_AuthoredPosition");
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var beltView = hudView.SurfaceBeltIndicatorView;
+                var content = beltView.BeltContent;
+                var authoredPosition = new Vector2(17.5f, 12.0f);
+                content.anchoredPosition = authoredPosition;
+                var presenter = new SurfaceBeltIndicatorPresenter();
+                beltView.Bind(presenter.ViewModel);
+                Assert.That(content.anchoredPosition, Is.EqualTo(authoredPosition));
+
+                LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+                var step = Mathf.Abs(
+                    ((RectTransform)beltView.Cells[4].transform).anchoredPosition.y -
+                    ((RectTransform)beltView.Cells[3].transform).anchoredPosition.y);
+                Assert.That(step, Is.GreaterThan(0.0f));
+                var easeField = typeof(SurfaceBeltIndicatorView)
+                    .GetField("_animationEase", BindingFlags.Instance | BindingFlags.NonPublic);
+                easeField.SetValue(beltView, Enum.Parse(easeField.FieldType, "Linear"));
+                SetPrivateField(beltView, "_animationDurationSeconds", 1.0f);
+
+                presenter.Apply(new SurfaceBeltSnapshot(0, 0, 1, direction, true, 1));
+                var moveField = typeof(SurfaceBeltIndicatorView)
+                    .GetField("_moveTween", BindingFlags.Instance | BindingFlags.NonPublic);
+                var move = moveField.GetValue(beltView);
+                var tweenExtensions = moveField.FieldType.Assembly.GetType("DG.Tweening.TweenExtensions");
+                Assert.That(tweenExtensions, Is.Not.Null);
+                var gotoMethod = tweenExtensions.GetMethod("Goto", new[] { moveField.FieldType, typeof(float), typeof(bool) });
+                var completeMethod = tweenExtensions.GetMethod("Complete", new[] { moveField.FieldType, typeof(bool) });
+                Assert.That(gotoMethod, Is.Not.Null);
+                Assert.That(completeMethod, Is.Not.Null);
+                Assert.That(move, Is.Not.Null);
+                gotoMethod.Invoke(null, new[] { move, (object)0.5f, false });
+                Assert.That(content.anchoredPosition.x, Is.EqualTo(authoredPosition.x));
+                Assert.That(content.anchoredPosition.y, Is.EqualTo(
+                    authoredPosition.y + (direction == SurfaceBeltDirection.Forward ? -step : step) * 0.5f)
+                    .Within(0.001f));
+
+                completeMethod.Invoke(null, new[] { move, (object)true });
+                Assert.That(content.anchoredPosition, Is.EqualTo(authoredPosition));
+                presenter.Apply(new SurfaceBeltSnapshot(1, 1, 1, SurfaceBeltDirection.None, false, 1));
+                Assert.That(content.anchoredPosition, Is.EqualTo(authoredPosition));
+
+                presenter.Apply(new SurfaceBeltSnapshot(1, 1, 2, direction, true, 2));
+                move = moveField.GetValue(beltView);
+                gotoMethod.Invoke(null, new[] { move, (object)0.5f, false });
+                presenter.Apply(new SurfaceBeltSnapshot(2, 2, 2, SurfaceBeltDirection.None, false, 2));
+                Assert.That(content.anchoredPosition, Is.EqualTo(authoredPosition),
+                    "An interrupted transition must restore the authored position.");
+                beltView.Bind(new SurfaceBeltViewModel());
+                Assert.That(content.anchoredPosition, Is.EqualTo(authoredPosition));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
         [Test]
         public void HUDPrefab_AuthorsChanceAndSurfaceBeltIndicatorModulesInPrefabHierarchy()
         {
@@ -408,8 +472,11 @@ namespace Game.Feature.UI.Tests
                 buttonBadgeStyleProfile.NormalButton.Active.BackgroundColor,
                 Is.Not.EqualTo(buttonBadgeStyleProfile.NormalButton.Inactive.BackgroundColor));
             Assert.That(
-                buttonBadgeStyleProfile.NormalButton.Active.BackgroundColor.a,
-                Is.GreaterThan(buttonBadgeStyleProfile.NormalButton.Inactive.BackgroundColor.a));
+                buttonBadgeStyleProfile.NormalButton.Inactive.BackgroundColor,
+                Is.EqualTo(new Color(0.5f, 0.5f, 0.5f, 1.0f)));
+            Assert.That(
+                buttonBadgeStyleProfile.MoonButton.Inactive.BackgroundColor,
+                Is.EqualTo(new Color(0.5f, 0.5f, 0.5f, 1.0f)));
             Assert.DoesNotThrow(() => serializedSurfaceBeltIndicator.ValidateAuthoredStructureOrThrow());
 
             var badgeGroups = serializedSurfaceBeltIndicator.GetComponentsInChildren<SurfaceBeltButtonBadgeGroupView>(true);
@@ -444,6 +511,7 @@ namespace Game.Feature.UI.Tests
 
             var authoredBadgeGroup = badgeGroups[0];
             AssertSerializedReferenceIsAssigned(authoredBadgeGroup, "_normalBadge");
+            AssertSerializedReferenceIsAssigned(authoredBadgeGroup, "_moonBadge");
             Assert.DoesNotThrow(() => authoredBadgeGroup.ValidateAuthoredStructureOrThrow());
             AssertOwnedBy(authoredBadgeGroup.transform, serializedSurfaceBeltIndicator.BeltContent);
             var badgeGroupLayout = authoredBadgeGroup.GetComponent<LayoutElement>();
@@ -452,7 +520,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(badgeGroupLayout.preferredHeight, Is.GreaterThanOrEqualTo(32.0f));
 
             var badgeViews = authoredBadgeGroup.GetComponentsInChildren<SurfaceBeltButtonBadgeView>(true);
-            Assert.That(badgeViews.Length, Is.EqualTo(1));
+            Assert.That(badgeViews.Length, Is.EqualTo(2));
+            Assert.That(authoredBadgeGroup.MoonBadge.name, Is.EqualTo("MoonBadge"));
+            Assert.That(authoredBadgeGroup.MoonBadge, Is.Not.SameAs(authoredBadgeGroup.NormalBadge));
             Assert.That(badgeViews[0].name, Is.EqualTo("NormalBadge"));
             AssertSerializedReferenceIsAssigned(badgeViews[0], "_frame");
             AssertSerializedReferenceIsAssigned(badgeViews[0], "_background");
@@ -462,7 +532,7 @@ namespace Game.Feature.UI.Tests
             var authoredFill = GetSerializedReference<Image>(badgeViews[0], "_background");
             var authoredMotionRoot = GetSerializedReference<RectTransform>(badgeViews[0], "_motionRoot");
             var shineMaterial = GetSerializedReference<Material>(badgeViews[0], "_shineMaterialTemplate");
-            Assert.That(authoredFrame.color, Is.EqualTo(buttonBadgeStyleProfile.NormalButton.Active.BackgroundColor));
+            Assert.That(authoredFrame.color.g, Is.GreaterThan(authoredFrame.color.r));
             Assert.That(authoredFill.color, Is.EqualTo(buttonBadgeStyleProfile.NormalButton.Active.BackgroundColor));
             Assert.That(authoredMotionRoot, Is.SameAs(authoredFrame.rectTransform));
             Assert.That(shineMaterial.shader.name, Is.EqualTo(AllIn1UiMaskShaderName));

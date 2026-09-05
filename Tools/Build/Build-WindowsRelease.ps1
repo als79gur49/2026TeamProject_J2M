@@ -136,11 +136,30 @@ $script:RequiredThirdPartyNoticeFragments = @(
     "with Reserved Font Name 'Exo'",
     "Saira Condensed`n`nStyle included in the current build: SemiBold",
     'reserved font name "Saira".',
-    "Climate Crisis KR`n`nStyles included: 2000, 2019",
-    'Copyright 2022, NohType with Reserved Font Name "Climate Crisis"',
+    "KBO Dia Gothic`n---------------`n`nStyles included: Light, Medium",
+    "Copyright and intellectual property owner: Korea Baseball Organization (KBO)",
+    "Commercial use and software embedding are permitted within the official scope.",
+    "CI / BI use is not permitted.",
+    "The font itself may not be sold. The supplied distribution form must be kept;",
+    "do not edit the TTF files or redistribute a modified or adapted font.",
+    "official terms also restrict illegal sites, false or exaggerated advertising,",
+    "printed materials and advertising materials (including online advertising)",
+    "made with the font for KBO promotion, and the user may request otherwise.",
+    "The official KBO license does not`nexpressly address TextMesh Pro SDF assets.",
+    "KBO/KBOP`nconfirmation remains a release review item.",
+    "No explicit end-credit or license-file bundling requirement was identified in",
+    "https://www.koreabaseball.com/Reference/etc/KboFont.aspx",
+    "Official KBO Dia Gothic License Guide Ver.2 (PDF):",
+    "kbop@koreabaseball.or.kr",
     "Liberation Sans`n`nDigitized data copyright (c) 2010 Google Corporation",
     "Copyright (c) 2012 Red Hat, Inc.",
     "with Reserved Font Name Liberation."
+)
+$script:ForbiddenThirdPartyNoticeFragments = @(
+    "CI / BI use is permitted.",
+    "KBO has approved TextMesh Pro SDF",
+    "TextMesh Pro SDF distribution is explicitly approved",
+    "TextMesh Pro SDF distribution is permitted by KBO"
 )
 $script:ThirdPartyNoticeBodyContracts = @(
     [pscustomobject]@{
@@ -944,6 +963,11 @@ function Assert-ThirdPartyNoticeContent {
     foreach ($fragment in $script:RequiredThirdPartyNoticeFragments) {
         if ((Get-OrdinalOccurrenceCount -Content $content -Value $fragment) -ne 1) {
             throw "PUBLIC_NOTICE_REQUIRED_INVENTORY_INVALID: $fragment"
+        }
+    }
+    foreach ($fragment in $script:ForbiddenThirdPartyNoticeFragments) {
+        if ((Get-OrdinalOccurrenceCount -Content $content -Value $fragment) -ne 0) {
+            throw "PUBLIC_NOTICE_FORBIDDEN_CLAIM: $fragment"
         }
     }
     if ((Get-OrdinalOccurrenceCount -Content $content `

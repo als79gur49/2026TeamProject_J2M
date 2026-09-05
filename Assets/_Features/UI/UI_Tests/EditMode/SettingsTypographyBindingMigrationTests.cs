@@ -151,7 +151,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsTitle_KoreanThemeAppliesClimateCrisisKrWithoutChangingSizing()
+        public void SettingsTitle_KoreanThemeAppliesKboDiaGothicMediumWithoutChangingSizing()
         {
             var theme = LoadTheme();
             var prefab = UnityEngine.Object.Instantiate(LoadSettingsPrefab().gameObject);
@@ -170,7 +170,7 @@ namespace Game.Feature.UI.Tests
             {
                 Assert.That(LocalizedTmpTextApplicator.ApplyTypographyTheme(title, theme, "ko-KR"), Is.True);
 
-                Assert.That(title.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
+                Assert.That(title.font, Is.SameAs(UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont()));
                 Assert.That(title.fontSharedMaterial, Is.SameAs(koreanStyle.MaterialPreset));
                 Assert.That(title.fontStyle, Is.EqualTo(FontStyles.Normal));
                 Assert.That(title.fontSize, Is.EqualTo(originalFontSize));
@@ -231,7 +231,7 @@ namespace Game.Feature.UI.Tests
                 resolver.SetLocale("ko-KR");
 
                 Assert.That(label.text, Is.EqualTo("설정"));
-                Assert.That(label.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
+                Assert.That(label.font, Is.SameAs(UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont()));
 
                 resolver.SetLocale("en-US");
 

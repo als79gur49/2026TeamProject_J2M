@@ -1,9 +1,9 @@
 # Typography Visual QA Closeout
 
-> Historical evidence note: this closeout predates the completed Climate Crisis
-> KR migration. Nanum references below describe the captured revision and are
+> Historical evidence note: this closeout predates the completed KBO Dia Gothic
+> migration. Nanum and Climate references below describe captured revisions and are
 > not current asset-retention requirements; the canonical current state is
-> defined by `Climate-Crisis-KR-Typography-Migration-Closeout.md`.
+> defined by `KBO-Dia-Gothic-Typography-Migration-Closeout.md`.
 
 ## Scope
 

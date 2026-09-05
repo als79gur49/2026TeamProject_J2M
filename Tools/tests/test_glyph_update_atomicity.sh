@@ -20,7 +20,7 @@ if [ "${1:-}" = "--child" ]; then
         TEST_MONOTONIC_MS=$((TEST_MONOTONIC_MS + $1))
     }
     capture_guarded_paths() {
-        printf '%s\n' "Climate2000.asset" "Climate2019.asset"
+        printf '%s\n' "KBOMedium.asset" "KBOLight.asset"
     }
     visual_guard_iter_unity_process_records() {
         return 0
@@ -43,11 +43,11 @@ if [ "${1:-}" = "--child" ]; then
             visual_guard_mark_observation_complete "FAIL"
             visual_guard_finish "$command_status"
             ;;
-        after-climate-failure)
+        after-kbo-medium-failure)
             command_status=0
             if visual_guard_run_command bash -c \
-                'printf "climate-2000-mutated\n" > "$1"; exit 41' \
-                _ "$PROJECT_PATH_WSL/Climate2000.asset"; then
+                'printf "kbo-medium-mutated\n" > "$1"; exit 41' \
+                _ "$PROJECT_PATH_WSL/KBOMedium.asset"; then
                 command_status=0
             else
                 command_status=$?
@@ -62,23 +62,23 @@ if [ "${1:-}" = "--child" ]; then
                 signal_name="TERM"
             fi
             (
-                while [ "$(cat "$PROJECT_PATH_WSL/Climate2000.asset")" != "climate-2000-mutated" ]; do
+                while [ "$(cat "$PROJECT_PATH_WSL/KBOMedium.asset")" != "kbo-medium-mutated" ]; do
                     sleep 0.02
                 done
                 kill "-$signal_name" "$runner_pid"
             ) &
             visual_guard_run_command bash -c \
-                'printf "climate-2000-mutated\n" > "$1"; printf "climate-2019-mutated\n" > "$2"; exec sleep 300' \
+                'printf "kbo-medium-mutated\n" > "$1"; printf "kbo-light-mutated\n" > "$2"; exec sleep 300' \
                 _ \
-                "$PROJECT_PATH_WSL/Climate2000.asset" \
-                "$PROJECT_PATH_WSL/Climate2019.asset"
+                "$PROJECT_PATH_WSL/KBOMedium.asset" \
+                "$PROJECT_PATH_WSL/KBOLight.asset"
             ;;
         success)
             visual_guard_run_command bash -c \
-                'printf "climate-2000-updated\n" > "$1"; printf "climate-2019-updated\n" > "$2"' \
+                'printf "kbo-medium-updated\n" > "$1"; printf "kbo-light-updated\n" > "$2"' \
                 _ \
-                "$PROJECT_PATH_WSL/Climate2000.asset" \
-                "$PROJECT_PATH_WSL/Climate2019.asset"
+                "$PROJECT_PATH_WSL/KBOMedium.asset" \
+                "$PROJECT_PATH_WSL/KBOLight.asset"
             visual_guard_cleanup_process_once
             VISUAL_GUARD_RESTORE_ON_SUCCESS=0
             visual_guard_mark_observation_complete "PASS"
@@ -110,16 +110,16 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 run_scenario() {
     local scenario="$1"
     local expected_status="$2"
-    local expected_climate_2000="$3"
-    local expected_climate_2019="$4"
+    local expected_kbo_medium="$3"
+    local expected_kbo_light="$4"
     local scenario_root="$TEST_ROOT/$scenario"
     local status=0
 
     mkdir -p "$scenario_root/project" "$scenario_root/baseline"
-    printf 'climate-2000-baseline\n' > "$scenario_root/project/Climate2000.asset"
-    printf 'climate-2019-baseline\n' > "$scenario_root/project/Climate2019.asset"
-    cp "$scenario_root/project/Climate2000.asset" "$scenario_root/baseline/Climate2000.asset"
-    cp "$scenario_root/project/Climate2019.asset" "$scenario_root/baseline/Climate2019.asset"
+    printf 'kbo-medium-baseline\n' > "$scenario_root/project/KBOMedium.asset"
+    printf 'kbo-light-baseline\n' > "$scenario_root/project/KBOLight.asset"
+    cp "$scenario_root/project/KBOMedium.asset" "$scenario_root/baseline/KBOMedium.asset"
+    cp "$scenario_root/project/KBOLight.asset" "$scenario_root/baseline/KBOLight.asset"
 
     if bash "$0" --child "$scenario" "$scenario_root"; then
         status=0
@@ -128,17 +128,17 @@ run_scenario() {
     fi
 
     assert_equal "$expected_status" "$status" "$scenario exit status"
-    assert_equal "$expected_climate_2000" "$(cat "$scenario_root/project/Climate2000.asset")" "$scenario Climate 2000 state"
-    assert_equal "$expected_climate_2019" "$(cat "$scenario_root/project/Climate2019.asset")" "$scenario Climate 2019 state"
+    assert_equal "$expected_kbo_medium" "$(cat "$scenario_root/project/KBOMedium.asset")" "$scenario KBO Medium state"
+    assert_equal "$expected_kbo_light" "$(cat "$scenario_root/project/KBOLight.asset")" "$scenario KBO Light state"
     assert_equal "1" "$(sed -n 's/^cleanup_effective_count=//p' "$scenario_root/lifecycle.log")" "$scenario cleanup one-shot"
     assert_equal "1" "$(sed -n 's/^process_cleanup_effective_count=//p' "$scenario_root/lifecycle.log")" "$scenario process cleanup one-shot"
     assert_equal "0" "$(sed -n 's/^final_survivor_count=//p' "$scenario_root/lifecycle.log")" "$scenario survivor count"
 }
 
-run_scenario command-failure 37 climate-2000-baseline climate-2019-baseline
-run_scenario after-climate-failure 41 climate-2000-baseline climate-2019-baseline
-run_scenario int 130 climate-2000-baseline climate-2019-baseline
-run_scenario term 143 climate-2000-baseline climate-2019-baseline
-run_scenario success 0 climate-2000-updated climate-2019-updated
+run_scenario command-failure 37 kbo-medium-baseline kbo-light-baseline
+run_scenario after-kbo-medium-failure 41 kbo-medium-baseline kbo-light-baseline
+run_scenario int 130 kbo-medium-baseline kbo-light-baseline
+run_scenario term 143 kbo-medium-baseline kbo-light-baseline
+run_scenario success 0 kbo-medium-updated kbo-light-updated
 
 echo "glyph update atomicity fixtures passed"

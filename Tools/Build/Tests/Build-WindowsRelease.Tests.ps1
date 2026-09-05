@@ -1630,6 +1630,24 @@ try {
             Assert-True $threw "Missing inventory fragment was accepted: $fragment"
         }
     }
+    Invoke-Case "public notice rejects contradictory KBO claims" {
+        $validNotice = Get-ValidThirdPartyNoticeFixture
+        $noticePath = Join-Path $temp "contradictory-kbo-notice.txt"
+        foreach ($fragment in $script:ForbiddenThirdPartyNoticeFragments) {
+            [IO.File]::WriteAllText(
+                $noticePath,
+                "$validNotice`n$fragment",
+                [Text.UTF8Encoding]::new($false))
+            $threw = $false
+            try {
+                Assert-ThirdPartyNoticeContent -Path $noticePath
+            } catch {
+                $threw = $_.Exception.Message -like `
+                    "PUBLIC_NOTICE_FORBIDDEN_CLAIM:*"
+            }
+            Assert-True $threw "Contradictory KBO claim was accepted: $fragment"
+        }
+    }
     Invoke-Case "public notice rejects an obsolete Unity Companion license URL" {
         $validNotice = Get-ValidThirdPartyNoticeFixture
         $noticePath = Join-Path $temp "obsolete-companion-license-url.txt"

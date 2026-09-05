@@ -200,11 +200,32 @@ public static class WindowsDistributionTargetPolicy
             "with Reserved Font Name 'Exo'",
             "Saira Condensed\n\nStyle included in the current build: SemiBold",
             "reserved font name \"Saira\".",
-            "Climate Crisis KR\n\nStyles included: 2000, 2019",
-            "Copyright 2022, NohType with Reserved Font Name \"Climate Crisis\"",
+            "KBO Dia Gothic\n---------------\n\nStyles included: Light, Medium",
+            "Copyright and intellectual property owner: Korea Baseball Organization (KBO)",
+            "Commercial use and software embedding are permitted within the official scope.",
+            "CI / BI use is not permitted.",
+            "The font itself may not be sold. The supplied distribution form must be kept;",
+            "do not edit the TTF files or redistribute a modified or adapted font.",
+            "official terms also restrict illegal sites, false or exaggerated advertising,",
+            "printed materials and advertising materials (including online advertising)",
+            "made with the font for KBO promotion, and the user may request otherwise.",
+            "The official KBO license does not\nexpressly address TextMesh Pro SDF assets.",
+            "KBO/KBOP\nconfirmation remains a release review item.",
+            "No explicit end-credit or license-file bundling requirement was identified in",
+            "https://www.koreabaseball.com/Reference/etc/KboFont.aspx",
+            "Official KBO Dia Gothic License Guide Ver.2 (PDF):",
+            "kbop@koreabaseball.or.kr",
             "Liberation Sans\n\nDigitized data copyright (c) 2010 Google Corporation",
             "Copyright (c) 2012 Red Hat, Inc.",
             "with Reserved Font Name Liberation.",
+        });
+    public static readonly IReadOnlyList<string> ThirdPartyNoticeForbiddenFragments =
+        Array.AsReadOnly(new[]
+        {
+            "CI / BI use is permitted.",
+            "KBO has approved TextMesh Pro SDF",
+            "TextMesh Pro SDF distribution is explicitly approved",
+            "TextMesh Pro SDF distribution is permitted by KBO",
         });
 
     private static readonly ThirdPartyNoticeBodyContract[] ThirdPartyNoticeBodyContracts =
@@ -454,6 +475,11 @@ public static class WindowsDistributionTargetPolicy
 
         if (ThirdPartyNoticeRequiredFragments.Any(
                 fragment => CountOrdinalOccurrences(normalized, fragment) != 1))
+        {
+            return false;
+        }
+        if (ThirdPartyNoticeForbiddenFragments.Any(
+                fragment => CountOrdinalOccurrences(normalized, fragment) != 0))
         {
             return false;
         }

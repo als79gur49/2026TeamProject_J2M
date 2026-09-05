@@ -55,7 +55,8 @@ namespace Game.Feature.UI.Application
             {
                 stages[i] = new PauseProgressionStageSnapshot(
                     entries[i].StageId.Value,
-                    entries[i].LevelGroupId);
+                    entries[i].LevelGroupId,
+                    StageDisplayNameTextDescriptors.ForStage(entries[i].StageId));
             }
 
             snapshot = new PauseProgressionSnapshot(

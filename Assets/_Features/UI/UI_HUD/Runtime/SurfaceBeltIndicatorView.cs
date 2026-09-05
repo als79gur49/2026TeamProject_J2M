@@ -42,6 +42,8 @@ namespace Game.Feature.UI.HUD
         private Image _centerArrowImage;
         private Material _centerArrowOriginalMaterial;
         private Material _centerArrowMaterialInstance;
+        private Vector2 _beltContentBaseAnchoredPosition;
+        private bool _hasBeltContentBaseAnchoredPosition;
         private Vector2 _centerArrowBaseAnchoredPosition;
         private bool _hasCenterArrowBaseAnchoredPosition;
         private int _lastAnimatedSequenceId;
@@ -196,9 +198,10 @@ namespace Game.Feature.UI.HUD
 
             var destinationSlotIndex = viewModel.DestinationSlotIndex;
             var authoredCellStepHeight = GetAuthoredCellStepHeight();
-            var targetY = viewModel.Direction == SurfaceBeltDirection.Forward
+            var offsetY = viewModel.Direction == SurfaceBeltDirection.Forward
                 ? -authoredCellStepHeight
                 : authoredCellStepHeight;
+            var targetY = _beltContentBaseAnchoredPosition.y + offsetY;
 
             PlayCenterArrowFeedback(viewModel.Direction);
             PlayCenterArrowShine(viewModel.Direction);
@@ -331,7 +334,13 @@ namespace Game.Feature.UI.HUD
         {
             if (_beltContent != null)
             {
-                _beltContent.anchoredPosition = Vector2.zero;
+                if (!_hasBeltContentBaseAnchoredPosition)
+                {
+                    _beltContentBaseAnchoredPosition = _beltContent.anchoredPosition;
+                    _hasBeltContentBaseAnchoredPosition = true;
+                }
+
+                _beltContent.anchoredPosition = _beltContentBaseAnchoredPosition;
             }
         }
 

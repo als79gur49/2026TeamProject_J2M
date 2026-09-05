@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 5360535d0de75234ca21822297323672
+guid: 56e1f07e315e49a4a8e5043a11e04e29
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - Climate Crisis KR
+  - KBO Dia Gothic
   fallbackFontReferences: []
   customCharacters:
   fontRenderingMode: 0

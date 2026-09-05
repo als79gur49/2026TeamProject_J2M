@@ -10,10 +10,19 @@ namespace Game.Feature.UI.Popups
 {
     public sealed class PausePopupView : MonoBehaviour, IPopupView, IUiNavigationTarget
     {
+        private enum PauseNavigationRegion
+        {
+            Progression = 0,
+            Commands = 1,
+        }
+
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
+        [SerializeField] private RectTransform _enterMotionRoot;
+        [SerializeField] private CanvasGroup _enterCanvasGroup;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private PauseProgressionStripView _progressionView;
+        [SerializeField] private PauseStagePreviewOverlayView _previewOverlay;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private TMP_Text _resumeButtonLabel;
         [SerializeField] private Button _settingsButton;
@@ -34,12 +43,18 @@ namespace Game.Feature.UI.Popups
         private bool _hasExternalStaticLocalization;
         private float _rootRestAlpha = 1f;
         private Vector3 _rootRestScale = Vector3.one;
+        private PauseNavigationRegion _navigationRegion = PauseNavigationRegion.Progression;
 
         public event Action<PopupCompletionKind> CompletionRequested;
+
+        public event Action<LocalizedTextDescriptor> SelectedStageDescriptorChanged;
 
         public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
 
         public string TitleText => _titleLabel != null ? _titleLabel.text : _viewModel != null ? _viewModel.TitleText : string.Empty;
+
+        public LocalizedTextDescriptor CurrentSelectedStageDescriptor =>
+            _progressionView != null ? _progressionView.SelectedStageDescriptor : default;
 
         public bool IsVisible
         {
@@ -105,6 +120,15 @@ namespace Game.Feature.UI.Popups
             };
         }
 
+        public IReadOnlyList<TMP_Text> CreateStageNameLocalizationTargets()
+        {
+            return new TMP_Text[]
+            {
+                _progressionView != null ? _progressionView.StageNameLabel : null,
+                _previewOverlay != null ? _previewOverlay.StageNameLabel : null,
+            };
+        }
+
         public void BindExternalStaticLocalization()
         {
             DisposeLocalizedStaticBindings();
@@ -125,6 +149,8 @@ namespace Game.Feature.UI.Popups
             RebindButton(_settingsButton, ClickSettings);
             RebindButton(_retryButton, ClickRetry);
             RebindButton(_mainMenuButton, ClickMainMenu);
+            BindProgressionEvents();
+            BindPreviewEvents();
 
             RefreshView();
         }
@@ -136,6 +162,7 @@ namespace Game.Feature.UI.Popups
             UnbindButton(_settingsButton, ClickSettings);
             UnbindButton(_retryButton, ClickRetry);
             UnbindButton(_mainMenuButton, ClickMainMenu);
+            _previewOverlay?.ResetClosed();
         }
 
         public void SetIsTopmost(bool isTopmost)
@@ -151,7 +178,7 @@ namespace Game.Feature.UI.Popups
 
         public void ClickResume()
         {
-            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            if (!CanActivateCommands())
             {
                 return;
             }
@@ -161,7 +188,7 @@ namespace Game.Feature.UI.Popups
 
         public void ClickSettings()
         {
-            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            if (!CanActivateCommands())
             {
                 return;
             }
@@ -171,7 +198,7 @@ namespace Game.Feature.UI.Popups
 
         public void ClickRetry()
         {
-            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            if (!CanActivateCommands())
             {
                 return;
             }
@@ -181,7 +208,7 @@ namespace Game.Feature.UI.Popups
 
         public void ClickMainMenu()
         {
-            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            if (!CanActivateCommands())
             {
                 return;
             }
@@ -196,9 +223,41 @@ namespace Game.Feature.UI.Popups
                 return false;
             }
 
+            if (_previewOverlay != null && _previewOverlay.IsOpen)
+            {
+                return false;
+            }
+
+            if (_navigationRegion == PauseNavigationRegion.Progression)
+            {
+                switch (command)
+                {
+                    case UiNavigationCommand.Left:
+                        return _progressionView != null && _progressionView.TryMoveSelectedIndex(-1);
+
+                    case UiNavigationCommand.Right:
+                        return _progressionView != null && _progressionView.TryMoveSelectedIndex(1);
+
+                    case UiNavigationCommand.Down:
+                        SetCommandNavigationFocus(0);
+                        return true;
+
+                    default:
+                        return false;
+                }
+            }
+
             switch (command)
             {
                 case UiNavigationCommand.Up:
+                    if (_navigationGroup.SelectedIndex == 0 &&
+                        _progressionView != null &&
+                        _progressionView.HasSelection)
+                    {
+                        SetProgressionNavigationFocus();
+                        return true;
+                    }
+
                     return _navigationGroup.TryMove(-1);
 
                 case UiNavigationCommand.Down:
@@ -214,6 +273,17 @@ namespace Game.Feature.UI.Popups
             if (!CanHandleUiNavigation)
             {
                 return false;
+            }
+
+            if (_previewOverlay != null && _previewOverlay.IsOpen)
+            {
+                CloseStagePreview();
+                return true;
+            }
+
+            if (_navigationRegion == PauseNavigationRegion.Progression)
+            {
+                return _progressionView != null && _progressionView.TryOpenSelectedPreview();
             }
 
             var selected = _navigationGroup != null ? _navigationGroup.GetSelectedButton() : null;
@@ -248,12 +318,30 @@ namespace Game.Feature.UI.Popups
 
         public bool HandleCancel()
         {
-            return false;
+            if (_previewOverlay == null || !_previewOverlay.IsOpen)
+            {
+                return false;
+            }
+
+            CloseStagePreview();
+            return true;
         }
 
         public void OnNavigationFocusGained()
         {
-            _navigationGroup?.SetSelectedIndex(0);
+            if (_previewOverlay != null && _previewOverlay.IsOpen)
+            {
+                _navigationGroup?.HideAllFrames();
+                return;
+            }
+
+            if (_progressionView != null && _progressionView.HasSelection)
+            {
+                SetProgressionNavigationFocus();
+                return;
+            }
+
+            SetCommandNavigationFocus(0);
         }
 
         public void OnNavigationFocusLost()
@@ -274,6 +362,8 @@ namespace Game.Feature.UI.Popups
             UnbindButton(_settingsButton, ClickSettings);
             UnbindButton(_retryButton, ClickRetry);
             UnbindButton(_mainMenuButton, ClickMainMenu);
+            UnbindProgressionEvents();
+            UnbindPreviewEvents();
         }
 
         private void HandleViewModelChanged()
@@ -284,10 +374,13 @@ namespace Game.Feature.UI.Popups
         private void RefreshView()
         {
             ApplyRootVisibility();
+            BindProgressionEvents();
+            BindPreviewEvents();
 
             if (_viewModel == null)
             {
                 _progressionView?.Bind(null);
+                _previewOverlay?.ResetClosed();
                 return;
             }
 
@@ -295,6 +388,10 @@ namespace Game.Feature.UI.Popups
                 IsVisible
                     ? _viewModel.Progression
                     : PauseProgressionViewModel.Hidden);
+            if (!IsVisible)
+            {
+                _previewOverlay?.ResetClosed();
+            }
 
             if (HasStaticLocalization)
             {
@@ -361,12 +458,12 @@ namespace Game.Feature.UI.Popups
         {
             PopupEnterTweenUtility.Kill(ref _enterTween);
             _enterTween = PopupEnterTweenUtility.PlayModalEnter(
-                _canvasGroup,
-                _root != null ? _root.transform : null,
+                _enterCanvasGroup,
+                _enterMotionRoot,
                 out _rootRestAlpha,
                 out _rootRestScale);
-            _hasRootRestAlpha = _canvasGroup != null;
-            _hasRootRestScale = _root != null;
+            _hasRootRestAlpha = _enterCanvasGroup != null;
+            _hasRootRestScale = _enterMotionRoot != null;
         }
 
         private void StopRootEnterMotion()
@@ -374,12 +471,12 @@ namespace Game.Feature.UI.Popups
             PopupEnterTweenUtility.Kill(ref _enterTween);
             if (_hasRootRestAlpha)
             {
-                PopupEnterTweenUtility.RestoreAlpha(_canvasGroup, _rootRestAlpha);
+                PopupEnterTweenUtility.RestoreAlpha(_enterCanvasGroup, _rootRestAlpha);
             }
 
             if (_hasRootRestScale)
             {
-                PopupEnterTweenUtility.RestoreScale(_root != null ? _root.transform : null, _rootRestScale);
+                PopupEnterTweenUtility.RestoreScale(_enterMotionRoot, _rootRestScale);
             }
         }
 
@@ -402,6 +499,113 @@ namespace Game.Feature.UI.Popups
             }
 
             button.onClick.RemoveListener(action);
+        }
+
+        private void BindProgressionEvents()
+        {
+            if (_progressionView == null)
+            {
+                return;
+            }
+
+            _progressionView.ProgressionInteracted -= HandleProgressionInteracted;
+            _progressionView.ProgressionInteracted += HandleProgressionInteracted;
+            _progressionView.PreviewRequested -= HandleStagePreviewRequested;
+            _progressionView.PreviewRequested += HandleStagePreviewRequested;
+            _progressionView.SelectedStageDescriptorChanged -= HandleSelectedStageDescriptorChanged;
+            _progressionView.SelectedStageDescriptorChanged += HandleSelectedStageDescriptorChanged;
+        }
+
+        private void UnbindProgressionEvents()
+        {
+            if (_progressionView == null)
+            {
+                return;
+            }
+
+            _progressionView.ProgressionInteracted -= HandleProgressionInteracted;
+            _progressionView.PreviewRequested -= HandleStagePreviewRequested;
+            _progressionView.SelectedStageDescriptorChanged -= HandleSelectedStageDescriptorChanged;
+        }
+
+        private void BindPreviewEvents()
+        {
+            if (_previewOverlay == null)
+            {
+                return;
+            }
+
+            _previewOverlay.CloseRequested -= CloseStagePreview;
+            _previewOverlay.CloseRequested += CloseStagePreview;
+            _previewOverlay.Closed -= HandleStagePreviewClosed;
+            _previewOverlay.Closed += HandleStagePreviewClosed;
+        }
+
+        private void UnbindPreviewEvents()
+        {
+            if (_previewOverlay != null)
+            {
+                _previewOverlay.CloseRequested -= CloseStagePreview;
+                _previewOverlay.Closed -= HandleStagePreviewClosed;
+            }
+        }
+
+        private void HandleProgressionInteracted()
+        {
+            _navigationRegion = PauseNavigationRegion.Progression;
+            _navigationGroup?.HideAllFrames();
+        }
+
+        private void HandleSelectedStageDescriptorChanged(LocalizedTextDescriptor descriptor)
+        {
+            SelectedStageDescriptorChanged?.Invoke(descriptor);
+        }
+
+        private void HandleStagePreviewRequested(PauseStagePreviewSelection selection)
+        {
+            if (!CanHandleUiNavigation || _previewOverlay == null || _previewOverlay.IsOpen)
+            {
+                return;
+            }
+
+            _previewOverlay.Open(selection);
+        }
+
+        private void CloseStagePreview()
+        {
+            if (_previewOverlay == null || !_previewOverlay.IsOpen)
+            {
+                return;
+            }
+
+            _previewOverlay.Close();
+        }
+
+        private void HandleStagePreviewClosed()
+        {
+            _navigationRegion = PauseNavigationRegion.Progression;
+            _navigationGroup?.HideAllFrames();
+        }
+
+        private void SetProgressionNavigationFocus()
+        {
+            _navigationRegion = PauseNavigationRegion.Progression;
+            _navigationGroup?.HideAllFrames();
+        }
+
+        private void SetCommandNavigationFocus(int index)
+        {
+            _navigationRegion = PauseNavigationRegion.Commands;
+            _navigationGroup?.SetSelectedIndex(index);
+        }
+
+        private bool CanActivateCommands()
+        {
+            return IsVisible &&
+                   _viewModel != null &&
+                   _canvasGroup != null &&
+                   _canvasGroup.interactable &&
+                   (_previewOverlay == null || !_previewOverlay.IsOpen);
         }
 
         private bool HasStaticLocalization =>

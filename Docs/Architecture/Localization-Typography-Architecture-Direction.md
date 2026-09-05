@@ -6,33 +6,38 @@ Localization is implemented to a substantial production baseline. The current pr
 
 Typography foundation and production wiring are implemented for Settings, Pause, Main Menu, and the StageResult/LevelFailed/GameClear terminal result family.
 
-The implemented typography baseline includes `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, `TypographyStyleTag`, `FontCategory`, `GameplayUiTypographyTheme`, `LocaleFontSet`, the resolved style cache, `TypographyBinding`, explicit `TypographyLocaleParticipation`, Settings typography migration, Pause / Main Menu typography migration, Editor validation / preview tooling, screenshot capture tooling, and managed Korean glyph coverage in both `ClimateCrisisKR-2000 SDF` and `ClimateCrisisKR-2019 SDF`.
+The implemented typography baseline includes `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, `TypographyStyleTag`, `FontCategory`, `GameplayUiTypographyTheme`, `LocaleFontSet`, the resolved style cache, `TypographyBinding`, explicit `TypographyLocaleParticipation`, Settings typography migration, Pause / Main Menu typography migration, Editor validation / preview tooling, screenshot capture tooling, and managed Korean glyph coverage in both `KBODiaGothic-Medium SDF` and `KBODiaGothic-Light SDF`.
 
 Typography is not globally applied to every future UI surface. The current production wiring is scoped to established governed surfaces and the terminal result family. Save slot/inventory/audio/voice localization remains outside this migration.
 
-### 2026-07-26 Climate PR2 current-state override
+### 2026-09-05 KBO Dia Gothic current-state override
 
-[Climate-Crisis-KR-Typography-Migration-Closeout.md](./Climate-Crisis-KR-Typography-Migration-Closeout.md)
+[KBO-Dia-Gothic-Typography-Migration-Closeout.md](./KBO-Dia-Gothic-Typography-Migration-Closeout.md)
 is the current truth for the migrated ko-KR typography surfaces. Earlier
 Nanum-based mappings and synthetic-bold polish notes below are retained as
 historical baseline/decision sequence, not current runtime mapping.
 
-- The Korean hierarchy uses Climate 2000 for Display/UI/Utility (10 roles) and
-  Climate 2019 for Heading/Body (9 roles), with Normal style in ko-KR.
+- The Korean hierarchy uses KBO Dia Gothic Medium for Display/UI/Utility (10
+  roles) and Light for Heading/Body (9 roles), with Normal style in ko-KR.
 - Sizing policy is `PRESERVE_AUTHORED_SIZE`; locale rules do not own size,
   Auto Size, min/max, or spacing.
 - SettingsStatus remains `14 / Auto / 10-14`, height `28`, and may render two
   lines without clipping.
 - Pause title width is `160` with visual center preserved; Settings audio value
   effective width is `140`.
-- Retired Nanum assets and preservation-only automation were removed after the
-  Climate migration completed; no current role depends on them.
-- Managed ko-KR String Tables require 127/127 native Climate glyphs and zero
-  fallback dependency.
-- Climate committed source identity is a pre-Unity `HEAD` Git-blob contract.
+- Retired Nanum and Climate Crisis KR assets are not current runtime dependencies.
+- Managed ko-KR String Tables require native KBO Dia Gothic glyphs and zero
+  fallback dependency in both faces.
+- KBO Dia Gothic committed source identity is a pre-Unity `HEAD` Git-blob contract.
   Unity-loaded font/material/glyph/fallback/render behavior is a separate
   runtime contract; the known `71ae…` working-file shape is importer-derived
   diagnostic state and is never a production source canonical.
+- KBO Dia Gothic is for ordinary UI/information text, not representative CI/BI
+  use such as the `VectorQuake` product name, `J2M` developer identity, logos,
+  slogans, or catchphrases. General commercial use and original-font embedding
+  are reviewed as permitted, while distributed TMP SDF treatment remains a
+  documented KBOP confirmation item. The linked closeout owns the full license
+  boundary and inquiry text.
 
 Current baseline captured for this cleanup pass:
 
@@ -112,13 +117,13 @@ Current baseline captured for this cleanup pass:
 | `TypographyBinding` | Done | Prefabs/views carry style tag, sizing-source override, and optional apply-mask override without owning text keys. |
 | Locale participation | Done | `LocaleThemed` is the serialized default. The 10 Settings binding-display TMP targets are explicitly `LocaleInvariant`, a successful no-op before theme resolution or required apply-mask merging in runtime and Editor preview. |
 | Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
-| Pause / Main Menu typography migration | Done | Pause Heading roles resolve to Climate 2019. Main Menu Start/Settings/Quit use `MainMenuCommand`; en-US preserves authored Orbitron, ko-KR Display remains Climate 2000, and generic en-US `Button` remains SciFiSoldier. |
-| Gameplay Stage Name typography | Done | The in-game Stage Name is theme-owned in both locales through `HeaderLarge`: en-US resolves Orbitron ExtraBold with the theme style and ko-KR resolves Climate Crisis KR 2000, while authored auto-size and layout remain preserved. The target adds TMP `UpperCase` presentation without mutating localized source strings. The shared World Guide and transition-label default-locale restoration policy is unchanged. |
+| Pause / Main Menu typography migration | Done | Pause Heading roles resolve to KBO Dia Gothic Light. Main Menu Start/Settings/Quit use `MainMenuCommand`; en-US preserves authored Orbitron, ko-KR Display uses KBO Dia Gothic Medium, and generic en-US `Button` remains SciFiSoldier. |
+| Gameplay Stage Name typography | Done | The in-game Stage Name is theme-owned in both locales through `HeaderLarge`: en-US resolves Orbitron ExtraBold with the theme style and ko-KR resolves KBO Dia Gothic Medium, while authored auto-size and layout remain preserved. The target adds TMP `UpperCase` presentation without mutating localized source strings. The shared World Guide and transition-label default-locale restoration policy is unchanged. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. Locale-invariant bindings still receive structural enum validation, null-theme preview classifies invariant skips before theme resolution, and nested Scene selections are normalized per preview call. |
-| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, guarded Climate asset restoration, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
-| Climate glyph coverage | Done | Managed ko-KR tables resolve natively in both `ClimateCrisisKR-2000 SDF` and `ClimateCrisisKR-2019 SDF` with fallback dependency 0. |
+| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, guarded KBO Dia Gothic asset restoration, and PNG hashes. It also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
+| KBO glyph coverage | Done | Managed ko-KR tables resolve natively in both `KBODiaGothic-Medium SDF` and `KBODiaGothic-Light SDF` with fallback dependency 0. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
-| Pause progression strip | Done | The pause popup uses authored marker templates as a conventional horizontal stepper: group starts are larger diamond nodes, previous/current/upcoming stages have distinct states, and the current stage keeps a dedicated ring. The strip is informational and automatically frames the current stage; horizontal input remains owned by command navigation rather than creating a second cursor. |
+| Pause progression strip | Done | The pause popup uses a clamped horizontal `ScrollRect` whose entries render only stage-preview images. Line, node background, group badge, state overlay, current frame, and progression selection frame are absent; the current stage only determines the initial selection. The selected image reserves twice the normal layout width so adjacent images move away without overlap. Left/Right or a first click changes selection, a second click or Submit opens a pause-local full-canvas preview, and Cancel closes that preview before the pause popup. Stage names resolve through the Stage localization descriptor, with production localization composition as the sole rendered-copy owner. Missing authored previews use the shared placeholder catalog entry. |
 
 ### Localization Blocker Closeout
 
@@ -393,7 +398,7 @@ Initial examples:
 | Settings value | `Value` |
 | Settings status | `Status` |
 | Pause title | `HeaderMedium` |
-| Pause progression strip | Non-text marker presentation; no typography role. |
+| Pause progression strip | Selected stage name uses authored `Label` typography in both the strip and full-canvas preview. |
 | Main Menu command button | `Button` |
 
 ## 6. Stage 2: Deferred High-Performance Architecture

@@ -147,37 +147,37 @@ OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="${OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT:-$CAPTURE_O
 OBJECTIVE_HUD_VISUAL_WIDTH=1920
 OBJECTIVE_HUD_VISUAL_HEIGHT=1080
 OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine"
-OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset"
+OBJECTIVE_HUD_VISUAL_KBO_LIGHT_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset"
 M1A_HUD_GUIDE_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/M1aHudGuideVisualQA"
 M1A_HUD_GUIDE_VISUAL_WIDTH=1920
 M1A_HUD_GUIDE_VISUAL_HEIGHT=1080
-CLIMATE_GLYPH_UPDATE_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.ClimateCrisisKrGlyphUpdateUtility.GenerateFromCommandLine"
-CLIMATE_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf"
-CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
-CLIMATE_SDF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
-CLIMATE_SDF_META="$CLIMATE_SDF_ASSET.meta"
-CLIMATE_COMMITTED_SDF_SHA256="6553494138a56f5d0caf4f828978202960db8a7a100b56f4d1e12a37bce2e67e"
-CLIMATE_SOURCE_TTF_SHA256="aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1"
-CLIMATE_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
-CLIMATE_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
-CLIMATE_MATERIAL_LOCAL_ID="1352911973252649374"
-CLIMATE_ATLAS_LOCAL_ID="-2536001923755311345"
-CLIMATE_2019_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019.ttf"
-CLIMATE_2019_SOURCE_TTF_META="$CLIMATE_2019_SOURCE_TTF_ASSET.meta"
-CLIMATE_2019_SDF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset"
-CLIMATE_2019_SDF_META="$CLIMATE_2019_SDF_ASSET.meta"
-CLIMATE_2019_COMMITTED_SDF_SHA256="51bce6f141239f6fa1fbea013763f003f3d6b0d55ea53c4c3c648828c904b677"
-CLIMATE_2019_SOURCE_TTF_SHA256="48e723743cd5c162ba5efb6f560f179e3dc7b56bacc5c72ffe6ac4be0c8660f3"
-CLIMATE_2019_SOURCE_TTF_GUID="56e1f07e315e49a4a8e5043a11e04e29"
-CLIMATE_2019_SDF_GUID="7dfd9aae81fc1d242b007a3b7a042fb0"
-CLIMATE_2019_MATERIAL_LOCAL_ID="7808543287137721147"
-CLIMATE_2019_ATLAS_LOCAL_ID="-5757234995057936259"
+KBO_GLYPH_UPDATE_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.KboDiaGothicGlyphUpdateUtility.GenerateFromCommandLine"
+KBO_MEDIUM_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Medium.ttf"
+KBO_MEDIUM_SOURCE_TTF_META="$KBO_MEDIUM_SOURCE_TTF_ASSET.meta"
+KBO_MEDIUM_SDF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset"
+KBO_MEDIUM_SDF_META="$KBO_MEDIUM_SDF_ASSET.meta"
+KBO_MEDIUM_COMMITTED_SDF_SHA256="d8c3627e6092754441da7b34a59a70efc31b4ec2c77b4e8a941bdf7a8d06d2b6"
+KBO_MEDIUM_SOURCE_TTF_SHA256="f88f06494fc4eb8fd06e15c1f6deacfa8d7855c9a4245d71962a90596ad41f02"
+KBO_MEDIUM_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
+KBO_MEDIUM_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
+KBO_MEDIUM_MATERIAL_LOCAL_ID="1352911973252649374"
+KBO_MEDIUM_ATLAS_LOCAL_ID="-2536001923755311345"
+KBO_LIGHT_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light.ttf"
+KBO_LIGHT_SOURCE_TTF_META="$KBO_LIGHT_SOURCE_TTF_ASSET.meta"
+KBO_LIGHT_SDF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset"
+KBO_LIGHT_SDF_META="$KBO_LIGHT_SDF_ASSET.meta"
+KBO_LIGHT_COMMITTED_SDF_SHA256="cecf8ab9f1c8ce914d12147123ff873d5e99255d376176ea39ad6ac1d677b0de"
+KBO_LIGHT_SOURCE_TTF_SHA256="607c0a894ea951489bd43f6a3ccc93adececbb46c425ccc5869f2327dbcfe747"
+KBO_LIGHT_SOURCE_TTF_GUID="56e1f07e315e49a4a8e5043a11e04e29"
+KBO_LIGHT_SDF_GUID="7dfd9aae81fc1d242b007a3b7a042fb0"
+KBO_LIGHT_MATERIAL_LOCAL_ID="7808543287137721147"
+KBO_LIGHT_ATLAS_LOCAL_ID="-5757234995057936259"
 GLYPH_STRING_TABLE_INPUT="Assets/Localization/StringTables/UI/UI Shared Data.asset"
 GLYPH_STRING_TABLE_INPUT_META="$GLYPH_STRING_TABLE_INPUT.meta"
 GLYPH_STRING_TABLE_INPUT_GUID="1139bb803b655c2488dd6dca46c97cf5"
-CLIMATE_GLYPH_UPDATE_LOG="$RESULT_DIR/wsl-climate-glyph-update.log"
-CLIMATE_GLYPH_UPDATE_EVIDENCE="$RESULT_DIR/wsl-climate-glyph-update-evidence.log"
-CLIMATE_GLYPH_UPDATE_LIFECYCLE="$RESULT_DIR/wsl-climate-glyph-update-cleanup.log"
+KBO_GLYPH_UPDATE_LOG="$RESULT_DIR/wsl-kbo-glyph-update.log"
+KBO_GLYPH_UPDATE_EVIDENCE="$RESULT_DIR/wsl-kbo-glyph-update-evidence.log"
+KBO_GLYPH_UPDATE_LIFECYCLE="$RESULT_DIR/wsl-kbo-glyph-update-cleanup.log"
 TERMINAL_RESULT_VISUAL_OUTPUT_ROOT="${TERMINAL_RESULT_VISUAL_OUTPUT_ROOT:-$CAPTURE_OUTPUT_ROOT/TerminalResultVisualQA}"
 TERMINAL_RESULT_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.TerminalResultVisualEvidenceUtility.CaptureFromCommandLine"
 TERMINAL_RESULT_VISUAL_WIDTH=1920
@@ -340,115 +340,136 @@ require_git_head_blob_text() {
     fi
 }
 
-verify_climate_committed_source_integrity() {
+verify_kbo_committed_source_integrity() {
     local committed_sdf_hash
     local committed_ttf_hash
-    local head_climate_sdf_sha256
-    local head_climate_ttf_sha256
-    local head_climate_ttf_guid
-    local head_climate_sdf_guid
-    local head_climate_material_local_id
-    local committed_2019_sdf_hash
-    local committed_2019_ttf_hash
-    local head_climate_2019_sdf_sha256
-    local head_climate_2019_ttf_sha256
-    local head_climate_2019_ttf_guid
-    local head_climate_2019_sdf_guid
-    local head_climate_2019_material_local_id
-    local head_climate_2019_atlas_local_id
+    local head_kbo_medium_sdf_sha256
+    local head_kbo_medium_ttf_sha256
+    local head_kbo_medium_ttf_guid
+    local head_kbo_medium_sdf_guid
+    local head_kbo_medium_material_local_id
+    local head_kbo_medium_atlas_local_id
+    local committed_light_sdf_hash
+    local committed_light_ttf_hash
+    local head_kbo_light_sdf_sha256
+    local head_kbo_light_ttf_sha256
+    local head_kbo_light_ttf_guid
+    local head_kbo_light_sdf_guid
+    local head_kbo_light_material_local_id
+    local head_kbo_light_atlas_local_id
 
-    head_climate_sdf_sha256="$(
-        git_head_runner_constant CLIMATE_COMMITTED_SDF_SHA256
+    if ! git cat-file -e "HEAD:$KBO_MEDIUM_SDF_ASSET" 2>/dev/null; then
+        echo "KBO Dia Gothic committed-source historical audit: skipped (migration assets are not committed yet)"
+        return 0
+    fi
+
+    head_kbo_medium_sdf_sha256="$(
+        git_head_runner_constant KBO_MEDIUM_COMMITTED_SDF_SHA256
     )"
-    head_climate_ttf_sha256="$(git_head_runner_constant CLIMATE_SOURCE_TTF_SHA256)"
-    head_climate_ttf_guid="$(git_head_runner_constant CLIMATE_SOURCE_TTF_GUID)"
-    head_climate_sdf_guid="$(git_head_runner_constant CLIMATE_SDF_GUID)"
-    head_climate_material_local_id="$(
-        git_head_runner_constant CLIMATE_MATERIAL_LOCAL_ID
+    head_kbo_medium_ttf_sha256="$(git_head_runner_constant KBO_MEDIUM_SOURCE_TTF_SHA256)"
+    head_kbo_medium_ttf_guid="$(git_head_runner_constant KBO_MEDIUM_SOURCE_TTF_GUID)"
+    head_kbo_medium_sdf_guid="$(git_head_runner_constant KBO_MEDIUM_SDF_GUID)"
+    head_kbo_medium_material_local_id="$(
+        git_head_runner_constant KBO_MEDIUM_MATERIAL_LOCAL_ID
+    )"
+    head_kbo_medium_atlas_local_id="$(
+        git_head_runner_constant KBO_MEDIUM_ATLAS_LOCAL_ID
     )"
 
-    committed_sdf_hash="$(git_head_blob_sha256 "$CLIMATE_SDF_ASSET")"
-    committed_ttf_hash="$(git_head_blob_sha256 "$CLIMATE_SOURCE_TTF_ASSET")"
-    if [ "$committed_sdf_hash" != "$head_climate_sdf_sha256" ]; then
-        echo "ERROR: Climate committed SDF Git blob mismatch."
-        echo "  expected: $head_climate_sdf_sha256"
+    committed_sdf_hash="$(git_head_blob_sha256 "$KBO_MEDIUM_SDF_ASSET")"
+    committed_ttf_hash="$(git_head_blob_sha256 "$KBO_MEDIUM_SOURCE_TTF_ASSET")"
+    if [ "$committed_sdf_hash" != "$head_kbo_medium_sdf_sha256" ]; then
+        echo "ERROR: KBO Dia Gothic committed SDF Git blob mismatch."
+        echo "  expected: $head_kbo_medium_sdf_sha256"
         echo "  actual:   $committed_sdf_hash"
         return 1
     fi
-    if [ "$committed_ttf_hash" != "$head_climate_ttf_sha256" ]; then
-        echo "ERROR: Climate committed source TTF Git blob mismatch."
-        echo "  expected: $head_climate_ttf_sha256"
+    if [ "$committed_ttf_hash" != "$head_kbo_medium_ttf_sha256" ]; then
+        echo "ERROR: KBO Dia Gothic committed source TTF Git blob mismatch."
+        echo "  expected: $head_kbo_medium_ttf_sha256"
         echo "  actual:   $committed_ttf_hash"
         return 1
     fi
 
     require_git_head_blob_text \
-        "$CLIMATE_SOURCE_TTF_META" \
-        "guid: $head_climate_ttf_guid" \
+        "$KBO_MEDIUM_SOURCE_TTF_META" \
+        "guid: $head_kbo_medium_ttf_guid" \
         "source TTF GUID"
     require_git_head_blob_text \
-        "$CLIMATE_SDF_META" \
-        "guid: $head_climate_sdf_guid" \
+        "$KBO_MEDIUM_SDF_META" \
+        "guid: $head_kbo_medium_sdf_guid" \
         "SDF GUID"
     require_git_head_blob_text \
-        "$CLIMATE_SDF_ASSET" \
-        "--- !u!21 &$head_climate_material_local_id" \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "m_SourceFontFileGUID: $head_kbo_medium_ttf_guid" \
+        "source TTF reference"
+    require_git_head_blob_text \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "--- !u!21 &$head_kbo_medium_material_local_id" \
         "material localID"
+    require_git_head_blob_text \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "--- !u!28 &$head_kbo_medium_atlas_local_id" \
+        "atlas texture localID"
 
-    if git cat-file -e "HEAD:$CLIMATE_2019_SDF_ASSET" 2>/dev/null; then
-        head_climate_2019_sdf_sha256="$(
-            git_head_runner_constant CLIMATE_2019_COMMITTED_SDF_SHA256
+    if git cat-file -e "HEAD:$KBO_LIGHT_SDF_ASSET" 2>/dev/null; then
+        head_kbo_light_sdf_sha256="$(
+            git_head_runner_constant KBO_LIGHT_COMMITTED_SDF_SHA256
         )"
-        head_climate_2019_ttf_sha256="$(
-            git_head_runner_constant CLIMATE_2019_SOURCE_TTF_SHA256
+        head_kbo_light_ttf_sha256="$(
+            git_head_runner_constant KBO_LIGHT_SOURCE_TTF_SHA256
         )"
-        head_climate_2019_ttf_guid="$(
-            git_head_runner_constant CLIMATE_2019_SOURCE_TTF_GUID
+        head_kbo_light_ttf_guid="$(
+            git_head_runner_constant KBO_LIGHT_SOURCE_TTF_GUID
         )"
-        head_climate_2019_sdf_guid="$(
-            git_head_runner_constant CLIMATE_2019_SDF_GUID
+        head_kbo_light_sdf_guid="$(
+            git_head_runner_constant KBO_LIGHT_SDF_GUID
         )"
-        head_climate_2019_material_local_id="$(
-            git_head_runner_constant CLIMATE_2019_MATERIAL_LOCAL_ID
+        head_kbo_light_material_local_id="$(
+            git_head_runner_constant KBO_LIGHT_MATERIAL_LOCAL_ID
         )"
-        head_climate_2019_atlas_local_id="$(
-            git_head_runner_constant CLIMATE_2019_ATLAS_LOCAL_ID
+        head_kbo_light_atlas_local_id="$(
+            git_head_runner_constant KBO_LIGHT_ATLAS_LOCAL_ID
         )"
-        committed_2019_sdf_hash="$(git_head_blob_sha256 "$CLIMATE_2019_SDF_ASSET")"
-        committed_2019_ttf_hash="$(git_head_blob_sha256 "$CLIMATE_2019_SOURCE_TTF_ASSET")"
-        if [ "$committed_2019_sdf_hash" != "$head_climate_2019_sdf_sha256" ]; then
-            echo "ERROR: Climate 2019 committed SDF Git blob mismatch."
+        committed_light_sdf_hash="$(git_head_blob_sha256 "$KBO_LIGHT_SDF_ASSET")"
+        committed_light_ttf_hash="$(git_head_blob_sha256 "$KBO_LIGHT_SOURCE_TTF_ASSET")"
+        if [ "$committed_light_sdf_hash" != "$head_kbo_light_sdf_sha256" ]; then
+            echo "ERROR: KBO Light committed SDF Git blob mismatch."
             return 1
         fi
-        if [ "$committed_2019_ttf_hash" != "$head_climate_2019_ttf_sha256" ]; then
-            echo "ERROR: Climate 2019 committed source TTF Git blob mismatch."
+        if [ "$committed_light_ttf_hash" != "$head_kbo_light_ttf_sha256" ]; then
+            echo "ERROR: KBO Light committed source TTF Git blob mismatch."
             return 1
         fi
         require_git_head_blob_text \
-            "$CLIMATE_2019_SOURCE_TTF_META" \
-            "guid: $head_climate_2019_ttf_guid" \
-            "Climate 2019 source TTF GUID"
+            "$KBO_LIGHT_SOURCE_TTF_META" \
+            "guid: $head_kbo_light_ttf_guid" \
+            "KBO Light source TTF GUID"
         require_git_head_blob_text \
-            "$CLIMATE_2019_SDF_META" \
-            "guid: $head_climate_2019_sdf_guid" \
-            "Climate 2019 SDF GUID"
+            "$KBO_LIGHT_SDF_META" \
+            "guid: $head_kbo_light_sdf_guid" \
+            "KBO Light SDF GUID"
         require_git_head_blob_text \
-            "$CLIMATE_2019_SDF_ASSET" \
-            "--- !u!21 &$head_climate_2019_material_local_id" \
-            "Climate 2019 material localID"
+            "$KBO_LIGHT_SDF_ASSET" \
+            "m_SourceFontFileGUID: $head_kbo_light_ttf_guid" \
+            "KBO Light source TTF reference"
         require_git_head_blob_text \
-            "$CLIMATE_2019_SDF_ASSET" \
-            "--- !u!28 &$head_climate_2019_atlas_local_id" \
-            "Climate 2019 atlas localID"
+            "$KBO_LIGHT_SDF_ASSET" \
+            "--- !u!21 &$head_kbo_light_material_local_id" \
+            "KBO Light material localID"
+        require_git_head_blob_text \
+            "$KBO_LIGHT_SDF_ASSET" \
+            "--- !u!28 &$head_kbo_light_atlas_local_id" \
+            "KBO Light atlas localID"
     else
-        echo "  Climate 2019 historical HEAD audit: skipped (candidate asset is not committed yet)"
+        echo "  KBO Light historical HEAD audit: skipped (candidate asset is not committed yet)"
     fi
 
-    echo "Climate committed source integrity: PASS (historical HEAD audit)"
+    echo "KBO Dia Gothic committed source integrity: PASS (historical HEAD audit)"
     echo "  SDF Git blob SHA-256: $committed_sdf_hash"
-    echo "  TTF GUID:             $head_climate_ttf_guid"
-    echo "  SDF GUID:             $head_climate_sdf_guid"
-    echo "  Material localID:     $head_climate_material_local_id"
+    echo "  TTF GUID:             $head_kbo_medium_ttf_guid"
+    echo "  SDF GUID:             $head_kbo_medium_sdf_guid"
+    echo "  Material localID:     $head_kbo_medium_material_local_id"
 }
 
 require_worktree_file_text() {
@@ -462,254 +483,133 @@ require_worktree_file_text() {
     fi
 }
 
-verify_climate_worktree_source_integrity() {
+verify_kbo_worktree_source_integrity() {
     local candidate_sdf_hash
     local candidate_ttf_hash
-    local candidate_2019_sdf_hash
-    local candidate_2019_ttf_hash
+    local candidate_light_sdf_hash
+    local candidate_light_ttf_hash
 
     candidate_sdf_hash="$(
-        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+        sha256sum "$PROJECT_PATH_WSL/$KBO_MEDIUM_SDF_ASSET" | awk '{print $1}'
     )"
     candidate_ttf_hash="$(
-        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SOURCE_TTF_ASSET" | awk '{print $1}'
+        sha256sum "$PROJECT_PATH_WSL/$KBO_MEDIUM_SOURCE_TTF_ASSET" | awk '{print $1}'
     )"
-    candidate_2019_sdf_hash="$(
-        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_2019_SDF_ASSET" | awk '{print $1}'
+    candidate_light_sdf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$KBO_LIGHT_SDF_ASSET" | awk '{print $1}'
     )"
-    candidate_2019_ttf_hash="$(
-        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_2019_SOURCE_TTF_ASSET" | awk '{print $1}'
+    candidate_light_ttf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$KBO_LIGHT_SOURCE_TTF_ASSET" | awk '{print $1}'
     )"
-    if [ "$candidate_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
-        echo "ERROR: Candidate worktree Climate SDF mismatch."
-        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
+    if [ "$candidate_sdf_hash" != "$KBO_MEDIUM_COMMITTED_SDF_SHA256" ]; then
+        echo "ERROR: Candidate worktree KBO Dia Gothic SDF mismatch."
+        echo "  expected: $KBO_MEDIUM_COMMITTED_SDF_SHA256"
         echo "  actual:   $candidate_sdf_hash"
         return 1
     fi
-    if [ "$candidate_ttf_hash" != "$CLIMATE_SOURCE_TTF_SHA256" ]; then
-        echo "ERROR: Candidate worktree Climate source TTF mismatch."
-        echo "  expected: $CLIMATE_SOURCE_TTF_SHA256"
+    if [ "$candidate_ttf_hash" != "$KBO_MEDIUM_SOURCE_TTF_SHA256" ]; then
+        echo "ERROR: Candidate worktree KBO Dia Gothic source TTF mismatch."
+        echo "  expected: $KBO_MEDIUM_SOURCE_TTF_SHA256"
         echo "  actual:   $candidate_ttf_hash"
         return 1
     fi
-    if [ "$candidate_2019_sdf_hash" != "$CLIMATE_2019_COMMITTED_SDF_SHA256" ]; then
-        echo "ERROR: Candidate worktree Climate 2019 SDF mismatch."
-        echo "  expected: $CLIMATE_2019_COMMITTED_SDF_SHA256"
-        echo "  actual:   $candidate_2019_sdf_hash"
+    if [ "$candidate_light_sdf_hash" != "$KBO_LIGHT_COMMITTED_SDF_SHA256" ]; then
+        echo "ERROR: Candidate worktree KBO Light SDF mismatch."
+        echo "  expected: $KBO_LIGHT_COMMITTED_SDF_SHA256"
+        echo "  actual:   $candidate_light_sdf_hash"
         return 1
     fi
-    if [ "$candidate_2019_ttf_hash" != "$CLIMATE_2019_SOURCE_TTF_SHA256" ]; then
-        echo "ERROR: Candidate worktree Climate 2019 source TTF mismatch."
-        echo "  expected: $CLIMATE_2019_SOURCE_TTF_SHA256"
-        echo "  actual:   $candidate_2019_ttf_hash"
+    if [ "$candidate_light_ttf_hash" != "$KBO_LIGHT_SOURCE_TTF_SHA256" ]; then
+        echo "ERROR: Candidate worktree KBO Light source TTF mismatch."
+        echo "  expected: $KBO_LIGHT_SOURCE_TTF_SHA256"
+        echo "  actual:   $candidate_light_ttf_hash"
         return 1
     fi
     require_worktree_file_text \
-        "$CLIMATE_SOURCE_TTF_META" \
-        "guid: $CLIMATE_SOURCE_TTF_GUID" \
+        "$KBO_MEDIUM_SOURCE_TTF_META" \
+        "guid: $KBO_MEDIUM_SOURCE_TTF_GUID" \
         "source TTF GUID"
     require_worktree_file_text \
-        "$CLIMATE_SDF_META" \
-        "guid: $CLIMATE_SDF_GUID" \
+        "$KBO_MEDIUM_SDF_META" \
+        "guid: $KBO_MEDIUM_SDF_GUID" \
         "SDF GUID"
     require_worktree_file_text \
-        "$CLIMATE_SDF_ASSET" \
-        "--- !u!21 &$CLIMATE_MATERIAL_LOCAL_ID" \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "m_SourceFontFileGUID: $KBO_MEDIUM_SOURCE_TTF_GUID" \
+        "source TTF reference"
+    require_worktree_file_text \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "--- !u!21 &$KBO_MEDIUM_MATERIAL_LOCAL_ID" \
         "material localID"
     require_worktree_file_text \
-        "$CLIMATE_SDF_ASSET" \
-        "--- !u!28 &$CLIMATE_ATLAS_LOCAL_ID" \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "--- !u!28 &$KBO_MEDIUM_ATLAS_LOCAL_ID" \
         "atlas texture localID"
     require_worktree_file_text \
-        "$CLIMATE_2019_SOURCE_TTF_META" \
-        "guid: $CLIMATE_2019_SOURCE_TTF_GUID" \
-        "Climate 2019 source TTF GUID"
+        "$KBO_LIGHT_SOURCE_TTF_META" \
+        "guid: $KBO_LIGHT_SOURCE_TTF_GUID" \
+        "KBO Light source TTF GUID"
     require_worktree_file_text \
-        "$CLIMATE_2019_SDF_META" \
-        "guid: $CLIMATE_2019_SDF_GUID" \
-        "Climate 2019 SDF GUID"
+        "$KBO_LIGHT_SDF_META" \
+        "guid: $KBO_LIGHT_SDF_GUID" \
+        "KBO Light SDF GUID"
     require_worktree_file_text \
-        "$CLIMATE_2019_SDF_ASSET" \
-        "m_SourceFontFileGUID: $CLIMATE_2019_SOURCE_TTF_GUID" \
-        "Climate 2019 source TTF reference"
+        "$KBO_LIGHT_SDF_ASSET" \
+        "m_SourceFontFileGUID: $KBO_LIGHT_SOURCE_TTF_GUID" \
+        "KBO Light source TTF reference"
     require_worktree_file_text \
-        "$CLIMATE_2019_SDF_ASSET" \
-        "--- !u!21 &$CLIMATE_2019_MATERIAL_LOCAL_ID" \
-        "Climate 2019 material localID"
+        "$KBO_LIGHT_SDF_ASSET" \
+        "--- !u!21 &$KBO_LIGHT_MATERIAL_LOCAL_ID" \
+        "KBO Light material localID"
     require_worktree_file_text \
-        "$CLIMATE_2019_SDF_ASSET" \
-        "--- !u!28 &$CLIMATE_2019_ATLAS_LOCAL_ID" \
-        "Climate 2019 atlas texture localID"
+        "$KBO_LIGHT_SDF_ASSET" \
+        "--- !u!28 &$KBO_LIGHT_ATLAS_LOCAL_ID" \
+        "KBO Light atlas texture localID"
 
     require_worktree_file_text \
         "$GLYPH_STRING_TABLE_INPUT_META" \
         "guid: $GLYPH_STRING_TABLE_INPUT_GUID" \
         "glyph String Table input GUID"
 
-    echo "Climate 2000/2019 candidate worktree integrity: PASS"
-    echo "  Climate 2000 candidate SHA-256: $candidate_sdf_hash"
-    echo "  Climate 2019 candidate SHA-256: $candidate_2019_sdf_hash"
+    echo "KBO Medium/Light candidate worktree integrity: PASS"
+    echo "  KBO Medium candidate SHA-256: $candidate_sdf_hash"
+    echo "  KBO Light candidate SHA-256: $candidate_light_sdf_hash"
 }
 
-climate_working_sha256() {
-    sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+kbo_medium_working_sha256() {
+    sha256sum "$PROJECT_PATH_WSL/$KBO_MEDIUM_SDF_ASSET" | awk '{print $1}'
 }
 
-diagnose_climate_file_state() {
+diagnose_kbo_font_file_state() {
     local label="$1"
     local candidate="$2"
     local hash
 
     hash="$(sha256sum "$candidate" | awk '{print $1}')"
-    echo "Climate working-state diagnostic [$label]:"
+    echo "KBO Dia Gothic working-state diagnostic [$label]:"
     echo "  SHA-256: $hash"
-    if [ "$hash" = "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
+    if [ "$hash" = "$KBO_MEDIUM_COMMITTED_SDF_SHA256" ]; then
         echo "  Classification: CANDIDATE_SOURCE_SHAPE"
         return 0
     fi
-    python3 - "$candidate" "$CLIMATE_SDF_ASSET" <<'PY'
-import subprocess
-import sys
-from pathlib import Path
-
-candidate_path = Path(sys.argv[1])
-asset_path = sys.argv[2]
-before = subprocess.run(
-    ["git", "show", f"HEAD:{asset_path}"],
-    check=True,
-    stdout=subprocess.PIPE,
-).stdout.decode("utf-8").replace("\r\n", "\n").split("\n")
-after = candidate_path.read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
-if before == after:
-    print("  Classification: COMMITTED_SOURCE_SHAPE")
-    raise SystemExit(0)
-if len(before) != len(after):
-    raise SystemExit("ERROR: Climate mutation changed serialized line count.")
-
-allowed = {
-    ("- _ScaleRatioA: 1", "- _ScaleRatioA: 0.9"): "_ScaleRatioA:1->0.9",
-    ("- _ScaleRatioC: 1", "- _ScaleRatioC: 0.73125"): "_ScaleRatioC:1->0.73125",
-}
-required_whitespace_properties = {
-    "m_MipmapLimitGroupName:",
-    "m_PlatformBlob:",
-    "path:",
-    "referencedFontAssetGUID:",
-    "referencedTextAssetGUID:",
-    "m_SourceFontFilePath:",
-    "Name:",
-    "m_LockedProperties:",
-}
-changes = []
-whitespace_changes = set()
-for old, new in zip(before, after):
-    if old == new:
-        continue
-    if (
-        old.strip() == new.strip() and
-        old.strip() in required_whitespace_properties and
-        new == old + " "
-    ):
-        whitespace_changes.add(old.strip())
-        changes.append(f"serialization-whitespace:{old.strip()}")
-        continue
-    key = (old.strip(), new.strip())
-    if key not in allowed:
-        print(f"  Observed properties: {','.join(changes)}", file=sys.stderr)
-        raise SystemExit(
-            "ERROR: Climate mutation is outside the exact importer-derived property allowlist: "
-            f"{key[0]} -> {key[1]}"
-        )
-    changes.append(allowed[key])
-if (
-    whitespace_changes != required_whitespace_properties or
-    (
-        ("_ScaleRatioA:1->0.9" in changes) !=
-        ("_ScaleRatioC:1->0.73125" in changes)
-    )
-):
-    missing_whitespace = sorted(required_whitespace_properties - whitespace_changes)
-    print(f"  Observed properties: {','.join(changes)}", file=sys.stderr)
-    print(f"  Missing whitespace properties: {','.join(missing_whitespace)}", file=sys.stderr)
-    raise SystemExit(
-        "ERROR: Climate mutation did not match the complete exact property allowlist."
-    )
-print("  Classification: EXPECTED_IMPORT_DERIVED_DRIFT")
-print(f"  Derived properties: {','.join(changes)}")
-PY
+    echo "  Classification: UNEXPECTED_SOURCE_MUTATION"
+    return 1
 }
 
-verify_climate_working_transition() {
+verify_kbo_font_working_transition() {
     local before_snapshot="$1"
     local after_path="$2"
-    local before_hash
-    local after_hash
 
-    before_hash="$(sha256sum "$before_snapshot" | awk '{print $1}')"
-    after_hash="$(sha256sum "$after_path" | awk '{print $1}')"
-    if [ "$before_hash" = "$after_hash" ]; then
+    if cmp -s -- "$before_snapshot" "$after_path"; then
         echo "  Import transition: NO_DRIFT"
         return 0
     fi
-    if ! python3 - "$before_snapshot" "$after_path" <<'PY'
-import sys
-from pathlib import Path
-
-before = Path(sys.argv[1]).read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
-after = Path(sys.argv[2]).read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
-if len(before) != len(after):
-    raise SystemExit("ERROR: Climate mutation changed serialized line count.")
-
-allowed = {
-    ("- _ScaleRatioA: 1", "- _ScaleRatioA: 0.9"): "_ScaleRatioA:1->0.9",
-    ("- _ScaleRatioC: 1", "- _ScaleRatioC: 0.73125"): "_ScaleRatioC:1->0.73125",
-}
-whitespace_properties = {
-    "m_MipmapLimitGroupName:",
-    "m_PlatformBlob:",
-    "path:",
-    "referencedFontAssetGUID:",
-    "referencedTextAssetGUID:",
-    "m_SourceFontFilePath:",
-    "Name:",
-    "m_LockedProperties:",
-}
-changes = []
-for old, new in zip(before, after):
-    if old == new:
-        continue
-    if old.strip() == new.strip() and old.strip() in whitespace_properties:
-        changes.append(f"serialization-whitespace:{old.strip()}")
-        continue
-    key = (old.strip(), new.strip())
-    if key not in allowed:
-        raise SystemExit(
-            "ERROR: Climate mutation is outside the exact importer-derived property allowlist: "
-            f"{key[0]} -> {key[1]}"
-        )
-    changes.append(allowed[key])
-ratio_a_changed = "_ScaleRatioA:1->0.9" in changes
-ratio_c_changed = "_ScaleRatioC:1->0.73125" in changes
-if ratio_a_changed != ratio_c_changed:
-    raise SystemExit("ERROR: Climate scale-ratio drift must update A and C together.")
-print("  Classification: EXPECTED_IMPORT_DERIVED_DRIFT")
-print(f"  Derived properties: {','.join(changes)}")
-PY
-    then
-        echo "  Import transition: UNEXPECTED_ASSET_MUTATION"
-        return 1
-    fi
-    echo "  Import transition: EXACT_PROPERTY_CLASSIFIED_DRIFT"
+    echo "  Import transition: UNEXPECTED_ASSET_MUTATION"
+    echo "ERROR: Canonical KBO SDF serialization must remain byte-identical after Unity."
+    return 1
 }
 
-restore_climate_integrity_snapshot() {
-    local snapshot_path="$1"
-    local asset_path="$2"
-
-    cp --preserve=mode,timestamps -- "$snapshot_path" "$asset_path"
-}
-
-run_with_single_climate_integrity_guard() {
+run_with_single_kbo_font_integrity_guard() {
     local stage_key="$1"
     local log_path="$2"
     local guarded_asset="$3"
@@ -719,20 +619,12 @@ run_with_single_climate_integrity_guard() {
 
     local asset_full_path="$PROJECT_PATH_WSL/$guarded_asset"
     local evidence_path="${log_path%.log}${evidence_suffix}-sdf-integrity.log"
-    local snapshot_path
     local before_hash
     local index_hash
     local before_mode
     local imported_hash
     local imported_mode
-    local final_hash
-    local final_mode
-    local classifier_output=""
-    local changed_fields="none"
     local command_status=0
-    local classifier_status=0
-    local restore_status=0
-    local git_diff_empty=0
 
     mkdir -p "$(dirname "$evidence_path")"
     : > "$evidence_path"
@@ -752,7 +644,7 @@ run_with_single_climate_integrity_guard() {
             echo "FinalMutationDetected=PRE_EXISTING"
             echo "GitDiffEmpty=NO"
         } | tee -a "$evidence_path"
-        echo "ERROR: Climate integrity guard requires the tracked canonical asset: $guarded_asset"
+        echo "ERROR: KBO Dia Gothic integrity guard requires the tracked canonical asset: $guarded_asset"
         return 1
     fi
 
@@ -776,15 +668,12 @@ run_with_single_climate_integrity_guard() {
             echo "FinalMutationDetected=PRE_EXISTING"
             echo "GitDiffEmpty=NO"
         } | tee -a "$evidence_path"
-        echo "ERROR: Climate integrity guard refused to overwrite a pre-existing SDF modification."
+        echo "ERROR: KBO Dia Gothic integrity guard refused to overwrite a pre-existing SDF modification."
         echo "  expected: $expected_hash"
         echo "  index:    $index_hash"
         echo "  actual:   $before_hash"
         return 1
     fi
-
-    snapshot_path="$(mktemp)"
-    cp --preserve=mode,timestamps -- "$asset_full_path" "$snapshot_path"
 
     if "$@"; then
         command_status=0
@@ -807,8 +696,7 @@ run_with_single_climate_integrity_guard() {
             echo "FinalMutationDetected=1"
             echo "GitDiffEmpty=NO"
         } | tee -a "$evidence_path"
-        rm -f -- "$snapshot_path"
-        echo "ERROR: Unity removed the guarded Climate SDF asset; the runner did not restore an unexpected mutation."
+        echo "ERROR: Unity removed the guarded KBO Dia Gothic SDF asset; the runner did not restore an unexpected mutation."
         return 1
     fi
 
@@ -831,54 +719,7 @@ run_with_single_climate_integrity_guard() {
             echo "FinalMutationDetected=0"
             echo "GitDiffEmpty=YES"
         } | tee -a "$evidence_path"
-        rm -f -- "$snapshot_path"
         return "$command_status"
-    fi
-
-    if classifier_output="$(
-        verify_climate_working_transition "$snapshot_path" "$asset_full_path" 2>&1
-    )"; then
-        classifier_status=0
-    else
-        classifier_status=$?
-    fi
-    printf '%s\n' "$classifier_output" | tee -a "$evidence_path"
-
-    if [ "$classifier_status" -ne 0 ] ||
-       ! grep -F "Classification: EXPECTED_IMPORT_DERIVED_DRIFT" \
-            <<< "$classifier_output" >/dev/null; then
-        {
-            echo "Asset=$guarded_asset"
-            echo "Stage=$stage_key"
-            echo "Before=$before_hash"
-            echo "Imported=$imported_hash"
-            echo "Classification=UNEXPECTED_SOURCE_MUTATION"
-            echo "ChangedFields=classifier-mismatch"
-            echo "CommandStatus=$command_status"
-            echo "RestoreAttempted=NO"
-            echo "RestoreSucceeded=NO"
-            echo "Restored=NOT_ATTEMPTED"
-            echo "FinalMutationDetected=1"
-            echo "GitDiffEmpty=NO"
-        } | tee -a "$evidence_path"
-        rm -f -- "$snapshot_path"
-        echo "ERROR: Unity produced an unexpected Climate SDF source mutation; the runner left it intact for inspection."
-        return 1
-    fi
-
-    changed_fields="$(
-        sed -n 's/^  Derived properties: //p' <<< "$classifier_output"
-    )"
-    if restore_climate_integrity_snapshot "$snapshot_path" "$asset_full_path"; then
-        restore_status=0
-    else
-        restore_status=$?
-    fi
-    final_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
-    final_mode="$(stat -c '%a' "$asset_full_path")"
-    if git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset" &&
-       [ "$(git -C "$PROJECT_PATH_WSL" show ":$guarded_asset" | sha256sum | awk '{print $1}')" = "$expected_hash" ]; then
-        git_diff_empty=1
     fi
 
     {
@@ -886,69 +727,36 @@ run_with_single_climate_integrity_guard() {
         echo "Stage=$stage_key"
         echo "Before=$before_hash"
         echo "Imported=$imported_hash"
-        echo "Classification=EXPECTED_IMPORT_DERIVED_DRIFT"
-        echo "ChangedFields=${changed_fields:-unknown}"
+        echo "Classification=UNEXPECTED_SOURCE_MUTATION"
+        echo "ChangedFields=noncanonical-byte-or-mode-delta"
         echo "CommandStatus=$command_status"
-        echo "RestoreAttempted=YES"
-        echo "RestoreSucceeded=$(
-            if [ "$restore_status" -eq 0 ] &&
-               [ "$final_hash" = "$before_hash" ] &&
-               [ "$final_hash" = "$expected_hash" ] &&
-               [ "$final_mode" = "$before_mode" ] &&
-               [ "$git_diff_empty" -eq 1 ]; then
-                echo YES
-            else
-                echo NO
-            fi
-        )"
-        echo "Restored=$final_hash"
-        echo "RestoredMode=$final_mode"
-        echo "FinalMutationDetected=$(
-            if [ "$restore_status" -eq 0 ] &&
-               [ "$final_hash" = "$before_hash" ] &&
-               [ "$final_hash" = "$expected_hash" ] &&
-               [ "$final_mode" = "$before_mode" ] &&
-               [ "$git_diff_empty" -eq 1 ]; then
-                echo 0
-            else
-                echo 1
-            fi
-        )"
-        echo "GitDiffEmpty=$(
-            if [ "$git_diff_empty" -eq 1 ]; then echo YES; else echo NO; fi
-        )"
+        echo "RestoreAttempted=NO"
+        echo "RestoreSucceeded=NO"
+        echo "Restored=NOT_ATTEMPTED"
+        echo "FinalMutationDetected=1"
+        echo "GitDiffEmpty=NO"
     } | tee -a "$evidence_path"
-    rm -f -- "$snapshot_path"
-
-    if [ "$restore_status" -ne 0 ] ||
-       [ "$final_hash" != "$before_hash" ] ||
-       [ "$final_hash" != "$expected_hash" ] ||
-       [ "$final_mode" != "$before_mode" ] ||
-       [ "$git_diff_empty" -ne 1 ]; then
-        echo "ERROR: Climate SDF snapshot restore verification failed."
-        return 1
-    fi
-
-    return "$command_status"
+    echo "ERROR: Unity changed the canonical KBO SDF asset; the runner left it intact for inspection."
+    return 1
 }
 
-run_with_climate_integrity_guard() {
+run_with_kbo_font_integrity_guard() {
     local stage_key="$1"
     local log_path="$2"
     shift 2
 
-    run_with_single_climate_integrity_guard \
+    run_with_single_kbo_font_integrity_guard \
         "$stage_key" \
         "$log_path" \
-        "$CLIMATE_SDF_ASSET" \
-        "$CLIMATE_COMMITTED_SDF_SHA256" \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "$KBO_MEDIUM_COMMITTED_SDF_SHA256" \
         "" \
-        run_with_single_climate_integrity_guard \
+        run_with_single_kbo_font_integrity_guard \
             "$stage_key" \
             "$log_path" \
-            "$CLIMATE_2019_SDF_ASSET" \
-            "$CLIMATE_2019_COMMITTED_SDF_SHA256" \
-            "-climate-2019" \
+            "$KBO_LIGHT_SDF_ASSET" \
+            "$KBO_LIGHT_COMMITTED_SDF_SHA256" \
+            "-kbo-light" \
             "$@"
 }
 
@@ -1086,7 +894,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|camera-shake-visual|camera-shake-hud-visual|climate-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|gameplay-performance|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|camera-shake-visual|camera-shake-hud-visual|kbo-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|gameplay-performance|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -1107,14 +915,14 @@ prepare_typography_visual_paths() {
 capture_guarded_paths() {
     if [ "${CAPTURE_GUARD_PROFILE:-visual}" = "glyph-update" ]; then
         printf '%s\n' \
-            "$CLIMATE_SDF_ASSET" \
-            "$CLIMATE_2019_SDF_ASSET"
+            "$KBO_MEDIUM_SDF_ASSET" \
+            "$KBO_LIGHT_SDF_ASSET"
         return 0
     fi
 
     printf '%s\n' \
-        "$CLIMATE_SDF_ASSET" \
-        "$CLIMATE_2019_SDF_ASSET" \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "$KBO_LIGHT_SDF_ASSET" \
         "Assets/TextMesh Pro/Resources/TMP Settings.asset" \
         "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset" \
         "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab" \
@@ -1143,8 +951,6 @@ observe_capture_assets_before_restore() {
     local asset_path
     local before_hash
     local after_hash
-    local transition_output
-    local transition_exit
     local index
     local mutation_exit=0
     local -a guarded_paths
@@ -1184,25 +990,6 @@ observe_capture_assets_before_restore() {
         fi
 
         mutation_detected[$index]=1
-        if [ "$asset_path" = "$CLIMATE_SDF_ASSET" ] ||
-            [ "$asset_path" = "$CLIMATE_2019_SDF_ASSET" ]; then
-            transition_exit=0
-            transition_output="$(
-                verify_climate_working_transition \
-                    "$baseline_root/$asset_path" \
-                    "$PROJECT_PATH_WSL/$asset_path" 2>&1
-            )" || transition_exit=$?
-            printf '%s\n' "$transition_output"
-            if [ "$transition_exit" -eq 0 ]; then
-                changed_properties[$index]="$(
-                    printf '%s\n' "$transition_output" |
-                        sed -n 's/^  Derived properties: //p'
-                )"
-                classifications[$index]="EXPECTED_IMPORT_DERIVED_DRIFT"
-                continue
-            fi
-        fi
-
         changed_properties[$index]="UNCLASSIFIED_BYTE_DELTA"
         classifications[$index]="UNEXPECTED_ASSET_MUTATION"
         allowed[$index]=0
@@ -3682,7 +3469,7 @@ run_unity_stage() {
         return
     fi
 
-    run_with_climate_integrity_guard \
+    run_with_kbo_font_integrity_guard \
         "$stage_key" \
         "$log_path" \
         run_unity_stage_unguarded \
@@ -4114,31 +3901,19 @@ run_dotnet_integration_fuzz() {
     run_dotnet_integration "$DOTNET_INTEGRATION_FUZZ_LOG"
 }
 
-normalize_glyph_serialized_output() {
-    local asset_path
-
-    for asset_path in "$CLIMATE_SDF_ASSET" "$CLIMATE_2019_SDF_ASSET"; do
-        if ! perl -pi -e 's/[ \t]+(?=\r?$)//' -- \
-            "$PROJECT_PATH_WSL/$asset_path"; then
-            echo "ERROR: Failed to normalize serialized whitespace: $asset_path"
-            return 1
-        fi
-    done
-}
-
-run_climate_glyph_update() {
+run_kbo_glyph_update() {
     local log_path_win
     local baseline_root
-    local climate_before_hash
-    local climate_after_hash
-    local climate_2019_before_hash
-    local climate_2019_after_hash
+    local kbo_medium_before_hash
+    local kbo_medium_after_hash
+    local kbo_light_before_hash
+    local kbo_light_after_hash
     local command_status=0
     local validation_status=0
     local process_cleanup_status=0
     local -a unity_command
 
-    log_path_win="$(wslpath -w "$CLIMATE_GLYPH_UPDATE_LOG")"
+    log_path_win="$(wslpath -w "$KBO_GLYPH_UPDATE_LOG")"
     unity_command=(
         timeout --kill-after=10 300
         "$UNITY_PATH"
@@ -4146,14 +3921,14 @@ run_climate_glyph_update() {
         -nographics
         -projectPath "$PROJECT_PATH_WIN"
         -logFile "$log_path_win"
-        -executeMethod "$CLIMATE_GLYPH_UPDATE_EXECUTE_METHOD"
+        -executeMethod "$KBO_GLYPH_UPDATE_EXECUTE_METHOD"
     )
 
     if [ "$DRY_RUN" -eq 1 ]; then
-        echo "Would atomically update the canonical Climate 2000/2019 managed glyph corpus:"
+        echo "Would atomically update the canonical KBO Medium/Light managed glyph corpus:"
         echo "  preflight: immutable source/GUID/localID/String Table/projectPath identity"
-        echo "  snapshot:  $CLIMATE_SDF_ASSET"
-        echo "  snapshot:  $CLIMATE_2019_SDF_ASSET"
+        echo "  snapshot:  $KBO_MEDIUM_SDF_ASSET"
+        echo "  snapshot:  $KBO_LIGHT_SDF_ASSET"
         echo "  restore:   command failure, timeout, INT, TERM, process cleanup failure, validation failure"
         print_shell_command "${unity_command[@]}"
         return 0
@@ -4164,22 +3939,22 @@ run_climate_glyph_update() {
     CAPTURE_GUARD_PROFILE="glyph-update"
     baseline_root="$(mktemp -d "$RESULT_DIR/.glyph-update-baseline.XXXXXX")"
     prepare_capture_asset_baseline "$baseline_root"
-    climate_before_hash="$(
-        sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    kbo_medium_before_hash="$(
+        sha256sum "$baseline_root/$KBO_MEDIUM_SDF_ASSET" | awk '{print $1}'
     )"
-    climate_2019_before_hash="$(
-        sha256sum "$baseline_root/$CLIMATE_2019_SDF_ASSET" | awk '{print $1}'
+    kbo_light_before_hash="$(
+        sha256sum "$baseline_root/$KBO_LIGHT_SDF_ASSET" | awk '{print $1}'
     )"
-    rm -f "$CLIMATE_GLYPH_UPDATE_LOG" \
-        "$CLIMATE_GLYPH_UPDATE_EVIDENCE" \
-        "$CLIMATE_GLYPH_UPDATE_LIFECYCLE"
+    rm -f "$KBO_GLYPH_UPDATE_LOG" \
+        "$KBO_GLYPH_UPDATE_EVIDENCE" \
+        "$KBO_GLYPH_UPDATE_LIFECYCLE"
     visual_guard_begin \
         "$baseline_root" \
-        "$CLIMATE_GLYPH_UPDATE_EVIDENCE" \
-        "$CLIMATE_GLYPH_UPDATE_LIFECYCLE" \
-        "ClimateGlyphUpdate"
+        "$KBO_GLYPH_UPDATE_EVIDENCE" \
+        "$KBO_GLYPH_UPDATE_LIFECYCLE" \
+        "KboDiaGothicGlyphUpdate"
 
-    echo "Running atomic Climate 2000/2019 managed glyph update..."
+    echo "Running atomic KBO Medium/Light managed glyph update..."
     if visual_guard_run_command "${unity_command[@]}"; then
         command_status=0
     else
@@ -4202,47 +3977,44 @@ run_climate_glyph_update() {
         visual_guard_finish 1
         return 0
     fi
-    if ! normalize_glyph_serialized_output; then
-        validation_status=1
-    fi
 
-    climate_after_hash="$(climate_working_sha256)"
-    climate_2019_after_hash="$(
-        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_2019_SDF_ASSET" | awk '{print $1}'
+    kbo_medium_after_hash="$(kbo_medium_working_sha256)"
+    kbo_light_after_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$KBO_LIGHT_SDF_ASSET" | awk '{print $1}'
     )"
     require_worktree_file_text \
-        "$CLIMATE_SDF_ASSET" \
-        "--- !u!21 &$CLIMATE_MATERIAL_LOCAL_ID" \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "--- !u!21 &$KBO_MEDIUM_MATERIAL_LOCAL_ID" \
         "material localID after glyph update" || validation_status=1
     require_worktree_file_text \
-        "$CLIMATE_SDF_ASSET" \
-        "--- !u!28 &$CLIMATE_ATLAS_LOCAL_ID" \
+        "$KBO_MEDIUM_SDF_ASSET" \
+        "--- !u!28 &$KBO_MEDIUM_ATLAS_LOCAL_ID" \
         "atlas localID after glyph update" || validation_status=1
     require_worktree_file_text \
-        "$CLIMATE_2019_SDF_ASSET" \
-        "--- !u!21 &$CLIMATE_2019_MATERIAL_LOCAL_ID" \
-        "Climate 2019 material localID after glyph update" || validation_status=1
+        "$KBO_LIGHT_SDF_ASSET" \
+        "--- !u!21 &$KBO_LIGHT_MATERIAL_LOCAL_ID" \
+        "KBO Light material localID after glyph update" || validation_status=1
     require_worktree_file_text \
-        "$CLIMATE_2019_SDF_ASSET" \
-        "--- !u!28 &$CLIMATE_2019_ATLAS_LOCAL_ID" \
-        "Climate 2019 atlas localID after glyph update" || validation_status=1
+        "$KBO_LIGHT_SDF_ASSET" \
+        "--- !u!28 &$KBO_LIGHT_ATLAS_LOCAL_ID" \
+        "KBO Light atlas localID after glyph update" || validation_status=1
     if ! grep -F \
-        "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 glyph_remap=0 atlas_page_drift=0 source_linkage=PASS scale_ratio=PASS" \
-        "$CLIMATE_GLYPH_UPDATE_LOG" >/dev/null; then
+        "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 atlas_page_drift=0 source_linkage=PASS scale_ratio=PASS" \
+        "$KBO_GLYPH_UPDATE_LOG" >/dev/null; then
         echo "ERROR: Unity glyph update log is missing the complete post-update validation marker."
         validation_status=1
     fi
     {
-        echo "snapshot_target_climate=$CLIMATE_SDF_ASSET"
-        echo "snapshot_target_climate_2019=$CLIMATE_2019_SDF_ASSET"
-        echo "climate_before_sha256=$climate_before_hash"
-        echo "climate_after_sha256=$climate_after_hash"
-        echo "climate_2019_before_sha256=$climate_2019_before_hash"
-        echo "climate_2019_after_sha256=$climate_2019_after_hash"
+        echo "snapshot_target_kbo_medium=$KBO_MEDIUM_SDF_ASSET"
+        echo "snapshot_target_kbo_light=$KBO_LIGHT_SDF_ASSET"
+        echo "kbo_medium_before_sha256=$kbo_medium_before_hash"
+        echo "kbo_medium_after_sha256=$kbo_medium_after_hash"
+        echo "kbo_light_before_sha256=$kbo_light_before_hash"
+        echo "kbo_light_after_sha256=$kbo_light_after_hash"
         echo "missing=0"
         echo "fallback=0"
         echo "process_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
-    } > "$CLIMATE_GLYPH_UPDATE_EVIDENCE"
+    } > "$KBO_GLYPH_UPDATE_EVIDENCE"
 
     if [ "$validation_status" -ne 0 ]; then
         echo "ERROR: Glyph output validation failed; restoring both font assets."
@@ -4253,11 +4025,11 @@ run_climate_glyph_update() {
 
     VISUAL_GUARD_RESTORE_ON_SUCCESS=0
     visual_guard_mark_observation_complete "PASS"
-    echo "Climate 2000/2019 managed glyph update: PASS"
-    echo "  Climate 2000 before: $climate_before_hash"
-    echo "  Climate 2000 after:  $climate_after_hash"
-    echo "  Climate 2019 before: $climate_2019_before_hash"
-    echo "  Climate 2019 after:  $climate_2019_after_hash"
+    echo "KBO Medium/Light managed glyph update: PASS"
+    echo "  KBO Medium before: $kbo_medium_before_hash"
+    echo "  KBO Medium after:  $kbo_medium_after_hash"
+    echo "  KBO Light before: $kbo_light_before_hash"
+    echo "  KBO Light after:  $kbo_light_after_hash"
     echo "  missing: 0"
     echo "  fallback: 0"
     visual_guard_finish 0
@@ -6111,12 +5883,12 @@ run_typography_visual() {
     local expected_head
     local runner_mutation_evidence
     local runner_lifecycle_evidence
-    local climate_hash_before
-    local climate_hash_after
-    local climate_restored_hash
+    local kbo_medium_hash_before
+    local kbo_medium_hash_after
+    local kbo_medium_restored_hash
     local unity_exit=0
     local residue_exit=0
-    local climate_exit=0
+    local kbo_medium_exit=0
     local capture_guard_exit=0
     local restore_exit=0
     local process_before
@@ -6171,8 +5943,8 @@ run_typography_visual() {
         "$runner_mutation_evidence" \
         "$runner_lifecycle_evidence" \
         "Typography"
-    climate_hash_before="$(
-        sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    kbo_medium_hash_before="$(
+        sha256sum "$baseline_root/$KBO_MEDIUM_SDF_ASSET" | awk '{print $1}'
     )"
 
     cleanup_generated_test_scenes
@@ -6290,11 +6062,11 @@ run_typography_visual() {
             "$process_before" || true
     fi
 
-    climate_hash_after="$(climate_working_sha256)"
-    if ! verify_climate_working_transition \
-        "$baseline_root/$CLIMATE_SDF_ASSET" \
-        "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"; then
-        climate_exit=1
+    kbo_medium_hash_after="$(kbo_medium_working_sha256)"
+    if ! verify_kbo_font_working_transition \
+        "$baseline_root/$KBO_MEDIUM_SDF_ASSET" \
+        "$PROJECT_PATH_WSL/$KBO_MEDIUM_SDF_ASSET"; then
+        kbo_medium_exit=1
     fi
     if ! observe_capture_assets_before_restore \
         "$baseline_root" \
@@ -6309,15 +6081,15 @@ run_typography_visual() {
     if ! visual_guard_cleanup "$unity_exit"; then
         restore_exit=1
     fi
-    climate_restored_hash="$(climate_working_sha256)"
-    if [ "$climate_restored_hash" != "$climate_hash_before" ]; then
-        echo "ERROR: Climate asset was not restored after typography capture."
-        climate_exit=1
+    kbo_medium_restored_hash="$(kbo_medium_working_sha256)"
+    if [ "$kbo_medium_restored_hash" != "$kbo_medium_hash_before" ]; then
+        echo "ERROR: KBO Dia Gothic asset was not restored after typography capture."
+        kbo_medium_exit=1
     fi
-    echo "Typography Climate capture transition:"
-    echo "  before:   $climate_hash_before"
-    echo "  observed: $climate_hash_after"
-    echo "  restored: $climate_restored_hash"
+    echo "Typography KBO Dia Gothic capture transition:"
+    echo "  before:   $kbo_medium_hash_before"
+    echo "  observed: $kbo_medium_hash_after"
+    echo "  restored: $kbo_medium_restored_hash"
     if ! assert_no_generated_test_scenes; then
         cleanup_generated_test_scenes
         assert_no_generated_test_scenes || true
@@ -6330,7 +6102,7 @@ run_typography_visual() {
         visual_guard_finish "$unity_exit" || return $?
         return 0
     fi
-    if [ "$climate_exit" -ne 0 ] ||
+    if [ "$kbo_medium_exit" -ne 0 ] ||
        [ "$capture_guard_exit" -ne 0 ] ||
        [ "$restore_exit" -ne 0 ] ||
        [ "$residue_exit" -ne 0 ]; then
@@ -6431,9 +6203,9 @@ run_terminal_result_visual() {
     local runner_mutation_evidence
     local runner_lifecycle_evidence
     local expected_head
-    local climate_before
-    local climate_observed
-    local climate_restored
+    local kbo_medium_before
+    local kbo_medium_observed
+    local kbo_medium_restored
     local command_status=0
     local process_cleanup_status=0
     local capture_guard_status=0
@@ -6484,7 +6256,7 @@ run_terminal_result_visual() {
     expected_head="$(git rev-parse HEAD)"
     CAPTURE_GUARD_PROFILE="visual"
     prepare_capture_asset_baseline "$baseline_root"
-    climate_before="$(sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}')"
+    kbo_medium_before="$(sha256sum "$baseline_root/$KBO_MEDIUM_SDF_ASSET" | awk '{print $1}')"
     visual_guard_begin \
         "$baseline_root" \
         "$runner_mutation_evidence" \
@@ -6502,7 +6274,7 @@ run_terminal_result_visual() {
     else
         process_cleanup_status=$?
     fi
-    climate_observed="$(climate_working_sha256)"
+    kbo_medium_observed="$(kbo_medium_working_sha256)"
     if ! observe_capture_assets_before_restore \
         "$baseline_root" \
         "$runner_mutation_evidence"; then
@@ -6518,8 +6290,8 @@ run_terminal_result_visual() {
     if ! visual_guard_cleanup "$command_status"; then
         restore_status=1
     fi
-    climate_restored="$(climate_working_sha256)"
-    if [ "$climate_restored" != "$climate_before" ]; then
+    kbo_medium_restored="$(kbo_medium_working_sha256)"
+    if [ "$kbo_medium_restored" != "$kbo_medium_before" ]; then
         echo "ERROR: Terminal result visual runner did not restore guarded font assets."
         restore_status=1
     fi
@@ -6536,9 +6308,9 @@ run_terminal_result_visual() {
         {
             echo
             echo "[runner-safety]"
-            echo "guarded_climate_before_sha256=$climate_before"
-            echo "guarded_climate_after_capture_sha256=$climate_observed"
-            echo "guarded_climate_restored_sha256=$climate_restored"
+            echo "guarded_kbo_medium_before_sha256=$kbo_medium_before"
+            echo "guarded_kbo_medium_after_capture_sha256=$kbo_medium_observed"
+            echo "guarded_kbo_medium_restored_sha256=$kbo_medium_restored"
             echo "process_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
             echo "runner_cleanup_lifecycle=runner-cleanup-lifecycle.log"
         } >> "$manifest"
@@ -6578,9 +6350,9 @@ run_objective_hud_visual() {
     local expected_head
     local runner_mutation_evidence
     local runner_lifecycle_evidence
-    local climate_hash_before
-    local climate_hash_after
-    local climate_restored_hash
+    local kbo_light_hash_before
+    local kbo_light_hash_after
+    local kbo_light_restored_hash
     local process_before
     local unity_exit=0
     local capture_guard_exit=0
@@ -6636,7 +6408,7 @@ run_objective_hud_visual() {
         "ObjectiveHud"
 
     expected_head="$(git rev-parse HEAD)"
-    climate_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    kbo_light_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_KBO_LIGHT_ASSET" | awk '{print $1}')"
     process_before="$(find_current_project_unity_processes)"
     echo "Running Objective HUD production-composition visual evidence..."
     echo "  output directory: $output_dir"
@@ -6656,7 +6428,7 @@ run_objective_hud_visual() {
             "$process_before" || true
     fi
 
-    climate_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    kbo_light_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_KBO_LIGHT_ASSET" | awk '{print $1}')"
     if ! observe_capture_assets_before_restore \
         "$baseline_root" \
         "$runner_mutation_evidence"; then
@@ -6670,13 +6442,13 @@ run_objective_hud_visual() {
     if ! visual_guard_cleanup "$unity_exit"; then
         restore_exit=1
     fi
-    climate_restored_hash="$(
-        sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}'
+    kbo_light_restored_hash="$(
+        sha256sum "$OBJECTIVE_HUD_VISUAL_KBO_LIGHT_ASSET" | awk '{print $1}'
     )"
-    echo "Objective HUD runner Climate transition:"
-    echo "  before:   $climate_hash_before"
-    echo "  observed: $climate_hash_after"
-    echo "  restored: $climate_restored_hash"
+    echo "Objective HUD runner KBO Dia Gothic transition:"
+    echo "  before:   $kbo_light_hash_before"
+    echo "  observed: $kbo_light_hash_after"
+    echo "  restored: $kbo_light_restored_hash"
 
     if [ "$unity_exit" -ne 0 ]; then
         echo "ERROR: Objective HUD visual capture failed with exit code $unity_exit."
@@ -6907,31 +6679,8 @@ for name, entry in mutation_sections.items():
         raise SystemExit(f"ERROR: {name} failed before restore")
     if entry["restored"] != "1" or entry["restored_hash"] != entry["before_hash"]:
         raise SystemExit(f"ERROR: {name} restore evidence is invalid")
-    if entry["mutation_detected"] == "1":
-        if entry["classification"] != "EXPECTED_IMPORT_DERIVED_DRIFT":
-            raise SystemExit(f"ERROR: {name} mutation classification is not allowlisted")
-        required_whitespace_properties = {
-            "serialization-whitespace:m_MipmapLimitGroupName:",
-            "serialization-whitespace:m_PlatformBlob:",
-            "serialization-whitespace:path:",
-            "serialization-whitespace:referencedFontAssetGUID:",
-            "serialization-whitespace:referencedTextAssetGUID:",
-            "serialization-whitespace:m_SourceFontFilePath:",
-            "serialization-whitespace:Name:",
-            "serialization-whitespace:m_LockedProperties:",
-        }
-        scale_ratio_properties = {
-            "_ScaleRatioA:1->0.9",
-            "_ScaleRatioC:1->0.73125",
-        }
-        observed_properties = set(entry["changed_properties"].split(","))
-        if observed_properties not in (
-            required_whitespace_properties,
-            required_whitespace_properties | scale_ratio_properties,
-        ):
-            raise SystemExit(f"ERROR: {name} changed property set is not exact")
-    elif entry["mutation_detected"] != "0" or entry["classification"] != "NO_MUTATION":
-        raise SystemExit(f"ERROR: {name} no-mutation classification is invalid")
+    if entry["mutation_detected"] != "0" or entry["classification"] != "NO_MUTATION":
+        raise SystemExit(f"ERROR: {name} canonical asset changed during capture")
 
 print("Objective HUD visual manifest verification: PASS")
 PY
@@ -6941,7 +6690,7 @@ PY
     echo "  manifest: $manifest"
     echo "  runner mutation: $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
-    echo "  Climate SDF hash: preserved"
+    echo "  KBO Dia Gothic SDF hash: preserved"
     visual_guard_finish 0
 }
 
@@ -6960,9 +6709,9 @@ run_m1a_hud_guide_visual() {
     local expected_tree
     local runner_mutation_evidence
     local runner_lifecycle_evidence
-    local climate_hash_before
-    local climate_hash_after
-    local climate_restored_hash
+    local kbo_light_hash_before
+    local kbo_light_hash_after
+    local kbo_light_restored_hash
     local process_before
     local unity_exit=0
     local capture_guard_exit=0
@@ -7023,7 +6772,7 @@ run_m1a_hud_guide_visual() {
         "$runner_lifecycle_evidence" \
         "M1aHudGuide"
 
-    climate_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    kbo_light_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_KBO_LIGHT_ASSET" | awk '{print $1}')"
     process_before="$(find_current_project_unity_processes)"
     echo "Running M1A HUD/World Guide production-composition visual evidence..."
     echo "  output directory: $output_dir"
@@ -7043,7 +6792,7 @@ run_m1a_hud_guide_visual() {
             "$process_before" || true
     fi
 
-    climate_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    kbo_light_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_KBO_LIGHT_ASSET" | awk '{print $1}')"
     if ! observe_capture_assets_before_restore \
         "$baseline_root" \
         "$runner_mutation_evidence"; then
@@ -7057,11 +6806,11 @@ run_m1a_hud_guide_visual() {
     if ! visual_guard_cleanup "$unity_exit"; then
         restore_exit=1
     fi
-    climate_restored_hash="$(
-        sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}'
+    kbo_light_restored_hash="$(
+        sha256sum "$OBJECTIVE_HUD_VISUAL_KBO_LIGHT_ASSET" | awk '{print $1}'
     )"
-    if [ "$climate_restored_hash" != "$climate_hash_before" ]; then
-        echo "ERROR: M1A visual runner did not restore the guarded Climate asset."
+    if [ "$kbo_light_restored_hash" != "$kbo_light_hash_before" ]; then
+        echo "ERROR: M1A visual runner did not restore the guarded KBO Dia Gothic asset."
         restore_exit=1
     fi
 
@@ -7069,9 +6818,9 @@ run_m1a_hud_guide_visual() {
         {
             echo
             echo "[runner-safety]"
-            echo "guarded_climate_before_sha256=$climate_hash_before"
-            echo "guarded_climate_after_capture_sha256=$climate_hash_after"
-            echo "guarded_climate_restored_sha256=$climate_restored_hash"
+            echo "guarded_kbo_light_before_sha256=$kbo_light_hash_before"
+            echo "guarded_kbo_light_after_capture_sha256=$kbo_light_hash_after"
+            echo "guarded_kbo_light_restored_sha256=$kbo_light_restored_hash"
             echo "process_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
             echo "asset_restore=$(
                 if [ "$restore_exit" -eq 0 ]; then
@@ -7317,14 +7066,14 @@ for section, expected_stage_name in ward_expected.items():
 
 safety = sections["runner-safety"]
 for field in (
-    "guarded_climate_before_sha256",
-    "guarded_climate_after_capture_sha256",
-    "guarded_climate_restored_sha256",
+    "guarded_kbo_light_before_sha256",
+    "guarded_kbo_light_after_capture_sha256",
+    "guarded_kbo_light_restored_sha256",
 ):
     if not hex64.fullmatch(safety.get(field, "")):
         raise SystemExit(f"ERROR: runner safety {field} is invalid")
-if safety["guarded_climate_before_sha256"] != safety["guarded_climate_restored_sha256"]:
-    raise SystemExit("ERROR: runner safety Climate restore mismatch")
+if safety["guarded_kbo_light_before_sha256"] != safety["guarded_kbo_light_restored_sha256"]:
+    raise SystemExit("ERROR: runner safety KBO Dia Gothic restore mismatch")
 if safety.get("process_survivor_count") != "0":
     raise SystemExit("ERROR: runner safety found a Unity survivor")
 if safety.get("asset_restore") != "PASS":
@@ -7348,7 +7097,7 @@ PY
     echo "  runner mutation: $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  recorded tree: $expected_tree"
-    echo "  Climate SDF hash: preserved"
+    echo "  KBO Dia Gothic SDF hash: preserved"
     visual_guard_finish 0
 }
 
@@ -7460,7 +7209,7 @@ parse_arguments() {
         esac
     done
 
-    if { [ "$RUN_MODE" = "climate-glyph-update" ] ||
+    if { [ "$RUN_MODE" = "kbo-glyph-update" ] ||
          [ "$RUN_MODE" = "camera-shake-visual" ] ||
          [ "$RUN_MODE" = "camera-shake-hud-visual" ] ||
          [ "$RUN_MODE" = "typography-visual" ] ||
@@ -7596,20 +7345,20 @@ main() {
         require_command sha256sum
         require_file "$UNITY_PATH" "Unity executable"
         if [ "$mode" = "ui" ] ||
-           [ "$mode" = "climate-glyph-update" ] ||
+           [ "$mode" = "kbo-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
            [ "$mode" = "typography-hud-visual" ] ||
            [ "$mode" = "typography-hud-guide-visual" ] ||
            [ "$mode" = "typography-result-visual" ]; then
-            verify_climate_committed_source_integrity
-            verify_climate_worktree_source_integrity
+            verify_kbo_committed_source_integrity
+            verify_kbo_worktree_source_integrity
         fi
         if [ "$mode" = "camera-shake-visual" ] ||
            [ "$mode" = "camera-shake-hud-visual" ]; then
             require_command git
             require_command sha256sum
             ensure_result_dirs
-        elif [ "$mode" = "climate-glyph-update" ] ||
+        elif [ "$mode" = "kbo-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
            [ "$mode" = "typography-hud-visual" ] ||
            [ "$mode" = "typography-hud-guide-visual" ] ||
@@ -7630,7 +7379,7 @@ main() {
     else
         if [ "$mode" = "camera-shake-visual" ] ||
            [ "$mode" = "camera-shake-hud-visual" ] ||
-           [ "$mode" = "climate-glyph-update" ] ||
+           [ "$mode" = "kbo-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
            [ "$mode" = "typography-hud-visual" ] ||
            [ "$mode" = "typography-hud-guide-visual" ] ||
@@ -7696,8 +7445,8 @@ main() {
         ui)
             run_dotnet_and_unity_lane "$mode" run_dotnet_ui run_unity_ui
             ;;
-        climate-glyph-update)
-            run_climate_glyph_update
+        kbo-glyph-update)
+            run_kbo_glyph_update
             ;;
         terminal-production-scene-handoff)
             run_terminal_production_playmode \
@@ -7841,7 +7590,7 @@ main() {
     require_filtered_tests_if_needed
 
     if [ "$DRY_RUN" -eq 0 ] &&
-       [ "$mode" != "climate-glyph-update" ] &&
+       [ "$mode" != "kbo-glyph-update" ] &&
        [ "$mode" != "camera-shake-visual" ] &&
        [ "$mode" != "camera-shake-hud-visual" ] &&
        [ "$mode" != "typography-visual" ] &&

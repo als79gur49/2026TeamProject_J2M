@@ -84,7 +84,7 @@ Invoke-Case "recorded revision must remain unchanged" {
     } "STEAMWORKS_EXPECTATION_SOURCE_REVISION_CHANGED"
 }
 
-Invoke-Case "only the known Unity font importer mutation is restorable" {
+Invoke-Case "canonical font bytes reject legacy importer drift and concurrent edits" {
     $fixtureRoot = Join-Path $env:TEMP ("j2m-font-guard-" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $fixtureRoot | Out-Null
     try {
@@ -100,11 +100,15 @@ Invoke-Case "only the known Unity font importer mutation is restorable" {
         [IO.File]::WriteAllText($beforeCrLfPath, $before.Replace("`n", "`r`n"))
         [IO.File]::WriteAllText($knownCrLfPath, $known.Replace("`n", "`r`n"))
         [IO.File]::WriteAllText($concurrentPath, $known + "user edit`n")
-        Assert-True (Test-IsKnownUnityFontImporterMutation `
-            -BeforePath $beforePath -AfterPath $knownPath)
-        Assert-True (Test-IsKnownUnityFontImporterMutation `
-            -BeforePath $beforeCrLfPath -AfterPath $knownCrLfPath)
-        Assert-True (-not (Test-IsKnownUnityFontImporterMutation `
+        Assert-True (Test-FontAssetBytesUnchanged `
+            -BeforePath $knownPath -AfterPath $knownPath)
+        Assert-True (-not (Test-FontAssetBytesUnchanged `
+            -BeforePath $beforePath -AfterPath $knownPath))
+        Assert-True (-not (Test-FontAssetBytesUnchanged `
+            -BeforePath $beforeCrLfPath -AfterPath $knownCrLfPath))
+        Assert-True (-not (Test-FontAssetBytesUnchanged `
+            -BeforePath $knownPath -AfterPath $knownCrLfPath))
+        Assert-True (-not (Test-FontAssetBytesUnchanged `
             -BeforePath $beforePath -AfterPath $concurrentPath))
     } finally {
         Remove-Item -LiteralPath $fixtureRoot -Recurse -Force

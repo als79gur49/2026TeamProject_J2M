@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
 using ConfirmPopupPresenter = Game.Feature.UI.Application.ConfirmPopupPresenter;
@@ -16,6 +15,7 @@ using KeyboardBindingSettingsSnapshot = Game.Feature.UI.Application.KeyboardBind
 using KeyboardRebindResult = Game.Feature.UI.Application.KeyboardRebindResult;
 using KeyboardRebindStartResult = Game.Feature.UI.Application.KeyboardRebindStartResult;
 using SettingsInputPresenter = Game.Feature.UI.Application.SettingsInputPresenter;
+using StageDisplayNameTextDescriptors = Game.Feature.UI.Application.StageDisplayNameTextDescriptors;
 using SettingsInputPresenterInput = Game.Feature.UI.Application.SettingsInputPresenterInput;
 using TMPro;
 using UnityEditor;
@@ -184,10 +184,10 @@ namespace Game.Feature.UI.Composition.Editor
         public const string DefaultOutputRoot = "TestLogs/TypographyVisualQA";
         public const int SettingsExpectedAppliedBindingCount = 35;
         public const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
-        public const string ClimateCrisisKrFontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        public const string ClimateCrisisKr2019FontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        public const string KboDiaGothicMediumFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        public const string KboDiaGothicLightFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
 
         public static readonly TypographyPreviewScreenshotTarget[] RequiredTargets =
         {
@@ -196,7 +196,7 @@ namespace Game.Feature.UI.Composition.Editor
             new("Main Menu", "MainMenu", "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
         };
 
-        public static readonly TypographyPreviewScreenshotTarget[] ClimateDiagnosticTargets =
+        public static readonly TypographyPreviewScreenshotTarget[] KboDiaGothicDiagnosticTargets =
         {
             new(
                 "Settings Audio Muted",
@@ -346,8 +346,8 @@ namespace Game.Feature.UI.Composition.Editor
             var assetMutationGuard = CaptureAssetMutationGuard.Capture(
                 DirtyGuardAssetPaths.Concat(new[]
                 {
-                    ClimateCrisisKrFontAssetPath,
-                    ClimateCrisisKr2019FontAssetPath,
+                    KboDiaGothicMediumFontAssetPath,
+                    KboDiaGothicLightFontAssetPath,
                 }));
             try
             {
@@ -457,7 +457,7 @@ namespace Game.Feature.UI.Composition.Editor
                     return 20;
 
                 case "Pause":
-                    return 5;
+                    return 6;
 
                 case "MainMenu":
                     return 3;
@@ -2039,12 +2039,13 @@ namespace Game.Feature.UI.Composition.Editor
             var targets = prefabRoot
                 .GetComponentsInChildren<TypographyBinding>(true)
                 .Select(binding => binding.Target)
-                .Where(target => target != null)
+                .Where(target => target != null && target.gameObject.activeInHierarchy)
                 .ToArray();
             if (targets.Length != GetExpectedLocalizedTextCount("Pause"))
             {
                 capture.AddError(
-                    $"{capture.Target.Name} {capture.LocaleCode}: expected 5 rendered TMP targets, found {targets.Length}.");
+                    $"{capture.Target.Name} {capture.LocaleCode}: expected " +
+                    $"{GetExpectedLocalizedTextCount("Pause")} rendered TMP targets, found {targets.Length}.");
                 return;
             }
 
@@ -2305,7 +2306,7 @@ namespace Game.Feature.UI.Composition.Editor
 
         private static IReadOnlyList<LocalizedTextDescriptor> GetPauseDescriptors(PausePopupPayload payload)
         {
-            return new[]
+            var descriptors = new List<LocalizedTextDescriptor>
             {
                 payload.TitleTextDescriptor,
                 payload.ResumeLabelDescriptor,
@@ -2313,32 +2314,58 @@ namespace Game.Feature.UI.Composition.Editor
                 payload.RetryLabelDescriptor,
                 payload.MainMenuLabelDescriptor,
             };
+
+            var progression = payload.Progression;
+            for (var i = 0; i < progression.Stages.Count; i++)
+            {
+                var stage = progression.Stages[i];
+                if (!string.Equals(stage.StageKey, progression.CurrentStageKey, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                descriptors.Add(stage.DisplayNameDescriptor);
+                break;
+            }
+
+            return descriptors;
         }
 
         private static PausePopupPayload CreatePausePreviewPayload()
         {
             var stages = new[]
             {
-                new PauseProgressionStageSnapshot("preview-stage-01", "preview-group-01"),
-                new PauseProgressionStageSnapshot("preview-stage-02", "preview-group-01"),
-                new PauseProgressionStageSnapshot("preview-stage-03", "preview-group-02"),
-                new PauseProgressionStageSnapshot("preview-stage-04", "preview-group-02"),
-                new PauseProgressionStageSnapshot("preview-stage-05", "preview-group-02"),
-                new PauseProgressionStageSnapshot("preview-stage-06", "preview-group-03"),
-                new PauseProgressionStageSnapshot("preview-stage-07", "preview-group-03"),
-                new PauseProgressionStageSnapshot("preview-stage-08", "preview-group-04"),
-                new PauseProgressionStageSnapshot("preview-stage-09", "preview-group-04"),
-                new PauseProgressionStageSnapshot("preview-stage-10", "preview-group-04"),
-                new PauseProgressionStageSnapshot("preview-stage-11", "preview-group-05"),
-                new PauseProgressionStageSnapshot("preview-stage-12", "preview-group-05"),
-                new PauseProgressionStageSnapshot("preview-stage-13", "preview-group-05"),
+                CreatePausePreviewStage("stage-0-1", "preview-group-01"),
+                CreatePausePreviewStage("stage-0-2", "preview-group-01"),
+                CreatePausePreviewStage("stage-0-3", "preview-group-01"),
+                CreatePausePreviewStage("stage-1-1", "preview-group-02"),
+                CreatePausePreviewStage("stage-1-2", "preview-group-02"),
+                CreatePausePreviewStage("stage-2-1", "preview-group-03"),
+                CreatePausePreviewStage("stage-2-2", "preview-group-03"),
+                CreatePausePreviewStage("stage-3-1", "preview-group-04"),
+                CreatePausePreviewStage("stage-3-2", "preview-group-04"),
+                CreatePausePreviewStage("stage-3-3", "preview-group-04"),
+                CreatePausePreviewStage("stage-4-1", "preview-group-05"),
+                CreatePausePreviewStage("stage-4-2", "preview-group-05"),
+                CreatePausePreviewStage("stage-4-3", "preview-group-05"),
             };
 
             return new PausePopupPayload(
                 new PauseProgressionSnapshot(
                     isAvailable: true,
                     stages,
-                    currentStageKey: "preview-stage-06"));
+                    currentStageKey: "stage-2-1"));
+        }
+
+        private static PauseProgressionStageSnapshot CreatePausePreviewStage(
+            string stageKey,
+            string groupKey)
+        {
+            var stageId = StageId.CreateOrThrow(stageKey);
+            return new PauseProgressionStageSnapshot(
+                stageKey,
+                groupKey,
+                StageDisplayNameTextDescriptors.ForStage(stageId));
         }
 
         private static IReadOnlyList<LocalizedTextDescriptor> GetMainMenuDescriptors(MainMenuStaticTextPayload payload)
@@ -3131,10 +3158,10 @@ namespace Game.Feature.UI.Composition.Editor
     {
         public const string BaselineRootCommandLineArgument =
             "-captureAssetBaselineRoot";
-        public const string ClimateFontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        public const string Climate2019FontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        public const string KboDiaGothicMediumFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        public const string KboDiaGothicLightFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
 
         private readonly Dictionary<string, byte[]> snapshots =
             new Dictionary<string, byte[]>(StringComparer.Ordinal);
@@ -3298,109 +3325,14 @@ namespace Game.Feature.UI.Composition.Editor
                     allowed: true);
             }
 
-            var allowed = TryClassifyAllowedClimateScaleRatioDrift(
-                path,
-                before,
-                after,
-                out var changedProperties);
             return new CaptureAssetMutationEvidence(
                 path,
                 ComputeSha256(before),
                 ComputeSha256(after),
                 mutationDetected: true,
-                changedProperties,
-                allowed
-                    ? "EXPECTED_IMPORT_DERIVED_DRIFT"
-                    : "UNEXPECTED_ASSET_MUTATION",
-                allowed);
-        }
-
-        private static bool TryClassifyAllowedClimateScaleRatioDrift(
-            string path,
-            byte[] before,
-            byte[] after,
-            out string changedProperties)
-        {
-            changedProperties = "binary-or-unclassified";
-            if (!string.Equals(path, ClimateFontAssetPath, StringComparison.Ordinal) &&
-                !string.Equals(path, Climate2019FontAssetPath, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            var beforeLines = DecodeLines(before);
-            var afterLines = DecodeLines(after);
-            if (beforeLines.Length != afterLines.Length)
-            {
-                return false;
-            }
-
-            var changed = new List<string>();
-            var requiredWhitespaceProperties = new HashSet<string>(
-                new[]
-                {
-                    "m_MipmapLimitGroupName:",
-                    "m_PlatformBlob:",
-                    "path:",
-                    "referencedFontAssetGUID:",
-                    "referencedTextAssetGUID:",
-                    "m_SourceFontFilePath:",
-                    "Name:",
-                    "m_LockedProperties:",
-                },
-                StringComparer.Ordinal);
-            var observedWhitespaceProperties = new HashSet<string>(
-                StringComparer.Ordinal);
-            for (var index = 0; index < beforeLines.Length; index++)
-            {
-                if (string.Equals(beforeLines[index], afterLines[index], StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var beforeValue = beforeLines[index].Trim();
-                var afterValue = afterLines[index].Trim();
-                if (string.Equals(beforeValue, afterValue, StringComparison.Ordinal) &&
-                    requiredWhitespaceProperties.Contains(beforeValue) &&
-                    string.Equals(
-                        afterLines[index],
-                        beforeLines[index] + " ",
-                        StringComparison.Ordinal))
-                {
-                    observedWhitespaceProperties.Add(beforeValue);
-                    changed.Add($"serialization-whitespace:{beforeValue}");
-                    continue;
-                }
-
-                if (string.Equals(beforeValue, "- _ScaleRatioA: 1", StringComparison.Ordinal) &&
-                    string.Equals(afterValue, "- _ScaleRatioA: 0.9", StringComparison.Ordinal))
-                {
-                    changed.Add("_ScaleRatioA:1->0.9");
-                    continue;
-                }
-
-                if (string.Equals(beforeValue, "- _ScaleRatioC: 1", StringComparison.Ordinal) &&
-                    string.Equals(afterValue, "- _ScaleRatioC: 0.73125", StringComparison.Ordinal))
-                {
-                    changed.Add("_ScaleRatioC:1->0.73125");
-                    continue;
-                }
-
-                return false;
-            }
-
-            changedProperties = string.Join(",", changed);
-            var hasScaleRatioA = changed.Contains("_ScaleRatioA:1->0.9");
-            var hasScaleRatioC = changed.Contains("_ScaleRatioC:1->0.73125");
-            return observedWhitespaceProperties.SetEquals(requiredWhitespaceProperties) &&
-                   hasScaleRatioA == hasScaleRatioC;
-        }
-
-        private static string[] DecodeLines(byte[] bytes)
-        {
-            return Encoding.UTF8.GetString(bytes ?? Array.Empty<byte>())
-                .Replace("\r\n", "\n")
-                .Split('\n');
+                changedProperties: "binary-or-unclassified",
+                classification: "UNEXPECTED_ASSET_MUTATION",
+                allowed: false);
         }
 
         private static string ComputeSha256(byte[] bytes)

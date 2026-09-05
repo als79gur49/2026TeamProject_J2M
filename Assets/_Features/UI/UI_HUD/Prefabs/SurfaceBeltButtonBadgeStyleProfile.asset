@@ -14,9 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.UI.HUD::Game.Feature.UI.HUD.SurfaceBeltButtonBadgeStyleProfile
   _normalButton:
     _active:
-      _backgroundColor: {r: 0.8980392, g: 0.8392157, b: 0.29411766, a: 1}
+      _backgroundColor: {r: 0.3137255, g: 0.8980392, b: 0.29803923, a: 1}
     _inactive:
-      _backgroundColor: {r: 0.8980392, g: 0.8392157, b: 0.29411766, a: 0.2}
+      _backgroundColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  _moonButton:
+    _active:
+      _backgroundColor: {r: 0.8980392, g: 0.8392157, b: 0.2941177, a: 1}
+    _inactive:
+      _backgroundColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   _transition:
     _activationDurationSeconds: 0.24
     _deactivationDurationSeconds: 0.16

@@ -22,10 +22,10 @@ namespace Game.Feature.UI.Tests
             "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
         private const string ThemePath =
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
-        private const string Climate2000Path =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        private const string Climate2019Path =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        private const string KboMediumPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        private const string KboLightPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
 
         [Test]
         public void Contract_HasThreeUniqueNonBlankWorldGuideLocaleEntries()
@@ -94,7 +94,7 @@ namespace Game.Feature.UI.Tests
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
             var instance = Object.Instantiate(prefab);
             var resolver = new ContractResolver("en-US");
-            var climate2000 = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2000Path);
+            var kboMedium = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboMediumPath);
 
             try
             {
@@ -142,7 +142,7 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(binding.StageNameText.text, Is.EqualTo("연구실-01"));
                 AssertChanceState(chanceModel, 2, 3);
-                Assert.That(binding.StageNameText.font, Is.SameAs(climate2000));
+                Assert.That(binding.StageNameText.font, Is.SameAs(kboMedium));
                 Assert.That(binding.StageNameText.font, Is.SameAs(koreanStyle.FontAsset));
                 Assert.That(binding.StageNameText.fontSharedMaterial, Is.SameAs(koreanStyle.MaterialPreset));
                 Assert.That(binding.StageNameText.fontStyle, Is.EqualTo(expectedKoreanFontStyle));
@@ -176,7 +176,7 @@ namespace Game.Feature.UI.Tests
         {
             var resolver = new ContractResolver("en-US");
             var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemePath);
-            var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2019Path);
+            var kboLight = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboLightPath);
             var movement = new LocalizationTarget(WorldGuideInstructionKind.Movement, "WASD");
             var push = new LocalizationTarget(WorldGuideInstructionKind.Push, "J");
             var flip = new LocalizationTarget(WorldGuideInstructionKind.Flip, "K");
@@ -213,9 +213,9 @@ namespace Game.Feature.UI.Tests
                 Assert.That(movement.Keycap, Is.EqualTo("WASD"));
                 Assert.That(push.Keycap, Is.EqualTo("J"));
                 Assert.That(flip.Keycap, Is.EqualTo("K"));
-                Assert.That(movement.ActionTextLabel.font, Is.SameAs(climate));
-                Assert.That(push.ActionTextLabel.font, Is.SameAs(climate));
-                Assert.That(flip.ActionTextLabel.font, Is.SameAs(climate));
+                Assert.That(movement.ActionTextLabel.font, Is.SameAs(kboLight));
+                Assert.That(push.ActionTextLabel.font, Is.SameAs(kboLight));
+                Assert.That(flip.ActionTextLabel.font, Is.SameAs(kboLight));
 
                 resolver.SetLocale("en-US");
 
