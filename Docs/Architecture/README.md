@@ -54,6 +54,10 @@
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
+- [UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md](./UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md)
+  - proposed A/B/C split plan for test-tier remediation, strict-governance delta closure, original SHA preservation, sequential merge-commit integration, and same-revision PR evidence; execution requires the documented merge-method, deterministic-delta, and evidence-root preconditions
+- [UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md](./UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md)
+  - active handoff prompt for executing the proposed A/B/C split one PR at a time with D-drive worktrees, scoped commit/push authority, explicit merge approval stops, and final-head evidence gates
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
   - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Standard-only Charge BehaviorModule production content, and Phase 2 trigger boundaries
 - [Enemy-AI-Phase1-Merge-Gate.md](./Enemy-AI-Phase1-Merge-Gate.md)
