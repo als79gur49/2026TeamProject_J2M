@@ -1015,7 +1015,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void RuntimeSettings_LanguageRowSwitchesThroughUnityAdapterAndKeepsKoreanFont()
         {
-            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
+            var kboDiaGothicMedium = UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont();
             using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
             using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
 
@@ -1031,7 +1031,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
+            Assert.That(titleLabel.font, Is.SameAs(kboDiaGothicMedium));
             Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
         }

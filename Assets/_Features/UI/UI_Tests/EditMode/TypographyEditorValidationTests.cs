@@ -31,7 +31,7 @@ namespace Game.Feature.UI.Tests
             "TestLogs/TypographyVisualQA/CommandLine-20260720-194045";
 
         [Test]
-        public void CaptureMutationGuard_AllowsOnlyExactClimateScaleRatioDrift()
+        public void CaptureMutationGuard_AllowsOnlyExactKboDiaGothicScaleRatioDrift()
         {
             var before = System.Text.Encoding.UTF8.GetBytes(
                 "m_MipmapLimitGroupName:\n" +
@@ -59,7 +59,7 @@ namespace Game.Feature.UI.Tests
                 "  - _ScaleRatioC: 0.73125\n");
 
             var evidence = ClassifyCaptureMutation(
-                CaptureAssetMutationGuard.ClimateFontAssetPath,
+                CaptureAssetMutationGuard.KboDiaGothicMediumFontAssetPath,
                 before,
                 after);
 
@@ -75,7 +75,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void CaptureMutationGuard_AllowsExactClimateSerializationWhitespaceDrift()
+        public void CaptureMutationGuard_AllowsExactKboDiaGothicSerializationWhitespaceDrift()
         {
             var before = System.Text.Encoding.UTF8.GetBytes(
                 "m_MipmapLimitGroupName:\n" +
@@ -97,7 +97,7 @@ namespace Game.Feature.UI.Tests
                 "m_LockedProperties: \n");
 
             var evidence = ClassifyCaptureMutation(
-                CaptureAssetMutationGuard.ClimateFontAssetPath,
+                CaptureAssetMutationGuard.KboDiaGothicMediumFontAssetPath,
                 before,
                 after);
 
@@ -109,7 +109,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void CaptureMutationGuard_RejectsIncompleteClimateScaleRatioProfile()
+        public void CaptureMutationGuard_RejectsIncompleteKboDiaGothicScaleRatioProfile()
         {
             var before = System.Text.Encoding.UTF8.GetBytes(
                 "m_MipmapLimitGroupName:\n" +
@@ -135,7 +135,7 @@ namespace Game.Feature.UI.Tests
                 "  - _ScaleRatioC: 1\n");
 
             var evidence = ClassifyCaptureMutation(
-                CaptureAssetMutationGuard.ClimateFontAssetPath,
+                CaptureAssetMutationGuard.KboDiaGothicMediumFontAssetPath,
                 before,
                 after);
 
@@ -175,7 +175,7 @@ namespace Game.Feature.UI.Tests
                 "m_CharacterTable: changed\n");
 
             var evidence = ClassifyCaptureMutation(
-                CaptureAssetMutationGuard.ClimateFontAssetPath,
+                CaptureAssetMutationGuard.KboDiaGothicMediumFontAssetPath,
                 before,
                 after);
 
@@ -210,7 +210,7 @@ namespace Game.Feature.UI.Tests
                 fontSets: new[]
                 {
                     CreateFontSet("en-US", LoadLiberationSans(), nullMaterialCategory: FontCategory.Body),
-                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()),
+                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont()),
                 });
 
             try
@@ -258,7 +258,7 @@ namespace Game.Feature.UI.Tests
                 new[]
                 {
                     CreateFontSet("en-US", LoadLiberationSans()),
-                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()),
+                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont()),
                 });
             theme.SetBaseRules(GameplayUiTypographyTheme.CreateDefaultBaseRules()
                 .Where(rule => rule.StyleTag != TypographyStyleTag.Value));
@@ -546,7 +546,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(10));
                 Assert.That(
                     governedBinding.Target.font,
-                    Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
+                    Is.SameAs(UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont()));
                 Assert.That(
                     governedBinding.Target.fontSharedMaterial,
                     Is.SameAs(theme.ResolveOrThrow("ko-KR", governedBinding.StyleTag).MaterialPreset));
@@ -759,8 +759,8 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.SettingsScreenPrefabPath,
                 UiTestPrefabAssetUtility.PausePopupPrefabPath,
                 UiTestPrefabAssetUtility.MainMenuScreenPrefabPath,
-                UiTestPrefabAssetUtility.ClimateCrisisKrFontAssetPath,
-                UiTestPrefabAssetUtility.ClimateCrisisKr2019FontAssetPath,
+                UiTestPrefabAssetUtility.KboDiaGothicMediumFontAssetPath,
+                UiTestPrefabAssetUtility.KboDiaGothicLightFontAssetPath,
                 TmpSettingsAssetPath,
             };
 
@@ -860,12 +860,12 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TypographyPreviewScreenshotUtility_CapturesClimateKoreanDiagnosticsSeparately()
+        public void TypographyPreviewScreenshotUtility_CapturesKboDiaGothicKoreanDiagnosticsSeparately()
         {
             var outputDirectory = Path.Combine(
                 "Temp",
                 "TypographyPreviewScreenshotTests",
-                "ClimateDiagnostics-" + System.DateTime.Now.ToString(
+                "KboDiaGothicDiagnostics-" + System.DateTime.Now.ToString(
                     "yyyyMMdd-HHmmss-fff",
                     System.Globalization.CultureInfo.InvariantCulture));
             var guardedAssets = new[]
@@ -873,8 +873,8 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.SettingsScreenPrefabPath,
                 UiTestPrefabAssetUtility.PausePopupPrefabPath,
                 UiTestPrefabAssetUtility.ConfirmPopupPrefabPath,
-                UiTestPrefabAssetUtility.ClimateCrisisKrFontAssetPath,
-                UiTestPrefabAssetUtility.ClimateCrisisKr2019FontAssetPath,
+                UiTestPrefabAssetUtility.KboDiaGothicMediumFontAssetPath,
+                UiTestPrefabAssetUtility.KboDiaGothicLightFontAssetPath,
                 TmpSettingsAssetPath,
             };
 
@@ -885,7 +885,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
-                    TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets,
+                    TypographyPreviewScreenshotUtility.KboDiaGothicDiagnosticTargets,
                     new[] { "ko-KR" },
                     outputDirectory,
                     new TypographyPreviewScreenshotOptions

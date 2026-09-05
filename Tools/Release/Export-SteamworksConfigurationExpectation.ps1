@@ -279,7 +279,7 @@ function Invoke-SteamworksConfigurationExpectationExport {
     $statusProbe = Invoke-RepositoryGit $repositoryFull @("status", "--short")
     Assert-RepositoryIsClean -Status $statusProbe
     $guardedRelativePaths = @(
-        "Assets\_Shared\UI\Fonts\ClimateCrisisKR-2000 SDF.asset"
+        "Assets\_Shared\UI\Fonts\KBODiaGothic-Medium SDF.asset"
     )
     $repositoryLocks = Enter-RepositoryMutationLocks -Root $repositoryFull
     $sourceReadLocks = @()

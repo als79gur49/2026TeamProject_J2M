@@ -17,51 +17,58 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
-    public sealed class ClimateCrisisKrTypographyContractTests
+    public sealed class KboDiaGothicTypographyContractTests
     {
         private const string ThemeAssetPath =
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
+        private const string MainMenuPrefabPath =
+            "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab";
+        private const string MainMenuLogoSpritePath = "Assets/3DM/Sprite/tittl3e.png";
         private const string PausePrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
         private const string SettingsPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
-        private const string SourceFont2000Path = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf";
-        private const string FontAsset2000Path = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        private const string SourceFont2019Path = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019.ttf";
-        private const string FontAsset2019Path = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        private const string SourceFontMediumPath = "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium.ttf";
+        private const string FontAssetMediumPath = "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        private const string SourceFontLightPath = "Assets/_Shared/UI/Fonts/KBODiaGothic-Light.ttf";
+        private const string FontAssetLightPath = "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
         private const string UiKoreanStringTablePath =
             "Assets/Localization/StringTables/UI/UI_ko-KR.asset";
         private const string StageKoreanStringTablePath =
             "Assets/Localization/StringTables/Stage/Stage_ko-KR.asset";
-        private const string Climate2000FontGuid = "40d61154fd6576b4d85c2d78460b16ad";
-        private const string Climate2019FontGuid = "7dfd9aae81fc1d242b007a3b7a042fb0";
-        private const long ClimateFontLocalId = 11400000;
-        private const long Climate2000MaterialLocalId = 1352911973252649374;
-        private const long Climate2019MaterialLocalId = 7808543287137721147;
+        private const string KboMediumFontGuid = "40d61154fd6576b4d85c2d78460b16ad";
+        private const string KboLightFontGuid = "7dfd9aae81fc1d242b007a3b7a042fb0";
+        private const long KboFontLocalId = 11400000;
+        private const long KboMediumMaterialLocalId = 1352911973252649374;
+        private const long KboLightMaterialLocalId = 7808543287137721147;
+        private const long KboMediumAtlasLocalId = -2536001923755311345;
+        private const long KboLightAtlasLocalId = -5757234995057936259;
         private const string EnglishContractSha256 =
             "3def0381e783b5bd7286e824a6fcea11dddb659ed5a3aab667a239d070868f92";
 
         [Test]
-        public void ClimateAssets_KeepRuntimeIdentityAndCanonicalReferences()
+        public void KboAssets_KeepRuntimeIdentityAndCanonicalReferences()
         {
-            AssertClimateAssetContract(
-                LoadClimate2000Font(),
-                SourceFont2000Path,
+            AssertKboAssetContract(
+                LoadKboMediumFont(),
+                SourceFontMediumPath,
                 "5360535d0de75234ca21822297323672",
-                Climate2000FontGuid,
-                Climate2000MaterialLocalId,
+                KboMediumFontGuid,
+                KboMediumMaterialLocalId,
+                KboMediumAtlasLocalId,
                 296,
-                "Climate 2000");
-            AssertClimateAssetContract(
-                LoadClimate2019Font(),
-                SourceFont2019Path,
+                "Medium");
+            AssertKboAssetContract(
+                LoadKboLightFont(),
+                SourceFontLightPath,
                 "56e1f07e315e49a4a8e5043a11e04e29",
-                Climate2019FontGuid,
-                Climate2019MaterialLocalId,
+                KboLightFontGuid,
+                KboLightMaterialLocalId,
+                KboLightAtlasLocalId,
                 314,
-                "Climate 2019");
+                "Light");
         }
 
         [Test]
-        public void ClimateSourceGuard_SeparatesHeadBlobIntegrityFromWorkingImportState()
+        public void KboSourceGuard_SeparatesHeadBlobIntegrityFromWorkingImportState()
         {
             var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
             var runner = File.ReadAllText(Path.Combine(repoRoot, "run_tests.sh"));
@@ -76,18 +83,18 @@ namespace Game.Feature.UI.Tests
                 "Historical HEAD blobs must use the constants committed with that HEAD.");
             Assert.That(
                 runner,
-                Does.Contain("Climate committed source integrity: PASS"));
+                Does.Contain("KBO Dia Gothic committed source integrity: PASS"));
             Assert.That(
                 runner,
-                Does.Contain("verify_climate_worktree_source_integrity"),
+                Does.Contain("verify_kbo_worktree_source_integrity"),
                 "The candidate lane must validate current worktree bytes before commit.");
             Assert.That(
                 runner,
-                Does.Contain("sha256sum \"$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET\""),
-                "The candidate Climate SDF hash must come from the current worktree.");
-            Assert.That(runner, Does.Contain("CLIMATE_2019_SOURCE_TTF_SHA256"));
-            Assert.That(runner, Does.Contain("CLIMATE_2019_COMMITTED_SDF_SHA256"));
-            Assert.That(runner, Does.Contain("$CLIMATE_2019_SDF_ASSET"));
+                Does.Contain("sha256sum \"$PROJECT_PATH_WSL/$KBO_MEDIUM_SDF_ASSET\""),
+                "The candidate KBO Dia Gothic Medium SDF hash must come from the current worktree.");
+            Assert.That(runner, Does.Contain("KBO_LIGHT_SOURCE_TTF_SHA256"));
+            Assert.That(runner, Does.Contain("KBO_LIGHT_COMMITTED_SDF_SHA256"));
+            Assert.That(runner, Does.Contain("$KBO_LIGHT_SDF_ASSET"));
             Assert.That(
                 runner,
                 Does.Contain("require_worktree_file_text"),
@@ -104,7 +111,67 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 runner,
                 Does.Not.Contain("71ae00a952cf086150c90764db323bf078bf871e133ce52844cc1c94070d6445"),
-                "An entire derived Climate blob must not be accepted as an allowlist.");
+                "An entire derived KBO Dia Gothic blob must not be accepted as an allowlist.");
+        }
+
+        [Test]
+        public void KboLicenseGovernance_SeparatesEmbeddingBrandingAndSdfInterpretation()
+        {
+            var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var assetNotice = File.ReadAllText(Path.Combine(
+                repoRoot,
+                "Assets/_Shared/UI/Fonts/KBO-Dia-Gothic-LICENSE.txt"));
+            var distributionNotice = File.ReadAllText(Path.Combine(repoRoot, "ThirdPartyNotices.txt"));
+            var closeout = File.ReadAllText(Path.Combine(
+                repoRoot,
+                "Docs/Architecture/KBO-Dia-Gothic-Typography-Migration-Closeout.md"));
+            var inventory = File.ReadAllText(Path.Combine(
+                repoRoot,
+                "Docs/Release/Third-Party-Asset-Inventory.md"));
+
+            Assert.That(assetNotice, Does.Contain("Commercial use and software embedding are permitted"));
+            Assert.That(assetNotice, Does.Contain("CI / BI use is not permitted."));
+            Assert.That(assetNotice, Does.Contain("must not be used as the\nrepresentative branding"));
+            Assert.That(assetNotice, Does.Contain("does not\nexpressly address TextMesh Pro SDF assets"));
+            Assert.That(assetNotice, Does.Contain("Static versus Dynamic"));
+            Assert.That(assetNotice, Does.Contain("kbop@koreabaseball.or.kr"));
+            Assert.That(assetNotice, Does.Contain("images of printed materials and advertising materials"));
+            Assert.That(assetNotice, Does.Contain("The font itself may not be sold."));
+            Assert.That(assetNotice, Does.Not.Contain("web1.koreabaseball.com"));
+
+            Assert.That(distributionNotice, Does.Contain("CI / BI use is not permitted."));
+            Assert.That(
+                distributionNotice,
+                Does.Contain("The official KBO license does not\nexpressly address TextMesh Pro SDF assets."));
+            Assert.That(distributionNotice, Does.Contain("No explicit end-credit or license-file bundling requirement"));
+            Assert.That(distributionNotice, Does.Contain("KBO/KBOP\nconfirmation remains a release review item."));
+            Assert.That(distributionNotice, Does.Contain("kbop@koreabaseball.or.kr"));
+            Assert.That(distributionNotice, Does.Not.Contain("CI / BI use is permitted."));
+            Assert.That(distributionNotice, Does.Not.Contain("KBO has approved TextMesh Pro SDF"));
+
+            Assert.That(closeout, Does.Contain("`VectorQuake`"));
+            Assert.That(closeout, Does.Contain("`J2M`"));
+            Assert.That(closeout, Does.Contain("rights-holder-confirmation\nitem"));
+            Assert.That(closeout, Does.Contain("원본 TTF의 내용과 글자 디자인은 변경하지 않고"));
+            Assert.That(inventory, Does.Contain("TMP SDF는 공개자료상 미확인·출시 전 권리자 문의 권장"));
+            Assert.That(inventory, Does.Contain("KBO Dia Gothic TMP/SDF 확인 조건"));
+        }
+
+        [Test]
+        public void MainMenuBrandLogo_RemainsSeparateImage_NotKboTmpText()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MainMenuPrefabPath);
+            Assert.That(prefab, Is.Not.Null, MainMenuPrefabPath);
+
+            var logo = prefab.GetComponentsInChildren<Transform>(true)
+                .SingleOrDefault(candidate => candidate.name == "Logo");
+            Assert.That(logo, Is.Not.Null, "Main Menu must retain its explicit Logo object.");
+            Assert.That(logo.GetComponent<TMP_Text>(), Is.Null, "Brand logo must not become governed KBO TMP text.");
+
+            var image = logo.GetComponent<Image>();
+            Assert.That(image, Is.Not.Null, "Main Menu brand logo must remain a separate image.");
+            Assert.That(image.sprite, Is.Not.Null, "Main Menu brand logo image must retain its sprite.");
+            Assert.That(AssetDatabase.GetAssetPath(image.sprite), Is.EqualTo(MainMenuLogoSpritePath));
         }
 
         [Test]
@@ -125,9 +192,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ClimateSdf_NativelyCoversManagedKoreanStringTables()
+        public void KboSdf_NativelyCoversManagedKoreanStringTables()
         {
-            var fontAssets = new[] { LoadClimate2000Font(), LoadClimate2019Font() };
+            var fontAssets = new[] { LoadKboMediumFont(), LoadKboLightFont() };
             var tablePaths = AssetDatabase
                 .FindAssets("t:StringTable", new[] { "Assets/Localization/StringTables" })
                 .Select(AssetDatabase.GUIDToAssetPath)
@@ -149,7 +216,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 tablePaths,
                 Is.EquivalentTo(new[] { StageKoreanStringTablePath, UiKoreanStringTablePath }),
-                "Every managed ko-KR table must participate in native Climate glyph validation.");
+                "Every managed ko-KR table must participate in native KBO glyph validation.");
             Assert.That(values, Has.Length.EqualTo(131));
             Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(118));
             Assert.That(values, Does.Contain("밀기 키를 누르세요…"));
@@ -176,13 +243,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ProductionTheme_ResolvesKoreanHierarchyAcross2019And2000WithoutSizing()
+        public void ProductionTheme_ResolvesKoreanHierarchyAcrossLightAndMediumWithoutSizing()
         {
             var theme = LoadTheme();
-            var climate2000 = LoadClimate2000Font();
-            var climate2019 = LoadClimate2019Font();
+            var kboMedium = LoadKboMediumFont();
+            var kboLight = LoadKboLightFont();
             var roles = Enum.GetValues(typeof(TypographyStyleTag)).Cast<TypographyStyleTag>().ToArray();
-            var climate2019Roles = new[]
+            var kboLightRoles = new[]
             {
                 TypographyStyleTag.Default,
                 TypographyStyleTag.HeaderMedium,
@@ -194,7 +261,7 @@ namespace Game.Feature.UI.Tests
                 TypographyStyleTag.PopupBody,
                 TypographyStyleTag.PopupAction,
             };
-            var climate2000Roles = roles.Except(climate2019Roles).ToArray();
+            var kboMediumRoles = roles.Except(kboLightRoles).ToArray();
             var expectedMask =
                 TypographyApplyMask.Font |
                 TypographyApplyMask.Material |
@@ -242,14 +309,14 @@ namespace Game.Feature.UI.Tests
                 "Sparse overrides only need entries where ko-KR differs from the base rule.");
             Assert.That(koreanOverrideDuplicates, Is.Empty, "ko-KR role override duplicates");
             Assert.That(theme.BuildCache().Count, Is.EqualTo(38));
-            Assert.That(climate2019Roles, Has.Length.EqualTo(9));
-            Assert.That(climate2000Roles, Has.Length.EqualTo(10));
+            Assert.That(kboLightRoles, Has.Length.EqualTo(9));
+            Assert.That(kboMediumRoles, Has.Length.EqualTo(10));
 
             foreach (var role in roles)
             {
                 Assert.That(theme.TryResolve("en-US", role, out _), Is.True, $"en-US {role}");
                 Assert.That(theme.TryResolve("ko-KR", role, out var korean), Is.True, $"ko-KR {role}");
-                var expectedFont = climate2019Roles.Contains(role) ? climate2019 : climate2000;
+                var expectedFont = kboLightRoles.Contains(role) ? kboLight : kboMedium;
                 Assert.That(korean.FontAsset, Is.SameAs(expectedFont), role.ToString());
                 Assert.That(korean.MaterialPreset, Is.SameAs(expectedFont.material), role.ToString());
                 Assert.That(korean.FontStyle, Is.EqualTo(FontStyles.Normal), role.ToString());
@@ -278,7 +345,7 @@ namespace Game.Feature.UI.Tests
             AssertAssetIdentity(
                 genericButton.FontAsset,
                 "dec0b1c5d015b39438a16d1bffa2e9ca",
-                ClimateFontLocalId,
+                KboFontLocalId,
                 "Generic Button SciFiSoldier font");
             AssertAssetIdentity(
                 genericButton.MaterialPreset,
@@ -291,7 +358,7 @@ namespace Game.Feature.UI.Tests
             AssertAssetIdentity(
                 mainMenuCommand.FontAsset,
                 "819507a38fa816a489de88dad2de2ce9",
-                ClimateFontLocalId,
+                KboFontLocalId,
                 "MainMenuCommand Orbitron font");
             AssertAssetIdentity(
                 mainMenuCommand.MaterialPreset,
@@ -302,7 +369,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ProductionPrefabs_KeepApprovedClimateLayoutContract()
+        public void ProductionPrefabs_KeepApprovedKboLayoutContract()
         {
             var pause = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(PausePrefabPath);
             var settings = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(SettingsPrefabPath);
@@ -468,37 +535,54 @@ namespace Game.Feature.UI.Tests
             return theme;
         }
 
-        private static TMP_FontAsset LoadClimate2000Font()
+        private static TMP_FontAsset LoadKboMediumFont()
         {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAsset2000Path);
-            Assert.That(fontAsset, Is.Not.Null, FontAsset2000Path);
+            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetMediumPath);
+            Assert.That(fontAsset, Is.Not.Null, FontAssetMediumPath);
             return fontAsset;
         }
 
-        private static TMP_FontAsset LoadClimate2019Font()
+        private static TMP_FontAsset LoadKboLightFont()
         {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAsset2019Path);
-            Assert.That(fontAsset, Is.Not.Null, FontAsset2019Path);
+            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetLightPath);
+            Assert.That(fontAsset, Is.Not.Null, FontAssetLightPath);
             return fontAsset;
         }
 
-        private static void AssertClimateAssetContract(
+        private static void AssertKboAssetContract(
             TMP_FontAsset fontAsset,
             string sourceFontPath,
             string sourceFontGuid,
             string fontGuid,
             long materialLocalId,
+            long atlasLocalId,
             int expectedCharacterCount,
-            string label)
+            string expectedStyleName)
         {
+            var label = "KBO Dia Gothic " + expectedStyleName;
             Assert.That(AssetDatabase.AssetPathToGUID(sourceFontPath), Is.EqualTo(sourceFontGuid));
-            AssertAssetIdentity(fontAsset, fontGuid, ClimateFontLocalId, $"{label} TMP font");
+            AssertAssetIdentity(fontAsset, fontGuid, KboFontLocalId, $"{label} TMP font");
             AssertAssetIdentity(fontAsset.material, fontGuid, materialLocalId, $"{label} canonical material");
+            Assert.That(fontAsset.faceInfo.familyName, Is.EqualTo("KBO Dia Gothic"), label);
+            Assert.That(fontAsset.faceInfo.styleName, Is.EqualTo(expectedStyleName), label);
+            Assert.That(fontAsset.creationSettings.sourceFontFileName, Is.EqualTo(Path.GetFileName(sourceFontPath)), label);
+            Assert.That(fontAsset.creationSettings.sourceFontFileGUID, Is.EqualTo(sourceFontGuid), label);
+            Assert.That(fontAsset.creationSettings.faceIndex, Is.Zero, label);
+            Assert.That(fontAsset.creationSettings.pointSizeSamplingMode, Is.EqualTo(1), label);
+            Assert.That(fontAsset.creationSettings.pointSize, Is.EqualTo(90), label);
+            Assert.That(fontAsset.creationSettings.padding, Is.EqualTo(9), label);
+            Assert.That(fontAsset.creationSettings.paddingMode, Is.EqualTo(2), label);
+            Assert.That(fontAsset.creationSettings.packingMode, Is.Zero, label);
+            Assert.That(fontAsset.creationSettings.atlasWidth, Is.EqualTo(2048), label);
+            Assert.That(fontAsset.creationSettings.atlasHeight, Is.EqualTo(2048), label);
+            Assert.That(fontAsset.creationSettings.characterSetSelectionMode, Is.EqualTo(7), label);
+            Assert.That(fontAsset.creationSettings.renderMode, Is.EqualTo((int)fontAsset.atlasRenderMode), label);
             Assert.That(fontAsset.characterTable, Has.Count.EqualTo(expectedCharacterCount), label);
             Assert.That(fontAsset.HasCharacter(' ', false, false), Is.True, label);
             Assert.That(fontAsset.atlasPopulationMode, Is.EqualTo(AtlasPopulationMode.Static), label);
             Assert.That(fontAsset.atlasTextures, Has.Length.EqualTo(1), label);
             Assert.That(fontAsset.atlasTextures[0], Is.Not.Null, label);
+            AssertAssetIdentity(fontAsset.atlasTextures[0], fontGuid, atlasLocalId, $"{label} canonical atlas");
             Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty, label);
         }
 

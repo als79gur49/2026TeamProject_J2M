@@ -528,7 +528,7 @@ namespace Game.Feature.UI.Tests
                     authoredFontSizeMin,
                     authoredFontSizeMax,
                     "ko-KR");
-                Assert.That(title.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKr2019Font()));
+                Assert.That(title.font, Is.SameAs(UiTestPrefabAssetUtility.LoadKboDiaGothicLightFont()));
                 Assert.That(title.fontStyle, Is.EqualTo(FontStyles.Normal));
 
                 resolver.SetLocale("en-US");
@@ -1001,7 +1001,7 @@ namespace Game.Feature.UI.Tests
                         target.Text.font,
                         expectedGuid,
                         11400000,
-                        $"{context} Climate font");
+                        $"{context} KBO Dia Gothic font");
                 }
             }
         }

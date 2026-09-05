@@ -23,10 +23,10 @@ namespace Game.Feature.UI.Tests
         internal const string GameClearScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameClearScreen.prefab";
         internal const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
         internal const string UiAudioCueMapAssetPath = "Assets/_Features/UI/UI_Composition/Authoring/UiAudioCueMap_V1.asset";
-        internal const string ClimateCrisisKrFontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        internal const string ClimateCrisisKr2019FontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        internal const string KboDiaGothicMediumFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        internal const string KboDiaGothicLightFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
         internal const string PausePopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
         internal const string ConfirmPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab";
 
@@ -133,17 +133,17 @@ namespace Game.Feature.UI.Tests
             serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        internal static TMP_FontAsset LoadClimateCrisisKrFont()
+        internal static TMP_FontAsset LoadKboDiaGothicMediumFont()
         {
-            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateCrisisKrFontAssetPath);
-            Assert.That(font, Is.Not.Null, ClimateCrisisKrFontAssetPath);
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboDiaGothicMediumFontAssetPath);
+            Assert.That(font, Is.Not.Null, KboDiaGothicMediumFontAssetPath);
             return font;
         }
 
-        internal static TMP_FontAsset LoadClimateCrisisKr2019Font()
+        internal static TMP_FontAsset LoadKboDiaGothicLightFont()
         {
-            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateCrisisKr2019FontAssetPath);
-            Assert.That(font, Is.Not.Null, ClimateCrisisKr2019FontAssetPath);
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboDiaGothicLightFontAssetPath);
+            Assert.That(font, Is.Not.Null, KboDiaGothicLightFontAssetPath);
             return font;
         }
 

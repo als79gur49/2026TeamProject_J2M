@@ -26,33 +26,33 @@ namespace Game.Feature.UI.Tests
     {
         private const string ThemePath =
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
-        private const string ClimateSdfPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        private const string Climate2019SdfPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
-        private byte[] _climateSerializedBaseline;
-        private byte[] _climate2019SerializedBaseline;
+        private const string KboMediumSdfPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        private const string KboLightSdfPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
+        private byte[] _kboMediumSerializedBaseline;
+        private byte[] _kboLightSerializedBaseline;
 
         [OneTimeSetUp]
-        public void SnapshotClimateSerializedBaseline()
+        public void SnapshotKboDiaGothicSerializedBaseline()
         {
-            _climateSerializedBaseline = File.ReadAllBytes(ClimateSdfPath);
-            _climate2019SerializedBaseline = File.ReadAllBytes(Climate2019SdfPath);
+            _kboMediumSerializedBaseline = File.ReadAllBytes(KboMediumSdfPath);
+            _kboLightSerializedBaseline = File.ReadAllBytes(KboLightSdfPath);
         }
 
         [OneTimeTearDown]
-        public void RestoreClimateSerializedBaseline()
+        public void RestoreKboDiaGothicSerializedBaseline()
         {
-            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(ClimateSdfPath))
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(KboMediumSdfPath))
             {
                 EditorUtility.ClearDirty(asset);
             }
-            File.WriteAllBytes(ClimateSdfPath, _climateSerializedBaseline);
-            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(Climate2019SdfPath))
+            File.WriteAllBytes(KboMediumSdfPath, _kboMediumSerializedBaseline);
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(KboLightSdfPath))
             {
                 EditorUtility.ClearDirty(asset);
             }
-            File.WriteAllBytes(Climate2019SdfPath, _climate2019SerializedBaseline);
+            File.WriteAllBytes(KboLightSdfPath, _kboLightSerializedBaseline);
         }
 
         [Test]
@@ -322,7 +322,7 @@ namespace Game.Feature.UI.Tests
             {
                 var view = instance.GetComponent<StageResultScreenView>();
                 var title = GetField<TMP_Text>(view, "_titleLabel");
-                var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateSdfPath);
+                var kboMedium = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboMediumSdfPath);
                 var viewModel = new StageResultScreenViewModel();
                 view.Bind(viewModel);
                 viewModel.SetContent("스테이지 클리어", "계속");
@@ -330,7 +330,7 @@ namespace Game.Feature.UI.Tests
                 view.ApplyLocalizedTypography("ko-KR", theme);
 
                 Assert.That(title.text, Is.EqualTo("스테이지 클리어"));
-                Assert.That(title.font, Is.SameAs(climate));
+                Assert.That(title.font, Is.SameAs(kboMedium));
                 Assert.That(title.fontStyle, Is.EqualTo(FontStyles.Normal));
             }
             finally

@@ -78,7 +78,7 @@ namespace Game.Feature.UI.Tests
                 var rowLabel = GetField<TMP_Text>(row, "_label");
                 var headerSizing = TextSizingSnapshot.Capture(header);
                 var rowSizing = TextSizingSnapshot.Capture(rowLabel);
-                var climate = UiTestPrefabAssetUtility.LoadClimateCrisisKr2019Font();
+                var kboLight = UiTestPrefabAssetUtility.LoadKboDiaGothicLightFont();
                 var resolver = new MutableLocaleResolver("en-US");
 
                 binding.Initialize(resolver);
@@ -94,11 +94,11 @@ namespace Game.Feature.UI.Tests
                 objectiveView.ConfigureTypography(binding);
                 binding.ApplyRow(rowLabel);
 
-                Assert.That(header.font, Is.SameAs(climate));
-                Assert.That(header.fontSharedMaterial, Is.SameAs(climate.material));
+                Assert.That(header.font, Is.SameAs(kboLight));
+                Assert.That(header.fontSharedMaterial, Is.SameAs(kboLight.material));
                 Assert.That(header.fontStyle, Is.EqualTo(FontStyles.Normal));
-                Assert.That(rowLabel.font, Is.SameAs(climate));
-                Assert.That(rowLabel.fontSharedMaterial, Is.SameAs(climate.material));
+                Assert.That(rowLabel.font, Is.SameAs(kboLight));
+                Assert.That(rowLabel.fontSharedMaterial, Is.SameAs(kboLight.material));
                 Assert.That(rowLabel.fontStyle, Is.EqualTo(FontStyles.Normal));
                 headerSizing.AssertUnchanged(header);
                 rowSizing.AssertUnchanged(rowLabel);

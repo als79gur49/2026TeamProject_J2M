@@ -185,10 +185,10 @@ namespace Game.Feature.UI.Composition.Editor
         public const string DefaultOutputRoot = "TestLogs/TypographyVisualQA";
         public const int SettingsExpectedAppliedBindingCount = 35;
         public const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
-        public const string ClimateCrisisKrFontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        public const string ClimateCrisisKr2019FontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        public const string KboDiaGothicMediumFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        public const string KboDiaGothicLightFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
 
         public static readonly TypographyPreviewScreenshotTarget[] RequiredTargets =
         {
@@ -197,7 +197,7 @@ namespace Game.Feature.UI.Composition.Editor
             new("Main Menu", "MainMenu", "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
         };
 
-        public static readonly TypographyPreviewScreenshotTarget[] ClimateDiagnosticTargets =
+        public static readonly TypographyPreviewScreenshotTarget[] KboDiaGothicDiagnosticTargets =
         {
             new(
                 "Settings Audio Muted",
@@ -347,8 +347,8 @@ namespace Game.Feature.UI.Composition.Editor
             var assetMutationGuard = CaptureAssetMutationGuard.Capture(
                 DirtyGuardAssetPaths.Concat(new[]
                 {
-                    ClimateCrisisKrFontAssetPath,
-                    ClimateCrisisKr2019FontAssetPath,
+                    KboDiaGothicMediumFontAssetPath,
+                    KboDiaGothicLightFontAssetPath,
                 }));
             try
             {
@@ -3159,10 +3159,10 @@ namespace Game.Feature.UI.Composition.Editor
     {
         public const string BaselineRootCommandLineArgument =
             "-captureAssetBaselineRoot";
-        public const string ClimateFontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        public const string Climate2019FontAssetPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        public const string KboDiaGothicMediumFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        public const string KboDiaGothicLightFontAssetPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
 
         private readonly Dictionary<string, byte[]> snapshots =
             new Dictionary<string, byte[]>(StringComparer.Ordinal);
@@ -3326,7 +3326,7 @@ namespace Game.Feature.UI.Composition.Editor
                     allowed: true);
             }
 
-            var allowed = TryClassifyAllowedClimateScaleRatioDrift(
+            var allowed = TryClassifyAllowedKboDiaGothicScaleRatioDrift(
                 path,
                 before,
                 after,
@@ -3343,15 +3343,15 @@ namespace Game.Feature.UI.Composition.Editor
                 allowed);
         }
 
-        private static bool TryClassifyAllowedClimateScaleRatioDrift(
+        private static bool TryClassifyAllowedKboDiaGothicScaleRatioDrift(
             string path,
             byte[] before,
             byte[] after,
             out string changedProperties)
         {
             changedProperties = "binary-or-unclassified";
-            if (!string.Equals(path, ClimateFontAssetPath, StringComparison.Ordinal) &&
-                !string.Equals(path, Climate2019FontAssetPath, StringComparison.Ordinal))
+            if (!string.Equals(path, KboDiaGothicMediumFontAssetPath, StringComparison.Ordinal) &&
+                !string.Equals(path, KboDiaGothicLightFontAssetPath, StringComparison.Ordinal))
             {
                 return false;
             }

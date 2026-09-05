@@ -84,7 +84,7 @@ SOURCE_PATHS = [
 ]
 
 KNOWN_UNITY_IMPORT_DRIFT_PATH = (
-    "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
+    "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset"
 )
 
 

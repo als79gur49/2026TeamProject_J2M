@@ -289,7 +289,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_UsesCatalogKoreanTypographyTheme()
         {
-            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
+            var kboDiaGothicMedium = UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = GameplaySettingsHarness.Create(resolver);
@@ -298,13 +298,13 @@ namespace Game.Feature.UI.Tests
 
             var titleLabel = GetText(harness.SettingsView, "_titleLabel");
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
+            Assert.That(titleLabel.font, Is.SameAs(kboDiaGothicMedium));
         }
 
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleSwitchesLocaleRefreshesLabelsAndFont()
         {
-            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
+            var kboDiaGothicMedium = UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             using var harness = GameplaySettingsHarness.Create(resolver);
 
@@ -325,10 +325,10 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
+            Assert.That(titleLabel.font, Is.SameAs(kboDiaGothicMedium));
             Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
-            Assert.That(languageButtonLabel.font, Is.SameAs(climateCrisisKr));
+            Assert.That(languageButtonLabel.font, Is.SameAs(kboDiaGothicMedium));
             Assert.That(harness.UiAudioPort.PlayedCueIds, Does.Contain(UiAudioCueId.Toggle));
 
             view.DisplayView.ClickLanguageCycle();
@@ -818,7 +818,7 @@ namespace Game.Feature.UI.Tests
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()
         {
             var store = new FakeUiLocalePreferenceStore();
-            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
+            var kboDiaGothicMedium = UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont();
 
             using (var firstHarness = GameplaySettingsHarness.Create(
                        PackageFreeLocalizedTextResolver.CreateSettingsDefault(store)))
@@ -837,7 +837,7 @@ namespace Game.Feature.UI.Tests
 
                 var titleLabel = GetText(secondHarness.SettingsView, "_titleLabel");
                 Assert.That(titleLabel.text, Is.EqualTo("설정"));
-                Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
+                Assert.That(titleLabel.font, Is.SameAs(kboDiaGothicMedium));
                 Assert.That(secondHarness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
                 Assert.That(secondHarness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
             }
@@ -846,7 +846,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_DoesNotRequireLegacyKoreanFontResolver()
         {
-            var expectedFont = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
+            var expectedFont = UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = GameplaySettingsHarness.Create(resolver);
@@ -880,7 +880,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenuSettingsRuntime_UsesCatalogKoreanTypographyTheme()
         {
-            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
+            var kboDiaGothicMedium = UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = MainMenuSettingsHarness.Create(resolver);
@@ -889,7 +889,7 @@ namespace Game.Feature.UI.Tests
 
             var titleLabel = GetText(harness.Runtime.View, "_titleLabel");
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
+            Assert.That(titleLabel.font, Is.SameAs(kboDiaGothicMedium));
         }
 
         [Test]
@@ -1267,7 +1267,7 @@ namespace Game.Feature.UI.Tests
             AssertAudioValueLayout(view, values, sizing, koreanText, "ko-KR");
             foreach (var pair in values)
             {
-                Assert.That(pair.Value.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKr2019Font()), pair.Key);
+                Assert.That(pair.Value.font, Is.SameAs(UiTestPrefabAssetUtility.LoadKboDiaGothicLightFont()), pair.Key);
                 Assert.That(pair.Value.fontStyle, Is.EqualTo(FontStyles.Normal), pair.Key);
             }
 

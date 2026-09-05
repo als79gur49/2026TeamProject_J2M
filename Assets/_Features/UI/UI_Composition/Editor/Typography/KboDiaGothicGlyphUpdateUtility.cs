@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using TMPro;
 using UnityEditor;
@@ -8,21 +9,16 @@ using UnityEngine.Localization.Tables;
 
 namespace Game.Feature.UI.Composition.Editor
 {
-    public static class ClimateCrisisKrGlyphUpdateUtility
+    public static class KboDiaGothicGlyphUpdateUtility
     {
-        private const string SourceFont2000Path =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf";
-        private const string FontAsset2000Path =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        private const string SourceFont2019Path =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019.ttf";
-        private const string FontAsset2019Path =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
-        [MenuItem("Tools/UI/Update Climate Crisis KR Managed Glyphs")]
-        public static void GenerateFromMenu()
-        {
-            GenerateOrThrow();
-        }
+        private const string SourceFontMediumPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium.ttf";
+        private const string FontAssetMediumPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        private const string SourceFontLightPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light.ttf";
+        private const string FontAssetLightPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
 
         public static void GenerateFromCommandLine()
         {
@@ -32,29 +28,32 @@ namespace Game.Feature.UI.Composition.Editor
 
         public static TMP_FontAsset GenerateOrThrow()
         {
-            var climate2000 = UpdateFontOrThrow(
-                "Climate 2000",
-                SourceFont2000Path,
-                FontAsset2000Path,
+            var medium = UpdateFontOrThrow(
+                "KBO Dia Gothic Medium",
+                SourceFontMediumPath,
+                FontAssetMediumPath,
+                "KBODiaGothic-Medium SDF",
                 requireScaleRatios: true);
             UpdateFontOrThrow(
-                "Climate 2019",
-                SourceFont2019Path,
-                FontAsset2019Path,
+                "KBO Dia Gothic Light",
+                SourceFontLightPath,
+                FontAssetLightPath,
+                "KBODiaGothic-Light SDF",
                 requireScaleRatios: true);
             Debug.Log(
-                "Climate 2000/2019 managed glyph update complete: " +
+                "KBO Dia Gothic Medium/Light managed glyph update complete: " +
                 "0 missing, 0 fallback.");
             Debug.Log(
-                "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 glyph_remap=0 " +
+                "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 " +
                 "atlas_page_drift=0 source_linkage=PASS scale_ratio=PASS");
-            return climate2000;
+            return medium;
         }
 
         private static TMP_FontAsset UpdateFontOrThrow(
             string label,
             string sourceFontPath,
             string fontAssetPath,
+            string canonicalAssetName,
             bool requireScaleRatios)
         {
             var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(sourceFontPath);
@@ -71,25 +70,25 @@ namespace Game.Feature.UI.Composition.Editor
                     $"Missing {label} TMP font asset: {fontAssetPath}");
             }
 
-            var before = CaptureContractSnapshot(fontAsset);
             var requiredCharacters = BuildRequiredCharacterSet(fontAsset);
-            var charactersToAdd = GetMissingCharacters(fontAsset, requiredCharacters);
-            if (charactersToAdd.Length > 0)
+            var before = CaptureContractSnapshot(fontAsset);
+
+            AssignSourceFont(fontAsset, sourceFont);
+            RefreshFontMetadata(fontAsset, sourceFont, requiredCharacters);
+            fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+            fontAsset.ClearFontAssetData();
+            if (!fontAsset.TryAddCharacters(requiredCharacters, out var missingCharacters))
             {
-                AssignSourceFont(fontAsset, sourceFont);
-                fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
-                if (!fontAsset.TryAddCharacters(charactersToAdd, out var missingCharacters))
-                {
-                    throw new InvalidOperationException(
-                        $"{label} source TTF cannot supply managed glyphs: " +
-                        FormatCharacters(missingCharacters));
-                }
+                throw new InvalidOperationException(
+                    $"{label} source TTF cannot supply managed glyphs: " +
+                    FormatCharacters(missingCharacters));
             }
 
             fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
+            RenameFontSubAssets(fontAsset, canonicalAssetName);
             if (requireScaleRatios)
             {
-                RestoreCanonicalClimateScaleRatios(fontAsset, label);
+                RestoreCanonicalScaleRatios(fontAsset, label);
             }
             fontAsset.ReadFontAssetDefinition();
             EditorUtility.SetDirty(fontAsset);
@@ -114,9 +113,9 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             return new FontContractSnapshot(
-                fontAsset.characterTable.ToDictionary(
-                    character => character.unicode,
-                    character => character.glyphIndex),
+                fontAsset.characterTable
+                    .Select(character => character.unicode)
+                    .ToHashSet(),
                 fontAsset.atlasTextures?.Length ?? 0);
         }
 
@@ -151,28 +150,17 @@ namespace Game.Feature.UI.Composition.Editor
                     $"{label} glyph generation must not add fallback font assets.");
             }
 
-            var afterCharacters = fontAsset.characterTable.ToDictionary(
-                character => character.unicode,
-                character => character.glyphIndex);
-            var lostCharacters = before.UnicodeToGlyphIndex.Keys
-                .Where(unicode => !afterCharacters.ContainsKey(unicode))
+            var afterCharacters = fontAsset.characterTable
+                .Select(character => character.unicode)
+                .ToHashSet();
+            var lostCharacters = before.UnicodeCharacters
+                .Where(unicode => !afterCharacters.Contains(unicode))
                 .OrderBy(unicode => unicode)
                 .ToArray();
             if (lostCharacters.Length > 0)
             {
                 throw new InvalidOperationException(
                     $"{label} glyph generation lost {lostCharacters.Length} existing characters.");
-            }
-
-            var remappedCharacters = before.UnicodeToGlyphIndex
-                .Where(pair => afterCharacters[pair.Key] != pair.Value)
-                .Select(pair => pair.Key)
-                .OrderBy(unicode => unicode)
-                .ToArray();
-            if (remappedCharacters.Length > 0)
-            {
-                throw new InvalidOperationException(
-                    $"{label} glyph generation remapped {remappedCharacters.Length} existing characters.");
             }
 
             var atlasTextures = fontAsset.atlasTextures ?? Array.Empty<Texture2D>();
@@ -234,12 +222,6 @@ namespace Game.Feature.UI.Composition.Editor
             return string.Concat(characters);
         }
 
-        private static string GetMissingCharacters(TMP_FontAsset fontAsset, string requiredCharacters)
-        {
-            return string.Concat(requiredCharacters.Where(
-                character => !fontAsset.HasCharacter(character, false, false)));
-        }
-
         private static void AssignSourceFont(TMP_FontAsset fontAsset, Font sourceFont)
         {
             var serializedFont = new SerializedObject(fontAsset);
@@ -253,6 +235,71 @@ namespace Game.Feature.UI.Composition.Editor
             serializedFont.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private static void RefreshFontMetadata(
+            TMP_FontAsset fontAsset,
+            Font sourceFont,
+            string requiredCharacters)
+        {
+            var template = TMP_FontAsset.CreateFontAsset(
+                sourceFont,
+                Mathf.RoundToInt(fontAsset.faceInfo.pointSize),
+                fontAsset.atlasPadding,
+                fontAsset.atlasRenderMode,
+                fontAsset.atlasWidth,
+                fontAsset.atlasHeight,
+                AtlasPopulationMode.Dynamic,
+                enableMultiAtlasSupport: false);
+            if (template == null)
+            {
+                throw new InvalidOperationException(
+                    $"Unable to read font metadata from {AssetDatabase.GetAssetPath(sourceFont)}.");
+            }
+
+            try
+            {
+                fontAsset.faceInfo = template.faceInfo;
+                var creationSettings = template.creationSettings;
+                var sourceFontPath = AssetDatabase.GetAssetPath(sourceFont);
+                creationSettings.sourceFontFileName = Path.GetFileName(sourceFontPath);
+                creationSettings.sourceFontFileGUID = AssetDatabase.AssetPathToGUID(sourceFontPath);
+                creationSettings.faceIndex = 0;
+                creationSettings.pointSizeSamplingMode = 1;
+                creationSettings.pointSize = Mathf.RoundToInt(fontAsset.faceInfo.pointSize);
+                creationSettings.padding = fontAsset.atlasPadding;
+                creationSettings.paddingMode = 2;
+                creationSettings.packingMode = 0;
+                creationSettings.atlasWidth = fontAsset.atlasWidth;
+                creationSettings.atlasHeight = fontAsset.atlasHeight;
+                creationSettings.characterSetSelectionMode = 7;
+                creationSettings.characterSequence = requiredCharacters;
+                creationSettings.referencedFontAssetGUID = string.Empty;
+                creationSettings.referencedTextAssetGUID = string.Empty;
+                creationSettings.fontStyle = 0;
+                creationSettings.fontStyleModifier = 0;
+                creationSettings.renderMode = (int)fontAsset.atlasRenderMode;
+                creationSettings.includeFontFeatures = false;
+                fontAsset.creationSettings = creationSettings;
+            }
+            finally
+            {
+                var templateMaterial = template.material;
+                var templateAtlases = template.atlasTextures ?? Array.Empty<Texture2D>();
+                UnityEngine.Object.DestroyImmediate(template);
+                if (templateMaterial != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(templateMaterial);
+                }
+
+                foreach (var atlas in templateAtlases)
+                {
+                    if (atlas != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(atlas);
+                    }
+                }
+            }
+        }
+
         private static void ImportAndPersistCanonicalSerialization(string assetPath)
         {
             AssetDatabase.ImportAsset(
@@ -261,7 +308,31 @@ namespace Game.Feature.UI.Composition.Editor
             AssetDatabase.SaveAssets();
         }
 
-        private static void RestoreCanonicalClimateScaleRatios(TMP_FontAsset fontAsset, string label)
+        private static void RenameFontSubAssets(TMP_FontAsset fontAsset, string canonicalAssetName)
+        {
+            fontAsset.name = canonicalAssetName;
+            if (fontAsset.material != null)
+            {
+                fontAsset.material.name = canonicalAssetName + " Material";
+                EditorUtility.SetDirty(fontAsset.material);
+            }
+
+            var atlasTextures = fontAsset.atlasTextures ?? Array.Empty<Texture2D>();
+            for (var index = 0; index < atlasTextures.Length; index++)
+            {
+                if (atlasTextures[index] == null)
+                {
+                    continue;
+                }
+
+                atlasTextures[index].name = index == 0
+                    ? canonicalAssetName + " Atlas"
+                    : canonicalAssetName + " Atlas " + index;
+                EditorUtility.SetDirty(atlasTextures[index]);
+            }
+        }
+
+        private static void RestoreCanonicalScaleRatios(TMP_FontAsset fontAsset, string label)
         {
             var material = fontAsset.material;
             if (material == null ||
@@ -313,14 +384,14 @@ namespace Game.Feature.UI.Composition.Editor
         private sealed class FontContractSnapshot
         {
             public FontContractSnapshot(
-                IReadOnlyDictionary<uint, uint> unicodeToGlyphIndex,
+                IReadOnlyCollection<uint> unicodeCharacters,
                 int atlasPageCount)
             {
-                UnicodeToGlyphIndex = unicodeToGlyphIndex;
+                UnicodeCharacters = unicodeCharacters;
                 AtlasPageCount = atlasPageCount;
             }
 
-            public IReadOnlyDictionary<uint, uint> UnicodeToGlyphIndex { get; }
+            public IReadOnlyCollection<uint> UnicodeCharacters { get; }
 
             public int AtlasPageCount { get; }
         }

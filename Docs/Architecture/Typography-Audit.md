@@ -1,13 +1,13 @@
 # Typography Audit
 
-## 2026-07-26 Climate PR2 current-state override
+## 2026-09-05 KBO Dia Gothic current-state override
 
 The current production decision is recorded in
-[Climate-Crisis-KR-Typography-Migration-Closeout.md](./Climate-Crisis-KR-Typography-Migration-Closeout.md).
+[KBO-Dia-Gothic-Typography-Migration-Closeout.md](./KBO-Dia-Gothic-Typography-Migration-Closeout.md).
 It supersedes the Nanum candidate mappings, synthetic-bold risks, open
 questions, and “next implementation” wording retained later in this audit.
 
-- ko-KR uses Climate 2000 for Display/UI/Utility (10 roles) and Climate 2019
+- ko-KR uses KBO Dia Gothic Medium for Display/UI/Utility (10 roles) and Light
   for Heading/Body (9 roles), with Normal style for all 19 semantic roles.
 - Authored sizing is preserved. SettingsStatus remains `14 / Auto / 10-14`
   at height `28` and may use two lines.
@@ -15,10 +15,14 @@ questions, and “next implementation” wording retained later in this audit.
   width `140`.
 - en-US identities remain base-authored; Generic Button stays SciFiSoldier and
   MainMenuCommand stays Orbitron.
-- Managed ko-KR glyph coverage is 127/127 with no fallback dependency.
-- Nanum TTF/SDF/SyntheticBold assets were retired on 2026-08-23 after Climate
-  fully replaced their production role. Historical candidate tables below are
-  retained only as decision provenance.
+- Managed ko-KR glyph coverage is native in both KBO assets with no fallback dependency.
+- The KBO face is limited to ordinary UI/information text and must not be used
+  for representative CI/BI treatments such as the `VectorQuake` product name,
+  `J2M` developer identity, logos, slogans, or catchphrases. General commercial
+  use and original-font embedding are reviewed as permitted; distributed TMP
+  SDF treatment remains a KBOP confirmation item.
+- Nanum and Climate Crisis KR assets are retired from current production role.
+  Historical candidate tables below are retained only as decision provenance.
 
 Older sections remain useful provenance for the preceding localization PR and
 must not be interpreted as the current mapping.

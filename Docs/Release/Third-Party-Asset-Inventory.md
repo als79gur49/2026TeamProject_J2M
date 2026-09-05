@@ -1,6 +1,6 @@
 # Third-Party Asset Inventory
 
-검토 기준일: 2026-08-26 KST
+검토 기준일: 2026-09-05 KST
 대상: VectorQuake Windows Direct / Steam 배포 후보와 저장소에 포함된 외부 자산
 
 이 문서는 내부 권리·고지 관리용 인벤토리다. 배포물에 포함되는 공개 고지문은
@@ -144,7 +144,7 @@ UPM 버전은 `Packages/packages-lock.json`과 공개 고지가 일치해야 한
 | F-01 | Orbitron ExtraBold | `Assets/Synty/InterfaceSciFiSoldierHUD/Fonts/Orbitron/` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | font copy와 함께 copyright 및 OFL 제공 | 수정본에 Reserved Font Name `Orbitron` 사용 금지(허가 없는 경우) | 확인 |
 | F-02 | Exo 2.0 Regular / SemiBold | `Assets/Synty/InterfaceSciFiSoldierHUD/Fonts/exo-2-0/` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | font copy와 함께 copyright 및 OFL 제공 | 수정본에 Reserved Font Name `Exo` 사용 금지(허가 없는 경우) | 확인 |
 | F-03 | Saira Condensed SemiBold derived SDF | `Assets/Synty/InterfaceSciFiSoldierHUD/Fonts/Font_SciFiSoldier_Bold.asset` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | embedded/derived font software와 함께 copyright 및 OFL 제공 | 수정본에 Reserved Font Name `Saira` 사용 금지(허가 없는 경우) | 확인 |
-| F-04 | Climate Crisis KR 2000 / 2019 | `Assets/_Shared/UI/Fonts/` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | font copy와 함께 copyright 및 OFL 제공 | 수정본에 Reserved Font Name `Climate Crisis` 사용 금지(허가 없는 경우) | 확인 |
+| F-04 | KBO Dia Gothic Light / Medium | `Assets/_Shared/UI/Fonts/` | KBO 다이아고딕 라이선스 ([공식 페이지](https://www.koreabaseball.com/Reference/etc/KboFont.aspx), [Ver.2 PDF](https://6ptotvmi5753.edge.naverncp.com/KBO_FILE/file_down/KBO_%EB%8B%A4%EC%9D%B4%EC%95%84%EA%B3%A0%EB%94%95_%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4_%EC%95%88%EB%82%B4_Ver2.pdf)) | 일반 상업 이용 및 소프트웨어·게임 UI 임베딩 가능 | 별도 엔드크레딧 요구 확인 안 됨 | 별도 라이선스 동봉 의무 확인 안 됨; 프로젝트는 출처·조건을 자발적으로 고지 | 원본 배포 형태 유지, TTF 수정·개작본 재배포 및 폰트 자체 판매 금지; CI/BI(회사·브랜드·상품명, 로고·마크, 슬로건·캐치프레이즈 등) 사용 금지; 콘텐츠 제한 및 KBO의 폰트 사용 인쇄물·광고물(온라인 포함) 이미지 홍보 활용·거절 조항 존재 | 일반 이용·원본 임베딩 확인 / TMP SDF는 공개자료상 미확인·출시 전 권리자 문의 권장 |
 | F-05 | Liberation Sans | `Assets/TextMesh Pro/Fonts/` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | font copy와 함께 copyright 및 OFL 제공 | `Liberation` 등 명시된 Reserved Font Name 제한 준수 | 확인 |
 
 OFL의 copyright 및 전문은 `ThirdPartyNotices.txt`의 `Open Font Software` 절에 포함되어
@@ -175,13 +175,22 @@ OFL의 copyright 및 전문은 `ThirdPartyNotices.txt`의 `Open Font Software` �
    - 구매 주체와 license tier를 확인한다.
    - 취득 당시 적용 EULA와 별도 Provider/Restricted Asset Terms 존재 여부를 보존한다.
    - 실제 Windows release lane에서 두 공개 고지가 payload에 포함되는지 재검증한다.
-2. C-02~C-07의 구매·좌석 증빙을 비공개 ledger와 연결한다. 특히 Extension Asset과
+2. **KBO Dia Gothic TMP/SDF 확인 조건**
+   - `kbop@koreabaseball.or.kr`에 원본 TTF·글자 디자인은 변경하지 않고 Unity
+     TextMeshPro로 필요한 글자의 SDF 아틀라스와 표시용 데이터를 생성해 유료 게임에
+     포함하는 방식이 허용되는 임베딩인지 문의한다.
+   - 권리자 회신과 확인일을 비공개 Evidence ID에 연결한다. 회신을 받지 못하면
+     TMP/SDF를 명시 승인된 것으로 표시하지 말고, 남은 불확실성에 대한 출시 책임자의
+     판단을 기록한다.
+   - 대표 `VectorQuake`·`J2M`·로고·슬로건·캐치프레이즈가 KBO 폰트를 사용하지 않는지
+     release candidate에서 재확인한다.
+3. C-02~C-07의 구매·좌석 증빙을 비공개 ledger와 연결한다. 특히 Extension Asset과
    Humble 1-seat 조건은 현재 팀 참여 인원과 대조한다.
-3. A-01~A-04 원본 팩 manifest를 확보해 각 audio clip의 공급 팩, 원본명, 원본 hash,
+4. A-01~A-04 원본 팩 manifest를 확보해 각 audio clip의 공급 팩, 원본명, 원본 hash,
    프로젝트 내 rename/transcode 이력을 연결한다.
-4. 상용 에셋의 실제 설치 버전을 기록한다. 버전을 알 수 없으면 `unknown`을 유지하고
+5. 상용 에셋의 실제 설치 버전을 기록한다. 버전을 알 수 없으면 `unknown`을 유지하고
    상품 페이지 최신 버전을 복사해 채우지 않는다.
-5. release candidate마다 EditorBuildSettings, Addressables/Resources, native/managed
+6. release candidate마다 EditorBuildSettings, Addressables/Resources, native/managed
    plugin inventory를 기준으로 이 문서와 공개 고지의 포함 범위를 다시 대조한다.
 
 ## 근거 위치
@@ -192,7 +201,9 @@ OFL의 copyright 및 전문은 `ThirdPartyNotices.txt`의 `Open Font Software` �
 - UPM 고정 버전: `Packages/packages-lock.json`
 - Steamworks.NET 원문: `Packages/com.j2m.thirdparty.steamworksnet/LICENSE.md`
 - Unity UI Extensions 원문: `Assets/Unity UI Extensions/LICENSE.md`
-- 폰트 원문: 각 font directory의 `OFL.txt` 또는 `*-OFL.txt`
+- 폰트 원문/고지: 각 font directory의 `OFL.txt`, `*-OFL.txt`, 또는 공급자별 license
+  notice. KBO Dia Gothic은 `Assets/_Shared/UI/Fonts/KBO-Dia-Gothic-LICENSE.txt`의 공식
+  페이지·Ver.2 PDF 링크를 기준으로 한다.
 - Unity Asset Store EULA: <https://unity.com/legal/as-terms>
 
 ## 변경 규칙
