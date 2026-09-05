@@ -16,7 +16,7 @@ The machine-readable report is generated from typed repository contracts. Do not
 
 ## Generate the expectation report
 
-Run the Editor exporter from a clean committed worktree or detached committed checkout and write output outside the repository. The wrapper holds the worktree index, branch-ref or detached-HEAD lock, and read locks for tracked source files throughout Unity execution. It fails closed when staged, unstaged, or untracked changes are present and revalidates HEAD/tree after Unity exits. Known Unity font-import normalization is excluded from source locking and restored only on an exact match; any other concurrent change is preserved and fails the run:
+Run the Editor exporter from a clean committed worktree or detached committed checkout and write output outside the repository. The wrapper holds the worktree index, branch-ref or detached-HEAD lock, and read locks for tracked source files throughout Unity execution. It fails closed when staged, unstaged, or untracked changes are present and revalidates HEAD/tree after Unity exits. Both KBO font assets are excluded from source locking and checked for byte convergence after Unity exits; any font or other concurrent source change is preserved and fails the run:
 
 ```powershell
 Tools\Release\Export-SteamworksConfigurationExpectation.ps1 `

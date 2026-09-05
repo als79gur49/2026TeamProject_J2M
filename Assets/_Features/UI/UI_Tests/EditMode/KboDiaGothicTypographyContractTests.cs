@@ -101,13 +101,13 @@ namespace Game.Feature.UI.Tests
                 "Candidate meta/GUID/reference validation must read worktree files.");
             Assert.That(
                 runner,
-                Does.Contain("EXPECTED_IMPORT_DERIVED_DRIFT"));
+                Does.Not.Contain("EXPECTED_IMPORT_DERIVED_DRIFT"));
             Assert.That(
                 runner,
-                Does.Contain("_ScaleRatioA:1->0.9"));
+                Does.Contain("UNEXPECTED_SOURCE_MUTATION"));
             Assert.That(
                 runner,
-                Does.Contain("_ScaleRatioC:1->0.73125"));
+                Does.Not.Contain("restore_kbo_font_integrity_snapshot"));
             Assert.That(
                 runner,
                 Does.Not.Contain("71ae00a952cf086150c90764db323bf078bf871e133ce52844cc1c94070d6445"),

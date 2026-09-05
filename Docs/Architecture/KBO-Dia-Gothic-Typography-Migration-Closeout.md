@@ -106,7 +106,7 @@ references.
 | TTF SHA-256 | `f88f06494fc4eb8fd06e15c1f6deacfa8d7855c9a4245d71962a90596ad41f02` | `607c0a894ea951489bd43f6a3ccc93adececbb46c425ccc5869f2327dbcfe747` |
 | TMP SDF | `KBODiaGothic-Medium SDF.asset` | `KBODiaGothic-Light SDF.asset` |
 | SDF GUID | `40d61154fd6576b4d85c2d78460b16ad` | `7dfd9aae81fc1d242b007a3b7a042fb0` |
-| SDF SHA-256 | `700a62c77f523814a5fd8680018a1803322ff175e47abc57f26df202e3ee442e` | `b0f27ca1b7dca01498c1613fc0c39b1264e37d68fdf37cd6e7559323a0c8ef90` |
+| SDF SHA-256 | `d8c3627e6092754441da7b34a59a70efc31b4ec2c77b4e8a941bdf7a8d06d2b6` | `cecf8ab9f1c8ce914d12147123ff873d5e99255d376176ea39ad6ac1d677b0de` |
 | Material local ID | `1352911973252649374` | `7808543287137721147` |
 | Atlas local ID | `-2536001923755311345` | `-5757234995057936259` |
 
@@ -114,6 +114,39 @@ Both SDF assets are static, single-atlas assets with an empty fallback table.
 Their face metadata resolves to family `KBO Dia Gothic` and style `Medium` or
 `Light`. Managed `*_ko-KR.asset` String Tables must have zero missing native
 glyphs in both assets.
+
+## Canonical Unity serialization
+
+The SDF hashes above include Unity's serialized empty-scalar trailing spaces
+and calculated material ratios `_ScaleRatioA=0.9`, `_ScaleRatioB=1`, and
+`_ScaleRatioC=0.73125`. Glyph generation derives these values through TMP's
+shader utilities before saving. The two generated SDF paths preserve this
+format with scoped Git whitespace attributes.
+
+The initial KBO migration saved A/C as `1`, although TMP recalculates them on
+use. The earlier Climate runner handled this same transition as importer drift;
+that workaround did not prevent an Editor save outside the runner from leaving
+a pre-existing modification that blocked the next validation invocation.
+Canonical serialization removes the deterministic difference at its source.
+
+Test invocations and visual captures require byte convergence (`NO_MUTATION`).
+No ScaleRatio, whitespace, or other byte delta is accepted as importer drift.
+General test invocations and the release exporter preserve unexpected changes
+for inspection and fail. Visual captures record a failed mutation verdict before
+restoring their isolated baseline through the existing capture cleanup contract.
+The historical migration evidence below predates this correction.
+
+The correction was validated on 2026-09-06 KST with `./run_tests.sh ui`: Windows
+UI build and Unity EditMode passed (1355 total, 0 failed). Both fonts remained
+byte-identical (`NO_MUTATION`, no restore). Evidence is under
+`/mnt/d/J2M/evidence/20260906-kbo-canonical-commit/ui/`. Four tests cover TMP
+recalculation stability and rejection of incorrect ratios; two former drift
+allowance tests now require rejection. Shell integrity/path fixtures and the
+11-case PowerShell exporter fixture passed. Core runs through the commit hook;
+its results are recorded separately in the same evidence root. Broad `full` and
+manual/visual Player checks are not included in this result. The HUD visual
+runner requires clean tracked HEAD inputs, while unrelated Addressables edits
+remain preserved in this worktree.
 
 ## Generation and validation contract
 

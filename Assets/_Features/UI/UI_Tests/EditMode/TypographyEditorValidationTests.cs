@@ -30,8 +30,77 @@ namespace Game.Feature.UI.Tests
         private const string HistoricalFiftyOneBindingEvidenceDirectory =
             "TestLogs/TypographyVisualQA/CommandLine-20260720-194045";
 
+        [TestCase("Medium")]
+        [TestCase("Light")]
+        public void GlyphUpdate_CanonicalRatiosRemainStableWhenTmpRecomputesPadding(string weight)
+        {
+            var source = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                $"Assets/_Shared/UI/Fonts/KBODiaGothic-{weight} SDF.asset");
+            Assert.That(source, Is.Not.Null);
+            Assert.That(source.material.GetFloat("_ScaleRatioA"), Is.EqualTo(0.9f).Within(0.000001f));
+            Assert.That(source.material.GetFloat("_ScaleRatioC"), Is.EqualTo(0.73125f).Within(0.000001f));
+            var font = ScriptableObject.CreateInstance<TMP_FontAsset>();
+            var material = new Material(source.material);
+            font.material = material;
+            try
+            {
+                material.SetFloat("_ScaleRatioA", 1f);
+                material.SetFloat("_ScaleRatioC", 1f);
+                InvokeGlyphScaleRatioMethod("ApplyCanonicalScaleRatios", font);
+                Assert.That(material.GetFloat("_ScaleRatioA"), Is.EqualTo(0.9f).Within(0.000001f));
+                Assert.That(material.GetFloat("_ScaleRatioC"), Is.EqualTo(0.73125f).Within(0.000001f));
+                var before = EditorJsonUtility.ToJson(material);
+                ShaderUtilities.GetPadding(material, false, false);
+                ShaderUtilities.UpdateShaderRatios(material);
+                Assert.That(EditorJsonUtility.ToJson(material), Is.EqualTo(before));
+                Assert.DoesNotThrow(() =>
+                    InvokeGlyphScaleRatioMethod("ValidateCanonicalScaleRatiosOrThrow", font));
+            }
+            finally
+            {
+                Object.DestroyImmediate(font);
+                Object.DestroyImmediate(material);
+            }
+        }
+
+        [TestCase("_ScaleRatioA")]
+        [TestCase("_ScaleRatioC")]
+        public void GlyphUpdate_RejectsIncorrectCanonicalRatioWithoutRepairingSource(string property)
+        {
+            var source = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                CaptureAssetMutationGuard.KboDiaGothicMediumFontAssetPath);
+            Assert.That(source, Is.Not.Null);
+            var font = ScriptableObject.CreateInstance<TMP_FontAsset>();
+            var material = new Material(source.material);
+            font.material = material;
+            try
+            {
+                InvokeGlyphScaleRatioMethod("ApplyCanonicalScaleRatios", font);
+                material.SetFloat(property, 1f);
+                var before = EditorJsonUtility.ToJson(material);
+                var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
+                    InvokeGlyphScaleRatioMethod("ValidateCanonicalScaleRatiosOrThrow", font));
+                Assert.That(exception.InnerException, Is.TypeOf<System.InvalidOperationException>());
+                Assert.That(exception.InnerException.Message, Does.Contain("TMP-computed scale ratios"));
+                Assert.That(EditorJsonUtility.ToJson(material), Is.EqualTo(before));
+            }
+            finally
+            {
+                Object.DestroyImmediate(font);
+                Object.DestroyImmediate(material);
+            }
+        }
+
+        private static void InvokeGlyphScaleRatioMethod(string name, TMP_FontAsset font)
+        {
+            var method = typeof(KboDiaGothicGlyphUpdateUtility).GetMethod(
+                name, System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, name);
+            method.Invoke(null, new object[] { font, "Test font" });
+        }
+
         [Test]
-        public void CaptureMutationGuard_AllowsOnlyExactKboDiaGothicScaleRatioDrift()
+        public void CaptureMutationGuard_RejectsFormerlyAllowedKboDiaGothicScaleRatioDrift()
         {
             var before = System.Text.Encoding.UTF8.GetBytes(
                 "m_MipmapLimitGroupName:\n" +
@@ -64,18 +133,13 @@ namespace Game.Feature.UI.Tests
                 after);
 
             Assert.That(evidence.MutationDetected, Is.True);
-            Assert.That(evidence.Allowed, Is.True);
-            Assert.That(evidence.Classification, Is.EqualTo("EXPECTED_IMPORT_DERIVED_DRIFT"));
-            Assert.That(evidence.ChangedProperties, Does.Contain("_ScaleRatioA:1->0.9"));
-            Assert.That(evidence.ChangedProperties, Does.Contain("_ScaleRatioC:1->0.73125"));
-            Assert.That(
-                evidence.ChangedProperties.Split(','),
-                Has.Length.EqualTo(10));
-            Assert.That(evidence.LaneVerdictBeforeRestore, Is.EqualTo("PASS"));
+            Assert.That(evidence.Allowed, Is.False);
+            Assert.That(evidence.Classification, Is.EqualTo("UNEXPECTED_ASSET_MUTATION"));
+            Assert.That(evidence.LaneVerdictBeforeRestore, Is.EqualTo("FAIL"));
         }
 
         [Test]
-        public void CaptureMutationGuard_AllowsExactKboDiaGothicSerializationWhitespaceDrift()
+        public void CaptureMutationGuard_RejectsKboDiaGothicSerializationWhitespaceDrift()
         {
             var before = System.Text.Encoding.UTF8.GetBytes(
                 "m_MipmapLimitGroupName:\n" +
@@ -102,10 +166,9 @@ namespace Game.Feature.UI.Tests
                 after);
 
             Assert.That(evidence.MutationDetected, Is.True);
-            Assert.That(evidence.Allowed, Is.True);
-            Assert.That(evidence.Classification, Is.EqualTo("EXPECTED_IMPORT_DERIVED_DRIFT"));
-            Assert.That(evidence.ChangedProperties.Split(','), Has.Length.EqualTo(8));
-            Assert.That(evidence.LaneVerdictBeforeRestore, Is.EqualTo("PASS"));
+            Assert.That(evidence.Allowed, Is.False);
+            Assert.That(evidence.Classification, Is.EqualTo("UNEXPECTED_ASSET_MUTATION"));
+            Assert.That(evidence.LaneVerdictBeforeRestore, Is.EqualTo("FAIL"));
         }
 
         [Test]

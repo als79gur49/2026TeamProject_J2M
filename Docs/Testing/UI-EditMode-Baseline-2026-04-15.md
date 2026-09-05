@@ -57,7 +57,7 @@
   - comic-sequence enter-fade guard proving the source scene remains visible at entry start, the dedicated black layer gains opacity during the authored duration, and the persistent black background is enabled only after full cover before initial content reveal
   - fullscreen cursor confinement policy guards covering focused borderless fullscreen, windowed/unfocused release, unsupported-platform no-op, idempotent writes, shared-display ownership, authored default-cursor hotspot/dimensions, and installer focus/pause/update lifecycle reconciliation
   - Settings movement-key production guards proving the authored `WASDKeyDisplay` button toggles WASD/arrow visuals in both directions with click feedback, and `Input.Movement.Toggle` shows its `SelectionFrame` and submits once on Enter without Slider edit mode
-  - KBO Dia Gothic Medium/Light committed TTF/SDF Git-blob, GUID, and material/atlas-localID preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, license notice, representative Main Menu brand-image separation, and approved Pause/audio/display layout guards; importer-derived working hashes and ScaleRatio values remain diagnostic only
+  - KBO Dia Gothic Medium/Light committed TTF/SDF Git-blob, GUID, and material/atlas-localID preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, license notice, representative Main Menu brand-image separation, and approved Pause/audio/display layout guards; canonical working hashes, calculated ScaleRatio values `0.9/1/0.73125`, and byte convergence are required; the historical migration rerun above does not validate the later serialization correction
   - Climate ko-KR diagnostic screenshot coverage for ConfirmPopup, Settings Audio muted, and Settings Display status, kept outside the exact canonical six-file root
   - locale-independent typography P2 guards for invalid invariant style enums, null-theme invariant/themed preview parity, parent/child Selection normalization, independent roots, repeated preview calls, unique restore counts, live Settings 38-count capture, and schema-v1 manifest rejection of Settings count 51
   - production Settings typography composition tests that open Settings through the actual Main Menu scene installer/overlay path and the actual UIAudioScene installer/coordinator path, then verify the shared catalog/builder, exact closure across all 51 TMP targets / binding targets / manifest entries, 36 governed-target font/material/fontStyle parity, open dropdown live-item restyling, and prefab-authored `en-US -> ko-KR -> en-US` restoration
@@ -322,3 +322,12 @@
 - `./run_tests.sh core`: Core EditMode `217 total / 0 failed`; Core PlayMode `109 total / 0 failed`.
 - `./run_tests.sh ui`: Windows UI build passed; Unity UI EditMode `1352 total / 0 failed`.
 - Broad unfiltered `full` and manual Player/build smoke were not run; no broad-green claim is made.
+
+## 2026-09-06 KBO serialization correction
+
+- Same working-tree `./run_tests.sh ui`: Windows build passed; EditMode 1355 passed, 0 failed.
+- Added four TMP canonical-ratio recalculation/rejection cases; changed two importer-drift allowance cases to rejection.
+- Both KBO SDF files remained byte-identical after Unity; no automatic restore was needed.
+- This run also includes the pending HUD badge split and authored-position regression cases.
+- Evidence: `/mnt/d/J2M/evidence/20260906-kbo-canonical-commit/ui/`.
+- Broad full, visual capture, and manual Player checks were not run; the visual runner requires clean tracked HEAD inputs and unrelated Addressables edits remain preserved.

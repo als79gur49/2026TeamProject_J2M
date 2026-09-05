@@ -156,7 +156,7 @@ KBO_MEDIUM_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Medium.ttf"
 KBO_MEDIUM_SOURCE_TTF_META="$KBO_MEDIUM_SOURCE_TTF_ASSET.meta"
 KBO_MEDIUM_SDF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset"
 KBO_MEDIUM_SDF_META="$KBO_MEDIUM_SDF_ASSET.meta"
-KBO_MEDIUM_COMMITTED_SDF_SHA256="700a62c77f523814a5fd8680018a1803322ff175e47abc57f26df202e3ee442e"
+KBO_MEDIUM_COMMITTED_SDF_SHA256="d8c3627e6092754441da7b34a59a70efc31b4ec2c77b4e8a941bdf7a8d06d2b6"
 KBO_MEDIUM_SOURCE_TTF_SHA256="f88f06494fc4eb8fd06e15c1f6deacfa8d7855c9a4245d71962a90596ad41f02"
 KBO_MEDIUM_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
 KBO_MEDIUM_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
@@ -166,7 +166,7 @@ KBO_LIGHT_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light.ttf"
 KBO_LIGHT_SOURCE_TTF_META="$KBO_LIGHT_SOURCE_TTF_ASSET.meta"
 KBO_LIGHT_SDF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset"
 KBO_LIGHT_SDF_META="$KBO_LIGHT_SDF_ASSET.meta"
-KBO_LIGHT_COMMITTED_SDF_SHA256="b0f27ca1b7dca01498c1613fc0c39b1264e37d68fdf37cd6e7559323a0c8ef90"
+KBO_LIGHT_COMMITTED_SDF_SHA256="cecf8ab9f1c8ce914d12147123ff873d5e99255d376176ea39ad6ac1d677b0de"
 KBO_LIGHT_SOURCE_TTF_SHA256="607c0a894ea951489bd43f6a3ccc93adececbb46c425ccc5869f2327dbcfe747"
 KBO_LIGHT_SOURCE_TTF_GUID="56e1f07e315e49a4a8e5043a11e04e29"
 KBO_LIGHT_SDF_GUID="7dfd9aae81fc1d242b007a3b7a042fb0"
@@ -592,146 +592,21 @@ diagnose_kbo_font_file_state() {
         echo "  Classification: CANDIDATE_SOURCE_SHAPE"
         return 0
     fi
-    python3 - "$candidate" "$KBO_MEDIUM_SDF_ASSET" <<'PY'
-import subprocess
-import sys
-from pathlib import Path
-
-candidate_path = Path(sys.argv[1])
-asset_path = sys.argv[2]
-before = subprocess.run(
-    ["git", "show", f"HEAD:{asset_path}"],
-    check=True,
-    stdout=subprocess.PIPE,
-).stdout.decode("utf-8").replace("\r\n", "\n").split("\n")
-after = candidate_path.read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
-if before == after:
-    print("  Classification: COMMITTED_SOURCE_SHAPE")
-    raise SystemExit(0)
-if len(before) != len(after):
-    raise SystemExit("ERROR: KBO Dia Gothic mutation changed serialized line count.")
-
-allowed = {
-    ("- _ScaleRatioA: 1", "- _ScaleRatioA: 0.9"): "_ScaleRatioA:1->0.9",
-    ("- _ScaleRatioC: 1", "- _ScaleRatioC: 0.73125"): "_ScaleRatioC:1->0.73125",
-}
-required_whitespace_properties = {
-    "m_MipmapLimitGroupName:",
-    "m_PlatformBlob:",
-    "path:",
-    "referencedFontAssetGUID:",
-    "referencedTextAssetGUID:",
-    "m_SourceFontFilePath:",
-    "Name:",
-    "m_LockedProperties:",
-}
-changes = []
-whitespace_changes = set()
-for old, new in zip(before, after):
-    if old == new:
-        continue
-    if (
-        old.strip() == new.strip() and
-        old.strip() in required_whitespace_properties and
-        new == old + " "
-    ):
-        whitespace_changes.add(old.strip())
-        changes.append(f"serialization-whitespace:{old.strip()}")
-        continue
-    key = (old.strip(), new.strip())
-    if key not in allowed:
-        print(f"  Observed properties: {','.join(changes)}", file=sys.stderr)
-        raise SystemExit(
-            "ERROR: KBO Dia Gothic mutation is outside the exact importer-derived property allowlist: "
-            f"{key[0]} -> {key[1]}"
-        )
-    changes.append(allowed[key])
-if (
-    whitespace_changes != required_whitespace_properties or
-    (
-        ("_ScaleRatioA:1->0.9" in changes) !=
-        ("_ScaleRatioC:1->0.73125" in changes)
-    )
-):
-    missing_whitespace = sorted(required_whitespace_properties - whitespace_changes)
-    print(f"  Observed properties: {','.join(changes)}", file=sys.stderr)
-    print(f"  Missing whitespace properties: {','.join(missing_whitespace)}", file=sys.stderr)
-    raise SystemExit(
-        "ERROR: KBO Dia Gothic mutation did not match the complete exact property allowlist."
-    )
-print("  Classification: EXPECTED_IMPORT_DERIVED_DRIFT")
-print(f"  Derived properties: {','.join(changes)}")
-PY
+    echo "  Classification: UNEXPECTED_SOURCE_MUTATION"
+    return 1
 }
 
 verify_kbo_font_working_transition() {
     local before_snapshot="$1"
     local after_path="$2"
-    local before_hash
-    local after_hash
 
-    before_hash="$(sha256sum "$before_snapshot" | awk '{print $1}')"
-    after_hash="$(sha256sum "$after_path" | awk '{print $1}')"
-    if [ "$before_hash" = "$after_hash" ]; then
+    if cmp -s -- "$before_snapshot" "$after_path"; then
         echo "  Import transition: NO_DRIFT"
         return 0
     fi
-    if ! python3 - "$before_snapshot" "$after_path" <<'PY'
-import sys
-from pathlib import Path
-
-before = Path(sys.argv[1]).read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
-after = Path(sys.argv[2]).read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
-if len(before) != len(after):
-    raise SystemExit("ERROR: KBO Dia Gothic mutation changed serialized line count.")
-
-allowed = {
-    ("- _ScaleRatioA: 1", "- _ScaleRatioA: 0.9"): "_ScaleRatioA:1->0.9",
-    ("- _ScaleRatioC: 1", "- _ScaleRatioC: 0.73125"): "_ScaleRatioC:1->0.73125",
-}
-whitespace_properties = {
-    "m_MipmapLimitGroupName:",
-    "m_PlatformBlob:",
-    "path:",
-    "referencedFontAssetGUID:",
-    "referencedTextAssetGUID:",
-    "m_SourceFontFilePath:",
-    "Name:",
-    "m_LockedProperties:",
-}
-changes = []
-for old, new in zip(before, after):
-    if old == new:
-        continue
-    if old.strip() == new.strip() and old.strip() in whitespace_properties:
-        changes.append(f"serialization-whitespace:{old.strip()}")
-        continue
-    key = (old.strip(), new.strip())
-    if key not in allowed:
-        raise SystemExit(
-            "ERROR: KBO Dia Gothic mutation is outside the exact importer-derived property allowlist: "
-            f"{key[0]} -> {key[1]}"
-        )
-    changes.append(allowed[key])
-ratio_a_changed = "_ScaleRatioA:1->0.9" in changes
-ratio_c_changed = "_ScaleRatioC:1->0.73125" in changes
-if ratio_a_changed != ratio_c_changed:
-    raise SystemExit("ERROR: KBO Dia Gothic scale-ratio drift must update A and C together.")
-print("  Classification: EXPECTED_IMPORT_DERIVED_DRIFT")
-print(f"  Derived properties: {','.join(changes)}")
-PY
-    then
-        echo "  Import transition: UNEXPECTED_ASSET_MUTATION"
-        return 1
-    fi
-    echo "  Import transition: EXACT_PROPERTY_CLASSIFIED_DRIFT"
-}
-
-restore_kbo_font_integrity_snapshot() {
-    local snapshot_path="$1"
-    local asset_path="$2"
-
-    cp --preserve=mode,timestamps -- "$snapshot_path" "$asset_path"
+    echo "  Import transition: UNEXPECTED_ASSET_MUTATION"
+    echo "ERROR: Canonical KBO SDF serialization must remain byte-identical after Unity."
+    return 1
 }
 
 run_with_single_kbo_font_integrity_guard() {
@@ -744,20 +619,12 @@ run_with_single_kbo_font_integrity_guard() {
 
     local asset_full_path="$PROJECT_PATH_WSL/$guarded_asset"
     local evidence_path="${log_path%.log}${evidence_suffix}-sdf-integrity.log"
-    local snapshot_path
     local before_hash
     local index_hash
     local before_mode
     local imported_hash
     local imported_mode
-    local final_hash
-    local final_mode
-    local classifier_output=""
-    local changed_fields="none"
     local command_status=0
-    local classifier_status=0
-    local restore_status=0
-    local git_diff_empty=0
 
     mkdir -p "$(dirname "$evidence_path")"
     : > "$evidence_path"
@@ -808,9 +675,6 @@ run_with_single_kbo_font_integrity_guard() {
         return 1
     fi
 
-    snapshot_path="$(mktemp)"
-    cp --preserve=mode,timestamps -- "$asset_full_path" "$snapshot_path"
-
     if "$@"; then
         command_status=0
     else
@@ -832,7 +696,6 @@ run_with_single_kbo_font_integrity_guard() {
             echo "FinalMutationDetected=1"
             echo "GitDiffEmpty=NO"
         } | tee -a "$evidence_path"
-        rm -f -- "$snapshot_path"
         echo "ERROR: Unity removed the guarded KBO Dia Gothic SDF asset; the runner did not restore an unexpected mutation."
         return 1
     fi
@@ -856,54 +719,7 @@ run_with_single_kbo_font_integrity_guard() {
             echo "FinalMutationDetected=0"
             echo "GitDiffEmpty=YES"
         } | tee -a "$evidence_path"
-        rm -f -- "$snapshot_path"
         return "$command_status"
-    fi
-
-    if classifier_output="$(
-        verify_kbo_font_working_transition "$snapshot_path" "$asset_full_path" 2>&1
-    )"; then
-        classifier_status=0
-    else
-        classifier_status=$?
-    fi
-    printf '%s\n' "$classifier_output" | tee -a "$evidence_path"
-
-    if [ "$classifier_status" -ne 0 ] ||
-       ! grep -F "Classification: EXPECTED_IMPORT_DERIVED_DRIFT" \
-            <<< "$classifier_output" >/dev/null; then
-        {
-            echo "Asset=$guarded_asset"
-            echo "Stage=$stage_key"
-            echo "Before=$before_hash"
-            echo "Imported=$imported_hash"
-            echo "Classification=UNEXPECTED_SOURCE_MUTATION"
-            echo "ChangedFields=classifier-mismatch"
-            echo "CommandStatus=$command_status"
-            echo "RestoreAttempted=NO"
-            echo "RestoreSucceeded=NO"
-            echo "Restored=NOT_ATTEMPTED"
-            echo "FinalMutationDetected=1"
-            echo "GitDiffEmpty=NO"
-        } | tee -a "$evidence_path"
-        rm -f -- "$snapshot_path"
-        echo "ERROR: Unity produced an unexpected KBO Dia Gothic SDF source mutation; the runner left it intact for inspection."
-        return 1
-    fi
-
-    changed_fields="$(
-        sed -n 's/^  Derived properties: //p' <<< "$classifier_output"
-    )"
-    if restore_kbo_font_integrity_snapshot "$snapshot_path" "$asset_full_path"; then
-        restore_status=0
-    else
-        restore_status=$?
-    fi
-    final_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
-    final_mode="$(stat -c '%a' "$asset_full_path")"
-    if git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset" &&
-       [ "$(git -C "$PROJECT_PATH_WSL" show ":$guarded_asset" | sha256sum | awk '{print $1}')" = "$expected_hash" ]; then
-        git_diff_empty=1
     fi
 
     {
@@ -911,50 +727,17 @@ run_with_single_kbo_font_integrity_guard() {
         echo "Stage=$stage_key"
         echo "Before=$before_hash"
         echo "Imported=$imported_hash"
-        echo "Classification=EXPECTED_IMPORT_DERIVED_DRIFT"
-        echo "ChangedFields=${changed_fields:-unknown}"
+        echo "Classification=UNEXPECTED_SOURCE_MUTATION"
+        echo "ChangedFields=noncanonical-byte-or-mode-delta"
         echo "CommandStatus=$command_status"
-        echo "RestoreAttempted=YES"
-        echo "RestoreSucceeded=$(
-            if [ "$restore_status" -eq 0 ] &&
-               [ "$final_hash" = "$before_hash" ] &&
-               [ "$final_hash" = "$expected_hash" ] &&
-               [ "$final_mode" = "$before_mode" ] &&
-               [ "$git_diff_empty" -eq 1 ]; then
-                echo YES
-            else
-                echo NO
-            fi
-        )"
-        echo "Restored=$final_hash"
-        echo "RestoredMode=$final_mode"
-        echo "FinalMutationDetected=$(
-            if [ "$restore_status" -eq 0 ] &&
-               [ "$final_hash" = "$before_hash" ] &&
-               [ "$final_hash" = "$expected_hash" ] &&
-               [ "$final_mode" = "$before_mode" ] &&
-               [ "$git_diff_empty" -eq 1 ]; then
-                echo 0
-            else
-                echo 1
-            fi
-        )"
-        echo "GitDiffEmpty=$(
-            if [ "$git_diff_empty" -eq 1 ]; then echo YES; else echo NO; fi
-        )"
+        echo "RestoreAttempted=NO"
+        echo "RestoreSucceeded=NO"
+        echo "Restored=NOT_ATTEMPTED"
+        echo "FinalMutationDetected=1"
+        echo "GitDiffEmpty=NO"
     } | tee -a "$evidence_path"
-    rm -f -- "$snapshot_path"
-
-    if [ "$restore_status" -ne 0 ] ||
-       [ "$final_hash" != "$before_hash" ] ||
-       [ "$final_hash" != "$expected_hash" ] ||
-       [ "$final_mode" != "$before_mode" ] ||
-       [ "$git_diff_empty" -ne 1 ]; then
-        echo "ERROR: KBO Dia Gothic SDF snapshot restore verification failed."
-        return 1
-    fi
-
-    return "$command_status"
+    echo "ERROR: Unity changed the canonical KBO SDF asset; the runner left it intact for inspection."
+    return 1
 }
 
 run_with_kbo_font_integrity_guard() {
@@ -1168,8 +951,6 @@ observe_capture_assets_before_restore() {
     local asset_path
     local before_hash
     local after_hash
-    local transition_output
-    local transition_exit
     local index
     local mutation_exit=0
     local -a guarded_paths
@@ -1209,25 +990,6 @@ observe_capture_assets_before_restore() {
         fi
 
         mutation_detected[$index]=1
-        if [ "$asset_path" = "$KBO_MEDIUM_SDF_ASSET" ] ||
-            [ "$asset_path" = "$KBO_LIGHT_SDF_ASSET" ]; then
-            transition_exit=0
-            transition_output="$(
-                verify_kbo_font_working_transition \
-                    "$baseline_root/$asset_path" \
-                    "$PROJECT_PATH_WSL/$asset_path" 2>&1
-            )" || transition_exit=$?
-            printf '%s\n' "$transition_output"
-            if [ "$transition_exit" -eq 0 ]; then
-                changed_properties[$index]="$(
-                    printf '%s\n' "$transition_output" |
-                        sed -n 's/^  Derived properties: //p'
-                )"
-                classifications[$index]="EXPECTED_IMPORT_DERIVED_DRIFT"
-                continue
-            fi
-        fi
-
         changed_properties[$index]="UNCLASSIFIED_BYTE_DELTA"
         classifications[$index]="UNEXPECTED_ASSET_MUTATION"
         allowed[$index]=0
@@ -4139,18 +3901,6 @@ run_dotnet_integration_fuzz() {
     run_dotnet_integration "$DOTNET_INTEGRATION_FUZZ_LOG"
 }
 
-normalize_glyph_serialized_output() {
-    local asset_path
-
-    for asset_path in "$KBO_MEDIUM_SDF_ASSET" "$KBO_LIGHT_SDF_ASSET"; do
-        if ! perl -pi -e 's/[ \t]+(?=\r?$)//' -- \
-            "$PROJECT_PATH_WSL/$asset_path"; then
-            echo "ERROR: Failed to normalize serialized whitespace: $asset_path"
-            return 1
-        fi
-    done
-}
-
 run_kbo_glyph_update() {
     local log_path_win
     local baseline_root
@@ -4226,9 +3976,6 @@ run_kbo_glyph_update() {
         visual_guard_mark_observation_complete "FAIL"
         visual_guard_finish 1
         return 0
-    fi
-    if ! normalize_glyph_serialized_output; then
-        validation_status=1
     fi
 
     kbo_medium_after_hash="$(kbo_medium_working_sha256)"
@@ -6932,31 +6679,8 @@ for name, entry in mutation_sections.items():
         raise SystemExit(f"ERROR: {name} failed before restore")
     if entry["restored"] != "1" or entry["restored_hash"] != entry["before_hash"]:
         raise SystemExit(f"ERROR: {name} restore evidence is invalid")
-    if entry["mutation_detected"] == "1":
-        if entry["classification"] != "EXPECTED_IMPORT_DERIVED_DRIFT":
-            raise SystemExit(f"ERROR: {name} mutation classification is not allowlisted")
-        required_whitespace_properties = {
-            "serialization-whitespace:m_MipmapLimitGroupName:",
-            "serialization-whitespace:m_PlatformBlob:",
-            "serialization-whitespace:path:",
-            "serialization-whitespace:referencedFontAssetGUID:",
-            "serialization-whitespace:referencedTextAssetGUID:",
-            "serialization-whitespace:m_SourceFontFilePath:",
-            "serialization-whitespace:Name:",
-            "serialization-whitespace:m_LockedProperties:",
-        }
-        scale_ratio_properties = {
-            "_ScaleRatioA:1->0.9",
-            "_ScaleRatioC:1->0.73125",
-        }
-        observed_properties = set(entry["changed_properties"].split(","))
-        if observed_properties not in (
-            required_whitespace_properties,
-            required_whitespace_properties | scale_ratio_properties,
-        ):
-            raise SystemExit(f"ERROR: {name} changed property set is not exact")
-    elif entry["mutation_detected"] != "0" or entry["classification"] != "NO_MUTATION":
-        raise SystemExit(f"ERROR: {name} no-mutation classification is invalid")
+    if entry["mutation_detected"] != "0" or entry["classification"] != "NO_MUTATION":
+        raise SystemExit(f"ERROR: {name} canonical asset changed during capture")
 
 print("Objective HUD visual manifest verification: PASS")
 PY

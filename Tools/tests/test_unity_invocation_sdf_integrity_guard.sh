@@ -4,7 +4,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN_TESTS_LIBRARY_ONLY=1 source "$REPO_ROOT/run_tests.sh"
 
-TEST_ROOT="$(mktemp -d)"
+mkdir -p /mnt/d/Repositories /mnt/d/J2M/evidence
+TEST_ROOT="$(mktemp -d /mnt/d/Repositories/j2m-font-guard-fixtures.XXXXXX)"
+EVIDENCE_ROOT="$(mktemp -d /mnt/d/J2M/evidence/font-guard-fixtures.XXXXXX)"
 trap 'rm -rf -- "$TEST_ROOT"' EXIT
 
 assert_equal() {
@@ -41,9 +43,9 @@ prepare_scenario() {
     SCENARIO_ASSET_MEDIUM="$PROJECT_PATH_WSL/$KBO_MEDIUM_SDF_ASSET"
     SCENARIO_ASSET_LIGHT="$PROJECT_PATH_WSL/$KBO_LIGHT_SDF_ASSET"
     SCENARIO_ASSET="$SCENARIO_ASSET_MEDIUM"
-    SCENARIO_LOG="$SCENARIO_ROOT/$name.log"
-    SCENARIO_EVIDENCE="$SCENARIO_ROOT/${name}-sdf-integrity.log"
-    SCENARIO_LIGHT_EVIDENCE="$SCENARIO_ROOT/${name}-kbo-light-sdf-integrity.log"
+    SCENARIO_LOG="$EVIDENCE_ROOT/$name.log"
+    SCENARIO_EVIDENCE="$EVIDENCE_ROOT/${name}-sdf-integrity.log"
+    SCENARIO_LIGHT_EVIDENCE="$EVIDENCE_ROOT/${name}-kbo-light-sdf-integrity.log"
     mkdir -p "$(dirname "$SCENARIO_ASSET_MEDIUM")"
     cp --preserve=mode,timestamps -- \
         "$REPO_ROOT/$KBO_MEDIUM_SDF_ASSET" \
@@ -59,7 +61,7 @@ prepare_scenario() {
         commit -q -m baseline
 }
 
-mutate_to_expected_import_drift() {
+simulate_unity_serialization() {
     perl -pi -e '
         s/^([ \t]*(?:m_MipmapLimitGroupName|m_PlatformBlob|path|referencedFontAssetGUID|referencedTextAssetGUID|m_SourceFontFilePath|Name|m_LockedProperties):)\r?\n$/$1 \n/;
         s/^([ \t]*- _ScaleRatioA:) 1\r?\n$/$1 0.9\n/;
@@ -96,38 +98,38 @@ assert_equal \
     "$(sha256sum "$SCENARIO_ASSET_LIGHT" | awk '{print $1}')" \
     "KBO Light no-mutation final hash"
 
-prepare_scenario expected-drift
+prepare_scenario serialization-stable
 run_with_kbo_font_integrity_guard \
-    expected-drift \
+    serialization-stable \
     "$SCENARIO_LOG" \
-    mutate_to_expected_import_drift
+    simulate_unity_serialization
 assert_equal \
     "$KBO_MEDIUM_COMMITTED_SDF_SHA256" \
     "$(sha256sum "$SCENARIO_ASSET" | awk '{print $1}')" \
-    "expected-drift final hash"
+    "serialization-stable final hash"
 assert_contains \
     "Imported=d8c3627e6092754441da7b34a59a70efc31b4ec2c77b4e8a941bdf7a8d06d2b6" \
     "$SCENARIO_EVIDENCE" \
-    "expected-drift imported hash"
-assert_contains "Classification=EXPECTED_IMPORT_DERIVED_DRIFT" "$SCENARIO_EVIDENCE" "expected-drift classification"
-assert_contains "RestoreSucceeded=YES" "$SCENARIO_EVIDENCE" "expected-drift restore"
-assert_contains "FinalMutationDetected=0" "$SCENARIO_EVIDENCE" "expected-drift final state"
+    "serialization-stable imported hash"
+assert_contains "Classification=NO_MUTATION" "$SCENARIO_EVIDENCE" "serialization-stable classification"
+assert_contains "RestoreAttempted=NO" "$SCENARIO_EVIDENCE" "serialization-stable restore"
+assert_contains "FinalMutationDetected=0" "$SCENARIO_EVIDENCE" "serialization-stable final state"
 
-prepare_scenario expected-drift-light
+prepare_scenario serialization-stable-light
 SCENARIO_ASSET="$SCENARIO_ASSET_LIGHT"
 run_with_kbo_font_integrity_guard \
-    expected-drift-light \
+    serialization-stable-light \
     "$SCENARIO_LOG" \
-    mutate_to_expected_import_drift
+    simulate_unity_serialization
 assert_equal \
     "$KBO_LIGHT_COMMITTED_SDF_SHA256" \
     "$(sha256sum "$SCENARIO_ASSET_LIGHT" | awk '{print $1}')" \
-    "KBO Light expected-drift final hash"
+    "KBO Light serialization-stable final hash"
 assert_contains \
-    "Classification=EXPECTED_IMPORT_DERIVED_DRIFT" \
+    "Classification=NO_MUTATION" \
     "$SCENARIO_LIGHT_EVIDENCE" \
-    "KBO Light expected-drift classification"
-assert_contains "FinalMutationDetected=0" "$SCENARIO_LIGHT_EVIDENCE" "KBO Light expected-drift final state"
+    "KBO Light serialization-stable classification"
+assert_contains "FinalMutationDetected=0" "$SCENARIO_LIGHT_EVIDENCE" "KBO Light serialization-stable final state"
 
 prepare_scenario unexpected-mutation
 if run_with_kbo_font_integrity_guard \
@@ -199,26 +201,33 @@ fi
 assert_contains "Classification=PRE_EXISTING_SOURCE_MODIFICATION" "$SCENARIO_EVIDENCE" "staged modification classification"
 assert_contains "Imported=NOT_RUN" "$SCENARIO_EVIDENCE" "staged modification invocation protection"
 
-prepare_scenario restore-failure
-if (
-    restore_kbo_font_integrity_snapshot() {
-        return 73
-    }
-    run_with_kbo_font_integrity_guard \
-        restore-failure \
-        "$SCENARIO_LOG" \
-        mutate_to_expected_import_drift
-); then
-    echo "ERROR: Restore verification failure should fail the guard."
+# Canonical ratios are derived already; any later ratio edit is unexpected.
+prepare_scenario ratio-mutation
+change_ratio() {
+    sed -i 's/_ScaleRatioA: 0.9/_ScaleRatioA: 0.8/' "$SCENARIO_ASSET"
+}
+if run_with_kbo_font_integrity_guard ratio-mutation "$SCENARIO_LOG" change_ratio; then
+    echo "ERROR: Noncanonical ratio mutation should fail."
     exit 1
 fi
-assert_equal \
-    "d8c3627e6092754441da7b34a59a70efc31b4ec2c77b4e8a941bdf7a8d06d2b6" \
-    "$(sha256sum "$SCENARIO_ASSET" | awk '{print $1}')" \
-    "restore-failure preserved imported state"
-assert_contains "Classification=EXPECTED_IMPORT_DERIVED_DRIFT" "$SCENARIO_EVIDENCE" "restore-failure classification"
-assert_contains "RestoreSucceeded=NO" "$SCENARIO_EVIDENCE" "restore-failure evidence"
-assert_contains "FinalMutationDetected=1" "$SCENARIO_EVIDENCE" "restore-failure final state"
+assert_contains "_ScaleRatioA: 0.8" "$SCENARIO_ASSET" "ratio mutation preservation"
+assert_contains "Classification=UNEXPECTED_SOURCE_MUTATION" "$SCENARIO_EVIDENCE" "ratio mutation classification"
+assert_contains "RestoreAttempted=NO" "$SCENARIO_EVIDENCE" "ratio mutation preservation policy"
+
+prepare_scenario command-failure
+fail_command() { return 73; }
+command_status=0
+run_with_kbo_font_integrity_guard command-failure "$SCENARIO_LOG" fail_command || command_status=$?
+assert_equal 73 "$command_status" "Unity command failure propagation"
+assert_contains "Classification=NO_MUTATION" "$SCENARIO_EVIDENCE" "failed command source preservation"
+
+# Visual capture uses the same strict byte comparison.
+assert_equal "0" "$(verify_kbo_font_working_transition "$SCENARIO_ASSET" "$SCENARIO_ASSET" >/dev/null; echo $?)" "identical transition"
+printf '# unexpected serialization\n' > "$SCENARIO_ROOT/changed.asset"
+if verify_kbo_font_working_transition "$SCENARIO_ASSET" "$SCENARIO_ROOT/changed.asset"; then
+    echo "ERROR: Changed capture asset should fail transition validation."
+    exit 1
+fi
 
 assert_contains \
     "run_with_kbo_font_integrity_guard" \

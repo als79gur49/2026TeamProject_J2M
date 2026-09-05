@@ -529,11 +529,11 @@ WSL CLI
   - 일반적인 로컬 개발 루프에서 사용한다.
   - governance 검사 후 Windows `dotnet` core build, Unity Core EditMode, Unity Core feature gate EditMode, Unity Core PlayMode를 순서대로 실행한다.
   - Core feature gate EditMode는 broad feature EditMode가 아니라 명시적으로 core gate에 승격된 `Phase3BGate` 테스트만 실행한다.
-  - 각 Unity invocation은 shared KBO Dia Gothic SDF integrity guard 안에서 실행된다. Guard는 invocation 전 canonical tracked 상태만 소유하고, exact known importer drift만 byte snapshot으로 복원·검증하며, pre-existing 또는 unexpected mutation은 덮어쓰지 않고 실패시킨다.
+  - 각 Unity invocation은 shared KBO Dia Gothic SDF integrity guard 안에서 실행된다. Guard는 invocation 전 canonical tracked 상태만 소유하고, 실행 전후 전체 byte가 같은 `NO_MUTATION`만 통과시킨다. Pre-existing 또는 unexpected mutation은 덮어쓰지 않고 실패시킨다.
   - pre-commit 훅이 사용하는 명령이다.
 - `./run_tests.sh ui`
   - Stage 9 이후 UI architecture hardening 및 Stage 4–8 seam preservation 검증에 사용한다.
-  - Unity 시작 전에 KBO Dia Gothic Medium/Light TTF/SDF의 `HEAD` Git blob, GUID, material/atlas localID를 검사한다. working-file hash와 importer-derived ScaleRatio는 source canonical 판정에 사용하지 않고 pre/post import diagnostic으로 별도 기록한다.
+  - Unity 시작 전에 KBO Dia Gothic Medium/Light TTF/SDF의 `HEAD` Git blob, GUID, material/atlas localID를 검사한다. working-file canonical hash와 TMP 계산 비율 `0.9/1/0.73125` 및 Unity 빈 scalar 공백을 source 계약으로 고정한다.
   - UI EditMode도 core와 동일한 shared KBO Dia Gothic SDF integrity guard를 사용하며, per-invocation evidence에는 before/imported/final SHA, classification, changed-field signature, restore 결과가 기록된다.
   - governance 검사 후 Windows `dotnet` UI test build, Unity UI EditMode assembly 실행만 수행한다.
   - `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, `TestResults/wsl-unity-ui-editmode.xml`을 남긴다.
@@ -603,11 +603,11 @@ WSL CLI
   - Use for normal local development.
   - Runs governance first, then Windows `dotnet` core build, Unity Core EditMode, Unity Core feature gate EditMode, and Unity Core PlayMode.
   - Core feature gate EditMode is not broad feature EditMode. It runs only tests explicitly promoted into the `Phase3BGate` core gate.
-  - Every Unity invocation runs inside the shared KBO Dia Gothic SDF integrity guard. The guard owns only a canonical tracked pre-state, restores and verifies only the exact known importer drift from a byte snapshot, and fails without overwriting pre-existing or unexpected mutations.
+  - Every Unity invocation runs inside the shared KBO Dia Gothic SDF integrity guard. The guard owns only a canonical tracked pre-state, requires byte-identical pre/post state (`NO_MUTATION`), and fails without overwriting pre-existing or unexpected mutations.
   - This is the command used by pre-commit.
 - `./run_tests.sh ui`
   - Use for targeted Stage 9 UI hardening and Stage 4–8 seam-preservation validation.
-  - Before Unity starts, validates KBO Dia Gothic Medium/Light TTF/SDF `HEAD` Git blobs, GUIDs, and material/atlas local IDs. Working-file hashes and importer-derived ScaleRatio values are recorded separately as pre/post import diagnostics and do not define source identity.
+  - Before Unity starts, validates KBO Dia Gothic Medium/Light TTF/SDF `HEAD` Git blobs, GUIDs, and material/atlas local IDs. Working-file canonical hashes, TMP-calculated ScaleRatio values `0.9/1/0.73125`, and Unity empty-scalar whitespace define the serialized source contract.
   - UI EditMode uses the same shared KBO Dia Gothic SDF integrity guard as core, with per-invocation evidence for before/imported/final SHA, classification, changed-field signature, and restore outcome.
   - Runs governance first, then Windows `dotnet` build for `Game.Feature.UI.Tests.csproj`, then Unity EditMode with the `ui` selection in `TestRunnerCliBootstrap`.
   - Writes `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, and `TestResults/wsl-unity-ui-editmode.xml`.

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
 using ConfirmPopupPresenter = Game.Feature.UI.Application.ConfirmPopupPresenter;
@@ -3326,109 +3325,14 @@ namespace Game.Feature.UI.Composition.Editor
                     allowed: true);
             }
 
-            var allowed = TryClassifyAllowedKboDiaGothicScaleRatioDrift(
-                path,
-                before,
-                after,
-                out var changedProperties);
             return new CaptureAssetMutationEvidence(
                 path,
                 ComputeSha256(before),
                 ComputeSha256(after),
                 mutationDetected: true,
-                changedProperties,
-                allowed
-                    ? "EXPECTED_IMPORT_DERIVED_DRIFT"
-                    : "UNEXPECTED_ASSET_MUTATION",
-                allowed);
-        }
-
-        private static bool TryClassifyAllowedKboDiaGothicScaleRatioDrift(
-            string path,
-            byte[] before,
-            byte[] after,
-            out string changedProperties)
-        {
-            changedProperties = "binary-or-unclassified";
-            if (!string.Equals(path, KboDiaGothicMediumFontAssetPath, StringComparison.Ordinal) &&
-                !string.Equals(path, KboDiaGothicLightFontAssetPath, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            var beforeLines = DecodeLines(before);
-            var afterLines = DecodeLines(after);
-            if (beforeLines.Length != afterLines.Length)
-            {
-                return false;
-            }
-
-            var changed = new List<string>();
-            var requiredWhitespaceProperties = new HashSet<string>(
-                new[]
-                {
-                    "m_MipmapLimitGroupName:",
-                    "m_PlatformBlob:",
-                    "path:",
-                    "referencedFontAssetGUID:",
-                    "referencedTextAssetGUID:",
-                    "m_SourceFontFilePath:",
-                    "Name:",
-                    "m_LockedProperties:",
-                },
-                StringComparer.Ordinal);
-            var observedWhitespaceProperties = new HashSet<string>(
-                StringComparer.Ordinal);
-            for (var index = 0; index < beforeLines.Length; index++)
-            {
-                if (string.Equals(beforeLines[index], afterLines[index], StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var beforeValue = beforeLines[index].Trim();
-                var afterValue = afterLines[index].Trim();
-                if (string.Equals(beforeValue, afterValue, StringComparison.Ordinal) &&
-                    requiredWhitespaceProperties.Contains(beforeValue) &&
-                    string.Equals(
-                        afterLines[index],
-                        beforeLines[index] + " ",
-                        StringComparison.Ordinal))
-                {
-                    observedWhitespaceProperties.Add(beforeValue);
-                    changed.Add($"serialization-whitespace:{beforeValue}");
-                    continue;
-                }
-
-                if (string.Equals(beforeValue, "- _ScaleRatioA: 1", StringComparison.Ordinal) &&
-                    string.Equals(afterValue, "- _ScaleRatioA: 0.9", StringComparison.Ordinal))
-                {
-                    changed.Add("_ScaleRatioA:1->0.9");
-                    continue;
-                }
-
-                if (string.Equals(beforeValue, "- _ScaleRatioC: 1", StringComparison.Ordinal) &&
-                    string.Equals(afterValue, "- _ScaleRatioC: 0.73125", StringComparison.Ordinal))
-                {
-                    changed.Add("_ScaleRatioC:1->0.73125");
-                    continue;
-                }
-
-                return false;
-            }
-
-            changedProperties = string.Join(",", changed);
-            var hasScaleRatioA = changed.Contains("_ScaleRatioA:1->0.9");
-            var hasScaleRatioC = changed.Contains("_ScaleRatioC:1->0.73125");
-            return observedWhitespaceProperties.SetEquals(requiredWhitespaceProperties) &&
-                   hasScaleRatioA == hasScaleRatioC;
-        }
-
-        private static string[] DecodeLines(byte[] bytes)
-        {
-            return Encoding.UTF8.GetString(bytes ?? Array.Empty<byte>())
-                .Replace("\r\n", "\n")
-                .Split('\n');
+                changedProperties: "binary-or-unclassified",
+                classification: "UNEXPECTED_ASSET_MUTATION",
+                allowed: false);
         }
 
         private static string ComputeSha256(byte[] bytes)

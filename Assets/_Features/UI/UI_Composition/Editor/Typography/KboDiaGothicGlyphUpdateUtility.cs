@@ -88,7 +88,7 @@ namespace Game.Feature.UI.Composition.Editor
             RenameFontSubAssets(fontAsset, canonicalAssetName);
             if (requireScaleRatios)
             {
-                RestoreCanonicalScaleRatios(fontAsset, label);
+                ApplyCanonicalScaleRatios(fontAsset, label);
             }
             fontAsset.ReadFontAssetDefinition();
             EditorUtility.SetDirty(fontAsset);
@@ -190,15 +190,28 @@ namespace Game.Feature.UI.Composition.Editor
                 return;
             }
 
-            var material = fontAsset.material;
-            if (material == null ||
-                !material.HasProperty("_ScaleRatioA") ||
-                !material.HasProperty("_ScaleRatioC") ||
-                !Mathf.Approximately(material.GetFloat("_ScaleRatioA"), 1f) ||
-                !Mathf.Approximately(material.GetFloat("_ScaleRatioC"), 1f))
+            ValidateCanonicalScaleRatiosOrThrow(fontAsset, label);
+        }
+
+        private static void ValidateCanonicalScaleRatiosOrThrow(TMP_FontAsset fontAsset, string label)
+        {
+            var material = RequireScaleRatioMaterial(fontAsset, label);
+            // Compute on a copy so validation cannot silently repair the source material.
+            var expected = new Material(material);
+            try
             {
-                throw new InvalidOperationException(
-                    $"{label} canonical material must retain ScaleRatioA = 1 and ScaleRatioC = 1.");
+                ShaderUtilities.GetShaderPropertyIDs();
+                ShaderUtilities.UpdateShaderRatios(expected);
+                if (!Mathf.Approximately(material.GetFloat("_ScaleRatioA"), expected.GetFloat("_ScaleRatioA")) ||
+                    !Mathf.Approximately(material.GetFloat("_ScaleRatioC"), expected.GetFloat("_ScaleRatioC")))
+                {
+                    throw new InvalidOperationException(
+                        $"{label} canonical material must retain TMP-computed scale ratios.");
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(expected);
             }
         }
 
@@ -332,7 +345,16 @@ namespace Game.Feature.UI.Composition.Editor
             }
         }
 
-        private static void RestoreCanonicalScaleRatios(TMP_FontAsset fontAsset, string label)
+        private static void ApplyCanonicalScaleRatios(TMP_FontAsset fontAsset, string label)
+        {
+            var material = RequireScaleRatioMaterial(fontAsset, label);
+            // Persist the same ratios TMP computes when text first loads the shared material.
+            ShaderUtilities.GetShaderPropertyIDs();
+            ShaderUtilities.UpdateShaderRatios(material);
+            EditorUtility.SetDirty(material);
+        }
+
+        private static Material RequireScaleRatioMaterial(TMP_FontAsset fontAsset, string label)
         {
             var material = fontAsset.material;
             if (material == null ||
@@ -343,9 +365,7 @@ namespace Game.Feature.UI.Composition.Editor
                     $"{label} canonical material is missing its TMP scale-ratio properties.");
             }
 
-            material.SetFloat("_ScaleRatioA", 1f);
-            material.SetFloat("_ScaleRatioC", 1f);
-            EditorUtility.SetDirty(material);
+            return material;
         }
 
         private static IEnumerable<string> LoadManagedKoreanStrings()
