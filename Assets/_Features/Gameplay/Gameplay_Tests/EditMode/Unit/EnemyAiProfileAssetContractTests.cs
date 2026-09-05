@@ -687,7 +687,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void PassiveContactMinion_Profile_OwnsDistinctMutableAuthoringGraph()
         {
             var minion = LoadRequiredProfile(PassiveContactMinionProfilePath);
