@@ -40,6 +40,7 @@ namespace Game.Feature.UI.Popups
         private PauseProgressionViewModel _viewModel;
         private int _currentIndex = -1;
         private int _selectedIndex = -1;
+        private bool _activationLayoutPending;
 
         public event Action ProgressionInteracted;
 
@@ -66,6 +67,28 @@ namespace Game.Feature.UI.Popups
             _selectedIndex >= 0 &&
             _selectedIndex < _markers.Count &&
             _selectedIndex < _viewModel.Markers.Count;
+
+        private void OnEnable()
+        {
+            _activationLayoutPending = true;
+        }
+
+        private void OnDisable()
+        {
+            _activationLayoutPending = false;
+        }
+
+        private void LateUpdate()
+        {
+            if (!_activationLayoutPending)
+            {
+                return;
+            }
+
+            // Child ScrollRect/LayoutGroup activation must finish before positioning content.
+            _activationLayoutPending = false;
+            RefreshSelectionLayout();
+        }
 
         public void Bind(PauseProgressionViewModel viewModel)
         {
@@ -115,9 +138,8 @@ namespace Game.Feature.UI.Popups
                 _markers.Add(marker);
             }
 
-            RebuildLayout();
+            RefreshSelectionLayout();
             ClearStageName();
-            ScrollToSelectedIndex();
             SelectedStageDescriptorChanged?.Invoke(SelectedStageDescriptor);
         }
 
@@ -146,9 +168,8 @@ namespace Game.Feature.UI.Popups
 
             _selectedIndex = index;
             _markers[_selectedIndex].SetSelected(true);
-            RebuildLayout();
+            RefreshSelectionLayout();
             ClearStageName();
-            ScrollToSelectedIndex();
             SelectedStageDescriptorChanged?.Invoke(SelectedStageDescriptor);
             return true;
         }
@@ -181,6 +202,24 @@ namespace Game.Feature.UI.Popups
             }
 
             SelectIndex(index);
+        }
+
+        private void RefreshSelectionLayout()
+        {
+            // Popup content can be bound before its parent layer becomes active.
+            // Reapply layout on activation without rebuilding markers or changing selection.
+            if (!isActiveAndEnabled || !HasSelection || _content == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _markers.Count; i++)
+            {
+                _markers[i].SetSelected(i == _selectedIndex);
+            }
+
+            RebuildLayout();
+            ScrollToSelectedIndex();
         }
 
         private void RebuildLayout()
