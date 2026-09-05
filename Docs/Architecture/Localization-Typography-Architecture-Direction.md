@@ -118,7 +118,7 @@ Current baseline captured for this cleanup pass:
 | Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, guarded Climate asset restoration, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
 | Climate glyph coverage | Done | Managed ko-KR tables resolve natively in both `ClimateCrisisKR-2000 SDF` and `ClimateCrisisKR-2019 SDF` with fallback dependency 0. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
-| Pause progression strip | Done | The pause popup uses authored marker templates as a conventional horizontal stepper: group starts are larger diamond nodes, previous/current/upcoming stages have distinct states, and the current stage keeps a dedicated ring. The strip is informational and automatically frames the current stage; horizontal input remains owned by command navigation rather than creating a second cursor. |
+| Pause progression strip | Done | The pause popup uses a clamped horizontal `ScrollRect` whose entries render only stage-preview images. Line, node background, group badge, state overlay, current frame, and progression selection frame are absent; the current stage only determines the initial selection. The selected image reserves twice the normal layout width so adjacent images move away without overlap. Left/Right or a first click changes selection, a second click or Submit opens a pause-local full-canvas preview, and Cancel closes that preview before the pause popup. Stage names resolve through the Stage localization descriptor, with production localization composition as the sole rendered-copy owner. Missing authored previews use the shared placeholder catalog entry. |
 
 ### Localization Blocker Closeout
 
@@ -393,7 +393,7 @@ Initial examples:
 | Settings value | `Value` |
 | Settings status | `Status` |
 | Pause title | `HeaderMedium` |
-| Pause progression strip | Non-text marker presentation; no typography role. |
+| Pause progression strip | Selected stage name uses authored `Label` typography in both the strip and full-canvas preview. |
 | Main Menu command button | `Button` |
 
 ## 6. Stage 2: Deferred High-Performance Architecture

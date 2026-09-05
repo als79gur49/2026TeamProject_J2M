@@ -55,40 +55,15 @@ namespace Game.Feature.UI.Application
             for (var i = 0; i < snapshot.Stages.Count; i++)
             {
                 var stage = snapshot.Stages[i];
-                var isGroupStart = i == 0 ||
-                                   !string.Equals(
-                                       stage.GroupKey,
-                                       snapshot.Stages[i - 1].GroupKey,
-                                       StringComparison.Ordinal);
                 markers[i] = new PauseProgressionMarkerModel(
                     stage.StageKey,
-                    isGroupStart
-                        ? PauseProgressionMarkerKind.GroupStart
-                        : PauseProgressionMarkerKind.Stage,
-                    ResolveMarkerState(i, currentIndex));
+                    stage.DisplayNameDescriptor);
             }
 
             return new PauseProgressionViewModel(
                 isVisible: true,
                 markers,
                 currentIndex);
-        }
-
-        private static PauseProgressionMarkerState ResolveMarkerState(int index, int currentIndex)
-        {
-            if (currentIndex < 0)
-            {
-                return PauseProgressionMarkerState.Neutral;
-            }
-
-            if (index < currentIndex)
-            {
-                return PauseProgressionMarkerState.Previous;
-            }
-
-            return index == currentIndex
-                ? PauseProgressionMarkerState.Current
-                : PauseProgressionMarkerState.Upcoming;
         }
 
         private string Resolve(LocalizedTextDescriptor descriptor)

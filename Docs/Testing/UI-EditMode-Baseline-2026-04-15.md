@@ -32,11 +32,12 @@
 - Current blocked-save recovery fail-closed rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1338 total / 0 failed`; incomplete resets remain globally blocked, Retry resumes the pending transaction, and destructive reset remains limited to incompatible/corrupt profile states
 - Current blocked-save typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; the recovery title, detail, and two actions use authored semantic bindings, while ordinal fallback remains card-only
 - Current Gameplay Stage Name typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; Stage Name resolves `HeaderLarge` through the theme for both locales and adds target-local TMP `UpperCase` presentation without changing World Guide or transition-label default-locale restoration
-- Current Pause progression stepper rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; previous/current/upcoming states, larger group-start diamonds, one persistent current ring, informational Left/Right behavior, and real screenshot-preview campaign binding are guarded
+- Historical Pause progression stepper rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; this predates the selectable stage-image browser contract introduced on 2026-09-05 KST
+- Current Pause stage-image browser rerun: green on 2026-09-05 KST, Windows UI build passed and Unity UI EditMode `1346 total / 0 failed`; the prefab-authored horizontal ScrollRect renders one undecorated image per stage, uses the current stage only as the initial selection, reserves double width for the selected image so adjacent images move without overlap, exposes the localized stage name, and opens a pause-owned full-canvas preview from selected click or Submit
 - Current campaign MainMenu separated-launch-result rerun: green on 2026-08-25 KST, Windows UI build passed and Unity UI EditMode `1352 total / 0 failed`; slot cards consume immutable entry/evaluation/action inputs, profile blocked recovery remains a separate global path, and the combined validation facade/corrected clone is retired
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1344 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1344 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1346 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1346 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
@@ -105,8 +106,9 @@
   - blocked-save typography follow-up slice-local delta: `+3` executed UI cases covering authored bindings, locale round-trip/sizing preservation, and missing-binding fail-fast behavior
   - Gameplay Stage Name typography follow-up pre-change and current rerun: `1341 total / 0 failed`
   - Gameplay Stage Name typography follow-up slice-local delta: `+0`; the existing locale round-trip guard now asserts en-US and ko-KR `HeaderLarge` theme identity plus target-local TMP `UpperCase` while retaining authored sizing
-  - Pause progression stepper pre-change and current rerun: `1341 total / 0 failed`
-  - Pause progression stepper slice-local delta: `+0`; existing mapper, prefab, and screenshot-preview guards were strengthened and renamed without changing the executed-case count
+  - Pause stage-image browser pre-change observed result: `1344 total / 0 failed`
+  - Pause stage-image browser current rerun: `1346 total / 0 failed`
+  - Pause stage-image browser slice-local delta: `+2`; new guards cover the prefab-authored shell/panel/overlay/marker dependencies and selected-stage name locale refresh while the existing mapper, navigation, and screenshot-preview guards were updated to the image-browser contract
   - production-outro removal pre-change and current UI rerun: `1341 total / 0 failed`
   - production-outro removal slice-local UI delta: `+0`; the temporary Definition parity test was replaced one-for-one by explicit null scene wiring coverage, with the renamed actual-scene PlayMode smoke validated separately as `1 total / 0 failed`
   - production-outro activation slice-local UI delta: `+0`; the explicit-null scene guard was replaced one-for-one by authored six-panel order/layout/import/scene-wiring coverage, while the renamed actual-scene PlayMode smoke separately passed `1 total / 0 failed`
@@ -134,7 +136,7 @@
   - Duplicate common transition content prefab files and stale common-only content view types were removed after PR-T2 collapsed the shared physical content mapping.
   - ObjectiveStatus screen controller tests were removed with the retired ObjectiveStatus production screen.
 - Renamed / merged / split tests:
-  - renamed the Pause prefab progression tests around readable sequence states and removal of the second navigation cursor so their names describe the surviving informational-stepper contract
+  - replaced the former informational Pause stepper contract with a prefab-authored, selectable stage-image browser and pause-owned full-canvas preview; the current stage now determines only the initial selection and owns no separate decoration
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
   - renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic
 - Replaced weak guards:

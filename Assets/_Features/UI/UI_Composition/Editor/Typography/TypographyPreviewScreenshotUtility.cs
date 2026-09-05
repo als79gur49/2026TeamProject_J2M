@@ -16,6 +16,7 @@ using KeyboardBindingSettingsSnapshot = Game.Feature.UI.Application.KeyboardBind
 using KeyboardRebindResult = Game.Feature.UI.Application.KeyboardRebindResult;
 using KeyboardRebindStartResult = Game.Feature.UI.Application.KeyboardRebindStartResult;
 using SettingsInputPresenter = Game.Feature.UI.Application.SettingsInputPresenter;
+using StageDisplayNameTextDescriptors = Game.Feature.UI.Application.StageDisplayNameTextDescriptors;
 using SettingsInputPresenterInput = Game.Feature.UI.Application.SettingsInputPresenterInput;
 using TMPro;
 using UnityEditor;
@@ -457,7 +458,7 @@ namespace Game.Feature.UI.Composition.Editor
                     return 20;
 
                 case "Pause":
-                    return 5;
+                    return 6;
 
                 case "MainMenu":
                     return 3;
@@ -2039,12 +2040,13 @@ namespace Game.Feature.UI.Composition.Editor
             var targets = prefabRoot
                 .GetComponentsInChildren<TypographyBinding>(true)
                 .Select(binding => binding.Target)
-                .Where(target => target != null)
+                .Where(target => target != null && target.gameObject.activeInHierarchy)
                 .ToArray();
             if (targets.Length != GetExpectedLocalizedTextCount("Pause"))
             {
                 capture.AddError(
-                    $"{capture.Target.Name} {capture.LocaleCode}: expected 5 rendered TMP targets, found {targets.Length}.");
+                    $"{capture.Target.Name} {capture.LocaleCode}: expected " +
+                    $"{GetExpectedLocalizedTextCount("Pause")} rendered TMP targets, found {targets.Length}.");
                 return;
             }
 
@@ -2305,7 +2307,7 @@ namespace Game.Feature.UI.Composition.Editor
 
         private static IReadOnlyList<LocalizedTextDescriptor> GetPauseDescriptors(PausePopupPayload payload)
         {
-            return new[]
+            var descriptors = new List<LocalizedTextDescriptor>
             {
                 payload.TitleTextDescriptor,
                 payload.ResumeLabelDescriptor,
@@ -2313,32 +2315,58 @@ namespace Game.Feature.UI.Composition.Editor
                 payload.RetryLabelDescriptor,
                 payload.MainMenuLabelDescriptor,
             };
+
+            var progression = payload.Progression;
+            for (var i = 0; i < progression.Stages.Count; i++)
+            {
+                var stage = progression.Stages[i];
+                if (!string.Equals(stage.StageKey, progression.CurrentStageKey, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                descriptors.Add(stage.DisplayNameDescriptor);
+                break;
+            }
+
+            return descriptors;
         }
 
         private static PausePopupPayload CreatePausePreviewPayload()
         {
             var stages = new[]
             {
-                new PauseProgressionStageSnapshot("preview-stage-01", "preview-group-01"),
-                new PauseProgressionStageSnapshot("preview-stage-02", "preview-group-01"),
-                new PauseProgressionStageSnapshot("preview-stage-03", "preview-group-02"),
-                new PauseProgressionStageSnapshot("preview-stage-04", "preview-group-02"),
-                new PauseProgressionStageSnapshot("preview-stage-05", "preview-group-02"),
-                new PauseProgressionStageSnapshot("preview-stage-06", "preview-group-03"),
-                new PauseProgressionStageSnapshot("preview-stage-07", "preview-group-03"),
-                new PauseProgressionStageSnapshot("preview-stage-08", "preview-group-04"),
-                new PauseProgressionStageSnapshot("preview-stage-09", "preview-group-04"),
-                new PauseProgressionStageSnapshot("preview-stage-10", "preview-group-04"),
-                new PauseProgressionStageSnapshot("preview-stage-11", "preview-group-05"),
-                new PauseProgressionStageSnapshot("preview-stage-12", "preview-group-05"),
-                new PauseProgressionStageSnapshot("preview-stage-13", "preview-group-05"),
+                CreatePausePreviewStage("stage-0-1", "preview-group-01"),
+                CreatePausePreviewStage("stage-0-2", "preview-group-01"),
+                CreatePausePreviewStage("stage-0-3", "preview-group-01"),
+                CreatePausePreviewStage("stage-1-1", "preview-group-02"),
+                CreatePausePreviewStage("stage-1-2", "preview-group-02"),
+                CreatePausePreviewStage("stage-2-1", "preview-group-03"),
+                CreatePausePreviewStage("stage-2-2", "preview-group-03"),
+                CreatePausePreviewStage("stage-3-1", "preview-group-04"),
+                CreatePausePreviewStage("stage-3-2", "preview-group-04"),
+                CreatePausePreviewStage("stage-3-3", "preview-group-04"),
+                CreatePausePreviewStage("stage-4-1", "preview-group-05"),
+                CreatePausePreviewStage("stage-4-2", "preview-group-05"),
+                CreatePausePreviewStage("stage-4-3", "preview-group-05"),
             };
 
             return new PausePopupPayload(
                 new PauseProgressionSnapshot(
                     isAvailable: true,
                     stages,
-                    currentStageKey: "preview-stage-06"));
+                    currentStageKey: "stage-2-1"));
+        }
+
+        private static PauseProgressionStageSnapshot CreatePausePreviewStage(
+            string stageKey,
+            string groupKey)
+        {
+            var stageId = StageId.CreateOrThrow(stageKey);
+            return new PauseProgressionStageSnapshot(
+                stageKey,
+                groupKey,
+                StageDisplayNameTextDescriptors.ForStage(stageId));
         }
 
         private static IReadOnlyList<LocalizedTextDescriptor> GetMainMenuDescriptors(MainMenuStaticTextPayload payload)

@@ -218,48 +218,31 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void PausePrefab_ProgressionStripIsBoundAndUsesInactiveTemplates()
+        public void PausePrefab_ProgressionStripUsesOneInactiveImageTemplate()
         {
             var prefab = LoadPausePrefab();
             var progression = GetField<PauseProgressionStripView>(prefab, "_progressionView");
-            var groupTemplate = GetField<PauseProgressionMarkerView>(progression, "_groupStartMarkerTemplate");
             var stageTemplate = GetField<PauseProgressionMarkerView>(progression, "_stageMarkerTemplate");
             var progressionRoot = GetField<RectTransform>(progression, "_root");
             var scrollRect = GetField<ScrollRect>(progression, "_scrollRect");
             var content = GetField<RectTransform>(progression, "_content");
-            var backLine = scrollRect.viewport.Find("BackLine") as RectTransform;
 
             Assert.That(progression, Is.Not.Null);
             Assert.That(progressionRoot.Find("LeftButton"), Is.Null);
             Assert.That(progressionRoot.Find("RightButton"), Is.Null);
             Assert.That(scrollRect.viewport.sizeDelta.x, Is.EqualTo(0f));
-            Assert.That(backLine, Is.Not.Null);
-            Assert.That(backLine.parent, Is.SameAs(scrollRect.viewport));
-            Assert.That(backLine.GetSiblingIndex(), Is.LessThan(content.GetSiblingIndex()));
-            Assert.That(backLine.anchorMin, Is.EqualTo(Vector2.zero));
-            Assert.That(backLine.anchorMax, Is.EqualTo(Vector2.right));
-            Assert.That(backLine.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
-            Assert.That(backLine.anchoredPosition.y, Is.GreaterThan(0f));
-            Assert.That(backLine.sizeDelta.x, Is.LessThan(0f), "Stretched back line should reserve horizontal padding.");
-            Assert.That(backLine.sizeDelta.y, Is.GreaterThan(0f));
-            Assert.That(backLine.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
-            Assert.That(groupTemplate.gameObject.activeSelf, Is.False);
+            Assert.That(scrollRect.viewport.Find("BackLine"), Is.Null);
+            Assert.That(content, Is.Not.Null);
             Assert.That(stageTemplate.gameObject.activeSelf, Is.False);
-            Assert.That(groupTemplate.VisualImage, Is.Not.Null);
             Assert.That(stageTemplate.VisualImage, Is.Not.Null);
-            Assert.That(groupTemplate.VisualImage.raycastTarget, Is.False);
-            Assert.That(stageTemplate.VisualImage.raycastTarget, Is.False);
-            Assert.That(groupTemplate.CurrentFrame, Is.Not.Null);
-            Assert.That(stageTemplate.CurrentFrame, Is.Not.Null);
-            Assert.That(groupTemplate.CurrentFrame.name, Is.EqualTo("CurrentFrame"));
-            Assert.That(stageTemplate.CurrentFrame.name, Is.EqualTo("CurrentFrame"));
-            Assert.That(groupTemplate.CurrentFrame.activeSelf, Is.False);
-            Assert.That(stageTemplate.CurrentFrame.activeSelf, Is.False);
-            Assert.That(groupTemplate.RectTransform.sizeDelta.x, Is.GreaterThan(stageTemplate.RectTransform.sizeDelta.x));
-            Assert.That(groupTemplate.RectTransform.sizeDelta.y, Is.EqualTo(stageTemplate.RectTransform.sizeDelta.y));
-            Assert.That(groupTemplate.VisualImage.rectTransform.rect.width, Is.GreaterThan(stageTemplate.VisualImage.rectTransform.rect.width));
-            Assert.That(groupTemplate.VisualImage.rectTransform.rect.height, Is.GreaterThan(groupTemplate.VisualImage.rectTransform.rect.width));
-            Assert.That(stageTemplate.VisualImage.rectTransform.rect.height, Is.GreaterThan(stageTemplate.VisualImage.rectTransform.rect.width));
+            Assert.That(stageTemplate.VisualImage.raycastTarget, Is.True);
+            Assert.That(stageTemplate.LayoutElement, Is.Not.Null);
+            Assert.That(stageTemplate.GetComponent<Button>().transition, Is.EqualTo(Selectable.Transition.None));
+            Assert.That(stageTemplate.RectTransform.sizeDelta.x, Is.EqualTo(72f));
+            Assert.That(stageTemplate.VisualImage.rectTransform.rect.width, Is.EqualTo(72f));
+            Assert.That(stageTemplate.VisualImage.rectTransform.rect.width, Is.GreaterThan(stageTemplate.VisualImage.rectTransform.rect.height));
+            Assert.That(stageTemplate.GetComponent<Graphic>(), Is.Null);
+            Assert.That(stageTemplate.VisualImage.transform.childCount, Is.Zero);
         }
 
         [Test]
@@ -413,6 +396,69 @@ namespace Game.Feature.UI.Tests
                 Assert.That(title.fontSize, Is.EqualTo(originalFontSize));
                 Assert.That(title.enableAutoSizing, Is.EqualTo(originalAutoSizing));
                 Assert.That(title.fontSharedMaterial, Is.Not.SameAs(originalMaterial));
+            }
+            finally
+            {
+                localizationScope?.Dispose();
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void PauseStageNames_FollowSelectionAndLocaleWithAuthoredTypography()
+        {
+            var theme = LoadTheme();
+            var resolver = new FakeLocalizedTextResolver();
+            var root = UnityEngine.Object.Instantiate(LoadPausePrefab().gameObject);
+            var view = root.GetComponent<PausePopupView>();
+            var progression = GetField<PauseProgressionStripView>(view, "_progressionView");
+            var stages = new[]
+            {
+                new PauseProgressionStageSnapshot(
+                    "stage-0-1",
+                    "group-a",
+                    StageDisplayNameTextDescriptors.ForStage(Game.Feature.Stages.StageId.CreateOrThrow("stage-0-1"))),
+                new PauseProgressionStageSnapshot(
+                    "stage-0-2",
+                    "group-a",
+                    StageDisplayNameTextDescriptors.ForStage(Game.Feature.Stages.StageId.CreateOrThrow("stage-0-2"))),
+            };
+            var payload = new PausePopupPayload(
+                new PauseProgressionSnapshot(true, stages, "stage-0-1"));
+            var presenter = new PausePopupPresenter(resolver);
+            presenter.Apply(payload);
+            view.Bind(presenter.ViewModel);
+            var targets = view.CreateStageNameLocalizationTargets();
+            var authoredSizes = targets.Select(target => target.fontSize).ToArray();
+            IDisposable localizationScope = null;
+
+            try
+            {
+                localizationScope = PausePopupProductionLocalizationComposer.Bind(
+                    view,
+                    payload,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    theme);
+                view.IsVisible = true;
+
+                Assert.That(targets.Select(target => target.text), Is.All.EqualTo("Opening"));
+                Assert.That(progression.SelectIndex(1), Is.True);
+                Assert.That(targets.Select(target => target.text), Is.All.EqualTo("Second Step"));
+
+                resolver.SetLocale("ko-KR");
+
+                Assert.That(targets.Select(target => target.text), Is.All.EqualTo("두 번째 단계"));
+                for (var i = 0; i < targets.Count; i++)
+                {
+                    Assert.That(
+                        targets[i].font,
+                        Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.Label).FontAsset));
+                    Assert.That(
+                        targets[i].fontSharedMaterial,
+                        Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.Label).MaterialPreset));
+                    Assert.That(targets[i].fontSize, Is.EqualTo(authoredSizes[i]));
+                }
             }
             finally
             {
@@ -1193,6 +1239,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.pause.main_menu"] = "Main Menu",
                         ["ui.main_menu.start"] = "Start",
                         ["ui.main_menu.quit"] = "Quit",
+                        ["stage.stage-0-1.display_name"] = "Opening",
+                        ["stage.stage-0-2.display_name"] = "Second Step",
                     },
                     ["ko-KR"] = new Dictionary<string, string>
                     {
@@ -1203,6 +1251,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.pause.main_menu"] = "메인 메뉴",
                         ["ui.main_menu.start"] = "시작",
                         ["ui.main_menu.quit"] = "종료",
+                        ["stage.stage-0-1.display_name"] = "시작",
+                        ["stage.stage-0-2.display_name"] = "두 번째 단계",
                     },
                 };
 

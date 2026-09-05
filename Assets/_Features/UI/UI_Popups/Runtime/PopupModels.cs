@@ -115,14 +115,25 @@ namespace Game.Feature.UI.Popups
     public readonly struct PauseProgressionStageSnapshot
     {
         public PauseProgressionStageSnapshot(string stageKey, string groupKey)
+            : this(stageKey, groupKey, default)
+        {
+        }
+
+        public PauseProgressionStageSnapshot(
+            string stageKey,
+            string groupKey,
+            LocalizedTextDescriptor displayNameDescriptor)
         {
             StageKey = stageKey ?? string.Empty;
             GroupKey = groupKey ?? string.Empty;
+            DisplayNameDescriptor = displayNameDescriptor;
         }
 
         public string StageKey { get; }
 
         public string GroupKey { get; }
+
+        public LocalizedTextDescriptor DisplayNameDescriptor { get; }
     }
 
     public sealed class PauseProgressionSnapshot
@@ -163,37 +174,19 @@ namespace Game.Feature.UI.Popups
         public string CurrentStageKey { get; }
     }
 
-    public enum PauseProgressionMarkerKind
-    {
-        GroupStart = 0,
-        Stage = 1,
-    }
-
-    public enum PauseProgressionMarkerState
-    {
-        Neutral = 0,
-        Previous = 1,
-        Current = 2,
-        Upcoming = 3,
-    }
-
     public readonly struct PauseProgressionMarkerModel
     {
         public PauseProgressionMarkerModel(
             string stageKey,
-            PauseProgressionMarkerKind kind,
-            PauseProgressionMarkerState state)
+            LocalizedTextDescriptor displayNameDescriptor = default)
         {
             StageKey = stageKey ?? string.Empty;
-            Kind = kind;
-            State = state;
+            DisplayNameDescriptor = displayNameDescriptor;
         }
 
         public string StageKey { get; }
 
-        public PauseProgressionMarkerKind Kind { get; }
-
-        public PauseProgressionMarkerState State { get; }
+        public LocalizedTextDescriptor DisplayNameDescriptor { get; }
     }
 
     public sealed class PauseProgressionViewModel

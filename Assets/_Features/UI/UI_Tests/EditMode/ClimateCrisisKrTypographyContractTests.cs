@@ -321,7 +321,7 @@ namespace Game.Feature.UI.Tests
             var binding = TypographyBinding.FindFor(title);
             var titleContainer = rect.parent.GetComponent<LayoutElement>();
 
-            Assert.That(GetRelativePath(title.transform), Is.EqualTo("Title/text"));
+            Assert.That(GetRelativePath(title.transform), Is.EqualTo("PausePanel/Title/text"));
             AssertAssetIdentity(title, AssetDatabase.AssetPathToGUID(PausePrefabPath), 8453535842778186484, "Pause title TMP");
             AssertAssetIdentity(rect, AssetDatabase.AssetPathToGUID(PausePrefabPath), 931421177423540265, "Pause title RectTransform");
             Assert.That(rect.anchorMin, Is.EqualTo(Vector2.zero));

@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91f4d6d65a5140368a5f4e0b5c56c312, type: 3}
+  m_Name: PauseStagePreviewCatalog
+  m_EditorClassIdentifier: Game.Feature.UI.Popups::Game.Feature.UI.Popups.PauseStagePreviewCatalog
+  _placeholderSprite: {fileID: 21300000, guid: fa59edde01bd7f74cbbff0cfa2a60a32, type: 3}
+  _entries: []
