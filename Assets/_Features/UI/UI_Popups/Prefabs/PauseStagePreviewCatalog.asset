@@ -13,4 +13,30 @@ MonoBehaviour:
   m_Name: PauseStagePreviewCatalog
   m_EditorClassIdentifier: Game.Feature.UI.Popups::Game.Feature.UI.Popups.PauseStagePreviewCatalog
   _placeholderSprite: {fileID: 21300000, guid: fa59edde01bd7f74cbbff0cfa2a60a32, type: 3}
-  _entries: []
+  _entries:
+  - _stageKey: stage-0-1
+    _previewSprite: {fileID: 21300000, guid: 0bc5eaa2b576419484a026fa81091205, type: 3}
+  - _stageKey: stage-0-2
+    _previewSprite: {fileID: 21300000, guid: b6faf1b3a9484ec39b0e3e1c3e64ce46, type: 3}
+  - _stageKey: stage-0-3
+    _previewSprite: {fileID: 21300000, guid: 10f31ee4581b406eb411b75e4989620f, type: 3}
+  - _stageKey: stage-1-1
+    _previewSprite: {fileID: 21300000, guid: e888451068a64c45b6fe17bc0f965ac9, type: 3}
+  - _stageKey: stage-1-2
+    _previewSprite: {fileID: 21300000, guid: a4b10499136e40f18bad0ca90c1a1dae, type: 3}
+  - _stageKey: stage-2-1
+    _previewSprite: {fileID: 21300000, guid: df0513a4ae7546449a4b2dd543d7696a, type: 3}
+  - _stageKey: stage-2-2
+    _previewSprite: {fileID: 21300000, guid: 351d5136e2ec489492faab7e36167919, type: 3}
+  - _stageKey: stage-3-1
+    _previewSprite: {fileID: 21300000, guid: 29cf6f2ef0bb4bb990214ee677135b64, type: 3}
+  - _stageKey: stage-3-2
+    _previewSprite: {fileID: 21300000, guid: 5487b00256294aa38783fc72df06f096, type: 3}
+  - _stageKey: stage-3-3
+    _previewSprite: {fileID: 21300000, guid: ea747828dcf341c6872c7bc4ea8966dd, type: 3}
+  - _stageKey: stage-4-1
+    _previewSprite: {fileID: 21300000, guid: 8e6d7d55c459477e83e5e1f2663ed496, type: 3}
+  - _stageKey: stage-4-2
+    _previewSprite: {fileID: 21300000, guid: 97d5ea810aca4d95ba1bcde17a2f5e47, type: 3}
+  - _stageKey: stage-4-3
+    _previewSprite: {fileID: 21300000, guid: b93ec9d0455f48cc82ec9612281bb78c, type: 3}

@@ -110,16 +110,52 @@ namespace Game.Feature.UI.Tests
             Assert.That(previewCatalog, Is.Not.Null);
             Assert.That(AssetDatabase.GetAssetPath(previewCatalog), Is.EqualTo(PausePreviewCatalogPath));
             Assert.That(previewCatalog.PlaceholderSprite, Is.Not.Null);
-            Assert.That(previewCatalog.Entries, Is.Empty);
-            Assert.That(
-                previewCatalog.ResolveOrPlaceholder("stage-0-1"),
-                Is.SameAs(previewCatalog.PlaceholderSprite));
             Assert.That(
                 previewCatalog.ResolveOrPlaceholder(string.Empty),
                 Is.SameAs(previewCatalog.PlaceholderSprite));
 
             AssertMarkerTemplateIsAuthored(stageTemplate);
             Assert.That(scrollRect.viewport.Find("BackLine"), Is.Null);
+        }
+
+        [Test]
+        public void PreviewCatalog_CoversCampaignWithDistinctMatchingStageScreenshots()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<PauseStagePreviewCatalog>(PausePreviewCatalogPath);
+            var sequence = CampaignStageSequenceTestAsset.LoadProductionDefinition();
+            Assert.That(catalog.Entries, Has.Length.EqualTo(sequence.Entries.Count));
+            var keys = new HashSet<string>();
+            var sprites = new HashSet<Sprite>();
+            foreach (var entry in catalog.Entries)
+            {
+                Assert.That(keys.Add(entry.StageKey), Is.True, "Duplicate stage mapping");
+                Assert.That(entry.PreviewSprite, Is.Not.Null, entry.StageKey);
+                Assert.That(sprites.Add(entry.PreviewSprite), Is.True, "Stages must use distinct screenshots");
+                Assert.That(AssetDatabase.GetAssetPath(entry.PreviewSprite), Is.EqualTo(
+                    $"Assets/_Features/UI/UI_Popups/StagePreviews/{entry.StageKey}.png"));
+                Assert.That(entry.PreviewSprite.rect.width / entry.PreviewSprite.rect.height,
+                    Is.EqualTo(16f / 9f).Within(0.001f));
+                Assert.That(entry.PreviewSprite.rect.size, Is.EqualTo(new Vector2(1280f, 720f)));
+                var importer = (TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(entry.PreviewSprite));
+                var desktop = importer.GetPlatformTextureSettings("Standalone");
+                Assert.That(desktop.overridden, Is.True);
+                Assert.That(desktop.format, Is.EqualTo(TextureImporterFormat.BC7));
+                Assert.That(importer.isReadable, Is.False);
+                Assert.That(importer.mipmapEnabled, Is.False);
+                if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.StandaloneWindows64)
+                {
+                    Assert.That(entry.PreviewSprite.texture.format, Is.EqualTo(TextureFormat.BC7));
+                }
+            }
+
+            foreach (var entry in sequence.Entries)
+            {
+                Assert.That(keys, Does.Contain(entry.StageId.Value));
+                Assert.That(catalog.ResolveOrPlaceholder(entry.StageId.Value),
+                    Is.Not.SameAs(catalog.PlaceholderSprite));
+            }
+            Assert.That(catalog.ResolveOrPlaceholder("legacy-stage-5-1"), Is.SameAs(catalog.PlaceholderSprite));
+            Assert.That(catalog.ResolveOrPlaceholder("stage-unknown"), Is.SameAs(catalog.PlaceholderSprite));
         }
 
         [Test]
@@ -146,6 +182,12 @@ namespace Game.Feature.UI.Tests
                 Canvas.ForceUpdateCanvases();
 
                 Assert.That(progression.MarkerCount, Is.EqualTo(13));
+                var catalog = AssetDatabase.LoadAssetAtPath<PauseStagePreviewCatalog>(PausePreviewCatalogPath);
+                for (var i = 0; i < markers.Count; i++)
+                {
+                    Assert.That(markers[i].VisualImage.sprite,
+                        Is.SameAs(catalog.ResolveOrPlaceholder(viewModel.Progression.Markers[i].StageKey)));
+                }
                 Assert.That(progression.CurrentIndex, Is.EqualTo(5));
                 Assert.That(markers[4].VisualImage.sprite, Is.Not.Null);
                 Assert.That(markers[5].VisualImage.sprite, Is.Not.Null);
