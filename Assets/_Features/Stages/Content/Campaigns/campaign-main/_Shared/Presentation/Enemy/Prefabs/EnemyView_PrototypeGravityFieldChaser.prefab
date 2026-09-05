@@ -592,13 +592,11 @@ MonoBehaviour:
   jumpWindupAnimatorDurationSeconds: -1
   jumpAirborneAnimatorDurationSeconds: -1
   recoverAnimatorDurationSeconds: -1
-  deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: -1
   attackWindupReferenceClip: {fileID: 0}
   jumpWindupReferenceClip: {fileID: 0}
   jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: 0}
-  deathReferenceClip: {fileID: 0}
 --- !u!1 &2124947621262512643
 GameObject:
   m_ObjectHideFlags: 0

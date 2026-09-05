@@ -216,7 +216,6 @@ namespace Game.Feature.Gameplay.Host
             GetAnimationTimingAuthoring(playerViewPrefab, ownerDescription);
             UnitLocomotionPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
             EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
-            EntityEffectPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
             GameplayActionAudioPrefabRequirements.GetOptionalValidatedAuthoring(playerViewPrefab, ownerDescription);
         }
 

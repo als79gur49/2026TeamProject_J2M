@@ -769,7 +769,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForRetainedDeathExit()
+        public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForRetainedExit()
         {
             Assert.That(
                 PresentationVisibilityFallbackResolver.Resolve(
@@ -778,10 +778,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 PresentationVisibilityFallbackResolver.Resolve(
                     CreateVisibilityFallbackInputs(isContactDelayedRetained: true)),
-                Is.True);
-            Assert.That(
-                PresentationVisibilityFallbackResolver.Resolve(
-                    CreateVisibilityFallbackInputs(isDeathPresentationPlaying: true)),
                 Is.True);
         }
 
@@ -4548,7 +4544,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool hasActiveOriginalViewMotion = false,
             bool isDeferredExitRetained = false,
             bool isContactDelayedRetained = false,
-            bool isDeathPresentationPlaying = false,
             bool hasResolvedVisibility = false,
             bool isResolvedVisible = false,
             bool hasTransitionVisibility = false)
@@ -4561,7 +4556,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hasActiveOriginalViewMotion,
                 isDeferredExitRetained,
                 isContactDelayedRetained,
-                isDeathPresentationPlaying,
                 hasResolvedVisibility,
                 isResolvedVisible,
                 hasTransitionVisibility);

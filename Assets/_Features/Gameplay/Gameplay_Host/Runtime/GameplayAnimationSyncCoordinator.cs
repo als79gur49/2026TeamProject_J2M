@@ -329,7 +329,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 _contactDelayedEnemyDeathEntityIds.Remove(request.EnemyEntityId);
                 _enemyUtilityAnimationTracks.Remove(request.EnemyEntityId);
-                driver.PlayDeathPresentation(request.EnemyEntityId);
+                driver.PlayDeathCue(request.EnemyEntityId);
             }
             else
             {
@@ -810,10 +810,18 @@ namespace Game.Feature.Gameplay.Host
 
         public void ReleaseEntity(int entityId)
         {
+            Exception normalizationException = null;
             if (_enemyScalePulseDriversByEntityId.TryGetValue(entityId, out var scalePulseDriver) &&
                 scalePulseDriver != null)
             {
-                scalePulseDriver.NormalizeToBaseScale();
+                try
+                {
+                    scalePulseDriver.NormalizeToBaseScale();
+                }
+                catch (Exception exception)
+                {
+                    normalizationException = exception;
+                }
             }
 
             _enemyAnimatorDriversByEntityId.Remove(entityId);
@@ -825,6 +833,11 @@ namespace Game.Feature.Gameplay.Host
             _playerDeathVisualOverrideEntityIds.Remove(entityId);
             _playerVisualHoldStates.Remove(entityId);
             _playerViewPresentationStates.Remove(entityId);
+
+            if (normalizationException != null)
+            {
+                throw normalizationException;
+            }
         }
 
         public void SyncEnemyRuntimeState(
@@ -1029,15 +1042,21 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
+        [Obsolete(
+            "Enemy animation no longer owns death presentation duration. Use typed enemy presentation playback requests.",
+            false)]
         public float BeginEnemyDeathPresentation(
             int entityId,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
         {
             _contactDelayedEnemyDeathEntityIds.Remove(entityId);
             _enemyUtilityAnimationTracks.Remove(entityId);
-            return TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver)
-                ? driver.PlayDeathPresentation(entityId)
-                : 0f;
+            if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
+            {
+                driver.PlayDeathCue(entityId);
+            }
+
+            return 0f;
         }
 
         public void SyncHiddenDrivers(

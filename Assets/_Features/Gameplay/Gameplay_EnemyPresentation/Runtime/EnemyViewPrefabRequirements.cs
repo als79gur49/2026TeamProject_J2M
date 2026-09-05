@@ -30,7 +30,6 @@ namespace Game.Feature.Gameplay.Host
             EnemyJumpMotionPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
             UnitLocomotionPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
             EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
-            EntityEffectPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
         }
 
         public static void ValidateEnemyViewInstance(GameplayEntityView enemyViewInstance, string ownerDescription)

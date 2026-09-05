@@ -2369,6 +2369,7 @@ namespace Game.Feature.Gameplay.Loop
         Immediate = 0,
         AfterEntityMotion = 1,
         AtContactTime = 2,
+        [Obsolete("Enemy exit animation tails are no longer supported. This compatibility value is treated as Immediate.", false)]
         AfterAnimationTail = 3,
     }
 
