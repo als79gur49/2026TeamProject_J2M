@@ -214,13 +214,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presenterSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
             Assert.That(presenterSource, Does.Not.Contain("IDamageDeathGameplayVfxPlaybackRuntime"));
             Assert.That(presenterSource, Does.Not.Contain("GameplayVfxGameObjectPool"));
+            Assert.That(ContainsExactMethodToken("lane.Present(result);", "Present"), Is.True);
+            Assert.That(
+                ContainsExactMethodToken(
+                    "summonedEnemyPresentationResolver.ReleaseOwnedViewIfPresent(entityId);",
+                    "Present"),
+                Is.False);
+            Assert.That(ContainsExactMethodToken(compositionFactorySource, "Present"), Is.False, "Present");
+            Assert.That(ContainsExactMethodToken(hostConstructionBlock, "Present"), Is.False, "Present");
 
             foreach (var forbiddenFactoryPolicyToken in new[]
                      {
                          "TryBeginExecution",
                          "RecordSkippedByPolicy",
                          "ShouldSuppress",
-                         "Present(",
                          "Update(",
                          "ResetSession(",
                          "HardCleanup(",
@@ -4620,6 +4627,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string ExactSourceKindPattern(string sourceKindToken)
         {
             return $@"{System.Text.RegularExpressions.Regex.Escape(sourceKindToken)}(?![A-Za-z0-9_])";
+        }
+
+        private static bool ContainsExactMethodToken(string source, string methodName)
+        {
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                source,
+                $@"(?<![A-Za-z0-9_]){System.Text.RegularExpressions.Regex.Escape(methodName)}\s*\(");
         }
 
         private static string[] FindGameplayTestFilesContainingExactToken(string token)
