@@ -26,11 +26,14 @@ namespace Game.Feature.Gameplay.Host
         public static void ValidateEnemyViewPrefab(GameplayEntityView enemyViewPrefab, string ownerDescription)
         {
             GetAnimatorDriver(enemyViewPrefab, ownerDescription);
-            EnemyAnimationTimingAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
+            if (EnemyAnimationBindingAuthoring.GetOptionalValidatedRoot(enemyViewPrefab) == null)
+            {
+                EnemyAnimationTimingAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
+            }
+
             EnemyJumpMotionPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
             UnitLocomotionPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
             EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
-            EntityEffectPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
         }
 
         public static void ValidateEnemyViewInstance(GameplayEntityView enemyViewInstance, string ownerDescription)

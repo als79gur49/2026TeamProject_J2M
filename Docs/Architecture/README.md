@@ -58,6 +58,26 @@
   - proposed A/B/C split plan for test-tier remediation, strict-governance delta closure, original SHA preservation, sequential merge-commit integration, and same-revision PR evidence; execution requires the documented merge-method, deterministic-delta, and evidence-root preconditions
 - [UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md](./UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md)
   - active handoff prompt for executing the proposed A/B/C split one PR at a time with D-drive worktrees, scoped commit/push authority, explicit merge approval stops, and final-head evidence gates
+- [Enemy-View-Prefab-Scalability-Maintainability-Audit.md](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
+  - current record of the initial Enemy View Inspector audit, subsequent legacy-lifecycle cleanup, production prefab/controller contracts, and follow-up validation gates
+- [Enemy-Animation-Sparse-Binding-Implementation-Plan.md](./Enemy-Animation-Sparse-Binding-Implementation-Plan.md)
+  - completed Slice 0~5 implementation and validation record for sparse per-View animation cue authoring; checked-in migration mutation entrypoints remain retired
+- [Enemy-Animation-Sparse-Binding-Slice5-Inspector-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice5-Inspector-Closeout.md)
+  - final closeout for Inspector/runtime diagnostic parity, five representative production Inspector captures, B0 governance disposition, validation evidence, and bounded non-claims
+- [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md)
+  - execution plan for manifest-driven production 10-view migration, dry-run/apply separation, asset identity validation, rollback, and Slice 2 completion gates
+- [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)
+  - completed Slice 2 inventory, approved migration digest, RocketFace clip-role review, validation evidence, rollback boundary, and non-claims
+- [Enemy-Animation-Sparse-Binding-Slice3-Legacy-View-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice3-Legacy-View-Retirement-Closeout.md)
+  - completed retirement of four zero-reference legacy Enemy View prefabs, immutable 14-row disposition ledger, current 10/8/0 inventory, validation evidence, and rollback boundary
+- [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Plan.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Plan.md)
+  - executed Slice 4A plan for removing the completed one-time mutation tool while preserving the read-only manifest, resolved prefab inventory, deleted-GUID residue guards, and post-removal re-audit boundary
+- [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md)
+  - current Slice 4A closeout for the retired menu/apply/report surface, permanent resolved-asset audit, validation evidence, remaining BlackEye baseline failures, and Slice 4B non-approval boundary
+- [Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md](./Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md)
+  - implemented Slice 4B plan and closeout for the Driver `animator`-only serialized surface, Timing opt-in gate, exact 160-line production cleanup, Kali/SecBot no-command behavior, validation evidence, and non-claims
+- [Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md](./Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md)
+  - historical Slice 0 execution prompt whose Astreton, Jumping, DrSaturn, timing/dispatch, resync, and suppression contracts remain in the permanent test suite; it is not a current execution entrypoint
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
   - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Standard-only Charge BehaviorModule production content, and Phase 2 trigger boundaries
 - [Enemy-AI-Phase1-Merge-Gate.md](./Enemy-AI-Phase1-Merge-Gate.md)

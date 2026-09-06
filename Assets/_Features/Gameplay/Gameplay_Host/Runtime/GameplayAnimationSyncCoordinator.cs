@@ -329,7 +329,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 _contactDelayedEnemyDeathEntityIds.Remove(request.EnemyEntityId);
                 _enemyUtilityAnimationTracks.Remove(request.EnemyEntityId);
-                driver.PlayDeathPresentation(request.EnemyEntityId);
+                driver.PlayDeathCue(request.EnemyEntityId);
             }
             else
             {
@@ -810,10 +810,18 @@ namespace Game.Feature.Gameplay.Host
 
         public void ReleaseEntity(int entityId)
         {
+            Exception normalizationException = null;
             if (_enemyScalePulseDriversByEntityId.TryGetValue(entityId, out var scalePulseDriver) &&
                 scalePulseDriver != null)
             {
-                scalePulseDriver.NormalizeToBaseScale();
+                try
+                {
+                    scalePulseDriver.NormalizeToBaseScale();
+                }
+                catch (Exception exception)
+                {
+                    normalizationException = exception;
+                }
             }
 
             _enemyAnimatorDriversByEntityId.Remove(entityId);
@@ -825,6 +833,11 @@ namespace Game.Feature.Gameplay.Host
             _playerDeathVisualOverrideEntityIds.Remove(entityId);
             _playerVisualHoldStates.Remove(entityId);
             _playerViewPresentationStates.Remove(entityId);
+
+            if (normalizationException != null)
+            {
+                throw normalizationException;
+            }
         }
 
         public void SyncEnemyRuntimeState(
@@ -901,24 +914,24 @@ namespace Game.Feature.Gameplay.Host
             EnemyAnimatorDriver driver,
             out EnemyUtilityAnimationPlaybackTrack track)
         {
-            var phase = EnemyAnimatorDriver.EnemyPresentationPhase.None;
+            var cue = EnemyAnimationCue.None;
             if (state.StartedUtilityRecoverThisTick)
             {
-                phase = EnemyAnimatorDriver.EnemyPresentationPhase.Recovery;
+                cue = EnemyAnimationCue.UtilityRecovery;
             }
             else if (state.StartedUtilityWindupThisTick &&
                      SupportsUtilityWindupAnimationTrack(state.UtilityPresentationKind))
             {
-                phase = EnemyAnimatorDriver.EnemyPresentationPhase.Windup;
+                cue = EnemyAnimationCue.UtilityWindup;
             }
 
-            if (phase == EnemyAnimatorDriver.EnemyPresentationPhase.None)
+            if (cue == EnemyAnimationCue.None)
             {
                 track = default;
                 return false;
             }
 
-            var durationSeconds = driver.GetPresentationDurationSeconds(phase);
+            var durationSeconds = driver.GetPresentationDurationSeconds(cue);
             if (durationSeconds <= 0f)
             {
                 track = default;
@@ -926,7 +939,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             track = new EnemyUtilityAnimationPlaybackTrack(
-                phase,
+                cue,
                 state.UtilityPresentationKind,
                 state.UtilityEffectIndex,
                 state.UtilityActivationSequence,
@@ -984,7 +997,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            driver.ApplyPresentationPhaseTiming(track.Phase);
+            driver.ApplyPresentationCueTiming(track.Cue);
         }
 
         private static bool CanApplyEnemyUtilityAnimationTrack(in EnemyViewPresentationState state)
@@ -1029,15 +1042,21 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
+        [Obsolete(
+            "Enemy animation no longer owns death presentation duration. Use typed enemy presentation playback requests.",
+            false)]
         public float BeginEnemyDeathPresentation(
             int entityId,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
         {
             _contactDelayedEnemyDeathEntityIds.Remove(entityId);
             _enemyUtilityAnimationTracks.Remove(entityId);
-            return TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver)
-                ? driver.PlayDeathPresentation(entityId)
-                : 0f;
+            if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
+            {
+                driver.PlayDeathCue(entityId);
+            }
+
+            return 0f;
         }
 
         public void SyncHiddenDrivers(
@@ -1570,13 +1589,13 @@ namespace Game.Feature.Gameplay.Host
         private readonly struct EnemyUtilityAnimationPlaybackTrack
         {
             public EnemyUtilityAnimationPlaybackTrack(
-                EnemyAnimatorDriver.EnemyPresentationPhase phase,
+                EnemyAnimationCue cue,
                 EnemyUtilityPresentationKind kind,
                 int effectIndex,
                 int activationSequence,
                 float durationSeconds)
             {
-                Phase = phase;
+                Cue = cue;
                 Kind = kind;
                 EffectIndex = effectIndex;
                 ActivationSequence = activationSequence;
@@ -1585,14 +1604,14 @@ namespace Game.Feature.Gameplay.Host
             }
 
             private EnemyUtilityAnimationPlaybackTrack(
-                EnemyAnimatorDriver.EnemyPresentationPhase phase,
+                EnemyAnimationCue cue,
                 EnemyUtilityPresentationKind kind,
                 int effectIndex,
                 int activationSequence,
                 float durationSeconds,
                 float elapsedSeconds)
             {
-                Phase = phase;
+                Cue = cue;
                 Kind = kind;
                 EffectIndex = effectIndex;
                 ActivationSequence = activationSequence;
@@ -1600,7 +1619,7 @@ namespace Game.Feature.Gameplay.Host
                 ElapsedSeconds = Mathf.Max(0f, elapsedSeconds);
             }
 
-            public EnemyAnimatorDriver.EnemyPresentationPhase Phase { get; }
+            public EnemyAnimationCue Cue { get; }
 
             public EnemyUtilityPresentationKind Kind { get; }
 
@@ -1619,7 +1638,7 @@ namespace Game.Feature.Gameplay.Host
             public EnemyUtilityAnimationPlaybackTrack Advance(float deltaTime)
             {
                 return new EnemyUtilityAnimationPlaybackTrack(
-                    Phase,
+                    Cue,
                     Kind,
                     EffectIndex,
                     ActivationSequence,

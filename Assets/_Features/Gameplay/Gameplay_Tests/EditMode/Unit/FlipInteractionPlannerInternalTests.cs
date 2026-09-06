@@ -772,6 +772,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("TailEndValue"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void LegacyAfterAnimationTail_UsesImmediateCleanupWithoutAnimationTail()
+        {
+            var rootObject = new GameObject("LegacyAfterAnimationTail_UsesImmediateCleanupWithoutAnimationTail");
+
+            try
+            {
+                var stateStore = new GameplayPresentationStateStore();
+                var trackState = new GameplayPresentationTrackState();
+                var controller = new GameplayExitPresentationController(stateStore, trackState);
+                var view = CreateEntityView(rootObject.transform, entityId: 40);
+                stateStore.ViewsByEntityId[40] = view;
+                var completedCleanupCount = 0;
+                controller.SetCompletedExitCleanupCallback(_ => completedCleanupCount++);
+
+#pragma warning disable CS0618 // Characterizes the retained numeric compatibility value.
+                var signal = new TickEntityExitPresentationSignal(
+                    40,
+                    TickEntityExitCause.EnemyDeath,
+                    SurfaceCell.FromPlanar(new Vector2Int(1, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    Direction.Left,
+                    EntityType.Unit,
+                    timing: EntityExitPresentationTiming.AfterAnimationTail);
+#pragma warning restore CS0618
+
+                controller.RefreshEntityExitPlan(CreatePresentationData(exitSignals: new[] { signal }));
+                controller.ApplyEntityExitOwnership();
+
+                Assert.That(view.gameObject.activeSelf, Is.False);
+                Assert.That(controller.HasPendingContactDelayedExit(40), Is.False);
+                Assert.That(controller.ShouldRetainViewForPendingExit(40), Is.False);
+                Assert.That(completedCleanupCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static (GameplayTrackPlanner Planner, GameplayPresentationStateStore StateStore, GameplayPresentationTrackState TrackState, GameplayCubeProjector Projector, GameplayTimingProfile TimingProfile)
             CreatePlannerHarness(GameObject rootObject)
         {
@@ -794,7 +835,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 motionTimingResolver,
                 poseResolver,
                 new GameplayExitPresentationController(
-                    animationSync,
                     stateStore,
                     trackState),
                 entityApplier);

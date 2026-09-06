@@ -997,6 +997,22 @@ Legacy motion spec locked for parity:
 Runtime policy:
 
 - `EnemyVfxCue.DeathMotion` is canonical Gameplay VFX playback and is not scene/public flag gated.
+- an available active source clone captures descendant local transform values, SkinnedMeshRenderer bounds, and
+  blendshape weights before clone creation. The clone Animator is disabled under an inactive staging hierarchy,
+  the captured values are restored, and activation happens last. The visual pose remains frozen while the pooled
+  VFX parent continues the authored fly-away, spin, scale, and material fade.
+- this is a visual-pose contract, not Animator graph transfer: state, transition, normalized time, Hit/Death trigger,
+  and empty Death-state ownership are not copied. Immediate playback freezes the pose at clone-request time. Delayed
+  `AtContactTime` playback carries a pose snapshot captured when the death motion is scheduled so source cleanup or
+  reset cannot replace it with a stale pose; it does not claim exact contact-time pose capture.
+- inactive sources without a schedule-time pose snapshot, unsupported autonomous pose writers, or
+  hierarchy/renderer/blendshape mismatches fail closed to the authored `EnemyDeathMotionVfx.prefab`; an unfrozen
+  source clone is never activated.
+- delayed capture success or failure is carried explicitly. A failed schedule-time capture is never replaced by a
+  playback-time live capture, even if the source later becomes active or is reset.
+- `GameplayVfxAttachPoint` is passive source-only metadata rather than a pose writer. It is allowed by source safety
+  classification, then disabled and scheduled for removal from the inactive clone before activation; Player removal
+  completes at frame end. Unknown enabled `MonoBehaviour` components remain fail-closed.
 - suppress compatibility gates were removed in Legacy Surface Simplification; no enemy death old fallback switch remains.
 - `EnemyVfxCue.Death` and `EnemyVfxCue.DeathMotion` remain independent canonical requests from the same exit source fact.
 - missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback.

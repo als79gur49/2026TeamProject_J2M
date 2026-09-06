@@ -82,11 +82,14 @@ Current policy:
 
 Enemy prefabs under the same production presentation folder without an `EnemyAudioAuthoring` profile reference in the audit scan:
 
-- `EnemyView_Jumping`
 - `EnemyView_Kali`
 - `EnemyView_LockNearbyBoxes`
 
 Those prefabs are outside this profile-level requirement table unless production content decides to give them `EnemyAudioProfile_*` authoring.
+
+`EnemyView_Jumping` was present when this inventory was captured, but was later confirmed as a zero-reference
+legacy animation fixture and deleted in Enemy Animation Sparse Binding Slice 3. The production jump presentation
+remains `EnemyView_Astreton`.
 
 ## Decision Table
 

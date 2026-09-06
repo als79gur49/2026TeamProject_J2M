@@ -317,6 +317,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(EnemyAnimatorControllerPath);
                 Assert.That(animator.runtimeAnimatorController, Is.Not.Null, EnemyAnimatorControllerPath);
 
+                viewObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = viewObject.AddComponent<EnemyAnimatorDriver>();
                 SetPrivateField(typeof(EnemyAnimatorDriver), driver, "animator", animator);
                 return view;

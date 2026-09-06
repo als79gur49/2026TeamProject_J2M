@@ -214,13 +214,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presenterSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
             Assert.That(presenterSource, Does.Not.Contain("IDamageDeathGameplayVfxPlaybackRuntime"));
             Assert.That(presenterSource, Does.Not.Contain("GameplayVfxGameObjectPool"));
+            Assert.That(ContainsExactMethodToken("lane.Present(result);", "Present"), Is.True);
+            Assert.That(
+                ContainsExactMethodToken(
+                    "summonedEnemyPresentationResolver.ReleaseOwnedViewIfPresent(entityId);",
+                    "Present"),
+                Is.False);
+            Assert.That(ContainsExactMethodToken(compositionFactorySource, "Present"), Is.False, "Present");
+            Assert.That(ContainsExactMethodToken(hostConstructionBlock, "Present"), Is.False, "Present");
 
             foreach (var forbiddenFactoryPolicyToken in new[]
                      {
                          "TryBeginExecution",
                          "RecordSkippedByPolicy",
                          "ShouldSuppress",
-                         "Present(",
                          "Update(",
                          "ResetSession(",
                          "HardCleanup(",
@@ -768,8 +775,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
-        public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForRetainedDeathExit()
+        [Category("Extended")]
+        public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForRetainedExit()
         {
             Assert.That(
                 PresentationVisibilityFallbackResolver.Resolve(
@@ -778,10 +785,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 PresentationVisibilityFallbackResolver.Resolve(
                     CreateVisibilityFallbackInputs(isContactDelayedRetained: true)),
-                Is.True);
-            Assert.That(
-                PresentationVisibilityFallbackResolver.Resolve(
-                    CreateVisibilityFallbackInputs(isDeathPresentationPlaying: true)),
                 Is.True);
         }
 
@@ -4548,7 +4551,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool hasActiveOriginalViewMotion = false,
             bool isDeferredExitRetained = false,
             bool isContactDelayedRetained = false,
-            bool isDeathPresentationPlaying = false,
             bool hasResolvedVisibility = false,
             bool isResolvedVisible = false,
             bool hasTransitionVisibility = false)
@@ -4561,7 +4563,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hasActiveOriginalViewMotion,
                 isDeferredExitRetained,
                 isContactDelayedRetained,
-                isDeathPresentationPlaying,
                 hasResolvedVisibility,
                 isResolvedVisible,
                 hasTransitionVisibility);
@@ -4626,6 +4627,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string ExactSourceKindPattern(string sourceKindToken)
         {
             return $@"{System.Text.RegularExpressions.Regex.Escape(sourceKindToken)}(?![A-Za-z0-9_])";
+        }
+
+        private static bool ContainsExactMethodToken(string source, string methodName)
+        {
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                source,
+                $@"(?<![A-Za-z0-9_]){System.Text.RegularExpressions.Regex.Escape(methodName)}\s*\(");
         }
 
         private static string[] FindGameplayTestFilesContainingExactToken(string token)

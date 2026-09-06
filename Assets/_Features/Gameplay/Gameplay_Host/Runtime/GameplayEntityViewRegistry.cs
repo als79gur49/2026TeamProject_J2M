@@ -96,5 +96,16 @@ namespace Game.Feature.Gameplay.Host
             ViewUnregistered?.Invoke(entityId, view);
             return true;
         }
+
+        internal bool UnregisterIfMatches(int entityId, GameplayEntityView expectedView)
+        {
+            if (!_viewsByEntityId.TryGetValue(entityId, out var registeredView) ||
+                !ReferenceEquals(registeredView, expectedView))
+            {
+                return false;
+            }
+
+            return Unregister(entityId);
+        }
     }
 }

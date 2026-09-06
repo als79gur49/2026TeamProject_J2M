@@ -250,7 +250,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
             var controller = new GameplayExitPresentationController(
-                new GameplayAnimationSyncCoordinator(),
                 stateStore,
                 trackState);
             var topology = new CubeTopologyState(FaceId.Floor);

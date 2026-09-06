@@ -15,6 +15,13 @@ from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 PRIMARY_CATEGORIES = ("Core", "Extended", "Full")
 FULL_FILE_NAMES = {
     "CombinedGameplayShowcaseInstallerTests.cs",
+    "EnemyAnimationBindingAuthoringTests.cs",
+    "EnemyAnimationBindingDispatchTests.cs",
+    "EnemyAnimationBindingEditorValidationTests.cs",
+    "EnemyAnimationBindingMigrationTests.cs",
+    "EnemyAnimationSparseBindingAssetCharacterizationTests.cs",
+    "EnemyAnimationSparseBindingRuntimeScenarioTests.cs",
+    "EnemyViewAnimatorControllerContractTests.cs",
     "EnemyPrefabScaffoldTests.cs",
     "FuzzDeterminismTests.cs",
     "GameplayShowcaseScaffoldTests.cs",
@@ -61,6 +68,14 @@ FORBIDDEN_CORE_IMPORTS = (
     "UnityEditor",
     "Game.Feature.Gameplay.Host",
 )
+CORE_IMPORT_EXCEPTIONS_BY_PATH = {
+    "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Core/EnemyAnimationBindingSnapshotTests.cs": {
+        "Game.Feature.Gameplay.Host",
+    },
+    "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Core/EnemyAnimationCueCatalogTests.cs": {
+        "Game.Feature.Gameplay.Host",
+    },
+}
 FORBIDDEN_CORE_SYMBOLS = (
     "GameplayWorldStateTestFactory",
     "EnemyAiProfileTestFactory",
@@ -153,6 +168,17 @@ FORBIDDEN_INFRASTRUCTURE_SYMBOLS = (
     ".SpawnEntity(",
     ".ApplyDamage(",
 )
+APPROVED_INFRASTRUCTURE_REFERENCES = {
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Tests",
+    "Game.Feature.Gameplay.EnemyPresentation.Editor",
+}
+INFRASTRUCTURE_EDITOR_TOOLS_IMPORT = "Game.Feature.Gameplay.Host.EditorTools"
+INFRASTRUCTURE_EDITOR_TOOLS_IMPORT_PATHS = {
+    "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/Infrastructure/EnemyAnimationBindingEditorValidationTests.cs",
+    "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/Infrastructure/EnemyAnimationBindingMigrationTests.cs",
+    "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/Infrastructure/EnemyAnimationSparseBindingAssetCharacterizationTests.cs",
+}
 
 
 @dataclass
@@ -455,6 +481,26 @@ def camel_to_snake(value: str) -> str:
     return second_pass.replace("__", "_").strip("_").lower()
 
 
+def normalize_repo_relative_path(path: str | Path) -> str:
+    normalized = str(path).replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
+
+
+def is_core_import_allowed(relative_path: str | Path, import_name: str) -> bool:
+    if import_name not in FORBIDDEN_CORE_IMPORTS:
+        return True
+    allowed_imports = CORE_IMPORT_EXCEPTIONS_BY_PATH.get(normalize_repo_relative_path(relative_path), set())
+    return import_name in allowed_imports
+
+
+def is_infrastructure_editor_tools_import_allowed(relative_path: str | Path, import_name: str) -> bool:
+    if import_name != INFRASTRUCTURE_EDITOR_TOOLS_IMPORT:
+        return True
+    return normalize_repo_relative_path(relative_path) in INFRASTRUCTURE_EDITOR_TOOLS_IMPORT_PATHS
+
+
 def auto_category(test: TestMethod, contracts: List[str], assembly_name: str) -> str:
     lower_name = test.method_name.lower()
     if assembly_name == CORE_ASSEMBLY_NAME:
@@ -704,7 +750,10 @@ def is_core_candidate(test: TestMethod, assembly_name: str) -> bool:
         return False
 
     imports = set(file_imports(test.absolute_path))
-    if any(forbidden in imports for forbidden in FORBIDDEN_CORE_IMPORTS):
+    if any(
+        forbidden in imports and not is_core_import_allowed(test.relative_path, forbidden)
+        for forbidden in FORBIDDEN_CORE_IMPORTS
+    ):
         return False
     if "Game.Feature.Gameplay.Tests" in imports:
         return False
@@ -922,9 +971,10 @@ def check_core_assembly_rules(root: Path, tests: Sequence[TestMethod], assembly_
     core_root = root / "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Core"
     for source_path in sorted(core_root.rglob("*.cs")):
         imports = set(file_imports(source_path))
+        relative_path = source_path.relative_to(root).as_posix()
         for forbidden_import in FORBIDDEN_CORE_IMPORTS:
-            if forbidden_import in imports:
-                issues.append(f"{source_path.relative_to(root).as_posix()} imports forbidden Core dependency {forbidden_import}")
+            if forbidden_import in imports and not is_core_import_allowed(relative_path, forbidden_import):
+                issues.append(f"{relative_path} imports forbidden Core dependency {forbidden_import}")
         if "Game.Feature.Gameplay.Tests" in imports:
             issues.append(f"{source_path.relative_to(root).as_posix()} imports legacy test support namespace")
 
@@ -966,14 +1016,21 @@ def check_infrastructure_rules(root: Path, tests: Sequence[TestMethod], assembly
     if asmdef_path.exists():
         payload = json.loads(asmdef_path.read_text(encoding="utf-8"))
         references = set(payload.get("references", []))
-        allowed = {"Game.Feature.Gameplay", FEATURE_ASSEMBLY_NAME}
-        forbidden_references = sorted(reference for reference in references if reference not in allowed)
+        forbidden_references = sorted(
+            reference for reference in references if reference not in APPROVED_INFRASTRUCTURE_REFERENCES
+        )
         if forbidden_references:
             issues.append(f"{INFRASTRUCTURE_ASSEMBLY_NAME} has forbidden references: {', '.join(forbidden_references)}")
 
     infra_root = root / "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/Infrastructure"
     for source_path in sorted(infra_root.rglob("*.cs")):
         text = source_path.read_text(encoding="utf-8")
+        relative_path = source_path.relative_to(root).as_posix()
+        for import_name in file_imports(source_path):
+            if not is_infrastructure_editor_tools_import_allowed(relative_path, import_name):
+                issues.append(
+                    f"{relative_path} imports restricted infrastructure dependency {import_name}"
+                )
         matches = sorted(symbol for symbol in FORBIDDEN_INFRASTRUCTURE_SYMBOLS if symbol in text)
         if matches:
             issues.append(
