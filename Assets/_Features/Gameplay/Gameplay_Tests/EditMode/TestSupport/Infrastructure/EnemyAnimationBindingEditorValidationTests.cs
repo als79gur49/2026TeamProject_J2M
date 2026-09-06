@@ -10,10 +10,10 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Infrastructure
 {
-    [Category("Full")]
     public sealed class EnemyAnimationBindingEditorValidationTests
     {
         [Test]
+        [Category("Full")]
         public void SerializedRowInitialization_UsesSparseNumericCueAndExplicitDefaults()
         {
             using var fixture = Fixture.Create();
@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void InspectorPolicy_ShowsOnlySupportedConditionalFields()
         {
             Assert.That(
@@ -54,6 +55,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void InspectorNormalization_ClearsHiddenValuesAndMaintainsCrossFadeSentinel()
         {
             using var fixture = Fixture.Create();
@@ -116,6 +118,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             -1f,
             0f,
             TestName = "InspectorHelpBox_RuntimeMessage_TriggerOnlyCrossFade")]
+        [Category("Full")]
         public void InspectorHelpBox_UnsupportedAuthoring_PreservesRuntimeValidationMessage(
             EnemyAnimationCue cue,
             EnemyAnimationDispatchMode mode,
@@ -149,6 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void InspectorDiagnostics_UsesAnimatorResolvedByDriver()
         {
             using var fixture = Fixture.Create();
@@ -178,6 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void StructuredDiagnostics_RejectChildAndDisabledAuthoring()
         {
             using var disabledFixture = Fixture.Create();
@@ -209,6 +214,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void TriggerParameter_MustBeTriggerAndConsumedByEffectiveTransition()
         {
             using var fixture = Fixture.Create();
@@ -230,6 +236,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void SoloTransition_ShadowsOtherwiseValidTriggerTransition()
         {
             using var fixture = Fixture.Create();
@@ -253,6 +260,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void NestedStateMachineOutgoingTransition_ConsumesTriggerWhenEffective()
         {
             using var fixture = Fixture.Create();
@@ -278,6 +286,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void TriggerValidation_RejectsDuplicateAndWrongTypeParameters()
         {
             using var duplicateFixture = Fixture.Create();
@@ -314,6 +323,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void StateValidation_RejectsLayerOneOnlyAndAmbiguousLayerZeroNames()
         {
             using var layerOneFixture = Fixture.Create();
@@ -332,6 +342,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void OverrideController_UsesEffectiveClipAndNestedConstructionFlattensToBaseController()
         {
             using var fixture = Fixture.Create();
@@ -392,6 +403,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void OverrideControllerWithoutBase_IsRejected()
         {
             var controller = new AnimatorOverrideController();

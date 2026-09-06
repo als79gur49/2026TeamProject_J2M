@@ -6,10 +6,10 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Infrastructure
 {
-    [Category("Full")]
     public sealed class EnemyAnimationBindingAuthoringTests
     {
         [Test]
+        [Category("Full")]
         public void RootEnabledSingleComponent_IsSelectedAndValidated()
         {
             using var fixture = Fixture.Create();
@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ChildComponent_IsHardFailure()
         {
             using var fixture = Fixture.Create();
@@ -34,6 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void DisabledComponent_IsHardFailure()
         {
             using var fixture = Fixture.Create();
@@ -46,6 +48,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void RootAndChildDuplicateComponents_AreHardFailure()
         {
             using var fixture = Fixture.Create();
@@ -59,6 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ValidNewBinding_WinsAndInvalidLegacyTimingIsNotValidated()
         {
             using var fixture = Fixture.Create();
@@ -74,6 +78,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void InvalidNewBinding_DoesNotFallBackToValidLegacyTiming()
         {
             using var fixture = Fixture.Create();

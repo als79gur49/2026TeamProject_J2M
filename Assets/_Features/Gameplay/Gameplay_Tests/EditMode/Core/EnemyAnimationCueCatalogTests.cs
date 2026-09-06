@@ -6,10 +6,10 @@ using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
-    [Category("Core")]
     public sealed class EnemyAnimationCueCatalogTests
     {
         [Test]
+        [Category("Core")]
         public void CueNumericValues_AreStableAndSparse()
         {
             var expected = new Dictionary<EnemyAnimationCue, int>
@@ -40,6 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
+        [Category("Core")]
         public void Catalog_HasExactlyOneEntryForEverySupportedCue()
         {
             var supportedCues = Enum.GetValues(typeof(EnemyAnimationCue))
@@ -71,6 +72,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         [TestCase(EnemyAnimationCue.UtilityRecovery, true, true, true)]
         [TestCase(EnemyAnimationCue.Hit, true, false, false)]
         [TestCase(EnemyAnimationCue.Death, true, false, false)]
+        [Category("Core")]
         public void Catalog_DefinesAllowedDispatchAndTiming(
             EnemyAnimationCue cue,
             bool allowsTrigger,

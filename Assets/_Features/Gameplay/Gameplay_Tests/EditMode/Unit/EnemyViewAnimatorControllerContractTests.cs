@@ -275,6 +275,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CampaignMainEnemyViews_TriggerBindingsHaveExactLayerZeroDestinations()
         {
             var diagnostics = new List<string>();
@@ -300,6 +301,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CampaignMainEnemyViews_HaveExactBindingDispositionAndNoLegacyTimingAuthoring()
         {
             var diagnostics = new List<string>();

@@ -17,12 +17,12 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
-    [Category("Full")]
     public sealed class EnemyAnimationSparseBindingRuntimeScenarioTests
     {
         private const int EnemyEntityId = 40;
 
         [Test]
+        [Category("Full")]
         public void JumpingSyntheticValid_FirstAirborneSignalUsesTrigger_ResyncUsesStateWithoutNewSignal()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -44,6 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void JumpingSyntheticValid_TriggerIsNotPendingWhileAnimatorDisabled_StateEnsureRestoresAirborne()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -64,6 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void CrossFadeOverride_SelectsStateBranchAndExcludesTriggerTrap()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -79,6 +81,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void PendingStateSlot_IsLastWriteWins_AndConsumeDoesNotRepublishSignals()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -105,6 +108,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void RecoveryAndHitSameTick_RecoveryOwnsTiming_WhileHitTriggerDispatchesOnce()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -128,6 +132,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void UtilityWindupAndRecovery_UseTriggerBranches_ButDirectApplyDoesNotRetainUtilityTiming()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -151,6 +156,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void LegacyGlideWithoutCrossFade_KeepsGenericWindupAndRecoveryTriggerFallbacks()
         {
             using var windupFixture = RuntimeFixture.Create(nameof(
@@ -167,6 +173,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void UtilityTrackSuppression_KeepsComputedTiming_SuppressesOnlyPlayback_AndRestoresAfterExpiry()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -209,6 +216,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void TriggerOnlyCues_AreNotGeneralResyncTargets_AndAreNotRepublished()
         {
             var cases = new[]
@@ -241,6 +249,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void SustainedStateResyncMatrix_RestoresStateWithoutIncreasingSemanticCounters()
         {
             var cases = new[]
@@ -274,6 +283,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void HiddenAndActivePlaybackSuppression_PreserveCalculatedTimingAndDoNotRepublishSignal()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -298,6 +308,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void SharedDeathApply_WithSuppressionMask_SuppressesCueButKeepsDeathTiming()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -315,6 +326,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void SharedDeathApply_Unsuppressed_PreservesCurrentSignalOrderAndDeathTimingPriority()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -332,6 +344,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void TypedDeathPlayback_RemovesUtilityTrackBeforePlayingDeathCue()
         {
             using var fixture = RuntimeFixture.Create(nameof(
@@ -378,6 +391,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void SunwheelLikeUnusedCrossFade_DoesNotCreateStateCommandForHitOrDeathTriggers()
         {
             using var hitFixture = RuntimeFixture.Create("SunwheelHit", 0.001f, false);
@@ -396,6 +410,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NewBinding_RecoveryAndHit_PreservesTimingCountersAndDispatchOrder()
         {
             using var fixture = RuntimeFixture.CreateWithNewBinding(nameof(
@@ -418,6 +433,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NewBinding_UtilityTrack_UsesExactWindupAndRecoveryCuesAndRestoresBaseline()
         {
             using var fixture = RuntimeFixture.CreateWithNewBinding(nameof(
@@ -460,6 +476,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NewBinding_DeathEntryPaths_KeepDeathTimingAndRemoveUtilityTrack()
         {
             using var sharedFixture = RuntimeFixture.CreateWithNewBinding(nameof(
@@ -511,6 +528,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NewBinding_JumpTopologyPreservesNormalizedTime_WhileGeneralResyncReenters()
         {
             using var fixture = RuntimeFixture.CreateWithNewBinding(nameof(

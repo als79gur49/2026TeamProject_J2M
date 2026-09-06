@@ -15,10 +15,10 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Infrastructure
 {
-    [Category("Full")]
     public sealed class EnemyAnimationBindingMigrationManifestTests
     {
         [Test]
+        [Category("Full")]
         public void Manifest_PinsExactProductionDispositionAndTargetMatrix()
         {
             var rows = EnemyAnimationBindingMigrationManifest.Rows;
@@ -64,6 +64,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void DispositionLedger_PinsTenLiveAndFourDeletedViewsWithoutLegacyBlockers()
         {
             var rows = EnemyAnimationViewDispositionLedger.Rows;
@@ -146,6 +147,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         [TestCase(LiveLedgerIdentityField.PrefabPath)]
         [TestCase(LiveLedgerIdentityField.PrefabGuid)]
         [TestCase(LiveLedgerIdentityField.Disposition)]
+        [Category("Full")]
         public void ManifestAndLedgerAudit_RejectsEachLiveIdentityAxis(LiveLedgerIdentityField field)
         {
             var manifestRows = EnemyAnimationBindingMigrationManifest.Rows;
@@ -186,6 +188,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ManifestAndLedgerAudit_RejectsDeletedContractDrift()
         {
             var manifestRows = EnemyAnimationBindingMigrationManifest.Rows;
@@ -202,6 +205,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void DriverYamlAudit_FindsEveryRetiredPropertyOnlyInsideExactDriverBlock()
         {
             foreach (var propertyName in EnemyAnimationSparseBindingAudit.RetiredDriverSerializedPropertyNames)
@@ -228,6 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         [TestCase("\n", true)]
         [TestCase("\r\n", true)]
         [TestCase("\n", false)]
+        [Category("Full")]
         public void DriverYamlAudit_UsesEveryDocumentHeaderAsBoundary_AndSupportsFinalEof(
             string newline,
             bool finalNewline)
@@ -252,6 +257,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void DriverYamlAudit_ClassifiesBomAndUnsupportedInputsWithoutSilentPass()
         {
             var bomYaml = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true)
@@ -294,6 +300,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ProductionSerializedAssets_HaveNoRetiredEnemyAnimatorDriverYamlProperties()
         {
             var assetPaths = EnemyAnimationSparseBindingAudit.FindSerializedAssetPaths("Assets");
@@ -318,6 +325,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void RetiredDriverIdentifiers_HaveNoRuntimeSymbolsOrPrivateFieldSetterCallers()
         {
             const string driverPath =
@@ -487,10 +495,10 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
     }
 
 
-    [Category("Full")]
     public sealed class EnemyAnimationSparseBindingProductionContractTests
     {
         [Test]
+        [Category("Full")]
         public void ProductionViews_MatchExactManifestSnapshotAndDisposition()
         {
             foreach (var row in EnemyAnimationBindingMigrationManifest.Rows)
@@ -548,6 +556,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ProductionViews_ReloadWithoutMissingScriptsAndKeepCurrentSparseComposition()
         {
             foreach (var row in EnemyAnimationBindingMigrationManifest.Rows)
@@ -609,10 +618,10 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
     }
 
 
-    [Category("Full")]
     public sealed class EnemyAnimationBindingMigrationAssetCharacterizationTests
     {
         [Test]
+        [Category("Full")]
         public void ProductionStateTargets_ReportExactEffectiveMotionIdentity()
         {
             foreach (var row in EnemyAnimationBindingMigrationManifest.Rows)
@@ -642,6 +651,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void RocketFace_Windup_PinsDistinctTimingReferenceAndEffectiveRuntimeMotion()
         {
             var row = EnemyAnimationBindingMigrationManifest.Rows.Single(candidate => candidate.Name == "RocketFace");

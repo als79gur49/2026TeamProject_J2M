@@ -11,10 +11,10 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
-    [Category("Full")]
     public sealed class EnemyAnimationBindingDispatchTests
     {
         [Test]
+        [Category("Full")]
         public void NewBinding_IsExclusive_AndMissingCueDoesNotUseLegacyFallback()
         {
             using var fixture = Fixture.Create(
@@ -33,6 +33,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void StatePending_IsOneSlotLastWriteWins_AndCapturesSnapshotCrossFade()
         {
             using var fixture = Fixture.Create(
@@ -82,6 +83,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void TriggerUnavailable_IsNotQueued()
         {
             using var fixture = Fixture.Create(
@@ -104,6 +106,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void TriggerMissingOrWrongType_ReturnsAnimatorUnavailableWithoutLateDispatch()
         {
             using var missingFixture = Fixture.Create(
@@ -136,6 +139,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void LiveStateDispatch_InvalidatesDifferentOlderPendingState()
         {
             using var fixture = Fixture.Create(
@@ -167,6 +171,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void WindupFamily_SelectsExactlyOneCueBySemanticPriority()
         {
             using var glideFixture = CreateWindupPriorityFixture();
@@ -203,6 +208,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void RecoveryFamily_SelectsChargeAndUtilityBeforeSummonNoVisualBranch()
         {
             using var glideFixture = CreateRecoveryPriorityFixture();
@@ -236,6 +242,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NewStateBinding_UnresolvableLayerZeroStateFailsFast()
         {
             using var fixture = Fixture.Create(
@@ -250,6 +257,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void JumpAirborneTrigger_UsesSustainedStateForResyncWithoutNewSignal()
         {
             using var fixture = Fixture.Create(
@@ -271,6 +279,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void SummonRecovery_IncrementsCounterWithoutActionRecoveryDispatch()
         {
             using var fixture = Fixture.Create(
@@ -289,6 +298,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NewTiming_IgnoresContradictoryLegacyTiming_AndPhaseAdapterRejectsAmbiguity()
         {
             using var fixture = Fixture.Create(
@@ -317,6 +327,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [TestCaseSource(nameof(NonNoneCues))]
+        [Category("Full")]
         public void NoBindingWithoutTiming_AllCuesAreUnsupportedAndNeverQueue(
             EnemyAnimationCue cue)
         {
@@ -339,6 +350,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NoBindingWithoutTiming_NegativeResolutionCacheDoesNotEnableAfterDynamicTimingAdd()
         {
             using var fixture = UnboundFixture.Create();
@@ -353,6 +365,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NoBindingWithoutTiming_JumpAirborneCannotEnsurePreserveRestoreOrResync()
         {
             using var fixture = UnboundFixture.Create();
@@ -371,6 +384,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void NoBindingWithoutTiming_OptionalMovingParameterStillSynchronizes()
         {
             using var fixture = UnboundFixture.Create();

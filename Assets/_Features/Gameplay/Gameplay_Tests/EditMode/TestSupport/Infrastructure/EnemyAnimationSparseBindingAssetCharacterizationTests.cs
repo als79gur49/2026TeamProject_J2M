@@ -9,7 +9,6 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Infrastructure
 {
-    [Category("Full")]
     public sealed class EnemyAnimationSparseBindingAssetCharacterizationTests
     {
         private const string TemporaryRoot = "Assets/__EnemyAnimationSparseBindingAuditTests";
@@ -24,6 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ProductionAnimatorWiring_LocksExactResolvedAnimatorAndControllerForTenViewInventory()
         {
             foreach (var row in EnemyAnimationBindingMigrationManifest.Rows)
@@ -38,6 +38,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ResolvedPrefabInventory_MatchesExactTenEightAndZeroProductionContract()
         {
             var inventory = EnemyAnimationSparseBindingAudit.ScanResolvedPrefabInventory(
@@ -65,6 +66,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ResolvedPrefabInventory_RejectsVariantThatInheritsUnexpectedDriver()
         {
             EnsureTemporaryRoot();
@@ -120,6 +122,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void DeletedGuidResidueAudit_RejectsDeletedPrefabAndMaterialReferencesDiscoveredUnderAssets()
         {
             EnsureTemporaryRoot();
@@ -167,6 +170,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void ProductionViews_HaveValidRootBindingsOrApprovedNoBindingAndNoLegacyTiming()
         {
             foreach (var row in EnemyAnimationBindingMigrationManifest.Rows)
@@ -189,6 +193,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
         }
 
         [Test]
+        [Category("Full")]
         public void DrSaturnPresentationIdentity_ComesFromCatalogProfileAndGravityFieldRuntimeCarrierTogether()
         {
             var profilePath = AssetDatabase.GUIDToAssetPath(DrSaturnProfileGuid);

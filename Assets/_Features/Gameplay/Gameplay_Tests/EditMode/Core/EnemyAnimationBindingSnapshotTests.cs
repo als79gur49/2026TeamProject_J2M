@@ -5,11 +5,11 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
-    [Category("Core")]
     public sealed class EnemyAnimationBindingSnapshotTests
     {
         [TestCase(EnemyAnimationCue.None)]
         [TestCase((EnemyAnimationCue)999)]
+        [Category("Core")]
         public void Create_RejectsUnknownOrNoneCue(EnemyAnimationCue cue)
         {
             Assert.That(
@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
+        [Category("Core")]
         public void Create_RejectsNullEmptyDuplicateAndBlankTarget()
         {
             Assert.That(
@@ -37,6 +38,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
+        [Category("Core")]
         public void Create_RejectsDispatchModesOutsideCuePolicy()
         {
             Assert.That(
@@ -60,6 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
+        [Category("Core")]
         public void Create_RequiresSustainedStateOnlyForTriggerJumpAirborne()
         {
             Assert.That(
@@ -92,6 +95,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
+        [Category("Core")]
         public void Create_RejectsTimingOnCueThatForbidsTiming()
         {
             var clip = CreateClip(1f);
@@ -125,6 +129,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         [TestCase(0f)]
         [TestCase(-0.5f)]
         [TestCase(-2f)]
+        [Category("Core")]
         public void Create_RejectsInvalidTimingDuration(float durationSeconds)
         {
             Assert.That(
@@ -137,6 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
+        [Category("Core")]
         public void Create_ImplementsDurationAndReferenceClipTruthTable()
         {
             var clip = CreateClip(1.25f);
@@ -186,6 +192,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         [TestCase(float.PositiveInfinity)]
         [TestCase(float.NegativeInfinity)]
         [TestCase(-2f)]
+        [Category("Core")]
         public void Create_RejectsInvalidCrossFade(float crossFadeSeconds)
         {
             Assert.That(
@@ -197,6 +204,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
+        [Category("Core")]
         public void Create_RequiresCrossFadeOnlyForPrimaryStateBinding()
         {
             Assert.That(
@@ -228,6 +236,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
+        [Category("Core")]
         public void Snapshot_DeepCopiesSourceArrayAndProvidesImmutableLookup()
         {
             var source = new[]
