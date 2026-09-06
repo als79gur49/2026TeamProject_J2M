@@ -2,17 +2,44 @@
 
 ## Scope and current status
 
-This handoff records repository expectations for the future VectorQuake Steamworks App Admin setup. It does not record an App Admin change or a published Steam schema.
+This handoff records repository expectations and the actual app/depot IDs supplied by the owner on 2026-09-06. The IDs have not been independently verified in App Admin. This document does not record an App Admin change or a published Steam schema.
 
-- Actual AppID: `NOT_CONFIGURED`
-- Actual Windows DepotID: `NOT_CONFIGURED`
-- App/depot identity status: `ACTUAL_IDENTITY_NOT_CONFIGURED`
+- Actual AppID: `5218360` (owner supplied)
+- Actual Windows DepotID: `5218361` (owner supplied)
+- App/depot identity status: `OWNER_SUPPLIED_PENDING_APP_ADMIN_VERIFICATION`
 - Achievement publication status: `EXPECTED_NOT_PUBLISHED`
 - Steamworks App Admin: `NOT_CHANGED`
 - SteamCMD: `NOT_RUN`
 - SteamPipe upload: `NOT_PERFORMED`
 
-The machine-readable report is generated from typed repository contracts. Do not copy these values into a second JSON source or infer an actual Steam identity from examples.
+The machine-readable expectation report is generated from typed repository contracts and remains identity-free. The owner-supplied IDs above are deployment inputs, not runtime constants or proof of Steam publication.
+
+## Current build and PowerShell upload procedure (2026-09-06)
+
+- Source commit: `2af3a38fa3e63c3ccda97b59958b300349a04247`.
+- Steam Windows payload: `D:\J2M\builds\steam-20260906\upload-2af3a38fa\payload`.
+- Build and distribution validation passed: 0 build errors, 2 warnings; 249 promoted files; required Steam native and managed bindings present.
+- Actual Steam upload and account unlock verification have not been performed by this workflow.
+- SteamCMD found on this machine: `D:\Downloads\steamworks_sdk_165\sdk\tools\ContentBuilder\builder\steamcmd.exe`.
+- Upload configuration: `D:\J2M\builds\steam-20260906\app_build_5218360.vdf`.
+- The upload configuration targets AppID `5218360` and DepotID `5218361`, maps the payload recursively to the depot root, and omits `SetLive`. Its `Preview` value is `0`, so executing it performs a real upload. The repository dry-run tool's immutable preview files remain separate.
+
+Open an ordinary PowerShell window in any directory. Copy these lines; `Read-Host` asks for the Steam login account name, not the profile display name:
+
+```powershell
+$steamCmdPath = 'D:\Downloads\steamworks_sdk_165\sdk\tools\ContentBuilder\builder\steamcmd.exe'
+$uploadVdfPath = 'D:\J2M\builds\steam-20260906\app_build_5218360.vdf'
+$steamUploadAccount = Read-Host 'Steam login account name'
+& $steamCmdPath +login $steamUploadAccount +run_app_build $uploadVdfPath +quit
+```
+
+Enter the password and Steam Guard verification in the SteamCMD prompts when requested. The account needs upload permissions for this app. The `&` operator launches the executable at the quoted full path; no directory change or administrator PowerShell is required by these commands.
+
+After successful upload, open [App 5218360 Builds](https://partner.steamgames.com/apps/builds/5218360), identify the new Build ID, and apply it to the intended test branch. Uploading alone does not select the build for a branch. Ensure the test account's package includes the app and Depot `5218361`. In Steamworks launch options, configure `VectorQuake.exe` with `-j2mPlatformProvider steam`; install/update that branch from the Steam client.
+
+The five achievement definitions must separately be created and published in this same AppID before testing unlocks. Build upload does not create achievements. A successful upload/build is not proof of successful achievement publication.
+
+Reference: [Valve SteamPipe upload instructions](https://partner.steamgames.com/doc/sdk/uploading).
 
 ## Generate the expectation report
 
@@ -86,7 +113,7 @@ Icon preparation checklist:
 - Source art ownership: `PENDING_CONFIRMATION`
 - Final Steam upload format: `VERIFY_IN_APP_ADMIN`
 
-No icon is generated or uploaded in this phase. Confirm the current App Admin requirements after the Actual AppID is available.
+No icon is generated or uploaded in this phase. Confirm the current App Admin requirements for AppID `5218360` before uploading achievement artwork.
 
 ## SteamPipe local dry-run handoff
 
@@ -139,8 +166,8 @@ identities:
 
 ```powershell
 Tools\SteamPipe\Prepare-SteamPipeBuild.ps1 `
-  -AppId <ACTUAL_APP_ID> `
-  -DepotId <ACTUAL_DEPOT_ID> `
+  -AppId 5218360 `
+  -DepotId 5218361 `
   -PromotedSteamWindowsRoot <PROMOTED_STEAM_WINDOWS_ROOT> `
   -OutputRoot D:\J2M\evidence\SteamPipe-Actual-Identity-DryRun-<UTC> `
   -IdentityMode Actual `
@@ -153,15 +180,15 @@ grant upload authority. Credentials, SteamID, account details, branch activation
 
 ## Actual-App owner checklist
 
-1. Confirm the Actual VectorQuake AppID.
+1. Verify owner-supplied VectorQuake AppID `5218360` in App Admin.
 2. Confirm App Admin access for the authorized owner account.
 3. Create exactly `VQ_LEVEL_0_CLEAR`, `VQ_LEVEL_1_CLEAR`, `VQ_LEVEL_2_CLEAR`, `VQ_LEVEL_3_CLEAR`, and `VQ_LEVEL_4_CLEAR` with exact ordinal API Names.
 4. Review and enter Display Name, Description, Locked/Unlocked icons, and Hidden setting for each achievement.
 5. Publish the Steamworks changes.
 6. Register the Windows launch option for `VectorQuake.exe` with `-j2mPlatformProvider steam`.
-7. Confirm or create the Windows Depot.
+7. Verify Windows Depot `5218361` belongs to AppID `5218360`.
 8. Include the Depot in the Developer Comp Package.
-9. Record the Actual Windows DepotID in private release input, not canonical source.
+9. Use the owner-supplied IDs as deployment inputs; keep credentials out of source and configuration files.
 10. Compare App Admin settings with a report generated from the release revision.
 11. Generate a SteamPipe preview VDF with the local dry-run tool.
 12. Perform an actual SteamPipe preview only after separate approval.
@@ -174,10 +201,9 @@ grant upload authority. Credentials, SteamID, account details, branch activation
 19. Verify re-clears do not duplicate awards. Seed only the three retired pre-release earned/pending IDs in a QA ledger and verify they remain unchanged without startup cleanup writes, publication, or replacement grants; a receipt-only Campaign save must also grant nothing.
 
 
-## Inputs required after AppID assignment
+## Remaining deployment inputs and verification
 
-- Actual AppID
-- Windows DepotID
+- App Admin verification of owner-supplied AppID `5218360` and Windows DepotID `5218361`
 - Package and branch decision
 - Confirmation of an authorized Steamworks account
 - Final achievement copy approval
