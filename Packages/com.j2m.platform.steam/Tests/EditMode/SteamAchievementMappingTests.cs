@@ -9,52 +9,27 @@ namespace Game.Platform.Steam.Tests.EditMode
     [Category("ProductAchievement")]
     public sealed class SteamAchievementMappingTests
     {
-        [Test]
-        public void ProductionMapping_MapsCampaignCompleteToCanonicalExpectedNameExactly()
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        public void ProductionMapping_MapsExactlyFiveLevelClearsBidirectionally(int level)
         {
-            Assert.That(
-                SteamAchievementMapping.Production.TryGetExpectedSteamApiName(
-                    GameAchievementIds.NormalCampaignComplete,
-                    out var expectedName),
-                Is.True);
-            Assert.That(expectedName.Value, Is.EqualTo("VQ_CAMPAIGN_COMPLETE"));
-            Assert.That(
-                SteamAchievementMapping.Production.TryGetGameAchievementId(
-                    expectedName,
-                    out var gameAchievementId),
-                Is.True);
-            Assert.That(gameAchievementId, Is.EqualTo(GameAchievementIds.NormalCampaignComplete));
-        }
-
-        [TestCase("clear", "VQ_STAGE_1_2_CLEAR")]
-        [TestCase("efficient", "VQ_STAGE_1_2_PUSH_FLIP_LE_25")]
-        public void ProductionMapping_MapsStage1_2AchievementsExactly(
-            string kind,
-            string expectedApiName)
-        {
-            var achievementId = kind == "clear"
-                ? GameAchievementIds.CampaignStage1_2Clear
-                : GameAchievementIds.CampaignStage1_2PushFlipWithin25;
-
-            Assert.That(
-                SteamAchievementMapping.Production.TryGetExpectedSteamApiName(
-                    achievementId,
-                    out var expectedName),
-                Is.True);
-            Assert.That(expectedName.Value, Is.EqualTo(expectedApiName));
-            Assert.That(
-                SteamAchievementMapping.Production.TryGetGameAchievementId(
-                    expectedName,
-                    out var reverseId),
-                Is.True);
-            Assert.That(reverseId, Is.EqualTo(achievementId));
+            var mapping = SteamAchievementMapping.Production;
+            Assert.That(mapping.Entries.Count, Is.EqualTo(5));
+            var id = GameAchievementId.Require($"campaign.level-{level}.clear");
+            Assert.That(mapping.TryGetExpectedSteamApiName(id, out var name), Is.True);
+            Assert.That(name.Value, Is.EqualTo($"VQ_LEVEL_{level}_CLEAR"));
+            Assert.That(mapping.TryGetGameAchievementId(name, out var reverseId), Is.True);
+            Assert.That(reverseId, Is.EqualTo(id));
         }
 
         [TestCase(null)]
         [TestCase("")]
         [TestCase(" ")]
-        [TestCase(" VQ_CAMPAIGN_COMPLETE")]
-        [TestCase("VQ_CAMPAIGN_COMPLETE ")]
+        [TestCase(" VQ_LEVEL_4_CLEAR")]
+        [TestCase("VQ_LEVEL_4_CLEAR ")]
         [TestCase("vq_campaign_complete")]
         [TestCase("VQ-CAMPAIGN-COMPLETE")]
         public void ExpectedName_InvalidOrNonCanonicalValueIsRejected(string value)
@@ -67,7 +42,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         [Test]
         public void DuplicateGameAchievementId_IsRejected()
         {
-            var id = GameAchievementIds.NormalCampaignComplete;
+            var id = GameAchievementIds.CampaignLevel4Clear;
 
             Assert.Throws<ArgumentException>(() => new SteamAchievementMapping(
                 new[]
@@ -83,7 +58,7 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.Throws<ArgumentException>(() => new SteamAchievementMapping(
                 new[]
                 {
-                    Entry(GameAchievementIds.NormalCampaignComplete, "VQ_DUPLICATE"),
+                    Entry(GameAchievementIds.CampaignLevel4Clear, "VQ_DUPLICATE"),
                     Entry(GameAchievementId.Require("future.valid"), "VQ_DUPLICATE"),
                 }));
         }
@@ -103,7 +78,7 @@ namespace Game.Platform.Steam.Tests.EditMode
                 Is.False);
             Assert.That(
                 SteamAchievementMapping.Production.TryGetGameAchievementId(
-                    ExpectedSteamAchievementApiName.Require("VQ_CAMPAIGN_COMPLETEX"),
+                    ExpectedSteamAchievementApiName.Require("VQ_LEVEL_4_CLEARX"),
                     out _),
                 Is.False);
         }

@@ -127,8 +127,6 @@ namespace Game.Feature.Gameplay.Host
         private readonly CampaignProgressionTransitionPlanner _progressionPlanner;
         private readonly ITerminalTransitionPort _terminalTransitionPort;
         private readonly EditorDirectPlayContext _editorDirectPlayContext;
-        private readonly INormalCampaignCompletionAchievementIntegration
-            _normalCampaignCompletionAchievementIntegration;
         private readonly ICampaignStageAchievementIntegration
             _campaignStageAchievementIntegration;
         private readonly TerminalArbitrationOwner _terminalArbiter = new();
@@ -146,8 +144,6 @@ namespace Game.Feature.Gameplay.Host
             CampaignChanceDisplayOverride chanceDisplayOverride,
             ITerminalTransitionPort terminalTransitionPort,
             EditorDirectPlayContext? editorDirectPlayContext = null,
-            INormalCampaignCompletionAchievementIntegration
-                normalCampaignCompletionAchievementIntegration = null,
             ICampaignStageAchievementIntegration campaignStageAchievementIntegration = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
@@ -162,9 +158,6 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(terminalTransitionPort));
             _editorDirectPlayContext = editorDirectPlayContext ??
                 EditorDirectPlayContextStore.GetCurrentOrNone();
-            _normalCampaignCompletionAchievementIntegration =
-                normalCampaignCompletionAchievementIntegration ??
-                UnavailableNormalCampaignCompletionAchievementIntegration.Instance;
             _campaignStageAchievementIntegration =
                 campaignStageAchievementIntegration ??
                 UnavailableCampaignStageAchievementIntegration.Instance;
@@ -490,7 +483,7 @@ namespace Game.Feature.Gameplay.Host
                 completedStageId,
                 out var completionFact)
                 ? completionFact
-                : (NormalCampaignCompletionFact?)null;
+                : (StageId?)null;
             var normalStageClear = TryCreateNormalCampaignStageClearFact(
                 result,
                 readModel,
@@ -517,13 +510,6 @@ namespace Game.Feature.Gameplay.Host
                         transitionPlan,
                         normalCompletion,
                         normalStageClear));
-                if (normalCompletion.HasValue)
-                {
-                    TryEarnNormalCampaignCompletionAchievement(
-                        normalCompletion.Value,
-                        commit.Slot);
-                }
-
                 if (normalStageClear.HasValue)
                 {
                     TryEarnCampaignStageAchievements(commit.Slot);
@@ -564,7 +550,7 @@ namespace Game.Feature.Gameplay.Host
 
         private static CampaignStageClearCommitRequest CreateStageClearCommitRequest(
             CampaignStageClearTransitionPlan transitionPlan,
-            NormalCampaignCompletionFact? normalCompletion,
+            StageId? normalCompletion,
             NormalCampaignStageClearFact? normalStageClear)
         {
             NormalStagePerformanceRecord performanceRecord = null;
@@ -583,7 +569,7 @@ namespace Game.Feature.Gameplay.Host
                 Plan = transitionPlan,
                 CompletionReceipt = normalCompletion.HasValue
                     ? NormalCampaignCompletionReceiptPolicy.CreateV2(
-                        normalCompletion.Value.StageId)
+                        normalCompletion.Value)
                     : null,
                 PerformanceRecord = performanceRecord,
             };
@@ -632,31 +618,12 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
-        private void TryEarnNormalCampaignCompletionAchievement(
-            NormalCampaignCompletionFact completion,
-            CampaignSlotState committedSlot)
-        {
-            try
-            {
-                _normalCampaignCompletionAchievementIntegration
-                    .TryEarnAfterCommittedCompletion(
-                        completion,
-                        _sequenceResolver,
-                        committedSlot);
-            }
-            catch
-            {
-                // Product achievement earning is a non-critical side effect. The durable
-                // Campaign receipt remains the next startup's recovery source.
-            }
-        }
-
         private bool TryCreateNormalCampaignCompletionFact(
             TickResult result,
             MinimalStageCompletionReadModel readModel,
             TerminalClaimResult claim,
             StageId completedStageId,
-            out NormalCampaignCompletionFact completion)
+            out StageId completion)
         {
             completion = default;
             if (!claim.Accepted ||
@@ -674,7 +641,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            completion = new NormalCampaignCompletionFact(completedStageId);
+            completion = completedStageId;
             return true;
         }
 

@@ -51,13 +51,13 @@ namespace Game.Product.Achievements.Tests
             Directory.CreateDirectory(_tempDirectory);
             File.WriteAllText(
                 AchievementPath + ".bak",
-                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[\"campaign.complete\"],\"PendingAchievementPublicationIds\":[]}");
+                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[\"campaign.level-4.clear\"],\"PendingAchievementPublicationIds\":[]}");
             var repository = CreateFileRepository();
 
             var result = repository.Load();
 
             Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.BackupRecovered));
-            Assert.That(result.Document.EarnedAchievementIds, Is.EqualTo(new[] { "campaign.complete" }));
+            Assert.That(result.Document.EarnedAchievementIds, Is.EqualTo(new[] { "campaign.level-4.clear" }));
             Assert.That(File.Exists(AchievementPath), Is.True);
         }
 
@@ -80,18 +80,18 @@ namespace Game.Product.Achievements.Tests
         {
             var repository = CreateFileRepository();
             var document = Document(
-                new[] { "campaign.complete" },
-                new[] { "campaign.complete" });
+                new[] { "campaign.level-4.clear" },
+                new[] { "campaign.level-4.clear" });
 
             var save = repository.Save(document);
             var load = repository.Load();
 
             Assert.That(save.IsSuccess, Is.True);
             Assert.That(load.Status, Is.EqualTo(AchievementDocumentLoadStatus.Loaded));
-            Assert.That(load.Document.EarnedAchievementIds, Is.EqualTo(new[] { "campaign.complete" }));
+            Assert.That(load.Document.EarnedAchievementIds, Is.EqualTo(new[] { "campaign.level-4.clear" }));
             Assert.That(
                 load.Document.PendingAchievementPublicationIds,
-                Is.EqualTo(new[] { "campaign.complete" }));
+                Is.EqualTo(new[] { "campaign.level-4.clear" }));
         }
 
         [TestCase("{\"SchemaVersion\":1}")]
@@ -114,10 +114,10 @@ namespace Game.Product.Achievements.Tests
             var store = new RecordingTextStore();
             var repository = new FileProductAchievementRepository(store);
             var first = Document(
-                new[] { "future.z", "campaign.complete", "future.z" },
+                new[] { "future.z", "campaign.level-4.clear", "future.z" },
                 new[] { "future.z" });
             var second = Document(
-                new[] { "campaign.complete", "future.z" },
+                new[] { "campaign.level-4.clear", "future.z" },
                 new[] { "future.z", "future.z" });
 
             Assert.That(repository.Save(first).IsSuccess, Is.True);
@@ -126,20 +126,26 @@ namespace Game.Product.Achievements.Tests
 
             Assert.That(store.WriteCount, Is.EqualTo(2));
             Assert.That(store.Writes[1], Is.EqualTo(firstJson));
-            Assert.That(firstJson, Does.Contain("\"EarnedAchievementIds\":[\"campaign.complete\",\"future.z\"]"));
+            Assert.That(firstJson, Does.Contain("\"EarnedAchievementIds\":[\"campaign.level-4.clear\",\"future.z\"]"));
         }
 
         [Test]
-        public void Load_CleansStaleTempFiles()
+        public void Load_CleansOwnedWriteTempsAndPreservesUnrelatedFiles()
         {
             Directory.CreateDirectory(_tempDirectory);
-            var staleTempPath = Path.Combine(_tempDirectory, "achievements.stale.tmp");
+            var staleTempPath = Path.Combine(_tempDirectory, "achievements.json.write.stale.tmp");
+            var unrelatedTempPath = Path.Combine(_tempDirectory, "achievements.stale.tmp");
+            var profileTempPath = Path.Combine(_tempDirectory, "profile.json.write.stale.tmp");
             File.WriteAllText(staleTempPath, "stale");
+            File.WriteAllText(unrelatedTempPath, "unrelated");
+            File.WriteAllText(profileTempPath, "profile temp");
 
             var result = CreateFileRepository().Load();
 
             Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.Missing));
             Assert.That(File.Exists(staleTempPath), Is.False);
+            Assert.That(File.ReadAllText(unrelatedTempPath), Is.EqualTo("unrelated"));
+            Assert.That(File.ReadAllText(profileTempPath), Is.EqualTo("profile temp"));
         }
 
         [Test]
@@ -147,10 +153,10 @@ namespace Game.Product.Achievements.Tests
         {
             var repository = CreateFileRepository();
             Assert.That(
-                repository.Save(Document(new[] { "campaign.complete" }, Array.Empty<string>())).IsSuccess,
+                repository.Save(Document(new[] { "campaign.level-4.clear" }, Array.Empty<string>())).IsSuccess,
                 Is.True);
             Assert.That(
-                repository.Save(Document(new[] { "campaign.complete", "future.valid" }, Array.Empty<string>())).IsSuccess,
+                repository.Save(Document(new[] { "campaign.level-4.clear", "future.valid" }, Array.Empty<string>())).IsSuccess,
                 Is.True);
             File.WriteAllText(AchievementPath, "{broken");
 
@@ -158,8 +164,8 @@ namespace Game.Product.Achievements.Tests
 
             Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.BackupRecovered));
             Assert.That(result.IsUsable, Is.True);
-            Assert.That(result.Document.EarnedAchievementIds, Is.EqualTo(new[] { "campaign.complete" }));
-            Assert.That(File.ReadAllText(AchievementPath), Does.Contain("campaign.complete"));
+            Assert.That(result.Document.EarnedAchievementIds, Is.EqualTo(new[] { "campaign.level-4.clear" }));
+            Assert.That(File.ReadAllText(AchievementPath), Does.Contain("campaign.level-4.clear"));
         }
 
         [Test]
@@ -212,10 +218,10 @@ namespace Game.Product.Achievements.Tests
             Directory.CreateDirectory(_tempDirectory);
             File.WriteAllText(
                 AchievementPath + ".bak",
-                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[\"campaign.complete\"],\"PendingAchievementPublicationIds\":[]}");
+                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[\"campaign.level-4.clear\"],\"PendingAchievementPublicationIds\":[]}");
             File.WriteAllText(
                 AchievementPath,
-                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[],\"PendingAchievementPublicationIds\":[\"campaign.complete\"]}");
+                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[],\"PendingAchievementPublicationIds\":[\"campaign.level-4.clear\"]}");
             var schemaInvalid = CreateFileRepository().Load();
             Assert.That(schemaInvalid.Status, Is.EqualTo(AchievementDocumentLoadStatus.SchemaInvalid));
             Assert.That(File.Exists(AchievementPath), Is.True);
@@ -234,7 +240,7 @@ namespace Game.Product.Achievements.Tests
             Directory.CreateDirectory(_tempDirectory);
             File.WriteAllText(
                 AchievementPath,
-                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[\" campaign.complete\"],\"PendingAchievementPublicationIds\":[]}");
+                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[\" campaign.level-4.clear\"],\"PendingAchievementPublicationIds\":[]}");
 
             var result = CreateFileRepository().Load();
 
@@ -248,7 +254,7 @@ namespace Game.Product.Achievements.Tests
             using var host = ProductAchievementApplicationHost.CreateForSaveRoot(_tempDirectory);
             Assert.That(host.Initialize(), Is.True);
 
-            var earnResult = host.Coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            var earnResult = host.Coordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
             var snapshot = host.Coordinator.GetSnapshot();
 
             Assert.That(earnResult, Is.EqualTo(AchievementEarnResult.EarnedNew));

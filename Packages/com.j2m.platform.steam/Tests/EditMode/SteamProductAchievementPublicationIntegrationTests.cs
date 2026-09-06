@@ -119,10 +119,10 @@ namespace Game.Platform.Steam.Tests.EditMode
         {
             var repository = new MemoryRepository(new ProductAchievementDocument
             {
-                EarnedAchievementIds = new[] { GameAchievementIds.NormalCampaignComplete.Value },
+                EarnedAchievementIds = new[] { GameAchievementIds.CampaignLevel4Clear.Value },
                 PendingAchievementPublicationIds = new[]
                 {
-                    GameAchievementIds.NormalCampaignComplete.Value,
+                    GameAchievementIds.CampaignLevel4Clear.Value,
                 },
             });
             var firstProduct = CreateProduct(repository);
@@ -247,15 +247,15 @@ namespace Game.Platform.Steam.Tests.EditMode
                 product.Controller);
             var lifecycle = ProductLifecycle();
             var achievements = ProductApi(
-                GameAchievementIds.NormalCampaignComplete,
-                GameAchievementIds.CampaignStage1_2Clear,
-                GameAchievementIds.CampaignStage1_2PushFlipWithin25);
+                GameAchievementIds.CampaignLevel4Clear,
+                GameAchievementIds.CampaignLevel1Clear,
+                GameAchievementIds.CampaignLevel2Clear);
             var runtime = CreateRuntime(lifecycle, achievements);
             runtime.Initialize();
 
             Assert.That(product.Coordinator.GetSnapshot().InFlightCount, Is.EqualTo(1));
             Assert.That(
-                product.Coordinator.Earn(GameAchievementIds.CampaignStage1_2Clear),
+                product.Coordinator.Earn(GameAchievementIds.CampaignLevel1Clear),
                 Is.EqualTo(AchievementEarnResult.EarnedNew));
             Assert.That(product.Coordinator.GetSnapshot().InFlightCount, Is.EqualTo(2));
             Assert.That(achievements.SetAchievementCount, Is.EqualTo(1));
@@ -277,7 +277,7 @@ namespace Game.Platform.Steam.Tests.EditMode
 
             Assert.That(
                 product.Coordinator.Earn(
-                    GameAchievementIds.CampaignStage1_2PushFlipWithin25),
+                    GameAchievementIds.CampaignLevel2Clear),
                 Is.EqualTo(AchievementEarnResult.EarnedNew));
             var afterUnavailableEarn = product.Coordinator.GetSnapshot();
             Assert.That(afterUnavailableEarn.InFlightCount, Is.Zero);
@@ -344,9 +344,9 @@ namespace Game.Platform.Steam.Tests.EditMode
         {
             var repository = new MemoryRepository(new ProductAchievementDocument
             {
-                EarnedAchievementIds = new[] { GameAchievementIds.NormalCampaignComplete.Value },
+                EarnedAchievementIds = new[] { GameAchievementIds.CampaignLevel4Clear.Value },
                 PendingAchievementPublicationIds = pending
-                    ? new[] { GameAchievementIds.NormalCampaignComplete.Value }
+                    ? new[] { GameAchievementIds.CampaignLevel4Clear.Value }
                     : Array.Empty<string>(),
             });
             return CreateProduct(repository);
@@ -410,7 +410,7 @@ namespace Game.Platform.Steam.Tests.EditMode
 
         private static string ExpectedName()
         {
-            return ExpectedName(GameAchievementIds.NormalCampaignComplete);
+            return ExpectedName(GameAchievementIds.CampaignLevel4Clear);
         }
 
         private static string ExpectedName(GameAchievementId achievementId)

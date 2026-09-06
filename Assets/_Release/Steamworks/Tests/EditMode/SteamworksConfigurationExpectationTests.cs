@@ -47,6 +47,10 @@ namespace Game.Release.Steamworks.Editor.Tests
             Assert.That(report.distribution.forbiddenArtifacts,
                 Is.EqualTo(canonicalDistribution.ForbiddenArtifacts));
 
+            Assert.That(report.achievements.Select(item => item.gameAchievementId),
+                Is.EqualTo(Enumerable.Range(0, 5).Select(level => $"campaign.level-{level}.clear")));
+            Assert.That(report.achievements.Select(item => item.expectedSteamApiName),
+                Is.EqualTo(Enumerable.Range(0, 5).Select(level => $"VQ_LEVEL_{level}_CLEAR")));
             AssertAchievementContracts(report.achievements);
         }
 
@@ -168,8 +172,8 @@ namespace Game.Release.Steamworks.Editor.Tests
             Assert.That(source, Does.Contain("WindowsDistributionTargetPolicy.SteamWindows"));
             Assert.That(source, Does.Contain("SteamAchievementMapping.Production"));
             Assert.That(source, Does.Contain("GameAchievementCatalog.Production"));
-            Assert.That(source, Does.Not.Contain("campaign.complete"));
-            Assert.That(source, Does.Not.Contain("VQ_CAMPAIGN_COMPLETE"));
+            Assert.That(source, Does.Not.Contain("campaign.level-4.clear"));
+            Assert.That(source, Does.Not.Contain("VQ_LEVEL_4_CLEAR"));
             Assert.That(source, Does.Not.Contain("VectorQuake.exe"));
             Assert.That(source, Does.Not.Contain("-j2mPlatformProvider"));
             Assert.That(source, Does.Not.Contain("SteamAchievementMapping.cs"));

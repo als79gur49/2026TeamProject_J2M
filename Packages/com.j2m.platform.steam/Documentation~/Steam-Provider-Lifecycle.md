@@ -34,9 +34,10 @@ the default even when the Steam factory is registered.
 
 Normal Product Achievement publication uses the optional mapping owned under
 `Runtime/ProductAchievements`. The current repository expectations are
-`campaign.complete` → `VQ_CAMPAIGN_COMPLETE`, `campaign.stage-1-2.clear` →
-`VQ_STAGE_1_2_CLEAR`, and `campaign.stage-1-2.push-flip-within-25` →
-`VQ_STAGE_1_2_PUSH_FLIP_LE_25`, all with status `EXPECTED_NOT_PUBLISHED` until an actual
+`campaign.level-0.clear` → `VQ_LEVEL_0_CLEAR`, `campaign.level-1.clear` →
+`VQ_LEVEL_1_CLEAR`, `campaign.level-2.clear` → `VQ_LEVEL_2_CLEAR`,
+`campaign.level-3.clear` → `VQ_LEVEL_3_CLEAR`, and `campaign.level-4.clear` →
+`VQ_LEVEL_4_CLEAR`, all with status `EXPECTED_NOT_PUBLISHED` until an actual
 AppID schema is created and published in Steamworks App Admin. Publication is
 gated by initialized session observations, exact runtime schema presence, pre-read state,
 Set/Store results, and exact-name full-unlock callbacks. The publisher accepts an immutable

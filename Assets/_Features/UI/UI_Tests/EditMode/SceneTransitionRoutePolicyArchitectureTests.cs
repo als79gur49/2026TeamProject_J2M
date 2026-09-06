@@ -430,7 +430,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(probe, Does.Contain("RunDefeatSmoke"));
             Assert.That(probe, Does.Contain("PresentObjectiveClearTick"));
             Assert.That(probe, Does.Contain("NormalCampaignCompletionReceipt.CurrentVersion"));
-            Assert.That(probe, Does.Contain("campaign.complete"));
+            Assert.That(probe, Does.Contain("campaign.level-4.clear"));
             Assert.That(
                 probe,
                 Does.Contain("defeat destination resolution mismatch"));

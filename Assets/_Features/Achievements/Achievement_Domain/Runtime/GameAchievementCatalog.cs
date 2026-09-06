@@ -5,14 +5,20 @@ namespace Game.Product.Achievements
 {
     public static class GameAchievementIds
     {
-        public static readonly GameAchievementId NormalCampaignComplete =
-            GameAchievementId.Require("campaign.complete");
+        public static readonly GameAchievementId CampaignLevel0Clear =
+            GameAchievementId.Require("campaign.level-0.clear");
 
-        public static readonly GameAchievementId CampaignStage1_2Clear =
-            GameAchievementId.Require("campaign.stage-1-2.clear");
+        public static readonly GameAchievementId CampaignLevel1Clear =
+            GameAchievementId.Require("campaign.level-1.clear");
 
-        public static readonly GameAchievementId CampaignStage1_2PushFlipWithin25 =
-            GameAchievementId.Require("campaign.stage-1-2.push-flip-within-25");
+        public static readonly GameAchievementId CampaignLevel2Clear =
+            GameAchievementId.Require("campaign.level-2.clear");
+
+        public static readonly GameAchievementId CampaignLevel3Clear =
+            GameAchievementId.Require("campaign.level-3.clear");
+
+        public static readonly GameAchievementId CampaignLevel4Clear =
+            GameAchievementId.Require("campaign.level-4.clear");
     }
 
     public enum GameAchievementKind
@@ -84,13 +90,19 @@ namespace Game.Product.Achievements
                 new[]
                 {
                     new GameAchievementDefinition(
-                        GameAchievementIds.NormalCampaignComplete,
+                        GameAchievementIds.CampaignLevel0Clear,
                         GameAchievementKind.OneShot),
                     new GameAchievementDefinition(
-                        GameAchievementIds.CampaignStage1_2Clear,
+                        GameAchievementIds.CampaignLevel1Clear,
                         GameAchievementKind.OneShot),
                     new GameAchievementDefinition(
-                        GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                        GameAchievementIds.CampaignLevel2Clear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignLevel3Clear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignLevel4Clear,
                         GameAchievementKind.OneShot),
                 });
 

@@ -18,7 +18,7 @@ namespace Game.Product.Achievements.Composition
 
         private IProductAchievementHostLifetime _host;
         private IProductAchievementEarningSink _registeredEarningSink;
-        private NormalCampaignCompletionAchievementStartupReconciler _startupReconciler;
+        private CampaignStageAchievementStartupReconciler _startupReconciler;
         private ProductAchievementPublicationSessionController _publicationSessionController;
         private bool _initializeAttempted;
         private bool _initializeResult;
@@ -90,17 +90,17 @@ namespace Game.Product.Achievements.Composition
             return _initializeResult;
         }
 
-        public NormalCampaignCompletionAchievementResult ReconcileNormalCampaignCompletionReceipt()
+        public CampaignStageAchievementReconciliationResult ReconcileCampaignStageAchievements()
         {
             if (_startupReconciliationAttempted)
             {
-                return NormalCampaignCompletionAchievementResult.AlreadyReconciled;
+                return CampaignStageAchievementReconciliationResult.AlreadyReconciled;
             }
 
             _startupReconciliationAttempted = true;
             if (_disposed || !_initializeResult || _campaignSaveSlotStoreFactory == null)
             {
-                return NormalCampaignCompletionAchievementResult.ProductUnavailable;
+                return CampaignStageAchievementReconciliationResult.ProductUnavailable;
             }
 
             try
@@ -108,18 +108,15 @@ namespace Game.Product.Achievements.Composition
                 var directPlayContext = _directPlayContextProvider();
                 if (directPlayContext.Mode != EditorDirectPlayMode.None)
                 {
-                    return NormalCampaignCompletionAchievementResult.DirectPlayExcluded;
+                    return CampaignStageAchievementReconciliationResult.DirectPlayExcluded;
                 }
 
-                var integration = new NormalCampaignCompletionAchievementIntegration(
-                    _registeredEarningSink);
-                _startupReconciler = new NormalCampaignCompletionAchievementStartupReconciler(
-                    integration,
+                _startupReconciler = new CampaignStageAchievementStartupReconciler(
                     new CampaignStageAchievementIntegration(_registeredEarningSink));
                 var sequenceResolver = _sequenceResolverFactory?.Invoke();
                 if (sequenceResolver == null)
                 {
-                    return NormalCampaignCompletionAchievementResult.ProfileUnavailable;
+                    return CampaignStageAchievementReconciliationResult.ProfileUnavailable;
                 }
 
                 return _startupReconciler.Reconcile(
@@ -129,7 +126,7 @@ namespace Game.Product.Achievements.Composition
             }
             catch
             {
-                return NormalCampaignCompletionAchievementResult.ExceptionContained;
+                return CampaignStageAchievementReconciliationResult.ExceptionContained;
             }
         }
 
@@ -261,7 +258,7 @@ namespace Game.Product.Achievements.Composition
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void ReconcileNormalCampaignCompletionAfterFirstSceneLoad()
+        private static void ReconcileCampaignStageAchievementsAfterFirstSceneLoad()
         {
             if (Application.isBatchMode)
             {
@@ -270,12 +267,12 @@ namespace Game.Product.Achievements.Composition
 
             try
             {
-                _owner?.ReconcileNormalCampaignCompletionReceipt();
+                _owner?.ReconcileCampaignStageAchievements();
             }
             catch (Exception exception)
             {
                 Debug.LogWarning(
-                    $"Product achievement receipt reconciliation was contained: {exception.Message}");
+                    $"Product achievement stage reconciliation was contained: {exception.Message}");
             }
         }
 
