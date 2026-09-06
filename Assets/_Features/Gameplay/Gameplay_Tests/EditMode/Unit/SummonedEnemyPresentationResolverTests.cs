@@ -887,7 +887,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Full")]
         public void GameplayTickPresentationCoordinator_Teardown_UnregisterFailuresStillReleaseAllOwnedViewsAndAllowRetry()
         {
             var rootObject = new GameObject("SummonedEnemyPresentationResolverTests_ThrowingTeardown");

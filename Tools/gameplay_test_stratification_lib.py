@@ -15,6 +15,7 @@ from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 PRIMARY_CATEGORIES = ("Core", "Extended", "Full")
 FULL_FILE_NAMES = {
     "CombinedGameplayShowcaseInstallerTests.cs",
+    "EnemyViewAnimatorControllerContractTests.cs",
     "EnemyPrefabScaffoldTests.cs",
     "FuzzDeterminismTests.cs",
     "GameplayShowcaseScaffoldTests.cs",

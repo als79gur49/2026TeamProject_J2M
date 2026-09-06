@@ -768,7 +768,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForRetainedExit()
         {
             Assert.That(

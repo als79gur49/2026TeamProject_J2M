@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayVfxParameterizedMotionRuntimeTests
     {
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void SourceHierarchyPoseSnapshot_RestoresDuplicateNamedHierarchyAndBlendShapes()
         {
             var source = new GameObject("Source");
@@ -61,7 +61,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void SourceHierarchyPoseSnapshot_HierarchyMismatchFailsBeforeMutation()
         {
             var source = new GameObject("Source");
@@ -87,7 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void SourceHierarchyPoseSnapshot_InactiveSourceIsRejected()
         {
             var source = new GameObject("Source");
@@ -904,7 +904,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void EnemyDeathMotion_SourceCloneFreezesCurrentPoseAndDisablesAnimator()
         {
             var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
@@ -949,7 +949,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void EnemyDeathMotion_PassiveAttachPointDoesNotRejectSourceClone()
         {
             var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
@@ -985,7 +985,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void EnemyDeathMotion_ReleaseImmediatelyHidesOldCloneBeforePoolReuse()
         {
             var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
@@ -1022,7 +1022,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void EnemyDeathMotion_UnsupportedPoseWriterFailsClosedToAuthoredFallback()
         {
             var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);

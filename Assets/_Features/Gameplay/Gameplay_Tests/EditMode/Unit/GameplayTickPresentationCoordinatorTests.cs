@@ -16660,7 +16660,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void ExitRetained_SuppressesLiveGlideAdditiveOffset()
         {
             AssertGlideSuppressedByRetainedState(trackState => trackState.DeferredExitRetainedEntityIds.Add(40));
@@ -18754,7 +18754,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void RetainedTransitionFinalWriteOnly_ContactDelayedExitBeatsJumpDetachedInProductionFinalSet()
         {
             var stateStore = new GameplayPresentationStateStore();

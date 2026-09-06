@@ -11,7 +11,6 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    [Category("Full")]
     public sealed class EnemyViewAnimatorControllerContractTests
     {
         private const int ExpectedProductionViewCount = 10;
@@ -111,6 +110,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         };
 
         [Test]
+        [Category("Full")]
         public void CampaignMainCatalog_ContainsExactProductionIdToPrefabMappingWithoutDuplicates()
         {
             var catalog = LoadCatalog();
@@ -149,6 +149,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CampaignMainEnemyViews_HaveExpectedRootDriverAnimatorAndControllerWiring()
         {
             var diagnostics = new List<string>();
@@ -167,6 +168,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CampaignMainEnemyViews_ModelRootsMeetDeathMotionPoseFreezeSafetyContract()
         {
             var diagnostics = new List<string>();
@@ -200,6 +202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CampaignMainEnemyViews_ActiveStateAndParameterBindingsAreDispatchReachable()
         {
             var diagnostics = new List<string>();
@@ -221,6 +224,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CampaignMainEnemyViews_ActiveTriggerBindingsAreTypedAndConsumedByTransitions()
         {
             var diagnostics = new List<string>();
@@ -255,6 +259,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CampaignMainEnemyViews_ExplicitlyDisabledTriggerBindingsRemainBlank()
         {
             var diagnostics = new List<string>();
@@ -282,6 +287,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void ControllerGraph_ConsumesConditionsOnlyFromExecutableTransitionSet()
         {
             var stateMachine = new AnimatorStateMachine
