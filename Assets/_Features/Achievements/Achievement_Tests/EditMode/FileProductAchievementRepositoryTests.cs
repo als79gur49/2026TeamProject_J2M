@@ -130,16 +130,22 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void Load_CleansStaleTempFiles()
+        public void Load_CleansOwnedWriteTempsAndPreservesUnrelatedFiles()
         {
             Directory.CreateDirectory(_tempDirectory);
-            var staleTempPath = Path.Combine(_tempDirectory, "achievements.stale.tmp");
+            var staleTempPath = Path.Combine(_tempDirectory, "achievements.json.write.stale.tmp");
+            var unrelatedTempPath = Path.Combine(_tempDirectory, "achievements.stale.tmp");
+            var profileTempPath = Path.Combine(_tempDirectory, "profile.json.write.stale.tmp");
             File.WriteAllText(staleTempPath, "stale");
+            File.WriteAllText(unrelatedTempPath, "unrelated");
+            File.WriteAllText(profileTempPath, "profile temp");
 
             var result = CreateFileRepository().Load();
 
             Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.Missing));
             Assert.That(File.Exists(staleTempPath), Is.False);
+            Assert.That(File.ReadAllText(unrelatedTempPath), Is.EqualTo("unrelated"));
+            Assert.That(File.ReadAllText(profileTempPath), Is.EqualTo("profile temp"));
         }
 
         [Test]
