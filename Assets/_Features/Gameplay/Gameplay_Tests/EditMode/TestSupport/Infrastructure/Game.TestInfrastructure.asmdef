@@ -3,7 +3,8 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests.Infrastructure",
   "references": [
     "Game.Feature.Gameplay",
-    "Game.Feature.Gameplay.Tests"
+    "Game.Feature.Gameplay.Tests",
+    "Game.Feature.Gameplay.EnemyPresentation.Editor"
   ],
   "includePlatforms": [
     "Editor"

@@ -396,13 +396,15 @@ controller가 contact/death hold에 필요한 상태를 별도로 얼마나 보�
 현재 정상 lifecycle이 이 경로를 막을 수 있으므로, 실제 결함 판정 전에 View 교체·pooling·동적
 component 추가 시나리오의 targeted test가 필요하다.
 
-## 비-production 자산
+## 비-production 자산 disposition
 
-- `EnemyView_Jumping.prefab`은 production catalog에서 참조되지 않는다. null clip과 비기본 jump timing을 포함하며, 현재 요구사항으로 등록하면 validation 실패 가능성이 있다.
-- `EnemyView_PrototypeGravityFieldChaser.prefab`은 non-catalog prototype으로 문서화되어 있으며 Jumping과 큰 YAML 구조를 공유한다.
+초기 감사에서 보류했던 `EnemyView_Attacking`, `EnemyView_NonAttacking`, `EnemyView_Jumping`,
+`EnemyView_PrototypeGravityFieldChaser`는 후속 owner 검토에서 production catalog 및 serialized asset inbound
+reference가 0인 legacy test/prototype residue로 확인됐다. 네 prefab은 Slice 3에서 `Deleted`로 확정했다.
 
-두 자산은 즉시 삭제 대상으로 분류하지 않는다. 샘플, prototype, 향후 자산 중 어떤 역할인지
-inventory 결정을 내린 뒤 archive, migrate, delete 또는 validation 제외 정책을 명시해야 한다.
+`EnemyView_Jumping`의 null clip/비기본 timing은 production 계약이 아니라 invalid legacy fixture였으며,
+현재 Jump 동작은 `EnemyView_Astreton`과 그 전용 Controller가 소유한다. 삭제 이력은 14행 disposition
+ledger로 보존하고, legacy compatibility 검증은 production 외 실파일 대신 synthetic fixture를 사용한다.
 
 ## 권장 작업 순서와 gate
 

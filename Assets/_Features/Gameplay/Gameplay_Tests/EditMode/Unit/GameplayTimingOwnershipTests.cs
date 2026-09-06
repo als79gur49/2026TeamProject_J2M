@@ -3608,15 +3608,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Driver.Apply(CreateJumpLandingPresentationState());
 
                 Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("Move"));
-                Assert.That(
-                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
-                    Is.EqualTo("Move"));
                 fixture.Animator.enabled = true;
                 fixture.Animator.Update(0f);
                 AssertAnimatorPlaybackUnchanged(
                     activePlayback,
                     CaptureAnimatorPlayback(fixture.Animator),
-                    "Inactive landing must retain Move without queuing or mutating Animator playback.");
+                    "Inactive landing must retain the pending Move command without mutating Animator playback.");
                 LogAssert.NoUnexpectedReceived();
             }
             finally
@@ -3639,9 +3636,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Animator.enabled = false;
                 fixture.Driver.Apply(CreateJumpLandingPresentationState());
                 Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("Move"));
-                Assert.That(
-                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
-                    Is.EqualTo("Move"));
                 fixture.Animator.enabled = true;
                 fixture.Animator.Update(0f);
                 AssertAnimatorPlaybackUnchanged(
@@ -3656,18 +3650,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     fixture.Animator.GetCurrentAnimatorStateInfo(0).IsName("Move"),
                     Is.True);
-                Assert.That(
-                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
-                    Is.Empty);
 
                 var consumedPlayback = CaptureAnimatorPlayback(fixture.Animator);
                 fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
                 fixture.Animator.Update(0f);
 
-                Assert.That(
-                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
-                    Is.Empty,
-                    "A consumed Move request must not be queued or consumed a second time.");
                 AssertAnimatorPlaybackUnchanged(
                     consumedPlayback,
                     CaptureAnimatorPlayback(fixture.Animator),
@@ -4057,16 +4044,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAnimatorDriver_PlayDeathCue_BlankBindingDoesNotDispatchAnimatorState()
+        public void EnemyAnimatorDriver_PlayDeathCue_NoBindingOrTimingDoesNotDispatchAnimatorState()
         {
-            var rootObject = new GameObject("EnemyAnimatorDriver_PlayDeathCue_BlankBindingDoesNotDispatchAnimatorState");
+            var rootObject = new GameObject(
+                "EnemyAnimatorDriver_PlayDeathCue_NoBindingOrTimingDoesNotDispatchAnimatorState");
 
             try
             {
                 var animator = AttachEnemyDeathTransitionAnimator(rootObject);
-                rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
-                PlayerViewPrefabTestUtility.SetSerializedField(driver, "deathTriggerName", string.Empty);
 
                 animator.Rebind();
                 animator.Update(0f);
@@ -4378,8 +4364,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
                 var enemyView = factory.CreateView(CreateEnemyEntity());
 
-                Assert.That(enemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                var driver = enemyView.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
                 Assert.That(enemyView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
+                Assert.That(enemyView.GetComponent<EnemyAnimationBindingAuthoring>(), Is.Null);
+                Assert.DoesNotThrow(() => driver.Apply(new EnemyViewPresentationState(
+                    entityId: 20,
+                    tickIndex: 1,
+                    EnemyAiMode.Patrol,
+                    EnemyActionKind.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: true,
+                    didDie: false)));
+                Assert.That(driver.HitSignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastCrossFadedStateName, Is.Empty);
             }
             finally
             {

@@ -34,16 +34,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [TestCase(StartisPrefabPath)]
         [TestCase(BlackEyePrefabPath)]
         [Category("Full")]
-        public void EnemyPrefab_AnimationTimingAuthoring_DoesNotExposeDeathTimingFields(string prefabPath)
+        public void EnemyPrefab_SparseBindingAuthorsDeathWithoutTiming(string prefabPath)
         {
             var view = LoadGameplayPrefab(prefabPath);
-            var authoring = view.GetComponent<EnemyAnimationTimingAuthoring>();
+            var authoring = view.GetComponent<EnemyAnimationBindingAuthoring>();
 
-            Assert.That(authoring, Is.Not.Null, $"Missing {nameof(EnemyAnimationTimingAuthoring)} on '{prefabPath}'.");
-
-            var serializedObject = new SerializedObject(authoring);
-            Assert.That(serializedObject.FindProperty("deathAnimatorDurationSeconds"), Is.Null);
-            Assert.That(serializedObject.FindProperty("deathReferenceClip"), Is.Null);
+            Assert.That(authoring, Is.Not.Null, $"Missing {nameof(EnemyAnimationBindingAuthoring)} on '{prefabPath}'.");
+            Assert.That(view.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null, prefabPath);
+            var snapshot = authoring.CreateSnapshot();
+            Assert.That(snapshot.TryGetBinding(EnemyAnimationCue.Death, out var death), Is.True, prefabPath);
+            Assert.That(death.PrimaryDispatchMode, Is.EqualTo(EnemyAnimationDispatchMode.Trigger), prefabPath);
+            Assert.That(death.TargetName, Is.EqualTo("Death"), prefabPath);
+            Assert.That(death.AnimatorDurationSeconds,
+                Is.EqualTo(EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel), prefabPath);
+            Assert.That(death.ReferenceClip, Is.Null, prefabPath);
         }
 
         [Test]
@@ -61,7 +65,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 prefabRoot + "EnemyView_RocketFace.prefab",
                 prefabRoot + "EnemyView_Startis.prefab",
                 prefabRoot + "EnemyView_Sunwheel.prefab",
-                prefabRoot + "EnemyView_PrototypeGravityFieldChaser.prefab",
             };
 
             foreach (var prefabPath in prefabPaths)
