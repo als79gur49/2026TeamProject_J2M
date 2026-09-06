@@ -1,0 +1,10 @@
+{
+  "name": "Game.Feature.Gameplay.EnemyPresentation.Editor",
+  "rootNamespace": "Game.Feature.Gameplay.Host.EditorTools",
+  "references": [
+    "Game.Feature.Gameplay"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}
