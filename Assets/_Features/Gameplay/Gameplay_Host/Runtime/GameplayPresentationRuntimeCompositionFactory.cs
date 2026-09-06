@@ -90,7 +90,6 @@ namespace Game.Feature.Gameplay.Host
                 enemyVisualSemanticResolver,
                 committedFrameBuilder);
             var exitPresentationController = new GameplayExitPresentationController(
-                animationSync,
                 stateStore,
                 trackState);
             var destroyShrinkVfxSequenceStateResolver = new GameplayDestroyShrinkVfxSequenceStateResolver();
@@ -107,6 +106,10 @@ namespace Game.Feature.Gameplay.Host
                     moonBlockDestructionPresentationController.ShouldBypassLiveExitOwnership(entityId) ||
                     trackState.PlayerDeathHoldSignalEntityIds.Contains(entityId) ||
                     trackState.PlayerDeathHoldPoses.ContainsKey(entityId));
+            summonedEnemyPresentationResolver.SetPendingExitRetentionPredicate(
+                exitPresentationController.ShouldRetainViewForPendingExit);
+            exitPresentationController.SetCompletedExitCleanupCallback(
+                entityId => summonedEnemyPresentationResolver.ReleaseOwnedViewIfPresent(entityId));
             var trackPlanner = new GameplayTrackPlanner(
                 stateStore,
                 trackState,

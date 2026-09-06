@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 1141000000000009001}
   - component: {fileID: 1141000000000009002}
   - component: {fileID: 1141000000000009003}
-  - component: {fileID: 1141000000000009004}
   m_Layer: 0
   m_Name: EnemyView_Kali
   m_TagString: Untagged
@@ -92,23 +91,6 @@ MonoBehaviour:
   recoveryTriggerName: 
   hitTriggerName: 
   deathTriggerName: 
---- !u!114 &1141000000000009004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1001000000000009001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6c751b2feb5f4cb9b5bf1a1b799f0684, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EntityEffectPresentationAuthoring
-  hitEffectDurationSeconds: -1
-  deathEffectDurationSeconds: -1
-  deathViewTailSeconds: 0.2
-  deathOwnershipMode: 0
-  deathAnchorName: Chest
 --- !u!1 &1001000000000009002
 GameObject:
   m_ObjectHideFlags: 0

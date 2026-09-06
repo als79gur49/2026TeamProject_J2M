@@ -3894,6 +3894,16 @@
       ],
       "reason": "Locked pure-planner coverage that hard cleanup removes pending hostile milestones and prevents stale replay.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyViewPresentationAuthoringTests.Assets_DoNotRetainRemovedEntityEffectPresentationAuthoringScriptOrGuid",
+      "category": "Full",
+      "contracts": [
+        "enemy_view_removed_authoring_residue",
+        "repository_asset_guid_scan"
+      ],
+      "reason": "Locked Full repository-wide asset residue scan that verifies the removed EntityEffectPresentationAuthoring script path and GUID are absent from all production assets.",
+      "locked": true
     }
   ]
 }

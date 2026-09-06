@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 1141000000000003002}
   - component: {fileID: 1141000000000003003}
   - component: {fileID: 1141000000000003004}
-  - component: {fileID: 1141000000000003005}
   - component: {fileID: 1141000000000003006}
   - component: {fileID: 1141000000000003007}
   m_Layer: 0
@@ -82,13 +81,11 @@ MonoBehaviour:
   jumpWindupAnimatorDurationSeconds: 0.5
   jumpAirborneAnimatorDurationSeconds: 1.35
   recoverAnimatorDurationSeconds: -1
-  deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: 0.001
   attackWindupReferenceClip: {fileID: 0}
   jumpWindupReferenceClip: {fileID: 9067093048684652814, guid: 9870afb7c6d615c458c88e0e341207e3, type: 3}
   jumpAirborneReferenceClip: {fileID: -5560811472042823391, guid: 9870afb7c6d615c458c88e0e341207e3, type: 3}
   recoverReferenceClip: {fileID: 0}
-  deathReferenceClip: {fileID: -8481709605947105597, guid: 9870afb7c6d615c458c88e0e341207e3, type: 3}
 --- !u!114 &1141000000000003004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -111,30 +108,13 @@ MonoBehaviour:
   glideWindupStateName: Fly_Start
   glideActiveStateName: Fly_Loop
   glideRecoveryStateName: Fly_Done
-  windupTriggerName: Windup
+  windupTriggerName:
   jumpWindupTriggerName: JumpWindup
   jumpAirborneTriggerName: JumpAirborne
   attackTriggerName: Attack
-  recoveryTriggerName: Recover
+  recoveryTriggerName:
   hitTriggerName: Hit
   deathTriggerName: Death
---- !u!114 &1141000000000003005
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1001000000000003001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6c751b2feb5f4cb9b5bf1a1b799f0684, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EntityEffectPresentationAuthoring
-  hitEffectDurationSeconds: -1
-  deathEffectDurationSeconds: -1
-  deathViewTailSeconds: -1
-  deathOwnershipMode: 0
-  deathAnchorName: Chest
 --- !u!114 &1141000000000003006
 MonoBehaviour:
   m_ObjectHideFlags: 0

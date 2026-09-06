@@ -99,13 +99,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return PlayParameterizedMotion(
                 command,
                 motionCommand,
-                VfxRendererInactiveVisualSnapshotSet.Empty);
+                VfxRendererInactiveVisualSnapshotSet.Empty,
+                VfxSourceHierarchyPoseCapture.Unattempted);
         }
 
         internal IVfxPlaybackHandle PlayParameterizedMotion(
             in ResolvedVfxPlaybackCommand command,
             in ParameterizedMotionVfxCommand motionCommand,
-            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
+            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot,
+            in VfxSourceHierarchyPoseCapture sourcePoseCapture)
         {
             command.Policy.ValidateOrThrow();
             if (command.CueId != motionCommand.CueId)
@@ -170,7 +172,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 root.OneShotRoot,
                 motionCommand,
                 cloneSourceProvider,
-                sourceVisualSnapshot);
+                sourceVisualSnapshot,
+                sourcePoseCapture);
             handle.MarkSpawned();
             handle.MarkActive();
             ApplyStickySuspendReasons(handle);

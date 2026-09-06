@@ -142,11 +142,11 @@ MonoBehaviour:
   glideWindupStateName: Fly_Start
   glideActiveStateName: Fly_Loop
   glideRecoveryStateName: Fly_Done
-  windupTriggerName: Windup
-  jumpWindupTriggerName: JumpWindup
-  jumpAirborneTriggerName: JumpAirborne
-  attackTriggerName: Attack
-  recoveryTriggerName: Recover
+  windupTriggerName:
+  jumpWindupTriggerName:
+  jumpAirborneTriggerName:
+  attackTriggerName:
+  recoveryTriggerName:
   hitTriggerName: Hit
   deathTriggerName: Death
 --- !u!114 &2407586926128549279
@@ -165,13 +165,11 @@ MonoBehaviour:
   jumpWindupAnimatorDurationSeconds: -1
   jumpAirborneAnimatorDurationSeconds: -1
   recoverAnimatorDurationSeconds: -1
-  deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: -1
   attackWindupReferenceClip: {fileID: 0}
   jumpWindupReferenceClip: {fileID: 0}
   jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: 0}
-  deathReferenceClip: {fileID: 0}
 --- !u!114 &5500000000000000102
 MonoBehaviour:
   m_ObjectHideFlags: 0

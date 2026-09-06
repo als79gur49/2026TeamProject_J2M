@@ -9602,8 +9602,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
-                var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
 
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -9776,8 +9774,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
-                var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
 
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -16664,12 +16660,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
-        public void DeathOrExitRetained_SuppressesLiveGlideAdditiveOffset()
+        [Category("Extended")]
+        public void ExitRetained_SuppressesLiveGlideAdditiveOffset()
         {
             AssertGlideSuppressedByRetainedState(trackState => trackState.DeferredExitRetainedEntityIds.Add(40));
             AssertGlideSuppressedByRetainedState(trackState => trackState.ContactDelayedRetainedEntityIds.Add(40));
-            AssertGlideSuppressedByRetainedState(trackState => trackState.DeathPresentationPlayingEntityIds.Add(40));
         }
 
         [Test]
@@ -17553,24 +17548,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void RetainedDeathExitCandidateCollection_CollectsDeathPresentationPlayingWithRetainedPose()
-        {
-            var stateStore = new GameplayPresentationStateStore();
-            var trackState = new GameplayPresentationTrackState();
-            MarkEnemy(stateStore, 40);
-            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
-
-            var frames = Resolve(stateStore, trackState, sourceTick: 91);
-            var candidates = new PresentationVisibilityCandidateSet();
-            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
-
-            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
-            AssertRetainedDeathExitCandidate(entityCandidates.Single(), PresentationOwnerRole.Enemy, sourceTick: 91);
-        }
-
-        [Test]
-        [Category("Core")]
         public void RetainedDeathExitCandidateCollection_CollectsDeferredExitRetainedWithRetainedPose()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -17613,24 +17590,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var trackState = new GameplayPresentationTrackState();
             MarkEnemy(stateStore, 40);
             stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-
-            var frames = Resolve(stateStore, trackState, sourceTick: 91);
-            var candidates = new PresentationVisibilityCandidateSet();
-            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
-
-            Assert.That(candidates.TryGetCandidates(40, out _), Is.False);
-            Assert.That(candidates.CandidateCount, Is.Zero);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void RetainedDeathExitCandidateCollection_DoesNotCollectDeathStateWithoutRetainedPose()
-        {
-            var stateStore = new GameplayPresentationStateStore();
-            var trackState = new GameplayPresentationTrackState();
-            MarkEnemy(stateStore, 40);
-            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
 
             var frames = Resolve(stateStore, trackState, sourceTick: 91);
             var candidates = new PresentationVisibilityCandidateSet();
@@ -17711,7 +17670,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var trackState = new GameplayPresentationTrackState();
             MarkEnemy(stateStore, 40);
             stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
+            trackState.ContactDelayedRetainedEntityIds.Add(40);
             var frames = Resolve(stateStore, trackState, sourceTick: 91);
             var visibility = new ResolvedPresentationVisibilitySet();
             visibility.SetVisibility(new ResolvedEntityPresentationVisibility(
@@ -17772,24 +17731,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(trackState.DeferredExitRetainedEntityIds.Contains(40), Is.True);
             Assert.That(trackState.ContactDelayedRetainedEntityIds.Contains(40), Is.True);
-            Assert.That(stateStore.RetainedLocalTargetPoses.ContainsKey(40), Is.True);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void RetainedDeathExitCandidateCollection_DoesNotOwnDeathPresentationState()
-        {
-            var stateStore = new GameplayPresentationStateStore();
-            var trackState = new GameplayPresentationTrackState();
-            MarkEnemy(stateStore, 40);
-            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
-            var frames = Resolve(stateStore, trackState, sourceTick: 91);
-            var candidates = new PresentationVisibilityCandidateSet();
-
-            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
-
-            Assert.That(trackState.DeathPresentationPlayingEntityIds.Contains(40), Is.True);
             Assert.That(stateStore.RetainedLocalTargetPoses.ContainsKey(40), Is.True);
         }
 
@@ -18813,8 +18754,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
-        public void RetainedTransitionFinalWriteOnly_RetainedDeathExitBeatsJumpDetachedInProductionFinalSet()
+        [Category("Extended")]
+        public void RetainedTransitionFinalWriteOnly_ContactDelayedExitBeatsJumpDetachedInProductionFinalSet()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -18826,7 +18767,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PoseAt(3f),
                     new SurfaceCell(FaceId.Floor, 2, 3));
             stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
+            trackState.ContactDelayedRetainedEntityIds.Add(40);
 
             var frames = Resolve(stateStore, trackState, sourceTick: 77);
             var visibility = ResolveVisibility(
@@ -19348,7 +19289,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool hasActiveOriginalViewMotion = false,
             bool isDeferredExitRetained = false,
             bool isContactDelayedRetained = false,
-            bool isDeathPresentationPlaying = false,
             bool hasTransitionVisibility = false,
             VisibilityTrack visibilityTrack = null,
             float deltaTime = 0f)
@@ -19366,7 +19306,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hasActiveOriginalViewMotion,
                     isDeferredExitRetained,
                     isContactDelayedRetained,
-                    isDeathPresentationPlaying,
                     hasResolvedVisibility,
                     hasResolvedVisibility && resolvedEntityVisibility.IsVisible,
                     hasTransitionVisibility));

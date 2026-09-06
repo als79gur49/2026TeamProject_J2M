@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -13,6 +14,7 @@ using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -33,14 +35,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string InactiveBlendProperty = "_InactiveBlend";
         private const string InactiveNoiseRevealProperty = "_InactiveNoiseReveal";
         private const string DesaturateStrengthProperty = "_DesaturateStrength";
-        private const string EmissionOmissionProperty = "_EmissionOmission";
+        private const string EmissionSuppressionProperty = "_EmissionSuppression";
         private const string InactiveTintProperty = "_InactiveTint";
 
         [Test]
         [Category("Extended")]
         public void EnemyDeathExit_BuildsDeathMotionCommand()
         {
-            var fixture = CreateBuilderFixture();
+            const float enemyDeathEffectDurationSeconds = 0.37f;
+            var fixture = CreateBuilderFixture(enemyDeathEffectDurationSeconds);
             try
             {
                 var signal = CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath);
@@ -59,6 +62,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(command.SourceCell, Is.EqualTo(signal.SourceCell));
                 Assert.That(command.Topology, Is.EqualTo(signal.Topology));
                 Assert.That(command.PresentationSeed, Is.EqualTo(signal.PresentationSeed));
+                Assert.That(command.FlightDurationSeconds, Is.EqualTo(enemyDeathEffectDurationSeconds).Within(0.0001f));
+                Assert.That(command.FadeStartSeconds, Is.EqualTo(enemyDeathEffectDurationSeconds * 0.12f).Within(0.0001f));
+                Assert.That(command.FadeDurationSeconds, Is.EqualTo(enemyDeathEffectDurationSeconds * 0.88f).Within(0.0001f));
+
+                var parameterized = command.ToParameterizedMotionVfxCommand();
+                Assert.That(parameterized.DurationSeconds, Is.EqualTo(enemyDeathEffectDurationSeconds).Within(0.0001f));
+                Assert.That(parameterized.BreakStartSeconds, Is.EqualTo(enemyDeathEffectDurationSeconds * 0.12f).Within(0.0001f));
+                Assert.That(parameterized.FadeDurationSeconds, Is.EqualTo(enemyDeathEffectDurationSeconds * 0.88f).Within(0.0001f));
             }
             finally
             {
@@ -305,23 +316,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_EnemyDeathMotion_IsCanonical()
-        {
-            var owner = new GameObject("EnemyDeathMotionDefaultFlag");
-            try
-            {
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-
-            }
-            finally
-            {
-                Destroy(owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyDeathMotion_MissingBindingDoesNotFallback()
+        public void EnemyDeathMotion_MissingRuntimeDependenciesDoesNotFallbackToLegacyBurst()
         {
             var owner = new GameObject("EnemyDeathMotionFlagOffNoFallback");
             try
@@ -329,7 +324,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.Killed)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
@@ -340,7 +335,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyDeathMotion_WithBinding_PlaysParameterizedMotionAlongsideCanonicalBurst()
+        public void EnemyDeathMotion_WithBinding_PlaysCanonicalParameterizedMotionOnly()
         {
             var owner = new GameObject("EnemyDeathMotionRuntime");
             var cameraObject = CreateCameraObject("EnemyDeathMotionRuntimeCamera");
@@ -357,8 +352,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
-                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }
@@ -396,7 +391,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(context);
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
 
@@ -470,12 +465,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Quaternion.Euler(0f, 45f, 0f));
                 source = CreateInactiveSourceView(context.StateStore, entityId: 40);
                 var scheduledTint = new Color(0.16f, 0.29f, 0.47f, 1f);
+                var scheduledVisualPosition = new Vector3(0.35f, -0.2f, 0.65f);
+                source.Renderer.transform.localPosition = scheduledVisualPosition;
                 ApplyInactivePropertyBlock(
                     source.Renderer,
                     inactiveBlend: 1f,
                     inactiveNoiseReveal: 1f,
                     desaturateStrength: 0.33f,
-                    emissionOmission: 0.77f,
+                    emissionSuppression: 0.77f,
                     scheduledTint);
 
                 runtime.Present(context);
@@ -484,8 +481,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     inactiveBlend: 0f,
                     inactiveNoiseReveal: 0f,
                     desaturateStrength: 0.11f,
-                    emissionOmission: 0.22f,
+                    emissionSuppression: 0.22f,
                     new Color(0.9f, 0.1f, 0.1f, 1f));
+                source.Renderer.transform.localPosition = new Vector3(9f, 8f, 7f);
                 source.Owner.SetActive(false);
 
                 var contactDelaySeconds =
@@ -502,14 +500,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var clone = FindParameterizedMotionClone(owner.transform);
                 Assert.That(clone, Is.Not.Null);
-                var cloneMaterial = clone
-                    .GetComponentInChildren<Renderer>(includeInactive: true)
-                    .sharedMaterial;
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+                var cloneRenderer = clone.GetComponentInChildren<Renderer>(includeInactive: true);
+                var cloneMaterial = cloneRenderer.sharedMaterial;
+                Assert.That(cloneRenderer.transform.localPosition, Is.EqualTo(scheduledVisualPosition),
+                    "Delayed DeathMotion must use the pose captured when the exit was scheduled, not the reset inactive source pose.");
                 Assert.That(cloneMaterial.GetFloat(InactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(cloneMaterial.GetFloat(InactiveNoiseRevealProperty), Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(cloneMaterial.GetFloat(DesaturateStrengthProperty), Is.EqualTo(0.33f).Within(0.0001f));
-                Assert.That(cloneMaterial.GetFloat(EmissionOmissionProperty), Is.EqualTo(0.77f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(EmissionSuppressionProperty), Is.EqualTo(0.77f).Within(0.0001f));
                 AssertColorApproximately(scheduledTint, cloneMaterial.GetColor(InactiveTintProperty));
+
+                source.Destroy();
+                source = default;
+                Assert.That(clone, Is.Not.Null,
+                    "DeathMotion clone must outlive the original View released at the contact handoff.");
+            }
+            finally
+            {
+                source.Destroy();
+                Destroy(cueMap, binding, prefab, cameraObject, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DelayedEnemyDeathMotion_ScheduleCaptureFailureDoesNotRecaptureResetLivePose()
+        {
+            var owner = new GameObject("EnemyDeathMotionDelayedCaptureFailureRuntime");
+            var cameraObject = CreateCameraObject("EnemyDeathMotionDelayedCaptureFailureCamera");
+            var prefab = CreateRuntimePrefab("EnemyDeathMotionDelayedCaptureFailurePrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            InactiveSourceViewFixture source = default;
+            try
+            {
+                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
+                var context = CreateExtensionContext(
+                    CreateEnemyExitSignal(
+                        40,
+                        TickEntityExitCause.EnemyDeath,
+                        timing: EntityExitPresentationTiming.AtContactTime,
+                        visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+                context.StateStore.RetainedLocalTargetPoses[40] = new GameplayEntityPose(
+                    new Vector3(1.25f, 0.5f, -0.25f),
+                    Quaternion.Euler(0f, 45f, 0f));
+                source = CreateInactiveSourceView(context.StateStore, entityId: 40);
+                source.Owner.SetActive(false);
+
+                runtime.Present(context);
+
+                source.Renderer.transform.localPosition = new Vector3(9f, 8f, 7f);
+                source.Owner.SetActive(true);
+                LogAssert.Expect(
+                    LogType.Warning,
+                    "GameplayVfxPooledInstance failed to freeze the DeathMotion source pose; " +
+                    "the authored fallback prefab will be used. reason=InactiveSource detail=None " +
+                    "sourceEntityId=40 sequenceId=9127");
+
+                var contactDelaySeconds =
+                    context.TimingProfile.FlipMotionDurationSeconds *
+                    GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
+                runtime.UpdatePresentation(contactDelaySeconds);
+                runtime.RefreshPresentationMotionVfx(
+                    new GameplayPresentationMotionVfxContext(
+                        context.Result.TickIndex,
+                        new GameplayPresentationTrackState(),
+                        context.StateStore,
+                        context.Projector,
+                        context.TimingProfile));
+
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1),
+                    "A failed schedule-time pose capture must retain the authored fallback playback.");
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero,
+                    "The source exists at playback time; the fallback is caused by the preserved schedule-time failure.");
+                Assert.That(FindParameterizedMotionClone(owner.transform), Is.Null,
+                    "Delayed playback must not replace a failed schedule-time capture with a reset live pose.");
             }
             finally
             {
@@ -532,8 +602,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath)));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
-                Assert.That(runtime.MissingBindingCount, Is.EqualTo(2));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
@@ -554,7 +624,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath)));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
                 Assert.That(runtime.MissingAnchorCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
@@ -566,7 +636,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MotionOnBurstOn_NewMotionAndBurstAllowed()
+        public void EnemyDeathMotion_LegacyDeathBurstBindingIsIgnored()
         {
             var owner = new GameObject("EnemyDeathMotionBurstCombo");
             var cameraObject = CreateCameraObject("EnemyDeathMotionBurstComboCamera");
@@ -585,8 +655,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(
+                    runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.Death)),
+                    Is.Zero);
             }
             finally
             {
@@ -631,6 +704,111 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 Destroy(cueMap, binding, prefab, cameraObject);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SummonedEnemy_AtContactDeathMotion_ClonesOwnedViewBeforeExitCleanup()
+        {
+            var enemyPrefabObject = new GameObject("SummonedEnemyDeathMotionSourcePrefab");
+            var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
+            enemyPrefabObject.AddComponent<EnemyAnimatorDriver>();
+            var sourceModelRoot = new GameObject("ModelRoot");
+            sourceModelRoot.transform.SetParent(enemyPrefabObject.transform, worldPositionStays: false);
+            new GameObject("SummonedMarker").transform.SetParent(sourceModelRoot.transform, worldPositionStays: false);
+            var sourceVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            UnityEngine.Object.DestroyImmediate(sourceVisual.GetComponent<Collider>());
+            sourceVisual.transform.SetParent(sourceModelRoot.transform, worldPositionStays: false);
+            var archetypeId = new EnemyUnitArchetypeId("DeathMotionMinion");
+            var presentationRegistry = new EnemyPresentationArchetypeRegistry(
+                new Dictionary<EnemyUnitArchetypeId, EnemyPresentationArchetypeRuntime>(
+                    EnemyUnitArchetypeId.EqualityComparer)
+                {
+                    { archetypeId, new EnemyPresentationArchetypeRuntime(archetypeId, enemyPrefabView) },
+                });
+            var scenario = CreatePresenterScenario(
+                "SummonedEnemyAtContactDeathMotionCoordinator",
+                presentationRegistry);
+            var cameraObject = CreateCameraObject("SummonedEnemyAtContactDeathMotionCamera");
+            var fallbackPrefab = CreateRuntimePrefab("SummonedEnemyAtContactDeathMotionFallback");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+
+            try
+            {
+                binding = CreateBinding(
+                    fallbackPrefab,
+                    GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
+                    tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachOutputCamera(cameraObject.GetComponent<Camera>());
+                scenario.Presenter.AttachPresentationExtension(runtime);
+                scenario.Presenter.PresentInitial(
+                    new[] { CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                    scenario.Topology);
+                scenario.Presenter.Present(
+                    CreateResult(
+                        CreatePresentationDataWithSummonedBindings(
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                            summonedBindings: new[]
+                            {
+                                new TickSummonedEnemyPresentationBinding(
+                                    entityId: 40,
+                                    hasEnemyDefinitionBinding: true,
+                                    archetypeId: archetypeId),
+                            }),
+                        scenario.Topology,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                            CreateAliveEnemyUnit(40, scenario.EnemyCell),
+                        }));
+                Assert.That(scenario.Registry.TryGetView(40, out var summonedView), Is.True);
+                Assert.That(summonedView.ModelRoot.Find("SummonedMarker"), Is.Not.Null);
+
+                const float contactNormalizedTime = 0.5f;
+                scenario.Presenter.Present(
+                    CreateResult(
+                        CreatePresentationDataWithSummonedBindings(
+                            entityExitSignals: new[]
+                            {
+                                CreateEnemyExitSignal(
+                                    40,
+                                    TickEntityExitCause.EnemyDeath,
+                                    scenario.EnemyCell,
+                                    scenario.Topology,
+                                    timing: EntityExitPresentationTiming.AtContactTime,
+                                    visualContactNormalizedTime: contactNormalizedTime),
+                            },
+                            summonedBindings: Array.Empty<TickSummonedEnemyPresentationBinding>()),
+                        scenario.Topology,
+                        new[] { CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) }));
+                Assert.That(scenario.Registry.TryGetView(40, out var retainedView), Is.True);
+                Assert.That(retainedView, Is.SameAs(summonedView));
+
+                var timingProfile = GameplayTimingProfile.CreateDefault();
+                scenario.Presenter.UpdatePresentation(
+                    timingProfile.FlipMotionDurationSeconds * contactNormalizedTime + 0.001f);
+
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                var clone = FindParameterizedMotionClone(scenario.Root.transform);
+                Assert.That(clone, Is.Not.Null);
+                Assert.That(clone.transform.Find("SummonedMarker"), Is.Not.Null);
+                Assert.That(scenario.Registry.TryGetView(40, out _), Is.False);
+                Assert.That(summonedView == null, Is.True);
+
+                scenario.Presenter.UpdatePresentation(0.01f);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+            }
+            finally
+            {
+                Destroy(cueMap, binding, fallbackPrefab, cameraObject, enemyPrefabObject);
                 scenario.Destroy();
             }
         }
@@ -733,7 +911,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(parameterized.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.EnemyDeathFade));
         }
 
-        private static BuilderFixture CreateBuilderFixture()
+        private static BuilderFixture CreateBuilderFixture(
+            float enemyDeathEffectDurationSeconds = GameplayTimingProfile.DefaultEnemyDeathEffectDurationSeconds)
         {
             var localSpaceRoot = new GameObject("EnemyDeathMotionBuilderRoot");
             var cameraObject = CreateCameraObject("EnemyDeathMotionBuilderCamera");
@@ -753,11 +932,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cameraObject.GetComponent<Camera>(),
                 stateStore,
                 projector.CellSize);
+            var timingProfile = new GameplaySceneHostConfiguration
+            {
+                EnemyDeathEffectDurationSeconds = enemyDeathEffectDurationSeconds,
+            }.CreateTimingProfile();
             return new BuilderFixture(
                 localSpaceRoot,
                 cameraObject,
                 cameraObject.GetComponent<Camera>(),
-                GameplayTimingProfile.CreateDefault(),
+                timingProfile,
                 new GameplayPoseResolver(stateStore, trackState),
                 projector,
                 resolver,
@@ -791,7 +974,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 timingProfile: GameplayTimingProfile.CreateDefault());
         }
 
-        private static PresenterScenario CreatePresenterScenario(string name)
+        private static PresenterScenario CreatePresenterScenario(
+            string name,
+            EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null)
         {
             var root = new GameObject(name);
             var presenter = root.AddComponent<GameplayTickViewPresenter>();
@@ -811,7 +996,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardBounds,
                 topology,
                 1f,
-                GameplayTimingProfile.CreateDefault());
+                GameplayTimingProfile.CreateDefault(),
+                enemyPresentationArchetypeRegistry: enemyPresentationArchetypeRegistry);
 
             return new PresenterScenario(
                 root,
@@ -857,6 +1043,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
                 entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>());
+        }
+
+        private static TickPresentationData CreatePresentationDataWithSummonedBindings(
+            IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals,
+            IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedBindings)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals,
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                summonedBindings);
         }
 
         private static TickEntityExitPresentationSignal CreateEnemyExitSignal(
@@ -922,6 +1131,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = EntityBoardPresence.Occupying,
                 aiMode = EnemyAiMode.Chase,
             };
+        }
+
+        private static EntityState CreateAliveEnemyUnit(int entityId, SurfaceCell position)
+        {
+            var entity = CreateEnemyUnit(entityId, position);
+            entity.hp = 2;
+            return entity;
         }
 
         private static VfxBindingDefinitionAsset CreateBinding(
@@ -1016,7 +1232,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float inactiveBlend,
             float inactiveNoiseReveal,
             float desaturateStrength,
-            float emissionOmission,
+            float emissionSuppression,
             Color inactiveTint)
         {
             var block = new MaterialPropertyBlock();
@@ -1024,7 +1240,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             block.SetFloat(InactiveBlendProperty, inactiveBlend);
             block.SetFloat(InactiveNoiseRevealProperty, inactiveNoiseReveal);
             block.SetFloat(DesaturateStrengthProperty, desaturateStrength);
-            block.SetFloat(EmissionOmissionProperty, emissionOmission);
+            block.SetFloat(EmissionSuppressionProperty, emissionSuppression);
             block.SetColor(InactiveTintProperty, inactiveTint);
             renderer.SetPropertyBlock(block);
         }
