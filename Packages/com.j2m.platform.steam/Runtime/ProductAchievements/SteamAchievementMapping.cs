@@ -192,17 +192,25 @@ namespace Game.Platform.Steam.ProductAchievements
                 new[]
                 {
                     new SteamAchievementMappingEntry(
-                        GameAchievementIds.NormalCampaignComplete,
+                        GameAchievementIds.CampaignLevel0Clear,
                         ExpectedSteamAchievementApiName.Require(
-                            "VQ_CAMPAIGN_COMPLETE")),
+                            "VQ_LEVEL_0_CLEAR")),
                     new SteamAchievementMappingEntry(
-                        GameAchievementIds.CampaignStage1_2Clear,
+                        GameAchievementIds.CampaignLevel1Clear,
                         ExpectedSteamAchievementApiName.Require(
-                            "VQ_STAGE_1_2_CLEAR")),
+                            "VQ_LEVEL_1_CLEAR")),
                     new SteamAchievementMappingEntry(
-                        GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                        GameAchievementIds.CampaignLevel2Clear,
                         ExpectedSteamAchievementApiName.Require(
-                            "VQ_STAGE_1_2_PUSH_FLIP_LE_25")),
+                            "VQ_LEVEL_2_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignLevel3Clear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_LEVEL_3_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignLevel4Clear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_LEVEL_4_CLEAR")),
                 });
 
         public IReadOnlyList<SteamAchievementMappingEntry> Entries => _entries;

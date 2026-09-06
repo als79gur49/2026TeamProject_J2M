@@ -28,14 +28,6 @@ namespace Game.Product.Achievements.CampaignIntegration
             return earningSink != null;
         }
 
-        internal static INormalCampaignCompletionAchievementIntegration
-            CreateIntegrationForSceneComposition()
-        {
-            return _earningSink != null
-                ? new NormalCampaignCompletionAchievementIntegration(_earningSink)
-                : UnavailableNormalCampaignCompletionAchievementIntegration.Instance;
-        }
-
         internal static ICampaignStageAchievementIntegration
             CreateCampaignStageIntegrationForSceneComposition()
         {

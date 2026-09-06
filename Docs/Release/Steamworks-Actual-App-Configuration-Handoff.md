@@ -42,11 +42,13 @@ This is a repository expectation. It does not mean the Steamworks General Instal
 
 | Product Achievement ID | Expected Steam API Name | Unlock condition | Status |
 | --- | --- | --- | --- |
-| `campaign.complete` | `VQ_CAMPAIGN_COMPLETE` | Normal Campaign final Objective clear | `EXPECTED_NOT_PUBLISHED` |
-| `campaign.stage-1-2.clear` | `VQ_STAGE_1_2_CLEAR` | Normal `stage-1-2` Objective clear | `EXPECTED_NOT_PUBLISHED` |
-| `campaign.stage-1-2.push-flip-within-25` | `VQ_STAGE_1_2_PUSH_FLIP_LE_25` | Normal `stage-1-2` Objective clear with combined Push+Flip uses <= 25 | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.level-0.clear` | `VQ_LEVEL_0_CLEAR` | Normal Level0 last-stage clear (currently `stage-0-3`) | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.level-1.clear` | `VQ_LEVEL_1_CLEAR` | Normal Level1 last-stage clear (currently `stage-1-2`) | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.level-2.clear` | `VQ_LEVEL_2_CLEAR` | Normal Level2 last-stage clear (currently `stage-2-2`) | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.level-3.clear` | `VQ_LEVEL_3_CLEAR` | Normal Level3 last-stage clear (currently `stage-3-3`) | `EXPECTED_NOT_PUBLISHED` |
+| `campaign.level-4.clear` | `VQ_LEVEL_4_CLEAR` | Normal Level4 last-stage clear (currently `stage-4-3`) | `EXPECTED_NOT_PUBLISHED` |
 
-All three exclude DirectPlay and Force Clear. The action threshold counts only executed, non-cancelled Push/Flip outcomes resolved as Success or Impact, resets on death/respawn/retry, and is inclusive at 25. Hidden recommendation is `false` for owner review.
+All five exclude DirectPlay and Force Clear and have no Push/Flip count limit. Last-stage identity comes from the serialized campaign sequence per level group. Hidden recommendation is `false` for owner review. The previous three pre-release achievements are retired without unlock migration; their local earned/pending IDs may remain as inactive unknown records and are neither published nor converted.
 
 The runtime records qualifying normal-stage performance in the campaign save before it
 attempts Product Achievement earning. All achievements produced by that committed fact are
@@ -153,7 +155,7 @@ grant upload authority. Credentials, SteamID, account details, branch activation
 
 1. Confirm the Actual VectorQuake AppID.
 2. Confirm App Admin access for the authorized owner account.
-3. Create `VQ_CAMPAIGN_COMPLETE`, `VQ_STAGE_1_2_CLEAR`, and `VQ_STAGE_1_2_PUSH_FLIP_LE_25` with exact ordinal API Names.
+3. Create exactly `VQ_LEVEL_0_CLEAR`, `VQ_LEVEL_1_CLEAR`, `VQ_LEVEL_2_CLEAR`, `VQ_LEVEL_3_CLEAR`, and `VQ_LEVEL_4_CLEAR` with exact ordinal API Names.
 4. Review and enter Display Name, Description, Locked/Unlocked icons, and Hidden setting for each achievement.
 5. Publish the Steamworks changes.
 6. Register the Windows launch option for `VectorQuake.exe` with `-j2mPlatformProvider steam`.
@@ -166,11 +168,11 @@ grant upload authority. Credentials, SteamID, account details, branch activation
 13. Upload only after separate explicit approval.
 14. Install the resulting private branch build from the Steam Library.
 15. Start with a clean QA account (or an approved partner-side achievement reset) and clean local `profile.json` / `achievements.json` test state; do not add a reset API to the product runtime.
-16. Complete `stage-1-2` normally at 26 combined Push+Flip uses first. Verify `VQ_STAGE_1_2_CLEAR` unlocks, `VQ_STAGE_1_2_PUSH_FLIP_LE_25` remains locked, the best count is 26, and the submitted clear achievement remains locally pending.
-17. Fully exit and restart the game. Verify the already-unlocked Steam pre-read removes the clear achievement from local pending; Scene reload, Main Menu entry, and Stage retry are not confirmation restarts.
-18. Complete `stage-1-2` normally at 25 combined Push+Flip uses. Verify the efficient-clear achievement unlocks, the best count improves to 25, and that achievement remains locally pending for this application lifetime.
-19. Fully exit and restart the game again, then verify the already-unlocked pre-read removes the efficient-clear achievement from local pending.
-20. Complete the Campaign normally and use the same full-exit/restart sequence to verify its actual unlock and pending removal behavior.
+16. Normally clear each level's last stage (`stage-0-3`, `stage-1-2`, `stage-2-2`, `stage-3-3`, `stage-4-3`). Verify only its matching `VQ_LEVEL_n_CLEAR` unlocks and remains locally pending for this application lifetime.
+17. Fully exit and restart the game. Verify already-unlocked Steam pre-reads remove matching pending IDs; scene reload, Main Menu entry, and Stage retry are not confirmation restarts.
+18. Verify intermediate-stage clears, Force Clear, and every Editor DirectPlay mode grant no new level achievement. Verify a normal last-stage clear above 25 Push/Flip uses still qualifies.
+19. Verify re-clears do not duplicate awards. Seed only the three retired pre-release earned/pending IDs in a QA ledger and verify they remain unchanged without startup cleanup writes, publication, or replacement grants; a receipt-only Campaign save must also grant nothing.
+
 
 ## Inputs required after AppID assignment
 

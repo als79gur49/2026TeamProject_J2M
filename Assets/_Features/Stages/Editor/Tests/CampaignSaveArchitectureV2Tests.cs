@@ -241,7 +241,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 "public static NormalStagePerformanceRecord[] Normalize("));
             Assert.That(policy, Does.Not.Contain(
                 "public static class NormalStagePerformanceRecordPolicy"));
-            Assert.That(achievement, Does.Contain("CampaignStagePerformanceState"));
+            Assert.That(typeof(CampaignSlotState).GetProperty("NormalStagePerformanceRecords").PropertyType,
+                Is.EqualTo(typeof(IReadOnlyList<CampaignStagePerformanceState>)));
             Assert.That(achievement, Does.Contain(
                 "committedSlot.NormalStagePerformanceRecords"));
             Assert.That(achievement, Does.Not.Contain(
@@ -1841,8 +1842,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs",
                 "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/CampaignStageAchievementIntegration.cs",
-                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/NormalCampaignCompletionAchievementIntegration.cs",
-                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/NormalCampaignCompletionAchievementStartupReconciler.cs",
+                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/CampaignStageAchievementStartupReconciler.cs",
                 "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs",
                 "Assets/_Features/UI/UI_Application/Runtime/MainMenuSlotViewModelMapper.cs",
                 "Assets/_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs",
@@ -1889,7 +1889,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 "Assets/_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
                 "Assets/_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
                 "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/CampaignStageAchievementIntegration.cs",
-                "Assets/_Features/Achievements/Achievement_CampaignIntegration/Runtime/NormalCampaignCompletionAchievementIntegration.cs",
             };
 
             foreach (var path in consumerPaths)

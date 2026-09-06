@@ -138,7 +138,7 @@ namespace Game.Product.Achievements.Tests
                     CampaignReceiptRoot,
                     "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
                 },
-                "campaign.complete",
+                "campaign.level-4.clear",
                 "GameAchievementId",
                 "GameAchievementIds",
                 "ProductAchievementCoordinator",
@@ -157,7 +157,7 @@ namespace Game.Product.Achievements.Tests
 
             Assert.That(
                 source,
-                Does.Contain("INormalCampaignCompletionAchievementIntegration"));
+                Does.Contain("ICampaignStageAchievementIntegration"));
             Assert.That(source, Does.Not.Contain("IProductAchievementEarningSink"));
             Assert.That(source, Does.Not.Contain("GameAchievementId"));
             Assert.That(source, Does.Not.Contain("GameAchievementIds"));
@@ -169,11 +169,11 @@ namespace Game.Product.Achievements.Tests
         {
             var integration = File.ReadAllText(
                 CampaignIntegrationRoot +
-                "/NormalCampaignCompletionAchievementIntegration.cs");
+                "/CampaignStageAchievementIntegration.cs");
             Assert.That(
                 integration,
-                Does.Contain("GameAchievementIds.NormalCampaignComplete"));
-            Assert.That(integration, Does.Not.Contain("\"campaign.complete\""));
+                Does.Contain("GameAchievementIds.CampaignLevel4Clear"));
+            Assert.That(integration, Does.Not.Contain("\"campaign.level-4.clear\""));
 
             AssertSourcesDoNotContain(
                 new[] { CampaignIntegrationRoot },

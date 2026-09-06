@@ -12,7 +12,7 @@ namespace Game.Product.Achievements.Tests
 {
     [TestFixture]
     [Category("ProductAchievement")]
-    public sealed class NormalCampaignCompletionAchievementIntegrationTests
+    public sealed class CampaignStageAchievementStartupTests
     {
         private string _saveRoot;
         private CampaignStageSequenceDefinition _sequenceDefinition;
@@ -45,119 +45,7 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void Immediate_ValidCommittedReceipt_MapsOnlyNormalCampaignComplete()
-        {
-            var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
-            var integration = new NormalCampaignCompletionAchievementIntegration(sink);
-
-            var result = integration.TryEarnAfterCommittedCompletion(
-                CreateCompletionFact("stage-4-3"),
-                _resolver,
-                CreateState(CreateValidCompletedSlot(1)));
-
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
-            Assert.That(sink.EarnCount, Is.EqualTo(1));
-            Assert.That(sink.LastAchievementId, Is.EqualTo(GameAchievementIds.NormalCampaignComplete));
-        }
-
-        [TestCase("presence-false")]
-        [TestCase("present-null")]
-        [TestCase("campaign-incomplete")]
-        [TestCase("non-final-stage")]
-        public void Immediate_InvalidPersistedReceiptMatrix_EarnsZero(string invalidCase)
-        {
-            var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
-            var integration = new NormalCampaignCompletionAchievementIntegration(sink);
-            var slot = CreateInvalidCompletedSlot(invalidCase);
-
-            var result = integration.TryEarnAfterCommittedCompletion(
-                CreateCompletionFact("stage-4-3"),
-                _resolver,
-                CreateState(slot));
-
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.InvalidReceipt));
-            Assert.That(sink.EarnCount, Is.Zero);
-        }
-
-        [Test]
-        public void Immediate_V2LegacyPhysicalFields_DoNotAffectEligibility()
-        {
-            var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
-            var integration = new NormalCampaignCompletionAchievementIntegration(sink);
-            var slot = CreateValidCompletedSlot(1);
-            slot.NormalCampaignCompletionReceipt.StageRunId = "ignored-v2-legacy-run";
-            slot.NormalCampaignCompletionReceipt.ClearSource = 0;
-
-            var result = integration.TryEarnAfterCommittedCompletion(
-                CreateCompletionFact("stage-4-3"),
-                _resolver,
-                CreateState(slot));
-
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
-            Assert.That(sink.EarnCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void Immediate_NonFinalFactDoesNotReplayHistoricalFinalReceipt()
-        {
-            var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
-            var integration = new NormalCampaignCompletionAchievementIntegration(sink);
-            var historicalSlot = CreateValidCompletedSlot(1);
-
-            var nonFinalResult = integration.TryEarnAfterCommittedCompletion(
-                CreateCompletionFact("stage-4-2"),
-                _resolver,
-                CreateState(historicalSlot));
-
-            Assert.That(nonFinalResult, Is.EqualTo(NormalCampaignCompletionAchievementResult.NotAttempted));
-            Assert.That(sink.EarnCount, Is.Zero);
-        }
-
-        [TestCase(
-            AchievementEarnResult.PersistenceFailed,
-            NormalCampaignCompletionAchievementResult.PersistenceFailed)]
-        [TestCase(
-            AchievementEarnResult.UnavailableState,
-            NormalCampaignCompletionAchievementResult.ProductUnavailable)]
-        [TestCase(
-            AchievementEarnResult.InvalidAchievement,
-            NormalCampaignCompletionAchievementResult.InvalidAchievement)]
-        [TestCase(
-            AchievementEarnResult.AlreadyEarned,
-            NormalCampaignCompletionAchievementResult.AlreadyEarned)]
-        public void Immediate_ProductResult_IsContainedAndMapped(
-            AchievementEarnResult earnResult,
-            NormalCampaignCompletionAchievementResult expected)
-        {
-            var integration = new NormalCampaignCompletionAchievementIntegration(
-                new RecordingEarningSink(earnResult));
-
-            var result = integration.TryEarnAfterCommittedCompletion(
-                CreateCompletionFact("stage-4-3"),
-                _resolver,
-                CreateState(CreateValidCompletedSlot(1)));
-
-            Assert.That(result, Is.EqualTo(expected));
-        }
-
-        [Test]
-        public void Immediate_EarnException_IsContained()
-        {
-            var integration = new NormalCampaignCompletionAchievementIntegration(
-                new RecordingEarningSink(
-                    AchievementEarnResult.EarnedNew,
-                    new InvalidOperationException("simulated product failure")));
-
-            var result = integration.TryEarnAfterCommittedCompletion(
-                CreateCompletionFact("stage-4-3"),
-                _resolver,
-                CreateState(CreateValidCompletedSlot(1)));
-
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.ExceptionContained));
-        }
-
-        [Test]
-        public void Startup_ValidReceiptAmongMultipleSlots_InvokesSinkOnce()
+        public void Startup_ClearedRecordsAmongMultipleSlots_AreAllEvaluated()
         {
             var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
             var reconciler = CreateReconciler(sink);
@@ -169,29 +57,10 @@ namespace Game.Product.Achievements.Tests
 
             var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.Completed));
             Assert.That(store.LoadCount, Is.EqualTo(1));
-            Assert.That(sink.EarnCount, Is.EqualTo(1));
-            Assert.That(sink.LastAchievementId, Is.EqualTo(GameAchievementIds.NormalCampaignComplete));
-        }
-
-        [TestCase("presence-false")]
-        [TestCase("present-null")]
-        [TestCase("campaign-incomplete")]
-        [TestCase("non-final-stage")]
-        public void Startup_InvalidOrBareReceiptMatrix_EarnsZero(string invalidCase)
-        {
-            var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
-            var reconciler = CreateReconciler(sink);
-            var store = new RecordingCampaignStore(
-                CampaignSaveLoadStatus.Loaded,
-                CreateInvalidCompletedSlot(invalidCase));
-
-            var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
-
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.NotAttempted));
-            Assert.That(sink.EarnCount, Is.Zero);
-            Assert.That(store.MutationCount, Is.Zero);
+            Assert.That(sink.EarnCount, Is.EqualTo(2));
+            Assert.That(sink.LastAchievementId, Is.EqualTo(GameAchievementIds.CampaignLevel4Clear));
         }
 
         [TestCase(EditorDirectPlayMode.NonCampaign)]
@@ -213,7 +82,7 @@ namespace Game.Product.Achievements.Tests
 
             var result = reconciler.Reconcile(store, _resolver, context);
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.DirectPlayExcluded));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.DirectPlayExcluded));
             Assert.That(store.LoadCount, Is.Zero);
             Assert.That(sink.EarnCount, Is.Zero);
         }
@@ -233,7 +102,7 @@ namespace Game.Product.Achievements.Tests
 
             var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.ProfileUnavailable));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.ProfileUnavailable));
             Assert.That(sink.EarnCount, Is.Zero);
             Assert.That(store.MutationCount, Is.Zero);
         }
@@ -252,7 +121,7 @@ namespace Game.Product.Achievements.Tests
 
             var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.ProfileUnavailable));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.ProfileUnavailable));
             Assert.That(sink.EarnCount, Is.Zero);
         }
 
@@ -267,22 +136,7 @@ namespace Game.Product.Achievements.Tests
 
             var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
-            Assert.That(sink.EarnCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void Startup_ValidV1Receipt_RemainsRecoverable()
-        {
-            var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
-            var reconciler = CreateReconciler(sink);
-            var store = new RecordingCampaignStore(
-                CampaignSaveLoadStatus.Loaded,
-                CreateValidV1CompletedSlot(1));
-
-            var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
-
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.Completed));
             Assert.That(sink.EarnCount, Is.EqualTo(1));
         }
 
@@ -298,8 +152,8 @@ namespace Game.Product.Achievements.Tests
             var first = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
             var second = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
 
-            Assert.That(first, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
-            Assert.That(second, Is.EqualTo(NormalCampaignCompletionAchievementResult.AlreadyReconciled));
+            Assert.That(first, Is.EqualTo(CampaignStageAchievementReconciliationResult.Completed));
+            Assert.That(second, Is.EqualTo(CampaignStageAchievementReconciliationResult.AlreadyReconciled));
             Assert.That(store.LoadCount, Is.EqualTo(1));
             Assert.That(sink.EarnCount, Is.EqualTo(1));
         }
@@ -309,8 +163,8 @@ namespace Game.Product.Achievements.Tests
         {
             using var host = ProductAchievementApplicationHost.CreateForSaveRoot(_saveRoot);
             Assert.That(host.Initialize(), Is.True);
-            var reconciler = new NormalCampaignCompletionAchievementStartupReconciler(
-                new NormalCampaignCompletionAchievementIntegration(host.EarningSink));
+            var reconciler = new CampaignStageAchievementStartupReconciler(
+                new CampaignStageAchievementIntegration(host.EarningSink));
             var store = new RecordingCampaignStore(
                 CampaignSaveLoadStatus.Loaded,
                 CreateValidCompletedSlot(1, "durable-crash-recovery-run"));
@@ -318,11 +172,11 @@ namespace Game.Product.Achievements.Tests
             var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
             var snapshot = host.Coordinator.GetSnapshot();
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.Completed));
             Assert.That(snapshot.EarnedAchievementIds.Count, Is.EqualTo(1));
             Assert.That(snapshot.PendingAchievementPublicationIds.Count, Is.EqualTo(1));
-            Assert.That(snapshot.EarnedAchievementIds[0], Is.EqualTo(GameAchievementIds.NormalCampaignComplete));
-            Assert.That(snapshot.PendingAchievementPublicationIds[0], Is.EqualTo(GameAchievementIds.NormalCampaignComplete));
+            Assert.That(snapshot.EarnedAchievementIds[0], Is.EqualTo(GameAchievementIds.CampaignLevel4Clear));
+            Assert.That(snapshot.PendingAchievementPublicationIds[0], Is.EqualTo(GameAchievementIds.CampaignLevel4Clear));
             Assert.That(File.Exists(AchievementPath), Is.True);
         }
 
@@ -345,6 +199,11 @@ namespace Game.Product.Achievements.Tests
                 {
                     Plan = new CampaignProgressionTransitionPlanner(_resolver)
                         .PlanStageClear(finalStageId),
+                    PerformanceRecord = new NormalStagePerformanceRecord
+                    {
+                        StageId = finalStageId,
+                        BestCombinedPushFlipUses = 30,
+                    },
                     CompletionReceipt = new NormalCampaignCompletionReceipt
                     {
                         Version = NormalCampaignCompletionReceipt.CurrentVersion,
@@ -356,8 +215,8 @@ namespace Game.Product.Achievements.Tests
 
             using var host = ProductAchievementApplicationHost.CreateForSaveRoot(_saveRoot);
             Assert.That(host.Initialize(), Is.True);
-            var reconciler = new NormalCampaignCompletionAchievementStartupReconciler(
-                new NormalCampaignCompletionAchievementIntegration(host.EarningSink));
+            var reconciler = new CampaignStageAchievementStartupReconciler(
+                new CampaignStageAchievementIntegration(host.EarningSink));
 
             var result = reconciler.Reconcile(
                 campaignStore,
@@ -365,62 +224,39 @@ namespace Game.Product.Achievements.Tests
                 EditorDirectPlayContext.None);
             var snapshot = host.Coordinator.GetSnapshot();
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.Completed));
             Assert.That(snapshot.EarnedAchievementIds.Count, Is.EqualTo(1));
             Assert.That(snapshot.PendingAchievementPublicationIds.Count, Is.EqualTo(1));
             Assert.That(File.Exists(AchievementPath), Is.True);
         }
 
         [Test]
-        public void Startup_AlreadyEarnedReceipt_CreatesNoDuplicateDurableSave()
+        public void Startup_AlreadyEarnedStage_CreatesNoDuplicateDurableSave()
         {
             var repository = new RecordingRepository(new ProductAchievementDocument
             {
-                EarnedAchievementIds = new[] { GameAchievementIds.NormalCampaignComplete.Value },
-                PendingAchievementPublicationIds = new[] { GameAchievementIds.NormalCampaignComplete.Value },
+                EarnedAchievementIds = new[] { GameAchievementIds.CampaignLevel4Clear.Value },
+                PendingAchievementPublicationIds = new[] { GameAchievementIds.CampaignLevel4Clear.Value },
             });
             using var coordinator = new ProductAchievementCoordinator(
                 repository,
                 GameAchievementCatalog.Production,
                 new UnavailableAchievementPublicationSink());
             Assert.That(coordinator.Initialize(), Is.True);
-            var reconciler = new NormalCampaignCompletionAchievementStartupReconciler(
-                new NormalCampaignCompletionAchievementIntegration(coordinator));
+            var reconciler = new CampaignStageAchievementStartupReconciler(
+                new CampaignStageAchievementIntegration(coordinator));
             var store = new RecordingCampaignStore(
                 CampaignSaveLoadStatus.Loaded,
                 CreateValidCompletedSlot(1, "already-earned-run"));
 
             var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.AlreadyEarned));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.Completed));
             Assert.That(repository.SaveCount, Is.Zero);
             Assert.That(coordinator.GetSnapshot().EarnedAchievementIds.Count, Is.EqualTo(1));
             Assert.That(
                 coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
                 Is.EqualTo(1));
-        }
-
-        [Test]
-        public void ImmediateAcrossDifferentSlots_ProductGlobalLedgerRemainsOneEarnedOnePending()
-        {
-            using var host = ProductAchievementApplicationHost.CreateForSaveRoot(_saveRoot);
-            Assert.That(host.Initialize(), Is.True);
-            var integration = new NormalCampaignCompletionAchievementIntegration(host.EarningSink);
-
-            var first = integration.TryEarnAfterCommittedCompletion(
-                CreateCompletionFact("stage-4-3"),
-                _resolver,
-                CreateState(CreateValidCompletedSlot(1, "slot-one-receipt")));
-            var second = integration.TryEarnAfterCommittedCompletion(
-                CreateCompletionFact("stage-4-3"),
-                _resolver,
-                CreateState(CreateValidCompletedSlot(2, "slot-two-receipt")));
-            var snapshot = host.Coordinator.GetSnapshot();
-
-            Assert.That(first, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
-            Assert.That(second, Is.EqualTo(NormalCampaignCompletionAchievementResult.AlreadyEarned));
-            Assert.That(snapshot.EarnedAchievementIds.Count, Is.EqualTo(1));
-            Assert.That(snapshot.PendingAchievementPublicationIds.Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -443,21 +279,77 @@ namespace Game.Product.Achievements.Tests
             Assert.That(ProductAchievementEarningSinkHandoff.TryGet(out _), Is.False);
         }
 
+        [TestCase(1)]
+        [TestCase(2)]
+        public void Startup_ReceiptWithoutNormalStageRecord_DoesNotGrantAnyLevel(int version)
+        {
+            var slot = CreateValidCompletedSlot(1);
+            slot.NormalStagePerformanceRecords = Array.Empty<NormalStagePerformanceRecord>();
+            slot.NormalCampaignCompletionReceipt.Version = version;
+            if (version == 1)
+            {
+                slot.NormalCampaignCompletionReceipt.StageRunId = "old-run";
+                slot.NormalCampaignCompletionReceipt.ClearSource = 0;
+            }
+            var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
+            var store = new RecordingCampaignStore(CampaignSaveLoadStatus.Loaded, slot);
+            CreateReconciler(sink).Reconcile(store, _resolver, EditorDirectPlayContext.None);
+            Assert.That(sink.EarnCount, Is.Zero);
+        }
+
+        [Test]
+        public void Startup_MultipleSlotsAndRestarts_DeduplicateInProductLedger()
+        {
+            var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
+            using var coordinator = new ProductAchievementCoordinator(repository,
+                GameAchievementCatalog.Production, new UnavailableAchievementPublicationSink());
+            Assert.That(coordinator.Initialize(), Is.True);
+            var store = new RecordingCampaignStore(CampaignSaveLoadStatus.Loaded,
+                CreateValidCompletedSlot(1), CreateValidCompletedSlot(2));
+            CreateReconciler(coordinator).Reconcile(store, _resolver, EditorDirectPlayContext.None);
+            CreateReconciler(coordinator).Reconcile(store, _resolver, EditorDirectPlayContext.None);
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            Assert.That(coordinator.GetSnapshot().EarnedAchievementIds,
+                Is.EqualTo(new[] { GameAchievementIds.CampaignLevel4Clear }));
+        }
+
+        [Test]
+        public void Startup_NormalClearRecordEarnsNewLevelWhileOldAchievementRemainsInactive()
+        {
+            var repository = new RecordingRepository(new ProductAchievementDocument
+            {
+                EarnedAchievementIds = new[] { "campaign.complete" },
+                PendingAchievementPublicationIds = new[] { "campaign.complete" },
+            });
+            using var coordinator = new ProductAchievementCoordinator(repository,
+                GameAchievementCatalog.Production, new UnavailableAchievementPublicationSink());
+            Assert.That(coordinator.Initialize(), Is.True);
+            Assert.That(repository.SaveCount, Is.Zero);
+            var store = new RecordingCampaignStore(CampaignSaveLoadStatus.Loaded,
+                CreateValidCompletedSlot(1));
+            CreateReconciler(coordinator).Reconcile(store, _resolver, EditorDirectPlayContext.None);
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            Assert.That(coordinator.GetSnapshot().EarnedAchievementIds, Is.EquivalentTo(new[]
+            {
+                GameAchievementId.Require("campaign.complete"),
+                GameAchievementIds.CampaignLevel4Clear,
+            }));
+            Assert.That(coordinator.GetSnapshot().PendingAchievementPublicationIds, Is.EquivalentTo(new[]
+            {
+                GameAchievementId.Require("campaign.complete"),
+                GameAchievementIds.CampaignLevel4Clear,
+            }));
+        }
+
         private string AchievementPath => Path.Combine(
             _saveRoot,
             FileProductAchievementRepository.AchievementFileName);
 
-        private NormalCampaignCompletionAchievementStartupReconciler CreateReconciler(
+        private CampaignStageAchievementStartupReconciler CreateReconciler(
             IProductAchievementEarningSink sink)
         {
-            return new NormalCampaignCompletionAchievementStartupReconciler(
-                new NormalCampaignCompletionAchievementIntegration(sink));
-        }
-
-        private static NormalCampaignCompletionFact CreateCompletionFact(
-            string stageId)
-        {
-            return new NormalCampaignCompletionFact(StageId.CreateOrThrow(stageId));
+            return new CampaignStageAchievementStartupReconciler(
+                new CampaignStageAchievementIntegration(sink));
         }
 
         private static SaveSlotData CreateValidCompletedSlot(
@@ -469,6 +361,14 @@ namespace Game.Product.Achievements.Tests
                 SlotNumber = slotNumber,
                 CurrentStageId = StageId.CreateOrThrow("stage-4-3"),
                 CurrentLevelGroupId = "level-4",
+                NormalStagePerformanceRecords = new[]
+                {
+                    new NormalStagePerformanceRecord
+                    {
+                        StageId = StageId.CreateOrThrow("stage-4-3"),
+                        BestCombinedPushFlipUses = 30,
+                    },
+                },
                 CampaignCompleted = true,
                 HasNormalCampaignCompletionReceipt = true,
                 NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
@@ -479,44 +379,6 @@ namespace Game.Product.Achievements.Tests
                     ClearSource = -1,
                 },
             };
-        }
-
-        private static SaveSlotData CreateInvalidCompletedSlot(string invalidCase)
-        {
-            var slot = CreateValidCompletedSlot(1, "valid-run");
-            switch (invalidCase)
-            {
-                case "presence-false":
-                    slot.HasNormalCampaignCompletionReceipt = false;
-                    slot.NormalCampaignCompletionReceipt = null;
-                    break;
-                case "present-null":
-                    slot.NormalCampaignCompletionReceipt = null;
-                    break;
-                case "campaign-incomplete":
-                    slot.CampaignCompleted = false;
-                    break;
-                case "non-final-stage":
-                    slot.NormalCampaignCompletionReceipt.CompletedStageId = "stage-4-2";
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(invalidCase), invalidCase, null);
-            }
-
-            return slot;
-        }
-
-        private static SaveSlotData CreateValidV1CompletedSlot(int slotNumber)
-        {
-            var slot = CreateValidCompletedSlot(slotNumber);
-            slot.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
-            {
-                Version = NormalCampaignCompletionReceipt.LegacyVersion,
-                CompletedStageId = "stage-4-3",
-                StageRunId = "persisted-v1-run",
-                ClearSource = 0,
-            };
-            return slot;
         }
 
         private static CampaignStageSequenceDefinition CreateSequenceDefinition()
