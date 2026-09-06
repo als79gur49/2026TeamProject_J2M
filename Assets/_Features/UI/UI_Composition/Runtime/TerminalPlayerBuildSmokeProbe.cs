@@ -446,7 +446,7 @@ namespace Game.Feature.UI.Composition
                   savedSlot.Receipt.Payload.CompletedStageId.Equals(sourceStage.StageId) &&
                   string.IsNullOrEmpty(savedSlot.Receipt.Payload.StageRunId) &&
                   !string.IsNullOrEmpty(achievementAfter) &&
-                  achievementAfter.Contains("campaign.complete", StringComparison.Ordinal)
+                  achievementAfter.Contains("campaign.level-4.clear", StringComparison.Ordinal)
                 : savedSlot.Receipt.Presence == CampaignReceiptPresence.Absent &&
                   string.Equals(achievementBefore, achievementAfter, StringComparison.Ordinal);
             if (!achievementContractAligned)
