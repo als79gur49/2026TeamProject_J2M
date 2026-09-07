@@ -177,6 +177,7 @@ function New-ZeroErrorEvidenceFixture {
         [string]$ExpectedProviderId = "local",
         [string[]]$ExpectedLaunchArguments = @(),
         [string[]]$RequiredArtifacts = @(
+            "Exhibition-Relaunch.ps1",
             "ThirdPartyNotices.txt",
             "UnityPlayerThirdPartyNotices.pdf"
         ),
@@ -347,6 +348,7 @@ function New-CanonicalEvidenceExpectation {
         ExpectedProviderId = "local"
         ExpectedLaunchArguments = @()
         RequiredArtifacts = @(
+            "Exhibition-Relaunch.ps1",
             "ThirdPartyNotices.txt",
             "UnityPlayerThirdPartyNotices.pdf"
         )
@@ -413,7 +415,7 @@ Invoke-Case "DirectWindows distribution expects Local without selector" {
     Assert-Equal "local" $target.ExpectedProviderId
     Assert-Equal 0 (@($target.ExpectedLaunchArguments).Count)
     Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts `
-        @("ThirdPartyNotices.txt", "UnityPlayerThirdPartyNotices.pdf"))
+        @("Exhibition-Relaunch.ps1", "ThirdPartyNotices.txt", "UnityPlayerThirdPartyNotices.pdf"))
     Assert-True (Test-OrdinalArrayEqual $target.ForbiddenArtifacts @(
         "steam_api64.dll",
         "com.rlabrecque.steamworks.net.dll",
@@ -432,6 +434,7 @@ Invoke-Case "SteamWindows distribution expects canonical external selector" {
     Assert-True (Test-OrdinalArrayEqual $target.ExpectedLaunchArguments `
         @("-j2mPlatformProvider", "steam"))
     Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts @(
+        "Exhibition-Relaunch.ps1",
         "ThirdPartyNotices.txt",
         "UnityPlayerThirdPartyNotices.pdf",
         "steam_api64.dll",
@@ -2089,6 +2092,7 @@ try {
         expectedProviderId = "local"
         expectedLaunchArguments = @()
         requiredArtifacts = @(
+            "Exhibition-Relaunch.ps1",
             "ThirdPartyNotices.txt",
             "UnityPlayerThirdPartyNotices.pdf"
         )

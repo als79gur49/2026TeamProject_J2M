@@ -875,6 +875,7 @@ namespace Game.Feature.Stages.Editor.Tests
         private void WriteCanonicalRawFixture(bool includeSteamDependencies)
         {
             WriteFile("VectorQuake.exe", "exe");
+            WriteFile(WindowsDistributionTargetPolicy.ParticipantRestartArtifact, "restart helper");
             WriteFile(
                 WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
                 ValidThirdPartyNotices);

@@ -223,6 +223,7 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ExpectedProviderId = "local"
                 ExpectedLaunchArguments = @()
                 RequiredArtifacts = @(
+                    "Exhibition-Relaunch.ps1",
                     $script:ThirdPartyNoticesFileName,
                     $script:UnityPlayerThirdPartyNoticesFileName
                 )
@@ -244,6 +245,7 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ExpectedProviderId = "steam"
                 ExpectedLaunchArguments = @("-j2mPlatformProvider", "steam")
                 RequiredArtifacts = @(
+                    "Exhibition-Relaunch.ps1",
                     $script:ThirdPartyNoticesFileName,
                     $script:UnityPlayerThirdPartyNoticesFileName,
                     "steam_api64.dll",

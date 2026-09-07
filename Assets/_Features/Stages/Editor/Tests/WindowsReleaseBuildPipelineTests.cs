@@ -181,6 +181,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(direct.RequiredArtifacts,
                 Is.EqualTo(new[]
                 {
+                    WindowsDistributionTargetPolicy.ParticipantRestartArtifact,
                     WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
                     WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
                 }));
@@ -195,6 +196,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(steam.RequiredArtifacts,
                 Is.EqualTo(new[]
                 {
+                    WindowsDistributionTargetPolicy.ParticipantRestartArtifact,
                     WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
                     WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
                     WindowsDistributionTargetPolicy.SteamNativeArtifact,
@@ -244,6 +246,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var valid = new[]
             {
                 "payload/VectorQuake.exe",
+                "payload/Exhibition-Relaunch.ps1",
                 "payload/ThirdPartyNotices.txt",
                 "payload/UnityPlayerThirdPartyNotices.pdf",
                 "payload/steam_api64.dll",
@@ -274,6 +277,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     new[]
                     {
                         "payload/VectorQuake.exe",
+                "payload/Exhibition-Relaunch.ps1",
                         "payload/ThirdPartyNotices.txt",
                         "payload/UnityPlayerThirdPartyNotices.pdf",
                         artifact,
@@ -349,6 +353,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     new[]
                     {
                         "payload/VectorQuake.exe",
+                "payload/Exhibition-Relaunch.ps1",
                         noticePath,
                         "payload/UnityPlayerThirdPartyNotices.pdf",
                     }),
@@ -367,6 +372,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     new[]
                     {
                         "payload/VectorQuake.exe",
+                "payload/Exhibition-Relaunch.ps1",
                         "payload/ThirdPartyNotices.txt",
                         noticePath,
                     }),
