@@ -11,6 +11,8 @@ namespace Game.Platform.Steam.ProductAchievements
             bool steamIdValid,
             bool loggedOn);
 
+        bool IsAttached { get; }
+
         void Tick();
 
         void OnRuntimeFaulted();
@@ -41,6 +43,8 @@ namespace Game.Platform.Steam.ProductAchievements
             _monotonicSeconds = monotonicSeconds ??
                 (() => UnityEngine.Time.realtimeSinceStartupAsDouble);
         }
+
+        public bool IsAttached => _registeredWithProduct && !_publicationStopped;
 
         public void OnSteamInitialized(
             bool initializationSucceeded,

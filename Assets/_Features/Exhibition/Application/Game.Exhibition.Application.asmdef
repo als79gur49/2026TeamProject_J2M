@@ -1,0 +1,7 @@
+{
+  "name": "Game.Exhibition.Application",
+  "rootNamespace": "Game.Exhibition",
+  "references": [],
+  "defineConstraints": [],
+  "noEngineReferences": true
+}

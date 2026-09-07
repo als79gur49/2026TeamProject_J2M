@@ -225,6 +225,7 @@ namespace Game.Product.Achievements.Composition
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetForSubsystemRegistration()
         {
+            ProductAchievementStartupControl.Reset();
             UnregisterQuitHandler();
             _owner?.Dispose();
             _owner = null;
@@ -234,9 +235,15 @@ namespace Game.Product.Achievements.Composition
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InitializeBeforeFirstScene()
         {
+            if (ProductAchievementStartupControl.IsDeferred) return;
+            StartNow();
+        }
+
+        internal static bool StartNow()
+        {
             if (_owner != null)
             {
-                return;
+                return _owner.Initialize();
             }
 
             _owner = new ProductAchievementApplicationLifetimeOwner(
@@ -248,19 +255,21 @@ namespace Game.Product.Achievements.Composition
             RegisterQuitHandler();
             try
             {
-                _owner.Initialize();
+                return _owner.Initialize();
             }
             catch (Exception exception)
             {
                 Debug.LogWarning(
                     $"Product achievement initialization was contained: {exception.Message}");
+                return false;
             }
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void ReconcileCampaignStageAchievementsAfterFirstSceneLoad()
         {
-            if (Application.isBatchMode)
+            if (Application.isBatchMode || ProductAchievementStartupControl.IsDeferred ||
+                ProductAchievementStartupControl.RequiresExplicitReconciliation)
             {
                 return;
             }
@@ -274,6 +283,12 @@ namespace Game.Product.Achievements.Composition
                 Debug.LogWarning(
                     $"Product achievement stage reconciliation was contained: {exception.Message}");
             }
+        }
+
+        internal static CampaignStageAchievementReconciliationResult ReconcileNow()
+        {
+            return _owner?.ReconcileCampaignStageAchievements() ??
+                CampaignStageAchievementReconciliationResult.ProductUnavailable;
         }
 
         private static void RegisterQuitHandler()

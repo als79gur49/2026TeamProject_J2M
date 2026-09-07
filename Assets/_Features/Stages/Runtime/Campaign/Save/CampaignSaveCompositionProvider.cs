@@ -2,6 +2,18 @@ namespace Game.Feature.Stages
 {
     public static class CampaignSaveCompositionProvider
     {
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetProductionSession()
+        {
+            productionComposition = null;
+            productionCompositionOverride = null;
+            productionAccessSuspended = false;
+        }
+
+        private static bool productionAccessSuspended;
+        public static void SuspendProductionAccess() => productionAccessSuspended = true;
+        public static void ReleaseProductionAccess() => productionAccessSuspended = false;
+
         private static ProductionComposition productionComposition;
         private static ProductionComposition productionCompositionOverride;
 
@@ -111,6 +123,8 @@ namespace Game.Feature.Stages
 
         private static ProductionComposition GetOrCreateProductionComposition()
         {
+            if (productionAccessSuspended)
+                throw new System.InvalidOperationException("Participant recovery must finish before opening campaign saves.");
             if (productionCompositionOverride != null)
             {
                 return productionCompositionOverride;

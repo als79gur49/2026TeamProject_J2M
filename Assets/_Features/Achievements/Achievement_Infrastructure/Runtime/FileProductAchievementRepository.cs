@@ -148,6 +148,16 @@ namespace Game.Product.Achievements.Infrastructure
             }
         }
 
+        /// <summary>Destructively replaces the product ledger and its automatic recovery sources.</summary>
+        public void Reset()
+        {
+            if (!(_textStore is IDestructiveAchievementTextStore destructiveStore))
+                throw new NotSupportedException("The achievement text store does not support destructive reset.");
+            destructiveStore.ResetToEmpty(
+                AchievementFileName,
+                JsonUtility.ToJson(ProductAchievementDocument.CreateEmpty()));
+        }
+
         public AchievementDocumentSaveResult Save(ProductAchievementDocument document)
         {
             var validation = ProductAchievementDocumentNormalizer.TryNormalize(

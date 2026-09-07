@@ -11,6 +11,12 @@ namespace Game.Platform.Steam
         private const int MaximumOverlayEnabledSmokeObservations = 300;
 
         private readonly ISteamNativeApi nativeApi;
+        private readonly ISteamAchievementApi achievementApi;
+        private bool maintenanceOwned;
+        private SteamAchievementMaintenanceLease maintenanceLease;
+        private bool maintenanceFailed;
+        private bool publicationStarted;
+        private readonly bool maintenanceSmokeExcluded;
         private readonly bool smokeRequested;
         private readonly Action<string> smokeLogger;
         private readonly SteamAchievementSmokeCoordinator achievementSmokeCoordinator;
@@ -80,6 +86,8 @@ namespace Game.Platform.Steam
             }
 
             nativeApi = dependencies.Lifecycle;
+            achievementApi = dependencies.Achievements;
+            maintenanceSmokeExcluded = achievementSmokeRequested;
             this.smokeRequested = smokeRequested;
             this.smokeLogger = smokeLogger;
             achievementSmokeCoordinator = new SteamAchievementSmokeCoordinator(
@@ -199,11 +207,9 @@ namespace Game.Platform.Steam
                     observedAppId,
                     steamIdentityValid,
                     loggedOn);
-                productAchievementPublicationFeature.OnSteamInitialized(
-                    initializationSucceeded: true,
-                    observedAppId,
-                    steamIdentityValid,
-                    loggedOn);
+                SteamAchievementMaintenanceAccess.Register(this);
+                if (!SteamAchievementMaintenanceAccess.IsDeferred)
+                    StartDeferredPublication(refreshIdentity: false);
                 return initializationResult;
             }
             catch (Exception exception)
@@ -244,6 +250,43 @@ namespace Game.Platform.Steam
             }
         }
 
+        internal bool MaintenanceAvailable =>
+            state == SteamPlatformRuntimeState.Available && nativeInitialized && !shutdownAttempted;
+
+        internal SteamAchievementMaintenanceLease AcquireMaintenance(
+            Action<SteamStatsStoredObservation> stats,
+            Action<SteamAchievementStoredObservation> achievements)
+        {
+            if (!MaintenanceAvailable || publicationStarted || maintenanceOwned || maintenanceFailed ||
+                achievementApi == null || maintenanceSmokeExcluded)
+                throw new InvalidOperationException("Steam achievement maintenance is unavailable.");
+            achievementApi.RegisterAchievementStoreCallbacks(stats, achievements);
+            maintenanceOwned = true;
+            maintenanceLease = new SteamAchievementMaintenanceLease(achievementApi, failed =>
+            {
+                try { achievementApi.DisposeAchievementStoreCallbacks(); }
+                catch { maintenanceFailed = true; throw; }
+                finally { maintenanceOwned = false; maintenanceFailed |= failed; maintenanceLease = null; }
+            });
+            return maintenanceLease;
+        }
+
+        internal bool StartDeferredPublication(bool refreshIdentity = true)
+        {
+            if (!MaintenanceAvailable || maintenanceOwned || maintenanceFailed) return false;
+            if (!publicationStarted)
+            {
+                publicationStarted = true;
+                productAchievementPublicationFeature.OnSteamInitialized(true,
+                    observedAppId,
+                    refreshIdentity ? nativeApi.IsSteamIdValid() : steamIdentityValid,
+                    refreshIdentity ? nativeApi.IsLoggedOn() : loggedOn);
+            }
+            return productAchievementPublicationFeature.IsAttached;
+        }
+
+        internal void StopPublication() => productAchievementPublicationFeature.OnRuntimeFaulted();
+
         public void Shutdown()
         {
             if (shutdownAttempted)
@@ -251,8 +294,14 @@ namespace Game.Platform.Steam
                 return;
             }
 
+            SteamAchievementMaintenanceAccess.Unregister(this);
             shutdownAttempted = true;
             state = SteamPlatformRuntimeState.ShuttingDown;
+            try { maintenanceLease?.Dispose(); }
+            catch (Exception exception)
+            {
+                SetFailure(SteamPlatformFailureReason.ShutdownException, FormatException(exception), exception);
+            }
             productAchievementPublicationFeature.DisposeBeforeNativeShutdown();
             achievementSmokeCoordinator.Shutdown();
             if (!nativeInitialized)
