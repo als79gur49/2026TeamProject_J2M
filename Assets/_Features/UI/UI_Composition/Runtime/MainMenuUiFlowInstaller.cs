@@ -63,6 +63,10 @@ namespace Game.Feature.UI.Composition
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
+        private bool _shellInstalled;
+        private bool _destroyed;
+        private PopupInstanceId? _participantStatusPopup;
+        public IParticipantResetPort ParticipantResetPort { get; set; }
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private ILocalizedTextResolver _localizedTextResolver;
         private UiNavigationInputRouter _navigationInputRouter;
@@ -292,7 +296,7 @@ namespace Game.Feature.UI.Composition
 
         public void Install()
         {
-            if (_isInstalled)
+            if (_shellInstalled)
             {
                 return;
             }
@@ -334,18 +338,100 @@ namespace Game.Feature.UI.Composition
             BuildPopupModule();
             BuildSettingsModule();
             BuildAudioFeedbackModule();
+            EnsureNavigationInputRouter();
+            _mainMenuScreenView.ShowSection(MainMenuSectionId.None);
+            _mainMenuScreenView.SetVisible(true);
+            _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
+            _shellInstalled = true;
+            ParticipantResetPort ??= ParticipantResetMenuAccess.Current;
+            if (ParticipantResetPort != null)
+                ParticipantResetPort.Changed += RefreshParticipantState;
+            if (ParticipantResetPort?.BlocksMenu == true)
+                PrepareParticipantMenu();
+            else
+                CompleteMenuInstall();
+        }
+
+        private async void PrepareParticipantMenu()
+        {
+            RefreshParticipantState();
+            await ParticipantResetPort.PrepareMenuAsync();
+            if (_destroyed) return;
+            if (!ParticipantResetPort.BlocksMenu)
+            {
+                try { CompleteMenuInstall(); }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                    ParticipantResetPort.FailMenuInitialization(exception.Message);
+                }
+            }
+            else RefreshParticipantState();
+        }
+
+        private void CompleteMenuInstall()
+        {
+            if (_isInstalled || _destroyed || ParticipantResetPort?.BlocksMenu == true) return;
             BuildSaveSlotModule();
             BuildHubModule();
             BuildCameraPresentationModule();
-            EnsureNavigationInputRouter();
-            _mainMenuScreenView.SetVisible(true);
-            _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
             _isInstalled = true;
+            ParticipantResetPort?.CompleteMenuInitialization();
             RegisterMainMenuEntryDestinationIfApplicable();
             if (MainMenuEntryPresentationRegistry.IsActive)
-            {
                 SetGameplayEntryInteractionBlocked(true);
-            }
+            RefreshParticipantState();
+        }
+
+        private void RefreshParticipantState()
+        {
+            if (_destroyed) return;
+            _mainMenuScreenView.SetLaunchInteractionBlocked(IsGameplayEntryInteractionBlocked ||
+                !_isInstalled || ParticipantResetPort?.BlocksMenu == true);
+            _mainMenuScreenView.SetParticipantResetAvailable(ParticipantResetPort?.CanRequest == true);
+            if (ParticipantResetPort == null) return;
+            if (ParticipantResetPort.BlocksMenu || !string.IsNullOrEmpty(ParticipantResetPort.Error))
+                ShowParticipantStatus(ParticipantResetPort.Error, ParticipantResetPort.BlocksMenu,
+                    ParticipantResetPort.IsBusy);
+            else CloseParticipantStatus();
+        }
+
+        private void CloseParticipantStatus()
+        {
+            if (!_participantStatusPopup.HasValue) return;
+            var id = _participantStatusPopup.Value;
+            _participantStatusPopup = null;
+            PopupController.Close(id, PopupCloseReason.Programmatic, PopupCompletionKind.Cancelled);
+        }
+
+        private void ShowParticipantStatus(string error, bool blocked, bool busy)
+        {
+            CloseParticipantStatus();
+            var title = MainMenuLocalization.Resolve(_localizedTextResolver,
+                MainMenuLocalizationEntryId.ParticipantResetTitle);
+            var body = string.IsNullOrEmpty(error)
+                ? MainMenuLocalization.Resolve(_localizedTextResolver, MainMenuLocalizationEntryId.ParticipantResetBusy)
+                : error;
+            var restart = MainMenuLocalization.Resolve(_localizedTextResolver,
+                MainMenuLocalizationEntryId.ParticipantResetRestart);
+            var close = MainMenuLocalization.Resolve(_localizedTextResolver, blocked
+                ? MainMenuLocalizationEntryId.QuitConfirm : MainMenuLocalizationEntryId.ParticipantResetClose);
+            var payload = new ConfirmPopupPayload(title, body, restart, close, false)
+            {
+                ConsumeBack = blocked,
+                ConfirmEnabled = blocked && !busy && !string.IsNullOrEmpty(error),
+                CancelEnabled = !busy,
+            };
+            PopupController.Push(new PopupRequest(PopupId.Confirm, payload, completion =>
+            {
+                if (completion.CloseReason != PopupCloseReason.UserAction) return;
+                _participantStatusPopup = null;
+                if (!blocked) return;
+                if (completion.CompletionKind == PopupCompletionKind.Confirmed)
+                    ParticipantResetPort?.Restart();
+                else new UnityApplicationQuitPort().Quit();
+            }), out var popupId);
+            _participantStatusPopup = popupId;
         }
 
         public bool TryHandleBackRequested()
@@ -478,7 +564,8 @@ namespace Game.Feature.UI.Composition
             var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             var saveRecoveryPort = CampaignSaveCompositionProvider.GetProductionRecoveryPort();
             var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore);
-            ImportStandaloneCampaignSaveSeed(saveSlotStore, activeSlotProvider, sequenceResolver);
+            if (ParticipantResetPort?.SuppressSaveSeedImport != true)
+                ImportStandaloneCampaignSaveSeed(saveSlotStore, activeSlotProvider, sequenceResolver);
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
             var slotLaunchEvaluator = new CampaignSlotLaunchEvaluator(
                 sequenceResolver,
@@ -541,7 +628,8 @@ namespace Game.Feature.UI.Composition
                 _settingsPort ?? NoOpMainMenuSettingsPort.Instance,
                 new UnityApplicationQuitPort(),
                 _confirmPopupPort,
-                _mainMenuScreenView.ShowSection);
+                _mainMenuScreenView.ShowSection, ParticipantResetPort,
+                () => IsGameplayEntryInteractionBlocked || MainMenuEntryPresentationRegistry.IsActive);
 
             _mainMenuScreenView.CommandRequested += HubController.HandleCommand;
             _mainMenuScreenView.NavigationRequested += HubController.HandleNavigation;
@@ -607,6 +695,12 @@ namespace Game.Feature.UI.Composition
 
         private void OnDestroy()
         {
+            _destroyed = true;
+            if (ParticipantResetPort != null)
+            {
+                ParticipantResetPort.Changed -= RefreshParticipantState;
+                ParticipantResetPort.LeaveMenu();
+            }
             _gameplayEntrySourcePlayback?.Dispose();
             _gameplayEntrySourcePlayback = null;
             ReportMainMenuEntryFailureIfOwned(
@@ -1020,7 +1114,8 @@ namespace Game.Feature.UI.Composition
         private void SetGameplayEntryInteractionBlocked(bool blocked)
         {
             IsGameplayEntryInteractionBlocked = blocked;
-            _mainMenuScreenView?.SetLaunchInteractionBlocked(blocked);
+            _mainMenuScreenView?.SetLaunchInteractionBlocked(blocked ||
+                (_shellInstalled && !_isInstalled) || ParticipantResetPort?.BlocksMenu == true);
             if (blocked)
             {
                 _navigationInputRouter?.ClearNavigationFocus();

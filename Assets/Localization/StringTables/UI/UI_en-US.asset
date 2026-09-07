@@ -19,6 +19,38 @@ MonoBehaviour:
     m_Items:
     - rid: 5336917459874873344
   m_TableData:
+  - m_Id: 790000000000
+    m_Localized: "Prepare Next Participant"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000001
+    m_Localized: "Reset every slot, active progress and achievement ledger at the current save location, and the target achievements of the current Steam account, then restart?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000002
+    m_Localized: "Settings are preserved. Progress cannot be recovered."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000003
+    m_Localized: "Reset and Restart"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000004
+    m_Localized: "Prepare Next Participant\n(Steam required)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000005
+    m_Localized: "Preparing the next participant. Please wait."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000006
+    m_Localized: "Restart"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000007
+    m_Localized: "Close"
+    m_Metadata:
+      m_Items: []
   - m_Id: 1818714112
     m_Localized: Settings
     m_Metadata:

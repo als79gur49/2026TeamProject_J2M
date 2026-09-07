@@ -108,7 +108,7 @@ assert_equal \
     "$(sha256sum "$SCENARIO_ASSET" | awk '{print $1}')" \
     "serialization-stable final hash"
 assert_contains \
-    "Imported=d8c3627e6092754441da7b34a59a70efc31b4ec2c77b4e8a941bdf7a8d06d2b6" \
+    "Imported=$KBO_MEDIUM_COMMITTED_SDF_SHA256" \
     "$SCENARIO_EVIDENCE" \
     "serialization-stable imported hash"
 assert_contains "Classification=NO_MUTATION" "$SCENARIO_EVIDENCE" "serialization-stable classification"

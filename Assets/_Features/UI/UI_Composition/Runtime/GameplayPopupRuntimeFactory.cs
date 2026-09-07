@@ -374,6 +374,7 @@ namespace Game.Feature.UI.Composition
 
             var view = InstantiatePopupPrefab(_popupPrefabCatalog.ConfirmPrefab, PopupId.Confirm);
             view.Bind(presenter.ViewModel);
+            view.ConfigureActions(payload.ConfirmEnabled, payload.CancelEnabled, payload.ConsumeBack);
             var typographyBindings = ConfirmPopupProductionLocalizationComposer.Bind(
                 view,
                 _localizedTextResolver,
@@ -384,7 +385,7 @@ namespace Game.Feature.UI.Composition
                 new PopupPolicy(
                     PopupPolicyClass.ModalBlocking,
                     PopupLifetimeScope.CurrentScreen,
-                    PopupBackAction.Cancel,
+                    payload.ConsumeBack ? PopupBackAction.Consume : PopupBackAction.Cancel,
                     PopupBackdropMode.Consume,
                     showsDim: true,
                     blocksLowerLayers: true),

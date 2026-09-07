@@ -874,7 +874,7 @@ namespace Game.Feature.UI.Tests
             var group = GetPrivateField<UiSelectableButtonGroup>(prefab, "_commandNavigationGroup");
 
             Assert.That(group, Is.Not.Null);
-            Assert.That(group.SlotCount, Is.EqualTo(3));
+            Assert.That(group.SlotCount, Is.EqualTo(4));
             for (var i = 0; i < group.SlotCount; i++)
             {
                 var slot = group.GetSlot(i);

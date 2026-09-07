@@ -50,6 +50,14 @@ namespace Game.Feature.UI.ViewShared
         SaveRecoveryResetBody,
         SaveRecoveryResetWarning,
         SaveRecoveryResetConfirm,
+        ParticipantResetTitle,
+        ParticipantResetBody,
+        ParticipantResetWarning,
+        ParticipantResetConfirm,
+        ParticipantResetUnavailable,
+        ParticipantResetBusy,
+        ParticipantResetRestart,
+        ParticipantResetClose,
     }
 
     public readonly struct MainMenuLocalizationContractEntry
@@ -95,6 +103,15 @@ namespace Game.Feature.UI.ViewShared
 
         public static class Keys
         {
+            public const string ParticipantResetTitle = "ui.main_menu.participant_reset.title";
+            public const string ParticipantResetBody = "ui.main_menu.participant_reset.body";
+            public const string ParticipantResetWarning = "ui.main_menu.participant_reset.warning";
+            public const string ParticipantResetConfirm = "ui.main_menu.participant_reset.confirm";
+            public const string ParticipantResetUnavailable = "ui.main_menu.participant_reset.unavailable";
+            public const string ParticipantResetBusy = "ui.main_menu.participant_reset.busy";
+            public const string ParticipantResetRestart = "ui.main_menu.participant_reset.restart";
+            public const string ParticipantResetClose = "ui.main_menu.participant_reset.close";
+
             public const string SlotLabel = "ui.main_menu.slot.label";
             public const string SlotEmpty = "ui.main_menu.slot.empty";
             public const string SlotNewGame = "ui.main_menu.slot.new_game";
@@ -191,6 +208,14 @@ namespace Game.Feature.UI.ViewShared
                 Entry(MainMenuLocalizationEntryId.SaveRecoveryResetBody, Keys.SaveRecoveryResetBody, "Delete the incompatible save data and every save slot, then start over?", "호환되지 않는 저장 데이터와 모든 저장 슬롯을 삭제하고 새로 시작할까요?", LocalizedTextRole.Body),
                 Entry(MainMenuLocalizationEntryId.SaveRecoveryResetWarning, Keys.SaveRecoveryResetWarning, "All progress will be deleted.", "모든 진행 상황이 삭제됩니다.", LocalizedTextRole.Body),
                 Entry(MainMenuLocalizationEntryId.SaveRecoveryResetConfirm, Keys.SaveRecoveryResetConfirm, "Delete All", "모두 삭제", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.ParticipantResetTitle, Keys.ParticipantResetTitle, "Prepare Next Participant", "다음 참가자 준비", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.ParticipantResetBody, Keys.ParticipantResetBody, "Reset every slot, active progress and achievement ledger at the current save location, and the target achievements of the current Steam account, then restart?", "현재 저장 경로의 모든 슬롯·활성 진행·업적 장부와 현재 Steam 계정의 대상 업적을 초기화하고 재시작할까요?", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.ParticipantResetWarning, Keys.ParticipantResetWarning, "Settings are preserved. Progress cannot be recovered.", "설정은 보존합니다. 삭제한 진행은 복구할 수 없습니다.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.ParticipantResetConfirm, Keys.ParticipantResetConfirm, "Reset and Restart", "초기화 후 재시작", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.ParticipantResetUnavailable, Keys.ParticipantResetUnavailable, "Prepare Next Participant\n(Steam required)", "다음 참가자 준비\n(Steam 연결 필요)", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.ParticipantResetBusy, Keys.ParticipantResetBusy, "Preparing the next participant. Please wait.", "다음 참가자를 준비하고 있습니다. 잠시 기다려 주세요.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.ParticipantResetRestart, Keys.ParticipantResetRestart, "Restart", "다시 실행", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.ParticipantResetClose, Keys.ParticipantResetClose, "Close", "닫기", LocalizedTextRole.Button),
             });
 
         public static IReadOnlyList<MainMenuLocalizationContractEntry> Entries => ContractEntries;

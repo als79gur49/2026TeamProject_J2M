@@ -15,6 +15,38 @@ MonoBehaviour:
   m_TableCollectionName: UI
   m_TableCollectionNameGuidString: 1139bb803b655c2488dd6dca46c97cf5
   m_Entries:
+  - m_Id: 790000000000
+    m_Key: ui.main_menu.participant_reset.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000001
+    m_Key: ui.main_menu.participant_reset.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000002
+    m_Key: ui.main_menu.participant_reset.warning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000003
+    m_Key: ui.main_menu.participant_reset.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000004
+    m_Key: ui.main_menu.participant_reset.unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000005
+    m_Key: ui.main_menu.participant_reset.busy
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000006
+    m_Key: ui.main_menu.participant_reset.restart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000007
+    m_Key: ui.main_menu.participant_reset.close
+    m_Metadata:
+      m_Items: []
   - m_Id: 1818714112
     m_Key: ui.settings.title
     m_Metadata:

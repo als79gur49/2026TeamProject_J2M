@@ -54,7 +54,7 @@ namespace Game.Feature.UI.Tests
                 KboMediumFontGuid,
                 KboMediumMaterialLocalId,
                 KboMediumAtlasLocalId,
-                296,
+                306,
                 "Medium");
             AssertKboAssetContract(
                 LoadKboLightFont(),
@@ -63,7 +63,7 @@ namespace Game.Feature.UI.Tests
                 KboLightFontGuid,
                 KboLightMaterialLocalId,
                 KboLightAtlasLocalId,
-                314,
+                324,
                 "Light");
         }
 
@@ -217,8 +217,8 @@ namespace Game.Feature.UI.Tests
                 tablePaths,
                 Is.EquivalentTo(new[] { StageKoreanStringTablePath, UiKoreanStringTablePath }),
                 "Every managed ko-KR table must participate in native KBO glyph validation.");
-            Assert.That(values, Has.Length.EqualTo(131));
-            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(118));
+            Assert.That(values, Has.Length.EqualTo(139));
+            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(126));
             Assert.That(values, Does.Contain("밀기 키를 누르세요…"));
             Assert.That(values, Does.Contain("뒤집기 키를 누르세요…"));
             Assert.That(values, Does.Contain("남은 목숨: {0}"));
@@ -227,7 +227,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(values, Does.Contain("로비-01"));
             Assert.That(values, Does.Contain("A병동-01"));
             Assert.That(values, Does.Contain("영안실-01"));
-            Assert.That(codepoints, Has.Length.EqualTo(192));
+            Assert.That(codepoints, Has.Length.EqualTo(205));
             foreach (var fontAsset in fontAssets)
             {
                 var missing = codepoints
