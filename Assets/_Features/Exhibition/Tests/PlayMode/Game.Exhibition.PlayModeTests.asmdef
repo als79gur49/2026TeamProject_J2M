@@ -1,0 +1,19 @@
+{
+  "name": "Game.Exhibition.PlayModeTests",
+  "rootNamespace": "Game.Exhibition.Tests.PlayMode",
+  "references": [
+    "Game.Exhibition.Integration",
+    "Unity.ugui",
+    "Unity.InputSystem",
+    "Game.Feature.UI.Application",
+    "Game.Feature.UI.Composition",
+    "Game.Feature.UI.Popups",
+    "Game.Feature.UI.Flow",
+    "Game.Feature.Stages",
+    "Unity.TextMeshPro"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": []
+}

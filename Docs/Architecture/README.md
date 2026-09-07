@@ -24,6 +24,8 @@
 
 - [Platform-Runtime-Foundation.md](./Platform-Runtime-Foundation.md)
   - current store-neutral provider request, resolution, Local default, and application lifecycle contract
+- [Exhibition-Participant-Reset-Implementation-Plan.md](./Exhibition-Participant-Reset-Implementation-Plan.md)
+  - 전시 참가자 초기화의 단순화 계약, 구현 연결, 전용 빌드 및 제거 방법
 - [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
   - product-global achievement IDs, earned ledger, pending publication outbox, atomic persistence, and store-neutral publication boundary
 - [Docs/Testing/Platform-Provider-Selection-Validation.md](../Testing/Platform-Provider-Selection-Validation.md)
@@ -252,6 +254,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
   - current supporting truth for committed LocalState active ownership and active commit point, application-session pending handoff, scene-local running context, matching-token failure policy, restart reset, and DirectPlay exception
 - [Campaign-Stage-Sequence-Authority.md](./Campaign-Stage-Sequence-Authority.md)
   - active Phase 3 contract for physical sequence SSOT, catalog eligibility coverage, CI/prebuild validation, and save compatibility ownership
+- [Exhibition-Participant-Reset-Implementation-Plan.md](./Exhibition-Participant-Reset-Implementation-Plan.md)
+  - 전시 참가자 초기화의 단순화 계약, 구현 연결, 전용 빌드 및 제거 방법
 - [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
   - current supporting truth for product-global achievement identity/ledger ownership, durable normal Campaign completion receipt provenance, canonical Saves-root composition, and deferred Gameplay/Steam integration boundaries
 
@@ -279,3 +283,6 @@ historical/non-canonical 문서는 더 이상 이 디렉터리의 active truth-s
 
 - archive index: [Docs/Archive/README.md](../Archive/README.md)
 - archived architecture docs: [Docs/Archive/Architecture](../Archive/Architecture)
+
+- [참가자 초기화 일반 빌드 통합](Participant-Reset-General-Build-Plan.md): 일반 MainMenu·Pending 복구·Windows/Editor 재시작 계약.
+  [구현 검증](../Testing/Participant-Reset-General-Build-Validation.md).

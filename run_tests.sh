@@ -3371,6 +3371,9 @@ run_unity_stage_unguarded() {
     if [ -n "$TEST_FILTER" ]; then
         unity_command+=(-codexTestFilter "$TEST_FILTER")
     fi
+    if [ "${UNITY_EDITMODE_ASYNC:-0}" = "1" ]; then
+        unity_command+=(-codexAsyncEditMode)
+    fi
     if [ -n "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" ]; then
         unity_command+=(
             -terminalIrisQualityOutput "$(wslpath -w "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR")"
