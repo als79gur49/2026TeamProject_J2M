@@ -21,7 +21,8 @@ namespace Game.Platform.Steam
             int shutdownCallCount,
             SteamPlatformFailureReason lastFailureReason,
             string lastExceptionType,
-            SteamDllCheckObservation dllCheckObservation)
+            SteamDllCheckObservation dllCheckObservation,
+            bool shutdownReturned = false)
         {
             State = state;
             InitializationAttempted = initializationAttempted;
@@ -39,6 +40,7 @@ namespace Game.Platform.Steam
             CallbackPumpCount = callbackPumpCount;
             CallbackAttemptCount = callbackAttemptCount;
             ShutdownCallCount = shutdownCallCount;
+            ShutdownReturned = shutdownReturned;
             LastFailureReason = lastFailureReason;
             LastExceptionType = lastExceptionType ?? string.Empty;
             DllCheckObservation = dllCheckObservation;
@@ -77,6 +79,8 @@ namespace Game.Platform.Steam
         public int CallbackAttemptCount { get; }
 
         public int ShutdownCallCount { get; }
+
+        public bool ShutdownReturned { get; }
 
         public SteamPlatformFailureReason LastFailureReason { get; }
 

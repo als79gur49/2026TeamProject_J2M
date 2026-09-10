@@ -65,7 +65,9 @@ namespace Game.Exhibition
 
         }
 
-        public void RequestReset()
+        public void RequestReset() => RequestReset(null);
+
+        public void RequestReset(Action beforeWrite)
         {
             Enter();
             try
@@ -80,6 +82,7 @@ namespace Game.Exhibition
                     if (existing.State == ResetRecord.Pending)
                         throw new InvalidOperationException("A participant reset is already pending. Restart to resume it.");
                 }
+                beforeWrite?.Invoke();
                 SaveCommitted(new ResetRecord
                 {
                     OperationId = Guid.NewGuid().ToString("N"),
@@ -92,7 +95,9 @@ namespace Game.Exhibition
             finally { Volatile.Write(ref _busy, 0); }
         }
 
-        public async Task<bool> ResumeAsync()
+        public Task<bool> ResumeAsync() => ResumeAsync(null);
+
+        public async Task<bool> ResumeAsync(Action guard)
         {
             Enter();
             try
@@ -105,9 +110,12 @@ namespace Game.Exhibition
                 ValidateRecord(record);
                 if (record.State == ResetRecord.Ready) return true;
                 ValidatePending(record);
+                guard?.Invoke();
                 await _steam.ResetAsync(new ResetIdentity(record.AppId, record.SteamId));
+                guard?.Invoke();
                 ValidatePending(record);
                 _progress.Reset();
+                guard?.Invoke();
                 ValidatePending(record);
                 var ready = record.Copy();
                 ready.State = ResetRecord.Ready;

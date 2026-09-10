@@ -11,6 +11,12 @@ namespace Game.Exhibition.Integration
     {
         private static int sessionGeneration;
         private readonly int ownerGeneration = sessionGeneration;
+        private readonly IParticipantResetDiagnostics diagnostics;
+
+        public SteamExhibitionResetAdapter(IParticipantResetDiagnostics diagnostics = null)
+        {
+            this.diagnostics = diagnostics;
+        }
 
         [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetSessionGeneration() { unchecked { sessionGeneration++; } }
@@ -19,7 +25,7 @@ namespace Game.Exhibition.Integration
         {
             if (ownerGeneration != sessionGeneration)
                 throw new InvalidOperationException("The reset belongs to a previous Play session. Restart to resume Pending.");
-            if (!SteamAchievementMaintenanceAccess.IsAvailable || !SteamUser.BLoggedOn())
+            if (!SteamAchievementMaintenanceAccess.IsAvailable || !SteamUser.BLoggedOn() || !SteamUser.GetSteamID().IsValid())
                 throw new InvalidOperationException("Steam 연결과 현재 계정 로그인을 확인해 주세요.");
             var identity = new ResetIdentity(SteamUtils.GetAppID().m_AppId, SteamUser.GetSteamID().m_SteamID);
             return identity;
@@ -27,6 +33,7 @@ namespace Game.Exhibition.Integration
 
         public async Task ResetAsync(ResetIdentity expected)
         {
+            SteamOverlayObservationAccess.RequireWritesAllowed();
             void ValidateIdentity()
             {
                 var actual = GetIdentity();
@@ -43,9 +50,9 @@ namespace Game.Exhibition.Integration
                 var names = new System.Collections.Generic.List<string>();
                 foreach (var entry in entries) names.Add(entry.ExpectedSteamApiName.Value);
                 protocol = new SteamExhibitionResetProtocol(
-                    lease.Api, SteamUserStats.ClearAchievement, ValidateIdentity,
+                    lease.Api, name => { SteamOverlayObservationAccess.RequireWritesAllowed(); return SteamUserStats.ClearAchievement(name); }, ValidateIdentity,
                     names.ToArray(), expected.AppId, lease.MarkFailed, lease.Dispose,
-                    TimeSpan.FromSeconds(30));
+                    TimeSpan.FromSeconds(30), diagnostics);
             }
             catch
             {

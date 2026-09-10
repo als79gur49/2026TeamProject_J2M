@@ -18,13 +18,14 @@ namespace Game.Exhibition.Integration
         private readonly Action _markFailed;
         private readonly Action _release;
         private readonly TimeSpan _timeout;
+        private readonly IParticipantResetDiagnostics _diagnostics;
         private readonly TaskCompletionSource<SteamCallbackResult> _completion = new TaskCompletionSource<SteamCallbackResult>();
         private int _started;
         private bool _awaitingStore;
 
         public SteamExhibitionResetProtocol(ISteamAchievementApi api, Func<string, bool> clear,
             Action validateIdentity, string[] names, uint appId, Action markFailed,
-            Action release, TimeSpan timeout)
+            Action release, TimeSpan timeout, IParticipantResetDiagnostics diagnostics = null)
         {
             _api = api ?? throw new ArgumentNullException(nameof(api));
             _clear = clear ?? throw new ArgumentNullException(nameof(clear));
@@ -36,6 +37,7 @@ namespace Game.Exhibition.Integration
             _release = release ?? throw new ArgumentNullException(nameof(release));
             if (timeout < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
             _timeout = timeout;
+            _diagnostics = diagnostics;
         }
 
         public void ObserveStatsStored(SteamStatsStoredObservation observation)
@@ -82,6 +84,7 @@ namespace Game.Exhibition.Integration
                 foreach (var name in _names)
                     if (!_api.GetAchievement(name, out var achieved) || achieved)
                         throw new InvalidOperationException("Steam 업적 초기화 확인에 실패했습니다.");
+                ParticipantResetDiagnosticBoundary.Verified(_diagnostics, _names, SteamCallbackResult.Ok);
             }
             catch
             {

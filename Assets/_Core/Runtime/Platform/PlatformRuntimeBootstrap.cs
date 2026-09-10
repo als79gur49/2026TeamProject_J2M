@@ -20,6 +20,7 @@ namespace Game.Platform.Runtime
         private static void ResetSubsystemState()
         {
             PlatformRuntimeRegistry.ResetForSubsystemRegistration();
+            PlatformStartupDeferral.Reset();
             PlatformProviderSelection.ResetFromArguments(Environment.GetCommandLineArgs());
             PlatformRuntimeApplicationHost.ResetStaticOwnerForSubsystemRegistration();
             bootstrapInProgress = false;
@@ -31,6 +32,13 @@ namespace Game.Platform.Runtime
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void RunAutomaticBootstrap()
         {
+            if (PlatformStartupDeferral.IsDeferred)
+            {
+                PlatformRuntimeRegistry.Seal();
+                PlatformStartupDeferral.RegistrationFinished();
+                return;
+            }
+            PlatformStartupDeferral.RegistrationFinished();
             BootstrapNow();
         }
 
@@ -120,8 +128,11 @@ namespace Game.Platform.Runtime
             PlatformProviderSelection.ResetFromArguments(arguments);
         }
 
-        private static PlatformRuntimeApplicationHost BootstrapNow()
+        internal static PlatformRuntimeApplicationHost ReleaseDeferredStartup() => BootstrapNow(true);
+
+        private static PlatformRuntimeApplicationHost BootstrapNow(bool releaseDeferred = false)
         {
+            if (PlatformStartupDeferral.IsDeferred && !releaseDeferred) return null;
             if (AutomaticBootstrapSuppressedForTests)
             {
                 return null;

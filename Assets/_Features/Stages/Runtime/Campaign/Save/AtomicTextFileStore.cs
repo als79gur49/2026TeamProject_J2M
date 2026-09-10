@@ -86,11 +86,13 @@ namespace Game.Feature.Stages
 
         public bool Delete(string fileName)
         {
+            CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             return DeleteFileBestEffort(GetPath(fileName));
         }
 
         internal void DeleteActiveFileArtifacts(string fileName)
         {
+            CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             var activeFileNames = new[]
             {
                 fileName,
@@ -127,11 +129,13 @@ namespace Game.Feature.Stages
 
         public void EnsureDirectory()
         {
+            CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             Directory.CreateDirectory(_rootDirectory);
         }
 
         public bool TryRestoreBackup(string fileName)
         {
+            CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             var backupPath = GetBackupPath(fileName);
             if (!File.Exists(backupPath))
             {
@@ -151,6 +155,7 @@ namespace Game.Feature.Stages
 
         public bool TryQuarantine(string fileName, string suffix, out string quarantinePath)
         {
+            CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             quarantinePath = string.Empty;
             if (string.IsNullOrWhiteSpace(suffix) ||
                 suffix.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
@@ -182,12 +187,14 @@ namespace Game.Feature.Stages
 
         public void CleanupTempFiles(string fileName)
         {
+            CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             RecoverInterruptedWrite(fileName);
             CleanupWriteTempFilesBestEffort(fileName);
         }
 
         public void RecoverInterruptedWrite(string fileName)
         {
+            CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             var rollbackPath = GetRollbackPath(fileName);
             if (!File.Exists(rollbackPath))
             {

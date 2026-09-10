@@ -8,10 +8,17 @@ namespace Game.Platform.Steam
     {
         private static SteamPlatformRuntime runtime;
         public static bool IsDeferred { get; private set; }
+        public static bool ResetTrial { get; private set; }
+        public static void InhibitForResetTrial()
+        {
+            ResetTrial = true;
+            IsDeferred = true;
+            runtime?.StopPublication();
+        }
         public static bool IsAvailable => runtime != null && runtime.MaintenanceAvailable;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Reset() { runtime = null; IsDeferred = false; }
+        private static void Reset() { runtime = null; IsDeferred = false; ResetTrial = false; }
 
         public static void DeferAutomaticPublication()
         {

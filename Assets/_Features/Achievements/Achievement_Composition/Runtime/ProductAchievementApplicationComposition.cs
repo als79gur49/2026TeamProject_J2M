@@ -220,6 +220,7 @@ namespace Game.Product.Achievements.Composition
     internal static class ProductAchievementRuntimeBootstrap
     {
         private static ProductAchievementApplicationLifetimeOwner _owner;
+        internal static bool HasStarted => _owner != null;
         private static bool _quitHandlerRegistered;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -235,12 +236,20 @@ namespace Game.Product.Achievements.Composition
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InitializeBeforeFirstScene()
         {
-            if (ProductAchievementStartupControl.IsDeferred) return;
-            StartNow();
+            RunAutomaticStart(() => StartNow());
         }
+
+        internal static void RunAutomaticStart(Action start)
+        {
+            if (ProductAchievementStartupControl.IsDeferred) return;
+            start();
+        }
+
+        internal static void StopForObservation() => _owner?.Dispose();
 
         internal static bool StartNow()
         {
+            if (ProductAchievementStartupControl.ServicesInhibited) return false;
             if (_owner != null)
             {
                 return _owner.Initialize();
@@ -268,7 +277,12 @@ namespace Game.Product.Achievements.Composition
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void ReconcileCampaignStageAchievementsAfterFirstSceneLoad()
         {
-            if (Application.isBatchMode || ProductAchievementStartupControl.IsDeferred ||
+            RunAutomaticReconciliation(Application.isBatchMode, () => _owner?.ReconcileCampaignStageAchievements());
+        }
+
+        internal static void RunAutomaticReconciliation(bool batchMode, Action reconcile)
+        {
+            if (batchMode || ProductAchievementStartupControl.IsDeferred ||
                 ProductAchievementStartupControl.RequiresExplicitReconciliation)
             {
                 return;
@@ -276,7 +290,7 @@ namespace Game.Product.Achievements.Composition
 
             try
             {
-                _owner?.ReconcileCampaignStageAchievements();
+                reconcile();
             }
             catch (Exception exception)
             {

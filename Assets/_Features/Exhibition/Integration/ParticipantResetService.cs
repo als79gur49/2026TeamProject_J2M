@@ -13,6 +13,10 @@ namespace Game.Exhibition.Integration
         private readonly Action stopPublication;
         private readonly Action startServices;
         private readonly Action reconcile;
+        private readonly IParticipantResetDiagnostics diagnostics;
+        private readonly IParticipantRestart completedResetRestart;
+        private readonly ICompletedParticipantResetReturn completedResetReturn;
+        private readonly Action startRuntime;
         private bool deferred;
         private bool menuReady;
         private bool prepareAttempted;
@@ -26,7 +30,9 @@ namespace Game.Exhibition.Integration
 
         public ParticipantResetService(ExhibitionResetCoordinator coordinator, IParticipantRestart restart,
             Func<bool> steamAvailable, Action stopPublication, Action startServices, Action reconcile,
-            ResetRecord initialRecord, Exception startupFailure = null)
+            ResetRecord initialRecord, Exception startupFailure = null, IParticipantResetDiagnostics diagnostics = null,
+            IParticipantRestart completedResetRestart = null, ICompletedParticipantResetReturn completedResetReturn = null,
+            Action startRuntime = null)
         {
             this.coordinator = coordinator;
             this.restart = restart;
@@ -34,8 +40,12 @@ namespace Game.Exhibition.Integration
             this.stopPublication = stopPublication;
             this.startServices = startServices;
             this.reconcile = reconcile;
+            this.diagnostics = diagnostics;
+            this.completedResetRestart = completedResetRestart;
+            this.completedResetReturn = completedResetReturn;
+            this.startRuntime = startRuntime;
             deferred = initialRecord?.State == ResetRecord.Pending;
-            BlocksMenu = deferred || startupFailure != null;
+            BlocksMenu = deferred || completedResetReturn != null || startupFailure != null;
             SuppressSaveSeedImport = initialRecord != null;
             Error = startupFailure?.Message;
         }
@@ -44,12 +54,29 @@ namespace Game.Exhibition.Integration
         {
             if (prepareAttempted) return;
             prepareAttempted = true;
-            if (!string.IsNullOrEmpty(Error) || !deferred) return;
+            if (!string.IsNullOrEmpty(Error) || (!deferred && completedResetReturn == null)) return;
             IsBusy = true;
             Changed?.Invoke();
             try
             {
+                if (completedResetReturn != null)
+                {
+                    startRuntime?.Invoke();
+                    completedResetReturn.Validate(coordinator);
+                    ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.BeforeServices);
+                    startServices();
+                    BlocksMenu = false;
+                    return;
+                }
                 await coordinator.ResumeAsync();
+                ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.BeforeServices);
+                if (completedResetRestart != null)
+                {
+                    var ready = coordinator.ReadRecord();
+                    completedResetRestart.ValidateAvailable();
+                    completedResetRestart.Restart(new ResetIdentity(ready.AppId, ready.SteamId));
+                    return;
+                }
                 startServices();
                 BlocksMenu = false;
             }
@@ -62,8 +89,9 @@ namespace Game.Exhibition.Integration
             if (BlocksMenu) return;
             try
             {
-                if (deferred) reconcile();
+                if (deferred || completedResetReturn != null) reconcile();
                 menuReady = true;
+                ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.MenuReady);
             }
             catch (Exception exception)
             {
@@ -94,6 +122,7 @@ namespace Game.Exhibition.Integration
             try
             {
                 restart.ValidateAvailable();
+                completedResetRestart?.ValidateAvailable();
                 coordinator.RequestReset();
                 BlocksMenu = true;
                 menuReady = false;
@@ -115,23 +144,24 @@ namespace Game.Exhibition.Integration
 
         public void Restart()
         {
-            if (!BlocksMenu || IsBusy) return;
+            if (!BlocksMenu || IsBusy || completedResetReturn != null) return;
             try { RestartCommitted(); }
             catch (Exception exception) { Error = exception.Message; IsBusy = false; Changed?.Invoke(); }
         }
 
         private void RestartCommitted()
         {
-            restart.ValidateAvailable();
             var record = coordinator.ReadRecord();
             if (record == null) throw new InvalidOperationException("초기화 기록을 확인한 뒤 게임을 다시 실행해 주세요.");
+            var selected = record.State == ResetRecord.Ready && completedResetRestart != null ? completedResetRestart : restart;
+            selected.ValidateAvailable();
             IsBusy = true;
             Error = null;
             Changed?.Invoke();
             var identity = record.State == ResetRecord.Pending
                 ? new ResetIdentity(record.AppId, record.SteamId)
                 : coordinator.GetCurrentIdentity();
-            restart.Restart(identity);
+            selected.Restart(identity);
         }
     }
 }

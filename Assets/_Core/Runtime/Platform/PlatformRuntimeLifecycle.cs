@@ -10,6 +10,7 @@ namespace Game.Platform.Runtime
         private IPlatformRuntime activeRuntime;
 
         private bool initializationAttempted;
+        private bool initializing, shutdownRequested;
         private bool tickEnabled;
         private bool shutdownAttempted;
         private PlatformInitializationResult initializationResult;
@@ -64,6 +65,7 @@ namespace Game.Platform.Runtime
 
             try
             {
+                initializing = true;
                 initializationResult = candidate.Initialize();
                 availability = ResolveAvailability(selection, candidate);
                 if (!initializationResult.IsSuccess)
@@ -94,7 +96,7 @@ namespace Game.Platform.Runtime
                 }
 
                 activeRuntime = candidate;
-                tickEnabled = true;
+                tickEnabled = !shutdownRequested;
             }
             catch (Exception exception)
             {
@@ -102,6 +104,11 @@ namespace Game.Platform.Runtime
                     "Platform runtime '" + selection.SelectedProviderId +
                     "' initialization threw " + FormatException(exception) + ".");
                 FailInitialization(candidate, failure, failure.FailureReason);
+            }
+            finally
+            {
+                initializing = false;
+                if (shutdownRequested) ShutdownOnce();
             }
         }
 
@@ -137,6 +144,8 @@ namespace Game.Platform.Runtime
         internal void ShutdownOnce()
         {
             tickEnabled = false;
+            shutdownRequested = true;
+            if (initializing) return;
             var runtime = activeRuntime;
             activeRuntime = null;
             ShutdownRuntimeOnce(runtime);

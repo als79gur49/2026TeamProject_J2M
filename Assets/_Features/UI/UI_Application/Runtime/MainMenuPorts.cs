@@ -96,6 +96,17 @@ namespace Game.Feature.UI.Application
         void Restart();
     }
 
+    public interface IParticipantResetActionPresentation
+    {
+        bool HideResetAction { get; }
+    }
+
+    /// <summary>Optional owner of maintenance status; ordinary recovery keeps the shared popup.</summary>
+    public interface IParticipantResetStatusPresentation
+    {
+        bool OwnsStatusPresentation { get; }
+    }
+
     public static class ParticipantResetMenuAccess
     {
         public static IParticipantResetPort Current { get; private set; }
