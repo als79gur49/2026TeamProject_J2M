@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class EnemyAnimatorDriver : MonoBehaviour
     {
         private const string DefaultLocomotionStateName = "Move";
+        private const string DeathStateName = "Death";
         private const string AiModeParameterName = "EnemyAiMode";
         private const string ActiveActionKindParameterName = "EnemyActionKind";
         private const string JumpPhaseParameterName = "EnemyJumpPhase";
@@ -122,6 +123,8 @@ namespace Game.Feature.Gameplay.Host
         private float _lastJumpAirborneNormalizedTime;
         private string _pendingCrossFadeStateName = string.Empty;
         private bool _pendingCrossFadeRequiresOverride;
+        private EnemyPresentationPhase _pendingRestoredPhase;
+        private float _pendingRestoredNormalizedTime;
 
         public bool HasJumpAirborneTopologySuspendSnapshot => _jumpAirborneTopologySuspendSnapshot.HasValue;
 
@@ -145,6 +148,69 @@ namespace Game.Feature.Gameplay.Host
             animationTimingAuthoring = GetComponent<EnemyAnimationTimingAuthoring>();
         }
 
+        // Rebind persistent state without consuming the previous View's one-shot
+        // flags. Pulse progression belongs to its own View and is not transferred.
+        internal void RestorePresentationState(in EnemyViewPresentationState state)
+        {
+            _pendingCrossFadeStateName = string.Empty;
+            _pendingCrossFadeRequiresOverride = false;
+            _pendingRestoredPhase = EnemyPresentationPhase.None;
+            _jumpAirborneTopologySuspendSnapshot = default;
+            _lastJumpAirborneNormalizedTime = 0f;
+            LastPresentationState = state;
+            CurrentAiMode = state.AiMode;
+            CurrentActiveActionKind = state.ActiveActionKind;
+            IsMoving = state.IsMoving;
+            if (state.DidDie)
+            {
+                RestorePresentationPhase(EnemyPresentationPhase.Death);
+            }
+            else
+            {
+                ResyncAnimatorStateFromLastPresentation();
+            }
+        }
+
+        // Rebinding initializes the new Animator directly; it is not an animation
+        // event and does not require an authored cross-fade override or trigger.
+        internal void RestorePresentationPhase(EnemyPresentationPhase phase, float normalizedTime = 0f)
+        {
+            _pendingRestoredPhase = LastPresentationState.DidDie ? EnemyPresentationPhase.Death : phase;
+            _pendingRestoredNormalizedTime = LastPresentationState.DidDie ? 0f : Mathf.Clamp01(normalizedTime);
+            var targetAnimator = ResolveAnimator();
+            ApplyAnimatorTiming(targetAnimator, _pendingRestoredPhase);
+            TryConsumePendingNamedStateCrossFade(targetAnimator);
+        }
+
+        internal void UpdatePendingUtilityPresentationPhase(EnemyPresentationPhase phase, float normalizedTime)
+        {
+            if (_pendingRestoredPhase == EnemyPresentationPhase.Windup ||
+                _pendingRestoredPhase == EnemyPresentationPhase.Recovery)
+            {
+                _pendingRestoredPhase = phase;
+                _pendingRestoredNormalizedTime = Mathf.Clamp01(normalizedTime);
+            }
+        }
+
+        private void UpdatePendingRestoreForCurrentState()
+        {
+            if (_pendingRestoredPhase == EnemyPresentationPhase.None)
+            {
+                return;
+            }
+            if (LastPresentationState.DidDie)
+            {
+                // Death may arrive while an inactive replacement is still waiting
+                // for its utility restore. It must also survive utility expiry.
+                _pendingRestoredPhase = EnemyPresentationPhase.Death;
+                _pendingRestoredNormalizedTime = 0f;
+            }
+            else if (_pendingRestoredPhase == EnemyPresentationPhase.Death)
+            {
+                _pendingRestoredPhase = EnemyPresentationPhase.None;
+            }
+        }
+
         public void Apply(in EnemyViewPresentationState state)
         {
             Apply(state, EnemyPresentationOneShotBlockMask.None);
@@ -156,6 +222,7 @@ namespace Game.Feature.Gameplay.Host
         {
             var previousState = LastPresentationState;
             LastPresentationState = state;
+            UpdatePendingRestoreForCurrentState();
             CurrentAiMode = state.AiMode;
             CurrentActiveActionKind = state.ActiveActionKind;
             IsMoving = state.IsMoving;
@@ -330,7 +397,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void SyncRuntimeState(bool isVisible, bool isMoving, bool playbackSuppressed = false)
         {
-            var isJumpAirborne = LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
+            var isJumpAirborne = !LastPresentationState.DidDie && LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
             var effectivePlaybackSuppressed = playbackSuppressed || (isJumpAirborne && !isVisible);
             IsVisible = isVisible;
             IsMoving = isMoving;
@@ -368,7 +435,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void SyncHiddenRuntimeState(bool isMoving, bool playbackSuppressed = false)
         {
-            var isJumpAirborne = LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
+            var isJumpAirborne = !LastPresentationState.DidDie && LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
             IsVisible = false;
             IsMoving = isMoving;
             IsPlaybackSuppressed = playbackSuppressed || isJumpAirborne;
@@ -399,6 +466,12 @@ namespace Game.Feature.Gameplay.Host
 
         public void RestorePresentationTiming()
         {
+            // A utility track may end before an inactive replacement can consume it.
+            if (_pendingRestoredPhase == EnemyPresentationPhase.Windup ||
+                _pendingRestoredPhase == EnemyPresentationPhase.Recovery)
+            {
+                _pendingRestoredPhase = EnemyPresentationPhase.None;
+            }
             if (IsPresentationPaused)
             {
                 return;
@@ -423,6 +496,13 @@ namespace Game.Feature.Gameplay.Host
             TryConsumePendingNamedStateCrossFade(targetAnimator);
             SyncOptionalParameters(targetAnimator, LastPresentationState);
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
+
+            // Death can retain the previous jump/glide phase in its presentation
+            // carrier. Do not overwrite the terminal animation during resync.
+            if (LastPresentationState.DidDie)
+            {
+                return false;
+            }
 
             if (LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne &&
                 EnsureJumpAirborneAnimatorState(targetAnimator))
@@ -494,6 +574,7 @@ namespace Game.Feature.Gameplay.Host
                     didDie: true)
                 : LastPresentationState.WithDidDie(true);
             LastPresentationState = currentState;
+            UpdatePendingRestoreForCurrentState();
             CurrentAiMode = currentState.AiMode;
             CurrentActiveActionKind = currentState.ActiveActionKind;
             IsMoving = false;
@@ -715,6 +796,9 @@ namespace Game.Feature.Gameplay.Host
 
                 case EnemyPresentationPhase.Recovery:
                     return recoveryStateName;
+
+                case EnemyPresentationPhase.Death:
+                    return DeathStateName;
 
                 default:
                     return string.Empty;
@@ -1211,6 +1295,14 @@ namespace Game.Feature.Gameplay.Host
             if (IsPresentationPaused)
             {
                 return false;
+            }
+
+            if (_pendingRestoredPhase != EnemyPresentationPhase.None && CanDriveAnimator(targetAnimator))
+            {
+                var restoredStateHash = ResolveAnimatorStateHash(targetAnimator, ResolveStateName(_pendingRestoredPhase));
+                targetAnimator.Play(restoredStateHash, 0, _pendingRestoredNormalizedTime);
+                _pendingRestoredPhase = EnemyPresentationPhase.None;
+                return true;
             }
 
             if (string.IsNullOrWhiteSpace(_pendingCrossFadeStateName) ||

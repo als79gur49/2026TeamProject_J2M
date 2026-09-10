@@ -52,6 +52,8 @@
   - current supporting truth for presentation-only Gameplay VFX lane boundaries, family-specific planners, lifecycle vocabulary, persistent desired state, and existing presenter migration guardrails
 - [Enemy-FrontFaceInactive-Visual-Policy.md](./Enemy-FrontFaceInactive-Visual-Policy.md)
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
+- [Gameplay-Presentation-Driver-Cache-Optimization-Plan.md](./Gameplay-Presentation-Driver-Cache-Optimization-Plan.md)
+  - three-driver lookup cache implementation and validation record with campaign 10-prefab inventory, fixed View configuration, Player preservation, replacement lifecycle, and bounded CPU/GC evidence
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
