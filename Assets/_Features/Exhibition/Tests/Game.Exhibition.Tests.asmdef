@@ -20,7 +20,8 @@
     "Game.Feature.UI.Popups",
     "Game.Feature.UI.Screens",
     "Game.Platform.Runtime",
-    "Game.Feature.UI.Composition.Editor"
+    "Game.Feature.UI.Composition.Editor",
+    "Game.Feature.UI.ViewShared"
   ],
   "includePlatforms": [
     "Editor"

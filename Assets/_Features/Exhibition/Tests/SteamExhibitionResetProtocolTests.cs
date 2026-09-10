@@ -25,12 +25,45 @@ namespace Game.Exhibition.Tests
             _api.StoreAction = () => Observe(SteamCallbackResult.Ok);
         }
 
-        private void Create(TimeSpan? timeout = null)
+        private void Create(TimeSpan? timeout = null, IParticipantResetDiagnostics diagnostics = null)
         {
             _protocol = new SteamExhibitionResetProtocol(_api,
                 name => { _clears++; return _clearResult; }, () => _validate(),
                 new[] { "A", "B" }, 123, () => _failed++, () => _released++,
-                timeout ?? TimeSpan.FromSeconds(1));
+                timeout ?? TimeSpan.FromSeconds(1), diagnostics);
+        }
+
+        private sealed class Diagnostics : IParticipantResetDiagnostics
+        {
+            public int Calls;
+            public bool Throw;
+            public void SteamResetVerified(string[] names, SteamCallbackResult result)
+            {
+                Calls++;
+                if (Throw) throw new System.IO.IOException("diagnostic sink failed");
+            }
+            public void Capture(ParticipantResetDiagnosticStage stage) => throw new AssertionException("Unexpected capture");
+        }
+
+        [Test]
+        public async Task DiagnosticFailureDoesNotFailResetOrAddNativeReads()
+        {
+            var diagnostics = new Diagnostics { Throw = true };
+            Create(diagnostics: diagnostics); await _protocol.RunAsync();
+            Assert.That(diagnostics.Calls, Is.EqualTo(1));
+            Assert.That(_api.Reads, Is.EqualTo(4));
+            Assert.That(_api.Stores, Is.EqualTo(1));
+            Assert.That(_failed, Is.Zero); Assert.That(_released, Is.EqualTo(1));
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public void FailedReadbackDoesNotEmitVerifiedDiagnostic(bool achieved)
+        {
+            var diagnostics = new Diagnostics();
+            _api.ReadbackSucceeds = achieved; _api.ReadbackAchieved = achieved;
+            Create(diagnostics: diagnostics);
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await _protocol.RunAsync());
+            Assert.That(diagnostics.Calls, Is.Zero);
         }
         private void Observe(SteamCallbackResult result, uint appId = 123) =>
             _protocol.ObserveStatsStored(new SteamStatsStoredObservation(appId, result));

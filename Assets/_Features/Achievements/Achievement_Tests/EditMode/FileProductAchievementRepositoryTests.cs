@@ -31,6 +31,23 @@ namespace Game.Product.Achievements.Tests
             }
         }
 
+        [TestCase("missing")][TestCase("corrupt")][TestCase("valid")]
+        public void ReadOnlyInspectionNeverRecoversOrCleansCompanionFiles(string primary)
+        {
+            Directory.CreateDirectory(_tempDirectory);
+            const string valid = "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[],\"PendingAchievementPublicationIds\":[]}";
+            File.WriteAllText(AchievementPath + ".bak", valid);
+            File.WriteAllText(AchievementPath + ".rollback", valid);
+            File.WriteAllText(AchievementPath + ".tmp", "partial");
+            if (primary != "missing") File.WriteAllText(AchievementPath, primary == "valid" ? valid : "{bad");
+            var before = new Dictionary<string, string>();
+            foreach (var p in Directory.GetFiles(_tempDirectory)) before[p] = File.ReadAllText(p);
+            var result = FileProductAchievementRepository.LoadReadOnly(AchievementPath);
+            Assert.That(result.Status, Is.EqualTo(primary == "valid" ? AchievementDocumentLoadStatus.Loaded : primary == "missing" ? AchievementDocumentLoadStatus.Missing : AchievementDocumentLoadStatus.CorruptNoFallback));
+            Assert.That(Directory.GetFiles(_tempDirectory), Is.EquivalentTo(before.Keys));
+            foreach (var p in before.Keys) Assert.That(File.ReadAllText(p), Is.EqualTo(before[p]));
+        }
+
         [Test]
         public void MissingDocument_ReturnsUsableEmptyV1WithoutCreatingFile()
         {

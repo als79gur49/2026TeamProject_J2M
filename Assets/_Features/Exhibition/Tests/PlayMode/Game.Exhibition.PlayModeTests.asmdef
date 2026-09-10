@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Exhibition.Tests.PlayMode",
   "references": [
     "Game.Exhibition.Integration",
+    "Game.Exhibition.Application",
     "Unity.ugui",
     "Unity.InputSystem",
     "Game.Feature.UI.Application",

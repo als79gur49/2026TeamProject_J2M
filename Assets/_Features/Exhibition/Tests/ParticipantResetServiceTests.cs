@@ -50,6 +50,11 @@ namespace Game.Exhibition.Tests
                 if (FailLaunch) throw new IOException("launch failed");
             }
         }
+        private sealed class ReturnFake : ICompletedParticipantResetReturn
+        {
+            public int Calls;
+            public void Validate(ExhibitionResetCoordinator value) { Calls++; }
+        }
         private Journal journal;
         private Steam steam;
         private Progress progress;
@@ -65,6 +70,70 @@ namespace Game.Exhibition.Tests
         private ParticipantResetService Service(bool available = true) => new ParticipantResetService(
             coordinator, restart, () => available, () => stopped++, () => started++,
             () => reconciled++, journal.Record);
+
+        private sealed class Diagnostics : IParticipantResetDiagnostics
+        {
+            public Action<ParticipantResetDiagnosticStage> OnCapture;
+            public void Capture(ParticipantResetDiagnosticStage stage) => OnCapture(stage);
+            public void SteamResetVerified(string[] names, Game.Platform.Steam.SteamCallbackResult result) =>
+                throw new AssertionException("Service does not own Steam verification.");
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public async Task DiagnosticBoundariesObserveReadyBeforeServicesAndMenuAfterReconcile(bool throwObserver)
+        {
+            coordinator.RequestReset();
+            var stages = new System.Collections.Generic.List<ParticipantResetDiagnosticStage>();
+            var snapshots = new System.Collections.Generic.List<string>();
+            var diagnostics = new Diagnostics { OnCapture = stage =>
+            {
+                stages.Add(stage);
+                snapshots.Add(journal.Record.State + ":" + started + ":" + reconciled);
+                if (throwObserver) throw new IOException("diagnostic failed");
+            } };
+            var service = new ParticipantResetService(coordinator, restart, () => true, () => stopped++,
+                () => started++, () => reconciled++, journal.Record, diagnostics: diagnostics);
+            await service.PrepareMenuAsync();
+            service.CompleteMenuInitialization();
+            Assert.That(stages, Is.EqualTo(new[] { ParticipantResetDiagnosticStage.BeforeServices, ParticipantResetDiagnosticStage.MenuReady }));
+            Assert.That(snapshots, Is.EqualTo(new[] { "Ready:0:0", "Ready:1:1" }));
+            Assert.That(service.Error, Is.Null);
+            Assert.That(service.CanRequest, Is.True);
+            Assert.That(steam.ResetCalls, Is.EqualTo(1));
+            Assert.That(progress.Calls, Is.EqualTo(1));
+            Assert.That(restart.Calls, Is.Zero);
+        }
+
+        [Test]
+        public async Task PendingFailureDoesNotEmitSuccessfulDiagnosticStages()
+        {
+            coordinator.RequestReset();
+            journal.FailBefore = true;
+            var stages = new System.Collections.Generic.List<ParticipantResetDiagnosticStage>();
+            var diagnostics = new Diagnostics { OnCapture = stages.Add };
+            var service = new ParticipantResetService(coordinator, restart, () => true, () => stopped++,
+                () => started++, () => reconciled++, journal.Record, diagnostics: diagnostics);
+            await service.PrepareMenuAsync();
+            service.CompleteMenuInitialization();
+            Assert.That(stages, Is.Empty);
+            Assert.That(started + reconciled + restart.Calls, Is.Zero);
+            Assert.That(service.BlocksMenu, Is.True);
+        }
+
+        [Test]
+        public async Task HistoricalReadyDiagnosticOnlyObservesMenuWithoutSteamResetOrIdentityPolicy()
+        {
+            journal.Record = new ResetRecord { State = ResetRecord.Ready, AppId = 999, SteamId = 999 };
+            var stages = new System.Collections.Generic.List<ParticipantResetDiagnosticStage>();
+            var service = new ParticipantResetService(coordinator, restart, () => false, () => stopped++,
+                () => started++, () => reconciled++, journal.Record,
+                diagnostics: new Diagnostics { OnCapture = stages.Add });
+            await service.PrepareMenuAsync();
+            service.CompleteMenuInitialization();
+            Assert.That(stages, Is.EqualTo(new[] { ParticipantResetDiagnosticStage.MenuReady }));
+            Assert.That(steam.IdentityCalls + steam.ResetCalls + restart.Calls, Is.Zero);
+            Assert.That(service.BlocksMenu, Is.False);
+        }
 
         [Test]
         public async Task ReadyMenuAssemblyFailureKeepsRestartAvailableWithoutRepeatingDeletion()
@@ -118,6 +187,38 @@ namespace Game.Exhibition.Tests
         }
 
         [Test]
+        public async Task PendingProductionCompletionStartsSteamCycleAndKeepsServicesBlocked()
+        {
+            coordinator.RequestReset();
+            var completed = new RestartFake();
+            var service = new ParticipantResetService(coordinator, restart, () => true, () => stopped++, () => started++,
+                () => reconciled++, journal.Record, completedResetRestart: completed);
+            await service.PrepareMenuAsync();
+            Assert.That(journal.Record.State, Is.EqualTo(ResetRecord.Ready));
+            Assert.That(completed.Calls, Is.EqualTo(1));
+            Assert.That(completed.Identity.AppId, Is.EqualTo(123));
+            Assert.That(started + reconciled, Is.Zero);
+            Assert.That(service.BlocksMenu, Is.True);
+        }
+
+        [Test]
+        public async Task CompletedResetReturnValidatesBeforePublishingAndUnblocksOnce()
+        {
+            journal.Record = new ResetRecord { OperationId = Guid.NewGuid().ToString("N"), State = ResetRecord.Ready,
+                AppId = 123, SteamId = 456, MappingVersion = ExhibitionResetCoordinator.MappingVersion };
+            var returned = new ReturnFake(); int runtime = 0;
+            var service = new ParticipantResetService(coordinator, restart, () => true, () => stopped++, () => started++,
+                () => reconciled++, journal.Record, completedResetReturn: returned, startRuntime: () => runtime++);
+            await service.PrepareMenuAsync();
+            service.CompleteMenuInitialization();
+            Assert.That(runtime, Is.EqualTo(1));
+            Assert.That(returned.Calls, Is.EqualTo(1));
+            Assert.That(started, Is.EqualTo(1));
+            Assert.That(reconciled, Is.EqualTo(1));
+            Assert.That(service.BlocksMenu, Is.False);
+        }
+
+        [Test]
         public void RestartPreflightFailureLeavesMenuAndStorageUntouched()
         {
             var service = Service(); service.CompleteMenuInitialization();
@@ -127,6 +228,19 @@ namespace Game.Exhibition.Tests
             Assert.That(service.BlocksMenu, Is.False);
             Assert.That(stopped + steam.IdentityCalls + progress.Calls, Is.Zero);
             Assert.That(service.Error, Is.Not.Empty);
+        }
+
+        [Test]
+        public void CompletedSteamCyclePreflightFailureLeavesResetUncommitted()
+        {
+            var completed = new RestartFake { FailValidation = true };
+            var service = new ParticipantResetService(coordinator, restart, () => true, () => stopped++, () => started++,
+                () => reconciled++, journal.Record, completedResetRestart: completed);
+            service.CompleteMenuInitialization();
+            service.RequestReset();
+            Assert.That(journal.Record, Is.Null);
+            Assert.That(restart.Calls + completed.Calls + stopped, Is.Zero);
+            Assert.That(service.BlocksMenu, Is.False);
         }
 
         [TestCase(false)] [TestCase(true)]

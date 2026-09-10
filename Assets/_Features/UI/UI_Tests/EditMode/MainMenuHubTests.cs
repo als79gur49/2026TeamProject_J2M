@@ -1308,6 +1308,10 @@ namespace Game.Feature.UI.Tests
                 view.ShowSection(MainMenuSectionId.None);
                 view.SetParticipantResetAvailable(true);
                 Assert.That(button.interactable, Is.True);
+                view.SetParticipantResetVisible(false);
+                Assert.That(button.gameObject.activeSelf, Is.False);
+                view.SetParticipantResetVisible(true);
+                Assert.That(button.gameObject.activeSelf, Is.True);
                 var commands = 0;
                 view.CommandRequested += intent => { if (intent.CommandKind == MainMenuCommandKind.PrepareParticipant) commands++; };
                 button.onClick.Invoke();
