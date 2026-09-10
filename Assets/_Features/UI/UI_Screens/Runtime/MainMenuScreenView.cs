@@ -45,6 +45,11 @@ namespace Game.Feature.UI.Screens
         private GameplayUiTypographyTheme _participantTypographyTheme;
         private LocalizedTmpTextBinding _participantLabelBinding;
 
+        public void SetParticipantResetVisible(bool visible)
+        {
+            if (_participantResetButton != null) _participantResetButton.gameObject.SetActive(visible);
+        }
+
         public void SetParticipantResetAvailable(bool available)
         {
             _participantResetAvailable = available;

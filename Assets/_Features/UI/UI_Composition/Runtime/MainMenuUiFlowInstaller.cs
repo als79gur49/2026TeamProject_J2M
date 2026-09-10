@@ -389,7 +389,14 @@ namespace Game.Feature.UI.Composition
             _mainMenuScreenView.SetLaunchInteractionBlocked(IsGameplayEntryInteractionBlocked ||
                 !_isInstalled || ParticipantResetPort?.BlocksMenu == true);
             _mainMenuScreenView.SetParticipantResetAvailable(ParticipantResetPort?.CanRequest == true);
+            _mainMenuScreenView.SetParticipantResetVisible(
+                !(ParticipantResetPort is IParticipantResetActionPresentation presentation && presentation.HideResetAction));
             if (ParticipantResetPort == null) return;
+            if (ParticipantResetPort is IParticipantResetStatusPresentation status && status.OwnsStatusPresentation)
+            {
+                CloseParticipantStatus();
+                return;
+            }
             if (ParticipantResetPort.BlocksMenu || !string.IsNullOrEmpty(ParticipantResetPort.Error))
                 ShowParticipantStatus(ParticipantResetPort.Error, ParticipantResetPort.BlocksMenu,
                     ParticipantResetPort.IsBusy);
