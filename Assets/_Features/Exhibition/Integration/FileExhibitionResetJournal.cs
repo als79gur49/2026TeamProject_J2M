@@ -65,6 +65,8 @@ namespace Game.Exhibition.Integration
                 (record.State != ResetRecord.Pending && record.State != ResetRecord.Ready) ||
                 record.AppId == 0 || record.SteamId == 0 || string.IsNullOrWhiteSpace(record.MappingVersion))
                 throw new IOException("The exhibition reset record is corrupt or unsupported.");
+            if (record.MappingVersion != ExhibitionResetCoordinator.MappingVersion)
+                throw new IOException(ExhibitionResetCoordinator.IncompatibleMappingMessage);
         }
     }
 }

@@ -87,11 +87,11 @@ namespace Game.Exhibition.Tests
         }
 
         [TestCase(false)] [TestCase(true)]
-        public async Task NormalAndHistoricalReadyDoNotCallSteamOrRestart(bool ready)
+        public async Task NormalAndCurrentReadyDoNotCallSteamOrRestart(bool ready)
         {
             if (ready)
                 journal.Record = new ResetRecord { OperationId = Guid.NewGuid().ToString("N"),
-                    State = ResetRecord.Ready, AppId = 999, SteamId = 999, MappingVersion = "old" };
+                    State = ResetRecord.Ready, AppId = 999, SteamId = 999, MappingVersion = ExhibitionResetCoordinator.MappingVersion };
             var service = Service(false);
             await service.PrepareMenuAsync();
             service.CompleteMenuInitialization();

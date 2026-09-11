@@ -422,6 +422,28 @@ namespace Game.Product.Achievements.Tests
             Assert.That(sink.PublishCount, Is.Zero);
         }
 
+        [Test]
+        public void EfficientClear_OfflineEarnRemainsPendingAndConfirmsOnNextApplication()
+        {
+            var id = GameAchievementIds.CampaignStage1_2EfficientClear;
+            var repository = new RecordingRepository(ProductAchievementDocument.CreateEmpty());
+            using (var first = CreateCoordinator(repository, new UnavailableAchievementPublicationSink()))
+            {
+                first.Initialize();
+                Assert.That(first.Earn(id), Is.EqualTo(AchievementEarnResult.EarnedNew));
+                Assert.That(first.Earn(id), Is.EqualTo(AchievementEarnResult.AlreadyEarned));
+                Assert.That(repository.Current.PendingAchievementPublicationIds, Is.EqualTo(new[] { id.Value }));
+            }
+
+            var sink = new RecordingSink(AchievementPublicationResult.AlreadySatisfied);
+            using var next = CreateCoordinator(repository, sink);
+            next.Initialize();
+            Assert.That(sink.PublishCount, Is.EqualTo(1));
+            Assert.That(sink.LastBatch.AchievementIds, Is.EqualTo(new[] { id }));
+            Assert.That(repository.Current.EarnedAchievementIds, Is.EqualTo(new[] { id.Value }));
+            Assert.That(repository.Current.PendingAchievementPublicationIds, Is.Empty);
+        }
+
         private static ProductAchievementCoordinator CreateCoordinator(
             IAchievementDocumentRepository repository,
             IAchievementPublicationSink sink)

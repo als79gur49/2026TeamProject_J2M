@@ -146,6 +146,71 @@ Invoke-Case 'Failure record is bounded create-only and independent of restart st
     Assert-True (-not (Test-Path (Join-Path $scratch 'missing'))) 'Fallback directory created'
 }
 
+Invoke-Case 'Cold copied helper accepts v2 and rejects incompatible completed mappings' {
+    $scratch = Join-Path 'D:\J2M\evidence\participant-restart-preflight' ('mapping-contract-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $scratch | Out-Null
+    foreach ($name in @('RestartExperiment.cs', 'RestartExperimentWindows.cs', 'RestartExperimentNativeProbe.cs')) {
+        Copy-Item -LiteralPath (Join-Path $source $name) -Destination $scratch
+    }
+    # The child loads only the three shipped sources and BCL assemblies, never Unity/application DLLs.
+    # Only the wire validator runs: no Steam client, game process, or native API calls.
+    $body = @'
+$ErrorActionPreference = 'Stop'
+$root = '__ROOT__'
+Add-Type -AssemblyName System.Runtime.Serialization
+Add-Type -Path @(
+    (Join-Path $root 'RestartExperiment.cs'),
+    (Join-Path $root 'RestartExperimentWindows.cs'),
+    (Join-Path $root 'RestartExperimentNativeProbe.cs')
+) -ReferencedAssemblies @('System.dll', 'System.Core.dll', 'System.Xml.dll', 'System.Runtime.Serialization.dll')
+foreach ($mapping in @('level-and-efficient-clear-v2', 'level-clear-v1', 'unknown-mapping')) {
+    $journal = New-Object Game.Exhibition.RestartExperiment.ProductReadyJournal
+    $journal.SchemaVersion = 1
+    $journal.OperationId = [guid]::NewGuid().ToString('N')
+    $journal.State = 'Ready'; $journal.MappingVersion = $mapping
+    $journal.AppId = 123; $journal.SteamId = 456
+    $journalPath = Join-Path $root 'exhibition-reset.json'
+    [IO.File]::WriteAllText($journalPath, [Game.Exhibition.RestartExperiment.ExperimentFiles]::Json($journal))
+    $request = New-Object Game.Exhibition.RestartExperiment.ExperimentRequest
+    $request.CompletedResetProduct = $true
+    $request.OperationId = $journal.OperationId
+    $request.Trial = [Game.Exhibition.RestartExperiment.Trial]::FullCycle
+    $request.AppId = 123; $request.SteamId = 456
+    $request.ReadyJournalPath = [Game.Exhibition.RestartExperiment.WindowsIdentityCapture]::CanonicalPath($journalPath)
+    $request.ReadyJournalSha256 = [Game.Exhibition.RestartExperiment.ExperimentFiles]::Hash($journalPath)
+    $before = [IO.File]::ReadAllText($journalPath)
+    $failure = $null
+    try { [Game.Exhibition.RestartExperiment.CompletedResetProductWire]::Validate($request) }
+    catch { $failure = $_.Exception.ToString() }
+    if ($mapping -eq 'level-and-efficient-clear-v2') {
+        if ($null -ne $failure) { throw ('Current mapping rejected: ' + $failure) }
+    } else {
+        if ($null -eq $failure -or -not $failure.Contains('achievement mapping is incompatible')) {
+            throw ('Incompatible mapping was not rejected by the mapping guard: ' + $mapping + ' ' + $failure)
+        }
+    }
+    if ([IO.File]::ReadAllText($journalPath) -cne $before) { throw 'Wire validation changed the journal' }
+}
+Write-Output 'MAPPING_CONTRACT_OK'
+'@
+    $body = $body.Replace('__ROOT__', $scratch.Replace("'", "''"))
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = Join-Path $PSHOME 'powershell.exe'
+    $start.Arguments = '-NoProfile -EncodedCommand ' + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($body))
+    $start.UseShellExecute = $false; $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+    $child = [Diagnostics.Process]::Start($start)
+    try {
+        $output = $child.StandardOutput.ReadToEndAsync(); $errors = $child.StandardError.ReadToEndAsync()
+        Assert-True ($child.WaitForExit(30000)) 'Cold mapping contract timed out'
+        $text = $output.Result + $errors.Result
+        Assert-True ($child.ExitCode -eq 0 -and $text.Contains('MAPPING_CONTRACT_OK')) ('Cold mapping contract failed: ' + $text)
+    } finally {
+        if (-not $child.HasExited) { $child.Kill(); $child.WaitForExit() }
+        $child.Dispose()
+    }
+}
+
 Add-Type -Path @(
     (Join-Path $source 'RestartExperiment.cs'),
     (Join-Path $source 'RestartExperimentWindows.cs'),

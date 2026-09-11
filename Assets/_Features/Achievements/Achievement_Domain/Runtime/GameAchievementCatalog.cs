@@ -19,6 +19,46 @@ namespace Game.Product.Achievements
 
         public static readonly GameAchievementId CampaignLevel4Clear =
             GameAchievementId.Require("campaign.level-4.clear");
+
+        public static readonly GameAchievementId CampaignStage0_1EfficientClear =
+            GameAchievementId.Require("campaign.stage-0-1.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage0_2EfficientClear =
+            GameAchievementId.Require("campaign.stage-0-2.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage0_3EfficientClear =
+            GameAchievementId.Require("campaign.stage-0-3.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage1_1EfficientClear =
+            GameAchievementId.Require("campaign.stage-1-1.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage1_2EfficientClear =
+            GameAchievementId.Require("campaign.stage-1-2.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage2_1EfficientClear =
+            GameAchievementId.Require("campaign.stage-2-1.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage2_2EfficientClear =
+            GameAchievementId.Require("campaign.stage-2-2.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage3_1EfficientClear =
+            GameAchievementId.Require("campaign.stage-3-1.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage3_2EfficientClear =
+            GameAchievementId.Require("campaign.stage-3-2.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage3_3EfficientClear =
+            GameAchievementId.Require("campaign.stage-3-3.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage4_1EfficientClear =
+            GameAchievementId.Require("campaign.stage-4-1.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage4_2EfficientClear =
+            GameAchievementId.Require("campaign.stage-4-2.efficient-clear");
+
+        public static readonly GameAchievementId CampaignStage4_3EfficientClear =
+            GameAchievementId.Require("campaign.stage-4-3.efficient-clear");
+
     }
 
     public enum GameAchievementKind
@@ -103,6 +143,45 @@ namespace Game.Product.Achievements
                         GameAchievementKind.OneShot),
                     new GameAchievementDefinition(
                         GameAchievementIds.CampaignLevel4Clear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage0_1EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage0_2EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage0_3EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage1_1EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage1_2EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage2_1EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage2_2EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage3_1EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage3_2EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage3_3EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage4_1EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage4_2EfficientClear,
+                        GameAchievementKind.OneShot),
+                    new GameAchievementDefinition(
+                        GameAchievementIds.CampaignStage4_3EfficientClear,
                         GameAchievementKind.OneShot),
                 });
 

@@ -46,6 +46,8 @@ namespace Game.Exhibition.RestartExperiment
 
     public static class CompletedResetProductWire
     {
+        // Kept BCL-only for the cold PowerShell compiler; the NUnit contract pins this to the coordinator.
+        public const string SupportedMappingVersion = "level-and-efficient-clear-v2";
         public static bool HasRequest(ExperimentRequest request) { return request != null && request.CompletedResetProduct; }
         public static void Validate(ExperimentRequest request)
         {
@@ -60,8 +62,10 @@ namespace Game.Exhibition.RestartExperiment
                 ExperimentFiles.Hash(path) != request.ReadyJournalSha256) throw new IOException("Completed-reset journal changed.");
             var journal = ExperimentFiles.Read<ProductReadyJournal>(path);
             if (journal == null || journal.SchemaVersion != 1 || journal.State != "Ready" || journal.OperationId != request.OperationId ||
-                journal.MappingVersion != "level-clear-v1" || journal.AppId != request.AppId || journal.SteamId != request.SteamId)
+                journal.AppId != request.AppId || journal.SteamId != request.SteamId)
                 throw new IOException("Completed-reset Ready journal mismatch.");
+            if (journal.MappingVersion != SupportedMappingVersion)
+                throw new IOException("Completed-reset achievement mapping is incompatible with this build. Expected " + SupportedMappingVersion + "; the journal was not changed.");
         }
         public static void ValidateRequestPath(ExperimentRequest request, string requestPath)
         {

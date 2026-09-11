@@ -112,7 +112,6 @@ namespace Game.Exhibition.Tests
             Create().RequestReset();
             Assert.That(_journal.Record.SteamId, Is.EqualTo(789));
             _journal.Record.State = ResetRecord.Ready;
-            _journal.Record.MappingVersion = "past-mapping";
             _steam.Identity = default;
             Assert.That(await Create().ResumeAsync(), Is.True);
             Assert.That(_steam.Calls, Is.Zero);
@@ -162,6 +161,34 @@ namespace Game.Exhibition.Tests
             if (field == "Mapping") _journal.Record.MappingVersion = "other";
             Assert.ThrowsAsync<InvalidOperationException>(async () => await Create().ResumeAsync());
             Assert.That(_steam.Calls, Is.Zero);
+        }
+
+        [TestCase("Pending", "level-clear-v1")]
+        [TestCase("Ready", "level-clear-v1")]
+        [TestCase("Pending", "unknown-mapping")]
+        [TestCase("Ready", "unknown-mapping")]
+        public void UnsupportedMappingCannotBeReadResumedOrOverwritten(string state, string mapping)
+        {
+            Create().RequestReset();
+            var original = _journal.Record;
+            original.State = state;
+            original.MappingVersion = mapping;
+            Assert.Throws<InvalidOperationException>(() => Create().ReadRecord());
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await Create().ResumeAsync());
+            Assert.Throws<InvalidOperationException>(() => Create().RequestReset());
+            Assert.That(_journal.Record, Is.SameAs(original));
+            Assert.That(_journal.Record.MappingVersion, Is.EqualTo(mapping));
+            Assert.That(_journal.Record.State, Is.EqualTo(state));
+            Assert.That(_steam.Calls, Is.Zero);
+            Assert.That(_progress.Calls, Is.Zero);
+        }
+
+        [Test]
+        public void NewResetUsesEighteenAchievementMappingVersion()
+        {
+            Create().RequestReset();
+            Assert.That(_journal.Record.MappingVersion, Is.EqualTo("level-and-efficient-clear-v2"));
+            Assert.That(_journal.Record.SchemaVersion, Is.EqualTo(1));
         }
 
         private sealed class Journal : IExhibitionResetJournal

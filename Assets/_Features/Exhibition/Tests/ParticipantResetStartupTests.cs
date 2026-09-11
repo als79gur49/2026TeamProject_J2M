@@ -78,6 +78,34 @@ namespace Game.Exhibition.Tests
             Assert.That(native.SetCount, Is.EqualTo(1)); Assert.That(native.StoreCount, Is.EqualTo(1));
         }
 
+        [TestCase("Pending", "level-clear-v1")]
+        [TestCase("Ready", "level-clear-v1")]
+        [TestCase("Pending", "unknown-mapping")]
+        [TestCase("Ready", "unknown-mapping")]
+        public void UnsupportedJournalBlocksOrdinaryStartupBeforePublication(string state, string mapping)
+        {
+            var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "j2m-reset-startup-" + Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(root);
+            var path = System.IO.Path.Combine(root, "exhibition-reset.json");
+            var record = new ResetRecord { OperationId = Guid.NewGuid().ToString("N"),
+                State = state, AppId = 123, SteamId = 456, MappingVersion = mapping };
+            var original = JsonUtility.ToJson(record);
+            try
+            {
+                System.IO.File.WriteAllText(path, original); int composed = 0;
+                Assert.Throws<System.IO.IOException>(() => ExhibitionApplication.InspectProcessStartup(new[] { "game" }, false, () =>
+                {
+                    new FileExhibitionResetJournal(path).Load();
+                    composed++; ComposeRuntime(true);
+                }));
+                Assert.That(composed, Is.Zero);
+                Assert.That(ProductAchievementStartupControl.IsDeferred, Is.True);
+                Assert.That(SteamAchievementMaintenanceAccess.IsDeferred, Is.True);
+                Assert.That(System.IO.File.ReadAllText(path), Is.EqualTo(original));
+            }
+            finally { System.IO.Directory.Delete(root, true); }
+        }
+
         private sealed class Repository : IAchievementDocumentRepository
         {
             public int Saves;

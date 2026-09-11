@@ -49,7 +49,8 @@ namespace Game.Exhibition
 
     public sealed class ExhibitionResetCoordinator
     {
-        public const string MappingVersion = "level-clear-v1";
+        public const string MappingVersion = "level-and-efficient-clear-v2";
+        public const string IncompatibleMappingMessage = "이전 또는 지원하지 않는 테스트 버전의 초기화 기록입니다. 테스트 데이터 정리가 필요합니다. 재시작만으로 해결되지 않습니다.";
         private readonly IExhibitionResetJournal _journal;
         private readonly IExhibitionSteamReset _steam;
         private readonly IParticipantProgressReset _progress;
@@ -157,9 +158,10 @@ namespace Game.Exhibition
         private void ValidatePending(ResetRecord record)
         {
             var actual = _steam.GetIdentity();
-            if (record.MappingVersion != MappingVersion ||
-                actual.AppId != record.AppId || actual.SteamId != record.SteamId)
-                throw new InvalidOperationException("Sign in to the Steam account and AppID recorded in the pending reset, with the same achievement mapping.");
+            if (record.MappingVersion != MappingVersion)
+                throw new InvalidOperationException(IncompatibleMappingMessage);
+            if (actual.AppId != record.AppId || actual.SteamId != record.SteamId)
+                throw new InvalidOperationException("Sign in to the Steam account and AppID recorded in the pending reset, before resuming the reset.");
         }
 
         private static void ValidateRecord(ResetRecord record)
@@ -168,6 +170,8 @@ namespace Game.Exhibition
                 (record.State != ResetRecord.Pending && record.State != ResetRecord.Ready) ||
                 record.AppId == 0 || record.SteamId == 0 || string.IsNullOrWhiteSpace(record.MappingVersion))
                 throw new InvalidOperationException("The participant reset record is corrupt or unsupported.");
+            if (record.MappingVersion != MappingVersion)
+                throw new InvalidOperationException(IncompatibleMappingMessage);
         }
     }
 }

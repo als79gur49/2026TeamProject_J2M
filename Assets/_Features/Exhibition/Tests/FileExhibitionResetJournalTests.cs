@@ -15,6 +15,23 @@ namespace Game.Exhibition.Tests
         [TearDown] public void TearDown() { Directory.Delete(_root, true); }
         private static ResetRecord Pending() => new ResetRecord { OperationId = Guid.NewGuid().ToString("N"), State = ResetRecord.Pending, AppId = 123, SteamId = 456, MappingVersion = ExhibitionResetCoordinator.MappingVersion };
 
+        [TestCase("Pending", "level-clear-v1")]
+        [TestCase("Ready", "level-clear-v1")]
+        [TestCase("Pending", "unknown-mapping")]
+        [TestCase("Ready", "unknown-mapping")]
+        public void UnsupportedMappingIsNotIgnoredMigratedOrOverwritten(string state, string mapping)
+        {
+            var record = Pending(); record.State = state; record.MappingVersion = mapping;
+            var original = UnityEngine.JsonUtility.ToJson(record);
+            File.WriteAllText(PathName, original);
+            File.WriteAllText(PathName + ".bak", original);
+            Assert.Throws<IOException>(() => Journal.Load());
+            Assert.Throws<IOException>(() => Journal.Save(Pending()));
+            Assert.That(File.ReadAllText(PathName), Is.EqualTo(original));
+            Assert.That(File.ReadAllText(PathName + ".bak"), Is.EqualTo(original));
+            Assert.That(File.Exists(PathName + ".tmp"), Is.False);
+        }
+
         [Test] public void MissingIsNotPending() => Assert.That(Journal.Load(), Is.Null);
         [Test] public void ReadyReplacesPendingWithoutBackup()
         {

@@ -666,6 +666,44 @@ namespace Game.Exhibition.Tests
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
 
+        [Test]
+        public void CompletedResetMappingContractMatchesCoordinatorAndFixedV2()
+        {
+            const string expected = "level-and-efficient-clear-v2";
+            Assert.That(ExhibitionResetCoordinator.MappingVersion, Is.EqualTo(expected));
+            // Reflection keeps the pre-production RED revision compilable.
+            var field = typeof(CompletedResetProductWire).GetField("SupportedMappingVersion");
+            Assert.That(field, Is.Not.Null, "The standalone helper must expose its supported mapping contract.");
+            Assert.That(field.GetRawConstantValue(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void CompletedResetCurrentMappingIsAccepted()
+        {
+            WithCompletedRequest((request, path) =>
+                Assert.DoesNotThrow(() => CompletedResetProductWire.ValidateRequestPath(request, path)));
+        }
+
+        [TestCase("level-clear-v1")]
+        [TestCase("unknown-mapping")]
+        public void CompletedResetIncompatibleMappingIsRejectedWithoutChangingOrConsumingJournal(string mapping)
+        {
+            WithCompletedRequest((request, path) =>
+            {
+                var journal = ExperimentFiles.Read<ProductReadyJournal>(request.ReadyJournalPath);
+                journal.MappingVersion = mapping;
+                File.WriteAllText(request.ReadyJournalPath, ExperimentFiles.Json(journal));
+                // Keep every integrity binding valid so this exercises mapping compatibility itself.
+                request.ReadyJournalSha256 = ExperimentFiles.Hash(request.ReadyJournalPath);
+                File.WriteAllText(path, ExperimentFiles.Json(request));
+                var before = File.ReadAllBytes(request.ReadyJournalPath);
+                var failure = Assert.Throws<IOException>(() => CompletedResetProductWire.ValidateRequestPath(request, path));
+                Assert.That(failure.Message, Does.Contain("achievement mapping is incompatible"));
+                CollectionAssert.AreEqual(before, File.ReadAllBytes(request.ReadyJournalPath));
+                Assert.That(File.Exists(path + ".consumed"), Is.False);
+            });
+        }
+
         private static void WithCompletedRequest(Action<ExperimentRequest, string> action)
         {
             var root = Path.Combine(Path.GetTempPath(), "j2m-completed-reset-" + Guid.NewGuid().ToString("N"));
@@ -675,7 +713,7 @@ namespace Game.Exhibition.Tests
                 var operation = Guid.NewGuid().ToString("N");
                 var journalPath = Path.Combine(root, "exhibition-reset.json");
                 File.WriteAllText(journalPath, ExperimentFiles.Json(new ProductReadyJournal { SchemaVersion = 1,
-                    OperationId = operation, State = "Ready", MappingVersion = "level-clear-v1", AppId = 123, SteamId = 456 }));
+                    OperationId = operation, State = "Ready", MappingVersion = "level-and-efficient-clear-v2", AppId = 123, SteamId = 456 }));
                 journalPath = WindowsIdentityCapture.CanonicalPath(journalPath);
                 var request = new ExperimentRequest { CompletedResetProduct = true, Nonce = Guid.NewGuid().ToString("N"),
                     OperationId = operation, Trial = Trial.FullCycle, AppId = 123, SteamId = 456,
@@ -701,7 +739,7 @@ namespace Game.Exhibition.Tests
                 var operation = Guid.NewGuid().ToString("N");
                 var journalPath = Path.Combine(root, "exhibition-reset.json");
                 File.WriteAllText(journalPath, ExperimentFiles.Json(new ProductReadyJournal { SchemaVersion = 1,
-                    OperationId = operation, State = "Ready", MappingVersion = "level-clear-v1", AppId = 123, SteamId = 456 }));
+                    OperationId = operation, State = "Ready", MappingVersion = "level-and-efficient-clear-v2", AppId = 123, SteamId = 456 }));
                 journalPath = WindowsIdentityCapture.CanonicalPath(journalPath);
                 var request = new ExperimentRequest { CompletedResetProduct = true, Nonce = Guid.NewGuid().ToString("N"),
                     OperationId = operation, Trial = Trial.FullCycle, AppId = 123, SteamId = 456,
@@ -719,7 +757,7 @@ namespace Game.Exhibition.Tests
                 Assert.That(start.Arguments, Does.Contain("-j2mCompletedParticipantReset"));
                 Assert.That(start.Arguments, Does.Contain(ExperimentFiles.Hash(requestPath)));
                 File.WriteAllText(journalPath, ExperimentFiles.Json(new ProductReadyJournal { SchemaVersion = 1,
-                    OperationId = operation, State = "Pending", MappingVersion = "level-clear-v1", AppId = 123, SteamId = 456 }));
+                    OperationId = operation, State = "Pending", MappingVersion = "level-and-efficient-clear-v2", AppId = 123, SteamId = 456 }));
                 Assert.Throws<IOException>(() => CompletedResetProductWire.Validate(request));
             }
             finally { Directory.Delete(root, true); }

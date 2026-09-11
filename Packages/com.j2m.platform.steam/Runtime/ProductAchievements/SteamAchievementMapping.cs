@@ -211,6 +211,58 @@ namespace Game.Platform.Steam.ProductAchievements
                         GameAchievementIds.CampaignLevel4Clear,
                         ExpectedSteamAchievementApiName.Require(
                             "VQ_LEVEL_4_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage0_1EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_0_1_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage0_2EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_0_2_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage0_3EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_0_3_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage1_1EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_1_1_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage1_2EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_1_2_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage2_1EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_2_1_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage2_2EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_2_2_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage3_1EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_3_1_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage3_2EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_3_2_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage3_3EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_3_3_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage4_1EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_4_1_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage4_2EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_4_2_EFFICIENT_CLEAR")),
+                    new SteamAchievementMappingEntry(
+                        GameAchievementIds.CampaignStage4_3EfficientClear,
+                        ExpectedSteamAchievementApiName.Require(
+                            "VQ_STAGE_4_3_EFFICIENT_CLEAR")),
                 });
 
         public IReadOnlyList<SteamAchievementMappingEntry> Entries => _entries;
