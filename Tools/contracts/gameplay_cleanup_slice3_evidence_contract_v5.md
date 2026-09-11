@@ -47,6 +47,8 @@ Every JSON parser rejects duplicate keys at every depth, unknown fields, missing
 | measurement procedure | strict JSON | `1` | `5` |
 | canonical threshold artifact | strict JSON | `1` | `5` |
 | non-official build-validation manifest | strict JSON | `1` | `5` |
+| Calibration Goal | strict JSON | `1` | `5` |
+| calibration completion manifest | strict JSON | `1` | `5` |
 | Measurement Goal | strict JSON | `1` | `5` |
 | MeasurementAuthorization/campaign plan | strict JSON | `1` | `5` |
 | MeasurementAuthorization approval receipt | strict JSON | `1` | `5` |
@@ -124,14 +126,15 @@ The only permitted dependency direction is:
 v4 -> v5 contract
 workload -> full-scan oracle
 contract/workload/oracle/parser/tools/backend/signal/procedure -> harness
-Measurement Goal -> MeasurementAuthorization
+Calibration Goal -> CalibrationAuthorization -> calibration attempts -> calibration report/completion
+calibration report/completion -> thresholds -> Measurement Goal -> MeasurementAuthorization
 clean revision/runtime/harness/Goal/backend/signal/procedure/finite slots -> MeasurementAuthorization
 authorization digest + Goal digest -> exact approval message
-K1 trust root + M1 signature over that message -> approval receipt
+K1 trust root + C1 or M1 domain-specific signature over that message -> approval receipt
 authorization + approval receipt -> attempts -> campaign final manifest
 ```
 
-The reverse edges are forbidden. In particular, an authorization does not contain its own digest or receipt digest; a Goal does not contain the authorization digest; a harness binary does not contain a future authorization digest; and workload/oracle references are one-way only.
+CalibrationAuthorization is the `S3_A_CALIBRATION` variant defined in §8.4; its Goal, authorization and reports never bind future thresholds or official authority. The reverse edges are forbidden. In particular, an authorization does not contain its own digest or receipt digest; a Goal does not contain the authorization digest; a harness binary does not contain a future authorization digest; and workload/oracle references are one-way only.
 
 ## 5. Exact v5 workload vocabulary
 
@@ -237,7 +240,7 @@ The allocation signal contract root has exactly `schemaVersion=1`, `evidenceCont
 
 The measurement procedure root has exactly `schemaVersion=1`, `evidenceContractVersion=5`, `artifactKind="CLEANUP_S3_MEASUREMENT_PROCEDURE"`, `procedureId`, `measurementBackendContractSha256`, `allocationSignalContractSha256`, `workloadContractSha256`, `warmupTicks`, `sampleTicks`, `repetitions`, `phaseOrder`, `repetitionIsolation`, `retryPolicy`.
 
-The canonical threshold artifact root has exactly `schemaVersion=1`, `evidenceContractVersion=5`, `artifactKind="CLEANUP_S3_THRESHOLDS"`, `calibrationReportSha256`, `measurementProcedureSha256`, `thresholds`. `thresholds` has exactly `cleanupProcessorMaterialImprovementPercent`, `runCleanupPhaseContainmentRequiredImprovementPercent`, `runCleanupPhaseContainmentMethod`, `targetWholeTickBenefitPercent`, `bWholeTickMaintenanceTaxCeilingPercent`, `bAllocationTaxCeilingBytesPerTick`, `targetAllocationRegressionCeilingBytesPerTick`, `targetAllocationRegressionCeilingPercent`, `stressWholeTickRegressionCeilingPercent`, `stressAllocationRegressionCeilingBytesPerTick`, `captureOffWholeTickRegressionCeilingPercent`, `attributionMinimumCleanupProcessorMilliseconds`, `attributionMinimumWholeTickSharePercent`, `maximumCalibrationNoisePercent`.
+The canonical threshold artifact root has exactly `schemaVersion=1`, `evidenceContractVersion=5`, `artifactKind="CLEANUP_S3_THRESHOLDS"`, `calibrationReportSha256`, `calibrationCompletionManifestSha256`, `measurementProcedureSha256`, `thresholds`. `thresholds` has exactly `cleanupProcessorMaterialImprovementPercent`, `runCleanupPhaseContainmentRequiredImprovementPercent`, `runCleanupPhaseContainmentMethod`, `targetWholeTickBenefitPercent`, `bWholeTickMaintenanceTaxCeilingPercent`, `bAllocationTaxCeilingBytesPerTick`, `targetAllocationRegressionCeilingBytesPerTick`, `targetAllocationRegressionCeilingPercent`, `stressWholeTickRegressionCeilingPercent`, `stressAllocationRegressionCeilingBytesPerTick`, `captureOffWholeTickRegressionCeilingPercent`, `attributionMinimumCleanupProcessorMilliseconds`, `attributionMinimumWholeTickSharePercent`, `maximumCalibrationNoisePercent`.
 
 The non-official build-validation manifest root has exactly `schemaVersion=1`, `evidenceContractVersion=5`, `artifactKind="CLEANUP_S3_BUILD_VALIDATION"`, `authorizedHeadSha`, `authorizedWorktreeSha256`, `authorizedRuntimeTreeSha256`, `measurementBackendContractSha256`, `harnessSha256`, `playerArtifactSha256`, `buildPayloadSha256`, `validationStatus`, `validationReasons`. It is produced before M1 and `validationStatus` MUST be `VALIDATED`; it is not measurement evidence and cannot carry `PASS`/`DEFERRED`.
 
@@ -259,7 +262,7 @@ The post-final readback receipt root has exactly `schemaVersion=1`, `evidenceCon
 
 ## 8. MeasurementAuthorization schema 1
 
-The authorization is a strict, finite, non-self-referential campaign plan. Its root has exactly:
+The authorization is a strict, finite, non-self-referential campaign plan. The official variant root has exactly:
 
 - `schemaVersion=1`, `evidenceContractVersion=5`;
 - `authorizationId`, `authorizationKind`, `campaignId`, `measurementGoalSha256`;
@@ -273,7 +276,7 @@ The authorization is a strict, finite, non-self-referential campaign plan. Its r
 - `playerArtifactSha256`, `buildPayloadSha256`, `buildValidationManifestSha256`;
 - `toolHashes`, `captureSettings`, `thresholdsSha256`, `attemptSlots`, `mandatorySlotIds`, `retryPolicy`, `cleanPolicy`, `lockPolicy`.
 
-`authorizationKind` is exactly `S3_A_OFFICIAL`. The Player is built and validation-recorded once from the clean D3-activated revision before M1, without official measurement. M1 binds those exact three Player/build digests; official slots reuse that immutable build. Rebuilding after M1 invalidates the authorization instead of silently changing the measured executable.
+For this official variant, `authorizationKind` is exactly `S3_A_OFFICIAL`; the separate calibration variant is defined in §8.4. The Player is built and validation-recorded once from the clean D3-activated revision before M1, without official measurement. M1 binds those exact three Player/build digests; official slots reuse that immutable build. Rebuilding after M1 invalidates the authorization instead of silently changing the measured executable.
 
 ### 8.1 Exact nested shapes
 
@@ -281,7 +284,7 @@ The authorization is a strict, finite, non-self-referential campaign plan. Its r
 
 `captureSettings` has exactly `width`, `height`, `warmupFrames`, `sampleFramesPerPhase`, `gameplayTickIntervalFrames`, `cleanupWarmupTicks`, `cleanupSampleTicks`, `repetitions`.
 
-`thresholdsSha256` binds the exact canonical threshold artifact. That artifact can be produced only from an admitted noise-valid calibration bound to the same protocol/tool/workload/oracle identity. Null, caller-selected or hand-edited thresholds cannot authorize an official slot.
+`thresholdsSha256` binds the exact canonical threshold artifact. That artifact can be produced only from the completed, separately authorized, admitted noise-valid calibration in §8.4, bound to the same source/build/protocol/tool/workload/oracle identity. Its completion-manifest digest binds the entire prerequisite campaign; the official campaign cannot supply its own prerequisite calibration report. Null, caller-selected or hand-edited thresholds cannot authorize an official slot.
 
 `attemptSlots` is a nonempty ordered array. Each object has exactly:
 
@@ -339,6 +342,26 @@ The campaign ledger/final-manifest root has exactly:
 A campaign FINAL may retain unconsumed tail slots only when its terminal is `HOLD`; the first Hold/failed-infrastructure slot and every earlier slot must be consumed, and every later slot must remain unconsumed. In that case `campaignAggregationReportSha256` is null. `PASS` and `DEFERRED` require an empty `unconsumedSlotIds` array and a non-null, hash-valid campaign aggregation report.
 
 The campaign ledger, not an individual attempt manifest, owns the official S3-A terminal truth. It rejects duplicate consumption, reordered attempts, missing mandatory slots for a success terminal, unlisted slots and result-selected replacement. `manifestState` uses the same lifecycle as §9. An attempt may describe its local admission outcome, but cannot independently emit official campaign `PASS` or `DEFERRED`.
+
+### 8.4 Threshold-free calibration authorization and one-way handoff
+
+This section explicitly specializes §§7–10 for prerequisite calibration. It does not authorize execution of this draft. A separate `C1` exact signed calibration approval is required after D1/I2/D2, E1, K1 and I3/D3 activation and clean build validation, before M1. E0 diagnostic results and v1-v4 reports cannot substitute for this calibration.
+
+The Calibration Goal root has exactly `schemaVersion=1`, `evidenceContractVersion=5`, `artifactKind="CLEANUP_S3_CALIBRATION_GOAL"`, `goalId`, `stage`, `activeStrategies`, `workloadContractSha256`, `measurementProcedureSha256`, `requiredCalibrationSlotCount`, `terminalDecisionRule`. It contains no threshold or future official Goal/authorization digest. `stage` is `S3-A`; the exact strategy set, capture settings and finite workload/repetition slot coverage must satisfy the inherited S3-A calibration requirements. The Goal count must equal the nonzero number of calibration slots; missing or extra required coverage is rejected before Player launch.
+
+CalibrationAuthorization uses the exact §8 root and nested shapes with `authorizationKind="S3_A_CALIBRATION"` and **omits** `thresholdsSha256`; null or placeholder thresholds and future official authorization references are forbidden. `measurementGoalSha256` binds the Calibration Goal. Its slots may only pair `warm-up` with `discarded-warm-up`, or `calibration` with `calibration`; at least one calibration slot is mandatory and no official slot is allowed. The official variant permits only `warm-up`/`discarded-warm-up` and `official`/`admitted-official` pairs. All slot uniqueness, order, no-retry, lock, clean identity, build-once and signature checks apply to both variants.
+
+C1 uses the same K1 trust root and exact §8.2 receipt shape, with `approvalKind="S3_A_C1"`. Its signed message has the same two digest lines but the first line is exactly `cleanup-s3-c1-v1`. `S3_A_C1` and `S3_A_M1` signatures/receipts are not interchangeable. Kind, Goal artifact kind and message domain must agree before any launch. C1 cannot authorize an official slot, and M1 cannot retroactively authorize calibration.
+
+Every calibration metric, admission report and attempt manifest binds its own C1 authorization, receipt, Goal and slot. Calibration admission and threshold derivation use the exact inherited calibration formulas and fixed noise ceiling; they do not require the output thresholds as an input. The aggregate calibration report is emitted only after all required local attempt FINAL manifests exist; those attempts bind only their own local reports, never this future aggregate. The aggregate extends the inherited strict calibration-report root with exactly `orderedCalibrationAttemptManifestSha256`, the ordered digests of all and only calibration-slot FINAL manifests. It revalidates their persisted metrics/report hashes and binds the C1 campaign; no new input-list field is added to the slot-local reports. For this aggregate only, its inherited slot-local identity is that of the final calibration slot; the full input list and completion manifest, rather than that anchor alone, prove cohort coverage. Warm-up inputs are preserved but excluded from threshold calculation. A canonical `READY` or `DEFERRED_NOT_MATERIAL` report is eligible only with `admitted=true`, `signalValid=true`, non-null exact thresholds and every required slot admitted. Hold, partial completion or invalid signal cannot produce an eligible threshold artifact.
+
+The calibration completion manifest root has exactly `schemaVersion=1`, `evidenceContractVersion=5`, `artifactKind="CLEANUP_S3_CALIBRATION_COMPLETION"`, `manifestState`, `campaignId`, `measurementAuthorizationSha256`, `measurementAuthorizationApprovalReceiptSha256`, `authorizedSlotIds`, `mandatorySlotIds`, `slotConsumptions`, `orderedAttemptManifestSha256`, `unconsumedSlotIds`, `calibrationReportSha256`, `calibrationOutcome`, `reasons`, `terminalStatus`, `authoritativeVerdict`. Slot arrays use §8.3's exact shapes and order. This manifest replaces the official campaign aggregation/final carrier for C1 only; it follows §9's provisional/finalizing/atomic-final, process-finalization and immutable-readback rules.
+
+For C1, `PROVISIONAL`/`FINALIZING` has `calibrationOutcome="NOT_RUN"`, `terminalStatus="NOT_RUN"`, `authoritativeVerdict="NOT_RUN"` and a null report digest. A successful FINAL has `calibrationOutcome="CALIBRATION_COMPLETE"`, no reasons, no unconsumed slots, a hash-valid canonical calibration report, and still `terminalStatus="NOT_RUN"`, `authoritativeVerdict="NOT_RUN"`. It cannot emit official `PASS`, `DEFERRED` or `READY`. Failure has `calibrationOutcome="HOLD"`, `terminalStatus="HOLD"` and the coherent inherited/v5 `HOLD_*` verdict, preserves the first failed slot and unconsumed tail, and has a null report digest if no safe report exists. Valid completion readback exits 0 only for `CALIBRATION_COMPLETE`, 1 for Hold, and 2 for readback/transport failure; these C1 rules specialize the official-only exit mapping in §7.1. Completion never attests official S3-A success.
+
+Only after immutable C1 completion may the canonical threshold artifact be written, binding both its calibration report and completion manifest. Neither calibration carrier contains this future threshold digest. The Measurement Goal and M1 authorization are then created with that threshold digest and new Goal, authorization, campaign, attempt and nonce identities. Official validators revalidate the complete C1 signature/input/completion chain and recompute thresholds; accepting only a copied threshold object or caller digest is forbidden.
+
+The C1→M1 handoff is the sole permitted cross-campaign provenance edge. Source HEAD/worktree/runtime, Player/build-validation payload, contract/workload/oracle/parser, tool/harness, backend/signal/procedure and capture settings must match exactly. Only authority/Goal/campaign/slot identities differ. The C1 report stays bound to C1 and is consumed only as the threshold prerequisite, never relabeled or counted among official samples. Official reports bind M1 and may check the frozen thresholds but cannot replace or regenerate them from official results. Any identity change requires a new C1 calibration and subsequent M1; no stale or result-selected calibration may be substituted after signing.
 
 ## 9. Clean cohort and lifecycle delta
 
@@ -432,6 +455,8 @@ D1 review vectors and later tests MUST cover:
 - aggregate changed without tuple change and tuple changed without aggregate change;
 - producer parity bool forged true/false;
 - missing, forged, stale or wrong-slot authorization;
+- first C1 authorization with no threshold dependency, followed by completed calibration, canonical thresholds and a new M1 authorization;
+- threshold/future-M1 fields in C1, C1/M1 signature-domain swaps, official slots under C1, incomplete calibration handoff, stale source/build identity and official-sample threshold regeneration;
 - missing/changed trust root, wrong key/signature/Goal digest, and authorization/Goal circular-hash attempts;
 - duplicate/reordered/cherry-picked slot consumption, unlisted retries and attempt-level forged campaign success;
 - dirty tracked, staged, untracked and submodule state;
@@ -454,6 +479,7 @@ No boolean, environment variable, CLI flag, attempt kind or single approval flag
 6. K1 exact Ed25519 public-key trust-root enrollment;
 7. any required I3 implementation and D3 integration recognizing only the K1-approved trust-root digest;
 8. clean committed revision, build-once validated Player payload and new campaign identity;
-9. M1 exact MeasurementAuthorization/Measurement Goal signature approval.
+9. C1 exact CalibrationAuthorization/Calibration Goal signature approval and immutable noise-valid calibration completion;
+10. canonical thresholds from that completion, then M1 exact MeasurementAuthorization/Measurement Goal signature approval.
 
 Until all cumulative conditions hold, repository Slice 3 remains `Hold — valid evidence incomplete`; official capture and S3-B/S3-C are forbidden.

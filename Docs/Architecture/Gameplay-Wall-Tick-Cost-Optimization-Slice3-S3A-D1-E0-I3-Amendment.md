@@ -236,10 +236,10 @@ P2 승인은 D1/E0-D 설계 문서 작성을 다음 허용 작업으로 만들�
 
 ### D1-D exact candidates — 아직 normative 승인 아님
 
-- `Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v5.md`: SHA-256 `2c2809aa8eaa2e229156dd5e97ced08f14484a75eb829430925b8f2b053b8707`
+- `Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v5.md`: SHA-256 `32ea0e8af9c437f2ddcca4349e153af509724bf1c8d3376dc1cba02f49de986d`
 - `Tools/contracts/gameplay_cleanup_slice3_workloads_v3.json`: SHA-256 `b6c143188566c5a7a68a4775ecc4c753dabd0f54792a9bb11e82a1b21dadce2e`
 - `Tools/contracts/gameplay_cleanup_slice3_full_scan_oracle_v1.json`: SHA-256 `fdc8e157fe43cbb8731bc384a17d5d04ee99921c71a19b4e428d58e035279aac`
-- `Tools/contracts/gameplay_cleanup_slice3_evidence_review_vectors_v1.json`: SHA-256 `05fcdef703549a618cedfdf76640ad9c5122fd7d62fedac1c68d2363e51b8fbe`
+- `Tools/contracts/gameplay_cleanup_slice3_evidence_review_vectors_v1.json`: SHA-256 `775aaa17b470e52744dc414fae424fa454545e059e497004c618d83417a6b8a8`
 
 독립 workload/oracle 검토는 초기 256 entity의 전체 fingerprint field order/default, seed 기반 position permutation, exact ordered stress operation blocks, warm-up engine tick `2000..2199`, measured engine tick `3000..3199`, cold-first `80` 대 measured steady-state `96` 구분을 요구했다. 보완 뒤 production helper를 import하지 않은 독립 확장에서 target/stress initial fingerprint와 schedule hash 및 stress 96-operation cardinality가 일치했다.
 
@@ -258,3 +258,16 @@ P2 승인은 D1/E0-D 설계 문서 작성을 다음 허용 작업으로 만들�
 - 다음 권한은 D1 exact four-artifact approval과 E0-D exact protocol approval을 각각 별도로 받는 것이다.
 - I2/I3-pre 구현, D2 activation, E0 실행, E1 adoption, K1/M1과 official capture는 계속 금지된다.
 - Repository Slice 3는 `Hold — valid evidence incomplete`; S3-B/S3-C는 금지 상태다.
+
+
+## 13. 2026-09-09 — Calibration 승인 순환 의존성 수정
+
+커밋 검토 후 사용자 수정 요청에 따라 proposed v5의 `승인 -> calibration -> threshold -> 승인` 순환을 제거했다. §12의 v5/review-vector digest는 이번 수정본의 exact candidate로 갱신했으며, 기존 검토 당시 bytes와 구분한다. 이전 독립 검토 기록은 이 수정본의 독립 검토 증거가 아니다.
+
+- D1/I2/D2, E1, K1, I3/D3 및 clean build validation 뒤 별도 C1 서명 승인으로 threshold 없는 calibration Goal/authorization을 만든다.
+- C1 finite slots의 noise-valid calibration 완료 후 report/completion을 묶은 canonical threshold를 산출하고, 새 Goal/campaign/authorization의 M1이 이를 고정한다.
+- C1/M1 signature domain과 slot 권한을 분리하고, 두 단계의 source/build/tool/procedure identity는 일치해야 한다. C1 완료는 official PASS/DEFERRED가 아니다.
+- 이 순서는 기존 §4의 F2와 M1 사이에 C1 승인·calibration 완료·threshold 산출을 추가하는 proposed 설계 수정이다. C1 승인, 구현 또는 측정 실행을 수행하거나 승인한 것은 아니다.
+- Review vectors에 순환 필드, signature-domain 혼용, official slot 오용, 불완전·stale handoff, official 결과 기반 threshold 교체 거절 및 최초 acyclic 생성 시나리오를 추가했다.
+
+D1/E0-D와 이후 구현·실행 gate는 계속 미승인이다. E0 protocol, workload/oracle bytes와 production runtime은 이 수정 범위에서 바뀌지 않는다.

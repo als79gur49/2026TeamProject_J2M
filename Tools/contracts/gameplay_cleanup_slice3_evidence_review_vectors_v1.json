@@ -22,6 +22,12 @@
   ],
   "semanticAfterValidIdentityPrecondition": "unit-level semantic validator input has all outer artifact hashes, manifests and authorization signature regenerated to bind the mutated bytes; this layer intentionally bypasses end-to-end hash-first rejection",
   "orderedVectors": [
+    {"id": "calibration-threshold-cycle", "target": "C1 authorization", "mutation": "add thresholdsSha256 or a future M1 digest", "expectedReason": "AUTHORIZATION_SCOPE_MISMATCH", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
+    {"id": "calibration-official-slot", "target": "C1 attemptSlots", "mutation": "add an official slot", "expectedReason": "ATTEMPT_SLOT_UNAUTHORIZED", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
+    {"id": "calibration-signature-domain", "target": "C1 receipt", "mutation": "use an M1 domain signature", "expectedReason": "MEASUREMENT_AUTHORIZATION_SIGNATURE_INVALID", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
+    {"id": "calibration-incomplete-handoff", "target": "threshold prerequisite", "mutation": "use a completion with an unconsumed mandatory slot", "expectedReason": "CAMPAIGN_LEDGER_MISMATCH", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
+    {"id": "calibration-stale-build-handoff", "target": "C1 to M1 identity", "mutation": "change Player build identity", "expectedReason": "AUTHORIZATION_SCOPE_MISMATCH", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
+    {"id": "official-threshold-replacement", "target": "M1 threshold artifact", "mutation": "derive replacement thresholds from official samples", "expectedReason": "MEASUREMENT_AUTHORIZATION_HASH_MISMATCH", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
     {"id": "base-contract-byte-mutation", "target": "baseEvidenceContractSha256", "mutation": "change one byte", "expectedReason": "BASE_CONTRACT_HASH_MISMATCH", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
     {"id": "workload-byte-reformat", "target": "workload artifact", "mutation": "whitespace-only raw-byte change", "expectedReason": "WORKLOAD_CONTRACT_HASH_MISMATCH", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
     {"id": "initial-template-field-mutation", "target": "initialEntityGenerator.template.hp", "mutation": "1 to 2 with stale fingerprint", "expectedReason": "ORACLE_EXPECTATION_MISMATCH", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
@@ -52,6 +58,9 @@
     {"id": "process-survivor", "target": "processFinalization", "mutation": "owned Player remains alive", "expectedReason": "PROCESS_SURVIVOR_DETECTED", "expectedTerminal": "HOLD_INVALID_EVIDENCE"},
     {"id": "finalizing-crash", "target": "campaign manifest", "mutation": "power loss after FINALIZING", "expectedDiagnosticReason": null, "expectedTerminalStatus": "NOT_RUN", "expectedAuthoritativeVerdict": "NOT_RUN", "expectedRunnerExit": 2},
     {"id": "post-final-readback-failure", "target": "post-final readback receipt", "mutation": "failure after immutable FINAL", "expectedDiagnosticReason": "POST_FINAL_READBACK_FAILED", "expectedFinalMutation": "NONE", "expectedRunnerExit": 2}
+  ],
+  "positiveReviewScenarios": [
+    {"id": "first-calibration-without-thresholds", "sequence": ["threshold-free C1 Goal and signed authorization", "all required calibration slots admitted", "immutable noise-valid calibration report and completion", "canonical threshold artifact", "new M1 Goal and signed authorization with exact C1 identity handoff"], "expected": "acyclic construction; only M1 permits official slots; C1 completion owns no official success"}
   ],
   "architectureGuards": [
     "oracle parser imports no production Cleanup code",
