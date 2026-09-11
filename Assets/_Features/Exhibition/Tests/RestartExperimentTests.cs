@@ -12,6 +12,8 @@ namespace Game.Exhibition.Tests
         private sealed class CycleFake : ICycleEnvironment
         {
             public long Now;
+            public Exception ExecutionError, CleanupError, ReleaseError;
+            public int Cleanups;
             public int Shutdowns, SteamStarts, GameStarts, Probes, LockReleases;
             public bool LockHeld, LockDenied, ParentStuck, SteamStuck, OtherGame, ReplacedSteam;
             public string FailStage;
@@ -24,12 +26,13 @@ namespace Game.Exhibition.Tests
             public IDisposable AcquireCycleLock()
             {
                 if (LockDenied || LockHeld) throw new IOException("lock denied or contended");
-                LockHeld = true; return new Lease(() => { LockHeld = false; LockReleases++; });
+                LockHeld = true; return new Lease(() => { LockHeld = false; LockReleases++; if (ReleaseError != null) ThrowOrigin(ReleaseError); });
             }
             public bool ParentAlive() { Inspect("parent"); return ParentStuck || Now < 200; }
             public void EnsureNoOtherGame() { Inspect("game-check"); if (OtherGame) throw new IOException("manual game"); }
             public bool OriginalSteamAlive()
             {
+                if (ExecutionError != null) ThrowOrigin(ExecutionError);
                 Inspect("original"); if (ReplacedSteam) throw new IOException("replacement Steam");
                 return SteamStuck || Shutdowns == 0 || Now < 400;
             }
@@ -41,12 +44,80 @@ namespace Game.Exhibition.Tests
             public bool ProbeReady(Deadline deadline) { Inspect("probe-prepare"); int budget = (int)deadline.Remaining(); Probes++; return Probe(budget); }
             public void StartGame(Deadline deadline) { Inspect("game-prepare"); if (deadline != null) deadline.Remaining(); Assert.That(LockHeld, Is.True); GameStarts++; }
             public void Delay(int milliseconds) { Assert.That(milliseconds, Is.GreaterThan(0)); Now += milliseconds; }
-            public void Cleanup() { Assert.That(LockHeld, Is.True); Inspect("cleanup"); }
+            public void Cleanup() { Assert.That(LockHeld, Is.True); Cleanups++; Inspect("cleanup"); if (CleanupError != null) ThrowOrigin(CleanupError); }
             private sealed class Lease : IDisposable { private readonly Action release; public Lease(Action release) { this.release = release; } public void Dispose() => release(); }
         }
 
 
 
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void ThrowOrigin(Exception error) { throw error; }
+
+        [TestCase(true, false, false)]
+        [TestCase(false, true, false)]
+        [TestCase(false, false, true)]
+        [TestCase(true, true, true)]
+        public void FailurePreservesOriginAndReleasesResources(bool execute, bool cleanup, bool release)
+        {
+            var fake = new CycleFake {
+                ExecutionError = execute ? new System.ComponentModel.Win32Exception(5) : null,
+                CleanupError = cleanup ? new IOException("cleanup failure") : null,
+                ReleaseError = release ? new IOException("release failure") : null
+            };
+            Exception result = Assert.Catch(() => Cycle.Run(fake, Trial.FullCycle));
+            var failures = new List<Exception>();
+            CollectFailures(result, failures);
+            var expected = new List<Exception>();
+            if (execute) expected.Add(fake.ExecutionError);
+            if (cleanup) expected.Add(fake.CleanupError);
+            if (release) expected.Add(fake.ReleaseError);
+            Assert.That(failures, Is.EqualTo(expected));
+            foreach (var error in failures) Assert.That(error.StackTrace, Does.Contain("ThrowOrigin"));
+            if (execute) {
+                Assert.That(fake.ExecutionError.Data["RestartOperation"], Is.EqualTo("Execute"));
+                Assert.That(fake.SteamStarts + fake.Probes + fake.GameStarts, Is.Zero);
+            }
+            if (cleanup) Assert.That(fake.CleanupError.Data["RestartOperation"], Is.EqualTo("Cleanup"));
+            if (release) Assert.That(fake.ReleaseError.Data["RestartOperation"], Is.EqualTo("ReleaseCycleLock"));
+            Assert.That(fake.Cleanups, Is.EqualTo(1));
+            Assert.That(fake.LockReleases, Is.EqualTo(1));
+            Assert.That(fake.LockHeld, Is.False);
+        }
+
+        private static void CollectFailures(Exception error, List<Exception> failures)
+        {
+            var aggregate = error as AggregateException;
+            if (aggregate == null) { failures.Add(error); return; }
+            foreach (var inner in aggregate.InnerExceptions) CollectFailures(inner, failures);
+        }
+
+        [TestCase("command", 0, 0)]
+        [TestCase("steam-exited", 0, 0)]
+        [TestCase("game-prepare", 1, 1)]
+        public void AccessDeniedAfterShutdownDoesNotSubmitAnotherLaunch(string stage, int steamStarts, int probes)
+        {
+            var denied = new System.ComponentModel.Win32Exception(5);
+            var fake = new CycleFake();
+            fake.Inspect = current => { if (current == stage) ThrowOrigin(denied); };
+            Assert.That(Assert.Catch(() => Cycle.Run(fake, Trial.FullCycle)), Is.SameAs(denied));
+            Assert.That(fake.Shutdowns, Is.EqualTo(1));
+            Assert.That(fake.SteamStarts, Is.EqualTo(steamStarts));
+            Assert.That(fake.Probes, Is.EqualTo(probes));
+            Assert.That(fake.GameStarts, Is.Zero);
+            Assert.That(fake.Cleanups, Is.EqualTo(1));
+            Assert.That(fake.LockReleases, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void FailureContextKeepsInnerOperationAndNativeError()
+        {
+            var error = new System.ComponentModel.Win32Exception(5);
+            Cycle.Note(error, "RestartOperation", "StartSteam.CaptureNewSteamIdentity");
+            Cycle.Note(error, "RestartOperation", "Execute");
+            Assert.That(error.Data["RestartOperation"], Is.EqualTo("StartSteam.CaptureNewSteamIdentity"));
+            Assert.That(error.NativeErrorCode, Is.EqualTo(5));
+        }
 
         [TestCase(Trial.FullCycle, 1, 1, 1, 1)]
         public void TrialsHaveExactCreationCountsAndReleaseLock(Trial trial, int shutdown, int steam, int probes, int game)

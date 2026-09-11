@@ -1,5 +1,6 @@
 // Also compiled by the isolated Windows PowerShell helper. Keep this file Unity-free and C# 5 compatible.
 using System;
+using System.Runtime.ExceptionServices;
 
 namespace Game.Exhibition.RestartExperiment
 {
@@ -52,17 +53,27 @@ namespace Game.Exhibition.RestartExperiment
         public static void Run(ICycleEnvironment env, Trial trial)
         {
             if (!Enum.IsDefined(typeof(Trial), trial)) throw new ArgumentOutOfRangeException("trial");
-            env.Validate();
-            using (var lease = env.AcquireCycleLock())
-            {
-                if (lease == null) throw new InvalidOperationException("Cycle lock unavailable.");
-                Exception failure = null;
-                try { Execute(env, trial); }
-                catch (Exception e) { failure = e; }
-                try { env.Cleanup(); }
-                catch (Exception e) { failure = Combine(failure, e); }
-                if (failure != null) throw failure;
-            }
+            try { env.Validate(); }
+            catch (Exception e) { Note(e, "RestartOperation", "Validate"); throw; }
+            IDisposable lease;
+            try { lease = env.AcquireCycleLock(); }
+            catch (Exception e) { Note(e, "RestartOperation", "AcquireCycleLock"); throw; }
+            if (lease == null) throw new InvalidOperationException("Cycle lock unavailable.");
+            Exception failure = null;
+            try { Execute(env, trial); }
+            catch (Exception e) { Note(e, "RestartOperation", "Execute"); failure = e; }
+            try { env.Cleanup(); }
+            catch (Exception e) { Note(e, "RestartOperation", "Cleanup"); failure = Combine(failure, e); }
+            try { lease.Dispose(); }
+            catch (Exception e) { Note(e, "RestartOperation", "ReleaseCycleLock"); failure = Combine(failure, e); }
+            if (failure != null) ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+
+        // Failure context only: no normal-path recording or exception type changes.
+        public static void Note(Exception error, string key, object value)
+        {
+            try { if (!error.Data.Contains(key)) error.Data[key] = value; }
+            catch { /* Context must never replace the original failure. */ }
         }
 
         private static Exception Combine(Exception first, Exception next)

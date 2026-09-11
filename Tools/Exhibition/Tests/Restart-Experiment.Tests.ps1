@@ -67,6 +67,7 @@ function Add-Type {
             Assert-True (-not $text.Contains('start the game manually')) 'Unsafe manual restart guidance remains'
             $expectedEvidence = $(if ($case.Known) { $scratch } else { 'unknown (not obtained)' })
             Assert-True ($text.Contains('Handoff: ' + $expectedEvidence)) 'Known/unknown evidence path missing'
+            Assert-True (-not (Test-Path (Join-Path $scratch 'restart-failure.txt'))) 'Unvalidated bootstrap created an error file'
         } finally { if (-not $child.HasExited) { $child.Kill(); $child.WaitForExit() }; $child.Dispose() }
     }
 }
@@ -75,7 +76,7 @@ function Add-Type {
 $tokens = $null; $parseErrors = $null
 $hostAst = [Management.Automation.Language.Parser]::ParseFile($hostPath, [ref]$tokens, [ref]$parseErrors)
 Assert-True ($parseErrors.Count -eq 0) 'Host script parse failed'
-foreach ($name in @('Format-RestartExperimentFailure', 'Show-RestartExperimentFailure')) {
+foreach ($name in @('Get-RestartFailureDetails', 'Save-RestartFailure', 'Format-RestartExperimentFailure', 'Show-RestartExperimentFailure')) {
     $functionAst = $hostAst.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $false)
     Assert-True ($null -ne $functionAst) ('Production failure seam missing: ' + $name)
     . ([scriptblock]::Create($functionAst.Extent.Text))
@@ -99,6 +100,50 @@ Invoke-Case 'Actual display failure does not throw or replace the original error
     Assert-True ($failure.Message -ceq 'original cycle failure') 'Original error changed'
     $message = Format-RestartExperimentFailure -Failure $failure -EvidenceDirectory $null
     Assert-True ($message.Contains('Handoff: unknown (not obtained)')) 'Unknown path not explicit'
+}
+
+Invoke-Case 'Failure details preserve native code and both operation contexts' {
+    $primary = New-Object ComponentModel.Win32Exception(5)
+    $primary.Data['RestartOperation'] = 'StartSteam.CaptureNewSteamIdentity'
+    $primary.Data['NativeOperation'] = 'OpenProcessToken'
+    $secondary = New-Object IO.IOException('cleanup sentinel')
+    $secondary.Data['RestartOperation'] = 'Cleanup'
+    $aggregate = New-Object AggregateException('cycle', ([Exception[]]@($primary, $secondary)))
+    $details = Get-RestartFailureDetails $aggregate
+    Assert-True ($details.IndexOf('StartSteam.CaptureNewSteamIdentity') -lt $details.IndexOf('RestartOperation: Cleanup')) 'Cleanup preceded primary failure'
+    foreach ($text in @('NativeErrorCode: 5', 'OpenProcessToken', 'StartSteam.CaptureNewSteamIdentity', 'Cleanup', 'cleanup sentinel')) {
+        Assert-True ($details.Contains($text)) ('Missing failure detail: ' + $text)
+    }
+}
+Invoke-Case 'Account redaction precedes truncation and leaves numeric metadata intact' {
+    $account = '76561198123456789'
+    $failure = New-Object IO.IOException(('x' * 990) + $account + ' end')
+    $details = Get-RestartFailureDetails $failure @($account)
+    Assert-True (-not $details.Contains($account.Substring(0, 10))) 'Partial account survived truncation'
+    $native = New-Object ComponentModel.Win32Exception(100)
+    $native.Data['TargetPid'] = 1000
+    $zero = Get-RestartFailureDetails $native @('0', '100')
+    Assert-True ($zero.Contains('NativeErrorCode: 100')) 'Native error metadata was redacted'
+    Assert-True ($zero.Contains('TargetPid: 1000')) 'PID metadata was redacted'
+    Assert-True ($zero.Contains('HResult: ' + $native.HResult)) 'HResult metadata was redacted'
+    Assert-True ($zero -match 'UTC: \d{4}-\d{2}-\d{2}T') 'UTC metadata was redacted'
+}
+Invoke-Case 'Failure record is bounded create-only and independent of restart state' {
+    $scratch = Join-Path 'D:\J2M\evidence\restart-failure-hardening' ([guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $scratch -Force | Out-Null
+    $failure = New-Object IO.IOException(('private-account ' * 4000))
+    $details = Get-RestartFailureDetails $failure @('private-account')
+    Assert-True (-not $details.Contains('private-account')) 'Account leaked'
+    Assert-True ([Text.Encoding]::UTF8.GetByteCount($details) -le 32768) 'Details unbounded'
+    $result = Save-RestartFailure $scratch $details
+    Assert-True ($result.StartsWith('Failure record:')) 'File not saved'
+    $path = Join-Path $scratch 'restart-failure.txt'
+    $before = [IO.File]::ReadAllText($path)
+    Assert-True ((Save-RestartFailure $scratch 'replacement').Contains('unavailable')) 'Existing record overwritten'
+    Assert-True ([IO.File]::ReadAllText($path) -ceq $before) 'Original record changed'
+    Assert-True ((Save-RestartFailure $null $details).Contains('not validated')) 'Unvalidated path accepted'
+    Assert-True ((Save-RestartFailure (Join-Path $scratch 'missing') $details).Contains('unavailable')) 'Write failure not isolated'
+    Assert-True (-not (Test-Path (Join-Path $scratch 'missing'))) 'Fallback directory created'
 }
 
 Add-Type -Path @(
@@ -306,7 +351,7 @@ Invoke-Case 'Cold PowerShell bootstrap resolves both host serializers before any
     }
     $hostText = [IO.File]::ReadAllText((Join-Path $RepositoryRoot 'Assets/_Features/Exhibition/Tools/Restart-Experiment.ps1'))
     # The legacy branch follows the runtime-1 branch, which also has a nested Probe check.
-    $boundary = $hostText.LastIndexOf('    if ($Probe) {', [StringComparison]::Ordinal)
+    $boundary = $hostText.IndexOf('    if ($Probe) {', [StringComparison]::Ordinal)
     Assert-True ($boundary -gt 0) 'Host bootstrap boundary missing'
     # Execute the real bootstrap in a new -NoProfile process, then the exact serializer statements.
     $constructors = [regex]::Matches($hostText, '(?m)^\s*\$serializer = New-Object System\.Runtime\.Serialization\.Json\.DataContractJsonSerializer.*$')

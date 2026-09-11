@@ -423,25 +423,44 @@ namespace Game.Exhibition.RestartExperiment
 
         public static ProcessIdentity Capture(Process process, bool hash)
         {
-            IntPtr token;
-            if (!OpenProcessToken(process.Handle, 8, out token)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            string operation = "Process.Id";
+            int targetPid = 0;
             try
             {
-                Statistics stats; int returned;
-                if (!GetTokenInformation(token, 10, out stats, Marshal.SizeOf(typeof(Statistics)), out returned))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                // A newly created child can have an empty Mono Process.Modules collection.
-                var image = new StringBuilder(32768);
-                uint length = (uint)image.Capacity;
-                if (!QueryFullProcessImageName(process.Handle, 0, image, ref length))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                string path = CanonicalPath(image.ToString());
-                return new ProcessIdentity { Pid = process.Id, Session = SessionId(process.Id),
-                    StartTicks = process.StartTime.ToUniversalTime().Ticks, Path = path,
-                    Sha256 = hash ? ExperimentFiles.Hash(path) : null, UserSid = UserSid(token),
-                    Logon = stats.AuthenticationId.High.ToString("x8") + stats.AuthenticationId.Low.ToString("x8") };
+                targetPid = process.Id;
+                operation = "Process.Handle";
+                IntPtr handle = process.Handle;
+                operation = "OpenProcessToken";
+                IntPtr token;
+                if (!OpenProcessToken(handle, 8, out token)) throw new Win32Exception(Marshal.GetLastWin32Error());
+                try
+                {
+                    operation = "GetTokenInformation";
+                    Statistics stats; int returned;
+                    if (!GetTokenInformation(token, 10, out stats, Marshal.SizeOf(typeof(Statistics)), out returned))
+                        throw new Win32Exception(Marshal.GetLastWin32Error());
+                    operation = "QueryFullProcessImageName";
+                    var image = new StringBuilder(32768);
+                    uint length = (uint)image.Capacity;
+                    if (!QueryFullProcessImageName(handle, 0, image, ref length))
+                        throw new Win32Exception(Marshal.GetLastWin32Error());
+                    operation = "CanonicalImagePath";
+                    string path = CanonicalPath(image.ToString());
+                    operation = "ProcessIdToSessionId";
+                    int session = SessionId(targetPid);
+                    operation = "Process.StartTime";
+                    long startTicks = process.StartTime.ToUniversalTime().Ticks;
+                    operation = "ImageHash";
+                    string sha256 = hash ? ExperimentFiles.Hash(path) : null;
+                    operation = "TokenUserSid";
+                    string userSid = UserSid(token);
+                    return new ProcessIdentity { Pid = targetPid, Session = session,
+                        StartTicks = startTicks, Path = path, Sha256 = sha256, UserSid = userSid,
+                        Logon = stats.AuthenticationId.High.ToString("x8") + stats.AuthenticationId.Low.ToString("x8") };
+                }
+                finally { CloseHandle(token); }
             }
-            finally { CloseHandle(token); }
+            catch (Exception e) { Cycle.Note(e, "NativeOperation", operation); Cycle.Note(e, "TargetPid", targetPid); throw; }
         }
 
         private static string UserSid(IntPtr token)
@@ -471,20 +490,32 @@ namespace Game.Exhibition.RestartExperiment
         }
         public static ProcessIdentity Steam(ProcessIdentity owner, ProcessIdentity excluded = null)
         {
-            ProcessIdentity found = null;
-            foreach (var process in Process.GetProcessesByName("steam"))
-                using (process)
-                {
-                    if (process.HasExited) continue;
-                    if (excluded != null && process.Id == excluded.Pid && process.StartTime.ToUniversalTime().Ticks == excluded.StartTicks) continue;
-                    if (SessionId(process.Id) != owner.Session) continue;
-                    var candidate = Capture(process, true);
-                    if (!SameScope(candidate, owner)) throw new InvalidOperationException("Steam user/logon differs.");
-                    if (found != null) throw new InvalidOperationException("Multiple Steam clients; inspect manually.");
-                    found = candidate;
-                }
-            return found;
+            string operation = "EnumerateSteamProcesses";
+            int targetPid = 0;
+            try
+            {
+                ProcessIdentity found = null;
+                foreach (var process in Process.GetProcessesByName("steam"))
+                    using (process)
+                    {
+                        operation = "Process.Id"; targetPid = process.Id;
+                        operation = "Process.HasExited";
+                        if (process.HasExited) continue;
+                        operation = "ExcludedProcess.StartTime";
+                        if (excluded != null && targetPid == excluded.Pid && process.StartTime.ToUniversalTime().Ticks == excluded.StartTicks) continue;
+                        operation = "ProcessIdToSessionId";
+                        if (SessionId(targetPid) != owner.Session) continue;
+                        operation = "CaptureSteamIdentity";
+                        var candidate = Capture(process, true);
+                        if (!SameScope(candidate, owner)) throw new InvalidOperationException("Steam user/logon differs.");
+                        if (found != null) throw new InvalidOperationException("Multiple Steam clients; inspect manually.");
+                        found = candidate;
+                    }
+                return found;
+            }
+            catch (Exception e) { Cycle.Note(e, "NativeOperation", operation); Cycle.Note(e, "TargetPid", targetPid); throw; }
         }
+
         public static string LockName(ProcessIdentity steam)
         {
             string scope = steam.UserSid + "\n" + steam.Session + "\n" + steam.Logon + "\n" + steam.Path.ToUpperInvariant();
@@ -501,29 +532,36 @@ namespace Game.Exhibition.RestartExperiment
         private OwnedShutdownCommand ownedShutdownCommand;
         private int attempts;
         public bool CycleEntered { get; private set; }
+        public string ValidatedHandoffDirectory { get; private set; }
         public long Milliseconds { get { return clock.ElapsedMilliseconds; } }
 
         public WindowsCycleEnvironment(ExperimentRequest request, string requestPath) { this.request = request; this.requestPath = requestPath; }
 
         public void Validate()
         {
-            LaunchEnvironment.ValidateChildRole(request);
-            Guid nonce;
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT || !Environment.Is64BitProcess ||
-                request.Parent == null || request.Steam == null || request.AppId == 0 || request.SteamId == 0 ||
-                !Guid.TryParseExact(request.Nonce, "N", out nonce) || !Enum.IsDefined(typeof(Trial), request.Trial))
-                throw new InvalidOperationException("Invalid x64 experiment request.");
-            using (var process = Process.GetCurrentProcess())
-                if (!WindowsIdentityCapture.SameScope(request.Parent, WindowsIdentityCapture.Capture(process, false)))
-                    throw new InvalidOperationException("Helper user/session/logon differs.");
-            if (!WindowsIdentityCapture.SameScope(request.Parent, request.Steam)) throw new InvalidOperationException("Steam scope differs.");
-            VerifyFile(request.Parent); VerifyFile(request.Steam);
-            if (!File.Exists(ExperimentFiles.PowerShell)) throw new FileNotFoundException("Windows PowerShell missing.");
-            foreach (var name in new[] { "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs" })
-                if (!File.Exists(System.IO.Path.Combine(request.ToolsDirectory, name))) throw new FileNotFoundException(name);
-            CompletedResetProductWire.ValidateRequestPath(request, requestPath);
-            if (request.Trial != Trial.FullCycle || ExperimentFiles.Hash(request.DllPath) != ExperimentFiles.DllHash)
-                throw new InvalidOperationException("Completed-reset Steam probe payload mismatch.");
+            string operation = "Validate";
+            try
+            {
+                LaunchEnvironment.ValidateChildRole(request);
+                Guid nonce;
+                if (Environment.OSVersion.Platform != PlatformID.Win32NT || !Environment.Is64BitProcess ||
+                    request.Parent == null || request.Steam == null || request.AppId == 0 || request.SteamId == 0 ||
+                    !Guid.TryParseExact(request.Nonce, "N", out nonce) || !Enum.IsDefined(typeof(Trial), request.Trial))
+                    throw new InvalidOperationException("Invalid x64 experiment request.");
+                using (var process = Process.GetCurrentProcess())
+                    if (!WindowsIdentityCapture.SameScope(request.Parent, WindowsIdentityCapture.Capture(process, false)))
+                        throw new InvalidOperationException("Helper user/session/logon differs.");
+                if (!WindowsIdentityCapture.SameScope(request.Parent, request.Steam)) throw new InvalidOperationException("Steam scope differs.");
+                VerifyFile(request.Parent); VerifyFile(request.Steam);
+                if (!File.Exists(ExperimentFiles.PowerShell)) throw new FileNotFoundException("Windows PowerShell missing.");
+                foreach (var name in new[] { "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs" })
+                    if (!File.Exists(System.IO.Path.Combine(request.ToolsDirectory, name))) throw new FileNotFoundException(name);
+                CompletedResetProductWire.ValidateRequestPath(request, requestPath);
+                ValidatedHandoffDirectory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(requestPath));
+                if (request.Trial != Trial.FullCycle || ExperimentFiles.Hash(request.DllPath) != ExperimentFiles.DllHash)
+                    throw new InvalidOperationException("Completed-reset Steam probe payload mismatch.");
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
 
         private static void VerifyFile(ProcessIdentity target)
@@ -551,56 +589,86 @@ namespace Game.Exhibition.RestartExperiment
         }
         public bool ParentAlive()
         {
-            Process process;
-            try { process = Process.GetProcessById(request.Parent.Pid); } catch (ArgumentException) { return false; }
-            using (process)
+            string operation = "ParentAlive";
+            try
             {
-                if (process.HasExited || process.StartTime.ToUniversalTime().Ticks != request.Parent.StartTicks) return false;
-                if (!WindowsIdentityCapture.SameProcess(request.Parent, WindowsIdentityCapture.Capture(process, false)))
-                    throw new InvalidOperationException("Parent identity changed.");
-                return true;
+                Process process;
+                try { process = Process.GetProcessById(request.Parent.Pid); } catch (ArgumentException) { return false; }
+                using (process)
+                {
+                    if (process.HasExited || process.StartTime.ToUniversalTime().Ticks != request.Parent.StartTicks) return false;
+                    if (!WindowsIdentityCapture.SameProcess(request.Parent, WindowsIdentityCapture.Capture(process, false)))
+                        throw new InvalidOperationException("Parent identity changed.");
+                    return true;
+                }
             }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void EnsureNoOtherGame()
         {
-            foreach (var process in Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(request.Parent.Path)))
-                using (process)
-                {
-                    if (process.HasExited || WindowsIdentityCapture.SessionId(process.Id) != request.Parent.Session) continue;
-                    var identity = WindowsIdentityCapture.Capture(process, false);
-                    if (WindowsIdentityCapture.SameProcess(identity, request.Parent)) continue;
-                    if (string.Equals(identity.Path, request.Parent.Path, StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("Another instance of the game appeared; no additional launch.");
-                }
+            string operation = "EnsureNoOtherGame";
+            try
+            {
+                foreach (var process in Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(request.Parent.Path)))
+                    using (process)
+                    {
+                        if (process.HasExited || WindowsIdentityCapture.SessionId(process.Id) != request.Parent.Session) continue;
+                        var identity = WindowsIdentityCapture.Capture(process, false);
+                        if (WindowsIdentityCapture.SameProcess(identity, request.Parent)) continue;
+                        if (string.Equals(identity.Path, request.Parent.Path, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidOperationException("Another instance of the game appeared; no additional launch.");
+                    }
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public bool OriginalSteamAlive()
         {
-            var found = WindowsIdentityCapture.Steam(request.Parent, shutdownCommand);
-            if (found == null) return false;
-            if (!WindowsIdentityCapture.SameProcess(found, request.Steam) || found.Sha256 != request.Steam.Sha256)
-                throw new InvalidOperationException("Replacement/restarted Steam detected; inspect manually.");
-            return true;
+            string operation = "OriginalSteamAlive";
+            try
+            {
+                var found = WindowsIdentityCapture.Steam(request.Parent, shutdownCommand);
+                if (found == null) return false;
+                if (!WindowsIdentityCapture.SameProcess(found, request.Steam) || found.Sha256 != request.Steam.Sha256)
+                    throw new InvalidOperationException("Replacement/restarted Steam detected; inspect manually.");
+                return true;
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void RequestSteamExit(Deadline deadline)
         {
-            ownedShutdownCommand = new OwnedShutdownCommand();
-            ownedShutdownCommand.Start(() =>
+            string operation = "RequestSteamExit";
+            try
             {
-                VerifyFile(request.Steam);
-                if (!OriginalSteamAlive()) throw new InvalidOperationException("Steam exited before shutdown request.");
-                return SteamStart("-shutdown");
-            }, deadline, Process.Start, process => new ProcessIdentity { Pid = process.Id, StartTicks = process.StartTime.ToUniversalTime().Ticks });
-            shutdownCommand = ownedShutdownCommand.Identity;
+                ownedShutdownCommand = new OwnedShutdownCommand();
+                ownedShutdownCommand.Start(() =>
+                {
+                    VerifyFile(request.Steam);
+                    if (!OriginalSteamAlive()) throw new InvalidOperationException("Steam exited before shutdown request.");
+                    return SteamStart("-shutdown");
+                }, deadline, Process.Start, process => new ProcessIdentity { Pid = process.Id, StartTicks = process.StartTime.ToUniversalTime().Ticks });
+                shutdownCommand = ownedShutdownCommand.Identity;
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public bool ShutdownCommandAlive()
         {
-            if (ownedShutdownCommand == null || shutdownCommand == null) throw new IOException("Shutdown command ownership unavailable.");
-            return ownedShutdownCommand.Alive(code => { });
+            string operation = "ShutdownCommandAlive";
+            try
+            {
+                if (ownedShutdownCommand == null || shutdownCommand == null) throw new IOException("Shutdown command ownership unavailable.");
+                return ownedShutdownCommand.Alive(code => { });
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void EnsureSteamExited()
         {
-            if (WindowsIdentityCapture.Steam(request.Parent, shutdownCommand) != null)
-                throw new IOException("Steam client appeared after original exit; inspect manually.");
+            string operation = "EnsureSteamExited";
+            try
+            {
+                if (WindowsIdentityCapture.Steam(request.Parent, shutdownCommand) != null)
+                    throw new IOException("Steam client appeared after original exit; inspect manually.");
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         private ProcessStartInfo SteamStart(string arguments)
         {
@@ -611,31 +679,48 @@ namespace Game.Exhibition.RestartExperiment
         }
         public void StartSteam()
         {
-            EnsureNoOtherGame(); VerifyFile(request.Steam);
-            if (WindowsIdentityCapture.Steam(request.Parent) != null) throw new InvalidOperationException("Steam already restarted.");
-            using (var process = Process.Start(SteamStart("")))
+            string operation = "StartSteam";
+            try
             {
-                if (process == null) throw new IOException("Steam creation failed.");
-                currentSteam = WindowsIdentityCapture.Capture(process, true);
-                if (!WindowsIdentityCapture.SameScope(currentSteam, request.Steam) || currentSteam.Path != request.Steam.Path || currentSteam.Sha256 != request.Steam.Sha256)
-                    throw new IOException("New Steam target differs.");
+                EnsureNoOtherGame(); VerifyFile(request.Steam);
+                if (WindowsIdentityCapture.Steam(request.Parent) != null) throw new InvalidOperationException("Steam already restarted.");
+                operation = "StartSteam.ProcessStart";
+                using (var process = Process.Start(SteamStart("")))
+                {
+                    if (process == null) throw new IOException("Steam creation failed.");
+                    operation = "StartSteam.CaptureNewSteamIdentity";
+                    currentSteam = WindowsIdentityCapture.Capture(process, true);
+                    if (!WindowsIdentityCapture.SameScope(currentSteam, request.Steam) || currentSteam.Path != request.Steam.Path || currentSteam.Sha256 != request.Steam.Sha256)
+                        throw new IOException("New Steam target differs.");
+                }
             }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void EnsureNewSteamUnchanged()
         {
-            var found = WindowsIdentityCapture.Steam(request.Parent);
-            if (found == null || currentSteam == null || !WindowsIdentityCapture.SameProcess(found, currentSteam) || found.Sha256 != currentSteam.Sha256)
-                throw new InvalidOperationException("New Steam exited or was replaced; no cycle retry.");
+            string operation = "EnsureNewSteamUnchanged";
+            try
+            {
+                var found = WindowsIdentityCapture.Steam(request.Parent);
+                if (found == null || currentSteam == null || !WindowsIdentityCapture.SameProcess(found, currentSteam) || found.Sha256 != currentSteam.Sha256)
+                    throw new InvalidOperationException("New Steam exited or was replaced; no cycle retry.");
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public bool ProbeReady(Deadline deadline)
         {
-            var attempt = new ProbeAttempt { Attempt = ++attempts, Nonce = request.Nonce,
-                Utc = DateTime.UtcNow.ToString("o"), StartedMilliseconds = Milliseconds };
-            return RunOwnedProbe(() =>
+            string operation = "ProbeReady";
+            try
             {
-                return LaunchEnvironment.PrepareProbe(request, () => ExperimentFiles.HostStart(request.ToolsDirectory, requestPath, true),
-                    EnsureNewSteamUnchanged, () => { });
-            }, deadline, () => Milliseconds, request, attempt);
+                var attempt = new ProbeAttempt { Attempt = ++attempts, Nonce = request.Nonce,
+                    Utc = DateTime.UtcNow.ToString("o"), StartedMilliseconds = Milliseconds };
+                return RunOwnedProbe(() =>
+                {
+                    return LaunchEnvironment.PrepareProbe(request, () => ExperimentFiles.HostStart(request.ToolsDirectory, requestPath, true),
+                        EnsureNewSteamUnchanged, () => { });
+                }, deadline, () => Milliseconds, request, attempt);
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         // Convenience entry for harmless Windows child tests. Production supplies its absolute deadline.
         public static bool RunOwnedProbe(ProcessStartInfo start, int budgetMilliseconds, ExperimentRequest expected)
@@ -880,20 +965,30 @@ namespace Game.Exhibition.RestartExperiment
         }
         public void StartGame(Deadline deadline)
         {
-            using (var command = LaunchEnvironment.Start(() => LaunchEnvironment.PrepareCompletedResetSubmission(request, requestPath,
-                EnsureNoOtherGame, () => VerifyFile(request.Parent), EnsureNewSteamUnchanged, () => { }), deadline, Process.Start))
+            string operation = "StartGame";
+            try
             {
-                if (command == null) throw new IOException("Completed-reset Steam submission failed.");
+                using (var command = LaunchEnvironment.Start(() => LaunchEnvironment.PrepareCompletedResetSubmission(request, requestPath,
+                    EnsureNoOtherGame, () => VerifyFile(request.Parent), EnsureNewSteamUnchanged, () => { }), deadline, Process.Start))
+                {
+                    if (command == null) throw new IOException("Completed-reset Steam submission failed.");
+                }
             }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void Delay(int milliseconds)
         { if (milliseconds <= 0) throw new ArgumentOutOfRangeException("milliseconds"); Thread.Sleep(milliseconds); }
         public void Cleanup()
         {
-            // Releasing this handle never terminates the Steam command.
-            if (ownedShutdownCommand == null) return;
-            try { ownedShutdownCommand.Dispose(); }
-            finally { ownedShutdownCommand = null; }
+            string operation = "Cleanup";
+            try
+            {
+                // Releasing this handle never terminates the Steam command.
+                if (ownedShutdownCommand == null) return;
+                try { ownedShutdownCommand.Dispose(); }
+                finally { ownedShutdownCommand = null; }
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
     }
 }

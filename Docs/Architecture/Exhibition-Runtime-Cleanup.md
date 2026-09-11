@@ -57,3 +57,22 @@ core의 건너뛴 네 테스트는 그래픽 장치가 필요한 렌더링 연�
 fixture별 실제 leaf test-case 수는 증거 디렉터리의 `fixture-results.tsv`, 변경 파일 해시는 `source-manifest.json`에 기록한다. Editor session 재진입/초기화 및 메뉴 preview는 별도 그래픽 실행의 실제 실행 수로 확인한다. UI lane과 한·영 메뉴 캡처는 실제 Steam Overlay 또는 초기화 성공 증거가 아니다.
 
 새 worktree 저장 정책 감사는 통과했다. 기존 C worktree의 사용자 변경과 미추적 문서는 보존했다. 이 작업은 아직 미커밋이며 merge를 commit 전 상태로 유지한다. 실제 Windows 빌드 생성·Steam 업로드·전시 계정 초기화·자동 복귀·재획득 수동 검증은 이번 실행에 포함하지 않았다.
+
+
+## 운영 재시작 실패 정보 보강 (2026-09-11)
+
+현재 재시작 실패는 종료 명령 생성 이후부터 새 Steam 식별 완료 이전 구간의 Win32 접근 거부이며, 정확한 최초 호출은 기존 스택 재던지기로 소실됐다. 이번 보강은 실패 원인 보존이며, 종료 경쟁 조건의 해결이나 실제 Steam 복귀 성공을 의미하지 않는다.
+
+- `Cycle.Run`은 최초 스택을 보존하고 실행·cleanup·잠금 해제 오류를 발생 순서대로 전달한다. cleanup 뒤 잠금 해제를 각각 한 번 수행한다.
+- 기존 프로세스 작업 경계에서 예외에 작업명·native 작업명·대상 PID만 붙인다. 접근 거부를 종료로 간주하거나 timeout·identity·단일 재시작 계약을 완화하지 않는다.
+- 기존 PowerShell host는 실패한 경우에만 검증된 handoff 폴더에 `restart-failure.txt`를 create-only로 작성한다. UTF-8 최대 32 KiB이며 UTC·helper PID·작업명·Windows 오류 코드·원래 스택·후속 오류를 포함한다. 계정 식별값은 제외한다. 제품 경로에 개발자 D 드라이브를 하드코딩하지 않는다.
+- 경로 검증 전 bootstrap 실패에는 파일을 쓰지 않는다. 기록·표시 실패가 최초 오류를 대체하지 않으며 종료 코드는 1이다. 오류 파일은 재실행·성공·request 소비 판정에 사용하지 않는다.
+- 정상 단계·성공 시 기록, JSONL, collector 및 writer framework는 추가하지 않는다. Probe stdout의 단일 JSON과 기존 supervisor 소유권 처리는 유지하며 Probe는 별도 파일이나 popup을 만들지 않는다.
+
+검증 자료는 `/mnt/d/J2M/evidence/restart-failure-hardening` 및 `/mnt/d/J2M/evidence/exhibition-restart-failure-20260911/hardening-*`에 보관한다. core와 `full --filter 'Game.Exhibition;WindowsReleaseBuildPipelineTests;WindowsDistributionStagerTests'`, Windows helper harness를 사용하고 fixture별 실제 실행 수를 확인한다. 메뉴·Scene·Prefab 변경이 없어 Unity UI lane은 제외하며 PowerShell display seam을 검증한다. 실제 초기화·Steam 복귀·Overlay·재획득은 배포 후 별도 수동 검증이다.
+
+
+보강 후 자동 검증: core EditMode 254 통과 / PlayMode 107 통과·4 그래픽 전용 건너뜀. 전시·배포 filtered full EditMode 394 통과·메뉴 preview 1 건너뜀, PlayMode 메뉴 검증 1 건너뜀. `RestartExperimentTests`는 115개 실제 통과했다. Windows PowerShell helper harness는 79개 통과했으며 실제 Steam/game/native 실행은 0이다. `ParticipantEditorSessionTests`는 이 동기 lane에서 실행 0이므로 이번 변경의 실행 증거로 주장하지 않는다. fixture별 수치는 `restart-failure-hardening/fixture-results.tsv`에 보관했다. 초기 helper harness의 bootstrap 추출 경계 문제는 수정 후 재실행으로 검증했다. 전체 full, 그래픽/async UI, 새 Player 빌드·업로드 및 실제 계정 초기화는 이번 보강에서 실행하지 않았다.
+
+
+업로드 전 독립 재검토에서 자유 텍스트 절단 후 계정 마스킹의 경계 누출과 미설정 SteamId `0`의 메타데이터 훼손을 확인해 수정했다. message/stack은 마스킹 후 길이를 제한하고 구조적 오류 메타데이터에는 일괄 치환을 적용하지 않는다. 비제로 SteamId만 수집하며 두 경계의 회귀 테스트를 추가했다. Windows helper 최종 재검증은 80개 통과이며 실제 Steam/game/native 실행은 0이다.
