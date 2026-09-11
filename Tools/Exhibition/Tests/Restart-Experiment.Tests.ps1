@@ -358,9 +358,17 @@ Invoke-Case 'Diagnostic probe script rejects invalid request before SDK or Steam
     [IO.File]::WriteAllText($fakeRequest, '{"Nonce":"fake-probe-nonce","Trial":3}')
     $start = New-FakeProbe ''
     $start.Arguments = '-NoProfile -ExecutionPolicy Bypass -File ' + [Game.Exhibition.RestartExperiment.ExperimentFiles]::Quote((Join-Path $scratch 'Restart-Experiment.ps1')) + ' -RequestPath ' + [Game.Exhibition.RestartExperiment.ExperimentFiles]::Quote($fakeRequest) + ' -Probe'
+    $probeExpected = New-Object Game.Exhibition.RestartExperiment.ExperimentRequest
+    $probeExpected.Nonce = $expected.Nonce
+    $probeExpected.AppId = $expected.AppId; $probeExpected.SteamId = $expected.SteamId
+    $probeExpected.EvidenceDirectory = $scratch
     $rejected = $false
-    try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe($start, 10000, $expected) | Out-Null }
-    catch { $rejected = $_.Exception.ToString().Contains('Completed-reset product request required.') }
+    try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe($start, 10000, $probeExpected) | Out-Null }
+    catch {
+        $rejected = $_.Exception.ToString().Contains('ExitCode=1') -and
+            [IO.File]::ReadAllText((Join-Path $scratch 'probe-attempt-001.stderr.txt')).Contains('Completed-reset product request required.') -and
+            [IO.File]::ReadAllText((Join-Path $scratch 'probe-attempt-001.json')).Contains('SkippedBecauseProcessOrOutputFailed')
+    }
     Assert-True $rejected 'Script did not reach guarded validation'
 }
 

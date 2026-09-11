@@ -582,10 +582,113 @@ namespace Game.Exhibition.Tests
         [Test]
         public void PopupExceptionSummaryPreservesCompleteFailureInLogs()
         {
-            var attempt = new ProbeAttempt { Attempt = 2, FailureStage = "Result", Error = new string('x', 4000), CleanupError = "secondary" };
+            var attempt = new ProbeAttempt { Attempt = 2, FailureStage = "Execution", Error = new string('x', 4000), CleanupError = "secondary", ArtifactPath = @"D:\evidence\probe-attempt-002.json" };
             var error = new ProbeAttemptException(attempt);
             Assert.That(error.Message.Length, Is.LessThan(200));
-            Assert.That(error.ToString(), Does.Contain(attempt.Error).And.Contain("secondary"));
+            Assert.That(error.Message, Does.Contain(attempt.ArtifactPath));
+            Assert.That(error.InnerException.Message, Does.StartWith(attempt.Error).And.Contain("Cleanup error: secondary"));
+        }
+
+        [Test]
+        public void ProbeAttemptEvidencePreservesPrimaryAndStreamsWithoutOverwrite()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "j2m-probe-evidence-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var attempt = new ProbeAttempt { Attempt = 1, FailureStage = "Execution",
+                    Error = "Probe abnormal exit: ExitCode=1", ExitConfirmed = true, OwnedExitConfirmed = true,
+                    ExitCode = 1, Stdout = "s-not-json", Stderr = "native-primary", OutputComplete = true,
+                    ErrorOutputComplete = true, ParseDisposition = "SkippedBecauseProcessOrOutputFailed" };
+                ProbeAttemptEvidence.Save(attempt, root);
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stdout.txt")), Is.EqualTo("s-not-json"));
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stderr.txt")), Is.EqualTo("native-primary"));
+                string json = File.ReadAllText(Path.Combine(root, "probe-attempt-001.json"));
+                Assert.That(json, Does.Contain("Probe abnormal exit: ExitCode=1"));
+                Assert.That(json, Does.Contain("SkippedBecauseProcessOrOutputFailed"));
+                Assert.That(json, Does.Contain("StdoutSha256").And.Contain("StderrSha256"));
+                Assert.That(attempt.StdoutSha256, Is.EqualTo(HashText("s-not-json")));
+                Assert.That(attempt.StderrSha256, Is.EqualTo(HashText("native-primary")));
+                ProbeAttemptEvidence.Save(attempt, root);
+                Assert.That(attempt.Attempt, Is.EqualTo(2));
+                Assert.That(File.Exists(Path.Combine(root, "probe-attempt-002.json")), Is.True);
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stdout.txt")), Is.EqualTo("s-not-json"));
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Test]
+        public void ConcurrentProbeEvidenceAllocatesDistinctAttempts()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "j2m-probe-concurrent-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var first = new ProbeAttempt { Attempt = 1, Error = "first", Stdout = "one", Stderr = "first-error" };
+                var second = new ProbeAttempt { Attempt = 1, Error = "second", Stdout = "two", Stderr = "second-error" };
+                System.Threading.Tasks.Task.WaitAll(
+                    System.Threading.Tasks.Task.Run(() => ProbeAttemptEvidence.Save(first, root)),
+                    System.Threading.Tasks.Task.Run(() => ProbeAttemptEvidence.Save(second, root)));
+                Assert.That(first.Attempt, Is.Not.EqualTo(second.Attempt));
+                Assert.That(Directory.GetFiles(root, "probe-attempt-*.json").Length, Is.EqualTo(2));
+                Assert.That(Directory.GetFiles(root, "*.reservation").Length, Is.Zero);
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Test]
+        public void JsonCommitFailureDoesNotPublishMissingArtifactPath()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "j2m-probe-partial-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            Directory.CreateDirectory(Path.Combine(root, "probe-attempt-001.json"));
+            try
+            {
+                var attempt = new ProbeAttempt { Attempt = 1, FailureStage = "Execution", Error = "exit-primary", Stderr = "native-primary" };
+                var failure = Assert.Throws<IOException>(() => ProbeAttemptEvidence.Save(attempt, root));
+                attempt.ArtifactError = failure.ToString();
+                Assert.That(attempt.ArtifactPath, Is.Null);
+                Assert.That(File.Exists(Path.Combine(root, "probe-attempt-001.stderr.txt")), Is.True);
+                var reported = new ProbeAttemptException(attempt);
+                Assert.That(reported.Message, Does.Contain("partial"));
+                Assert.That(reported.InnerException.Message, Does.Contain("exit-primary").And.Contain("Evidence persistence error").And.Contain("native-primary"));
+                Assert.That(Directory.GetFiles(root, "*.reservation").Length, Is.Zero);
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        private static string HashText(string value)
+        {
+            using (var hash = System.Security.Cryptography.SHA256.Create())
+                return ExperimentFiles.Hex(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(value)));
+        }
+
+        [Test]
+        public void AbnormalChildExitSkipsJsonParsingAndPersistsBothStreams()
+        {
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows process evidence contract");
+            string root = Path.Combine(Path.GetTempPath(), "j2m-probe-exit-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                string body = "$null=[Console]::In.ReadLine();[Console]::Out.Write('s-not-json');" +
+                    "[Console]::Error.Write('native-primary');exit 1";
+                var start = new System.Diagnostics.ProcessStartInfo {
+                    FileName = ExperimentFiles.PowerShell,
+                    Arguments = "-NoProfile -EncodedCommand " + Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(body)),
+                    UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
+                    RedirectStandardOutput = true, RedirectStandardError = true
+                };
+                var expected = new ExperimentRequest { Nonce = "grant", EvidenceDirectory = root, AppId = 1, SteamId = 2 };
+                var error = Assert.Throws<ProbeAttemptException>(() => WindowsCycleEnvironment.RunOwnedProbe(start, 5000, expected));
+                Assert.That(error.InnerException.Message, Does.Contain("ExitCode=1"));
+                string json = File.ReadAllText(Path.Combine(root, "probe-attempt-001.json"));
+                Assert.That(json, Does.Contain("SkippedBecauseProcessOrOutputFailed"));
+                Assert.That(json, Does.Not.Contain("SerializationException"));
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stdout.txt")), Is.EqualTo("s-not-json"));
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stderr.txt")), Is.EqualTo("native-primary"));
+            }
+            finally { Directory.Delete(root, true); }
         }
 
         [Test]

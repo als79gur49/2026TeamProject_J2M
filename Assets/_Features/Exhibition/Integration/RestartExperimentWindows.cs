@@ -125,6 +125,9 @@ namespace Game.Exhibition.RestartExperiment
     {
         public int WireVersion = 3, Attempt;
         public string Nonce, Utc, Creation = "NotRequested", FailureStage, Error, CleanupError, CollectionError, ResultError;
+        public string ParseDisposition = "NotEvaluated", ArtifactPath, ArtifactStemPath, ArtifactError;
+        public int StdoutBytes, StderrBytes;
+        public string StdoutSha256, StderrSha256;
         public long StartedMilliseconds, ElapsedMilliseconds;
         public int? Pid, ExitCode;
         public long? StartTicks;
@@ -170,9 +173,80 @@ namespace Game.Exhibition.RestartExperiment
     {
         public ProbeAttemptException(ProbeAttempt attempt)
             : base("Probe attempt " + attempt.Attempt + " stopped at " + attempt.FailureStage +
-                ". Native result and process failure are included in the inner exception.",
-                new IOException(ExperimentFiles.Json(attempt)))
+                ". Evidence: " + EvidenceLocation(attempt) + ".",
+                new IOException(FailureDetails(attempt)))
         { }
+        private static string EvidenceLocation(ProbeAttempt attempt)
+        {
+            if (!string.IsNullOrWhiteSpace(attempt.ArtifactPath)) return attempt.ArtifactPath;
+            return string.IsNullOrWhiteSpace(attempt.ArtifactStemPath) ? "unavailable" : attempt.ArtifactStemPath + ".* (partial)";
+        }
+        private static string FailureDetails(ProbeAttempt attempt)
+        {
+            var details = new StringBuilder(attempt.Error ?? "Probe attempt failed without a primary error.");
+            if (!string.IsNullOrWhiteSpace(attempt.ArtifactError)) details.Append("\nEvidence persistence error: ").Append(Limit(attempt.ArtifactError, 2000));
+            if (!string.IsNullOrWhiteSpace(attempt.CleanupError)) details.Append("\nCleanup error: ").Append(Limit(attempt.CleanupError, 2000));
+            if (!string.IsNullOrWhiteSpace(attempt.CollectionError)) details.Append("\nCollection error: ").Append(Limit(attempt.CollectionError, 2000));
+            if (!string.IsNullOrWhiteSpace(attempt.Stderr)) details.Append("\nCaptured stderr: ").Append(Limit(attempt.Stderr, 4000));
+            return details.ToString();
+        }
+        private static string Limit(string value, int limit) { return value.Length <= limit ? value : value.Substring(0, limit) + " [truncated]"; }
+    }
+
+    public static class ProbeAttemptEvidence
+    {
+        public static void Save(ProbeAttempt attempt, string directory)
+        {
+            if (attempt == null) throw new ArgumentNullException("attempt");
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+                throw new DirectoryNotFoundException("Validated probe evidence directory is unavailable.");
+            int number = Math.Max(1, attempt.Attempt); string stem = null, reservation = null;
+            while (reservation == null)
+            {
+                stem = Path.Combine(directory, "probe-attempt-" + number.ToString("000", CultureInfo.InvariantCulture));
+                try
+                {
+                    using (File.Open(stem + ".reservation", FileMode.CreateNew, FileAccess.Write, FileShare.None)) { }
+                    reservation = stem + ".reservation";
+                    if (File.Exists(stem + ".json") || File.Exists(stem + ".stdout.txt") || File.Exists(stem + ".stderr.txt"))
+                    { File.Delete(reservation); reservation = null; number++; }
+                }
+                catch (IOException) { number++; }
+            }
+            try
+            {
+                attempt.Attempt = number; attempt.ArtifactStemPath = stem;
+                byte[] stdout = new UTF8Encoding(false).GetBytes(attempt.Stdout ?? "");
+                byte[] stderr = new UTF8Encoding(false).GetBytes(attempt.Stderr ?? "");
+                attempt.StdoutBytes = stdout.Length; attempt.StderrBytes = stderr.Length;
+                attempt.StdoutSha256 = Hash(stdout); attempt.StderrSha256 = Hash(stderr);
+                WriteCreateOnly(stem + ".stdout.txt", stdout);
+                WriteCreateOnly(stem + ".stderr.txt", stderr);
+                string path = stem + ".json";
+                WriteCreateOnly(path, new UTF8Encoding(false).GetBytes(ExperimentFiles.Json(attempt)));
+                attempt.ArtifactPath = path;
+            }
+            finally { if (reservation != null && File.Exists(reservation)) File.Delete(reservation); }
+        }
+
+        private static string Hash(byte[] content)
+        { using (var hash = SHA256.Create()) return ExperimentFiles.Hex(hash.ComputeHash(content)); }
+
+        private static void WriteCreateOnly(string path, byte[] bytes)
+        {
+            string temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+                {
+                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Flush(true);
+                }
+                if (File.Exists(path)) throw new IOException("Probe evidence already exists: " + path);
+                File.Move(temporary, path);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
     }
 
     public enum LaunchRole { Steam = 1, Probe = 2, FullCycleGame = 3 }
@@ -853,16 +927,20 @@ namespace Game.Exhibition.RestartExperiment
                 !attempt.OutputComplete || !attempt.ErrorOutputComplete || attempt.StdoutTruncated || attempt.StderrTruncated)
                 attempt.Fail("ExitOutput", new IOException("Probe exit/output failed: ExitCode=" +
                     (attempt.ExitCode.HasValue ? attempt.ExitCode.ToString() : "Unknown") + "; Stderr=" + attempt.Stderr));
+            bool mayParse = attempt.Error == null && attempt.CleanupError == null && attempt.CollectionError == null &&
+                attempt.ExitConfirmed && attempt.OwnedExitConfirmed && attempt.ExitCode == 0 &&
+                attempt.OutputComplete && attempt.ErrorOutputComplete && !attempt.StdoutTruncated && !attempt.StderrTruncated;
             try
             {
-                // Parse complete bounded output even for failed exits, preserving useful diagnostics.
                 ProbeObservation row = null;
-                if (attempt.OutputComplete && !attempt.StdoutTruncated && !string.IsNullOrWhiteSpace(attempt.Stdout))
+                if (mayParse)
                 {
+                    attempt.ParseDisposition = "Attempted";
+                    if (string.IsNullOrWhiteSpace(attempt.Stdout)) throw new IOException("Probe result output is empty.");
                     row = parse(attempt.Stdout); attempt.Parsed = true;
                     attempt.IdentityValid = row.Nonce == expected.Nonce && row.Pid == attempt.Pid && row.StartTicks == attempt.StartTicks;
-
                 }
+                else attempt.ParseDisposition = "SkippedBecauseProcessOrOutputFailed";
                 if (attempt.Error != null || attempt.CleanupError != null || attempt.CollectionError != null)
                     throw new IOException("Probe has captured failure(s).");
                 if (!attempt.ExitConfirmed || !attempt.OwnedExitConfirmed || attempt.ExitCode != 0 ||
@@ -876,6 +954,8 @@ namespace Game.Exhibition.RestartExperiment
             catch (Exception e) { attempt.ResultError = e.ToString(); attempt.Fail("Result", e); }
             attempt.ReadyObserved = ready && attempt.Error == null;
             attempt.ElapsedMilliseconds = clock() - attempt.StartedMilliseconds;
+            try { ProbeAttemptEvidence.Save(attempt, expected == null ? null : expected.EvidenceDirectory); }
+            catch (Exception e) { attempt.ArtifactError = e.ToString(); }
             if (attempt.Error != null) throw new ProbeAttemptException(attempt);
             return attempt.ReadyObserved;
         }
