@@ -1,3 +1,13 @@
+## 2026-09-11: 격리된 worktree의 동시 Unity 작업
+
+배포 프로세스 검사는 Git worktree 전체가 아니라 invocation/build 프로젝트와 해당 배포 OutputRoot를 보호한다. 명시적인 절대 `-projectPath`를 가진 별도 프로젝트와 전용 Library/Temp, 독립 출력은 허용한다. 같은 프로젝트/중첩 경로, 공유 Library/Temp를 포함한 reparse 경로, 보호 경로를 가리키는 명시적 출력·로그·결과 인자, 경로를 해석할 수 없는 Unity는 거부한다. 경로 비교는 Windows 인자 해석, 절대 경로 정규화, 구분자 경계 기준이다.
+
+빌드 PID와 같은 프로젝트를 사용하는 자식 Unity(worker), 허용된 Unity의 직계 CrashHandler는 허용한다. 부모를 확인할 수 없는 CrashHandler와 실행 중인 VectorQuake 제품은 기존처럼 거부한다. 프로젝트 Library와 OutputRoot의 파일 lease는 배포 도구끼리의 중복 실행을 막으며 성공/실패 모두 해제한다. lease는 임의의 외부 프로그램에 대한 강제 잠금이 아니므로 빌드 중 보호 프로젝트·출력을 수동으로 수정하지 않는다.
+
+시작 전/직후/종료 후 검사와 소스 HEAD/tree·dirty 상태·설정·빌드 결과·산출물 hash 검사는 유지한다. 공유 `origin/main` 및 ahead/behind 변화는 출처 메타데이터로 남기되 소스 drift로 판정하지 않는다. 프로세스 인자에 드러나지 않는 사용자 정의 외부 쓰기까지 검증하는 보장은 없으며, 별도 작업은 자신의 프로젝트와 출력만 사용해야 한다. CPU/RAM 경합이나 Unity 라이선스 문제는 별도 실행 결과이며 프로세스 존재만으로 실패 처리하지 않는다.
+
+검증: `Tools/Build/Tests/Build-WindowsRelease.Tests.ps1`의 격리/충돌/worker/lease/공유 원격 참조 테스트와 현재 worktree의 `./run_tests.sh core`. 이 수정은 배포 PowerShell에 한정되며 UI/게임 소스 변경은 없다. 실제 빌드·Steam 업로드 결과는 `/mnt/d/J2M/evidence/exhibition-concurrent-build-20260911` 및 `/mnt/d/J2M/evidence/exhibition-upload-20260911`의 실행 기록으로 구분한다. 아래 문서의 과거 전체 Unity 차단 설명은 이 절로 대체한다.
+
 # Windows x64 Canonical Mono Store Pipeline
 
 ## Scope
