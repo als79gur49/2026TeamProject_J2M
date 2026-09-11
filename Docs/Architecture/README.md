@@ -54,6 +54,10 @@
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
 - [Gameplay-Presentation-Driver-Cache-Optimization-Plan.md](./Gameplay-Presentation-Driver-Cache-Optimization-Plan.md)
   - three-driver lookup cache implementation and validation record with campaign 10-prefab inventory, fixed View configuration, Player preservation, replacement lifecycle, and bounded CPU/GC evidence
+- [Gameplay-Optimization-Integration-Plan-2026-09-11.md](./Gameplay-Optimization-Integration-Plan-2026-09-11.md)
+  - reviewed C/D branch integration proposal with pinned revisions, implementation inventory, behavior changes, dirty-work preservation, merge conflicts, and validation criteria; integration and merged-revision validation remain unexecuted
+- [Gameplay-Optimization-Integration-Execution-Prompt-2026-09-11.md](./Gameplay-Optimization-Integration-Execution-Prompt-2026-09-11.md)
+  - executable local-integration prompt covering input preservation, ancestry-preserving merge, contract reconciliation, validation, fresh performance evidence, and closeout; runs only when explicitly requested
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
