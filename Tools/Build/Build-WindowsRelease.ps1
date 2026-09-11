@@ -223,7 +223,7 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ExpectedProviderId = "local"
                 ExpectedLaunchArguments = @()
                 RequiredArtifacts = @(
-                    "Exhibition-Relaunch.ps1",
+                    "Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs",
                     $script:ThirdPartyNoticesFileName,
                     $script:UnityPlayerThirdPartyNoticesFileName
                 )
@@ -245,11 +245,11 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ExpectedProviderId = "steam"
                 ExpectedLaunchArguments = @("-j2mPlatformProvider", "steam")
                 RequiredArtifacts = @(
-                    "Exhibition-Relaunch.ps1",
+                    "Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs",
                     $script:ThirdPartyNoticesFileName,
                     $script:UnityPlayerThirdPartyNoticesFileName,
                     "steam_api64.dll",
-                    "com.rlabrecque.steamworks.net.dll"
+                    "com.rlabrecque.steamworks.net.dll", "Game.Exhibition.Application.dll", "Game.Exhibition.Integration.dll"
                 )
                 ForbiddenArtifacts = @(
                     "steam_appid.txt",

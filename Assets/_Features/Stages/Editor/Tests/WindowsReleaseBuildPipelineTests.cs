@@ -182,6 +182,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(new[]
                 {
                     WindowsDistributionTargetPolicy.ParticipantRestartArtifact,
+                    "Restart-Experiment.ps1",
+                    "RestartExperiment.cs",
+                    "RestartExperimentWindows.cs",
+                    "RestartExperimentNativeProbe.cs",
                     WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
                     WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
                 }));
@@ -197,10 +201,16 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(new[]
                 {
                     WindowsDistributionTargetPolicy.ParticipantRestartArtifact,
+                    "Restart-Experiment.ps1",
+                    "RestartExperiment.cs",
+                    "RestartExperimentWindows.cs",
+                    "RestartExperimentNativeProbe.cs",
                     WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
                     WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
                     WindowsDistributionTargetPolicy.SteamNativeArtifact,
                     WindowsDistributionTargetPolicy.SteamManagedBindingArtifact,
+                    "Game.Exhibition.Application.dll",
+                    "Game.Exhibition.Integration.dll",
                 }));
             Assert.That(steam.ExpectedStoreLaunch,
                 Is.EqualTo("VectorQuake.exe -j2mPlatformProvider steam"));
@@ -247,10 +257,16 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 "payload/VectorQuake.exe",
                 "payload/Exhibition-Relaunch.ps1",
+                "payload/RestartExperiment/Restart-Experiment.ps1",
+                "payload/RestartExperiment/RestartExperiment.cs",
+                "payload/RestartExperiment/RestartExperimentWindows.cs",
+                "payload/RestartExperiment/RestartExperimentNativeProbe.cs",
                 "payload/ThirdPartyNotices.txt",
                 "payload/UnityPlayerThirdPartyNotices.pdf",
                 "payload/steam_api64.dll",
                 "payload/VectorQuake_Data/Managed/com.rlabrecque.steamworks.net.dll",
+                "payload/VectorQuake_Data/Managed/Game.Exhibition.Application.dll",
+                "payload/VectorQuake_Data/Managed/Game.Exhibition.Integration.dll",
             };
             Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
                     target, valid),
@@ -278,6 +294,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     {
                         "payload/VectorQuake.exe",
                 "payload/Exhibition-Relaunch.ps1",
+                "payload/RestartExperiment/Restart-Experiment.ps1",
+                "payload/RestartExperiment/RestartExperiment.cs",
+                "payload/RestartExperiment/RestartExperimentWindows.cs",
+                "payload/RestartExperiment/RestartExperimentNativeProbe.cs",
                         "payload/ThirdPartyNotices.txt",
                         "payload/UnityPlayerThirdPartyNotices.pdf",
                         artifact,
@@ -296,6 +316,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(WindowsDistributionTargetPolicy.TryResolve(
                 targetId, out var target), Is.True);
             var inventory = target.CopyRequiredArtifacts()
+                .Select(name => WindowsDistributionTargetPolicy.CompletedResetHelperArtifacts.Contains(name) ? "RestartExperiment/" + name : name)
                 .Concat(new[] { "VectorQuake_Data/Managed/" + artifact });
 
             Assert.That(
@@ -354,6 +375,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     {
                         "payload/VectorQuake.exe",
                 "payload/Exhibition-Relaunch.ps1",
+                "payload/RestartExperiment/Restart-Experiment.ps1",
+                "payload/RestartExperiment/RestartExperiment.cs",
+                "payload/RestartExperiment/RestartExperimentWindows.cs",
+                "payload/RestartExperiment/RestartExperimentNativeProbe.cs",
                         noticePath,
                         "payload/UnityPlayerThirdPartyNotices.pdf",
                     }),
@@ -373,6 +398,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     {
                         "payload/VectorQuake.exe",
                 "payload/Exhibition-Relaunch.ps1",
+                "payload/RestartExperiment/Restart-Experiment.ps1",
+                "payload/RestartExperiment/RestartExperiment.cs",
+                "payload/RestartExperiment/RestartExperimentWindows.cs",
+                "payload/RestartExperiment/RestartExperimentNativeProbe.cs",
                         "payload/ThirdPartyNotices.txt",
                         noticePath,
                     }),

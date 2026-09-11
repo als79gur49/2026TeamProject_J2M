@@ -46,6 +46,33 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [TestCase("direct-windows")] [TestCase("steam-windows")]
+        public void OperationalHelpersSurviveStagingByteForByte(string target)
+        {
+            var result = Stage(target, "helper-output");
+            foreach (var helper in WindowsDistributionTargetPolicy.CompletedResetHelperArtifacts)
+            {
+                var relative = "RestartExperiment/" + helper;
+                Assert.That(File.ReadAllBytes(Path.Combine(result.PayloadRoot, relative)),
+                    Is.EqualTo(File.ReadAllBytes(Path.Combine(sourceRoot, relative))));
+            }
+        }
+
+        [TestCase("Restart-Experiment.ps1")] [TestCase("RestartExperiment.cs")]
+        [TestCase("RestartExperimentWindows.cs")] [TestCase("RestartExperimentNativeProbe.cs")]
+        public void MissingOrMisplacedOperationalHelperBlocksSteamStaging(string helper)
+        {
+            File.Move(Path.Combine(sourceRoot, "RestartExperiment", helper), Path.Combine(sourceRoot, helper));
+            Assert.Throws<WindowsDistributionStagingException>(() => Stage("steam-windows", "missing-helper-output"));
+        }
+
+        [TestCase("Game.Exhibition.Application.dll")] [TestCase("Game.Exhibition.Integration.dll")]
+        public void MissingResetAssemblyBlocksSteamStaging(string assembly)
+        {
+            File.Delete(Path.Combine(sourceRoot, "VectorQuake_Data", "Managed", assembly));
+            Assert.Throws<WindowsDistributionStagingException>(() => Stage("steam-windows", "missing-reset-output"));
+        }
+
         [Test]
         public void SteamWindows_IncludeListPreservesRuntimeAndSteamDependencies()
         {
@@ -876,6 +903,8 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             WriteFile("VectorQuake.exe", "exe");
             WriteFile(WindowsDistributionTargetPolicy.ParticipantRestartArtifact, "restart helper");
+            foreach (var helper in WindowsDistributionTargetPolicy.CompletedResetHelperArtifacts)
+                WriteFile("RestartExperiment/" + helper, "operational helper " + helper);
             WriteFile(
                 WindowsDistributionTargetPolicy.ThirdPartyNoticesArtifact,
                 ValidThirdPartyNotices);
@@ -897,6 +926,8 @@ namespace Game.Feature.Stages.Editor.Tests
             WriteFile("Docs/not-runtime.txt", "repository-content");
             if (includeSteamDependencies)
             {
+                WriteFile("VectorQuake_Data/Managed/Game.Exhibition.Application.dll", "reset application");
+                WriteFile("VectorQuake_Data/Managed/Game.Exhibition.Integration.dll", "reset integration");
                 WriteFile(
                     "VectorQuake_Data/Managed/com.rlabrecque.steamworks.net.dll",
                     "steam-managed");

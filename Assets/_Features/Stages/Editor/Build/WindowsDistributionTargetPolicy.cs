@@ -87,6 +87,13 @@ public static class WindowsDistributionTargetPolicy
     public const string UnsafeArtifact =
         "System.Runtime.CompilerServices.Unsafe.dll";
     public const string ParticipantRestartArtifact = "Exhibition-Relaunch.ps1";
+    public static readonly IReadOnlyList<string> CompletedResetHelperArtifacts = Array.AsReadOnly(new[]
+    {
+        "Restart-Experiment.ps1",
+        "RestartExperiment.cs",
+        "RestartExperimentWindows.cs",
+        "RestartExperimentNativeProbe.cs",
+    });
     public const string ThirdPartyNoticesArtifact = "ThirdPartyNotices.txt";
     public const string UnityPlayerThirdPartyNoticesArtifact =
         "UnityPlayerThirdPartyNotices.pdf";
@@ -279,6 +286,10 @@ public static class WindowsDistributionTargetPolicy
             new[]
             {
                 ParticipantRestartArtifact,
+                "Restart-Experiment.ps1",
+                "RestartExperiment.cs",
+                "RestartExperimentWindows.cs",
+                "RestartExperimentNativeProbe.cs",
                 ThirdPartyNoticesArtifact,
                 UnityPlayerThirdPartyNoticesArtifact,
             },
@@ -301,10 +312,16 @@ public static class WindowsDistributionTargetPolicy
             new[]
             {
                 ParticipantRestartArtifact,
+                "Restart-Experiment.ps1",
+                "RestartExperiment.cs",
+                "RestartExperimentWindows.cs",
+                "RestartExperimentNativeProbe.cs",
                 ThirdPartyNoticesArtifact,
                 UnityPlayerThirdPartyNoticesArtifact,
                 SteamNativeArtifact,
                 SteamManagedBindingArtifact,
+                "Game.Exhibition.Application.dll",
+                "Game.Exhibition.Integration.dll",
             },
             new[]
             {
@@ -448,6 +465,12 @@ public static class WindowsDistributionTargetPolicy
         {
             return WindowsDistributionValidationFailure.RequiredArtifactMissing;
         }
+
+        foreach (var helper in CompletedResetHelperArtifacts)
+            if (configuration.RequiredArtifacts.Contains(helper) &&
+                !artifactPaths.Any(path => string.Equals(path, "RestartExperiment/" + helper, StringComparison.Ordinal) ||
+                    string.Equals(path, "payload/RestartExperiment/" + helper, StringComparison.Ordinal)))
+                return WindowsDistributionValidationFailure.RequiredArtifactMissing;
 
         if (configuration.ForbiddenArtifacts.Any(fileNames.Contains))
         {
