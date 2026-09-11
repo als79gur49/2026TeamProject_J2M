@@ -168,6 +168,161 @@ namespace Game.Product.Achievements.Tests
             Assert.That(store.MutationCount, Is.Zero);
         }
 
+        [TestCase("stage-0-1", 25)]
+        [TestCase("stage-0-2", 25)]
+        [TestCase("stage-0-3", 12)]
+        [TestCase("stage-1-1", 8)]
+        [TestCase("stage-1-2", 16)]
+        [TestCase("stage-2-1", 20)]
+        [TestCase("stage-2-2", 30)]
+        [TestCase("stage-3-1", 22)]
+        [TestCase("stage-3-2", 35)]
+        [TestCase("stage-3-3", 45)]
+        [TestCase("stage-4-1", 35)]
+        [TestCase("stage-4-2", 45)]
+        [TestCase("stage-4-3", 40)]
+        public void EfficientClear_UsesInclusiveLimitOfCurrentAttempt(string stage, int limit)
+        {
+            SetSequence((stage, "level-9"));
+            foreach (var uses in new[] { limit - 1, limit, limit + 1 })
+            {
+                var sink = new RecordingSink();
+                new CampaignStageAchievementIntegration(sink).TryEarnFromCommittedClear(
+                    Slot(CreateRecord(stage, 0)), _resolver,
+                    new NormalCampaignStageClearFact(StageId.CreateOrThrow(stage), uses));
+                var expected = GameAchievementId.Require($"campaign.{stage}.efficient-clear");
+                Assert.That(sink.Ids.Contains(expected), Is.EqualTo(uses <= limit),
+                    $"{stage}: current={uses}, limit={limit}, historical best=0");
+                Assert.That(sink.BatchCount, Is.EqualTo(uses <= limit ? 1 : 0));
+            }
+        }
+
+        [Test]
+        public void CurrentClear_DoesNotAwardOtherHistoricalEfficientClears()
+        {
+            var sink = new RecordingSink();
+            new CampaignStageAchievementIntegration(sink).TryEarnFromCommittedClear(
+                Slot(CreateRecord("stage-0-1", 0), CreateRecord("stage-1-2", 15)), _resolver,
+                new NormalCampaignStageClearFact(StageId.CreateOrThrow("stage-0-1"), 25));
+            Assert.That(sink.Ids, Is.EquivalentTo(new[]
+            {
+                GameAchievementIds.CampaignLevel1Clear,
+                GameAchievementIds.CampaignStage0_1EfficientClear,
+            }));
+            Assert.That(sink.BatchCount, Is.EqualTo(1));
+        }
+
+        [TestCase("stage-1-2", 16, 1)]
+        [TestCase("stage-4-3", 40, 4)]
+        public void CurrentLevelFinalClear_SubmitsLevelAndEfficiencyInOneBatch(
+            string stage, int uses, int level)
+        {
+            var sink = new RecordingSink();
+            new CampaignStageAchievementIntegration(sink).TryEarnFromCommittedClear(
+                Slot(CreateRecord(stage, uses)), _resolver,
+                new NormalCampaignStageClearFact(StageId.CreateOrThrow(stage), uses));
+            Assert.That(sink.BatchCount, Is.EqualTo(1));
+            Assert.That(sink.Ids, Is.EquivalentTo(new[]
+            {
+                GameAchievementId.Require($"campaign.level-{level}.clear"),
+                GameAchievementId.Require($"campaign.{stage}.efficient-clear"),
+            }));
+        }
+
+        [Test]
+        public void Startup_QualifyingHistoricalRecordsEarnOnlyLevelAchievements()
+        {
+            var sink = new RecordingSink();
+            var store = new ReadOnlyCampaignStore(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
+                CurrentLevelGroupId = "level-1",
+                NormalStagePerformanceRecords = new[]
+                {
+                    CreateRecord("stage-0-1", 0), CreateRecord("stage-1-2", 15),
+                },
+            });
+            new CampaignStageAchievementStartupReconciler(new CampaignStageAchievementIntegration(sink))
+                .Reconcile(store, _resolver, EditorDirectPlayContext.None);
+            Assert.That(sink.Ids, Is.EqualTo(new[] { GameAchievementIds.CampaignLevel1Clear }));
+            Assert.That(store.MutationCount, Is.Zero);
+        }
+
+        [Test]
+        public void CurrentClear_InvalidOrUnsequencedInputDoesNotEarn()
+        {
+            var sink = new RecordingSink();
+            var integration = new CampaignStageAchievementIntegration(sink);
+            var fact = new NormalCampaignStageClearFact(StageId.CreateOrThrow("stage-0-1"), 0);
+            var slot = Slot(CreateRecord("stage-0-1", 0));
+            integration.TryEarnFromCommittedClear(null, _resolver, fact);
+            integration.TryEarnFromCommittedClear(slot, null, fact);
+            integration.TryEarnFromCommittedClear(slot, _resolver, default);
+            SetSequence(("other", "level-0"));
+            integration.TryEarnFromCommittedClear(slot, _resolver, fact);
+            Assert.That(sink.BatchCount, Is.Zero);
+        }
+
+        [Test]
+        public void ProductSaveFailure_IsNotRecoveredAtStartupButQualifyingReplayCanEarn()
+        {
+            SetSequence(("stage-0-1", "level-0"), ("stage-0-3", "level-0"));
+            var repository = new MemoryRepository { FailSave = true };
+            var slot = Slot(CreateRecord("stage-0-1", 25));
+            var fact = new NormalCampaignStageClearFact(StageId.CreateOrThrow("stage-0-1"), 25);
+            using (var first = new ProductAchievementCoordinator(repository,
+                       GameAchievementCatalog.Production, new UnavailableAchievementPublicationSink()))
+            {
+                first.Initialize();
+                new CampaignStageAchievementIntegration(first).TryEarnFromCommittedClear(slot, _resolver, fact);
+                Assert.That(first.GetSnapshot().EarnedAchievementIds, Is.Empty);
+            }
+
+            repository.FailSave = false;
+            using var next = new ProductAchievementCoordinator(repository,
+                GameAchievementCatalog.Production, new UnavailableAchievementPublicationSink());
+            next.Initialize();
+            var integration = new CampaignStageAchievementIntegration(next);
+            var store = new ReadOnlyCampaignStore(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = fact.StageId,
+                CurrentLevelGroupId = "level-0",
+                NormalStagePerformanceRecords = new[] { CreateRecord("stage-0-1", 25) },
+            });
+            new CampaignStageAchievementStartupReconciler(integration)
+                .Reconcile(store, _resolver, EditorDirectPlayContext.None);
+            Assert.That(next.GetSnapshot().EarnedAchievementIds, Is.Empty);
+
+            integration.TryEarnFromCommittedClear(slot, _resolver, fact);
+            integration.TryEarnFromCommittedClear(slot, _resolver, fact);
+            Assert.That(next.GetSnapshot().EarnedAchievementIds,
+                Is.EqualTo(new[] { GameAchievementIds.CampaignStage0_1EfficientClear }));
+            Assert.That(repository.SuccessfulSaves, Is.EqualTo(1));
+        }
+
+        private sealed class MemoryRepository : IAchievementDocumentRepository
+        {
+            private ProductAchievementDocument _document = ProductAchievementDocument.CreateEmpty();
+            internal bool FailSave { get; set; }
+            internal int SuccessfulSaves { get; private set; }
+
+            public AchievementDocumentLoadResult Load() => new(
+                AchievementDocumentLoadStatus.Loaded, _document, string.Empty);
+
+            public AchievementDocumentSaveResult Save(ProductAchievementDocument document)
+            {
+                if (FailSave)
+                {
+                    return new AchievementDocumentSaveResult(AchievementDocumentSaveStatus.IoFailed, "test");
+                }
+                _document = document;
+                SuccessfulSaves++;
+                return AchievementDocumentSaveResult.Saved();
+            }
+        }
+
         private void SetSequence(params (string stage, string group)[] values)
         {
             var entries = new List<CampaignStageSequenceEntry>();

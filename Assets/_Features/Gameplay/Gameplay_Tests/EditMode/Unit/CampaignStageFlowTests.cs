@@ -353,11 +353,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(saved.NormalCampaignCompletionReceipt.ClearSource, Is.EqualTo(-1));
                 Assert.That(store.LastMutationObservedCampaignCompleted, Is.True);
                 Assert.That(store.LastMutationObservedReceipt, Is.True);
-                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
+                Assert.That(earningSink.EarnCount, Is.EqualTo(2));
                 Assert.That(earningSink.SaveWasCommittedAtEarn, Is.True);
                 Assert.That(
-                    earningSink.LastAchievementId,
-                    Is.EqualTo(GameAchievementIds.CampaignLevel4Clear));
+                    earningSink.EarnedAchievementIds,
+                    Is.EquivalentTo(new[] { GameAchievementIds.CampaignLevel4Clear,
+                        GameAchievementIds.CampaignStage4_3EfficientClear }));
             }
             finally
             {
@@ -394,11 +395,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(records, Has.Length.EqualTo(1));
                 Assert.That(records[0].StageId.Value, Is.EqualTo("stage-1-2"));
                 Assert.That(records[0].BestCombinedPushFlipUses, Is.Zero);
-                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
+                Assert.That(earningSink.EarnCount, Is.EqualTo(2));
                 Assert.That(earningSink.SaveWasCommittedAtEarn, Is.True);
                 Assert.That(
-                    earningSink.LastAchievementId,
-                    Is.EqualTo(GameAchievementIds.CampaignLevel1Clear));
+                    earningSink.EarnedAchievementIds,
+                    Is.EquivalentTo(new[] { GameAchievementIds.CampaignLevel1Clear,
+                        GameAchievementIds.CampaignStage1_2EfficientClear }));
             }
             finally
             {
@@ -406,16 +408,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [TestCase(24, 1)]
-        [TestCase(25, 1)]
-        [TestCase(26, 1)]
+        [TestCase(15, 2, -1)]
+        [TestCase(16, 2, -1)]
+        [TestCase(17, 1, -1)]
+        [TestCase(24, 1, -1)]
+        [TestCase(25, 1, -1)]
+        [TestCase(26, 1, -1)]
+        [TestCase(16, 2, 15)]
+        [TestCase(20, 1, 15)]
         [Category("Core")]
-        public void NormalLevel1FinalClear_ProductionFeedEarnsRegardlessOfPushFlipCount(
+        public void NormalLevel1FinalClear_ProductionFeedUsesCurrentAttemptForEfficiency(
             int combinedPushFlipUses,
-            int expectedEarnCount)
+            int expectedEarnCount,
+            int historicalBest)
         {
-            var store = RecordingCampaignSaveSlotStore.WithSlot(
-                CreateCampaignSlot(1, "stage-1-2"));
+            var slot = CreateCampaignSlot(1, "stage-1-2");
+            if (historicalBest >= 0)
+            {
+                slot.NormalStagePerformanceRecords = new[]
+                {
+                    new NormalStagePerformanceRecord
+                    {
+                        Version = NormalStagePerformanceRecord.CurrentVersion,
+                        StageId = StageId.CreateOrThrow("stage-1-2"),
+                        BestCombinedPushFlipUses = historicalBest,
+                    },
+                };
+            }
+            var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
             var earningSink = new RecordingProductAchievementEarningSink(
                 AchievementEarnResult.EarnedNew,
                 () => store.SaveCount == 1);
@@ -485,10 +505,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var records = store.LoadSlot(1).NormalStagePerformanceRecords;
                 Assert.That(records, Has.Length.EqualTo(1));
                 Assert.That(records[0].StageId.Value, Is.EqualTo("stage-1-2"));
-                Assert.That(records[0].BestCombinedPushFlipUses, Is.EqualTo(combinedPushFlipUses));
+                Assert.That(records[0].BestCombinedPushFlipUses, Is.EqualTo(
+                    historicalBest >= 0 ? Math.Min(historicalBest, combinedPushFlipUses) : combinedPushFlipUses));
                 Assert.That(store.SaveCount, Is.EqualTo(1));
                 Assert.That(earningSink.SaveWasCommittedAtEarn, Is.True);
                 Assert.That(earningSink.EarnCount, Is.EqualTo(expectedEarnCount));
+                Assert.That(earningSink.EarnBatchCount, Is.EqualTo(1));
+                Assert.That(earningSink.EarnedAchievementIds.Contains(
+                    GameAchievementIds.CampaignStage1_2EfficientClear), Is.EqualTo(combinedPushFlipUses <= 16));
                 Assert.That(
                     earningSink.EarnedAchievementIds,
                     Does.Contain(GameAchievementIds.CampaignLevel1Clear));
@@ -660,7 +684,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     store.LoadSlot(1).NormalCampaignCompletionReceipt.StageRunId,
                     Is.EqualTo("original-run"));
-                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
+                Assert.That(earningSink.EarnCount, Is.EqualTo(2));
             }
             finally
             {
@@ -739,8 +763,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(store.LoadSlot(1).HasNormalCampaignCompletionReceipt, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
-                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
-                Assert.That(earningSink.LastAchievementId, Is.EqualTo(GameAchievementIds.CampaignLevel4Clear));
+                Assert.That(earningSink.EarnCount, Is.EqualTo(2));
+                Assert.That(earningSink.EarnedAchievementIds, Does.Contain(GameAchievementIds.CampaignLevel4Clear));
             }
             finally
             {
@@ -776,7 +800,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Not.Null);
-                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
+                Assert.That(earningSink.EarnCount, Is.EqualTo(2));
             }
             finally
             {
@@ -816,7 +840,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void NonFinalObjectiveClear_ProductEarnIsZero()
+        public void NonFinalObjectiveClear_EarnsOnlyCurrentStageEfficiency()
         {
             var store = RecordingCampaignSaveSlotStore.WithSlot(
                 CreateCampaignSlot(1, "stage-4-2"));
@@ -837,7 +861,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateMinimalStageCompletionReadModel("stage-4-2", tickIndex: 110));
 
                 Assert.That(store.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-4-3"));
-                Assert.That(earningSink.EarnCount, Is.Zero);
+                Assert.That(earningSink.EarnedAchievementIds, Is.EqualTo(new[]
+                {
+                    GameAchievementIds.CampaignStage4_2EfficientClear,
+                }));
             }
             finally
             {
@@ -3499,6 +3526,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class ThrowingAchievementIntegration :
             ICampaignStageAchievementIntegration
         {
+            public void TryEarnFromCommittedClear(
+                CampaignSlotState committedSlot,
+                CampaignStageSequenceResolver sequenceResolver,
+                NormalCampaignStageClearFact currentClear)
+            {
+                throw new InvalidOperationException("simulated integration failure");
+            }
+
             public void TryEarnFromCommittedSlot(
                 CampaignSlotState committedSlot,
                 CampaignStageSequenceResolver sequenceResolver)

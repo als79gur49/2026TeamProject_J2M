@@ -2,9 +2,9 @@
 
 ## Ownership and identity
 
-Product achievements are VectorQuake product-domain facts. They are separate from store-specific achievement transport and configuration. The canonical product IDs are `campaign.level-0.clear` through `campaign.level-4.clear`; none is a Steam API Name.
+Product achievements are VectorQuake product-domain facts. They are separate from store-specific achievement transport and configuration. The canonical product IDs are `campaign.level-0.clear` through `campaign.level-4.clear` and thirteen `campaign.stage-X-Y.efficient-clear` IDs for the authored stages; none is a Steam API Name.
 
-The code-defined `GameAchievementCatalog` currently contains exactly five one-shot definitions. The catalog intentionally has no localized copy, icon, AppID, provider metadata, or store mapping. Level-final stage eligibility is owned by the Campaign integration rather than embedded in the product ledger.
+The code-defined `GameAchievementCatalog` currently contains exactly eighteen one-shot definitions (five level clears and thirteen efficient stage clears). The catalog intentionally has no localized copy, icon, AppID, provider metadata, or store mapping. Level-final stage eligibility is owned by the Campaign integration rather than embedded in the product ledger.
 
 ## Product-global durable state
 
@@ -42,9 +42,9 @@ Version 1 remains readable inside the current profile schema under its original 
 
 Each Campaign slot may contain versioned `NormalStagePerformanceRecords`. A record stores only a canonical `StageId` and that slot's best (lowest) combined Push+Flip use count for a normal Objective clear. It contains no achievement ID, Steam name, AppID, or publication status. Runtime upsert and in-memory normalization retain the lowest count for each canonical `StageId` and produce deterministic Stage order. A persisted current-schema profile containing duplicate `StageId` performance records is invalid and fails closed before normalization. New Game starts empty; retry and death reset only the in-memory attempt tracker, while a later successful clear updates the durable best without replacing a better historical value.
 
-The attempt tracker consumes canonical player-action presentation signals by `(player entity, active action sequence)`. Only executed, non-cancelled Push or Flip signals resolved as `Success` or `Impact` count. Blocked, cancelled, non-executed, fake-attempt, other-action, and other-entity signals do not count. Player death or respawn resets the attempt, and a recreated retry scene starts with a fresh tracker. These metrics remain campaign performance data; achievement eligibility has no action-count threshold.
+The attempt tracker consumes canonical player-action presentation signals by `(player entity, active action sequence)`. Only executed, non-cancelled Push or Flip signals resolved as `Success` or `Impact` count. Blocked, cancelled, non-executed, fake-attempt, other-action, and other-entity signals do not count. Player death or respawn resets the attempt, and a recreated retry scene starts with a fresh tracker. These metrics remain campaign performance data. Level-clear eligibility has no action-count threshold; efficient-clear eligibility uses only the current normal clear attempt, never the saved best.
 
-After the committed record is available, `CampaignStageAchievementIntegration` evaluates all saved normal stage records against the last entry of each `level-0` through `level-4` group in the injected serialized sequence. It submits all matching IDs through one `EarnBatch` call. Stage names, numeric suffixes, total campaign finality, and Push/Flip counts do not determine level-final eligibility. The scan uses the last occurrence of each group even if a caller bypasses authoring validation with a noncontiguous group.
+After the committed record is available, `CampaignStageAchievementIntegration` evaluates level-clear eligibility from all saved normal stage records against the last entry of each `level-0` through `level-4` group in the injected serialized sequence. The live-clear path combines those level IDs with the current efficient-clear candidate in one `EarnBatch` call; startup submits only level IDs. Stage names, numeric suffixes, total campaign finality, and Push/Flip counts do not determine level-final eligibility. The scan uses the last occurrence of each group even if a caller bypasses authoring validation with a noncontiguous group.
 
 `CampaignGameplayFlowController` persists a stage performance record only for the same normal accepted Victory boundary used for achievement eligibility: a real `TickResult`, `ObjectiveResult.ClearedThisTick`, matching Stage/final tick, serialized sequence membership, and no Editor DirectPlay mode. Force Clear, every DirectPlay mode, rejected or same-tick-losing Victory, and defeat write no record. The committed record is loaded before stage-achievement earning, so a failed Campaign save cannot create an achievement detached from its recovery fact.
 
@@ -62,9 +62,46 @@ The application composition has no shared constructor root with the stage-backed
 
 `CampaignStageAchievementStartupReconciler` runs once per normal, non-batch application session after product initialization and the first scene load. DirectPlay modes are excluded before resolver or profile access. Composition obtains exactly one `ICampaignStageSequenceResolverProvider` under the active scene roots. Missing or ambiguous providers and unusable product/profile state make reconciliation a no-op; there is no same-session polling retry. The canonical `CampaignSaveCompositionProvider` query uses `LoadAllWithReport`; only Loaded or BackupRecovered profiles are evaluated, across every nonempty slot. Product-ledger idempotence deduplicates clears across slots and repeated launches.
 
-Immediate earning and startup replay use the same current-sequence rule. Appending/reordering content can change eligibility of unawarded historical records; earned level achievements remain earned. The current save schema has no historical sequence snapshot. Campaign receipt persistence remains a save contract, but receipts are not an achievement recovery source.
+For level-clear achievements, immediate earning and startup replay use the same current-sequence rule. Appending/reordering content can change eligibility of unawarded historical records; earned level achievements remain earned. The current save schema has no historical sequence snapshot. Campaign receipt persistence remains a save contract, but receipts are not an achievement recovery source.
 
-Product persistence failures and unexpected earning exceptions remain contained after the Campaign save and do not block terminal/GameClear flow. Normal stage performance records allow another evaluation on a later eligible normal launch.
+Product persistence failures and unexpected earning exceptions remain contained after the Campaign save and do not block terminal/GameClear flow. Normal stage performance records allow another evaluation of level-clear achievements on a later eligible normal launch. Efficient-clear achievements are not recovered from those records.
+
+## Current-attempt efficient stage clears
+
+`ICampaignStageAchievementIntegration.TryEarnFromCommittedClear` receives the accepted
+`NormalCampaignStageClearFact` only after the host successfully commits the Campaign clear.
+It evaluates the current StageId and current combined Push+Flip count against the immutable
+Campaign-owned rule table. `TryEarnFromCommittedSlot` and startup reconciliation remain
+level-clear-only. Historical bests cannot qualify efficient achievements on startup, another
+stage's clear, or a current attempt above the limit. A qualifying replay can earn even when it
+does not improve the saved best.
+
+| Stage | Maximum combined Push+Flip uses |
+| --- | ---: |
+| stage-0-1 | 25 |
+| stage-0-2 | 25 |
+| stage-0-3 | 12 |
+| stage-1-1 | 8 |
+| stage-1-2 | 16 |
+| stage-2-1 | 20 |
+| stage-2-2 | 30 |
+| stage-3-1 | 22 |
+| stage-3-2 | 35 |
+| stage-3-3 | 45 |
+| stage-4-1 | 35 |
+| stage-4-2 | 45 |
+| stage-4-3 | 40 |
+
+Each stage maps to `campaign.stage-X-Y.efficient-clear`. The condition is inclusive (`<=`).
+Normal-clear exclusions and action counting remain unchanged. No save schema, activation
+version, migration, historical conversion, or cleanup is introduced. In particular the inactive
+`campaign.stage-1-2.push-flip-within-25` ID is not reused for the 16-use achievement.
+
+A failed Campaign save cannot earn. If the Campaign commit succeeds but the product save
+fails, or the application exits between those writes, another qualifying clear is required;
+there is no historical recovery for efficient clears. Once product earned/pending is durable,
+existing publication retry and fresh-application confirmation remain available for all eighteen
+IDs, independently of Campaign record reconciliation.
 
 ## Expected Steam mapping and publication session
 
@@ -76,7 +113,7 @@ The optional Steam Product Achievement integration owns these canonical expected
 - `campaign.level-3.clear` → `VQ_LEVEL_3_CLEAR`
 - `campaign.level-4.clear` → `VQ_LEVEL_4_CLEAR`
 
-Their status is `EXPECTED_NOT_PUBLISHED`: the repository requires those exact ordinal API Names, but no actual Steamworks App Admin achievement or published schema is configured or verified by this milestone. The Product Achievement Domain, Gameplay, Campaign records, ledger, and save schema do not know the Steam API Names.
+Each efficient-clear ID `campaign.stage-X-Y.efficient-clear` additionally maps to the exact `VQ_STAGE_X_Y_EFFICIENT_CLEAR` API Name. The local Steam client schema cache for AppID 5218360, modified 2026-09-08 00:18 KST, contains all eighteen mappings with English/Korean copy and icon values. This is cached schema evidence, not verification of the latest App Admin publication or real-account unlocks. Repository mapping status remains `EXPECTED_NOT_PUBLISHED`; this implementation does not mutate or certify App Admin. The Product Achievement Domain, Gameplay, Campaign records, ledger, and save schema do not know the Steam API Names.
 
 After the canonical Steam runtime has initialized with a nonzero observed AppID, valid SteamID, logged-on state, and one active achievement callback pair, a strongly typed achievement-only handoff attaches `SteamAchievementPublisher` to the switchable sink. Product-first and Steam-first startup orders converge on the same attach. The same Steam runtime session is idempotent, but one Product Achievement application lifetime consumes at most one distinct Steam publication session. Detach does not permit another distinct Steam publisher to confirm state in the same application lifetime; a new application lifetime is required. Scene reload, Main Menu entry, Stage retry, and Steam ticks do not create confirmation sessions.
 
@@ -95,4 +132,4 @@ The Steam publisher executes one batch at a time and queues concurrent batches i
 
 `M7B2GB0_DURABLE_NORMAL_COMPLETION_RECEIPT_READY`
 
-The earlier receipt-based campaign achievement milestone is retired by the unreleased five-level achievement replacement.
+The earlier receipt-based campaign achievement milestone is retired; the current catalog contains five level-clear and thirteen current-attempt efficient-clear achievements.
