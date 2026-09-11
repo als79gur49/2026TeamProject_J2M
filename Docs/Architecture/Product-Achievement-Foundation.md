@@ -161,14 +161,26 @@ helper's `CompletedResetProductWire.SupportedMappingVersion` are both
 both version values and the exact production API-name set; helper sources remain
 BCL-only and are also compiled in a cold Windows PowerShell test.
 
-This test build intentionally has no compatibility with older reset mappings. Both
-Pending and Ready records with an old or unknown mapping are rejected at journal
-load/save, coordinator access, and completed-return validation. They are not treated
-as absent, rewritten, migrated, or deleted. Startup holds product publication and
-campaign access and reports that test data cleanup is required; restarting alone
-cannot resolve the mismatch. Existing incompatible records cannot be overwritten
-by a new reset request. No real account or saved participant data is cleaned up by
-this code change or its tests. Campaign save schema compatibility is unchanged.
+The known previous mapping `level-clear-v1` has a bounded recovery policy. On ordinary
+startup, an old Ready record is archived with its original bytes and removed from the
+active journal before normal services resume. It does not trigger Steam reset, local
+progress deletion, or restart. Its presence, including the durable archive on later
+starts, continues to suppress exhibition save-seed import.
+
+An old Pending record blocks ordinary services and is never automatically resumed or
+converted to an eighteen-achievement reset. The user must explicitly confirm a new
+reset request. After matching the recorded Steam account and AppID, that request
+creates a new operation GUID and atomically replaces the active journal with a v2
+Pending record while retaining the original record in the archive. The normal v2
+reset/restart path then owns completion. Failure before replacement keeps the old
+record actionable; a committed replacement remains v2 Pending across restart.
+
+Unknown mapping versions and corrupt records remain blocked and unchanged. The
+completed-return helper still accepts only v2 Ready records: archival of a historical
+Ready during ordinary startup does not authorize an old completed-return request.
+There is no historical efficient-clear reconciliation or retired achievement-ID
+conversion. No real account or participant storage is changed by the automated tests;
+campaign save schema compatibility is unchanged.
 
 Integration validation is recorded in `Docs/Testing/Achievement-Reset-V2-Integration.md`.
 Real Steam restart/access-denied resolution and achievement re-acquisition require

@@ -89,6 +89,7 @@ namespace Game.Exhibition.Integration
         {
             var paths = new ApplicationPersistentDataSavePathProvider();
             ResetRecord record = null;
+            bool suppressSeedImport = false;
             var journalPath = Path.Combine(paths.SaveRootPath, "exhibition-reset.json");
             var journal = new FileExhibitionResetJournal(journalPath);
             var coordinator = new ExhibitionResetCoordinator(
@@ -97,7 +98,8 @@ namespace Game.Exhibition.Integration
             try
             {
                 instanceLock = AcquireSessionLock(paths);
-                record = coordinator.ReadRecord();
+                record = completedReset == null && completedFailure == null ? coordinator.ReadStartupRecord() : coordinator.ReadRecord();
+                suppressSeedImport = journal.HasArchivedRecord;
             }
             catch (Exception exception) { failure = exception; }
             if (completedReset == null && (failure != null || record?.State == ResetRecord.Pending))
@@ -128,7 +130,7 @@ namespace Game.Exhibition.Integration
             };
             IParticipantResetPort service = new ParticipantResetService(coordinator, restart,
                 () => SteamAchievementMaintenanceAccess.IsAvailable, SteamAchievementMaintenanceAccess.StopPublication,
-                startServices, reconcile, record, failure, completedRestart, completedReset, startRuntime);
+                startServices, reconcile, record, failure, completedRestart, completedReset, startRuntime, suppressSeedImport);
             ParticipantResetMenuAccess.Register(service);
         }
     }

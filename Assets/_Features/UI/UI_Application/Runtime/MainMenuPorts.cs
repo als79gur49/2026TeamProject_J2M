@@ -96,6 +96,19 @@ namespace Game.Feature.UI.Application
         void Restart();
     }
 
+    /// <summary>Explicit replacement of an unfinished reset from a retired test version.</summary>
+    public interface IParticipantResetLegacyRecovery
+    {
+        bool RequiresLegacyRecovery { get; }
+        void RequestLegacyReset();
+    }
+
+    /// <summary>Whether restarting can safely resume the current failed reset.</summary>
+    public interface IParticipantResetRetryPolicy
+    {
+        bool CanRestartAfterFailure { get; }
+    }
+
     public interface IParticipantResetActionPresentation
     {
         bool HideResetAction { get; }

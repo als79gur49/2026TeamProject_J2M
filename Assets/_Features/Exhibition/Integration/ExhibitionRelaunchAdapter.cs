@@ -154,7 +154,8 @@ namespace Game.Exhibition.Integration
             CompletedResetProductWire.ValidateRequestPath(request, RequestPath);
             var record = coordinator.ReadRecord();
             var identity = coordinator.GetCurrentIdentity();
-            if (record == null || record.State != ResetRecord.Ready || record.OperationId != request.OperationId ||
+            if (record == null || record.State != ResetRecord.Ready || record.MappingVersion != ExhibitionResetCoordinator.MappingVersion ||
+                record.OperationId != request.OperationId ||
                 record.AppId != identity.AppId || record.SteamId != identity.SteamId ||
                 record.AppId != request.AppId || record.SteamId != request.SteamId)
                 throw new InvalidOperationException("Completed participant reset account or Ready journal mismatch.");

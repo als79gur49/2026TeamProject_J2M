@@ -163,8 +163,6 @@ namespace Game.Exhibition.Tests
             Assert.That(_steam.Calls, Is.Zero);
         }
 
-        [TestCase("Pending", "level-clear-v1")]
-        [TestCase("Ready", "level-clear-v1")]
         [TestCase("Pending", "unknown-mapping")]
         [TestCase("Ready", "unknown-mapping")]
         public void UnsupportedMappingCannotBeReadResumedOrOverwritten(string state, string mapping)
@@ -191,9 +189,64 @@ namespace Game.Exhibition.Tests
             Assert.That(_journal.Record.SchemaVersion, Is.EqualTo(1));
         }
 
-        private sealed class Journal : IExhibitionResetJournal
+        [TestCase("Pending")]
+        [TestCase("Ready")]
+        public void KnownLegacyCanBeReadButNotOrdinarilyResumedOrOverwritten(string state)
         {
-            public ResetRecord Record; public bool FailSave;
+            Create().RequestReset(); var original = _journal.Record;
+            original.MappingVersion = ExhibitionResetCoordinator.PreviousMappingVersion; original.State = state;
+            Assert.That(Create().ReadRecord(), Is.SameAs(original));
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await Create().ResumeAsync());
+            Assert.Throws<InvalidOperationException>(() => Create().RequestReset());
+            Assert.That(_journal.Record, Is.SameAs(original));
+            Assert.That(_steam.Calls, Is.Zero); Assert.That(_progress.Calls, Is.Zero);
+        }
+
+        [Test]
+        public void StartupArchivesLegacyReadyAndReturnsSeedSuppressionHintWithoutSteam()
+        {
+            Create().RequestReset(); var original = _journal.Record;
+            original.MappingVersion = ExhibitionResetCoordinator.PreviousMappingVersion; original.State = ResetRecord.Ready;
+            _steam.Identity = default;
+            Assert.That(Create().ReadStartupRecord(), Is.SameAs(original));
+            Assert.That(_journal.Record, Is.Null); Assert.That(_journal.Archived, Is.SameAs(original));
+            Assert.That(_steam.Calls, Is.Zero); Assert.That(_progress.Calls, Is.Zero);
+        }
+
+        [Test]
+        public void LegacyPendingRequiresExplicitNewOperationAndRestartBeforeMutation()
+        {
+            Create().RequestReset(); var original = _journal.Record;
+            original.MappingVersion = ExhibitionResetCoordinator.PreviousMappingVersion;
+            Assert.That(Create().ReadStartupRecord(), Is.SameAs(original));
+            Assert.That(_journal.Archived, Is.Null);
+            Create().RequestLegacyReset();
+            Assert.That(_journal.Archived, Is.SameAs(original));
+            Assert.That(_journal.Record.OperationId, Is.Not.EqualTo(original.OperationId));
+            Assert.That(_journal.Record.MappingVersion, Is.EqualTo(ExhibitionResetCoordinator.MappingVersion));
+            Assert.That(_journal.Record.State, Is.EqualTo(ResetRecord.Pending));
+            Assert.That(_steam.Calls, Is.Zero); Assert.That(_progress.Calls, Is.Zero);
+        }
+
+        [Test]
+        public void LegacyReplacementRequiresSameAccountAndSuccessfulArchive()
+        {
+            Create().RequestReset(); var original = _journal.Record;
+            original.MappingVersion = ExhibitionResetCoordinator.PreviousMappingVersion;
+            _steam.Identity = new ResetIdentity(123, 789);
+            Assert.Throws<InvalidOperationException>(() => Create().RequestLegacyReset());
+            Assert.That(_journal.Archived, Is.Null);
+            _steam.Identity = Identity; _journal.FailSave = true;
+            Assert.Throws<IOException>(() => Create().RequestLegacyReset());
+            Assert.That(_journal.Record, Is.SameAs(original));
+            Assert.That(_steam.Calls, Is.Zero); Assert.That(_progress.Calls, Is.Zero);
+        }
+
+        private sealed class Journal : IExhibitionResetJournal, IExhibitionResetJournalMaintenance
+        {
+            public ResetRecord Record; public ResetRecord Archived; public bool FailSave;
+            public void ArchiveLegacyReady(ResetRecord expected) { if (FailSave) throw new IOException(); Archived = expected; Record = null; }
+            public void ReplaceLegacyPending(ResetRecord expected, ResetRecord replacement) { if (FailSave) throw new IOException(); Archived = expected; Record = replacement; }
             public ResetRecord Load() => Record;
             public void Save(ResetRecord record) { if (FailSave) throw new IOException(); Record = record; }
         }

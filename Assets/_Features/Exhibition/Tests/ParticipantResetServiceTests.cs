@@ -10,10 +10,17 @@ namespace Game.Exhibition.Tests
 {
     public sealed class ParticipantResetServiceTests
     {
-        private sealed class Journal : IExhibitionResetJournal
+        private sealed class Journal : IExhibitionResetJournal, IExhibitionResetJournalMaintenance
         {
             public ResetRecord Record;
             public bool FailBefore, FailAfter, FailRead;
+            public ResetRecord Archived;
+            public void ArchiveLegacyReady(ResetRecord expected) { Archived = expected.Copy(); Record = null; }
+            public void ReplaceLegacyPending(ResetRecord expected, ResetRecord replacement)
+            {
+                if (FailBefore) throw new IOException("archive unavailable");
+                Archived = expected.Copy(); Save(replacement);
+            }
             public ResetRecord Load() => FailRead ? throw new IOException("read") : Record;
             public void Save(ResetRecord record)
             {
@@ -70,6 +77,74 @@ namespace Game.Exhibition.Tests
         private ParticipantResetService Service(bool available = true) => new ParticipantResetService(
             coordinator, restart, () => available, () => stopped++, () => started++,
             () => reconciled++, journal.Record);
+
+        private void LegacyPending()
+        {
+            journal.Record = new ResetRecord { OperationId = Guid.NewGuid().ToString("N"),
+                State = ResetRecord.Pending, AppId = 123, SteamId = 456,
+                MappingVersion = ExhibitionResetCoordinator.PreviousMappingVersion };
+        }
+
+        [Test]
+        public async Task LegacyPendingWaitsForExplicitConfirmationAndCannotGenericRestart()
+        {
+            LegacyPending(); var original = journal.Record.OperationId;
+            var service = Service();
+            await service.PrepareMenuAsync(); service.CompleteMenuInitialization(); service.Restart(); service.RequestReset();
+            Assert.That(service.RequiresLegacyRecovery, Is.True);
+            Assert.That(service.BlocksMenu, Is.True);
+            Assert.That(service.CanRestartAfterFailure, Is.False);
+            Assert.That(steam.IdentityCalls + steam.ResetCalls + progress.Calls + restart.Calls + started, Is.Zero);
+            Assert.That(journal.Record.OperationId, Is.EqualTo(original));
+            service.RequestLegacyReset(); service.RequestLegacyReset();
+            Assert.That(journal.Archived.OperationId, Is.EqualTo(original));
+            Assert.That(journal.Record.OperationId, Is.Not.EqualTo(original));
+            Assert.That(journal.Record.MappingVersion, Is.EqualTo(ExhibitionResetCoordinator.MappingVersion));
+            Assert.That(restart.Calls, Is.EqualTo(1));
+            Assert.That(steam.ResetCalls + progress.Calls + started, Is.Zero);
+            Assert.That(service.RequiresLegacyRecovery, Is.False);
+            Assert.That(service.BlocksMenu, Is.True);
+        }
+
+        [TestCase(true)] [TestCase(false)]
+        public void LegacyRecoveryPreflightOrArchiveFailurePreservesOldRequest(bool preflight)
+        {
+            LegacyPending(); var original = journal.Record.OperationId;
+            restart.FailValidation = preflight; journal.FailBefore = !preflight;
+            var service = Service(); service.RequestLegacyReset();
+            Assert.That(journal.Record.OperationId, Is.EqualTo(original));
+            Assert.That(service.RequiresLegacyRecovery, Is.True);
+            Assert.That(service.BlocksMenu, Is.True);
+            Assert.That(service.IsBusy, Is.False);
+            Assert.That(restart.Calls + steam.ResetCalls + progress.Calls, Is.Zero);
+            Assert.That(service.Error, Is.Not.Empty);
+        }
+
+        [Test]
+        public void LegacyRecoveryLaunchFailureRetriesOnlyCommittedCurrentRequest()
+        {
+            LegacyPending(); restart.FailLaunch = true;
+            var service = Service(); service.RequestLegacyReset();
+            var committed = journal.Record.OperationId;
+            Assert.That(service.RequiresLegacyRecovery, Is.False);
+            Assert.That(service.CanRestartAfterFailure, Is.True);
+            restart.FailLaunch = false; service.Restart();
+            Assert.That(journal.Record.OperationId, Is.EqualTo(committed));
+            Assert.That(restart.Calls, Is.EqualTo(2));
+            Assert.That(steam.ResetCalls + progress.Calls, Is.Zero);
+        }
+
+        [Test]
+        public void ArchivedStartupHintSuppressesSeedImportWithoutBlockingNormalMenu()
+        {
+            var service = new ParticipantResetService(coordinator, restart, () => true,
+                () => stopped++, () => started++, () => reconciled++, null, suppressSaveSeedImport: true);
+            service.CompleteMenuInitialization();
+            Assert.That(service.SuppressSaveSeedImport, Is.True);
+            Assert.That(service.BlocksMenu, Is.False);
+            Assert.That(service.CanRequest, Is.True);
+            Assert.That(steam.IdentityCalls + steam.ResetCalls + progress.Calls, Is.Zero);
+        }
 
         [Test]
         public async Task ReadyMenuAssemblyFailureKeepsRestartAvailableWithoutRepeatingDeletion()
