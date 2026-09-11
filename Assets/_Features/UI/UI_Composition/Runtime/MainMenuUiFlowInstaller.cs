@@ -416,17 +416,26 @@ namespace Game.Feature.UI.Composition
             CloseParticipantStatus();
             var title = MainMenuLocalization.Resolve(_localizedTextResolver,
                 MainMenuLocalizationEntryId.ParticipantResetTitle);
-            var body = string.IsNullOrEmpty(error)
-                ? MainMenuLocalization.Resolve(_localizedTextResolver, MainMenuLocalizationEntryId.ParticipantResetBusy)
-                : error;
-            var restart = MainMenuLocalization.Resolve(_localizedTextResolver,
-                MainMenuLocalizationEntryId.ParticipantResetRestart);
+            var legacy = ParticipantResetPort as IParticipantResetLegacyRecovery;
+            var needsLegacyRecovery = legacy?.RequiresLegacyRecovery == true;
+            var body = needsLegacyRecovery
+                ? MainMenuLocalization.Resolve(_localizedTextResolver, MainMenuLocalizationEntryId.ParticipantResetLegacyBody) +
+                    (string.IsNullOrEmpty(error) ? string.Empty : "\n\n" + error)
+                : string.IsNullOrEmpty(error)
+                    ? MainMenuLocalization.Resolve(_localizedTextResolver, MainMenuLocalizationEntryId.ParticipantResetBusy)
+                    : error;
+            var restart = MainMenuLocalization.Resolve(_localizedTextResolver, needsLegacyRecovery
+                ? MainMenuLocalizationEntryId.ParticipantResetLegacyAction
+                : MainMenuLocalizationEntryId.ParticipantResetRestart);
+            var canRestart = !(ParticipantResetPort is IParticipantResetRetryPolicy retry) ||
+                retry.CanRestartAfterFailure;
             var close = MainMenuLocalization.Resolve(_localizedTextResolver, blocked
                 ? MainMenuLocalizationEntryId.QuitConfirm : MainMenuLocalizationEntryId.ParticipantResetClose);
             var payload = new ConfirmPopupPayload(title, body, restart, close, false)
             {
                 ConsumeBack = blocked,
-                ConfirmEnabled = blocked && !busy && !string.IsNullOrEmpty(error),
+                ConfirmEnabled = blocked && !busy &&
+                    (needsLegacyRecovery || (canRestart && !string.IsNullOrEmpty(error))),
                 CancelEnabled = !busy,
             };
             PopupController.Push(new PopupRequest(PopupId.Confirm, payload, completion =>
@@ -435,8 +444,39 @@ namespace Game.Feature.UI.Composition
                 _participantStatusPopup = null;
                 if (!blocked) return;
                 if (completion.CompletionKind == PopupCompletionKind.Confirmed)
-                    ParticipantResetPort?.Restart();
+                {
+                    if (needsLegacyRecovery) ShowLegacyParticipantResetConfirmation(legacy);
+                    else if (ParticipantResetPort?.IsBusy == false &&
+                        (!(ParticipantResetPort is IParticipantResetRetryPolicy currentRetry) ||
+                         currentRetry.CanRestartAfterFailure)) ParticipantResetPort.Restart();
+                }
                 else new UnityApplicationQuitPort().Quit();
+            }), out var popupId);
+            _participantStatusPopup = popupId;
+        }
+
+        private void ShowLegacyParticipantResetConfirmation(IParticipantResetLegacyRecovery recovery)
+        {
+            if (!ReferenceEquals(ParticipantResetPort, recovery) || !recovery.RequiresLegacyRecovery ||
+                ParticipantResetPort.IsBusy)
+            {
+                RefreshParticipantState();
+                return;
+            }
+            var payload = MainMenuLocalization.CreateConfirmationPayload(
+                MainMenuConfirmationKind.ReplaceLegacyParticipantReset);
+            PopupController.Push(new PopupRequest(PopupId.Confirm, payload, completion =>
+            {
+                if (completion.CloseReason != PopupCloseReason.UserAction &&
+                    completion.CloseReason != PopupCloseReason.Back &&
+                    completion.CloseReason != PopupCloseReason.BackdropClick) return;
+                _participantStatusPopup = null;
+                if (completion.CloseReason == PopupCloseReason.UserAction &&
+                    completion.CompletionKind == PopupCompletionKind.Confirmed &&
+                    ReferenceEquals(ParticipantResetPort, recovery) && recovery.RequiresLegacyRecovery &&
+                    !ParticipantResetPort.IsBusy)
+                    recovery.RequestLegacyReset();
+                RefreshParticipantState();
             }), out var popupId);
             _participantStatusPopup = popupId;
         }

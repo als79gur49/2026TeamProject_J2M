@@ -24,7 +24,7 @@ namespace Game.Feature.UI.Tests
         public void MainMenuContract_IsUniqueCompleteAndMatchesTablesBootstrapAndFallbacks()
         {
             var entries = MainMenuLocalizationContract.Entries;
-            Assert.That(entries, Has.Count.EqualTo(53));
+            Assert.That(entries, Has.Count.EqualTo(56));
             Assert.That(entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(entries.Count));
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.English)), Is.True);
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.Korean)), Is.True);
@@ -85,6 +85,30 @@ namespace Game.Feature.UI.Tests
                     Is.EqualTo(entry.IsSmart ? entry.Korean.Replace("{0}", "ARG") : entry.Korean),
                     entry.Key);
             }
+        }
+
+        [Test]
+        public void LegacyResetConfirmationExplainsAllEighteenAchievementsAndPreservedSettingsInBothLocales()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var payload = MainMenuLocalization.CreateConfirmationPayload(
+                MainMenuConfirmationKind.ReplaceLegacyParticipantReset);
+            Assert.That(payload.IsConfirmDestructive, Is.True);
+            Assert.That(payload.CancelEnabled, Is.True);
+            Assert.That(payload.ConsumeBack, Is.False);
+            using var presenter = new ConfirmPopupPresenter(resolver);
+            presenter.Apply(payload);
+            Assert.That(presenter.ViewModel.BodyText, Does.Contain("all 18 achievements"));
+            Assert.That(presenter.ViewModel.BodyText, Does.Contain("every campaign slot"));
+            Assert.That(presenter.ViewModel.BodyText, Does.Contain("achievement ledger"));
+            Assert.That(presenter.ViewModel.WarningText, Does.Contain("Settings are preserved"));
+            resolver.SetLocale("ko-KR");
+            Assert.That(presenter.ViewModel.BodyText, Does.Contain("18가지 업적 전체"));
+            Assert.That(presenter.ViewModel.BodyText, Does.Contain("모든 슬롯"));
+            Assert.That(presenter.ViewModel.BodyText, Does.Contain("업적 장부"));
+            Assert.That(presenter.ViewModel.WarningText, Does.Contain("설정은 보존"));
+            Assert.That(MainMenuLocalization.Resolve(resolver,
+                MainMenuLocalizationEntryId.ParticipantResetLegacyBody), Does.Contain("이어서 진행할 수 없습니다"));
         }
 
         [Test]

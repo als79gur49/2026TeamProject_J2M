@@ -20,7 +20,7 @@ namespace Game.Exhibition.Tests.PlayMode
 {
     public sealed class ParticipantResetMenuPlayModeTests
     {
-        private sealed class PendingPort : IParticipantResetPort
+        private sealed class PendingPort : IParticipantResetPort, IParticipantResetLegacyRecovery, IParticipantResetRetryPolicy
         {
             public event Action Changed;
             public bool BlocksMenu => true;
@@ -29,6 +29,16 @@ namespace Game.Exhibition.Tests.PlayMode
             public bool SuppressSaveSeedImport => true;
             public string Error { get; private set; }
             public int Restarts;
+            public int LegacyRequests;
+            public bool RequiresLegacyRecovery { get; private set; }
+            public bool CanRestartAfterFailure { get; private set; } = true;
+            public void RequestLegacyReset()
+            {
+                LegacyRequests++;
+                RequiresLegacyRecovery = false;
+                IsBusy = true;
+                Changed?.Invoke();
+            }
             private readonly TaskCompletionSource<bool> gate = new TaskCompletionSource<bool>();
             public Task PrepareMenuAsync() => gate.Task;
             public void CompleteMenuInitialization() => Assert.Fail("Menu completed before recovery.");
@@ -36,12 +46,93 @@ namespace Game.Exhibition.Tests.PlayMode
             public void FailMenuInitialization(string reason) => Assert.Fail(reason);
             public void RequestReset() => Assert.Fail("A second reset was requested.");
             public void Restart() { Restarts++; }
-            public void Fail()
+            public void Fail(bool legacy = false, bool canRestart = true)
             {
                 IsBusy = false;
+                RequiresLegacyRecovery = legacy;
+                CanRestartAfterFailure = canRestart;
                 Error = "Steam 연결을 확인한 뒤 다시 실행해 주세요.";
                 Changed?.Invoke();
                 gate.SetResult(true);
+            }
+        }
+
+        [UnityTest, Category("Full")]
+        public IEnumerator LegacyResetRequiresSecondConfirmationAndCancellationKeepsMenuBlocked()
+        {
+            var port = new PendingPort();
+            ParticipantResetMenuAccess.Register(port);
+            CampaignSaveCompositionProvider.SuspendProductionAccess();
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(SceneUtility.GetScenePathByBuildIndex(0), LoadSceneMode.Single);
+                yield return null;
+                var installer = UnityEngine.Object.FindFirstObjectByType<MainMenuUiFlowInstaller>();
+                port.Fail(legacy: true, canRestart: false);
+                yield return null;
+                yield return new WaitForSecondsRealtime(0.4f);
+                var popup = UnityEngine.Object.FindFirstObjectByType<ConfirmPopupView>();
+                Assert.That(popup.BodyText, Does.Contain(port.Error));
+                popup.ClickConfirm();
+                yield return null;
+                yield return new WaitForSecondsRealtime(0.4f);
+                popup = UnityEngine.Object.FindFirstObjectByType<ConfirmPopupView>();
+                Assert.That(popup.BodyText, Does.Contain("18"));
+                Assert.That(port.LegacyRequests, Is.Zero);
+                Assert.That(port.Restarts, Is.Zero);
+                Assert.That(installer.PopupController.HandleBackRequested(), Is.True);
+                yield return null;
+                yield return new WaitForSecondsRealtime(0.4f);
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
+                Assert.That(installer.Controller, Is.Null);
+                Assert.That(installer.HubController, Is.Null);
+                Assert.That(port.LegacyRequests, Is.Zero);
+                popup = UnityEngine.Object.FindFirstObjectByType<ConfirmPopupView>();
+                popup.ClickConfirm();
+                yield return null;
+                yield return new WaitForSecondsRealtime(0.4f);
+                popup = UnityEngine.Object.FindFirstObjectByType<ConfirmPopupView>();
+                popup.ClickConfirm();
+                yield return null;
+                Assert.That(port.LegacyRequests, Is.EqualTo(1));
+                Assert.That(port.Restarts, Is.Zero);
+                Assert.That(installer.Controller, Is.Null);
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                ParticipantResetMenuAccess.Register(null);
+                CampaignSaveCompositionProvider.ReleaseProductionAccess();
+            }
+        }
+
+        [UnityTest, Category("Full")]
+        public IEnumerator UnrecoverableResetFailureCannotInvokeGenericRestart()
+        {
+            var port = new PendingPort();
+            ParticipantResetMenuAccess.Register(port);
+            CampaignSaveCompositionProvider.SuspendProductionAccess();
+            try
+            {
+                yield return SceneManager.LoadSceneAsync(SceneUtility.GetScenePathByBuildIndex(0), LoadSceneMode.Single);
+                yield return null;
+                var installer = UnityEngine.Object.FindFirstObjectByType<MainMenuUiFlowInstaller>();
+                port.Fail(canRestart: false);
+                yield return null;
+                yield return new WaitForSecondsRealtime(0.4f);
+                var popup = UnityEngine.Object.FindFirstObjectByType<ConfirmPopupView>();
+                var retry = popup.GetComponentsInChildren<Button>().Single(b => b.name == "ConfirmButton");
+                Assert.That(retry.interactable, Is.False);
+                popup.ClickConfirm();
+                Assert.That(port.Restarts, Is.Zero);
+                Assert.That(port.LegacyRequests, Is.Zero);
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
+                Assert.That(installer.Controller, Is.Null);
+            }
+            finally
+            {
+                ParticipantResetMenuAccess.Register(null);
+                CampaignSaveCompositionProvider.ReleaseProductionAccess();
             }
         }
 

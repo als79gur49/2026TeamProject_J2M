@@ -19,6 +19,18 @@ MonoBehaviour:
     m_Items:
     - rid: 5336917459874873344
   m_TableData:
+  - m_Id: 790000000008
+    m_Localized: "An unfinished reset from a previous test version cannot be resumed. You can start a new full reset for this version."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000009
+    m_Localized: "Start New Full Reset"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000010
+    m_Localized: "Reset all 18 achievements of the current Steam account, every campaign slot, active progress and the achievement ledger at this save location, then restart?"
+    m_Metadata:
+      m_Items: []
   - m_Id: 790000000000
     m_Localized: "Prepare Next Participant"
     m_Metadata:
