@@ -72,7 +72,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void AchievementCapability_ContainsOnlyBoundedStoreSmokeSurface()
+        public void AchievementCapability_ContainsOnlyProductPublicationSurface()
         {
             var methodNames = typeof(ISteamAchievementApi)
                 .GetMethods()

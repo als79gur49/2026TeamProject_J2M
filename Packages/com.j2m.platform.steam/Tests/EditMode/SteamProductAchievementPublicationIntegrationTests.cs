@@ -70,6 +70,122 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
+        public void CanonicalRuntimeTick_PumpsCallbacksAndAdvancesProductWithoutSecondPump()
+        {
+            var product = CreateProduct(pending: true);
+            ProductAchievementPublicationSessionHandoff.TryRegisterController(product.Controller);
+            var lifecycle = ProductLifecycle();
+            var achievements = ProductApi();
+            lifecycle.CallbackAction = () => RaiseProductSuccess(achievements);
+            var runtime = CreateRuntime(lifecycle, achievements);
+            try
+            {
+                Assert.That(runtime.Initialize().IsSuccess, Is.True);
+                Assert.That(product.Coordinator.GetSnapshot().InFlightCount, Is.EqualTo(1));
+
+                runtime.Tick();
+
+                Assert.That(lifecycle.CallbackCount, Is.EqualTo(1));
+                Assert.That(achievements.RegistrationCount, Is.EqualTo(1));
+                Assert.That(achievements.SetAchievementCount, Is.EqualTo(1));
+                Assert.That(achievements.StoreStatsCount, Is.EqualTo(1));
+                Assert.That(product.Coordinator.GetSnapshot().InFlightCount, Is.Zero);
+                Assert.That(product.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
+                    Is.EqualTo(1));
+            }
+            finally
+            {
+                runtime.Shutdown();
+                ProductAchievementPublicationSessionHandoff.ClearController(product.Controller);
+                product.Controller.Dispose();
+                product.Coordinator.Dispose();
+            }
+        }
+
+        [Test]
+        public void AchievementCallbackDisposalException_DoesNotBlockNativeShutdown()
+        {
+            var order = new List<string>();
+            var product = CreateProduct(pending: true);
+            ProductAchievementPublicationSessionHandoff.TryRegisterController(product.Controller);
+            var lifecycle = ProductLifecycle();
+            lifecycle.CallOrder = order;
+            var achievements = ProductApi();
+            achievements.CallOrder = order;
+            achievements.DisposalException = new InvalidOperationException("dispose");
+            var runtime = CreateRuntime(lifecycle, achievements);
+            try
+            {
+                runtime.Initialize();
+                Assert.DoesNotThrow(() => runtime.Shutdown());
+                Assert.DoesNotThrow(() => runtime.Shutdown());
+
+                Assert.That(achievements.DisposalCount, Is.EqualTo(1));
+                Assert.That(lifecycle.ShutdownCount, Is.EqualTo(1));
+                Assert.That(order.IndexOf("achievement-dispose"),
+                    Is.LessThan(order.IndexOf("native-shutdown")));
+                Assert.That(product.Coordinator.GetSnapshot().InFlightCount, Is.Zero);
+                Assert.That(product.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
+                    Is.EqualTo(1));
+            }
+            finally
+            {
+                runtime.Shutdown();
+                ProductAchievementPublicationSessionHandoff.ClearController(product.Controller);
+                product.Controller.Dispose();
+                product.Coordinator.Dispose();
+            }
+        }
+
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void UnreadyIdentityOrLogin_QueriesBothAndLeavesProductPending(
+            bool failLogin, bool throws)
+        {
+            var product = CreateProduct(pending: true);
+            ProductAchievementPublicationSessionHandoff.TryRegisterController(product.Controller);
+            var lifecycle = ProductLifecycle();
+            if (failLogin)
+            {
+                lifecycle.LoggedOn = false;
+                lifecycle.LoggedOnException = throws ? new InvalidOperationException("login") : null;
+            }
+            else
+            {
+                lifecycle.SteamIdValid = false;
+                lifecycle.SteamIdValidException = throws ? new InvalidOperationException("identity") : null;
+            }
+
+            var achievements = ProductApi();
+            var runtime = CreateRuntime(lifecycle, achievements);
+            try
+            {
+                Assert.That(runtime.Initialize().IsSuccess, Is.True);
+                Assert.That(lifecycle.IdentityCount, Is.EqualTo(1));
+                Assert.That(lifecycle.LoggedOnCount, Is.EqualTo(1));
+                Assert.That(runtime.Diagnostics.SteamIdentityValid, Is.EqualTo(failLogin));
+                Assert.That(runtime.Diagnostics.LoggedOn, Is.EqualTo(!failLogin));
+                Assert.That(runtime.Diagnostics.LastExceptionType,
+                    Is.EqualTo(throws ? nameof(InvalidOperationException) : string.Empty));
+                Assert.That(achievements.RegistrationCount, Is.Zero);
+                Assert.That(achievements.SetAchievementCount, Is.Zero);
+                Assert.That(achievements.StoreStatsCount, Is.Zero);
+                Assert.That(product.Router.IsUnavailable, Is.True);
+                Assert.That(product.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
+                    Is.EqualTo(1));
+            }
+            finally
+            {
+                runtime.Shutdown();
+                ProductAchievementPublicationSessionHandoff.ClearController(product.Controller);
+                product.Controller.Dispose();
+                product.Coordinator.Dispose();
+            }
+        }
+
+        [Test]
         public void SteamReady_ReconcilesEarnedEvenWhenPendingIsEmpty()
         {
             var product = CreateProduct(pending: false);
@@ -164,54 +280,6 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(repository.SaveCount, Is.EqualTo(1));
             Assert.That(secondAchievements.SetAchievementCount, Is.Zero);
             secondRuntime.Shutdown();
-        }
-
-        [Test]
-        public void AchievementSmoke_OwnsOnlyCallbackPairAndLeavesProductPending()
-        {
-            var product = CreateProduct(pending: true);
-            ProductAchievementPublicationSessionHandoff.TryRegisterController(
-                product.Controller);
-            var lifecycle = new FakeSteamNativeApi();
-            var achievements = new FakeSteamAchievementApi();
-            var runtime = new SteamPlatformRuntime(
-                new SteamRuntimeDependencies(lifecycle, achievements),
-                smokeRequested: true,
-                achievementSmokeRequested: true,
-                monotonicSeconds: () => 0d,
-                smokeLogger: _ => { });
-
-            runtime.Initialize();
-
-            Assert.That(achievements.RegistrationCount, Is.EqualTo(1));
-            Assert.That(achievements.SetAchievementCount, Is.EqualTo(1));
-            Assert.That(
-                product.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count,
-                Is.EqualTo(1));
-            Assert.That(product.Repository.SaveCount, Is.Zero);
-            runtime.Shutdown();
-        }
-
-        [Test]
-        public void BaseSteamSmokeWithoutAchievementSmoke_AllowsProductPublisherOwnership()
-        {
-            var product = CreateProduct(pending: true);
-            ProductAchievementPublicationSessionHandoff.TryRegisterController(
-                product.Controller);
-            var lifecycle = ProductLifecycle();
-            var achievements = ProductApi();
-            var runtime = new SteamPlatformRuntime(
-                new SteamRuntimeDependencies(lifecycle, achievements),
-                smokeRequested: true,
-                achievementSmokeRequested: false,
-                monotonicSeconds: () => 0d,
-                smokeLogger: _ => { });
-
-            runtime.Initialize();
-
-            Assert.That(achievements.RegistrationCount, Is.EqualTo(1));
-            Assert.That(achievements.SetAchievementCount, Is.EqualTo(1));
-            runtime.Shutdown();
         }
 
         [Test]
@@ -335,7 +403,6 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(order, Is.EqualTo(new[]
             {
                 "achievement-dispose",
-                "overlay-dispose",
                 "native-shutdown",
             }));
         }
@@ -396,10 +463,8 @@ namespace Game.Platform.Steam.Tests.EditMode
         {
             return new SteamPlatformRuntime(
                 new SteamRuntimeDependencies(lifecycle, achievements),
-                smokeRequested: false,
-                achievementSmokeRequested: false,
-                monotonicSeconds: () => 0d,
-                smokeLogger: _ => { });
+
+                monotonicSeconds: () => 0d);
         }
 
         private static void RaiseProductSuccess(FakeSteamAchievementApi achievements)

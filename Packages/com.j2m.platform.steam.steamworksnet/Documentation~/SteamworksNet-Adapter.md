@@ -23,6 +23,12 @@ It translates `UserStatsStored_t` and `UserAchievementStored_t` into Steamworks-
 privacy-bounded observations. Both handles are registered transactionally and are driven
 only by the existing runtime-owned `SteamAPI.RunCallbacks` pump.
 
+The lifecycle interface exposes pack-size preflight, initialization, callback pumping, shutdown,
+AppID, boolean identity validity, and login queries. It does not expose Overlay or DLL diagnostic
+observations. Removing those observations does not disable Steam Overlay or alter the vendored
+SDK/native payload. The achievement callback pair and both observation DTOs retain their transport
+contract; product publication does not use unnamed stats results to decide any outcome.
+
 When this assembly is excluded because the verified dependency is absent, Foundation still
 preserves an explicit `steam` request and reports `RequestedProviderNotRegistered`; Local is
 not selected. The adapter does not call `RestartAppIfNecessary`, create `steam_appid.txt`, or

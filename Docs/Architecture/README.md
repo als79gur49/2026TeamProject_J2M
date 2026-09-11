@@ -26,6 +26,8 @@
   - current store-neutral provider request, resolution, Local default, and application lifecycle contract
 - [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
   - product-global achievement IDs, earned ledger, pending publication outbox, atomic persistence, and store-neutral publication boundary
+- [Steam-Achievement-Smoke-Retirement-Plan.md](./Steam-Achievement-Smoke-Retirement-Plan.md)
+  - Steam smoke and measurement retirement plan and implementation record, retained publication/callback contracts, test migration, and bounded validation evidence
 - [Docs/Testing/Platform-Provider-Selection-Validation.md](../Testing/Platform-Provider-Selection-Validation.md)
   - focused source-only selection matrix, production-boundary probes, and mutation evidence rules
 - [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md)

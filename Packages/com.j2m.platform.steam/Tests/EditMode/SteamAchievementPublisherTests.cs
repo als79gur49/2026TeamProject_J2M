@@ -381,7 +381,6 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(result.Items[0].Result, Is.EqualTo(AchievementPublicationResult.Submitted));
             Assert.That(result.Items[1].Result, Is.EqualTo(AchievementPublicationResult.Submitted));
             Assert.That(api.StoreStatsCount, Is.EqualTo(1));
-            Assert.That(publisher.StatsStoredObservationCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -464,7 +463,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void DelayedPriorStatsError_IsDiagnosticAndDoesNotContaminateNamedOperations()
+        public void DelayedPriorStatsError_DoesNotContaminateNamedOperations()
         {
             var api = ProductApi();
             QueueSuccessfulPublicationReads(api, publicationCount: 3);
@@ -483,10 +482,6 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(third, Is.Empty);
             Assert.That(api.SetAchievementCount, Is.EqualTo(2));
             Assert.That(api.StoreStatsCount, Is.EqualTo(2));
-            Assert.That(publisher.StatsStoredObservationCount, Is.EqualTo(1));
-            Assert.That(
-                publisher.LastStatsStoredResult,
-                Is.EqualTo(SteamCallbackResult.Failure));
 
             api.RaiseAchievementStored(
                 SessionAppId,
@@ -556,7 +551,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void StatsStoredError_IsDiagnosticAndDisposeExceptionsRemainContained()
+        public void StatsStoredError_DoesNotCompleteAndDisposeExceptionsRemainContained()
         {
             var api = ProductApi();
             api.DisposalException = new InvalidOperationException("callback cleanup failed");
@@ -888,7 +883,6 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(api.GetAchievementCount, Is.EqualTo(1));
             Assert.That(api.SetAchievementCount, Is.EqualTo(1));
             Assert.That(api.StoreStatsCount, Is.EqualTo(1));
-            Assert.That(publisher.StatsStoredObservationCount, Is.Zero);
             Assert.That(
                 Publish(publisher, GameAchievementIds.CampaignLevel1Clear),
                 Is.EqualTo(new[] { AchievementPublicationResult.Unavailable }));

@@ -67,9 +67,6 @@ namespace Game.Platform.Steam.SteamworksNet.Tests.PlayMode
             Assert.That(runtime.Diagnostics.LastExceptionType, Is.Empty);
             Assert.That(runtime.Diagnostics.NativeInitializationResult,
                 Is.EqualTo(SteamNativeInitializationResult.ReturnedFalse));
-            Assert.That(runtime.Diagnostics.CallbackAttemptCount, Is.Zero);
-            Assert.That(runtime.Diagnostics.CallbackPumpCount, Is.Zero);
-            Assert.That(runtime.Diagnostics.ShutdownCallCount, Is.Zero);
             Assert.That(File.Exists("steam_appid.txt"), Is.False);
         }
 

@@ -1,6 +1,12 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using Game.Platform.Runtime;
+using Game.Platform.Steam.ProductAchievements;
+using Game.Product.Achievements;
+using Game.Product.Achievements.Composition;
+using Object = UnityEngine.Object;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -14,10 +20,27 @@ namespace Game.Platform.Steam.Tests.PlayMode
         private static readonly BindingFlags InternalInstance =
             BindingFlags.Instance | BindingFlags.NonPublic;
 
+        private ProductAchievementCoordinator productCoordinator;
+        private ProductAchievementPublicationSessionController productController;
+
+        private void ResetProduct()
+        {
+            if (productController != null)
+            {
+                ProductAchievementPublicationSessionHandoff.ClearController(productController);
+                productController.Dispose();
+                productController = null;
+            }
+            productCoordinator?.Dispose();
+            productCoordinator = null;
+            ProductAchievementPublicationSessionHandoff.ResetForTests();
+        }
+
         [UnitySetUp]
         public IEnumerator SetUp()
         {
             yield return DestroyPlatformHosts();
+            ResetProduct();
             ResetPlatformFoundation();
             AssertNoPlatformHosts();
         }
@@ -27,6 +50,7 @@ namespace Game.Platform.Steam.Tests.PlayMode
         {
             yield return DestroyPlatformHosts();
             AssertNoPlatformHosts();
+            ResetProduct();
             ResetPlatformFoundation();
         }
 
@@ -162,14 +186,25 @@ namespace Game.Platform.Steam.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator AchievementSmoke_ReusesHostCallbackPumpAndSingleAdapterLifecycle()
+        public IEnumerator ProductPublication_ReusesHostCallbackPumpAndSingleAdapterLifecycle()
         {
+            var repository = new MemoryRepository(new ProductAchievementDocument
+            {
+                EarnedAchievementIds = new[] { GameAchievementIds.CampaignLevel4Clear.Value },
+                PendingAchievementPublicationIds = new[] { GameAchievementIds.CampaignLevel4Clear.Value },
+            });
+            var router = new SwitchableAchievementPublicationSink();
+            productCoordinator = new ProductAchievementCoordinator(
+                repository, GameAchievementCatalog.Production, router);
+            Assert.That(productCoordinator.Initialize(), Is.True);
+            productController = new ProductAchievementPublicationSessionController(router, productCoordinator);
+            Assert.That(ProductAchievementPublicationSessionHandoff.TryRegisterController(productController), Is.True);
+
             var adapter = new CountingAchievementAdapter();
             var factory = new SteamPlatformRuntimeFactory(
-                () => new SteamRuntimeDependencies(adapter, adapter),
-                smokeRequested: true,
-                achievementSmokeRequested: true);
+                () => new SteamRuntimeDependencies(adapter, adapter));
             var host = BootstrapWithFactory(factory);
+            Assert.That(productCoordinator.GetSnapshot().InFlightCount, Is.EqualTo(1));
 
             yield return null;
             yield return null;
@@ -177,17 +212,21 @@ namespace Game.Platform.Steam.Tests.PlayMode
             AssertSinglePlatformHost(host, SteamPlatformRuntime.ProviderId);
             Assert.That(adapter.InitializeCount, Is.EqualTo(1));
             Assert.That(adapter.CallbackCount, Is.GreaterThan(0));
+            Assert.That(adapter.MaximumPumpsPerFrame, Is.EqualTo(1));
+            Assert.That(adapter.AchievementCallbackRegistrationCount, Is.EqualTo(1));
             Assert.That(adapter.SetAchievementCount, Is.EqualTo(1));
             Assert.That(adapter.StoreStatsCount, Is.EqualTo(1));
-            Assert.That(adapter.GetAchievementCount, Is.EqualTo(2));
+            Assert.That(adapter.GetAchievementCount, Is.EqualTo(1));
+            Assert.That(productCoordinator.GetSnapshot().InFlightCount, Is.Zero);
+            Assert.That(productCoordinator.GetSnapshot().PendingAchievementPublicationIds.Count, Is.EqualTo(1));
 
             InvokeHostShutdown(host);
             Object.Destroy(((Component)host).gameObject);
             yield return null;
 
             Assert.That(adapter.AchievementCallbackDisposeCount, Is.EqualTo(1));
-            Assert.That(adapter.OverlayCallbackDisposeCount, Is.EqualTo(1));
             Assert.That(adapter.ShutdownCount, Is.EqualTo(1));
+            Assert.That(adapter.CallOrder, Is.EqualTo(new[] { "achievement-dispose", "native-shutdown" }));
         }
 
         private static object BootstrapWithFactory(IPlatformRuntimeFactory factory)
@@ -316,9 +355,6 @@ namespace Game.Platform.Steam.Tests.PlayMode
 
             public bool IsPacksizeCompatible() => true;
 
-            public SteamDllCheckObservation ObserveDllCheck() =>
-                SteamDllCheckObservation.UpstreamDisabled(returnedValue: true);
-
             public bool Initialize()
             {
                 InitializeCount++;
@@ -344,16 +380,6 @@ namespace Game.Platform.Steam.Tests.PlayMode
             public bool IsSteamIdValid() => true;
 
             public bool IsLoggedOn() => true;
-
-            public bool IsOverlayEnabled() => false;
-
-            public void RegisterOverlayActivationCallback(System.Action<bool> observer)
-            {
-            }
-
-            public void DisposeOverlayActivationCallback()
-            {
-            }
         }
 
         private sealed class CountingAchievementAdapter :
@@ -363,20 +389,31 @@ namespace Game.Platform.Steam.Tests.PlayMode
             private System.Action<SteamStatsStoredObservation> statsObserver;
             private System.Action<SteamAchievementStoredObservation> achievementObserver;
             private bool callbacksRaised;
+            private int pumpFrame = -1;
+            private int pumpsThisFrame;
+            private static string ExpectedName
+            {
+                get
+                {
+                    SteamAchievementMapping.Production.TryGetExpectedSteamApiName(
+                        GameAchievementIds.CampaignLevel4Clear, out var name);
+                    return name.Value;
+                }
+            }
+
+            internal int MaximumPumpsPerFrame { get; private set; }
+            internal int AchievementCallbackRegistrationCount { get; private set; }
+            internal List<string> CallOrder { get; } = new List<string>();
 
             internal int InitializeCount { get; private set; }
             internal int CallbackCount { get; private set; }
             internal int ShutdownCount { get; private set; }
-            internal int OverlayCallbackDisposeCount { get; private set; }
             internal int AchievementCallbackDisposeCount { get; private set; }
             internal int GetAchievementCount { get; private set; }
             internal int SetAchievementCount { get; private set; }
             internal int StoreStatsCount { get; private set; }
 
             public bool IsPacksizeCompatible() => true;
-
-            public SteamDllCheckObservation ObserveDllCheck() =>
-                SteamDllCheckObservation.UpstreamDisabled(true);
 
             public bool Initialize()
             {
@@ -387,6 +424,12 @@ namespace Game.Platform.Steam.Tests.PlayMode
             public void RunCallbacks()
             {
                 CallbackCount++;
+                if (pumpFrame != Time.frameCount)
+                {
+                    pumpFrame = Time.frameCount;
+                    pumpsThisFrame = 0;
+                }
+                MaximumPumpsPerFrame = Math.Max(MaximumPumpsPerFrame, ++pumpsThisFrame);
                 if (callbacksRaised)
                 {
                     return;
@@ -394,37 +437,31 @@ namespace Game.Platform.Steam.Tests.PlayMode
 
                 callbacksRaised = true;
                 achievementObserver?.Invoke(new SteamAchievementStoredObservation(
-                    480,
-                    "ACH_WIN_ONE_GAME",
+                    4242,
+                    ExpectedName,
                     isFullUnlock: true));
                 statsObserver?.Invoke(new SteamStatsStoredObservation(
-                    480,
+                    4242,
                     SteamCallbackResult.Ok));
             }
 
             public void Shutdown()
             {
                 ShutdownCount++;
+                CallOrder.Add("native-shutdown");
             }
 
-            public uint GetAppId() => 480;
+            public uint GetAppId() => 4242;
             public bool IsSteamIdValid() => true;
             public bool IsLoggedOn() => true;
-            public bool IsOverlayEnabled() => false;
-            public void RegisterOverlayActivationCallback(System.Action<bool> observer) { }
-
-            public void DisposeOverlayActivationCallback()
-            {
-                OverlayCallbackDisposeCount++;
-            }
 
             public uint GetNumAchievements() => 1;
-            public string GetAchievementName(uint index) => "ACH_WIN_ONE_GAME";
+            public string GetAchievementName(uint index) => ExpectedName;
 
             public bool GetAchievement(string achievementName, out bool achieved)
             {
                 GetAchievementCount++;
-                achieved = GetAchievementCount > 1;
+                achieved = false;
                 return true;
             }
 
@@ -444,6 +481,7 @@ namespace Game.Platform.Steam.Tests.PlayMode
                 System.Action<SteamStatsStoredObservation> statsStoredObserver,
                 System.Action<SteamAchievementStoredObservation> achievementStoredObserver)
             {
+                AchievementCallbackRegistrationCount++;
                 statsObserver = statsStoredObserver;
                 achievementObserver = achievementStoredObserver;
             }
@@ -451,8 +489,47 @@ namespace Game.Platform.Steam.Tests.PlayMode
             public void DisposeAchievementStoreCallbacks()
             {
                 AchievementCallbackDisposeCount++;
+                CallOrder.Add("achievement-dispose");
                 statsObserver = null;
                 achievementObserver = null;
+            }
+        }
+
+        private sealed class MemoryRepository : IAchievementDocumentRepository
+        {
+            private ProductAchievementDocument _document;
+
+            internal MemoryRepository(ProductAchievementDocument document)
+            {
+                _document = Clone(document);
+            }
+
+            internal int SaveCount { get; private set; }
+
+            public AchievementDocumentLoadResult Load()
+            {
+                return new AchievementDocumentLoadResult(
+                    AchievementDocumentLoadStatus.Loaded,
+                    Clone(_document),
+                    string.Empty);
+            }
+
+            public AchievementDocumentSaveResult Save(ProductAchievementDocument document)
+            {
+                SaveCount++;
+                _document = Clone(document);
+                return AchievementDocumentSaveResult.Saved();
+            }
+
+            private static ProductAchievementDocument Clone(ProductAchievementDocument document)
+            {
+                return new ProductAchievementDocument
+                {
+                    SchemaVersion = document.SchemaVersion,
+                    EarnedAchievementIds = (string[])document.EarnedAchievementIds.Clone(),
+                    PendingAchievementPublicationIds =
+                        (string[])document.PendingAchievementPublicationIds.Clone(),
+                };
             }
         }
     }

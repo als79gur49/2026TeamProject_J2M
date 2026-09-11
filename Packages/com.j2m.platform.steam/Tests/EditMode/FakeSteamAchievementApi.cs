@@ -5,10 +5,7 @@ namespace Game.Platform.Steam.Tests.EditMode
 {
     internal sealed class FakeSteamAchievementApi : ISteamAchievementApi
     {
-        internal readonly List<string> AchievementNames = new List<string>
-        {
-            SpacewarAchievementSmokePolicy.TargetAchievement,
-        };
+        internal readonly List<string> AchievementNames = new List<string>();
 
         internal bool BeforeReadResult { get; set; } = true;
         internal bool BeforeUnlocked { get; set; }
@@ -166,15 +163,15 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         internal void RaiseStatsStored(
-            uint appId = SpacewarAchievementSmokePolicy.AppId,
+            uint appId,
             SteamCallbackResult result = SteamCallbackResult.Ok)
         {
             statsStoredObserver?.Invoke(new SteamStatsStoredObservation(appId, result));
         }
 
         internal void RaiseAchievementStored(
-            uint appId = SpacewarAchievementSmokePolicy.AppId,
-            string achievementName = SpacewarAchievementSmokePolicy.TargetAchievement,
+            uint appId,
+            string achievementName,
             bool fullUnlock = true)
         {
             achievementStoredObserver?.Invoke(new SteamAchievementStoredObservation(
@@ -184,7 +181,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         internal void RaiseCapturedStatsStored(
-            uint appId = SpacewarAchievementSmokePolicy.AppId,
+            uint appId,
             SteamCallbackResult result = SteamCallbackResult.Ok)
         {
             capturedStatsStoredObserver?.Invoke(
@@ -192,8 +189,8 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         internal void RaiseCapturedAchievementStored(
-            uint appId = SpacewarAchievementSmokePolicy.AppId,
-            string achievementName = SpacewarAchievementSmokePolicy.TargetAchievement,
+            uint appId,
+            string achievementName,
             bool fullUnlock = true)
         {
             capturedAchievementStoredObserver?.Invoke(
