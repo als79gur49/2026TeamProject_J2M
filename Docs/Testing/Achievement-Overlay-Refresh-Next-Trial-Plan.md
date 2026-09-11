@@ -1,5 +1,8 @@
 # 업적 표시 갱신 후속 시험 구체안
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 > **진행 방향 정정 — 2026-09-09:** 아래는 이미 수행한 GameOnly 비교 시험의 역사적 계획이다. 다음 시험의 우선순위로 재사용하지 않는다. [진행 방향 정정](Achievement-Overlay-Refresh-Direction-Correction.md)을 먼저 읽는다. 게임 단독 재시작 무효·수동 Steam 완전 재시작 성공은 과거에 보고됐고 이번 시험은 표시 불일치의 재확인이다. 다음 검토는 수동 성공 절차와 자동 helper의 차이에 집중하며, 재획득·재초기화를 기본 단계로 삼지 않는다.
 
 2026-09-09. 대상 `/mnt/d/J2M/worktrees/exhibition-reset`. **계획 문서이며 실행 안내가 아니다.** 이번 작업은 소스·기존 증거 검토와 문서 작성뿐이다. 코드 수정, 테스트, 빌드, 업로드, branch 변경, 설치, 게임·Steam·native 실행, 업적 조회·변경을 수행하지 않았다.

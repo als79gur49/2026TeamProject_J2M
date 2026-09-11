@@ -3,10 +3,8 @@ using Steamworks;
 
 namespace Game.Platform.Steam.SteamworksNet
 {
-    public sealed class SteamworksNetNativeApi : ISteamNativeApi, ISteamAchievementApi, ISteamObservationIdentityApi
+    public sealed class SteamworksNetNativeApi : ISteamNativeApi, ISteamAchievementApi
     {
-        private Callback<GameOverlayActivated_t> overlayActivatedCallback;
-        private Action<bool> overlayActivationObserver;
         private readonly Func<Action<UserStatsStored_t>, IDisposable>
             statsStoredCallbackFactory;
         private readonly Func<Action<UserAchievementStored_t>, IDisposable>
@@ -39,12 +37,6 @@ namespace Game.Platform.Steam.SteamworksNet
             return Packsize.Test();
         }
 
-        public SteamDllCheckObservation ObserveDllCheck()
-        {
-            var returnedValue = DllCheck.Test();
-            return SteamDllCheckObservation.UpstreamDisabled(returnedValue);
-        }
-
         public bool Initialize()
         {
             return SteamAPI.Init();
@@ -65,8 +57,6 @@ namespace Game.Platform.Steam.SteamworksNet
             return SteamUtils.GetAppID().m_AppId;
         }
 
-        public ulong GetSteamId() => SteamUser.GetSteamID().m_SteamID;
-
         public bool IsSteamIdValid()
         {
             return SteamUser.GetSteamID().IsValid();
@@ -75,45 +65,6 @@ namespace Game.Platform.Steam.SteamworksNet
         public bool IsLoggedOn()
         {
             return SteamUser.BLoggedOn();
-        }
-
-        public bool IsOverlayEnabled()
-        {
-            return SteamUtils.IsOverlayEnabled();
-        }
-
-        public void RegisterOverlayActivationCallback(Action<bool> observer)
-        {
-            if (observer == null)
-            {
-                throw new ArgumentNullException(nameof(observer));
-            }
-
-            if (overlayActivatedCallback != null)
-            {
-                throw new InvalidOperationException(
-                    "Steam overlay activation callback is already registered.");
-            }
-
-            overlayActivationObserver = observer;
-            try
-            {
-                overlayActivatedCallback =
-                    Callback<GameOverlayActivated_t>.Create(OnOverlayActivated);
-            }
-            catch
-            {
-                overlayActivationObserver = null;
-                throw;
-            }
-        }
-
-        public void DisposeOverlayActivationCallback()
-        {
-            var callback = overlayActivatedCallback;
-            overlayActivatedCallback = null;
-            overlayActivationObserver = null;
-            callback?.Dispose();
         }
 
         public uint GetNumAchievements()
@@ -133,13 +84,11 @@ namespace Game.Platform.Steam.SteamworksNet
 
         public bool SetAchievement(string achievementName)
         {
-            SteamOverlayObservationAccess.RequireWritesAllowed();
             return SteamUserStats.SetAchievement(achievementName);
         }
 
         public bool StoreStats()
         {
-            SteamOverlayObservationAccess.RequireWritesAllowed();
             return SteamUserStats.StoreStats();
         }
 
@@ -223,11 +172,6 @@ namespace Game.Platform.Steam.SteamworksNet
             {
                 throw firstException;
             }
-        }
-
-        private void OnOverlayActivated(GameOverlayActivated_t observation)
-        {
-            overlayActivationObserver?.Invoke(observation.m_bActive != 0);
         }
 
         private void OnStatsStored(UserStatsStored_t observation)

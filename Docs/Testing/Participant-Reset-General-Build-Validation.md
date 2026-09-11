@@ -1,5 +1,8 @@
 # 참가자 초기화 일반 빌드 통합 검증
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 날짜: 2026-09-07. Worktree: `/mnt/d/J2M/worktrees/exhibition-reset`.
 작업 사본 검증이며 커밋/배포하지 않았다. 기존 전시 구현 및 사용자 변경을 유지한 상태에서 일반 통합 변경을 적용했다.
 

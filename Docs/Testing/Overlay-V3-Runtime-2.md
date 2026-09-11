@@ -1,5 +1,8 @@
 # Overlay v3 수동 실행
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 런처와 외부 설정 파일 입력을 제거했다. 이 문서는 현재 단순화된 소스 기준이며, 이전 업로드에 적용됐다는 뜻은 아니다.
 
 ## 실행

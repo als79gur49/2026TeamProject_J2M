@@ -19,9 +19,9 @@ foreach ($case in @(
     @{Name='malformed JSON'; Json='{'; Error='ArgumentException'; Known=$false},
     @{Name='partial request'; Json='{}'; Error='injected Add-Type unavailable'; Known=$false},
     @{Name='unvalidated role before compiler'; Json='{"ResetOverlayChildRole":999}'; Error='injected Add-Type unavailable'; Known=$false},
-    @{Name='C# bootstrap unavailable'; Json='{"EvidenceDirectory":"EVIDENCE"}'; Error='injected Add-Type unavailable'; Known=$true},
-    @{Name='invalid role after compilation'; Json='{"ResetOverlayChildRole":999}'; Error='Invalid reset overlay child role'; Known=$false; Compile=$true},
-    @{Name='environment validation after compilation'; Json='{}'; Error='Invalid x64 experiment request.'; Known=$false; Compile=$true}
+    @{Name='C# bootstrap unavailable'; Json='{"EvidenceDirectory":"EVIDENCE"}'; Error='injected Add-Type unavailable'; Known=$false},
+    @{Name='invalid role after compilation'; Json='{"ResetOverlayChildRole":999}'; Error='Completed-reset product request required.'; Known=$false; Compile=$true},
+    @{Name='environment validation after compilation'; Json='{}'; Error='Completed-reset product request required.'; Known=$false; Compile=$true}
 )) {
     Invoke-Case ('Actual host stop guidance with ' + $case.Name) {
         $scratch = Join-Path 'D:\J2M\evidence\participant-restart-preflight' ('guidance-fake-' + [guid]::NewGuid().ToString('N'))
@@ -62,11 +62,11 @@ function Add-Type {
             $text = $output.Result + $errors.Result
             Assert-True ($child.ExitCode -eq 1) 'Failure host did not preserve nonzero exit'
             Assert-True ($text.Contains($case.Error)) ('Original error lost: ' + $text)
-            Assert-True ($text.Contains('Diagnostic purpose is unknown.')) ('Bootstrap failure must not infer purpose: ' + $text)
-            Assert-True ($text.Contains('Do not restart the game or repeat the cycle until the evidence has been reviewed.')) 'Missing stop-only guidance'
+            Assert-True ($text.Contains('Participant restart stopped.')) ('Bootstrap failure must not infer purpose: ' + $text)
+            Assert-True ($text.Contains('Keep the game closed and check the failure before another restart.')) 'Missing stop-only guidance'
             Assert-True (-not $text.Contains('start the game manually')) 'Unsafe manual restart guidance remains'
             $expectedEvidence = $(if ($case.Known) { $scratch } else { 'unknown (not obtained)' })
-            Assert-True ($text.Contains('Evidence: ' + $expectedEvidence)) 'Known/unknown evidence path missing'
+            Assert-True ($text.Contains('Handoff: ' + $expectedEvidence)) 'Known/unknown evidence path missing'
         } finally { if (-not $child.HasExited) { $child.Kill(); $child.WaitForExit() }; $child.Dispose() }
     }
 }
@@ -88,9 +88,9 @@ foreach ($failure in @('environment validation failed', 'worker creation uncerta
             param($message) $script:displayedFailure = $message
         }
         Assert-True ($script:displayedFailure.Contains($failure)) 'Display lost original error'
-        Assert-True ($script:displayedFailure.Contains('Pending') -and $script:displayedFailure.Contains('partially applied')) 'Display inferred no reset'
-        Assert-True ($script:displayedFailure.Contains('Do not restart the game or repeat the cycle until the evidence has been reviewed.')) 'Display offered recovery'
-        Assert-True ($script:displayedFailure.Contains('Evidence: D:\J2M\evidence\known')) 'Display lost evidence path'
+        Assert-True ($script:displayedFailure.Contains('Participant restart stopped.')) 'Display lost restart failure'
+        Assert-True ($script:displayedFailure.Contains('Keep the game closed and check the failure before another restart.')) 'Display offered recovery'
+        Assert-True ($script:displayedFailure.Contains('Handoff: D:\J2M\evidence\known')) 'Display lost evidence path'
     }
 }
 Invoke-Case 'Actual display failure does not throw or replace the original error' {
@@ -98,7 +98,7 @@ Invoke-Case 'Actual display failure does not throw or replace the original error
     Show-RestartExperimentFailure -Failure $failure -EvidenceDirectory $null -Display { throw 'display unavailable' }
     Assert-True ($failure.Message -ceq 'original cycle failure') 'Original error changed'
     $message = Format-RestartExperimentFailure -Failure $failure -EvidenceDirectory $null
-    Assert-True ($message.Contains('Evidence: unknown (not obtained)')) 'Unknown path not explicit'
+    Assert-True ($message.Contains('Handoff: unknown (not obtained)')) 'Unknown path not explicit'
 }
 
 Add-Type -Path @(
@@ -127,7 +127,7 @@ $expected.AppId = 123
 $expected.SteamId = 456
 $success = @'
 $p = [Diagnostics.Process]::GetCurrentProcess()
-@{ WireVersion=3; InitDisposition=0; InitDiagnostic=$null; InitCalled=$true; InitReturned=$true; QueryCalled=$true; QueryReturned=$true; ShutdownCalled=$true; FailureStage=$null; QueryError=$null; ShutdownError=$null; CleanupError=$null; RecordError=$null; Nonce='fake-probe-nonce'; Pid=$p.Id; StartTicks=$p.StartTime.ToUniversalTime().Ticks;
+@{ WireVersion=3; InitDisposition=0; InitDiagnostic=$null; InitCalled=$true; InitReturned=$true; QueryCalled=$true; QueryReturned=$true; ShutdownCalled=$true; FailureStage=$null; QueryError=$null; ShutdownError=$null; CleanupError=$null; Nonce='fake-probe-nonce'; Pid=$p.Id; StartTicks=$p.StartTime.ToUniversalTime().Ticks;
    AppId=123; SteamId=456; LoggedOn=$true; ShutdownReturned=$true; InitResult=0; Error=$null } | ConvertTo-Json -Compress
 '@
 
@@ -144,22 +144,22 @@ Invoke-Case 'Windows token, logon, canonical path and PID/start identity' {
     } finally { $p.Dispose() }
 }
 Invoke-Case 'Real harmless probe success requires process exit and result identity' {
-    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $success), 10000, $expected, $null)
+    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $success), 10000, $expected)
     Assert-True $ready 'Probe not ready'
 }
 Invoke-Case 'NoSteamClient requires clean process exit before a fresh successful observation' {
     $cold = $success.Replace('InitDisposition=0', 'InitDisposition=1').Replace('InitResult=0', 'InitResult=2').Replace('QueryCalled=$true', 'QueryCalled=$false').Replace('QueryReturned=$true', 'QueryReturned=$false').Replace('ShutdownCalled=$true', 'ShutdownCalled=$false').Replace('ShutdownReturned=$true', 'ShutdownReturned=$false').Replace('LoggedOn=$true', 'LoggedOn=$false').Replace('AppId=123', 'AppId=0').Replace('SteamId=456', 'SteamId=0')
     $timer = [Diagnostics.Stopwatch]::StartNew()
-    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe ($cold + "`nStart-Sleep -Milliseconds 300")), 10000, $expected, $null)
+    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe ($cold + "`nStart-Sleep -Milliseconds 300")), 10000, $expected)
     Assert-True (-not $ready -and $timer.ElapsedMilliseconds -ge 300) 'NoSteamClient returned before child exit'
-    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $success), 10000, $expected, $null)
+    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $success), 10000, $expected)
     Assert-True $ready 'Fresh successful observation did not become ready'
 }
 $globalUser = $success.Replace('InitDisposition=0', 'InitDisposition=2').Replace('InitResult=0', 'InitResult=1').Replace('InitDiagnostic=$null', "InitDiagnostic='ConnectToGlobalUser failed.'").Replace('QueryCalled=$true', 'QueryCalled=$false').Replace('QueryReturned=$true', 'QueryReturned=$false').Replace('ShutdownCalled=$true', 'ShutdownCalled=$false').Replace('ShutdownReturned=$true', 'ShutdownReturned=$false').Replace('LoggedOn=$true', 'LoggedOn=$false').Replace('AppId=123', 'AppId=0').Replace('SteamId=456', 'SteamId=0')
 Invoke-Case 'Global user unavailable permits only a fresh observation after owned process exit' {
-    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $globalUser), 10000, $expected, $null)
+    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $globalUser), 10000, $expected)
     Assert-True (-not $ready) 'Failed Init became ready'
-    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $success), 10000, $expected, $null)
+    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $success), 10000, $expected)
     Assert-True $ready 'Fresh ready result rejected'
 }
 foreach ($case in @(
@@ -167,19 +167,18 @@ foreach ($case in @(
     @{Name='missing disposition'; Body=$globalUser.Replace('InitDisposition=2;', '')},
     @{Name='mismatched disposition'; Body=$globalUser.Replace('InitDisposition=2', 'InitDisposition=1')},
     @{Name='different diagnostic'; Body=$globalUser.Replace('ConnectToGlobalUser failed.', 'ConnectToGlobalUser failed. ')},
-    @{Name='record failure'; Body=$globalUser.Replace('RecordError=$null', "RecordError='record failed'")},
     @{Name='nonzero exit'; Body=($globalUser + "`nexit 7")},
     @{Name='stderr'; Body=($globalUser + "`n[Console]::Error.Write('fatal')")}
 )) {
     Invoke-Case ('Global user observation rejects ' + $case.Name) {
         $rejected = $false
-        try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $case.Body), 10000, $expected, $null) | Out-Null }
+        try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $case.Body), 10000, $expected) | Out-Null }
         catch { $rejected = $true }
         Assert-True $rejected 'Invalid unavailable result accepted'
     }
 }
 Invoke-Case 'Identity mismatch returns not-ready after clean shutdown' {
-    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe ($success.Replace('SteamId=456', 'SteamId=789'))), 10000, $expected, $null)
+    $ready = [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe ($success.Replace('SteamId=456', 'SteamId=789'))), 10000, $expected)
     Assert-True (-not $ready) 'Mismatched identity accepted'
 }
 foreach ($case in @(
@@ -193,7 +192,7 @@ foreach ($case in @(
 )) {
     Invoke-Case $case.Name {
         $rejected = $false
-        try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $case.Body), 10000, $expected, $null) | Out-Null }
+        try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe $case.Body), 10000, $expected) | Out-Null }
         catch { $rejected = $true }
         Assert-True $rejected 'Invalid probe accepted'
     }
@@ -201,7 +200,7 @@ foreach ($case in @(
 Invoke-Case 'Timeout kills only owned harmless probe and returns without retry' {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $rejected = $false
-    try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe 'Start-Sleep -Seconds 30'), 200, $expected, $null) | Out-Null }
+    try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe((New-FakeProbe 'Start-Sleep -Seconds 30'), 200, $expected) | Out-Null }
     catch { $rejected = $_.Exception.ToString().Contains('Probe timed out') }
     Assert-True ($rejected -and $timer.ElapsedMilliseconds -lt 5000) 'Timeout supervision failed'
 }
@@ -246,12 +245,12 @@ Invoke-Case 'Diagnostic probe script rejects invalid request before SDK or Steam
     }
     Copy-Item -LiteralPath (Join-Path $RepositoryRoot 'Assets/_Features/Exhibition/Tools/Restart-Experiment.ps1') -Destination $scratch
     $fakeRequest = Join-Path $scratch 'invalid-request.json'
-    [IO.File]::WriteAllText($fakeRequest, '{"Nonce":"fake-probe-nonce","Trial":2}')
+    [IO.File]::WriteAllText($fakeRequest, '{"Nonce":"fake-probe-nonce","Trial":3}')
     $start = New-FakeProbe ''
     $start.Arguments = '-NoProfile -ExecutionPolicy Bypass -File ' + [Game.Exhibition.RestartExperiment.ExperimentFiles]::Quote((Join-Path $scratch 'Restart-Experiment.ps1')) + ' -RequestPath ' + [Game.Exhibition.RestartExperiment.ExperimentFiles]::Quote($fakeRequest) + ' -Probe'
     $rejected = $false
-    try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe($start, 10000, $expected, $null) | Out-Null }
-    catch { $rejected = $_.Exception.ToString().Contains('Invalid x64 experiment request') }
+    try { [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe($start, 10000, $expected) | Out-Null }
+    catch { $rejected = $_.Exception.ToString().Contains('Completed-reset product request required.') }
     Assert-True $rejected 'Script did not reach guarded validation'
 }
 
@@ -276,7 +275,7 @@ Add-Type -Path @('$quotedSource\RestartExperiment.cs', '$quotedSource\RestartExp
 `$start.Arguments = '-NoProfile -EncodedCommand $probeEncoded'
 `$start.UseShellExecute = `$false; `$start.CreateNoWindow = `$true
 `$start.RedirectStandardInput = `$true; `$start.RedirectStandardOutput = `$true; `$start.RedirectStandardError = `$true
-[Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe(`$start, 10000, `$expected, `$null)
+[Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe(`$start, 10000, `$expected)
 "@
     $supervisor = [Diagnostics.Process]::Start((New-FakeProbe $supervisorBody))
     $owned = $null
@@ -330,7 +329,7 @@ Invoke-Case 'Cold PowerShell bootstrap resolves both host serializers before any
         Assert-True ($child.ExitCode -eq 0 -and $output.Result -ceq 'SERIALIZERS_OK' -and $errors.Result -eq '') ('Cold bootstrap failed: ' + $errors.Result)
     } finally { if (-not $child.HasExited) { $child.Kill(); $child.WaitForExit() }; $child.Dispose() }
 }
-function Invoke-ObservedProbe([string]$Body, [int]$Budget = 10000, $Observe = $null, $Record = $null, $Operations = $null) {
+function Invoke-ObservedProbe([string]$Body, [int]$Budget = 10000, $Operations = $null) {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $start = New-FakeProbe $Body
     $script:lastAttempt = New-Object Game.Exhibition.RestartExperiment.ProbeAttempt
@@ -339,7 +338,7 @@ function Invoke-ObservedProbe([string]$Body, [int]$Budget = 10000, $Observe = $n
     if ($null -eq $Operations) { $Operations = New-Object Game.Exhibition.RestartExperiment.ProbeOperations }
     [Game.Exhibition.RestartExperiment.WindowsCycleEnvironment]::RunOwnedProbe(
         [Func[Diagnostics.ProcessStartInfo]]{ $start }, $deadline, [Func[long]]{ $timer.ElapsedMilliseconds }, $expected,
-        $script:lastAttempt, $Observe, $Record, $Operations)
+        $script:lastAttempt, $Operations)
 }
 
 $sdkDiagnostics = @'
@@ -360,7 +359,6 @@ foreach ($case in @(
     @{Name='nonzero exit'; Body=$success + "`n" + $sdkDiagnostics + "`nexit 7"},
     @{Name='query error'; Body=$success.Replace('QueryError=$null', "QueryError='failure'") + "`n" + $sdkDiagnostics},
     @{Name='shutdown error'; Body=$success.Replace('ShutdownError=$null', "ShutdownError='failure'") + "`n" + $sdkDiagnostics},
-    @{Name='record error'; Body=$success.Replace('RecordError=$null', "RecordError='failure'") + "`n" + $sdkDiagnostics},
     @{Name='not logged on'; Body=$success.Replace('LoggedOn=$true', 'LoggedOn=$false') + "`n" + $sdkDiagnostics},
     @{Name='failed Init'; Body=$globalUser + "`n" + $sdkDiagnostics},
     @{Name='stderr overflow'; Body=$success + "`n" + $sdkDiagnostics + "`n[Console]::Error.Write(('x' * 20000))"},
@@ -378,24 +376,17 @@ foreach ($mode in @('job', 'output-throw', 'output-incomplete', 'held-pipes', 'r
         $ops = New-Object RestartExperimentFakes.FailureOperations
         $ops.Mode = $mode
         $rejected = $false
-        try { Invoke-ObservedProbe ($success + "`n" + $sdkDiagnostics) 10000 $null $null $ops | Out-Null } catch { $rejected = $true }
+        try { Invoke-ObservedProbe ($success + "`n" + $sdkDiagnostics) 10000 $ops | Out-Null } catch { $rejected = $true }
         finally { $ops.DisposeRetainedProcess() }
         Assert-True ($rejected -and -not $script:lastAttempt.ReadyObserved) 'Supervisor failure excused'
     }
 }
-Invoke-Case 'Known SDK stderr cannot excuse attempt record failure' {
-    $rejected = $false
-    try { Invoke-ObservedProbe ($success + "`n" + $sdkDiagnostics) 10000 $null ([Action[Game.Exhibition.RestartExperiment.ProbeAttempt]]{ param($row) throw 'record failed' }) | Out-Null } catch { $rejected = $true }
-    Assert-True ($rejected -and -not $script:lastAttempt.ReadyObserved -and $null -ne $script:lastAttempt.RecordError) 'Record failure excused'
-}
-
 foreach ($case in @(
     @{Name='old wire'; Body=$success.Replace('WireVersion=3;', '')},
     @{Name='unsupported wire'; Body=$success.Replace('WireVersion=3', 'WireVersion=1')},
     @{Name='required query flag missing'; Body=$success.Replace('QueryCalled=$true;', '')},
     @{Name='query error with ready identity'; Body=$success.Replace('QueryError=$null', "QueryError='query failed'")},
     @{Name='shutdown error with returned flag'; Body=$success.Replace('ShutdownError=$null', "ShutdownError='shutdown failed'")},
-    @{Name='record error with ready identity'; Body=$success.Replace('RecordError=$null', "RecordError='record failed'")},
     @{Name='empty stderr abnormal exit'; Body='exit 9'},
     @{Name='partial output timeout'; Body="[Console]::Out.Write('{'); Start-Sleep -Seconds 30"},
     @{Name='stdout overflow after valid JSON'; Body=($success + "`n[Console]::Out.Write(('x' * 20000))")},
@@ -413,19 +404,6 @@ foreach ($case in @(
     }
 }
 
-Invoke-Case 'All recording failures preserve original failure and both sink errors' {
-    $rejected = $false
-    try {
-        Invoke-ObservedProbe ($success + "`nexit 7") 10000 `
-            ([Action[Game.Exhibition.RestartExperiment.ProbeObservation]]{ param($row) throw 'probe-sink-failed' }) `
-            ([Action[Game.Exhibition.RestartExperiment.ProbeAttempt]]{ param($row) throw 'attempt-sink-failed' }) | Out-Null
-    } catch { $rejected = $true }
-    Assert-True $rejected 'Recording failure accepted'
-    Assert-True ($script:lastAttempt.RecordError.Contains('probe-sink-failed') -and $script:lastAttempt.RecordError.Contains('attempt-sink-failed')) 'Recording errors overwritten'
-    Assert-True ($script:lastAttempt.ExitCode -eq 7 -and $script:lastAttempt.OwnedExitConfirmed) 'Cleanup/exit evidence lost'
-    Assert-True ($script:lastAttempt.FailureStage -ceq 'Execution' -and $script:lastAttempt.Error.Contains('ExitCode=7')) 'Initial abnormal exit hidden by record failure'
-}
-
 foreach ($mode in @('kill', 'job', 'output-throw', 'output-incomplete', 'held-pipes', 'reader-failure', 'create', 'create-null')) {
     Invoke-Case "Supervisor injected $mode failure" {
         $ops = New-Object RestartExperimentFakes.FailureOperations
@@ -433,7 +411,7 @@ foreach ($mode in @('kill', 'job', 'output-throw', 'output-incomplete', 'held-pi
         $body = $success; $budget = 10000
         if ($mode -eq 'kill') { $body = 'Start-Sleep -Seconds 30'; $budget = 1000 }
         $rejected = $false
-        try { Invoke-ObservedProbe $body $budget $null $null $ops | Out-Null } catch { $rejected = $true }
+        try { Invoke-ObservedProbe $body $budget $ops | Out-Null } catch { $rejected = $true }
         Assert-True $rejected 'Injected failure accepted'
         Assert-True ($null -ne $script:lastAttempt.Error) 'Failure disappeared'
         if ($mode -eq 'kill' -or $mode -eq 'job') { Assert-True ($null -ne $script:lastAttempt.CleanupError) 'Cleanup error missing' }
@@ -444,7 +422,7 @@ foreach ($mode in @('kill', 'job', 'output-throw', 'output-incomplete', 'held-pi
     }
 }
 
-foreach ($role in @('Helper', 'Steam', 'Probe', 'FullCycleGame', 'GameOnlyGame')) {
+foreach ($role in @('Steam', 'Probe', 'FullCycleGame')) {
     Invoke-Case "Actual child environment policy $role" {
         $start = New-FakeProbe @'
 @{ Old=[Environment]::GetEnvironmentVariable('sTeAmObsolete'); App=[Environment]::GetEnvironmentVariable('SteamAppId'); Game=[Environment]::GetEnvironmentVariable('SteamGameId'); Keep=[Environment]::GetEnvironmentVariable('J2M_KEEP'); PathPresent=([bool]$env:PATH); TempPresent=([bool]$env:TEMP) } | ConvertTo-Json -Compress
@@ -453,8 +431,7 @@ foreach ($role in @('Helper', 'Steam', 'Probe', 'FullCycleGame', 'GameOnlyGame')
         $start.EnvironmentVariables['SteamAppId'] = '999'
         $start.EnvironmentVariables['SteamGameId'] = '999'
         $start.EnvironmentVariables['J2M_KEEP'] = 'preserved'
-        $policy = [Game.Exhibition.RestartExperiment.LaunchEnvironment]::Apply($start, [Game.Exhibition.RestartExperiment.LaunchRole]::$role, 123)
-        Assert-True (-not $policy.Contains('synthetic-secret') -and -not $policy.Contains('999')) 'Environment value leaked'
+        [Game.Exhibition.RestartExperiment.LaunchEnvironment]::Apply($start, [Game.Exhibition.RestartExperiment.LaunchRole]::$role, 123)
         $p = [Game.Exhibition.RestartExperiment.LaunchEnvironment]::Start([Func[Diagnostics.ProcessStartInfo]]{ $start }, $null, [Func[Diagnostics.ProcessStartInfo,Diagnostics.Process]]{ param($psi) [Diagnostics.Process]::Start($psi) })
         try {
             $out = New-Object Game.Exhibition.RestartExperiment.BoundedOutput($p.StandardOutput)
@@ -464,105 +441,14 @@ foreach ($role in @('Helper', 'Steam', 'Probe', 'FullCycleGame', 'GameOnlyGame')
             Assert-True ([Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($out.Completion,$err.Completion), 1000)) 'Environment pipes incomplete'
             $row = $out.Snapshot().Text | ConvertFrom-Json
             Assert-True ($row.Keep -ceq 'preserved' -and $row.PathPresent -and $row.TempPresent) 'OS environment changed'
-            if ($role -eq 'Helper' -or $role -eq 'GameOnlyGame') { Assert-True ($row.Old -ceq 'synthetic-secret') 'Inherited policy changed' }
-            else { Assert-True ($null -eq $row.Old) 'Obsolete Steam value retained' }
+            Assert-True ($null -eq $row.Old) 'Obsolete Steam value retained'
             if ($role -eq 'Steam') { Assert-True ($null -eq $row.App -and $null -eq $row.Game) 'Steam received app autorun environment' }
-            elseif ($role -eq 'Helper') { Assert-True ($row.App -ceq '999') 'Helper environment changed' }
             else { Assert-True ($row.App -ceq '123' -and $row.Game -ceq '123') 'Request AppID not set' }
         } finally {
             if (-not $p.HasExited) { $p.Kill(); $null = $p.WaitForExit(2000) }
             $p.Dispose()
         }
     }
-}
-
-Invoke-Case 'Actual game launch preserves restricted reset trial arguments for the ResetWorker child' {
-    $fixture = Join-Path ([IO.Path]::GetTempPath()) ('j2m-trial-args-' + [Guid]::NewGuid().ToString('N') + '.exe')
-    Add-Type -TypeDefinition 'public static class ResetTrialArgumentFixture { public static void Main(string[] args) { System.Console.Write(string.Join("\n", args)); } }' -OutputAssembly $fixture -OutputType ConsoleApplication
-    try {
-        foreach ($role in @('ResetWorker')) {
-            $request = New-Object Game.Exhibition.RestartExperiment.ExperimentRequest
-            $request.Parent = New-Object Game.Exhibition.RestartExperiment.ProcessIdentity
-            $request.Parent.Path = $fixture
-            $request.AppId = 123
-            $request.Trial = $(if ($role -eq 'ResetWorker') { [Game.Exhibition.RestartExperiment.Trial]::GameOnly } else { [Game.Exhibition.RestartExperiment.Trial]::FullCycle })
-            $request.ResetOverlayChildRole = [Enum]::Parse([Game.Exhibition.RestartExperiment.ResetOverlayRole], $role)
-            $request.ResetOverlayWireVersion = 2
-            $request.ResetOverlayTrialId = [Guid]::NewGuid().ToString('N')
-            $request.OperationId = [Guid]::NewGuid().ToString('N')
-            $request.Nonce = [Guid]::NewGuid().ToString('N')
-            $request.ResetOverlayContextSha256 = 'a' * 64
-            $request.ResetOverlayContextPath = 'D:\Trial evidence\context $literal.json'
-            $requestPath = 'D:\Trial evidence\request.json'
-            $psi = [Game.Exhibition.RestartExperiment.LaunchEnvironment]::PrepareGame($request, $requestPath, [Action]{}, [Action]{}, [Action]{}, [Action[string]]{ param($line) })
-            $psi.RedirectStandardOutput = $true
-            $p = [Game.Exhibition.RestartExperiment.LaunchEnvironment]::Start([Func[Diagnostics.ProcessStartInfo]]{ $psi }, $null, [Func[Diagnostics.ProcessStartInfo,Diagnostics.Process]]{ param($start) [Diagnostics.Process]::Start($start) })
-            try {
-                $reader = New-Object Game.Exhibition.RestartExperiment.BoundedOutput($p.StandardOutput)
-                Assert-True ($p.WaitForExit(10000) -and $reader.Completion.Wait(1000) -and $p.ExitCode -eq 0) 'Argument child failed'
-                $actual = $reader.Snapshot().Text.Split("`n")
-                $expectedArgs = @('-j2mPlatformProvider','steam','-j2mRestartObservation',$requestPath,'-j2mResetOverlayContext',$request.ResetOverlayContextPath,'-j2mResetOverlayPhase',$role)
-                Assert-True (($actual -join '|') -ceq ($expectedArgs -join '|')) 'Trial arguments lost, duplicated or reinterpreted'
-            } finally { if (-not $p.HasExited) { $p.Kill(); $null = $p.WaitForExit(2000) }; $p.Dispose() }
-        }
-    } finally { Remove-Item -LiteralPath $fixture -Force }
-}
-
-Invoke-Case 'Observation child uses actual shared launch with no reset or restart-only arguments' {
-    $fixture = Join-Path ([IO.Path]::GetTempPath()) ('j2m-observation-args-' + [Guid]::NewGuid().ToString('N') + '.exe')
-    Add-Type -TypeDefinition 'public static class ObservationArgumentFixture { public static void Main(string[] args) { System.Console.Write(string.Join("\n", args)); } }' -OutputAssembly $fixture -OutputType ConsoleApplication
-    try {
-        $request = New-Object Game.Exhibition.RestartExperiment.ExperimentRequest
-        $request.Parent = New-Object Game.Exhibition.RestartExperiment.ProcessIdentity
-        $request.Parent.Path = $fixture
-        $request.AppId = 5218360
-        $request.Trial = [Game.Exhibition.RestartExperiment.Trial]::GameOnly
-        $request.Nonce = [Guid]::NewGuid().ToString('N')
-        $request.OverlayObservationWireVersion = 2
-        $request.OverlayObservationRunId = [Guid]::NewGuid().ToString('N')
-        $request.OverlayObservationChildRole = [Game.Exhibition.RestartExperiment.OverlayObservationRole]::ReplacementObserver
-        $request.OverlayObservationContextPath = 'D:\J2M\evidence\observation $literal\context.json'
-        $request.OverlayObservationContextSha256 = 'a' * 64
-        $requestPath = 'D:\J2M\evidence\observation $literal\request.json'
-        $psi = [Game.Exhibition.RestartExperiment.LaunchEnvironment]::PrepareGame($request, $requestPath, [Action]{}, [Action]{}, [Action]{}, [Action[string]]{ param($line) })
-        $psi.RedirectStandardOutput = $true
-        $p = [Game.Exhibition.RestartExperiment.LaunchEnvironment]::Start([Func[Diagnostics.ProcessStartInfo]]{ $psi }, $null, [Func[Diagnostics.ProcessStartInfo,Diagnostics.Process]]{ param($start) [Diagnostics.Process]::Start($start) })
-        try {
-            $reader = New-Object Game.Exhibition.RestartExperiment.BoundedOutput($p.StandardOutput)
-            Assert-True ($p.WaitForExit(10000) -and $reader.Completion.Wait(1000) -and $p.ExitCode -eq 0) 'Observation argument child failed'
-            $expected = @('-j2mPlatformProvider', 'steam', '-j2mOverlayHandoffContext', $request.OverlayObservationContextPath, '-j2mOverlayHandoffRequest', $requestPath)
-            Assert-True (($reader.Snapshot().Text.Split("`n") -join '|') -ceq ($expected -join '|')) 'Observation arguments differ'
-        } finally { if (-not $p.HasExited) { $p.Kill(); $null = $p.WaitForExit(2000) }; $p.Dispose() }
-        $request.ResetOverlayChildRole = [Game.Exhibition.RestartExperiment.ResetOverlayRole]::ResetWorker
-        $rejected = $false
-        try { [Game.Exhibition.RestartExperiment.LaunchEnvironment]::ValidateChildRole($request) } catch { $rejected = $true }
-        Assert-True $rejected 'Mixed observation/reset request accepted'
-        $request.ResetOverlayChildRole = [Game.Exhibition.RestartExperiment.ResetOverlayRole]::None
-        $request.OverlayObservationWireVersion = 0
-        $rejected = $false
-        try { [Game.Exhibition.RestartExperiment.LaunchEnvironment]::ValidateChildRole($request) } catch { $rejected = $true }
-        Assert-True $rejected 'Old observation wire accepted'
-    } finally { Remove-Item -LiteralPath $fixture -Force }
-}
-
-Invoke-Case 'Reset v2 producer helper consumer, durable claim, pins and old mixed partial rejection' {
-    $scratch = Join-Path 'D:\J2M\evidence\reset-overlay-fakes' ([Guid]::NewGuid().ToString('N'))
-    try { [RestartExperimentFakes.ResetWireRoundTrip]::Verify($scratch) }
-    finally { if (Test-Path $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force } }
-}
-
-Invoke-Case 'Actual observation child capture and serialized receipt match hashed consumer identity' {
-    $scratch = Join-Path 'D:\J2M\evidence\overlay-handoff-automated' ([Guid]::NewGuid().ToString('N'))
-    $null = New-Item -ItemType Directory -Path $scratch
-    $fixture = Join-Path $scratch 'ReceiptFixture.exe'
-    Add-Type -TypeDefinition 'public static class ReceiptFixture { public static void Main() { System.Console.ReadLine(); } }' -OutputAssembly $fixture -OutputType ConsoleApplication
-    [RestartExperimentFakes.ObservationReceiptRoundTrip]::Verify($fixture, $scratch)
-}
-
-Invoke-Case 'Observation helper failure does not claim reset and retains accepted-handoff meaning' {
-    $message = Format-RestartExperimentFailure -Failure ([IO.IOException]::new('observation failure')) -EvidenceDirectory 'D:\J2M\evidence\fake' -Purpose Observation
-    Assert-True ($message.Contains('accepted helper') -and $message.Contains('does not authorize reset or retry')) 'Observation stop semantics missing'
-    Assert-True (-not $message.Contains('Pending')) 'Observation failure inferred reset state'
 }
 
 Invoke-Case 'Bounded collector drains overflow and retains reader exceptions' {

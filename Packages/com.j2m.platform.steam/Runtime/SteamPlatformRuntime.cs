@@ -4,23 +4,17 @@ using Game.Platform.Steam.ProductAchievements;
 
 namespace Game.Platform.Steam
 {
-    public sealed class SteamPlatformRuntime : IPlatformRuntime, ISteamObservationAchievementsReader
+    public sealed class SteamPlatformRuntime : IPlatformRuntime
     {
         private const string NotInitializedDetail = "Steam provider has not been initialized.";
-        internal const string SmokeResultPrefix = "J2M_STEAM_SMOKE_RESULT";
-        private const int MaximumOverlayEnabledSmokeObservations = 300;
 
         private readonly ISteamNativeApi nativeApi;
         private readonly ISteamAchievementApi achievementApi;
-        private int ownerThread;
         private bool maintenanceOwned;
         private SteamAchievementMaintenanceLease maintenanceLease;
         private bool maintenanceFailed;
         private bool publicationStarted;
-        private readonly bool maintenanceSmokeExcluded;
-        private readonly bool smokeRequested;
-        private readonly Action<string> smokeLogger;
-        private readonly SteamAchievementSmokeCoordinator achievementSmokeCoordinator;
+
         private readonly ISteamProductAchievementPublicationFeature
             productAchievementPublicationFeature;
 
@@ -31,56 +25,24 @@ namespace Game.Platform.Steam
                 NotInitializedDetail);
         private PlatformInitializationResult initializationResult;
         private SteamNativeInitializationResult nativeInitializationResult;
-        private SteamDllCheckObservation dllCheckObservation;
         private bool initializationAttempted;
         private bool initializationSucceeded;
         private bool nativeInitialized;
         private bool shutdownAttempted;
-        private bool shutdownReturned;
         private uint observedAppId;
         private bool steamIdentityValid;
         private bool loggedOn;
-        private bool overlayObservationAvailable;
-        private bool overlayEnabled;
-        private bool overlayEnabledEverObserved;
-        private int overlayEnabledSmokeObservationCount;
-        private bool overlayCallbackRegistered;
-        private int overlayActiveCount;
-        private int overlayInactiveCount;
-        private bool lastOverlayActive;
-        private int callbackPumpCount;
-        private int callbackAttemptCount;
-        private int shutdownCallCount;
-        private SteamPlatformFailureReason initializationFailureReason =
-            SteamPlatformFailureReason.None;
         private SteamPlatformFailureReason lastFailureReason;
         private string lastExceptionType = string.Empty;
-        private bool smokeResultEmitted;
 
         public SteamPlatformRuntime(ISteamNativeApi nativeApi)
-            : this(nativeApi, smokeRequested: false, smokeLogger: null)
-        {
-        }
-
-        internal SteamPlatformRuntime(
-            ISteamNativeApi nativeApi,
-            bool smokeRequested,
-            Action<string> smokeLogger)
-            : this(
-                new SteamRuntimeDependencies(nativeApi, achievements: null),
-                smokeRequested,
-                achievementSmokeRequested: false,
-                monotonicSeconds: null,
-                smokeLogger)
+            : this(new SteamRuntimeDependencies(nativeApi, achievements: null), monotonicSeconds: null)
         {
         }
 
         internal SteamPlatformRuntime(
             SteamRuntimeDependencies dependencies,
-            bool smokeRequested,
-            bool achievementSmokeRequested,
-            Func<double> monotonicSeconds,
-            Action<string> smokeLogger)
+            Func<double> monotonicSeconds)
         {
             if (dependencies == null)
             {
@@ -89,20 +51,8 @@ namespace Game.Platform.Steam
 
             nativeApi = dependencies.Lifecycle;
             achievementApi = dependencies.Achievements;
-            maintenanceSmokeExcluded = achievementSmokeRequested;
-            this.smokeRequested = smokeRequested;
-            this.smokeLogger = smokeLogger;
-            achievementSmokeCoordinator = new SteamAchievementSmokeCoordinator(
-                dependencies.Achievements,
-                smokeRequested,
-                achievementSmokeRequested,
-                monotonicSeconds,
-                smokeLogger);
             productAchievementPublicationFeature =
-                new SteamProductAchievementPublicationFeature(
-                    dependencies,
-                    achievementSmokeRequested,
-                    monotonicSeconds);
+                new SteamProductAchievementPublicationFeature(dependencies, monotonicSeconds);
         }
 
         public static PlatformProviderId ProviderId { get; } = new PlatformProviderId("steam");
@@ -113,9 +63,6 @@ namespace Game.Platform.Steam
 
         public SteamPlatformAvailability SteamAvailability => steamAvailability;
 
-        public SteamAchievementSmokeDiagnostics AchievementSmokeDiagnostics =>
-            achievementSmokeCoordinator.Diagnostics;
-
         public SteamPlatformDiagnostics Diagnostics => new SteamPlatformDiagnostics(
             state,
             initializationAttempted,
@@ -124,18 +71,8 @@ namespace Game.Platform.Steam
             observedAppId,
             steamIdentityValid,
             loggedOn,
-            overlayObservationAvailable,
-            overlayEnabled,
-            overlayEnabledEverObserved,
-            overlayActiveCount,
-            overlayInactiveCount,
-            lastOverlayActive,
-            callbackPumpCount,
-            callbackAttemptCount,
-            shutdownCallCount,
             lastFailureReason,
-            lastExceptionType,
-            dllCheckObservation, shutdownReturned);
+            lastExceptionType);
 
         public PlatformInitializationResult Initialize()
         {
@@ -150,8 +87,6 @@ namespace Game.Platform.Steam
                 return initializationResult;
             }
 
-            SteamOverlayObservationAccess.Starting(this);
-            ownerThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
             initializationAttempted = true;
             state = SteamPlatformRuntimeState.Initializing;
 
@@ -163,8 +98,6 @@ namespace Game.Platform.Steam
                         SteamPlatformFailureReason.PacksizeMismatch,
                         "Steamworks managed/native pack size compatibility check failed.");
                 }
-
-                dllCheckObservation = nativeApi.ObserveDllCheck();
 
                 bool initialized;
                 try
@@ -198,21 +131,15 @@ namespace Game.Platform.Steam
                         "SteamAPI initialized but returned AppID 0.");
                 }
 
-                RegisterOverlayCallback();
-                ObserveOptionalRuntimeDiagnostics();
+                ObserveSessionIdentity();
 
                 state = SteamPlatformRuntimeState.Available;
                 initializationSucceeded = true;
                 lastFailureReason = SteamPlatformFailureReason.None;
                 steamAvailability = SteamPlatformAvailability.Available();
                 initializationResult = PlatformInitializationResult.Success;
-                if (!SteamOverlayObservationAccess.Requested && !SteamAchievementMaintenanceAccess.ResetTrial) achievementSmokeCoordinator.BeginSession(
-                    initializationSucceeded: true,
-                    observedAppId,
-                    steamIdentityValid,
-                    loggedOn);
                 SteamAchievementMaintenanceAccess.Register(this);
-                if (!SteamOverlayObservationAccess.Requested && !SteamAchievementMaintenanceAccess.IsDeferred)
+                if (!SteamAchievementMaintenanceAccess.IsDeferred)
                     StartDeferredPublication(refreshIdentity: false);
                 return initializationResult;
             }
@@ -227,7 +154,6 @@ namespace Game.Platform.Steam
 
         public void Tick()
         {
-            if (SteamOverlayObservationAccess.ValidatedOwner) SteamOverlayObservationAccess.RequireMainThread();
             if (state != SteamPlatformRuntimeState.Available ||
                 !nativeInitialized ||
                 shutdownAttempted)
@@ -235,17 +161,10 @@ namespace Game.Platform.Steam
                 return;
             }
 
-            callbackAttemptCount++;
             try
             {
                 nativeApi.RunCallbacks();
-                callbackPumpCount++;
-                if (!SteamOverlayObservationAccess.Requested && !SteamAchievementMaintenanceAccess.ResetTrial)
-                {
-                    productAchievementPublicationFeature.Tick();
-                    achievementSmokeCoordinator.Tick();
-                    ObserveDelayedOverlayEnabledForSmoke();
-                }
+                productAchievementPublicationFeature.Tick();
             }
             catch (Exception exception)
             {
@@ -254,33 +173,8 @@ namespace Game.Platform.Steam
                     SteamPlatformFailureReason.CallbackException,
                     FormatException(exception),
                     exception);
-                if (!SteamOverlayObservationAccess.Requested) productAchievementPublicationFeature.OnRuntimeFaulted();
+                productAchievementPublicationFeature.OnRuntimeFaulted();
             }
-        }
-
-        public SteamObservationAchievement ReadAchievement(string target)
-        {
-            RequireObservationThread();
-            if (achievementApi == null || string.IsNullOrWhiteSpace(target)) throw new InvalidOperationException("Observation achievement getter unavailable.");
-            bool achieved;
-            bool succeeded = achievementApi.GetAchievement(target, out achieved);
-            return new SteamObservationAchievement { Target = target, ReadSucceeded = succeeded, Achieved = succeeded ? (bool?)achieved : null };
-        }
-
-        public SteamObservationIdentity ReadObservationIdentity()
-        {
-            RequireObservationThread();
-            if (!(nativeApi is ISteamObservationIdentityApi identity))
-                throw new InvalidOperationException("Native identity getter unavailable.");
-            return new SteamObservationIdentity { AppId = nativeApi.GetAppId(), SteamId = identity.GetSteamId(),
-                Valid = nativeApi.IsSteamIdValid(), LoggedOn = nativeApi.IsLoggedOn() };
-        }
-
-        private void RequireObservationThread()
-        {
-            if (!SteamOverlayObservationAccess.Requested || !MaintenanceAvailable ||
-                ownerThread != System.Threading.Thread.CurrentThread.ManagedThreadId)
-                throw new InvalidOperationException("Read-only observation requires the available runtime owner thread.");
         }
 
         internal bool MaintenanceAvailable =>
@@ -290,9 +184,8 @@ namespace Game.Platform.Steam
             Action<SteamStatsStoredObservation> stats,
             Action<SteamAchievementStoredObservation> achievements)
         {
-            SteamOverlayObservationAccess.RequireWritesAllowed();
             if (!MaintenanceAvailable || publicationStarted || maintenanceOwned || maintenanceFailed ||
-                achievementApi == null || maintenanceSmokeExcluded)
+                achievementApi == null)
                 throw new InvalidOperationException("Steam achievement maintenance is unavailable.");
             achievementApi.RegisterAchievementStoreCallbacks(stats, achievements);
             maintenanceOwned = true;
@@ -307,7 +200,7 @@ namespace Game.Platform.Steam
 
         internal bool StartDeferredPublication(bool refreshIdentity = true)
         {
-            if (SteamOverlayObservationAccess.Requested || SteamAchievementMaintenanceAccess.ResetTrial || !MaintenanceAvailable || maintenanceOwned || maintenanceFailed) return false;
+            if (!MaintenanceAvailable || maintenanceOwned || maintenanceFailed) return false;
             if (!publicationStarted)
             {
                 publicationStarted = true;
@@ -321,12 +214,11 @@ namespace Game.Platform.Steam
 
         internal void StopPublication()
         {
-            if (!SteamOverlayObservationAccess.ValidatedOwner || publicationStarted) productAchievementPublicationFeature.OnRuntimeFaulted();
+            productAchievementPublicationFeature.OnRuntimeFaulted();
         }
 
         public void Shutdown()
         {
-            if (SteamOverlayObservationAccess.ValidatedOwner) SteamOverlayObservationAccess.RequireMainThread();
             if (shutdownAttempted)
             {
                 return;
@@ -340,22 +232,16 @@ namespace Game.Platform.Steam
             {
                 SetFailure(SteamPlatformFailureReason.ShutdownException, FormatException(exception), exception);
             }
-            if (!SteamOverlayObservationAccess.Requested || publicationStarted)
-                productAchievementPublicationFeature.DisposeBeforeNativeShutdown();
-            if (!SteamOverlayObservationAccess.Requested) achievementSmokeCoordinator.Shutdown();
+            productAchievementPublicationFeature.DisposeBeforeNativeShutdown();
             if (!nativeInitialized)
             {
                 state = SteamPlatformRuntimeState.Shutdown;
-                EmitSmokeResultOnce();
                 return;
             }
 
-            DisposeOverlayCallback();
-            shutdownCallCount++;
             try
             {
                 nativeApi.Shutdown();
-                shutdownReturned = true;
                 state = SteamPlatformRuntimeState.Shutdown;
             }
             catch (Exception exception)
@@ -366,10 +252,6 @@ namespace Game.Platform.Steam
                     FormatException(exception),
                     exception);
             }
-            finally
-            {
-                EmitSmokeResultOnce();
-            }
         }
 
         private PlatformInitializationResult FailInitialization(
@@ -377,17 +259,11 @@ namespace Game.Platform.Steam
             string detail,
             Exception exception = null)
         {
-            CaptureInitializationFailure(failureReason);
             state = IsNativeLoadFailure(failureReason)
                 ? SteamPlatformRuntimeState.Faulted
                 : SteamPlatformRuntimeState.Unavailable;
             SetFailure(failureReason, detail, exception);
-            if (!SteamOverlayObservationAccess.Requested && !SteamAchievementMaintenanceAccess.ResetTrial) achievementSmokeCoordinator.BeginSession(
-                initializationSucceeded: false,
-                observedAppId,
-                steamIdentityValid,
-                loggedOn);
-            if (!SteamOverlayObservationAccess.Requested) productAchievementPublicationFeature.OnSteamInitialized(
+            productAchievementPublicationFeature.OnSteamInitialized(
                 initializationSucceeded: false,
                 observedAppId,
                 steamIdentityValid,
@@ -397,16 +273,7 @@ namespace Game.Platform.Steam
             return initializationResult;
         }
 
-        private void CaptureInitializationFailure(
-            SteamPlatformFailureReason failureReason)
-        {
-            if (initializationFailureReason == SteamPlatformFailureReason.None)
-            {
-                initializationFailureReason = failureReason;
-            }
-        }
-
-        private void ObserveOptionalRuntimeDiagnostics()
+        private void ObserveSessionIdentity()
         {
             try
             {
@@ -425,136 +292,6 @@ namespace Game.Platform.Steam
             {
                 lastExceptionType = exception.GetType().Name;
             }
-
-            if (!SteamOverlayObservationAccess.Requested && !SteamAchievementMaintenanceAccess.ResetTrial) ObserveOverlayEnabled();
-        }
-
-        private void RegisterOverlayCallback()
-        {
-            try
-            {
-                nativeApi.RegisterOverlayActivationCallback(ObserveOverlayActivation);
-                overlayCallbackRegistered = true;
-            }
-            catch (Exception exception)
-            {
-                lastExceptionType = exception.GetType().Name;
-                overlayCallbackRegistered = false;
-            }
-        }
-
-        private void DisposeOverlayCallback()
-        {
-            if (!overlayCallbackRegistered)
-            {
-                return;
-            }
-
-            overlayCallbackRegistered = false;
-            try
-            {
-                nativeApi.DisposeOverlayActivationCallback();
-            }
-            catch (Exception exception)
-            {
-                lastExceptionType = exception.GetType().Name;
-                if (SteamOverlayObservationAccess.Requested) SetFailure(SteamPlatformFailureReason.ShutdownException, FormatException(exception), exception);
-            }
-        }
-
-        private void ObserveOverlayActivation(bool active)
-        {
-            lastOverlayActive = active;
-            if (active)
-            {
-                overlayActiveCount++;
-            }
-            else
-            {
-                overlayInactiveCount++;
-            }
-        }
-
-        private void ObserveDelayedOverlayEnabledForSmoke()
-        {
-            if (!smokeRequested ||
-                overlayEnabledEverObserved ||
-                overlayEnabledSmokeObservationCount >= MaximumOverlayEnabledSmokeObservations)
-            {
-                return;
-            }
-
-            if (!SteamOverlayObservationAccess.Requested && !SteamAchievementMaintenanceAccess.ResetTrial) ObserveOverlayEnabled();
-        }
-
-        private void ObserveOverlayEnabled()
-        {
-            if (smokeRequested)
-            {
-                overlayEnabledSmokeObservationCount++;
-            }
-
-            try
-            {
-                overlayEnabled = nativeApi.IsOverlayEnabled();
-                overlayEnabledEverObserved |= overlayEnabled;
-                overlayObservationAvailable = true;
-            }
-            catch (Exception exception)
-            {
-                lastExceptionType = exception.GetType().Name;
-                overlayObservationAvailable = false;
-            }
-        }
-
-        private void EmitSmokeResultOnce()
-        {
-            if (!smokeRequested || smokeResultEmitted)
-            {
-                return;
-            }
-
-            smokeResultEmitted = true;
-            var initializationFailureKind = initializationSucceeded
-                ? SteamPlatformFailureReason.None
-                : initializationFailureReason;
-            var finalFailureKind = lastFailureReason;
-            var finalProviderAvailable = initializationSucceeded &&
-                finalFailureKind == SteamPlatformFailureReason.None &&
-                steamAvailability.IsAvailable;
-            var selectionStatus = finalProviderAvailable
-                ? PlatformRuntimeSelectionStatus.ExplicitProviderSelected
-                : PlatformRuntimeSelectionStatus.RequestedProviderUnavailable;
-            var exceptionType = string.IsNullOrEmpty(lastExceptionType)
-                ? "none"
-                : lastExceptionType;
-            var result = SmokeResultPrefix + " {" +
-                "\"requestedProvider\":\"steam\"," +
-                "\"selectedProvider\":\"steam\"," +
-                "\"selectionStatus\":\"" + selectionStatus + "\"," +
-                "\"fallbackUsed\":false," +
-                "\"initSucceeded\":" + ToJsonBoolean(initializationSucceeded) + "," +
-                "\"initializationFailureKind\":\"" + initializationFailureKind + "\"," +
-                "\"finalFailureKind\":\"" + finalFailureKind + "\"," +
-                "\"observedAppId\":" + observedAppId + "," +
-                "\"steamIdValid\":" + ToJsonBoolean(steamIdentityValid) + "," +
-                "\"loggedOn\":" + ToJsonBoolean(loggedOn) + "," +
-                "\"callbackPumpAttemptCount\":" + callbackAttemptCount + "," +
-                "\"callbackPumpSuccessCount\":" + callbackPumpCount + "," +
-                "\"overlayEnabledEverObserved\":" +
-                    ToJsonBoolean(overlayEnabledEverObserved) + "," +
-                "\"overlayActiveCount\":" + overlayActiveCount + "," +
-                "\"overlayInactiveCount\":" + overlayInactiveCount + "," +
-                "\"lastOverlayActive\":" + ToJsonBoolean(lastOverlayActive) + "," +
-                "\"nativeExceptionType\":\"" + exceptionType + "\"," +
-                "\"shutdownNativeCallCount\":" + shutdownCallCount +
-                "}";
-            (smokeLogger ?? UnityEngine.Debug.Log)(result);
-        }
-
-        private static string ToJsonBoolean(bool value)
-        {
-            return value ? "true" : "false";
         }
 
         private void SetFailure(

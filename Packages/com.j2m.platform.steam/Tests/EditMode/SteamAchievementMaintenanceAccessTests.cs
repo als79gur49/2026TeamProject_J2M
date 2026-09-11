@@ -174,7 +174,7 @@ namespace Game.Platform.Steam.Tests.EditMode
 
             Assert.That(order, Is.EqualTo(new[]
             {
-                "achievement-dispose", "overlay-dispose", "native-shutdown",
+                "achievement-dispose", "native-shutdown",
             }));
             Assert.That(achievements.DisposalCount, Is.EqualTo(1));
             Assert.That(lifecycle.ShutdownCount, Is.EqualTo(1));
@@ -182,29 +182,11 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(SteamAchievementMaintenanceAccess.StartPublication(), Is.False);
         }
 
-        [Test]
-        public void AchievementSmokeSession_CannotBeClaimedByMaintenance()
-        {
-            lifecycle.AppId = SpacewarAchievementSmokePolicy.AppId;
-            achievements.AchievementNames.Clear();
-            achievements.AchievementNames.Add(SpacewarAchievementSmokePolicy.TargetAchievement);
-            InitializeRuntime(achievementSmoke: true);
-
-            Assert.Throws<InvalidOperationException>(() =>
-                SteamAchievementMaintenanceAccess.Acquire(_ => { }, _ => { }));
-            Assert.That(SteamAchievementMaintenanceAccess.StartPublication(), Is.False);
-            Assert.That(achievements.RegistrationCount, Is.EqualTo(1));
-            Assert.That(achievements.SetAchievementCount, Is.EqualTo(1));
-        }
-
-        private void InitializeRuntime(bool achievementSmoke = false)
+        private void InitializeRuntime()
         {
             runtime = new SteamPlatformRuntime(
                 new SteamRuntimeDependencies(lifecycle, achievements),
-                smokeRequested: achievementSmoke,
-                achievementSmokeRequested: achievementSmoke,
-                monotonicSeconds: () => 0d,
-                smokeLogger: _ => { });
+                monotonicSeconds: () => 0d);
             Assert.That(runtime.Initialize().IsSuccess, Is.True);
         }
 

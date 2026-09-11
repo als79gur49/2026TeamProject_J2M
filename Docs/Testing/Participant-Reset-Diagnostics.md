@@ -1,5 +1,8 @@
 # 참가자 초기화의 게임 내부 Steam 진단
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 대상: `/mnt/d/J2M/worktrees/exhibition-reset`. 목적은 게임 내부 업적 값과 Steam Overlay 표시의 불일치를 조사하는 것이다. Overlay 갱신 해결책이 아니며 초기화 순서, 저널 형식, 재시작 횟수는 변경하지 않는다.
 
 ## 활성화와 출력

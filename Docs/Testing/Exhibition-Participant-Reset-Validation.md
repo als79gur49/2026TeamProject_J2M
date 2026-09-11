@@ -1,5 +1,8 @@
 # 전시 참가자 초기화 구현 검증
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 대상: `feature/exhibition-reset`, `/mnt/d/J2M/worktrees/exhibition-reset`.
 계약과 실행 방법: [구현 계획](../Architecture/Exhibition-Participant-Reset-Implementation-Plan.md).
 

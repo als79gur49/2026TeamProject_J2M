@@ -24,7 +24,6 @@ namespace Game.Platform.Steam.ProductAchievements
         ISteamProductAchievementPublicationFeature
     {
         private readonly SteamRuntimeDependencies _dependencies;
-        private readonly bool _achievementSmokeRequested;
         private readonly Func<double> _monotonicSeconds;
 
         private SteamAchievementPublisher _publisher;
@@ -34,12 +33,10 @@ namespace Game.Platform.Steam.ProductAchievements
 
         internal SteamProductAchievementPublicationFeature(
             SteamRuntimeDependencies dependencies,
-            bool achievementSmokeRequested,
             Func<double> monotonicSeconds)
         {
             _dependencies = dependencies ??
                 throw new ArgumentNullException(nameof(dependencies));
-            _achievementSmokeRequested = achievementSmokeRequested;
             _monotonicSeconds = monotonicSeconds ??
                 (() => UnityEngine.Time.realtimeSinceStartupAsDouble);
         }
@@ -58,7 +55,7 @@ namespace Game.Platform.Steam.ProductAchievements
             }
 
             _initializationObserved = true;
-            if (_achievementSmokeRequested || _dependencies.Achievements == null)
+            if (_dependencies.Achievements == null)
             {
                 return;
             }

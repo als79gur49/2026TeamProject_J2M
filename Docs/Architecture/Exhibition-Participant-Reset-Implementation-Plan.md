@@ -1,6 +1,6 @@
 # Exhibition Participant Reset Implementation Plan
 
-상태: 2026-09-07 단순화안 구현 및 자동 검증. 실제 Steam 계정 초기화·재획득과 전시 PC 실운영 검증은 아직 수행하지 않았다. 실행 결과는 연결된 검증 문서를 따른다.
+상태: 2026-09-11 전시 운영 구현과 smoke 제거 통합 구현 완료. 1~9절은 초기 설계 이력이며 현재 실행 연결은 10절을 따른다. 실제 Steam 계정 초기화·재획득과 전시 PC 실운영 검증은 아직 수행하지 않았다. 실행 결과는 연결된 검증 문서를 따른다.
 
 ## 1. 목적과 운영 전제
 
@@ -173,29 +173,28 @@ Steam 클라이언트의 조회를 독립적인 서버 영속성 증명으로 �
 
 2026-09-07 단순화 후 서브 에이전트 2명이 각각 정상 전환/흔한 실패와 구조/제거성을 재검토했다. 문서 수준에서 정상 흐름의 필수 누락이나 구조적 모순은 추가로 발견하지 못했으며, 추가 프로세스·정책 확대를 요구하지 않았다. 같은 프로세스에서 reset 후 정상 Publisher 최초 연결과 실제 재획득은 첫 실연동 검증 대상으로 유지한다. 기존 확장안의 검토 기록을 본 단순화안의 실행 검증 근거로 사용하지 않는다.
 
-## 10. 구현 연결과 실행 방법
+## 10. 현재 구현 연결과 실행 방법
 
-구현 worktree는 `/mnt/d/J2M/worktrees/exhibition-reset`, branch는 `feature/exhibition-reset`이다.
+통합 작업은 `feature/exhibition-reset`의 `30d575140`을 기준으로 `fix/exhibition-runtime-cleanup`에서 진행한다. `main`의 `80a203573` smoke 제거를 통합하면서 전시 참가자 초기화·메뉴·재시작을 유지한다. 별도 Boot scene, exhibition.json, 실험 define 또는 초기화 전용 실행 플래그는 필요하지 않다. Steam provider는 기존과 같이 명시 선택하며, 선택하지 않은 실행의 기본값은 Local이다.
 
-| 책임 | 구현 |
+| 책임 | 현재 구현 (`Assets/_Features/Exhibition/` 기준) |
 | --- | --- |
-| 요청·재개 및 Pending/Ready | `Assets/_Features/Exhibition/Application/ExhibitionResetCoordinator.cs` |
+| 요청·재개 및 Pending/Ready | `Application/ExhibitionResetCoordinator.cs` |
 | 원자적 저널 | `Integration/FileExhibitionResetJournal.cs` |
-| 대상 Steam 초기화 | `Integration/SteamExhibitionResetAdapter.cs` |
-| 캠페인·업적 저장 초기화 | `Integration/ParticipantProgressResetAdapter.cs` |
-| Boot와 조립 | `Integration/ExhibitionApplication.cs`, `Scenes/ExhibitionBoot.unity` |
-| 운영 UI | `Integration/ExhibitionView.cs` |
-| 한 번 재실행 | `Integration/ExhibitionRelaunchAdapter.cs`, `Tools/Exhibition-Relaunch.ps1` |
-| 별도 Windows 빌드 | `Editor/ExhibitionBuild.cs` |
+| Steam 대상·계정 확인 및 callback lease | `Integration/SteamExhibitionResetAdapter.cs` |
+| Clear → Store → StatsStored OK → post-read false | `Integration/SteamExhibitionResetProtocol.cs` |
+| 캠페인·earned/pending 및 복구 파일 초기화 | `Integration/ParticipantProgressResetAdapter.cs` |
+| 시작 조립·세션 잠금 | `Integration/ExhibitionApplication.cs` |
+| 메뉴 초기화 요청·진행·실패 상태 | `Integration/ParticipantResetService.cs`, 기존 MainMenu의 참가자 초기화 UI |
+| Pending 재개를 위한 게임 재실행 | `Integration/ExhibitionRelaunchAdapter.cs`, `Tools/Exhibition-Relaunch.ps1` |
+| Ready 이후 Steam 재시작·완료 복귀 | 같은 adapter의 `CompletedParticipantResetRestartAdapter`, `Integration/RestartExperiment*.cs`, `Tools/Restart-Experiment.ps1` |
 
-표의 상대 경로는 `Assets/_Features/Exhibition/` 기준이다. 일반 코드에는 선택적인 시작 제어(`ProductAchievementStartupControl`), Steam callback maintenance lease(`SteamAchievementMaintenanceAccess`), 저장소 소유의 destructive reset만 추가한다. 일반 Player에서 시작 보류 기본값은 false이며 전시 assembly는 제외된다. Editor에는 fake 테스트를 위해 assembly를 포함하지만 Boot는 Editor에서 실제 초기화를 실행하지 않는다.
+일반 Steam 실행 → 메뉴의 참가자 초기화 요청 → Pending 원자 저장 → 게임 종료/재실행 → 동일 계정에서 Steam·로컬 진행 초기화 → Ready 원자 저장 → Steam client 한 번 재시작 → 별도 owned probe로 준비 확인 → Steam `-applaunch` 한 번 제출 → 완료 복귀 인자·journal hash 확인 → 서비스 재개 순서다. Editor는 기존 Editor 재실행 adapter를 사용한다. 이 동작은 반복 테스트용 smoke가 아니라 전시 운영 기능이다.
 
-Windows x64 target을 선택한 Unity의 batch executeMethod는 `Game.Exhibition.Editor.ExhibitionBuild.BuildWindows`다. 필수 인자는 `-exhibitionOutput D:\J2M\builds\exhibition\VectorQuake.exe -exhibitionAppId <지정 AppID> -exhibitionSteamId <지정 SteamID>`다. 실제 계정 값을 추정하거나 예제 AppID를 기본값으로 넣지 않는다. builder는 기존 release BuildOptions에 Boot를 앞에 추가하고 `extraScriptingDefines`에 `J2M_EXHIBITION`을 넣는다. 전역 scene/define 설정을 수정하지 않는다.
+실제 실행은 Steam launch option의 `-j2mPlatformProvider steam`을 사용한다. helper가 제출하는 완료 복귀 인자는 내부 handoff 계약이며 운영자가 직접 조합하지 않는다. 기본 Local 실행에서는 Steam 초기화 기능을 사용할 수 없다. provider 기본값이나 기존 한 세션의 실행 제한을 완화하지 않는다.
 
-출력 실행 파일 옆에 `exhibition.json`, `Exhibition-Relaunch.ps1`, 지정 AppID의 `steam_appid.txt`가 배치된다. 이는 별도 전시 실행용이며 SteamPipe 배포물로 사용하지 않는다. 첫 실행에도 `-j2mPlatformProvider steam` 인자가 필요하다. 이후 helper는 이 인자로 같은 실행 파일을 한 번 실행한다. 설정은 AppId, SteamId, RelaunchTimeoutSeconds(기본 30초)다. 일반 release의 별도 backend/stripping/evidence pipeline 실행을 이 builder가 대신한다고 간주하지 않는다.
+`RestartExperiment`라는 경로는 운영 helper 호환을 위해 유지한다. 그 안의 ObservationV3·ResetOverlay trial 실행, 직접 관측 child 실행, JSONL collector는 제거한다. 남는 request.json과 Ready hash는 운영 상태이며 probe stdout JSON은 프로세스 간 준비 상태 전달이다. Overlay 관측 UI 제거는 Steam Overlay 기능 비활성화가 아니다.
 
-전시 코드 제거는 `Assets/_Features/Exhibition` 폴더와 해당 `.meta` 제거로 시작한다. 일반 코드에는 전시 assembly 참조가 없으므로 선택적 시작/저장 API는 호출되지 않는 상태로 남겨도 된다. 일반 release의 scene list는 수정하지 않았으므로 별도 복원이 필요 없다. 교체 전 Pending/손상 저널을 해결하는 7절 운영 조건은 그대로 적용한다.
+Windows release staging은 `Exhibition-Relaunch.ps1`과 `RestartExperiment/` 아래 helper 4개를 포함해야 한다. Steam payload에는 `Game.Exhibition.Application.dll`과 `Game.Exhibition.Integration.dll`도 필수다. 이 검사로 다른 브랜치의 초기화 없는 payload를 배포하는 실수를 막는다. 실제 전시 PC에서 참가자 A 획득 → 초기화 → 자동 복귀 → Overlay 확인 → 참가자 B 재획득은 자동 테스트와 별도로 확인한다.
 
-검증 결과와 미실행 항목은 [Exhibition-Participant-Reset-Validation.md](../Testing/Exhibition-Participant-Reset-Validation.md)에 기록한다. Steam 재획득/팝업과 Windows 실운영 확인 전까지 전시 배포 승인 근거로 사용하지 않는다.
-
-전시 Boot의 최초 메뉴 로드는 직접 scene load의 한정 예외다. Boot에는 기존 ReturnToMainMenu가 요구하는 gameplay/comic source presenter가 없으므로 해당 의미를 재사용하지 않는다. 기존 RouteConfig의 MainMenuSceneName을 참조하며, 예외는 전시 assembly 제외와 함께 제거된다. UI 구조 검사는 이 파일 하나만 선택적으로 허용하고, 다른 production route의 기존 검증을 유지한다.
+최신 통합 검증 상태와 범위는 [Exhibition Runtime Cleanup](./Exhibition-Runtime-Cleanup.md)를 따른다. 이전 검증 문서의 실행 결과는 해당 당시 revision의 이력이다.

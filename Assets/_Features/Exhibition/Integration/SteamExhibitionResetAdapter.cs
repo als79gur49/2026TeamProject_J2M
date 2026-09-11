@@ -11,12 +11,6 @@ namespace Game.Exhibition.Integration
     {
         private static int sessionGeneration;
         private readonly int ownerGeneration = sessionGeneration;
-        private readonly IParticipantResetDiagnostics diagnostics;
-
-        public SteamExhibitionResetAdapter(IParticipantResetDiagnostics diagnostics = null)
-        {
-            this.diagnostics = diagnostics;
-        }
 
         [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetSessionGeneration() { unchecked { sessionGeneration++; } }
@@ -33,7 +27,6 @@ namespace Game.Exhibition.Integration
 
         public async Task ResetAsync(ResetIdentity expected)
         {
-            SteamOverlayObservationAccess.RequireWritesAllowed();
             void ValidateIdentity()
             {
                 var actual = GetIdentity();
@@ -50,9 +43,9 @@ namespace Game.Exhibition.Integration
                 var names = new System.Collections.Generic.List<string>();
                 foreach (var entry in entries) names.Add(entry.ExpectedSteamApiName.Value);
                 protocol = new SteamExhibitionResetProtocol(
-                    lease.Api, name => { SteamOverlayObservationAccess.RequireWritesAllowed(); return SteamUserStats.ClearAchievement(name); }, ValidateIdentity,
+                    lease.Api, name => SteamUserStats.ClearAchievement(name), ValidateIdentity,
                     names.ToArray(), expected.AppId, lease.MarkFailed, lease.Dispose,
-                    TimeSpan.FromSeconds(30), diagnostics);
+                    TimeSpan.FromSeconds(30));
             }
             catch
             {

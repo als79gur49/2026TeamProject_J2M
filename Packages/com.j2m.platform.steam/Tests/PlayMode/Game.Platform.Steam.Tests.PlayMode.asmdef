@@ -3,7 +3,9 @@
   "rootNamespace": "Game.Platform.Steam.Tests.PlayMode",
   "references": [
     "Game.Platform.Runtime",
-    "Game.Platform.Steam"
+    "Game.Platform.Steam",
+    "Game.Product.Achievements.Domain",
+    "Game.Product.Achievements.Composition"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"

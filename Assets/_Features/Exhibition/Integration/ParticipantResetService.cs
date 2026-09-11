@@ -13,7 +13,6 @@ namespace Game.Exhibition.Integration
         private readonly Action stopPublication;
         private readonly Action startServices;
         private readonly Action reconcile;
-        private readonly IParticipantResetDiagnostics diagnostics;
         private readonly IParticipantRestart completedResetRestart;
         private readonly ICompletedParticipantResetReturn completedResetReturn;
         private readonly Action startRuntime;
@@ -30,7 +29,7 @@ namespace Game.Exhibition.Integration
 
         public ParticipantResetService(ExhibitionResetCoordinator coordinator, IParticipantRestart restart,
             Func<bool> steamAvailable, Action stopPublication, Action startServices, Action reconcile,
-            ResetRecord initialRecord, Exception startupFailure = null, IParticipantResetDiagnostics diagnostics = null,
+            ResetRecord initialRecord, Exception startupFailure = null,
             IParticipantRestart completedResetRestart = null, ICompletedParticipantResetReturn completedResetReturn = null,
             Action startRuntime = null)
         {
@@ -40,7 +39,6 @@ namespace Game.Exhibition.Integration
             this.stopPublication = stopPublication;
             this.startServices = startServices;
             this.reconcile = reconcile;
-            this.diagnostics = diagnostics;
             this.completedResetRestart = completedResetRestart;
             this.completedResetReturn = completedResetReturn;
             this.startRuntime = startRuntime;
@@ -63,13 +61,11 @@ namespace Game.Exhibition.Integration
                 {
                     startRuntime?.Invoke();
                     completedResetReturn.Validate(coordinator);
-                    ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.BeforeServices);
                     startServices();
                     BlocksMenu = false;
                     return;
                 }
                 await coordinator.ResumeAsync();
-                ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.BeforeServices);
                 if (completedResetRestart != null)
                 {
                     var ready = coordinator.ReadRecord();
@@ -91,7 +87,6 @@ namespace Game.Exhibition.Integration
             {
                 if (deferred || completedResetReturn != null) reconcile();
                 menuReady = true;
-                ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.MenuReady);
             }
             catch (Exception exception)
             {

@@ -24,10 +24,14 @@
 
 - [Platform-Runtime-Foundation.md](./Platform-Runtime-Foundation.md)
   - current store-neutral provider request, resolution, Local default, and application lifecycle contract
+- [Exhibition-Runtime-Cleanup.md](./Exhibition-Runtime-Cleanup.md)
+  - 전시 운영 초기화·재시작을 유지하는 Steam smoke·관측 구조 정리와 통합 검증
 - [Exhibition-Participant-Reset-Implementation-Plan.md](./Exhibition-Participant-Reset-Implementation-Plan.md)
   - 전시 참가자 초기화의 단순화 계약, 구현 연결, 전용 빌드 및 제거 방법
 - [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
   - product-global achievement IDs, earned ledger, pending publication outbox, atomic persistence, and store-neutral publication boundary
+- [Steam-Achievement-Smoke-Retirement-Plan.md](./Steam-Achievement-Smoke-Retirement-Plan.md)
+  - Steam smoke and measurement retirement plan and implementation record, retained publication/callback contracts, test migration, and bounded validation evidence
 - [Docs/Testing/Platform-Provider-Selection-Validation.md](../Testing/Platform-Provider-Selection-Validation.md)
   - focused source-only selection matrix, production-boundary probes, and mutation evidence rules
 - [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md)

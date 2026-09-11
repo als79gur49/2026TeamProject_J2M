@@ -1,5 +1,8 @@
 # Overlay 관찰 최소안 구현 기록
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 2026-09-09. 대상 `/mnt/d/J2M/worktrees/exhibition-reset`.
 기준은 [필수 기능만 유지하는 수정안](./Overlay-Handoff-Observation-Correction-Plan.md)이다. 기존 선택 기능 유지안과 Build25203840의 캡처 흐름은 구현 요구에 합치지 않는다.
 

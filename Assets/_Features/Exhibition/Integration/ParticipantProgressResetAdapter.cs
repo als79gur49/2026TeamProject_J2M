@@ -15,7 +15,6 @@ namespace Game.Exhibition.Integration
 
         public void Reset()
         {
-            CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             ParticipantCampaignReset.Clear(paths);
             var root = paths.SaveRootPath;
             const string name = FileProductAchievementRepository.AchievementFileName;

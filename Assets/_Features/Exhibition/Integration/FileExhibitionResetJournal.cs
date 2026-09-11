@@ -31,7 +31,6 @@ namespace Game.Exhibition.Integration
 
         public void Save(ResetRecord record)
         {
-            Game.Feature.Stages.CampaignSaveCompositionProvider.RequireProductionWritesAllowed();
             Validate(record);
             // Read the canonical record before changing anything; never recover an old Pending copy.
             Load();

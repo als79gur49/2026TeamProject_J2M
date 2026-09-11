@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Reflection;
 using Game.Platform.Runtime;
 using NUnit.Framework;
@@ -71,9 +70,28 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(native.InitializeCount, Is.EqualTo(1));
             Assert.That(runtime.Diagnostics.ObservedAppId, Is.EqualTo(480));
             Assert.That(runtime.Diagnostics.SteamIdentityValid, Is.True);
-            Assert.That(runtime.Diagnostics.DllCheckObservation.IndependentCompatibilitySignal, Is.False);
-            Assert.That(runtime.Diagnostics.DllCheckObservation.LimitationReason,
-                Is.EqualTo(SteamDllCheckObservation.UpstreamDisabledLimitation));
+        }
+
+        [TestCaseSource(nameof(NativeInitializationExceptions))]
+        public void PacksizeException_IsContainedBeforeNativeInitialization(
+            Exception exception,
+            SteamPlatformFailureReason expectedReason)
+        {
+            var native = new FakeSteamNativeApi { PacksizeException = exception };
+            var runtime = new SteamPlatformRuntime(native);
+
+            Assert.DoesNotThrow(() => runtime.Initialize());
+            runtime.Tick();
+            runtime.Shutdown();
+
+            Assert.That(native.PacksizeCount, Is.EqualTo(1));
+            Assert.That(native.InitializeCount, Is.Zero);
+            Assert.That(native.CallbackCount, Is.Zero);
+            Assert.That(native.ShutdownCount, Is.Zero);
+            Assert.That(runtime.Diagnostics.NativeInitializationResult,
+                Is.EqualTo(SteamNativeInitializationResult.NotAttempted));
+            Assert.That(runtime.Diagnostics.LastFailureReason, Is.EqualTo(expectedReason));
+            Assert.That(runtime.Diagnostics.LastExceptionType, Is.EqualTo(exception.GetType().Name));
         }
 
         [TestCase(true)]
@@ -90,251 +108,27 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void OverlayCallback_IsRegisteredOnceObservedAndDisposedOnce()
+        public void InitializationFailure_PreservesOriginalResultWhenCleanupShutdownThrows()
         {
-            var native = new FakeSteamNativeApi();
-            var runtime = new SteamPlatformRuntime(native);
-
-            runtime.Initialize();
-            native.RaiseOverlayActivation(true);
-            native.RaiseOverlayActivation(false);
-
-            Assert.That(native.OverlayCallbackRegistrationCount, Is.EqualTo(1));
-            Assert.That(runtime.Diagnostics.OverlayActiveCount, Is.EqualTo(1));
-            Assert.That(runtime.Diagnostics.OverlayInactiveCount, Is.EqualTo(1));
-            Assert.That(runtime.Diagnostics.LastOverlayActive, Is.False);
-
-            runtime.Shutdown();
-            runtime.Shutdown();
-            native.RaiseOverlayActivation(true);
-
-            Assert.That(native.OverlayCallbackDisposeCount, Is.EqualTo(1));
-            Assert.That(runtime.Diagnostics.OverlayActiveCount, Is.EqualTo(1));
-            Assert.That(runtime.Diagnostics.OverlayInactiveCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void SmokeTick_DelaysOverlayEnabledObservationUntilItBecomesTrue()
-        {
-            var native = new FakeSteamNativeApi { OverlayEnabled = false };
-            var runtime = new SteamPlatformRuntime(
-                native,
-                smokeRequested: true,
-                smokeLogger: _ => { });
-
-            runtime.Initialize();
-            Assert.That(runtime.Diagnostics.OverlayEnabledEverObserved, Is.False);
-
-            native.OverlayEnabled = true;
-            runtime.Tick();
-
-            Assert.That(runtime.Diagnostics.OverlayEnabledEverObserved, Is.True);
-        }
-
-        [Test]
-        public void ProbeDefaultOff_ProducesNoSmokeOutputOrExtraLifecycleCalls()
-        {
-            var logs = new List<string>();
-            var native = new FakeSteamNativeApi();
-            var runtime = new SteamPlatformRuntime(
-                native,
-                smokeRequested: false,
-                smokeLogger: logs.Add);
-
-            runtime.Initialize();
-            runtime.Tick();
-            runtime.Shutdown();
-            runtime.Shutdown();
-
-            Assert.That(logs, Is.Empty);
-            Assert.That(native.InitializeCount, Is.EqualTo(1));
-            Assert.That(native.CallbackCount, Is.EqualTo(1));
-            Assert.That(native.ShutdownCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void SmokeOptIn_EmitsOneStructuredPrivateResultFromCurrentRuntime()
-        {
-            var logs = new List<string>();
-            var native = new FakeSteamNativeApi
-            {
-                OverlayEnabled = true,
-                LoggedOn = true,
-            };
-            var runtime = new SteamPlatformRuntime(
-                native,
-                smokeRequested: true,
-                smokeLogger: logs.Add);
-
-            runtime.Initialize();
-            native.RaiseOverlayActivation(true);
-            native.RaiseOverlayActivation(false);
-            runtime.Tick();
-            runtime.Shutdown();
-            runtime.Shutdown();
-
-            Assert.That(logs, Has.Count.EqualTo(1));
-            var result = logs[0];
-            Assert.That(result, Does.StartWith(SteamPlatformRuntime.SmokeResultPrefix + " "));
-            Assert.That(result, Does.Contain("\"requestedProvider\":\"steam\""));
-            Assert.That(result, Does.Contain("\"selectedProvider\":\"steam\""));
-            Assert.That(result, Does.Contain(
-                "\"selectionStatus\":\"ExplicitProviderSelected\""));
-            Assert.That(result, Does.Contain("\"fallbackUsed\":false"));
-            Assert.That(result, Does.Contain("\"initSucceeded\":true"));
-            Assert.That(result, Does.Contain(
-                "\"initializationFailureKind\":\"None\""));
-            Assert.That(result, Does.Contain("\"finalFailureKind\":\"None\""));
-            Assert.That(result, Does.Contain("\"observedAppId\":480"));
-            Assert.That(result, Does.Contain("\"steamIdValid\":true"));
-            Assert.That(result, Does.Contain("\"loggedOn\":true"));
-            Assert.That(result, Does.Contain("\"callbackPumpSuccessCount\":1"));
-            Assert.That(result, Does.Contain(
-                "\"overlayEnabledEverObserved\":true"));
-            Assert.That(result, Does.Contain("\"overlayActiveCount\":1"));
-            Assert.That(result, Does.Contain("\"overlayInactiveCount\":1"));
-            Assert.That(result, Does.Contain("\"lastOverlayActive\":false"));
-            Assert.That(result, Does.Contain("\"nativeExceptionType\":\"none\""));
-            Assert.That(result, Does.Contain("\"shutdownNativeCallCount\":1"));
-            Assert.That(result, Does.Not.Contain("\"steamId\":"));
-            Assert.That(result, Does.Not.Contain("persona").IgnoreCase);
-            Assert.That(result, Does.Not.Contain("account").IgnoreCase);
-            Assert.That(native.InitializeCount, Is.EqualTo(1));
-            Assert.That(native.CallbackCount, Is.EqualTo(1));
-            Assert.That(native.ShutdownCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void SmokeInitFailure_StillEmitsOneStructuredResult()
-        {
-            var logs = new List<string>();
-            var native = new FakeSteamNativeApi { InitializeResult = false };
-            var runtime = new SteamPlatformRuntime(
-                native,
-                smokeRequested: true,
-                smokeLogger: logs.Add);
-
-            runtime.Initialize();
-            runtime.Shutdown();
-
-            Assert.That(logs, Has.Count.EqualTo(1));
-            Assert.That(logs[0], Does.Contain("\"initSucceeded\":false"));
-            Assert.That(logs[0], Does.Contain(
-                "\"initializationFailureKind\":\"InitializationReturnedFalse\""));
-            Assert.That(logs[0], Does.Contain(
-                "\"finalFailureKind\":\"InitializationReturnedFalse\""));
-            Assert.That(logs[0], Does.Contain(
-                "\"selectionStatus\":\"RequestedProviderUnavailable\""));
-            Assert.That(logs[0], Does.Contain("\"callbackPumpAttemptCount\":0"));
-            Assert.That(logs[0], Does.Contain("\"callbackPumpSuccessCount\":0"));
-            Assert.That(logs[0], Does.Contain("\"shutdownNativeCallCount\":0"));
-        }
-
-        [Test]
-        public void SmokeInitializationFailure_PreservesOriginalKindWhenCleanupShutdownThrows()
-        {
-            var logs = new List<string>();
             var native = new FakeSteamNativeApi
             {
                 AppId = 0,
                 ShutdownException = new InvalidOperationException("shutdown failed"),
             };
-            var runtime = new SteamPlatformRuntime(
-                native,
-                smokeRequested: true,
-                smokeLogger: logs.Add);
+            var runtime = new SteamPlatformRuntime(native);
             var lifecycle = CreateLifecycle(runtime);
-            LogAssert.Expect(
-                LogType.Error,
+            LogAssert.Expect(LogType.Error,
                 "Platform runtime 'steam' initialization failed: " +
                 "AppIdUnavailable: SteamAPI initialized but returned AppID 0.");
 
             InvokeLifecycle(lifecycle, "InitializeOnce");
             InvokeLifecycle(lifecycle, "ShutdownOnce");
 
-            Assert.That(logs, Has.Count.EqualTo(1));
-            Assert.That(logs[0], Does.Contain("\"initSucceeded\":false"));
-            Assert.That(logs[0], Does.Contain(
-                "\"selectionStatus\":\"RequestedProviderUnavailable\""));
-            Assert.That(logs[0], Does.Contain(
-                "\"initializationFailureKind\":\"AppIdUnavailable\""));
-            Assert.That(logs[0], Does.Contain(
-                "\"finalFailureKind\":\"ShutdownException\""));
-            Assert.That(logs[0], Does.Contain("\"callbackPumpAttemptCount\":0"));
-            Assert.That(logs[0], Does.Contain("\"callbackPumpSuccessCount\":0"));
-            Assert.That(logs[0], Does.Contain(
-                "\"nativeExceptionType\":\"InvalidOperationException\""));
-            Assert.That(logs[0], Does.Contain("\"shutdownNativeCallCount\":1"));
-            Assert.That(native.ShutdownCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void SmokeCallbackException_ReportsFinalProviderUnavailableAndFailure()
-        {
-            var logs = new List<string>();
-            var native = new FakeSteamNativeApi
-            {
-                CallbackException = new InvalidOperationException("callback failed"),
-            };
-            var runtime = new SteamPlatformRuntime(
-                native,
-                smokeRequested: true,
-                smokeLogger: logs.Add);
-
-            var initialization = runtime.Initialize();
-            runtime.Tick();
-
-            Assert.That(initialization.IsSuccess, Is.True);
-            Assert.That(runtime.Diagnostics.State,
-                Is.EqualTo(SteamPlatformRuntimeState.Faulted));
-            Assert.That(runtime.SteamAvailability.IsAvailable, Is.False);
-
-            runtime.Shutdown();
-            runtime.Shutdown();
-
-            Assert.That(logs, Has.Count.EqualTo(1));
-            Assert.That(logs[0], Does.Contain("\"initSucceeded\":true"));
-            Assert.That(logs[0], Does.Contain(
-                "\"selectionStatus\":\"RequestedProviderUnavailable\""));
-            Assert.That(logs[0], Does.Contain(
-                "\"initializationFailureKind\":\"None\""));
-            Assert.That(logs[0], Does.Contain(
-                "\"finalFailureKind\":\"CallbackException\""));
-            Assert.That(logs[0], Does.Contain("\"callbackPumpAttemptCount\":1"));
-            Assert.That(logs[0], Does.Contain("\"callbackPumpSuccessCount\":0"));
-            Assert.That(logs[0], Does.Contain(
-                "\"nativeExceptionType\":\"InvalidOperationException\""));
-            Assert.That(logs[0], Does.Contain("\"shutdownNativeCallCount\":1"));
-            Assert.That(native.ShutdownCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void SmokeOptionalOverlayObservationFailure_DoesNotDegradeProviderSelection()
-        {
-            var logs = new List<string>();
-            var native = new FakeSteamNativeApi
-            {
-                OverlayEnabledException =
-                    new InvalidOperationException("overlay observation failed"),
-            };
-            var runtime = new SteamPlatformRuntime(
-                native,
-                smokeRequested: true,
-                smokeLogger: logs.Add);
-
-            runtime.Initialize();
-            runtime.Tick();
-            runtime.Shutdown();
-
-            Assert.That(runtime.SteamAvailability.IsAvailable, Is.True);
-            Assert.That(logs, Has.Count.EqualTo(1));
-            Assert.That(logs[0], Does.Contain(
-                "\"selectionStatus\":\"ExplicitProviderSelected\""));
-            Assert.That(logs[0], Does.Contain("\"finalFailureKind\":\"None\""));
-            Assert.That(logs[0], Does.Contain("\"callbackPumpAttemptCount\":1"));
-            Assert.That(logs[0], Does.Contain("\"callbackPumpSuccessCount\":1"));
-            Assert.That(logs[0], Does.Contain(
-                "\"nativeExceptionType\":\"InvalidOperationException\""));
+            Assert.That(GetLifecycleProperty<PlatformInitializationResult>(lifecycle, "InitializationResult")
+                .FailureReason, Does.StartWith("AppIdUnavailable:"));
+            Assert.That(runtime.Diagnostics.LastFailureReason, Is.EqualTo(SteamPlatformFailureReason.ShutdownException));
+            Assert.That(runtime.Diagnostics.LastExceptionType, Is.EqualTo(nameof(InvalidOperationException)));
+            Assert.That(native.CallbackCount, Is.Zero);
             Assert.That(native.ShutdownCount, Is.EqualTo(1));
         }
 
@@ -401,7 +195,6 @@ namespace Game.Platform.Steam.Tests.EditMode
             runtime.Tick();
 
             Assert.That(native.CallbackCount, Is.EqualTo(2));
-            Assert.That(runtime.Diagnostics.CallbackPumpCount, Is.EqualTo(2));
         }
 
         [Test]
@@ -434,7 +227,6 @@ namespace Game.Platform.Steam.Tests.EditMode
             runtime.Shutdown();
 
             Assert.That(native.ShutdownCount, Is.EqualTo(1));
-            Assert.That(runtime.Diagnostics.ShutdownCallCount, Is.EqualTo(1));
             Assert.That(runtime.Diagnostics.State, Is.EqualTo(SteamPlatformRuntimeState.Shutdown));
         }
 

@@ -69,17 +69,12 @@ namespace Game.Platform.Steam.SteamworksNet.Tests.EditMode
         }
 
         [Test]
-        public void Adapter_UsesBooleanLoggedOnAndOwnedOverlayCallbackLifecycle()
+        public void Adapter_UsesBooleanLoggedOnAndOwnedAchievementCallbackPair()
         {
             var source = File.ReadAllText(
                 "Packages/com.j2m.platform.steam.steamworksnet/Runtime/SteamworksNetNativeApi.cs");
 
             Assert.That(source, Does.Contain("return SteamUser.BLoggedOn();"));
-            Assert.That(source, Does.Contain(
-                "private Callback<GameOverlayActivated_t> overlayActivatedCallback;"));
-            Assert.That(source, Does.Contain(
-                "Callback<GameOverlayActivated_t>.Create(OnOverlayActivated)"));
-            Assert.That(source, Does.Contain("callback?.Dispose();"));
             Assert.That(source, Does.Contain("Callback<UserStatsStored_t>.Create"));
             Assert.That(source, Does.Contain("Callback<UserAchievementStored_t>.Create"));
             Assert.That(source, Does.Not.Contain("UserStatsReceived_t"));
