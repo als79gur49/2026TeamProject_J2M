@@ -982,10 +982,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var registry = root.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,
-                new DefaultGameplayEntityViewFactory(
+                new PrimitivePresentationTestViewFactory(
                     registry.transform,
                     1f,
-                    playerEntityId: 10));
+                    playerEntityId: 10, syntheticEntityIds: new[] { 20, 21, 40 }));
             var topology = new CubeTopologyState(FaceId.Floor);
             var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3));
 

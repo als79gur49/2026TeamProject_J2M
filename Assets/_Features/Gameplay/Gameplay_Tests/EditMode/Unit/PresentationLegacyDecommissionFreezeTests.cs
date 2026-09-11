@@ -47,6 +47,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DefaultEntityViewFactory_DoesNotCreatePrimitiveVisualsOrMaterials()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath,
+                "_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs"));
+            foreach (var token in new[]
+                     {
+                         "CreatePrimitive", "AttachPrimitiveVisual", "Shader.Find", "new Material",
+                         "CreateMaterial", "ResolveMaterial", "ConfigureLegacyColorFallback",
+                     })
+            {
+                Assert.That(source, Does.Not.Contain(token), token);
+            }
+
+            Assert.That(typeof(DefaultGameplayEntityViewFactory)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+                .Where(field => field.FieldType == typeof(Material)), Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void CurrentProductionLegacyResidue_DoesNotExceedMonotonicManifest()
         {
             var result = PresentationLegacyFreezeAnalyzer.Analyze(
@@ -818,8 +838,8 @@ Core Gameplay SFX	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/R
 Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy policy telemetry	SkippedLegacy	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Current suppression diagnostics	Suppressed	12	Current duplicate/no-op suppression diagnostics retained, not a legacy route	Out of scope
 Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy pending plan	PendingPlan	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
-Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs	DefaultGameplayEntityViewFactory	Inactive visual setup	Legacy	1	Enemy inactive color fallback compatibility	Out of scope
-Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs	DefaultGameplayEntityViewFactory	Inactive visual setup	Fallback	1	Enemy inactive color fallback compatibility	Out of scope
+Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs	DefaultGameplayEntityViewFactory	Inactive visual setup	Legacy	0	Removed with entity primitive fallback	Entity primitive removal
+Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs	DefaultGameplayEntityViewFactory	Inactive visual setup	Fallback	0	Removed with entity primitive fallback	Entity primitive removal
 Enemy One-shot Audio	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAudioPresentationController.cs	EnemyAudioPresentationController	Legacy pending plan	PendingPlan	8	Current legacy controller pending plan route	Enemy One-shot Audio Legacy Decommission
 Enemy One-shot Audio	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAudioPresentationController.cs	EnemyAudioPresentationController	Legacy suppression	Legacy	1	Current summon windup legacy route	Enemy One-shot Audio Legacy Decommission
 Enemy One-shot Audio	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAudioPresentationController.cs	EnemyAudioPresentationController	Legacy suppression	Suppressed	1	Current cue suppression diagnostics	Enemy One-shot Audio Legacy Decommission

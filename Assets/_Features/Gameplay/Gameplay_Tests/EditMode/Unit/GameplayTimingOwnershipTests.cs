@@ -29,9 +29,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHost_Initialize_WithoutPlayerPrefab_AutoCreatesPrimitivePlayerViewWithMotionFallbackDefaults()
+        public void GameplaySceneHost_Initialize_WithSyntheticPlayerView_PreservesMotionTimingDefaults()
         {
-            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithoutPlayerPrefab_AutoCreatesPrimitivePlayerViewWithMotionFallbackDefaults");
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithSyntheticPlayerView_PreservesMotionTimingDefaults");
 
             try
             {
@@ -41,6 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
+                        ViewFactory = new PrimitivePresentationTestViewFactory(hostObject.transform, 1f, playerEntityId: 10, syntheticEntityIds: new[] { 10 }),
                         InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                         InitialEntities = new[]
                         {
@@ -4326,13 +4327,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional()
+        public void SyntheticEnemyView_KeepsEnemyAnimationTimingHookOptional()
         {
-            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional");
+            var parentObject = new GameObject("SyntheticEnemyView_KeepsEnemyAnimationTimingHookOptional");
 
             try
             {
-                var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
+                var factory = new PrimitivePresentationTestViewFactory(parentObject.transform, 1f, playerEntityId: 10, syntheticEntityIds: new[] { 40 });
                 var enemyView = factory.CreateView(CreateEnemyEntity());
 
                 Assert.That(enemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
@@ -4392,12 +4393,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithEnemyPresentationCatalog_UsesBoundPrefabForConfiguredEnemy");
             var enemyPrefabObject = new GameObject("EnemyPresentationPrefab");
+            var untimedEnemyPrefabObject = new GameObject("UntimedEnemyPresentationPrefab");
             var enemyCatalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
             var windupReferenceClip = CreateReferenceClip("WindupReference", 1f);
             var recoverReferenceClip = CreateReferenceClip("RecoverReference", 1f);
 
             try
             {
+                var playerPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("CatalogTestPlayerPrefab");
+                playerPrefab.transform.SetParent(hostObject.transform, false);
+                var untimedEnemyPrefab = untimedEnemyPrefabObject.AddComponent<GameplayEntityView>();
+                untimedEnemyPrefabObject.AddComponent<EnemyAnimatorDriver>();
                 var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
                 var enemyAnimator = AttachEnemyRuntimeAnimator(enemyPrefabObject);
                 var timingAuthoring = enemyPrefabObject.AddComponent<EnemyAnimationTimingAuthoring>();
@@ -4420,6 +4426,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             PresentationId = "windup_projectile_showcase",
                             ViewPrefab = enemyPrefabView,
                         },
+                        new EnemyPresentationCatalogEntry
+                        {
+                            PresentationId = "untimed_enemy",
+                            ViewPrefab = untimedEnemyPrefab,
+                        },
                     });
 
                 var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -4437,6 +4448,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerPrefab,
                         EnemyPresentationCatalog = enemyCatalog,
                         EnemyPresentationBindings = new[]
                         {
@@ -4444,6 +4456,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             {
                                 EntityId = 40,
                                 PresentationId = "windup_projectile_showcase",
+                            },
+                            new EnemyPresentationBinding
+                            {
+                                EntityId = 41,
+                                PresentationId = "untimed_enemy",
                             },
                         },
                     });
@@ -4462,15 +4479,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.True);
                 Assert.That(windupReferenceClipLengthSeconds, Is.EqualTo(1f).Within(0.0001f));
 
-                Assert.That(host.ViewRegistry.TryGetView(41, out var fallbackEnemyView), Is.True);
-                Assert.That(fallbackEnemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
-                Assert.That(fallbackEnemyView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
+                Assert.That(host.ViewRegistry.TryGetView(41, out var untimedEnemyView), Is.True);
+                Assert.That(untimedEnemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(untimedEnemyView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(windupReferenceClip);
                 UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
                 UnityEngine.Object.DestroyImmediate(enemyCatalog);
+                UnityEngine.Object.DestroyImmediate(untimedEnemyPrefabObject);
                 UnityEngine.Object.DestroyImmediate(enemyPrefabObject);
                 UnityEngine.Object.DestroyImmediate(hostObject);
             }
@@ -4520,15 +4538,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesBoundPrefabsAndFallbacks()
+        public void GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesAllBoundPrefabs()
         {
-            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesBoundPrefabsAndFallbacks");
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesAllBoundPrefabs");
             var boxPrefabObject = new GameObject("StaticBoxPresentationPrefab");
             var wallPrefabObject = new GameObject("StaticWallPresentationPrefab");
             var staticCatalog = ScriptableObject.CreateInstance<StaticEntityPresentationCatalog>();
 
             try
             {
+                var playerPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("StaticCatalogTestPlayerPrefab");
+                playerPrefab.transform.SetParent(hostObject.transform, false);
                 var boxPrefabView = boxPrefabObject.AddComponent<GameplayEntityView>();
                 boxPrefabObject.AddComponent<BoxCollider>();
                 boxPrefabObject.AddComponent<Rigidbody>();
@@ -4576,6 +4596,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerPrefab,
                         StaticEntityPresentationCatalog = staticCatalog,
                         StaticEntityPresentationBindings = new[]
                         {
@@ -4588,6 +4609,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             {
                                 EntityId = 30,
                                 PresentationId = "wall_block",
+                            },
+                            new StaticEntityPresentationBinding
+                            {
+                                EntityId = 21,
+                                PresentationId = "crate",
                             },
                         },
                     });
@@ -4602,9 +4628,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(boundWallView.GetComponentsInChildren<Collider>(includeInactive: true), Is.Empty);
                 Assert.That(boundWallView.GetComponentsInChildren<Rigidbody>(includeInactive: true), Is.Empty);
 
-                Assert.That(host.ViewRegistry.TryGetView(21, out var fallbackBoxView), Is.True);
-                Assert.That(fallbackBoxView.transform.Find("BoxPrefabMarker"), Is.Null);
-                Assert.That(fallbackBoxView.ModelRoot.Find("Visual"), Is.Not.Null);
+                Assert.That(host.ViewRegistry.TryGetView(21, out var secondBoundBoxView), Is.True);
+                Assert.That(secondBoundBoxView.transform.Find("BoxPrefabMarker"), Is.Not.Null);
+                Assert.That(secondBoundBoxView.GetComponentsInChildren<Collider>(includeInactive: true), Is.Empty);
+                Assert.That(secondBoundBoxView.GetComponentsInChildren<Rigidbody>(includeInactive: true), Is.Empty);
             }
             finally
             {

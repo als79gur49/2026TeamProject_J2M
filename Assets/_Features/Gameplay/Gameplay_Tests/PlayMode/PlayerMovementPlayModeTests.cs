@@ -2705,7 +2705,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 DefaultEnemyAiProfile = defaultEnemyAiProfile,
                 ViewFactory = enemyViewPrefabOverride != null
                     ? new PlayModeEnemyPresentationViewFactory(hostObject.transform, enemyViewPrefabOverride)
-                    : null,
+                    : new PlayModePresentationTestViewFactory(hostObject.transform, playerViewPrefab, initialEntities),
                 GameplayCameraShakeProfile = gameplayCameraShakeProfile,
             };
             if (playerRespawnDelaySeconds >= 0f)
@@ -2724,6 +2724,69 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.Initialize(configuration);
 
             return host;
+        }
+
+        // Each fixture explicitly supplies its synthetic non-Player entities. Player authoring
+        // continues through the production prefab validation and instantiation path.
+        private sealed class PlayModePresentationTestViewFactory : IGameplayEntityViewFactory, IPlayerViewPrefabSource
+        {
+            private readonly Transform _parent;
+            private DefaultGameplayEntityViewFactory _playerFactory;
+            private readonly Dictionary<int, EntityType> _syntheticEntityTypes;
+
+            public PlayModePresentationTestViewFactory(
+                Transform parent,
+                GameplayEntityView playerPrefab,
+                IEnumerable<EntityState> initialEntities)
+            {
+                _parent = parent;
+                PlayerViewPrefab = playerPrefab;
+                _syntheticEntityTypes = initialEntities
+                    .Where(entity => entity.entityId != 10)
+                    .ToDictionary(entity => entity.entityId, entity => entity.type);
+            }
+
+            public GameplayEntityView PlayerViewPrefab { get; }
+
+            public GameplayEntityView CreateView(in EntityState entity)
+            {
+                // The host creates its board hierarchy after accepting configuration. Resolve
+                // the actual registry search root here so later hierarchy rebuilds retain views.
+                var entityRoot = _parent.GetComponentInChildren<GameplayBoardRoot>().EntityRoot;
+                if (entity.entityId == 10)
+                {
+                    _playerFactory ??= new DefaultGameplayEntityViewFactory(entityRoot, 1f, 10, PlayerViewPrefab);
+                    return _playerFactory.CreateView(entity);
+                }
+
+                if (!_syntheticEntityTypes.TryGetValue(entity.entityId, out var expectedType) ||
+                    expectedType != entity.type ||
+                    (entity.type != EntityType.Unit && entity.type != EntityType.Box && entity.type != EntityType.None))
+                {
+                    throw new InvalidOperationException($"Unconfigured test View: entity {entity.entityId}, type {entity.type}.");
+                }
+
+                var root = new GameObject($"PlayModeTestView_{entity.entityId}");
+                root.transform.SetParent(entityRoot, worldPositionStays: false);
+                var view = root.AddComponent<GameplayEntityView>();
+                view.Initialize(entity.entityId);
+                if (entity.type == EntityType.Unit && EntityRolePolicy.IsEnemyUnit(entity))
+                {
+                    root.AddComponent<EnemyAnimatorDriver>();
+                    root.AddComponent<EnemyInactiveVisualController>().ConfigureLegacyColorFallback(true);
+                }
+
+                var profile = GameplayEntityVisualProfile.Create(entity.type, 1f);
+                view.ConfigureModelRoot(profile.ModelLocalPosition, profile.ModelLocalRotation);
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.name = "Visual";
+                visual.transform.SetParent(view.ModelRoot, worldPositionStays: false);
+                visual.transform.localScale = profile.ModelLocalScale;
+                var collider = visual.GetComponent<Collider>();
+                collider.enabled = false;
+                UnityEngine.Object.Destroy(collider);
+                return view;
+            }
         }
 
         private sealed class PlayModeEnemyPresentationViewFactory : IGameplayEntityViewFactory

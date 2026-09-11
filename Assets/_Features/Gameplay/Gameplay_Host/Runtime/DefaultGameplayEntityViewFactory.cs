@@ -1,25 +1,18 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
     public sealed class DefaultGameplayEntityViewFactory : IGameplayEntityViewFactory, IPlayerViewPrefabSource
     {
-        private readonly float _cellSize;
-        private readonly Material _boxMaterial;
         private readonly GameplayEntityView _playerViewPrefab;
-        private readonly Material _playerMaterial;
-        private readonly Material _projectileMaterial;
         private readonly Transform _parent;
         private readonly int _playerEntityId;
         private readonly IReadOnlyDictionary<int, GameplayEntityView> _enemyViewPrefabsByEntityId;
         private readonly EnemyInactiveVisualSettings _enemyInactiveVisualSettings;
         private readonly IReadOnlyDictionary<int, GameplayEntityView> _staticViewPrefabsByEntityId;
-        private readonly Material _unitMaterial;
-        private readonly Material _wallMaterial;
 
         public DefaultGameplayEntityViewFactory(
             Transform parent,
@@ -31,25 +24,11 @@ namespace Game.Feature.Gameplay.Host
             EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             _parent = parent;
-            _cellSize = cellSize;
             _playerEntityId = playerEntityId;
             _playerViewPrefab = playerViewPrefab;
             _enemyViewPrefabsByEntityId = enemyViewPrefabsByEntityId;
             _staticViewPrefabsByEntityId = staticViewPrefabsByEntityId;
             _enemyInactiveVisualSettings = enemyInactiveVisualSettings;
-            var shader = Shader.Find("Universal Render Pipeline/Unlit");
-
-            if (shader == null)
-            {
-                throw new InvalidOperationException(
-                    "DefaultGameplayEntityViewFactory requires the 'Universal Render Pipeline/Unlit' shader.");
-            }
-
-            _playerMaterial = CreateMaterial(shader, new Color(0.2f, 0.85f, 0.35f));
-            _unitMaterial = CreateMaterial(shader, new Color(0.75f, 0.75f, 0.82f));
-            _boxMaterial = CreateMaterial(shader, new Color(0.72f, 0.5f, 0.24f));
-            _projectileMaterial = CreateMaterial(shader, new Color(0.9f, 0.4f, 0.2f));
-            _wallMaterial = CreateMaterial(shader, new Color(0.25f, 0.28f, 0.33f));
         }
 
         public GameplayEntityView CreateView(in EntityState entity)
@@ -70,10 +49,46 @@ namespace Game.Feature.Gameplay.Host
                 return staticView;
             }
 
-            return CreatePrimitiveView(entity);
+            throw new InvalidOperationException(
+                $"DefaultGameplayEntityViewFactory cannot create View for entity {entity.entityId} ({entity.type}): {DescribeMissingSupply(entity)}.");
         }
 
         public GameplayEntityView PlayerViewPrefab => _playerViewPrefab;
+
+        private string DescribeMissingSupply(in EntityState entity)
+        {
+            if (entity.entityId == _playerEntityId)
+            {
+                return "PlayerViewPrefab was not supplied";
+            }
+
+            if (entity.type == EntityType.Unit)
+            {
+                return DescribeMissingBinding(_enemyViewPrefabsByEntityId, entity.entityId, "Enemy");
+            }
+
+            if (IsStaticPresentationCandidate(entity))
+            {
+                return DescribeMissingBinding(_staticViewPrefabsByEntityId, entity.entityId, "static");
+            }
+
+            return "unsupported entity type has no prefab supply path";
+        }
+
+        private static string DescribeMissingBinding(
+            IReadOnlyDictionary<int, GameplayEntityView> prefabs,
+            int entityId,
+            string supplyKind)
+        {
+            if (prefabs == null)
+            {
+                return $"{supplyKind} prefab dictionary was not supplied";
+            }
+
+            return !prefabs.ContainsKey(entityId)
+                ? $"{supplyKind} prefab binding is missing for entity ID {entityId}"
+                : $"{supplyKind} prefab binding for entity ID {entityId} references a null prefab";
+        }
 
         private GameplayEntityView CreatePlayerPrefabView(in EntityState entity)
         {
@@ -127,35 +142,6 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
-        private GameplayEntityView CreatePrimitiveView(in EntityState entity)
-        {
-            var viewObject = new GameObject($"EntityView_{entity.entityId}");
-            viewObject.transform.SetParent(_parent, worldPositionStays: false);
-            viewObject.transform.localPosition = Vector3.zero;
-            viewObject.transform.localRotation = Quaternion.identity;
-            viewObject.transform.localScale = Vector3.one;
-
-            var view = viewObject.AddComponent<GameplayEntityView>();
-            view.Initialize(entity.entityId);
-
-            if (entity.entityId == _playerEntityId)
-            {
-                viewObject.AddComponent<PlayerAnimatorDriver>();
-                viewObject.AddComponent<PlayerAnimationTimingAuthoring>();
-            }
-            else if (entity.type == EntityType.Unit &&
-                     EntityRolePolicy.IsEnemyUnit(entity))
-            {
-                viewObject.AddComponent<EnemyAnimatorDriver>();
-                var inactiveVisualController = viewObject.AddComponent<EnemyInactiveVisualController>();
-                inactiveVisualController.Configure(_enemyInactiveVisualSettings);
-                inactiveVisualController.ConfigureLegacyColorFallback(true);
-            }
-
-            AttachPrimitiveVisual(view, entity);
-            return view;
-        }
-
         private static void ResetViewTransform(GameplayEntityView view, int entityId)
         {
             view.name = $"EntityView_{entityId}";
@@ -178,19 +164,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             throw new InvalidOperationException(
-                $"Static presentation prefab for entity {entity.entityId} ({entity.type}) must provide an active Renderer and cannot rely on primitive fallback injection.");
-        }
-
-        private static void EnsureEnemyInactiveVisualController(GameplayEntityView view, in EntityState entity)
-        {
-            if (view == null ||
-                !EntityRolePolicy.IsEnemyUnit(entity) ||
-                view.GetComponent<EnemyInactiveVisualController>() != null)
-            {
-                return;
-            }
-
-            view.gameObject.AddComponent<EnemyInactiveVisualController>();
+                $"Static presentation prefab for entity {entity.entityId} ({entity.type}) must provide an active Renderer.");
         }
 
         private static bool IsStaticPresentationCandidate(in EntityState entity)
@@ -237,38 +211,6 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void AttachPrimitiveVisual(GameplayEntityView view, in EntityState entity)
-        {
-            var visualProfile = GameplayEntityVisualProfile.Create(entity.type, _cellSize);
-            view.ConfigureModelRoot(visualProfile.ModelLocalPosition, visualProfile.ModelLocalRotation);
-
-            var modelObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            modelObject.name = "Visual";
-            modelObject.transform.SetParent(view.ModelRoot, worldPositionStays: false);
-            modelObject.transform.localPosition = Vector3.zero;
-            modelObject.transform.localRotation = Quaternion.identity;
-            modelObject.transform.localScale = visualProfile.ModelLocalScale;
-
-            var collider = modelObject.GetComponent<Collider>();
-            if (collider != null)
-            {
-                if (Application.isPlaying)
-                {
-                    UnityEngine.Object.Destroy(collider);
-                }
-                else
-                {
-                    UnityEngine.Object.DestroyImmediate(collider);
-                }
-            }
-
-            var renderer = modelObject.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.sharedMaterial = ResolveMaterial(entity);
-            }
-        }
-
         private static void DestroyComponent(Component component)
         {
             if (component == null)
@@ -286,34 +228,5 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private static Material CreateMaterial(Shader shader, Color color)
-        {
-            var material = new Material(shader)
-            {
-                color = color,
-            };
-
-            return material;
-        }
-
-        private Material ResolveMaterial(in EntityState entity)
-        {
-            if (entity.entityId == _playerEntityId)
-            {
-                return _playerMaterial;
-            }
-
-            switch (entity.type)
-            {
-                case EntityType.Box:
-                    return _boxMaterial;
-
-                case EntityType.None:
-                    return _wallMaterial;
-
-                default:
-                    return _unitMaterial;
-            }
-        }
     }
 }

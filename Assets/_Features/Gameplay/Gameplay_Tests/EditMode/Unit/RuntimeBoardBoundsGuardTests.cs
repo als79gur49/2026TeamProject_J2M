@@ -595,6 +595,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             PushInputLockDurationSeconds = 4f / 60f,
                         },
                         PlayerViewPrefab = playerViewPrefab,
+                        ViewFactory = new PrimitivePresentationTestViewFactory(
+                            hostObject.transform, 1f, 10, playerViewPrefab, syntheticEntityIds: new[] { 20, 90 }),
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     };
                 configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
@@ -1035,75 +1037,103 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
-        [Category("Full")]
-        public void DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders()
+        [TestCase(EntityType.Unit, 10, "Player")]
+        [TestCase(EntityType.Unit, 20, "Enemy")]
+        [TestCase(EntityType.Box, 20, "static")]
+        [TestCase(EntityType.None, 20, "static")]
+        [TestCase((EntityType)999, 20, "unsupported")]
+        [Category("Core")]
+        public void DefaultGameplayEntityViewFactory_MissingSupply_ReportsEntityAndSupply(
+            EntityType entityType, int entityId, string supply)
         {
-            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders");
-
+            var root = new GameObject(nameof(DefaultGameplayEntityViewFactory_MissingSupply_ReportsEntityAndSupply));
             try
             {
-                var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
-
-                AssertVisualMatchesProfile(
-                    factory.CreateView(CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0))),
-                    GameplayEntityVisualProfile.Create(EntityType.Unit, 1f),
-                    new Color(0.2f, 0.85f, 0.35f));
-                AssertVisualMatchesProfile(
-                    factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)),
-                    GameplayEntityVisualProfile.Create(EntityType.Box, 1f),
-                    new Color(0.72f, 0.5f, 0.24f));
-                AssertVisualMatchesProfile(
-                    factory.CreateView(CreateSurfaceWall(40, new SurfaceCell(FaceId.Floor, 0, 0))),
-                    GameplayEntityVisualProfile.Create(EntityType.None, 1f),
-                    new Color(0.25f, 0.28f, 0.33f));
+                var entity = CreateSurfaceUnit(entityId, new SurfaceCell(FaceId.Floor, 0, 0));
+                entity.type = entityType;
+                var factory = new DefaultGameplayEntityViewFactory(root.transform, 1f, playerEntityId: 10);
+                var exception = Assert.Throws<InvalidOperationException>(() => factory.CreateView(entity));
+                Assert.That(exception.Message, Does.Contain(entityId.ToString()));
+                Assert.That(exception.Message, Does.Contain(entityType.ToString()));
+                Assert.That(exception.Message.ToLowerInvariant(), Does.Contain(supply.ToLowerInvariant()));
+                Assert.That(root.GetComponentsInChildren<GameplayEntityView>(true), Is.Empty);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(parentObject);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase(EntityType.Unit, false)]
+        [TestCase(EntityType.Unit, true)]
+        [TestCase(EntityType.Box, false)]
+        [TestCase(EntityType.Box, true)]
+        [TestCase(EntityType.None, false)]
+        [TestCase(EntityType.None, true)]
+        [Category("Core")]
+        public void DefaultGameplayEntityViewFactory_MissingOrNullBinding_ReportsRequestedEntity(
+            EntityType entityType, bool includeNullEntry)
+        {
+            var root = new GameObject(nameof(DefaultGameplayEntityViewFactory_MissingOrNullBinding_ReportsRequestedEntity));
+            try
+            {
+                var prefabs = new Dictionary<int, GameplayEntityView>();
+                if (includeNullEntry)
+                {
+                    prefabs.Add(20, null);
+                }
+
+                var entity = CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+                entity.type = entityType;
+                var factory = new DefaultGameplayEntityViewFactory(
+                    root.transform, 1f, playerEntityId: 10,
+                    enemyViewPrefabsByEntityId: entityType == EntityType.Unit ? prefabs : null,
+                    staticViewPrefabsByEntityId: entityType == EntityType.Unit ? null : prefabs);
+                var exception = Assert.Throws<InvalidOperationException>(() => factory.CreateView(entity));
+                Assert.That(exception.Message, Does.Contain("20"));
+                Assert.That(exception.Message, Does.Contain(entityType.ToString()));
+                Assert.That(exception.Message.ToLowerInvariant(), Does.Contain(entityType == EntityType.Unit ? "enemy" : "static"));
+                Assert.That(root.GetComponentsInChildren<GameplayEntityView>(true), Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
             }
         }
 
         [Test]
-        [Category("Full")]
-        public void DefaultGameplayEntityViewFactory_AiControlledUnit_AddsEnemyAnimatorDriver()
+        [Category("Core")]
+        public void DefaultGameplayEntityViewFactory_SparseSupply_IsValidatedOnlyWhenRequested()
         {
-            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_AiControlledUnit_AddsEnemyAnimatorDriver");
-
-            try
-            {
-                var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
-                var enemyView = factory.CreateView(CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Patrol));
-                var playerView = factory.CreateView(CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 1, 0)));
-
-                Assert.That(enemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
-                Assert.That(playerView.GetComponent<EnemyAnimatorDriver>(), Is.Null);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
+            Assert.DoesNotThrow(() => new DefaultGameplayEntityViewFactory(null, 1f, 10));
+            Assert.DoesNotThrow(() => new DefaultGameplayEntityViewFactory(
+                null, 1f, 10, enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>()));
+            Assert.DoesNotThrow(() => new DefaultGameplayEntityViewFactory(
+                null, 1f, 10, staticViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>()));
         }
 
         [Test]
-        [Category("Full")]
-        public void DefaultGameplayEntityViewFactory_PlayerUnit_AddsPlayerAnimatorDriverOnlyToPlayer()
+        [Category("Core")]
+        public void GameplayEntityViewBinder_ExistingSceneView_BypassesMissingPrefabFactory()
         {
-            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_PlayerUnit_AddsPlayerAnimatorDriverOnlyToPlayer");
-
+            var root = new GameObject(nameof(GameplayEntityViewBinder_ExistingSceneView_BypassesMissingPrefabFactory));
             try
             {
-                var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
-                var playerView = factory.CreateView(CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)));
-                var enemyView = factory.CreateView(CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), aiMode: EnemyAiMode.Patrol));
-
-                Assert.That(playerView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
-                Assert.That(playerView.GetComponent<PlayerAnimationTimingAuthoring>(), Is.Not.Null);
-                Assert.That(enemyView.GetComponent<PlayerAnimatorDriver>(), Is.Null);
+                var registry = root.AddComponent<GameplayEntityViewRegistry>();
+                var existingObject = new GameObject("AuthoredSceneView");
+                existingObject.transform.SetParent(root.transform, false);
+                var existing = existingObject.AddComponent<GameplayEntityView>();
+                existing.Initialize(10);
+                registry.Register(existing);
+                var factory = new DefaultGameplayEntityViewFactory(root.transform, 1f, playerEntityId: 10);
+                var binder = new GameplayEntityViewBinder(registry, factory);
+                var entity = CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0));
+                Assert.That(binder.ResolveOrCreate(entity), Is.SameAs(existing));
+                Assert.That(root.GetComponentsInChildren<GameplayEntityView>(true), Has.Length.EqualTo(1));
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(parentObject);
+                UnityEngine.Object.DestroyImmediate(root);
             }
         }
 
@@ -1213,40 +1243,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     () => factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)));
 
                 StringAssert.Contains("must provide an active Renderer", exception.Message);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(prefabObject);
-                UnityEngine.Object.DestroyImmediate(parentObject);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void DefaultGameplayEntityViewFactory_StaticBoxWithoutBinding_FallsBackToPrimitiveVisual()
-        {
-            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxWithoutBinding_FallsBackToPrimitiveVisual");
-            var prefabObject = new GameObject("UnusedStaticBoxPrefab");
-
-            try
-            {
-                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
-                new GameObject("PrefabMarker").transform.SetParent(prefabObject.transform, worldPositionStays: false);
-
-                var factory = new DefaultGameplayEntityViewFactory(
-                    parentObject.transform,
-                    1f,
-                    playerEntityId: 10,
-                    staticViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
-                    {
-                        { 99, prefabView },
-                    });
-
-                var view = factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right));
-
-                Assert.That(view.transform.Find("PrefabMarker"), Is.Null);
-                Assert.That(view.transform.Find("Visual"), Is.Null);
-                Assert.That(view.ModelRoot.Find("Visual"), Is.Not.Null);
             }
             finally
             {
@@ -5852,6 +5848,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         PlayerViewPrefab = playerViewPrefab,
+                        ViewFactory = new PrimitivePresentationTestViewFactory(hostObject.transform, 1f, 10, playerViewPrefab, syntheticEntityIds: new[] { 20 }),
                         PlayerControlTiming = CreateImmediatePlayerControlTimingSettings(),
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
@@ -5910,6 +5907,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         PlayerViewPrefab = playerViewPrefab,
+                        ViewFactory = new PrimitivePresentationTestViewFactory(hostObject.transform, 1f, 10, playerViewPrefab, syntheticEntityIds: new[] { 20 }),
                         PlayerControlTiming = CreateImmediatePlayerControlTimingSettings(),
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
@@ -5968,6 +5966,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         PlayerViewPrefab = playerViewPrefab,
+                        ViewFactory = new PrimitivePresentationTestViewFactory(hostObject.transform, 1f, 10, playerViewPrefab, syntheticEntityIds: new[] { 20 }),
                         PlayerControlTiming = CreateImmediatePlayerControlTimingSettings(),
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
@@ -7889,47 +7888,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         ViewPrefab = viewPrefab,
                     },
                 });
-        }
-
-        private static void AssertVisualMatchesProfile(
-            GameplayEntityView view,
-            GameplayEntityVisualProfile expectedProfile,
-            Color expectedColor)
-        {
-            Assert.That(view, Is.Not.Null);
-            Assert.That(view.transform.parent, Is.Not.Null);
-            Assert.That(view.GetComponent<Renderer>(), Is.Null);
-            Assert.That(view.ModelRoot, Is.Not.Null);
-            Assert.That(view.ModelRoot.parent, Is.EqualTo(view.transform));
-            Assert.That(view.ModelRoot.localPosition, Is.EqualTo(expectedProfile.ModelLocalPosition));
-            Assert.That(
-                Quaternion.Angle(view.ModelRoot.localRotation, expectedProfile.ModelLocalRotation),
-                Is.LessThan(0.001f));
-            Assert.That(view.ModelRoot.localScale, Is.EqualTo(Vector3.one));
-            Assert.That(view.ModelRoot.childCount, Is.EqualTo(1));
-
-            var visual = view.ModelRoot.GetChild(0);
-            Assert.That(visual.localPosition, Is.EqualTo(Vector3.zero));
-            Assert.That(Quaternion.Angle(visual.localRotation, Quaternion.identity), Is.LessThan(0.001f));
-            Assert.That(visual.localScale, Is.EqualTo(expectedProfile.ModelLocalScale));
-            Assert.That(visual.GetComponent<Collider>(), Is.Null);
-
-            var meshFilter = visual.GetComponent<MeshFilter>();
-            Assert.That(meshFilter, Is.Not.Null);
-            Assert.That(meshFilter.sharedMesh, Is.Not.Null);
-            Assert.That(meshFilter.sharedMesh.name, Does.Contain("Cube").IgnoreCase);
-
-            var renderer = visual.GetComponent<Renderer>();
-            Assert.That(renderer, Is.Not.Null);
-            AssertColorApproximately(renderer.sharedMaterial.color, expectedColor);
-        }
-
-        private static void AssertColorApproximately(Color actual, Color expected)
-        {
-            Assert.That(actual.r, Is.EqualTo(expected.r).Within(0.001f));
-            Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.001f));
-            Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.001f));
-            Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.001f));
         }
 
         private static void AssertTransformPoseApproximately(

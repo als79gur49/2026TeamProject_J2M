@@ -213,15 +213,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void DefaultGameplayEntityViewFactory_PrimitivePlayerFallback_DoesNotAutoAddGameplayActionAudioAuthoring()
+        public void DefaultGameplayEntityViewFactory_MissingPlayerPrefab_ReportsPlayerSupply()
         {
-            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrimitivePlayerFallback_DoesNotAutoAddGameplayActionAudioAuthoring));
+            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_MissingPlayerPrefab_ReportsPlayerSupply));
             try
             {
                 var factory = new DefaultGameplayEntityViewFactory(rootObject.transform, 1f, playerEntityId: 10);
-                var view = factory.CreateView(CreateUnit(10, UnitRole.Player));
+                var exception = Assert.Throws<InvalidOperationException>(() => factory.CreateView(CreateUnit(10, UnitRole.Player)));
 
-                Assert.That(view.GetComponent<GameplayActionAudioAuthoring>(), Is.Null);
+                Assert.That(exception.Message, Does.Contain("10"));
+                Assert.That(exception.Message, Does.Contain("Unit"));
+                Assert.That(exception.Message.ToLowerInvariant(), Does.Contain("player"));
             }
             finally
             {

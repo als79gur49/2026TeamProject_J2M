@@ -143,6 +143,69 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_2_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-0-2"));
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage1_2_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-1-2"));
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage2_2_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-2-2"));
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage3_2_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-3-2"));
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage3_3_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-3-3"));
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage4_2_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-4-2"));
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage4_3_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-4-3"));
+        }
+
+        [UnityTest]
         [Category("Core")]
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_1_BackgroundOrbitAdvancesAndPauses()
         {
@@ -3557,6 +3620,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(host.BoardRoot, Is.Not.Null, $"{scenePath} must create the runtime board root.");
                 Assert.That(host.UiAccess, Is.Not.Null, $"{scenePath} must expose UIAccess as the read/intent seam.");
 
+                AssertActiveEntityViews(host);
                 AssertAudioBootstrap(scenePath, host);
                 AssertUiBootstrap(scenePath);
                 AssertTopologyBootstrap(scenePath, host);
@@ -3592,6 +3656,200 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Application.logMessageReceived -= CountBootstrapRuntimeErrors;
                 CampaignChanceHudDiagnostics.IsEnabled = false;
             }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage4_3_SummonUsesArchetypePrefab()
+        {
+            yield return LoadNonCampaignEntityViewScene("stage-4-3");
+            var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+            const int summonerId = 59;
+            var snapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+            Assert.That(snapshot.TryGetEntity(summonerId, out var summoner), Is.True);
+            Assert.That(summoner.position.face, Is.EqualTo(FaceId.Floor));
+            // Start the authored summon cooldown at ready; windup, placement and commit
+            // still run through the scene's production AI and tick pipeline.
+            SetEntityViewScenarioState(host.WorldState, "SetEnemySummonBehaviorState", summonerId,
+                new EnemySummonBehaviorRuntimeState { cooldownTicksRemaining = 0 });
+            var sawWindup = false;
+            for (var attempt = 0; attempt < 240; attempt++)
+            {
+                host.Presenter.UpdatePresentation(1f);
+                var result = host.InputHost.RunSingleTick();
+                if (result != null)
+                {
+                    sawWindup |= result.PresentationData.SummonWindupWarnings.Any(signal => signal.SourceEntityId == summonerId);
+                    if (result.EventLog.Any(entry => entry.StartsWith($"SummonCommitted|Source={summonerId}|", StringComparison.Ordinal)))
+                    {
+                        var after = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+                        var entities = new List<EntityState>();
+                        after.EnumerateEntitiesOrdered(entities);
+                        var child = entities.Single(entity =>
+                            after.TryGetSummonedEntityState(entity.entityId, out var metadata) &&
+                            metadata.SourceEntityId == summonerId);
+                        Assert.That(sawWindup, Is.True, "Production summon must pass through windup.");
+                        Assert.That(host.ViewRegistry.TryGetView(child.entityId, out var view), Is.True);
+                        Assert.That(view.EntityId, Is.EqualTo(child.entityId));
+                        Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+#if UNITY_EDITOR
+                        var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationArchetypeCatalog>(
+                            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Catalogs/EnemyPresentationArchetypeCatalog_CampaignMainEnemy.asset");
+                        var binding = result.PresentationData.SummonedEnemyPresentationBindings.Single(item => item.EntityId == child.entityId);
+                        var prefab = catalog.Entries.Single(item => item.ArchetypeId.Equals(binding.ArchetypeId)).ViewPrefab;
+                        AssertPrefabMeshes(view, prefab);
+#endif
+                        TestContext.WriteLine($"Actual scene summon: source={summonerId}, child={child.entityId}, tick={result.TickIndex}");
+                        yield break;
+                    }
+                }
+                yield return null;
+            }
+            Assert.Fail("stage-4-3 J.Peter did not commit a summon within 240 tick attempts.");
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage3_2_MoonBlockRespawnReusesStaticBinding()
+        {
+            yield return LoadNonCampaignEntityViewScene("stage-3-2");
+            var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+            const int moonId = 240;
+            Assert.That(host.ViewRegistry.TryGetView(moonId, out var initialView), Is.True);
+            var expectedMeshes = EntityViewMeshes(initialView);
+            // First restore the existing view, then repeat after explicit view loss to
+            // exercise the same authored static binding's creation path as well.
+            for (var cycle = 0; cycle < 2; cycle++)
+            {
+                if (cycle == 1)
+                {
+                    Assert.That(host.ViewRegistry.Unregister(moonId), Is.True);
+                    Object.Destroy(initialView.gameObject);
+                    yield return null;
+                }
+                SetEntityViewScenarioState(host.WorldState, "SetBoardPresence", moonId, EntityBoardPresence.Detached);
+                SetEntityViewScenarioState(host.WorldState, "MarkDestroy", moonId);
+                host.Presenter.UpdatePresentation(1f);
+                var result = host.InputHost.RunSingleTick();
+                Assert.That(result, Is.Not.Null);
+                Assert.That(result.EventLog, Does.Contain($"CleanupRemoved|E={moonId}"));
+                Assert.That(result.EventLog, Has.Some.StartsWith("MoonBlockGeneratorRespawnCommitted|TileId=10|E=240|"));
+                var after = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+                Assert.That(after.TryGetEntity(moonId, out var moon), Is.True);
+                Assert.That(moon.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 5, 4)));
+                Assert.That(moon.boxArchetype, Is.EqualTo(BoxArchetype.Moon));
+                Assert.That(host.ViewRegistry.TryGetView(moonId, out var restoredView), Is.True);
+                host.Presenter.UpdatePresentation(1f);
+                Assert.That(restoredView.gameObject.activeInHierarchy, Is.True);
+                Assert.That(EntityViewMeshes(restoredView), Is.EqualTo(expectedMeshes));
+                if (cycle == 0)
+                {
+                    Assert.That(restoredView, Is.SameAs(initialView));
+                }
+                else
+                {
+                    Assert.That(restoredView, Is.Not.SameAs(initialView));
+                }
+                TestContext.WriteLine($"Actual scene MoonBlock: cycle={cycle}, entity={moonId}, tick={result.TickIndex}");
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_1_NonCampaignPlayerDeathRespawnRecreatesPrefabView()
+        {
+            // Normal campaign uses terminal death/reload with respawn disabled. This
+            // explicitly exercises the actual scene's supported noncampaign respawn.
+            yield return LoadNonCampaignEntityViewScene("stage-0-1");
+            var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+            var playerId = host.PlayerEntityId;
+            var before = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+            Assert.That(before.TryGetEntity(playerId, out var player), Is.True);
+            Assert.That(host.ViewRegistry.TryGetView(playerId, out var initialView), Is.True);
+            var expectedMeshes = EntityViewMeshes(initialView);
+            SetEntityViewScenarioState(host.WorldState, "ApplyDamage", playerId, player.hp);
+            var death = host.InputHost.RunSingleTick();
+            Assert.That(death, Is.Not.Null);
+            Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(playerId, out _), Is.False);
+            host.Presenter.UpdatePresentation(10f);
+            Assert.That(host.ViewRegistry.Unregister(playerId), Is.True);
+            Object.Destroy(initialView.gameObject);
+            yield return null;
+            for (var attempt = 0; attempt < 240; attempt++)
+            {
+                host.Presenter.UpdatePresentation(1f);
+                var result = host.InputHost.RunSingleTick();
+                if (result != null && result.EventLog.Any(entry => entry.StartsWith($"RespawnCommitted|E={playerId}|", StringComparison.Ordinal)))
+                {
+                    Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(playerId, out var respawned), Is.True);
+                    Assert.That(respawned.hp, Is.GreaterThan(0));
+                    Assert.That(host.ViewRegistry.TryGetView(playerId, out var restoredView), Is.True);
+                    Assert.That(restoredView, Is.Not.SameAs(initialView));
+                    Assert.That(restoredView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
+                    Assert.That(restoredView.GetComponent<PlayerAnimationTimingAuthoring>(), Is.Not.Null);
+                    host.Presenter.UpdatePresentation(10f);
+                    Assert.That(restoredView.gameObject.activeInHierarchy, Is.True);
+                    Assert.That(EntityViewMeshes(restoredView), Is.EqualTo(expectedMeshes));
+                    TestContext.WriteLine($"Actual scene noncampaign player respawn: entity={playerId}, tick={result.TickIndex}");
+                    yield break;
+                }
+                yield return null;
+            }
+            Assert.Fail("Actual scene noncampaign player did not respawn within 240 tick attempts.");
+        }
+
+        private static IEnumerator LoadNonCampaignEntityViewScene(string stageName)
+        {
+            var stageId = StageId.CreateOrThrow(stageName);
+            StageLaunchContextStore.SetCurrent(stageId);
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            yield return LoadScene(UIAudioScenePath);
+            var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+            Assert.That(host, Is.Not.Null);
+            host.InputHost.SetAutoAdvanceTicks(false);
+            AssertActiveEntityViews(host);
+        }
+
+        private static void AssertActiveEntityViews(GameplaySceneHost host)
+        {
+            var snapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            var count = 0;
+            foreach (var entity in entities.Where(entity => entity.boardPresence == EntityBoardPresence.Occupying && snapshot.Topology.IsFaceActive(entity.position.face)))
+            {
+                Assert.That(host.ViewRegistry.TryGetView(entity.entityId, out var view), Is.True, $"Missing production view for entity {entity.entityId} ({entity.type}).");
+                Assert.That(view, Is.Not.Null);
+                Assert.That(view.EntityId, Is.EqualTo(entity.entityId));
+                Assert.That(view.GetComponentInChildren<Renderer>(true), Is.Not.Null, $"Entity {entity.entityId} must use a rendered prefab.");
+                count++;
+            }
+            Assert.That(count, Is.GreaterThan(0));
+            TestContext.WriteLine($"Actual scene initial active-face prefab views: {count}; authored entities: {entities.Count}");
+        }
+
+        private static Mesh[] EntityViewMeshes(GameplayEntityView view)
+        {
+            return view.GetComponentsInChildren<MeshFilter>(true).Select(item => item.sharedMesh)
+                .Concat(view.GetComponentsInChildren<SkinnedMeshRenderer>(true).Select(item => item.sharedMesh)).ToArray();
+        }
+
+        private static void AssertPrefabMeshes(GameplayEntityView view, GameplayEntityView prefab)
+        {
+            var meshes = EntityViewMeshes(prefab);
+            Assert.That(meshes, Is.Not.Empty);
+            Assert.That(EntityViewMeshes(view), Is.EqualTo(meshes));
+        }
+
+        private static void SetEntityViewScenarioState(WorldState world, string methodName, params object[] arguments)
+        {
+            var factory = typeof(WorldState).GetMethod("CreateWriteContext", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(factory, Is.Not.Null);
+            var context = factory.Invoke(world, null);
+            var method = context.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null, arguments.Select(item => item.GetType()).ToArray(), null);
+            Assert.That(method, Is.Not.Null, $"Missing authoritative setup method {methodName}.");
+            method.Invoke(context, arguments);
         }
 
         private static void AssertAudioBootstrap(string scenePath, GameplaySceneHost host)

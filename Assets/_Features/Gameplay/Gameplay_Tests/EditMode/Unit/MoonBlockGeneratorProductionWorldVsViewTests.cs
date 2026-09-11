@@ -105,10 +105,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     fixture.Presentation.StaticEntityPresentationCatalog,
                     fixture.Presentation.StaticEntityPresentationBindings,
                     "mechanics-showcase production view binding");
+                var playerPrefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(
+                    "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab");
+                Assert.That(playerPrefab, Is.Not.Null);
+                var enemyViewPrefabs = EnemyPresentationCatalogResolver.BuildEnemyViewPrefabs(
+                    fixture.Presentation.EnemyPresentationCatalog,
+                    fixture.Presentation.EnemyPresentationBindings,
+                    "stage-3-2 production view binding");
                 var factory = new DefaultGameplayEntityViewFactory(
                     root.transform,
                     cellSize: 1f,
                     playerEntityId: fixture.Build.PlayerEntityId,
+                    playerViewPrefab: playerPrefab,
+                    enemyViewPrefabsByEntityId: enemyViewPrefabs,
                     staticViewPrefabsByEntityId: staticViewPrefabs);
                 var binder = new GameplayEntityViewBinder(registry, factory);
                 var presenter = root.AddComponent<GameplayTickViewPresenter>();
@@ -144,7 +153,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var presentation = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(MechanicsShowcasePresentationPath);
             Assert.That(entry, Is.Not.Null);
             Assert.That(presentation, Is.Not.Null);
-            Assert.That(entry.StageId.Value, Is.EqualTo("stage-3-1"));
+            Assert.That(entry.StageId.Value, Is.EqualTo("stage-3-2"));
 
             var build = StageRuntimeBuilder.Build(entry.GameplayDefinition);
             var definition = build.MoonBlockRespawnDefinitions.Single(def =>
