@@ -10,18 +10,21 @@
 
 ## 실제 PR 범위
 
-PR은 이 문서 보강 commit 포함 main 대비 123개 파일을 포함한다. 기존 head에 누적된 32개 commit과 main 통합 해결, 검증 문서 보강을 함께 검토해야 한다. 충돌 해결의 직접 범위 외에도 다음 변경군이 포함된다.
+PR은 main 대비 123개 파일을 포함한다. 기존 head에 누적된 32개 commit과 main 통합 해결, 검증 문서 보강을 함께 검토해야 한다. 아래 변경군은 commit 역사가 아니라 `git diff main...head` 최종 net diff를 기준으로 한다.
 
-- third-party license 및 runtime UPM 고지
 - Enemy animation Cue binding, View replacement와 Prefab migration
 - TickResult/presentation ownership 및 EntityLogic prefilter
 - Cleanup Slice 3 진단과 evidence Python pipeline
-- gameplay performance probe와 campaign 관련 변경
-- primitive presentation fallback 제거
-- UI terminal/Iris, typography, stage preview와 outro 콘텐츠
-- Steam achievement/runtime 및 Windows release pipeline
+- gameplay performance probe/campaign과 pause buffer 재사용
+- primitive presentation fallback 제거 및 presentation driver cache
+- Destination Iris 테스트와 UI performance probe
+- TestRunner timeout, KBO/S3 병합 보존 및 관련 계약/테스
 
-이 문서는 위 변경군의 전체 기능 리뷰나 성능 개선 완료를 주장하지 않는다. PR은 Draft로 유지하며 자동 check와 사람 리뷰를 별도로 받아야 한다.
+이 문서는 위 변경군의 전체 기능 리뷰나 성능 개선 완료를 주장하지 않는다. PR은 Draft로 유지하며 사람 리뷰를 별도로 받아야 한다. 현재 저장소에는 `.github/workflows`가 없고 PR status context·check run도 0개이다. GitHub combined status의 `pending`은 실행 중인 CI가 아니라 등록된 context가 없는 상태이며, 자동 check를 필수로 하려면 Unity runner를 포함한 CI 기반을 별도로 설계해야 한다.
+
+## 커밋 역사 규칙 예외
+
+기존 head에는 2026-08-27에 생성된 `perf:` 2개와 `revert:` 3개 commit이 있다. 2026-03-21부터 적용된 `AI_GIT_COMMIT_RULES.md`와 현재 `Tools/git-hooks/commit-msg`의 허용 type에는 두 type이 없으므로 규칙 예외이 맞다. 해당 commit은 이미 push된 기존 역사이며 교정은 브랜치 재작성과 force push를 필요로 한다. 이 PR은 그 역사를 조용히 재작성하지 않고 Ready 전 repository owner의 예외/처리 판단 항목으로 남긴다.
 
 ## 최종 자동 검증
 
