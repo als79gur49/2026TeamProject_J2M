@@ -67,10 +67,12 @@ namespace Game.Feature.Flow.Audio
             "BgmRequestRouter supports only one active playback suppression lease.";
 
         private readonly IBgmFlowCoordinator coordinator;
-        private readonly Dictionary<BgmRequestSourceKind, BgmFlowRequest> requests = new();
+        private readonly Dictionary<BgmRequestSourceKind, RegisteredBgmRequest> requests = new();
         private BgmFlowRequest? activeRequest;
+        private ulong nextRequestToken;
         private long nextPlaybackSuppressionToken;
         private long activePlaybackSuppressionToken;
+        private bool deferPlaybackUntilNextAcquisition;
 
         public BgmRequestRouter(IBgmFlowCoordinator coordinator)
         {
@@ -79,16 +81,32 @@ namespace Game.Feature.Flow.Audio
 
         public BgmFlowRequest? ActiveRequest => activeRequest;
 
-        public void Submit(BgmFlowRequest request)
+        public BgmRequestLease Acquire(BgmFlowRequest request)
         {
-            requests[request.SourceKind] = request;
+            var token = AllocateRequestToken();
+            var hadPreviousClaim = requests.TryGetValue(request.SourceKind, out var previousClaim);
+            requests[request.SourceKind] = new RegisteredBgmRequest(request, token);
             if (activePlaybackSuppressionToken != 0)
             {
                 SelectHighestPriorityRequest();
-                return;
+                return new BgmRequestLease(this, request.SourceKind, token);
             }
 
-            ApplyHighestPriorityRequest();
+            try
+            {
+                ApplyHighestPriorityRequest();
+                deferPlaybackUntilNextAcquisition = false;
+                return new BgmRequestLease(this, request.SourceKind, token);
+            }
+            catch
+            {
+                RollBackFailedAcquisition(
+                    request.SourceKind,
+                    token,
+                    hadPreviousClaim,
+                    previousClaim);
+                throw;
+            }
         }
 
         public BgmPlaybackSuppressionLease BeginPlaybackSuppression()
@@ -149,16 +167,40 @@ namespace Game.Feature.Flow.Audio
             activePlaybackSuppressionToken = 0;
             if (restoreCurrentSelection)
             {
+                deferPlaybackUntilNextAcquisition = false;
                 ApplyHighestPriorityRequest();
+                return;
             }
+
+            deferPlaybackUntilNextAcquisition = true;
+        }
+
+        internal void ReleaseRequest(BgmRequestSourceKind sourceKind, ulong token)
+        {
+            if (token == 0 ||
+                !requests.TryGetValue(sourceKind, out var registeredRequest) ||
+                registeredRequest.Token != token)
+            {
+                return;
+            }
+
+            requests.Remove(sourceKind);
+            if (activePlaybackSuppressionToken != 0 || deferPlaybackUntilNextAcquisition)
+            {
+                SelectHighestPriorityRequest();
+                return;
+            }
+
+            ApplyHighestPriorityRequest();
         }
 
         private bool TryGetHighestPriorityRequest(out BgmFlowRequest request)
         {
             request = default;
             var hasRequest = false;
-            foreach (var candidate in requests.Values)
+            foreach (var registeredRequest in requests.Values)
             {
+                var candidate = registeredRequest.Request;
                 if (!hasRequest || candidate.Priority > request.Priority)
                 {
                     request = candidate;
@@ -167,6 +209,86 @@ namespace Game.Feature.Flow.Audio
             }
 
             return hasRequest;
+        }
+
+        private ulong AllocateRequestToken()
+        {
+            unchecked
+            {
+                nextRequestToken++;
+                if (nextRequestToken == 0)
+                {
+                    nextRequestToken++;
+                }
+            }
+
+            return nextRequestToken;
+        }
+
+        private void RollBackFailedAcquisition(
+            BgmRequestSourceKind sourceKind,
+            ulong token,
+            bool hadPreviousClaim,
+            RegisteredBgmRequest previousClaim)
+        {
+            if (!requests.TryGetValue(sourceKind, out var currentClaim) ||
+                currentClaim.Token != token)
+            {
+                return;
+            }
+
+            if (hadPreviousClaim)
+            {
+                requests[sourceKind] = previousClaim;
+            }
+            else
+            {
+                requests.Remove(sourceKind);
+            }
+
+            SelectHighestPriorityRequest();
+        }
+
+        private readonly struct RegisteredBgmRequest
+        {
+            public RegisteredBgmRequest(BgmFlowRequest request, ulong token)
+            {
+                Request = request;
+                Token = token;
+            }
+
+            public BgmFlowRequest Request { get; }
+
+            public ulong Token { get; }
+        }
+    }
+
+    public sealed class BgmRequestLease : IDisposable
+    {
+        private BgmRequestRouter owner;
+        private readonly BgmRequestSourceKind sourceKind;
+        private readonly ulong token;
+
+        internal BgmRequestLease(
+            BgmRequestRouter owner,
+            BgmRequestSourceKind sourceKind,
+            ulong token)
+        {
+            this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            this.sourceKind = sourceKind;
+            this.token = token;
+        }
+
+        public void Dispose()
+        {
+            var currentOwner = owner;
+            if (currentOwner == null)
+            {
+                return;
+            }
+
+            owner = null;
+            currentOwner.ReleaseRequest(sourceKind, token);
         }
     }
 

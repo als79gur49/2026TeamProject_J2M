@@ -3,17 +3,24 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Flow.Audio;
+using Game.Feature.Stages;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
+#if UNITY_EDITOR
+using UnityEditor.SceneManagement;
+#endif
+
 namespace Game.Feature.Gameplay.Tests.PlayMode
 {
     public sealed class PersistentBgmFlowPlayModeTests
     {
         private const string TestScenePrefix = "PersistentBgmFlowPlayModeTests_";
+        private const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
+        private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
 
         private readonly List<UnityEngine.Object> ownedObjects = new();
 
@@ -26,6 +33,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [UnityTearDown]
         public IEnumerator TearDown()
         {
+            StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
+
             for (var i = ownedObjects.Count - 1; i >= 0; i--)
             {
                 if (ownedObjects[i] != null)
@@ -63,9 +74,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             for (var sceneIndex = SceneManager.sceneCount - 1; sceneIndex >= 0; sceneIndex--)
             {
                 var scene = SceneManager.GetSceneAt(sceneIndex);
-                if (scene.IsValid() &&
-                    scene.isLoaded &&
-                    scene.name.StartsWith(TestScenePrefix, StringComparison.Ordinal))
+                if (scene.IsValid() && scene.isLoaded &&
+                    (scene.name.StartsWith(TestScenePrefix, StringComparison.Ordinal) ||
+                     scene.path == MainMenuScenePath ||
+                     scene.path == UIAudioScenePath))
                 {
                     var unloadOperation = SceneManager.UnloadSceneAsync(scene);
                     if (unloadOperation != null)
@@ -79,6 +91,128 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
 
             Assert.That(AudioRuntimeExternalRootRegistry.CaptureDebugSnapshot().HasRegisteredRuntime, Is.False);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualUIAudioProfileToMainMenu_ReleasesStageClaimAndSelectsMenuBgm()
+        {
+            PrepareNonCampaignStage("stage-0-1");
+            yield return LoadProductionScene(UIAudioScenePath);
+
+            var persistentRoot = GlobalAudioFlowRoot.Current;
+            Assert.That(persistentRoot.RequestRouter.ActiveRequest.Value.SourceKind,
+                Is.EqualTo(BgmRequestSourceKind.StageGameplay));
+            var stageProfile = persistentRoot.RequestRouter.ActiveRequest.Value.Profile;
+            yield return WaitForLiveProfile(persistentRoot, stageProfile);
+
+            yield return LoadProductionScene(MainMenuScenePath);
+
+            Assert.That(persistentRoot.RequestRouter.ActiveRequest.Value.SourceKind,
+                Is.EqualTo(BgmRequestSourceKind.SceneDefault));
+            var menuProfile = persistentRoot.RequestRouter.ActiveRequest.Value.Profile;
+            Assert.That(menuProfile, Is.Not.SameAs(stageProfile));
+            yield return WaitForLiveProfile(persistentRoot, menuProfile);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualUIAudioNoneToMainMenu_ReleasesStopClaimAndDoesNotRemainSilent()
+        {
+            PrepareNonCampaignStage("legacy-stage-5-1");
+            yield return LoadProductionScene(UIAudioScenePath);
+
+            var persistentRoot = GlobalAudioFlowRoot.Current;
+            Assert.That(persistentRoot.RequestRouter.ActiveRequest.Value.SourceKind,
+                Is.EqualTo(BgmRequestSourceKind.StageGameplay));
+            Assert.That(persistentRoot.RequestRouter.ActiveRequest.Value.StopBgm, Is.True);
+            Assert.That(persistentRoot.Coordinator.GetCurrentProfile(), Is.Null);
+
+            yield return LoadProductionScene(MainMenuScenePath);
+
+            Assert.That(persistentRoot.RequestRouter.ActiveRequest.Value.SourceKind,
+                Is.EqualTo(BgmRequestSourceKind.SceneDefault));
+            var menuProfile = persistentRoot.RequestRouter.ActiveRequest.Value.Profile;
+            yield return WaitForLiveProfile(persistentRoot, menuProfile);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualMainMenuToUIAudio_SelectsStageGameplayPriority()
+        {
+            yield return LoadProductionScene(MainMenuScenePath);
+            var persistentRoot = GlobalAudioFlowRoot.Current;
+            var menuProfile = persistentRoot.RequestRouter.ActiveRequest.Value.Profile;
+            yield return WaitForLiveProfile(persistentRoot, menuProfile);
+
+            PrepareNonCampaignStage("stage-0-1");
+            yield return LoadProductionScene(UIAudioScenePath);
+
+            var activeRequest = persistentRoot.RequestRouter.ActiveRequest;
+            Assert.That(activeRequest.HasValue, Is.True);
+            Assert.That(activeRequest.Value.SourceKind, Is.EqualTo(BgmRequestSourceKind.StageGameplay));
+            Assert.That(activeRequest.Value.Priority, Is.EqualTo(BgmRequestPriority.StageGameplay));
+            Assert.That(activeRequest.Value.Profile, Is.Not.SameAs(menuProfile));
+            yield return WaitForLiveProfile(persistentRoot, activeRequest.Value.Profile);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualUIAudioSameProfileTransition_DoesNotRestartPersistentSource()
+        {
+            PrepareNonCampaignStage("stage-0-1");
+            yield return LoadProductionScene(UIAudioScenePath);
+            var persistentRoot = GlobalAudioFlowRoot.Current;
+            var sharedProfile = persistentRoot.RequestRouter.ActiveRequest.Value.Profile;
+            yield return WaitForLiveProfile(persistentRoot, sharedProfile);
+            yield return new WaitForSecondsRealtime(0.1f);
+            var firstSource = CaptureLiveBgmSnapshots(persistentRoot)[0].Source;
+            var firstTimeSamples = firstSource.timeSamples;
+
+            PrepareNonCampaignStage("stage-0-2");
+            yield return LoadProductionScene(UIAudioScenePath);
+
+            Assert.That(persistentRoot.RequestRouter.ActiveRequest.Value.Profile, Is.SameAs(sharedProfile));
+            var snapshots = CaptureLiveBgmSnapshots(persistentRoot);
+            Assert.That(snapshots, Has.Length.EqualTo(1));
+            Assert.That(snapshots[0].Source, Is.SameAs(firstSource));
+            Assert.That(snapshots[0].Source.clip, Is.SameAs(sharedProfile.LoopDefinition.Resolve(default).Clip));
+            Assert.That(
+                snapshots[0].Source.timeSamples,
+                Is.GreaterThan(firstTimeSamples),
+                "Same-profile scene replacement must continue the existing playback position instead of replaying the clip.");
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualUIAudioDifferentProfileTransition_PreservesAuthoredFadeOutIn()
+        {
+            PrepareNonCampaignStage("stage-0-1");
+            yield return LoadProductionScene(UIAudioScenePath);
+            var persistentRoot = GlobalAudioFlowRoot.Current;
+            var firstProfile = persistentRoot.RequestRouter.ActiveRequest.Value.Profile;
+            yield return WaitForLiveProfile(persistentRoot, firstProfile);
+            var firstSnapshot = CaptureLiveBgmSnapshots(persistentRoot)[0];
+            var firstClip = firstSnapshot.Source.clip;
+
+            PrepareNonCampaignStage("stage-0-3");
+            yield return LoadProductionScene(UIAudioScenePath);
+
+            var secondProfile = persistentRoot.RequestRouter.ActiveRequest.Value.Profile;
+            Assert.That(secondProfile, Is.Not.SameAs(firstProfile));
+            Assert.That(secondProfile.TransitionMode, Is.EqualTo(BgmTransitionMode.FadeOutIn));
+            var transitionSnapshot = CaptureLiveBgmSnapshots(persistentRoot);
+            Assert.That(transitionSnapshot, Has.Length.EqualTo(1));
+            Assert.That(transitionSnapshot[0].Source, Is.SameAs(firstSnapshot.Source));
+            Assert.That(transitionSnapshot[0].Source.clip, Is.SameAs(firstClip));
+
+            yield return WaitForLiveProfile(persistentRoot, secondProfile);
+
+            var completedSnapshot = CaptureLiveBgmSnapshots(persistentRoot);
+            Assert.That(completedSnapshot, Has.Length.EqualTo(1));
+            Assert.That(completedSnapshot[0].Source, Is.SameAs(firstSnapshot.Source));
+            Assert.That(completedSnapshot[0].Source.clip,
+                Is.SameAs(secondProfile.LoopDefinition.Resolve(default).Clip));
         }
 
         [UnityTest]
@@ -273,6 +407,64 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             SetSerializedField(typeof(AudioDefinition), definition, "pitchRange", Vector2.one);
             SetSerializedField(typeof(AudioDefinition), definition, "loop", true);
             return definition;
+        }
+
+        private static void PrepareNonCampaignStage(string stageId)
+        {
+            var id = StageId.CreateOrThrow(stageId);
+            StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            StageLaunchContextStore.SetCurrent(id);
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(id));
+        }
+
+        private static IEnumerator LoadProductionScene(string scenePath)
+        {
+#if UNITY_EDITOR
+            var operation = EditorSceneManager.LoadSceneAsyncInPlayMode(
+                scenePath,
+                new LoadSceneParameters(LoadSceneMode.Single));
+#else
+            var operation = SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Single);
+#endif
+            Assert.That(operation, Is.Not.Null, scenePath);
+            while (!operation.isDone)
+            {
+                yield return null;
+            }
+
+            yield return null;
+        }
+
+        private static IEnumerator WaitForLiveProfile(
+            GlobalAudioFlowRoot persistentRoot,
+            BgmProfile profile)
+        {
+            Assert.That(profile, Is.Not.Null);
+            var expectedClip = profile.LoopDefinition.Resolve(default).Clip;
+            var deadline = Time.realtimeSinceStartup + profile.FadeOutSeconds + profile.FadeInSeconds + 2f;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                var snapshots = CaptureLiveBgmSnapshots(persistentRoot);
+                if (persistentRoot.Coordinator.GetCurrentProfile() == profile &&
+                    snapshots.Length == 1 &&
+                    snapshots[0].Source.clip == expectedClip)
+                {
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            Assert.Fail($"Timed out waiting for BGM profile '{profile.name}' to become live.");
+        }
+
+        private static AudioLivePlaybackDebugSnapshot[] CaptureLiveBgmSnapshots(
+            GlobalAudioFlowRoot persistentRoot)
+        {
+            return Array.FindAll(
+                persistentRoot.RuntimeRoot.AudioManager.CaptureLivePlaybackSnapshots(),
+                snapshot => snapshot.LeafChannel == AudioChannel.Bgm);
         }
 
         private T Track<T>(T unityObject) where T : UnityEngine.Object

@@ -15,17 +15,22 @@
   - persistent runtime이 있을 때도 scene-local installer가 항상 creator/owner인 것은 아니다.
 - `scene request source`
   - `SceneBgmRequestSource`를 뜻한다.
-  - scene entry에서 원하는 `BgmProfile`만 요청한다.
+  - scene entry에서 원하는 `BgmProfile` claim lease를 획득하고 scene lifetime 동안 보유하며 `OnDestroy`에서 해제한다.
   - `IAudioService`, `PlayBgm`, `StopBgm`를 직접 호출하지 않는다.
 - `stage audio request source`
   - `StageAudioRuntimeRequestSource`를 뜻한다.
-  - resolved stage audio metadata를 `BgmRequestRouter`에 제출한다.
+  - resolved stage audio metadata를 Profile 또는 explicit Stop claim으로 변환하고 acquired lease를 반환하는 stateless translator다.
+  - `StageBackedGameplaySceneInstallerBase`가 반환된 lease를 stage lifetime 동안 보유하며 teardown에서 해제한다.
   - `IAudioService`, `PlayBgm`, `StopBgm`를 직접 호출하지 않는다.
 
 ## 2. Core Invariants
 
 - BGM은 flow-owned이고 gameplay-owned가 아니다.
 - scene object는 requester일 뿐이고 long-lived owner가 아니다.
+- router의 request는 transient signal이 아니라 owner-scoped persistent claim이다. 모든 production requester는 `Acquire`가 반환한 idempotent lease를 보유해야 한다.
+- router는 source kind마다 claim 하나만 유지한다. 새 same-kind acquisition은 이전 slot을 대체하며, 이전 token의 늦은 dispose는 새 claim을 제거하거나 대체된 claim을 부활시키지 않는다.
+- claim validity를 lifecycle ownership으로 먼저 결정한 뒤, 남은 유효 claim 중 priority로 selection을 정한다.
+- 마지막 claim 철회는 router selection만 비운다. 현재 playback을 중단하는 authoritative silence는 유효한 explicit Stop claim으로만 요청한다.
 - persistent `BgmFlowCoordinator`만 current BGM continuity policy를 소유한다.
 - shared audio runtime은 playback/mixing/settings-response infrastructure만 소유한다.
 - gameplay one-shot SFX는 계속 `GameplayAudioMap -> GameplayAudioPresentationController -> IGameplayAudioPlaybackPort` path에 남는다.
@@ -113,9 +118,9 @@ exact fail-fast messages:
 ### 6.1 Temporary Playback Suppression
 
 - `BgmRequestRouter.BeginPlaybackSuppression()`은 현재 playback을 정지하고 한 개의 active lease를 소유한다. 동시 lease는 setup defect로 fail fast 한다.
-- suppression 중에도 scene/stage requester는 기존 `Submit` 계약을 유지한다. router는 최신 최우선 request를 선택 상태로 갱신하지만 coordinator에 실행하지 않는다.
+- suppression 중에도 scene/stage requester는 동일한 `Acquire`/lease 계약을 유지한다. claim 등록과 철회는 최신 최우선 selection만 갱신하고 coordinator에 실행하지 않는다.
 - cancellation, setup failure, stale callback, immediate route rejection처럼 source scene에 남는 종료는 lease dispose로 수렴한다. router는 캡처된 과거 request가 아니라 종료 시점의 현재 최우선 request를 다시 계산해 실행한다.
-- destination route가 동기적으로 승인된 종료만 `ReleaseWithoutRestore()`를 사용한다. 이전 scene BGM은 재시작하지 않고, suppression 해제 뒤 destination requester의 다음 `Submit`이 정상 실행된다.
+- destination route가 동기적으로 승인된 종료만 `ReleaseWithoutRestore()`를 사용한다. 이전 scene BGM은 재시작하지 않고, suppression 해제 뒤 destination requester의 다음 claim acquisition만 playback을 실행한다. 그 사이의 claim 철회는 selection만 갱신한다.
 - 이 lease는 `ComicSequence` 같은 새 global request source kind를 만들지 않으며 `IBgmPlaybackPort`의 `Play` / `Stop` surface도 넓히지 않는다.
 - 동기 승인 뒤의 비동기 scene-load failure 복구는 scene-transition owner의 별도 책임이며 comic audio-focus 종료가 완료를 주장하지 않는다.
 

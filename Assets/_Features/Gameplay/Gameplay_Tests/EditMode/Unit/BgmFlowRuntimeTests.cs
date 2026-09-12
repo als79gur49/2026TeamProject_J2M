@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Flow.Audio;
+using Game.Feature.Gameplay.Host;
+using Game.Feature.Stages;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
@@ -294,6 +296,110 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void SceneBgmRequestSource_Destroy_ReleasesOwnedSceneClaimWithoutStoppingPlayback()
+        {
+            var bootstrap = CreatePersistentBootstrap("SceneClaimBootstrap");
+            var profile = CreateProfile(
+                "SceneClaimProfile",
+                CreateDefinition("SceneClaimDefinition", AudioCategory.Bgm));
+            var requestSourceObject = Track(new GameObject("SceneClaimSource"));
+            requestSourceObject.SetActive(false);
+            var requestSource = requestSourceObject.AddComponent<SceneBgmRequestSource>();
+            SetSerializedField(typeof(SceneBgmRequestSource), requestSource, "bootstrap", bootstrap);
+            SetSerializedField(typeof(SceneBgmRequestSource), requestSource, "profile", profile);
+
+            requestSourceObject.SetActive(true);
+            InvokePrivateMethod(requestSource, "Start");
+            var router = bootstrap.GetRequestRouterOrThrow();
+            Assert.That(router.ActiveRequest.Value.Profile, Is.SameAs(profile));
+
+            InvokePrivateMethod(requestSource, "OnDestroy");
+            UnityEngine.Object.DestroyImmediate(requestSourceObject);
+
+            Assert.That(router.ActiveRequest.HasValue, Is.False);
+            Assert.That(bootstrap.GetCoordinatorOrThrow().GetCurrentProfile(), Is.SameAs(profile));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SceneBgmRequestSource_OlderDestroy_DoesNotRemoveNewerSameKindClaim()
+        {
+            var bootstrap = CreatePersistentBootstrap("SameKindBootstrap");
+            var firstProfile = CreateProfile(
+                "FirstSceneProfile",
+                CreateDefinition("FirstSceneDefinition", AudioCategory.Bgm));
+            var secondProfile = CreateProfile(
+                "SecondSceneProfile",
+                CreateDefinition("SecondSceneDefinition", AudioCategory.Bgm));
+            var firstObject = Track(new GameObject("FirstSceneSource"));
+            var secondObject = Track(new GameObject("SecondSceneSource"));
+            firstObject.SetActive(false);
+            secondObject.SetActive(false);
+            var firstSource = firstObject.AddComponent<SceneBgmRequestSource>();
+            var secondSource = secondObject.AddComponent<SceneBgmRequestSource>();
+            SetSerializedField(typeof(SceneBgmRequestSource), firstSource, "bootstrap", bootstrap);
+            SetSerializedField(typeof(SceneBgmRequestSource), firstSource, "profile", firstProfile);
+            SetSerializedField(typeof(SceneBgmRequestSource), secondSource, "bootstrap", bootstrap);
+            SetSerializedField(typeof(SceneBgmRequestSource), secondSource, "profile", secondProfile);
+
+            firstObject.SetActive(true);
+            secondObject.SetActive(true);
+            InvokePrivateMethod(firstSource, "Start");
+            InvokePrivateMethod(secondSource, "Start");
+            InvokePrivateMethod(firstSource, "OnDestroy");
+            UnityEngine.Object.DestroyImmediate(firstObject);
+
+            var router = bootstrap.GetRequestRouterOrThrow();
+            Assert.That(router.ActiveRequest.Value.Profile, Is.SameAs(secondProfile));
+            Assert.That(bootstrap.GetCoordinatorOrThrow().GetCurrentProfile(), Is.SameAs(secondProfile));
+
+            InvokePrivateMethod(secondSource, "OnDestroy");
+            UnityEngine.Object.DestroyImmediate(secondObject);
+            Assert.That(router.ActiveRequest.HasValue, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageInstaller_PostAcquisitionInitializationFailure_ReleasesStageClaim()
+        {
+            var bootstrap = CreatePersistentBootstrap("FailedStageInitializationBootstrap");
+            var profile = CreateProfile(
+                "FailedStageInitializationProfile",
+                CreateDefinition("FailedStageInitializationDefinition", AudioCategory.Bgm));
+            var installerObject = Track(new GameObject("FailedStageInitializationInstaller"));
+            var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+            var host = installerObject.AddComponent<GameplaySceneHost>();
+            SetSerializedField(
+                typeof(StageBackedGameplaySceneInstallerBase),
+                installer,
+                "globalAudioFlowBootstrap",
+                bootstrap);
+            SetSerializedField(
+                typeof(StageBackedGameplaySceneInstallerBase),
+                installer,
+                "_resolvedAudioData",
+                new StageAudioResolvedData(
+                    new StageBgmResolvedSlot(StageBgmSlotMode.Profile, profile)));
+            var initialStateType = typeof(GameplayShowcaseSceneInstallerBase).GetNestedType(
+                "InitialGameplayState",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var onHostInitialized = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
+                "OnHostInitialized",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(initialStateType, Is.Not.Null);
+            Assert.That(onHostInitialized, Is.Not.Null);
+
+            var exception = Assert.Throws<TargetInvocationException>(() => onHostInitialized.Invoke(
+                installer,
+                new[] { host, Activator.CreateInstance(initialStateType) }));
+
+            Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>());
+            Assert.That(bootstrap.GetRequestRouterOrThrow().ActiveRequest.HasValue, Is.False);
+            Assert.That(bootstrap.GetCoordinatorOrThrow().GetCurrentProfile(), Is.SameAs(profile));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GlobalAudioFlowBootstrap_Awake_RequiresCoLocatedInstallerConfiguredForPersistentBinding()
         {
             var bootstrapRoot = Track(new GameObject("GlobalAudioFlowBootstrap_Awake_RequiresCoLocatedInstallerConfiguredForPersistentBinding"));
@@ -503,6 +609,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var runtimeRoot = runtimeRootObject.AddComponent<AudioRuntimeRoot>();
             runtimeRoot.InitializeRuntime();
             return runtimeRoot;
+        }
+
+        private GlobalAudioFlowBootstrap CreatePersistentBootstrap(string rootName)
+        {
+            var rootObject = Track(new GameObject(rootName));
+            rootObject.SetActive(false);
+            var installer = rootObject.AddComponent<AudioRuntimeInstaller>();
+            var bootstrap = rootObject.AddComponent<GlobalAudioFlowBootstrap>();
+            SetSerializedField(typeof(AudioRuntimeInstaller), installer, "installOnAwake", false);
+            SetSerializedField(
+                typeof(AudioRuntimeInstaller),
+                installer,
+                "bindingMode",
+                AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime);
+            SetSerializedField(typeof(GlobalAudioFlowBootstrap), bootstrap, "audioRuntimeInstaller", installer);
+            InvokePrivateMethod(bootstrap, "Awake");
+            return bootstrap;
         }
 
         private BgmProfile CreateProfile(

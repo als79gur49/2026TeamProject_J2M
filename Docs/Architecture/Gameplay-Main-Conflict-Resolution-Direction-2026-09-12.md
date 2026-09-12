@@ -255,6 +255,7 @@ lane/checkpoint마다 별도 `TEST_RESULTS_ROOT`를 지정하여 XML 덮어쓰�
 ### 범위와 실제 기준
 
 - 원격 `git fetch origin` 후 HEAD `3c71601b0cd812cee7c752319fb59eadd9ed667a`, main `80a203573f2c760b2b3b1ed23bcd4734d64487a8`, 공통 조상 `5d338c54a890bb5225ddda9d769f880846b8f1ca`가 최초 검토와 일치했다. 추가 원격 diff는 없다.
+- PR Draft 후 origin/main이 `4c4d88c455dc8a0505b3aaf490fe425085fea5b5`로 진행했다. 추가 BGM lifecycle 11개 파일은 PR net diff와 직접 텍스트 충돌이 없었지만 gameplay scene installer·core·PlayMode와 의미적으로 결합하므로 head에 재통합하고 관련 lane을 다시 실행한다.
 - `j2m-worktree-add main-conflict-20260912 --new codex/main-conflict-resolution-20260912 3c71601b0cd812cee7c752319fb59eadd9ed667a`로 `/mnt/d/J2M/worktrees/main-conflict-20260912`를 생성했다. 생성 전 D 약 775 GiB, C 약 77 GiB 여유 공간 및 생성 전후 `j2m-worktree-audit` PASS를 확인했다. Library는 다른 worktree와 공유하지 않는다.
 - 새 worktree에서 `git merge --no-commit --no-ff 80a203573f2c760b2b3b1ed23bcd4734d64487a8`를 실행했다. 실제 텍스트 충돌은 §2와 동일한 세 파일이다. 검증한 staged tree `aae96b7b9bacf3a0f4658f23e52239182835ec92`를 두 부모를 가진 merge commit `cbb2cafd935b3268c2a1fb76f2495b1087349550`으로 기록해 통합 브랜치에 push하고 main 대상 Draft PR #204를 생성했다. main 직접 변경은 수행하지 않았다.
 - 기존 C worktree의 README 수정, 방향 문서와 `Assets/AddressableAssetsData/Windows.meta`는 보존한다. 방향 문서만 통합 worktree의 설계 입력으로 복사했다. 입력 사본과 SHA-256은 `/mnt/d/J2M/evidence/main-conflict-20260912/input/`에 보관한다.

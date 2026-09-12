@@ -80,6 +80,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BgmRequestRegistration_PublicSurface_IsLeaseOnlyWithoutUnscopedClear()
+        {
+            var methods = typeof(BgmRequestRouter)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(method => !method.IsSpecialName)
+                .ToArray();
+
+            Assert.That(
+                methods.Select(method => method.Name).OrderBy(name => name).ToArray(),
+                Is.EqualTo(new[] { "Acquire", "BeginPlaybackSuppression" }));
+            Assert.That(
+                methods.Single(method => method.Name == "Acquire").ReturnType,
+                Is.EqualTo(typeof(BgmRequestLease)));
+            Assert.That(
+                typeof(StageAudioRuntimeRequestSource).GetMethod("Apply")?.ReturnType,
+                Is.EqualTo(typeof(BgmRequestLease)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRequestOwners_RetainAndDisposeAcquiredLeases()
+        {
+            var sceneSource = ReadRepoFile(
+                "Assets/_Features/Flow/Flow_Audio/Runtime/SceneBgmRequestSource.cs");
+            var stageSource = ReadRepoFile(
+                "Assets/_Features/Flow/Flow_Audio/Runtime/StageAudioRuntimeRequestSource.cs");
+            var stageOwner = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
+
+            Assert.That(sceneSource, Does.Contain("BgmRequestLease requestLease"));
+            Assert.That(sceneSource, Does.Contain("private void OnDestroy()"));
+            Assert.That(stageSource, Does.Contain("public BgmRequestLease Apply("));
+            Assert.That(stageSource, Does.Contain("return router.Acquire("));
+            Assert.That(stageOwner, Does.Contain("BgmRequestLease _stageBgmRequestLease"));
+            Assert.That(stageOwner, Does.Contain("ReleaseStageBgmRequestLease();"));
+            Assert.That(sceneSource + stageSource + stageOwner, Does.Not.Contain(".Submit(BgmFlowRequest"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayAudioCatalog_RequiredSet_RemainsOneShotOnly_WithoutBgmFlow()
         {
             Assert.That(
