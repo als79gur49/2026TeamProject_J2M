@@ -17,6 +17,7 @@ namespace Game.Feature.UI.Screens
         private const string AudioSfxMuteNodeId = "Audio.Sfx.Mute";
         private const string DisplayResolutionDropdownNodeId = "Display.Resolution.Dropdown";
         private const string DisplayFullscreenToggleNodeId = "Display.Fullscreen.Toggle";
+        private const string DisplayLanguageButtonNodeId = "Display.Language.Button";
         private const string DisplayApplyButtonNodeId = "Display.Apply.Button";
         private const string DisplayRevertButtonNodeId = "Display.Revert.Button";
         private const string InputMovementToggleNodeId = "Input.Movement.Toggle";
@@ -80,10 +81,19 @@ namespace Game.Feature.UI.Screens
                 () => view.DisplayView != null &&
                       SettingsScreenView.InvokeAndReturnTrue(() => view.DisplayView.SetFullscreen(!view.DisplayView.IsFullscreenOn)));
             view.RegisterFocusNode(
-                DisplayApplyButtonNodeId,
+                DisplayLanguageButtonNodeId,
                 UiFocusRegion.Display,
                 UiFocusNodeKind.Button,
                 2,
+                0,
+                () => view.DisplayView != null &&
+                      SettingsScreenView.InvokeAndReturnTrue(view.DisplayView.ClickLanguageCycle),
+                isInteractable: () => view.DisplayView != null && view.DisplayView.IsLanguageCycleInteractable);
+            view.RegisterFocusNode(
+                DisplayApplyButtonNodeId,
+                UiFocusRegion.Display,
+                UiFocusNodeKind.Button,
+                3,
                 0,
                 () => view.DisplayView != null &&
                       SettingsScreenView.InvokeAndReturnTrue(view.DisplayView.ClickApply),
@@ -92,7 +102,7 @@ namespace Game.Feature.UI.Screens
                 DisplayRevertButtonNodeId,
                 UiFocusRegion.Display,
                 UiFocusNodeKind.Button,
-                2,
+                3,
                 1,
                 () => view.DisplayView != null &&
                       SettingsScreenView.InvokeAndReturnTrue(view.DisplayView.ClickRevert),

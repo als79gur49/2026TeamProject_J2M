@@ -19146,10 +19146,18 @@ MonoBehaviour:
     SelectionFrame: {fileID: 3960001768395315345}
     VisualProfile: {fileID: 11400000, guid: e46a5c0937a949bbbf8bcb65bb9f4ce0, type: 2}
     SelectionFeedback: {fileID: 0}
-  - Id: Display.Apply.Button
+  - Id: Display.Language.Button
     Region: 2
     Kind: 0
     Row: 2
+    Column: 0
+    SelectionFrame: {fileID: 1868659122288234507}
+    VisualProfile: {fileID: 11400000, guid: e46a5c0937a949bbbf8bcb65bb9f4ce0, type: 2}
+    SelectionFeedback: {fileID: 0}
+  - Id: Display.Apply.Button
+    Region: 2
+    Kind: 0
+    Row: 3
     Column: 0
     SelectionFrame: {fileID: 2571563202213784196}
     VisualProfile: {fileID: 11400000, guid: e46a5c0937a949bbbf8bcb65bb9f4ce0, type: 2}
@@ -19157,7 +19165,7 @@ MonoBehaviour:
   - Id: Display.Revert.Button
     Region: 2
     Kind: 0
-    Row: 2
+    Row: 3
     Column: 1
     SelectionFrame: {fileID: 6052973609733525225}
     VisualProfile: {fileID: 11400000, guid: e46a5c0937a949bbbf8bcb65bb9f4ce0, type: 2}

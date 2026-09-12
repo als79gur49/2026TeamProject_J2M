@@ -1077,6 +1077,7 @@ namespace Game.Feature.UI.Tests
                 "Audio.Sfx.Mute",
                 "Display.Resolution.Dropdown",
                 "Display.Fullscreen.Toggle",
+                "Display.Language.Button",
                 "Display.Apply.Button",
                 "Display.Revert.Button",
                 "Input.Movement.Toggle",
@@ -2180,11 +2181,54 @@ namespace Game.Feature.UI.Tests
             Assert.That(applyCount, Is.EqualTo(1));
         }
 
+        [Test]
+        public void SettingsDisplayLanguageCycle_PointerAndSubmit_UseSameActionExactlyOnce()
+        {
+            using var harness = CreateSettingsHarness(
+                SettingsSectionId.Display,
+                languageSelectionAvailable: true);
+            var languageCycleCount = 0;
+            harness.View.DisplayView.LanguageCycleRequested += () => languageCycleCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Language.Button"));
+
+            var slots = GetPrivateField<UiFocusNodeSlot[]>(harness.View, "_focusNodeSlots");
+            var languageSlot = FindSettingsFocusSlot(slots, "Display.Language.Button");
+            Assert.That(IsSelectionFrameVisiblyShown(languageSlot.SelectionFrame), Is.True);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(languageCycleCount, Is.EqualTo(1));
+
+            var languageButton = GetPrivateField<Button>(harness.View.DisplayView, "_languageCycleButton");
+            Assert.That(languageButton.GetComponent<UiHoverScaleEffect>(), Is.Not.Null);
+            languageButton.onClick.Invoke();
+
+            Assert.That(languageCycleCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void SettingsDisplayLanguageCycle_WhenUnavailable_IsSkippedByNavigation()
+        {
+            using var harness = CreateSettingsHarness(
+                SettingsSectionId.Display,
+                languageSelectionAvailable: false);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Apply.Button"));
+        }
+
         private static SettingsHarness CreateSettingsHarness(
             SettingsSectionId selectedSection = SettingsSectionId.Audio,
             IReadOnlyList<string> resolutionOptions = null,
             int selectedResolutionIndex = 0,
-            bool inputControlsInteractable = true)
+            bool inputControlsInteractable = true,
+            bool languageSelectionAvailable = false)
         {
             var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
                 UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
@@ -2212,7 +2256,10 @@ namespace Game.Feature.UI.Tests
                 string.Empty,
                 0f,
                 false,
-                isDisplayStatusVisible: false);
+                isDisplayStatusVisible: false,
+                languageLabelText: "Language",
+                currentLanguageText: "English",
+                isLanguageSelectionAvailable: languageSelectionAvailable);
             inputViewModel.SetContent(
                 "Movement",
                 false,

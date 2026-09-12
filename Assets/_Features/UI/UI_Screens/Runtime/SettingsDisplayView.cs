@@ -75,6 +75,9 @@ namespace Game.Feature.UI.Screens
         public bool IsDisplayRevertInteractable =>
             _revertButton != null && _revertButton.interactable;
 
+        public bool IsLanguageCycleInteractable =>
+            _languageCycleButton != null && _languageCycleButton.interactable;
+
         public int SelectedResolutionIndex =>
             _resolutionDropdown != null ? _resolutionDropdown.value : 0;
 
