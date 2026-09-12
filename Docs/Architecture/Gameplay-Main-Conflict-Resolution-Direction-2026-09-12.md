@@ -240,12 +240,12 @@ lane/checkpoint마다 별도 `TEST_RESULTS_ROOT`를 지정하여 XML 덮어쓰�
 
 ## 9. 미해결 사항과 완료 판단
 
-- 위 코드는 설계안이다. 컴파일 및 실제 Unity 동작으로 확인하지 않았다. 현재 문서화 작업에서는 runtime/asset/runner를 변경하지 않아 Unity core/ui/full과 Editor/Player 검증을 실행하지 않는다.
+- 아래 §10의 통합 구현과 자동 검증을 완료하고 PR #204를 Draft로 게시했다. 실제 Player 빌드와 수동 화면 캡처는 실행하지 않았으며 자동 Animator/Editor 검증과 구분한다.
 - Normalize 예외를 직접 주입하는 기존 테스트는 검토에서 확인하지 못했다. 재현 가능한 객체 상태를 우선 조사하고, 필요하면 cleanup 경계에 제한된 internal 테스트 seam을 사용한다. 공개 API나 매 프레임 경로를 테스트 때문에 확장하지 않는다.
 - `Reset()` 전체의 batch normalization 예외 안전성은 별도 잔여 위험이다. 실패 snapshot clear는 이번 수명 관리에 포함하지만 모든 Reset 실패 복구까지 완료했다고 주장하려면 별도 구현·테스트가 필요하다.
 - 실패 snapshot과 새 입력의 우선순위, pending 명령 상호 취소의 정확한 호출 위치는 구현 단계의 집중 검증 대상이다. 설계 설명만으로 이 경계의 안전성을 확정하지 않는다.
 - 새 metadata는 DrSaturn 세 cue의 확인된 복원 요구를 지원한다. 다른 Prefab의 Trigger 시각 복원 동등성이나 전체 성능 개선을 자동 주장하지 않는다.
-- 충돌 영역 검증만으로 104개 파일의 전체 PR 리뷰가 끝난 것은 아니다. 다른 변경 영역 및 최신 main 추가 변경은 PR 준비 검토에 남는다.
+- 충돌 영역 검증만으로 기존 head 104개 파일의 전체 기능 리뷰가 끝난 것은 아니다. PR #204는 이 문서 보강 포함 main 대비 123개 파일과 기존 head의 독립 변경군을 포함하므로 Draft 설명과 tracked 검증 요약에서 범위 및 검증 한계를 별도로 공개한다.
 
 완료 보고에는 이 문서의 각 보존 계약과 검증 항목의 실제 결과를 연결한다. 실패를 숨기기 위해 기존 테스트를 완화하지 않고, 필요한 설계 변경은 이유와 대체 검증을 기록한다. 구현·병합·성능 개선 완료 표시는 해당 실행 증거를 확보한 뒤 갱신한다.
 
@@ -256,7 +256,7 @@ lane/checkpoint마다 별도 `TEST_RESULTS_ROOT`를 지정하여 XML 덮어쓰�
 
 - 원격 `git fetch origin` 후 HEAD `3c71601b0cd812cee7c752319fb59eadd9ed667a`, main `80a203573f2c760b2b3b1ed23bcd4734d64487a8`, 공통 조상 `5d338c54a890bb5225ddda9d769f880846b8f1ca`가 최초 검토와 일치했다. 추가 원격 diff는 없다.
 - `j2m-worktree-add main-conflict-20260912 --new codex/main-conflict-resolution-20260912 3c71601b0cd812cee7c752319fb59eadd9ed667a`로 `/mnt/d/J2M/worktrees/main-conflict-20260912`를 생성했다. 생성 전 D 약 775 GiB, C 약 77 GiB 여유 공간 및 생성 전후 `j2m-worktree-audit` PASS를 확인했다. Library는 다른 worktree와 공유하지 않는다.
-- 새 worktree에서 `git merge --no-commit --no-ff 80a203573f2c760b2b3b1ed23bcd4734d64487a8`를 실행했다. 실제 텍스트 충돌은 §2와 동일한 세 파일이다. 최종 commit, push, PR 생성 및 main 직접 변경은 이 작업에 포함하지 않는다. 따라서 검증 대상은 HEAD/MERGE_HEAD 두 부모 위의 미커밋 작업파일이다.
+- 새 worktree에서 `git merge --no-commit --no-ff 80a203573f2c760b2b3b1ed23bcd4734d64487a8`를 실행했다. 실제 텍스트 충돌은 §2와 동일한 세 파일이다. 검증한 staged tree `aae96b7b9bacf3a0f4658f23e52239182835ec92`를 두 부모를 가진 merge commit `cbb2cafd935b3268c2a1fb76f2495b1087349550`으로 기록해 통합 브랜치에 push하고 main 대상 Draft PR #204를 생성했다. main 직접 변경은 수행하지 않았다.
 - 기존 C worktree의 README 수정, 방향 문서와 `Assets/AddressableAssetsData/Windows.meta`는 보존한다. 방향 문서만 통합 worktree의 설계 입력으로 복사했다. 입력 사본과 SHA-256은 `/mnt/d/J2M/evidence/main-conflict-20260912/input/`에 보관한다.
 - evidence는 `/mnt/d/J2M/evidence/main-conflict-20260912/`, build는 `/mnt/d/J2M/builds/main-conflict-20260912/` 아래로 분리한다.
 - broad 실패의 부모 재현 근거를 위해 동일 main SHA의 detached 진단 worktree `/mnt/d/J2M/worktrees/main-conflict-baseline-20260912`를 `j2m-worktree-add`로 추가했다. 생성 전 D 765 GiB/C 77 GiB 및 생성 전후 audit PASS, 전용 Library를 사용한다. 이 경로의 결과는 부모 baseline evidence이며 통합본 검증을 대신하지 않는다. 다른 통합 계획의 브랜치는 포함하지 않는다.
@@ -281,14 +281,14 @@ lane/checkpoint마다 별도 `TEST_RESULTS_ROOT`를 지정하여 XML 덮어쓰�
 
 ### 실행 결과 / 미실행 / 잔여 항목
 
-검증 경로의 공통 root는 `/mnt/d/J2M/evidence/main-conflict-20260912`다. 각 실행의 `execution.json`에 명령, 부모 SHA, resolved project path, 환경변수, 소스 hash, XML 경로, fixture 및 case별 결과를 기록했다. 검증은 모두 해당 worktree의 `./run_tests.sh`로 실행했다. 아래 최종 통합 네 lane은 동일한 C#/Prefab/runner hash에서 실행됐고 실행 전후 값도 같았다. 미커밋 최종 tree와 변경 파일 식별값은 `final-source-review.json`, 전체 lane 목록은 `lane-index.json`에서 확인한다.
+검증 경로의 공통 root는 `/mnt/d/J2M/evidence/main-conflict-20260912`다. 초기 통합 실행은 `execution.json`, `final-source-review.json`, `lane-index.json`에 식별값과 결과를 기록했다. PR 직전 최종 실행은 각 결과 디렉터리의 runner log·XML·integrity log를 사용하며 별도 `execution.json`은 생성하지 않았다. 이 구분과 최종 소스 tree·commit 관계는 [PR #204 검증 요약](../Testing/Gameplay-Main-Conflict-Resolution-PR204-Validation.md)에 검토 가능한 tracked 문서로 남겨 로컬 절대 경로만으로 검증을 주장하지 않는다. 검증은 모두 해당 worktree의 `./run_tests.sh`로 실행했다.
 
 | 최종 실행 | 결과 | XML / 증거 (공통 root 기준) |
 |---|---|---|
-| `filtered-full-05` | exit 0. EditMode 363/363, PlayMode 12/12 PASS | `filtered-full-05/results/wsl-unity-full-{editmode,playmode}.xml` |
-| `core-02` | exit 0. EditMode 273/273 PASS, PlayMode 111 total = 107 passed + 4 skipped, 실패 0 | `core-02/results/wsl-unity-core-{editmode,playmode}.xml` |
-| `ui-02` | exit 0. EditMode 1356/1356 PASS | `ui-02/results/wsl-unity-ui-editmode.xml` |
-| `broad-full-03` | exit 1. EditMode 8866 total = 8818 passed + 31 failed + 17 skipped. PlayMode는 EditMode 실패로 미실행 | `broad-full-03/results/wsl-unity-full-editmode.xml` |
+| `terminal-death-unsupported-fix-filtered-01` | exit 0. EditMode 51/51, PlayMode 12/12 PASS | `terminal-death-unsupported-fix-filtered-01/results/wsl-unity-full-{editmode,playmode}.xml` |
+| `terminal-death-unsupported-fix-core-01` | exit 0. EditMode 273/273 PASS, PlayMode 111 total = 107 passed + 4 skipped, 실패 0 | `terminal-death-unsupported-fix-core-01/results/wsl-unity-core-{editmode,playmode}.xml` |
+| `pr-open-final-ui-01` | exit 0. EditMode 1356/1356 PASS | `pr-open-final-ui-01/results/wsl-unity-ui-editmode.xml` |
+| `pr-open-final-broad-02` | exit 1. EditMode 8871 total = 8823 passed + 31 failed + 17 skipped. PlayMode는 EditMode 실패로 미실행 | `pr-open-final-broad-02/results/wsl-unity-full-editmode.xml` |
 | 부모 `main-baseline-filtered-01` | exit 1. 실패 fixture 17개 선택: 469 total = 416 passed + 39 failed + 14 skipped | `main-baseline-filtered-01/execution.json` |
 | 부모 `main-baseline-ui-01` | exit 0. EditMode 1356/1356 PASS | `main-baseline-ui-01/results/wsl-unity-ui-editmode.xml` |
 | 부모 `main-baseline-broad-01` | exit 1. EditMode 8705 total = 8657 passed + 33 failed + 15 skipped. PlayMode는 미실행 | `main-baseline-broad-01/results/wsl-unity-full-editmode.xml` |
@@ -312,7 +312,7 @@ lane/checkpoint마다 별도 `TEST_RESULTS_ROOT`를 지정하여 XML 덮어쓰�
 - 컴파일과 touched 검증: 최종 filtered/core/ui 통과 및 실제 Prefab Animator/Editor 검증 완료. 발견했던 통합 회귀 두 건과 binding fixture 의미 불일치는 수정 후 재검증했다. 현재 확인된 미해결 touched 회귀는 없다.
 - broad: 실행했으나 baseline 31개 실패로 red. broad PlayMode는 runner의 EditMode 실패 중단 규칙 때문에 미실행이며 core/filtered PlayMode로 대체 완료 표시하지 않는다.
 - 잔여 한계: Reset은 예외 시 수명 상태를 정리하지만 첫 normalization 실패 뒤 모든 남은 pulse normalization의 성공까지 보장하지 않는다. 후보 준비 실패 시 candidate Animator의 부분 변경 자체는 rollback하지 않는다. 실패 snapshot의 최신 입력 우선순위는 Coordinator를 통과한 입력에 적용한다. 다른 Prefab의 동등성, screenshot/manual 표시, 전체 성능 개선, 전체 PR 리뷰는 검증하지 않았다.
-- 검토용 미커밋 merge와 evidence를 준비했다. broad baseline 및 미실행 범위를 명시한 상태이며 전체 green/무조건 merge-ready를 주장하지 않는다. 최종 commit, push, PR 생성과 main 직접 변경은 수행하지 않았다. 기존 C worktree 사용자 파일은 변경하지 않았다.
+- merge commit `cbb2cafd935b3268c2a1fb76f2495b1087349550`을 `codex/main-conflict-resolution-20260912`에 push하고 main 대상 Draft PR #204를 생성했다. broad baseline 및 미실행 범위를 명시한 상태이며 checks·review 없이 Ready/merge-ready를 주장하지 않는다. main 직접 변경은 수행하지 않았고 기존 C worktree 사용자 파일은 보존했다.
 
 ### Broad 검증 timeout 보완
 
