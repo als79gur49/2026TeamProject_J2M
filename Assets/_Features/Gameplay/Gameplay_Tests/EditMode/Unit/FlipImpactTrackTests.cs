@@ -150,33 +150,166 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var fallbackSignal = CreateSignal(FlipImpactPresentationDisposition.Stay, sourceActionPlanId: 0);
 
             Assert.That(
-                PresentationMotionInstanceKey.CreateFlipImpactStay(actionPlanCommand),
+                PresentationMotionInstanceKey.CreateFlipImpactStay(actionPlanCommand, tickIndex: 55),
                 Is.EqualTo(new PresentationMotionInstanceKey(
                     PresentationMotionKind.FlipImpactStay,
+                    55,
                     7,
                     actionPlanCommand.BoxEntityId,
                     usesTickFallback: false)));
             Assert.That(
-                PresentationMotionInstanceKey.CreateFlipImpactStay(fallbackCommand),
+                PresentationMotionInstanceKey.CreateFlipImpactStay(fallbackCommand, tickIndex: 55),
                 Is.EqualTo(new PresentationMotionInstanceKey(
                     PresentationMotionKind.FlipImpactStay,
+                    55,
                     99,
                     fallbackCommand.BoxEntityId,
                     usesTickFallback: true)));
             Assert.That(
-                PresentationMotionInstanceKey.CreateFlipImpactStay(actionPlanSignal, tickIndexFallback: 55),
+                PresentationMotionInstanceKey.CreateFlipImpactStay(actionPlanSignal, tickIndex: 55),
                 Is.EqualTo(new PresentationMotionInstanceKey(
                     PresentationMotionKind.FlipImpactStay,
+                    55,
                     7,
                     actionPlanSignal.BoxEntityId,
                     usesTickFallback: false)));
             Assert.That(
-                PresentationMotionInstanceKey.CreateFlipImpactStay(fallbackSignal, tickIndexFallback: 55),
+                PresentationMotionInstanceKey.CreateFlipImpactStay(fallbackSignal, tickIndex: 55),
                 Is.EqualTo(new PresentationMotionInstanceKey(
                     PresentationMotionKind.FlipImpactStay,
                     55,
+                    55,
                     fallbackSignal.BoxEntityId,
                     usesTickFallback: true)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationMotionInstanceKey_SameBoxAndActionPlanAcrossTicks_RemainsDistinct()
+        {
+            var signal = CreateSignal(FlipImpactPresentationDisposition.Stay, sourceActionPlanId: 7);
+
+            var firstTick = PresentationMotionInstanceKey.CreateFlipImpactStay(signal, tickIndex: 55);
+            var secondTick = PresentationMotionInstanceKey.CreateFlipImpactStay(signal, tickIndex: 56);
+
+            Assert.That(secondTick, Is.Not.EqualTo(firstTick));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationMotionCompletionLedger_BoundsHistoryAndPreservesTickIdentity()
+        {
+            var ledger = new PresentationMotionCompletionLedger();
+            var first = new PresentationMotionInstanceKey(
+                PresentationMotionKind.FlipImpactStay,
+                tickIndex: 55,
+                correlationId: 7,
+                entityId: 20,
+                usesTickFallback: false);
+            var sameTickDifferentPlan = new PresentationMotionInstanceKey(
+                PresentationMotionKind.FlipImpactStay,
+                tickIndex: 55,
+                correlationId: 8,
+                entityId: 20,
+                usesTickFallback: false);
+            var nextTick = new PresentationMotionInstanceKey(
+                PresentationMotionKind.FlipImpactStay,
+                tickIndex: 56,
+                correlationId: 7,
+                entityId: 20,
+                usesTickFallback: false);
+
+            ledger.RecordCompleted(first);
+
+            Assert.That(ledger.IsCompleted(first), Is.True);
+            Assert.That(ledger.IsCompleted(sameTickDifferentPlan), Is.False);
+            Assert.That(ledger.IsCompleted(nextTick), Is.False);
+            Assert.That(ledger.ScopeCount, Is.EqualTo(1));
+            Assert.That(ledger.Count, Is.EqualTo(1));
+
+            ledger.RecordCompleted(sameTickDifferentPlan);
+            Assert.That(ledger.IsCompleted(sameTickDifferentPlan), Is.True);
+            Assert.That(ledger.ScopeCount, Is.EqualTo(1));
+            Assert.That(ledger.Count, Is.EqualTo(2));
+
+            ledger.RecordCompleted(nextTick);
+            Assert.That(ledger.IsCompleted(first), Is.True, "Older replay must remain suppressed.");
+            Assert.That(ledger.IsCompleted(nextTick), Is.True);
+            Assert.That(ledger.ScopeCount, Is.EqualTo(1), "History must be bounded by logical motion/entity scope.");
+            Assert.That(ledger.Count, Is.EqualTo(1), "Key diagnostics must describe retained correlations.");
+
+            Assert.That(ledger.RemoveEntity(20), Is.EqualTo(1));
+            Assert.That(ledger.Count, Is.Zero);
+            Assert.That(ledger.IsCompleted(nextTick), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayExitPresentationController_ImmediateExit_RemovesOnlyExitedEntityCompletionKeys()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            var controller = new GameplayExitPresentationController(
+                stateStore,
+                trackState);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var exitCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var exitedKey = new PresentationMotionInstanceKey(
+                PresentationMotionKind.FlipImpactStay,
+                tickIndex: 55,
+                correlationId: 7,
+                entityId: 20,
+                usesTickFallback: false);
+            var retainedKey = new PresentationMotionInstanceKey(
+                PresentationMotionKind.FlipImpactStay,
+                tickIndex: 55,
+                correlationId: 8,
+                entityId: 21,
+                usesTickFallback: false);
+            trackState.CompletedPresentationMotions.RecordCompleted(exitedKey);
+            trackState.CompletedPresentationMotions.RecordCompleted(retainedKey);
+            stateStore.EntityTypesByEntityId[20] = EntityType.Box;
+            stateStore.EntityTypesByEntityId[21] = EntityType.Box;
+
+            controller.RefreshEntityExitPlan(new TickPresentationData(
+                entityMotions: System.Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: System.Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: System.Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: System.Array.Empty<TickPlayerActionPresentationSignal>(),
+                enemyActionSignals: System.Array.Empty<TickEnemyActionPresentationSignal>(),
+                entityExitSignals: new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        exitedEntityId: 20,
+                        exitCause: TickEntityExitCause.BoxDestroy,
+                        sourceCell: exitCell,
+                        topology: topology,
+                        facing: Direction.Right,
+                        entityType: EntityType.Box),
+                }));
+
+            controller.ApplyEntityExitOwnership();
+
+            Assert.That(trackState.CompletedPresentationMotions.ContainsEntity(20), Is.False);
+            Assert.That(trackState.CompletedPresentationMotions.ContainsEntity(21), Is.True);
+            Assert.That(trackState.CompletedPresentationMotions.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationMotionTrack_FlipImpactStay_ProgressPreservesSourceTick()
+        {
+            var command = CreateCommand(sourceActionPlanId: 7);
+            var track = PresentationMotionTrack.CreateFlipImpactStay(command, tickIndex: 55);
+
+            track.Advance(command.DurationSeconds * command.ContactNormalizedTime);
+
+            Assert.That(track.TryCaptureProgress(out var progress), Is.True);
+            Assert.That(progress.TickIndex, Is.EqualTo(55));
+            Assert.That(progress.EntityId, Is.EqualTo(command.BoxEntityId));
+            Assert.That(progress.SequenceOrActionPlanId, Is.EqualTo(command.SourceActionPlanId));
+            Assert.That(progress.SourceKind, Is.EqualTo(MotionTrackProgressSourceKind.OriginalViewMotion));
         }
 
         [Test]
@@ -186,7 +319,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var command = CreateCommand(sourceActionPlanId: 0, presentationSeed: 99);
 
             var presentationCommand =
-                FlipImpactStayPresentationMotionCommandAdapter.ToPresentationMotionCommand(command);
+                FlipImpactStayPresentationMotionCommandAdapter.ToPresentationMotionCommand(command, tickIndex: 55);
 
             Assert.That(presentationCommand.EntityId, Is.EqualTo(command.BoxEntityId));
             Assert.That(presentationCommand.Kind, Is.EqualTo(PresentationMotionKind.FlipImpactStay));
@@ -194,6 +327,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationCommand.InstanceKey,
                 Is.EqualTo(new PresentationMotionInstanceKey(
                     PresentationMotionKind.FlipImpactStay,
+                    55,
                     99,
                     command.BoxEntityId,
                     usesTickFallback: true)));
@@ -215,7 +349,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void PresentationMotionTrack_FlipImpactStay_ReturnArcMultiplierZero_ReturnsWithoutArcLift()
         {
             var command = CreateCommand(returnArcMultiplier: 0f);
-            var track = PresentationMotionTrack.CreateFlipImpactStay(command);
+            var track = PresentationMotionTrack.CreateFlipImpactStay(command, tickIndex: 55);
             var holdEndTime = command.ContactNormalizedTime + command.PostContactHoldNormalizedDuration;
             var returnMidpointTime = holdEndTime + ((1f - holdEndTime) * 0.5f);
             var expectedPose = FlipArcSampler.Sample(
@@ -321,8 +455,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationTrack, Does.Contain("internal sealed class PresentationMotionTrack"));
             Assert.That(presentationTrack, Does.Contain("PresentationMotionSample"));
             Assert.That(planner, Does.Contain("OriginalViewMotionTracks"));
-            Assert.That(planner, Does.Contain("CompletedPresentationMotionKeys"));
-            Assert.That(planner, Does.Contain("PresentationMotionTrack.CreateFlipImpactStay(command)"));
+            Assert.That(planner, Does.Contain("CompletedPresentationMotions"));
+            Assert.That(planner, Does.Contain("PresentationMotionTrack.CreateFlipImpactStay(command, result.TickIndex)"));
             Assert.That(applier, Does.Contain("HasSuppressingOriginalViewMotion(track.BoxEntityId)"));
             Assert.That(boxFlipInteractionDriver, Does.Contain("BoxFlipInteractionDriver"));
         }
@@ -463,7 +597,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static PresentationMotionTrack CreatePresentationTrack(in FlipImpactStayMotionCommand command)
         {
-            return PresentationMotionTrack.CreateFlipImpactStay(command);
+            return PresentationMotionTrack.CreateFlipImpactStay(command, tickIndex: 55);
         }
 
         private static void AssertSamplePoseMatches(PresentationMotionSample sample, GameplayEntityPose expectedPose)

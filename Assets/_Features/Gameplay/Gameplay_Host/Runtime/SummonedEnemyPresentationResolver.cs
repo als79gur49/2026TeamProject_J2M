@@ -9,7 +9,7 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class SummonedEnemyPresentationResolver
     {
-        private readonly HashSet<int> _ownedEntityIds = new();
+        private readonly Dictionary<int, GameplayEntityView> _ownedViewsByEntityId = new();
         private readonly List<int> _staleOwnedEntityIds = new();
 
         private GameplayAnimationSyncCoordinator _animationSync;
@@ -18,6 +18,13 @@ namespace Game.Feature.Gameplay.Host
         private Transform _viewParent;
         private GameplayEntityViewRegistry _viewRegistry;
         private EnemyInactiveVisualSettings _enemyInactiveVisualSettings;
+        private Func<int, bool> _shouldRetainViewForPendingExit;
+        private bool _isResettingSession;
+
+        public void SetPendingExitRetentionPredicate(Func<int, bool> predicate)
+        {
+            _shouldRetainViewForPendingExit = predicate;
+        }
 
         public void Initialize(
             Transform viewParent,
@@ -27,9 +34,14 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationArchetypeRegistry registry,
             EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
-            _viewRegistry = viewRegistry ?? throw new ArgumentNullException(nameof(viewRegistry));
-            _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
-            _animationSync = animationSync ?? throw new ArgumentNullException(nameof(animationSync));
+            var resolvedViewRegistry = viewRegistry ?? throw new ArgumentNullException(nameof(viewRegistry));
+            var resolvedStateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
+            var resolvedAnimationSync = animationSync ?? throw new ArgumentNullException(nameof(animationSync));
+
+            ResetSession();
+            _viewRegistry = resolvedViewRegistry;
+            _stateStore = resolvedStateStore;
+            _animationSync = resolvedAnimationSync;
             _viewParent = viewParent != null ? viewParent : _viewRegistry.SearchRoot;
             _registry = registry;
             _enemyInactiveVisualSettings = enemyInactiveVisualSettings;
@@ -37,6 +49,12 @@ namespace Game.Feature.Gameplay.Host
 
         public void Reconcile(TickResult result)
         {
+            if (_isResettingSession)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(SummonedEnemyPresentationResolver)} cannot reconcile new Views during session reset.");
+            }
+
             if (result == null)
             {
                 throw new ArgumentNullException(nameof(result));
@@ -57,8 +75,21 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < bindings.Count; i++)
             {
                 var binding = bindings[i];
-                if (_viewRegistry.TryGetView(binding.EntityId, out _))
+                if (_viewRegistry.TryGetView(binding.EntityId, out var registeredView))
                 {
+                    if (_ownedViewsByEntityId.TryGetValue(binding.EntityId, out var ownedView) &&
+                        !ReferenceEquals(registeredView, ownedView))
+                    {
+                        ReleaseOwnedViewIfPresent(binding.EntityId);
+                    }
+
+                    continue;
+                }
+
+                if (_ownedViewsByEntityId.TryGetValue(binding.EntityId, out var existingOwnedView) &&
+                    existingOwnedView != null)
+                {
+                    _viewRegistry.Register(existingOwnedView);
                     continue;
                 }
 
@@ -85,8 +116,39 @@ namespace Game.Feature.Gameplay.Host
                     entity,
                     nameof(SummonedEnemyPresentationResolver),
                     _enemyInactiveVisualSettings);
-                _viewRegistry.Register(view);
-                _ownedEntityIds.Add(binding.EntityId);
+                _ownedViewsByEntityId[binding.EntityId] = view;
+                try
+                {
+                    _viewRegistry.Register(view);
+                }
+                catch (Exception registrationException)
+                {
+                    _ownedViewsByEntityId.Remove(binding.EntityId);
+                    Exception rollbackException = null;
+                    try
+                    {
+                        _viewRegistry.UnregisterIfMatches(binding.EntityId, view);
+                    }
+                    catch (Exception exception)
+                    {
+                        rollbackException = exception;
+                    }
+                    finally
+                    {
+                        GameplayTransientEffectTrackUtility.SafeDestroy(
+                            view != null ? view.gameObject : null);
+                    }
+
+                    if (rollbackException != null)
+                    {
+                        throw new AggregateException(
+                            "Summoned enemy View registration and rollback both failed.",
+                            registrationException,
+                            rollbackException);
+                    }
+
+                    throw;
+                }
             }
         }
 
@@ -94,9 +156,15 @@ namespace Game.Feature.Gameplay.Host
         {
             _staleOwnedEntityIds.Clear();
 
-            foreach (var entityId in _ownedEntityIds)
+            foreach (var entityId in _ownedViewsByEntityId.Keys)
             {
                 if (ContainsEntity(finalEntities, entityId))
+                {
+                    continue;
+                }
+
+                if (_shouldRetainViewForPendingExit != null &&
+                    _shouldRetainViewForPendingExit(entityId))
                 {
                     continue;
                 }
@@ -104,25 +172,147 @@ namespace Game.Feature.Gameplay.Host
                 _staleOwnedEntityIds.Add(entityId);
             }
 
+            List<Exception> cleanupExceptions = null;
             for (var i = 0; i < _staleOwnedEntityIds.Count; i++)
             {
                 var entityId = _staleOwnedEntityIds[i];
-                GameplayEntityView view = null;
-                if (_stateStore.ViewsByEntityId.TryGetValue(entityId, out var stateView))
+                try
                 {
-                    view = stateView;
+                    ReleaseOwnedViewIfPresent(entityId);
                 }
-                else if (_viewRegistry.TryGetView(entityId, out var registryView))
+                catch (Exception exception)
                 {
-                    view = registryView;
+                    cleanupExceptions ??= new List<Exception>();
+                    cleanupExceptions.Add(exception);
+                }
+            }
+
+            _staleOwnedEntityIds.Clear();
+            ThrowCleanupExceptionsIfAny(cleanupExceptions);
+        }
+
+        public void ResetSession()
+        {
+            if (_isResettingSession)
+            {
+                return;
+            }
+
+            _isResettingSession = true;
+            List<Exception> cleanupExceptions = null;
+            try
+            {
+                _staleOwnedEntityIds.Clear();
+                foreach (var entityId in _ownedViewsByEntityId.Keys)
+                {
+                    _staleOwnedEntityIds.Add(entityId);
                 }
 
-                _stateStore.ViewsByEntityId.Remove(entityId);
-                _viewRegistry.Unregister(entityId);
-                _animationSync.ReleaseEntity(entityId);
-                GameplayTransientEffectTrackUtility.SafeDestroy(view != null ? view.gameObject : null);
-                _ownedEntityIds.Remove(entityId);
+                for (var i = 0; i < _staleOwnedEntityIds.Count; i++)
+                {
+                    try
+                    {
+                        ReleaseOwnedViewIfPresent(_staleOwnedEntityIds[i]);
+                    }
+                    catch (Exception exception)
+                    {
+                        cleanupExceptions ??= new List<Exception>();
+                        cleanupExceptions.Add(exception);
+                    }
+                }
             }
+            finally
+            {
+                _staleOwnedEntityIds.Clear();
+                _isResettingSession = false;
+            }
+
+            ThrowCleanupExceptionsIfAny(cleanupExceptions);
+        }
+
+        internal bool ReleaseOwnedViewIfPresent(int entityId)
+        {
+            if (!_ownedViewsByEntityId.TryGetValue(entityId, out var ownedView))
+            {
+                return false;
+            }
+
+            _ownedViewsByEntityId.Remove(entityId);
+            GameplayEntityView replacementView = null;
+            if (_stateStore != null &&
+                _stateStore.ViewsByEntityId.TryGetValue(entityId, out var stateView))
+            {
+                if (stateView == null || ReferenceEquals(stateView, ownedView))
+                {
+                    _stateStore.ViewsByEntityId.Remove(entityId);
+                }
+                else
+                {
+                    replacementView = stateView;
+                }
+            }
+
+            if (_viewRegistry != null &&
+                _viewRegistry.TryGetView(entityId, out var registryView) &&
+                !ReferenceEquals(registryView, ownedView))
+            {
+                replacementView = registryView;
+            }
+
+            List<Exception> cleanupExceptions = null;
+            try
+            {
+                if (_animationSync != null)
+                {
+                    if (replacementView != null)
+                    {
+                        _animationSync.CacheDrivers(entityId, replacementView);
+                    }
+                    else
+                    {
+                        _animationSync.ReleaseEntity(entityId);
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                cleanupExceptions = new List<Exception> { exception };
+            }
+
+            try
+            {
+                _viewRegistry?.UnregisterIfMatches(entityId, ownedView);
+            }
+            catch (Exception exception)
+            {
+                cleanupExceptions ??= new List<Exception>();
+                cleanupExceptions.Add(exception);
+            }
+            finally
+            {
+                GameplayTransientEffectTrackUtility.SafeDestroy(
+                    ownedView != null ? ownedView.gameObject : null);
+            }
+
+            ThrowCleanupExceptionsIfAny(cleanupExceptions);
+            return true;
+        }
+
+        private static void ThrowCleanupExceptionsIfAny(IReadOnlyList<Exception> cleanupExceptions)
+        {
+            if (cleanupExceptions == null || cleanupExceptions.Count == 0)
+            {
+                return;
+            }
+
+            if (cleanupExceptions.Count == 1)
+            {
+                throw cleanupExceptions[0];
+            }
+
+            throw new AggregateException(
+                "One or more summoned enemy View cleanup steps failed.",
+                cleanupExceptions);
         }
 
         private static bool ContainsEntity(IReadOnlyList<EntityState> entities, int entityId)

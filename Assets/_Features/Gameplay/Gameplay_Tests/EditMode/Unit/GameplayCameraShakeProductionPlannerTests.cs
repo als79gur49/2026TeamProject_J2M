@@ -53,6 +53,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void PushSlideLaunch_SameBoxAndReusedActionPlanAcrossTicks_SubmitsOncePerTick()
+        {
+            var sink = new RecordingSink();
+            var planner = new GameplayCameraShakeProductionPlanner(sink);
+            var signal = CreatePushSignal(actionPlanId: 71);
+
+            Assert.That(
+                planner.Present(
+                    tickIndex: 19,
+                    new[] { signal },
+                    new FlipFloorImpactPresentationSignal[0],
+                    HasExpectedActiveTrack,
+                    HasExpectedTrack),
+                Is.True);
+            Assert.That(
+                planner.Present(
+                    tickIndex: 20,
+                    new[] { signal },
+                    new FlipFloorImpactPresentationSignal[0],
+                    HasExpectedActiveTrack,
+                    HasExpectedTrack),
+                Is.True);
+
+            Assert.That(sink.Requests, Has.Count.EqualTo(2));
+            Assert.That(sink.Requests.Select(request => request.TickIndex), Is.EqualTo(new[] { 19, 20 }));
+            Assert.That(sink.Requests.All(request => request.SourceEntityId == 30), Is.True);
+            Assert.That(sink.Requests.All(request => request.SequenceOrActionPlanId == 71), Is.True);
+        }
+
+        [Test]
         [Category("Extended")]
         public void PushInputWindupBlockedDestroyAndContinuation_WithoutActiveStartSignal_SubmitNothing()
         {
@@ -73,7 +104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     tickIndex: 21,
                     new[] { CreatePushSignal(actionPlanId: 72) },
                     new FlipFloorImpactPresentationSignal[0],
-                    (_, _, _) => false,
+                    (_, _, _, _) => false,
                     HasExpectedTrack),
                 Is.False,
                 "A signal without an actually started visible BoxSlide track must not shake.");
@@ -106,7 +137,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 planner.ObserveMotionProgress(new[]
                 {
-                    new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0f, 0.9f, 91),
+                    new MotionTrackProgressSample(27, 30, TickEntityMotionKind.Flip, 0f, 0.9f, 91),
                 }),
                 Is.False);
             Assert.That(sink.Requests, Is.Empty);
@@ -114,13 +145,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 planner.ObserveMotionProgress(new[]
                 {
-                    new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0.9f, 0.97f, 91),
+                    new MotionTrackProgressSample(27, 30, TickEntityMotionKind.Flip, 0.9f, 0.97f, 91),
                 }),
                 Is.True);
             Assert.That(
                 planner.ObserveMotionProgress(new[]
                 {
-                    new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0.97f, 1f, 91),
+                    new MotionTrackProgressSample(27, 30, TickEntityMotionKind.Flip, 0.97f, 1f, 91),
                 }),
                 Is.False);
 
@@ -151,7 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 planner.ObserveMotionProgress(new[]
                 {
-                    new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0.1f, 1f, 92),
+                    new MotionTrackProgressSample(28, 30, TickEntityMotionKind.Flip, 0.1f, 1f, 92),
                 }),
                 Is.True);
             Assert.That(sink.Requests, Has.Count.EqualTo(1));
@@ -179,7 +210,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(planner.PendingFlipLandingCount, Is.EqualTo(2));
             planner.ObserveMotionProgress(new[]
             {
-                new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0.9f, 0.97f, 95),
+                new MotionTrackProgressSample(32, 30, TickEntityMotionKind.Flip, 0.9f, 0.97f, 95),
             });
             Assert.That(sink.Requests, Has.Count.EqualTo(1));
             Assert.That(sink.Requests[0].SequenceOrActionPlanId, Is.EqualTo(95));
@@ -187,11 +218,117 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             planner.ObserveMotionProgress(new[]
             {
-                new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0.9f, 0.97f, 96),
+                new MotionTrackProgressSample(33, 30, TickEntityMotionKind.Flip, 0.9f, 0.97f, 96),
             });
             Assert.That(sink.Requests, Has.Count.EqualTo(2));
             Assert.That(sink.Requests[1].SequenceOrActionPlanId, Is.EqualTo(96));
             Assert.That(planner.PendingFlipLandingCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void QueuedFlipLandings_ReusedActionPlanAcrossTicks_ProgressConsumesOnlyMatchingTick()
+        {
+            var sink = new RecordingSink();
+            var planner = new GameplayCameraShakeProductionPlanner(sink);
+            const int actionPlanId = 95;
+            planner.Present(
+                tickIndex: 32,
+                new BoxSlideStartPresentationSignal[0],
+                new[] { CreateFlipSignal(FlipFloorImpactPresentationKind.Landing, actionPlanId) },
+                HasExpectedActiveTrack,
+                HasExpectedTrack);
+            planner.Present(
+                tickIndex: 33,
+                new BoxSlideStartPresentationSignal[0],
+                new[] { CreateFlipSignal(FlipFloorImpactPresentationKind.Landing, actionPlanId) },
+                HasExpectedActiveTrack,
+                HasExpectedTrack);
+
+            Assert.That(planner.PendingFlipLandingCount, Is.EqualTo(2));
+            planner.ObserveMotionProgress(new[]
+            {
+                new MotionTrackProgressSample(32, 30, TickEntityMotionKind.Flip, 0.9f, 0.97f, actionPlanId),
+            });
+            Assert.That(sink.Requests, Has.Count.EqualTo(1));
+            Assert.That(sink.Requests[0].TickIndex, Is.EqualTo(32));
+            Assert.That(planner.PendingFlipLandingCount, Is.EqualTo(1));
+
+            planner.ObserveMotionProgress(new[]
+            {
+                new MotionTrackProgressSample(33, 30, TickEntityMotionKind.Flip, 0.9f, 0.97f, actionPlanId),
+            });
+            Assert.That(sink.Requests, Has.Count.EqualTo(2));
+            Assert.That(sink.Requests[1].TickIndex, Is.EqualTo(33));
+            Assert.That(planner.PendingFlipLandingCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RepeatedOrdinaryFlipLanding_SameBoxAndReusedActionPlanAcrossTicks_SubmitsOncePerTick()
+        {
+            var sink = new RecordingSink();
+            var planner = new GameplayCameraShakeProductionPlanner(sink);
+            const int actionPlanId = 95;
+
+            planner.Present(
+                tickIndex: 32,
+                new BoxSlideStartPresentationSignal[0],
+                new[] { CreateFlipSignal(FlipFloorImpactPresentationKind.Landing, actionPlanId) },
+                HasExpectedActiveTrack,
+                HasExpectedTrack);
+            planner.ObserveMotionProgress(new[]
+            {
+                new MotionTrackProgressSample(32, 30, TickEntityMotionKind.Flip, 0.9f, 0.97f, actionPlanId),
+            });
+
+            planner.Present(
+                tickIndex: 33,
+                new BoxSlideStartPresentationSignal[0],
+                new[] { CreateFlipSignal(FlipFloorImpactPresentationKind.Landing, actionPlanId) },
+                HasExpectedActiveTrack,
+                HasExpectedTrack);
+            planner.ObserveMotionProgress(new[]
+            {
+                new MotionTrackProgressSample(33, 30, TickEntityMotionKind.Flip, 0.9f, 0.97f, actionPlanId),
+            });
+
+            Assert.That(sink.Requests, Has.Count.EqualTo(2));
+            Assert.That(sink.Requests.Select(request => request.TickIndex), Is.EqualTo(new[] { 32, 33 }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RepeatedHostileStay_SameBoxAndReusedActionPlanAcrossTicks_SubmitsOncePerTick()
+        {
+            var sink = new RecordingSink();
+            var planner = new GameplayCameraShakeProductionPlanner(sink);
+            const int actionPlanId = 131;
+
+            for (var tickIndex = 41; tickIndex <= 42; tickIndex++)
+            {
+                planner.Present(
+                    tickIndex,
+                    new BoxSlideStartPresentationSignal[0],
+                    new[] { CreateImpactSignal(FlipImpactPresentationDisposition.Stay, actionPlanId) },
+                    new[] { CreateFlipSignal(FlipFloorImpactPresentationKind.Stay, actionPlanId) },
+                    HasExpectedActiveTrack,
+                    HasExpectedTrack);
+                planner.ObserveMotionProgress(new[]
+                {
+                    new MotionTrackProgressSample(
+                        tickIndex,
+                        30,
+                        TickEntityMotionKind.Flip,
+                        0.61f,
+                        0.8f,
+                        actionPlanId,
+                        MotionTrackProgressSourceKind.OriginalViewMotion),
+                });
+            }
+
+            Assert.That(sink.Requests, Has.Count.EqualTo(2));
+            Assert.That(sink.Requests.Select(request => request.TickIndex), Is.EqualTo(new[] { 41, 42 }));
         }
 
         [TestCase(FlipFloorImpactPresentationKind.FollowThrough)]
@@ -212,7 +349,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 HasExpectedTrack);
             planner.ObserveMotionProgress(new[]
             {
-                new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0f, 1f, 93),
+                new MotionTrackProgressSample(29, 30, TickEntityMotionKind.Flip, 0f, 1f, 93),
             });
 
             Assert.That(planner.PendingFlipLandingCount, Is.Zero);
@@ -265,6 +402,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             planner.ObserveMotionProgress(new[]
             {
                 new MotionTrackProgressSample(
+                    41,
                     30,
                     TickEntityMotionKind.Flip,
                     0f,
@@ -278,6 +416,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 planner.ObserveMotionProgress(new[]
                 {
                     new MotionTrackProgressSample(
+                        41,
                         30,
                         TickEntityMotionKind.Flip,
                         0.61f,
@@ -290,6 +429,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 planner.ObserveMotionProgress(new[]
                 {
                     new MotionTrackProgressSample(
+                        41,
                         30,
                         TickEntityMotionKind.Flip,
                         0.8f,
@@ -326,6 +466,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 planner.ObserveMotionProgress(new[]
                 {
                     new MotionTrackProgressSample(
+                        42,
                         30,
                         TickEntityMotionKind.Flip,
                         0.1f,
@@ -358,6 +499,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             planner.ObserveMotionProgress(new[]
             {
                 new MotionTrackProgressSample(
+                    51,
                     30,
                     TickEntityMotionKind.Flip,
                     0.5f,
@@ -368,6 +510,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             planner.ObserveMotionProgress(new[]
             {
                 new MotionTrackProgressSample(
+                    51,
                     30,
                     TickEntityMotionKind.Flip,
                     0.7f,
@@ -381,6 +524,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 planner.ObserveMotionProgress(new[]
                 {
                     new MotionTrackProgressSample(
+                        51,
                         30,
                         TickEntityMotionKind.Flip,
                         0.93f,
@@ -393,6 +537,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 planner.ObserveMotionProgress(new[]
                 {
                     new MotionTrackProgressSample(
+                        51,
                         30,
                         TickEntityMotionKind.Flip,
                         1f,
@@ -427,6 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             planner.ObserveMotionProgress(new[]
             {
                 new MotionTrackProgressSample(
+                    52,
                     30,
                     TickEntityMotionKind.Flip,
                     0.1f,
@@ -437,6 +583,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             planner.ObserveMotionProgress(new[]
             {
                 new MotionTrackProgressSample(
+                    52,
                     30,
                     TickEntityMotionKind.Flip,
                     0.1f,
@@ -475,6 +622,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ReusedFlipActionIdentityAcrossTicks_DifferentOutcomes_DoNotConflict()
+        {
+            var planner = new GameplayCameraShakeProductionPlanner(new RecordingSink());
+            const int actionPlanId = 151;
+            planner.Present(
+                61,
+                new BoxSlideStartPresentationSignal[0],
+                new[] { CreateImpactSignal(FlipImpactPresentationDisposition.Stay, actionPlanId) },
+                new[] { CreateFlipSignal(FlipFloorImpactPresentationKind.Stay, actionPlanId) },
+                HasExpectedActiveTrack,
+                HasExpectedTrack);
+
+            Assert.DoesNotThrow(() => planner.Present(
+                62,
+                new BoxSlideStartPresentationSignal[0],
+                new[] { CreateImpactSignal(FlipImpactPresentationDisposition.DestroySelf, actionPlanId) },
+                new[] { CreateFlipSignal(FlipFloorImpactPresentationKind.DestroySelf, actionPlanId) },
+                HasExpectedActiveTrack,
+                HasExpectedTrack));
+            Assert.That(planner.PendingFlipHostileImpactCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Core")]
         public void ResetBeforeHostileMilestone_CancelsPendingWithoutStaleReplay()
         {
             var sink = new RecordingSink();
@@ -492,6 +663,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             planner.ObserveMotionProgress(new[]
             {
                 new MotionTrackProgressSample(
+                    71,
                     30,
                     TickEntityMotionKind.Flip,
                     0f,
@@ -519,7 +691,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 HasExpectedTrack);
             planner.ObserveMotionProgress(new[]
             {
-                new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0f, 0.8f),
+                new MotionTrackProgressSample(30, 30, TickEntityMotionKind.Flip, 0f, 0.8f),
             });
 
             Assert.That(planner.PendingFlipLandingCount, Is.Zero);
@@ -542,7 +714,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             planner.ResetSession();
             planner.ObserveMotionProgress(new[]
             {
-                new MotionTrackProgressSample(30, TickEntityMotionKind.Flip, 0f, 1f, 94),
+                new MotionTrackProgressSample(31, 30, TickEntityMotionKind.Flip, 0f, 1f, 94),
             });
 
             Assert.That(planner.PendingFlipLandingCount, Is.Zero);
@@ -950,13 +1122,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var track = new MotionTrack();
             var pose = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
-            track.Append(MotionClip.Create(
+            track.Append(MotionClip.CreateWithSourceTick(
                 TickEntityMotionKind.Flip,
                 pose,
                 new GameplayEntityPose(Vector3.right, Quaternion.identity),
                 durationSeconds: 0.2f,
                 interpolateRotation: false,
                 flipPeakHeightWorld: 1f,
+                sourceTickIndex: 91,
                 sequenceOrActionPlanId: 101));
 
             track.SampleAndAdvance(
@@ -966,6 +1139,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out var firstProgress);
             Assert.That(firstProgress.PreviousNormalizedTime, Is.EqualTo(0f).Within(0.0001f));
             Assert.That(firstProgress.CurrentNormalizedTime, Is.EqualTo(0.95f).Within(0.0001f));
+            Assert.That(firstProgress.TickIndex, Is.EqualTo(91));
+            Assert.That(firstProgress.EntityId, Is.Zero);
             Assert.That(firstProgress.SequenceOrActionPlanId, Is.EqualTo(101));
 
             track.SampleAndAdvance(
@@ -975,23 +1150,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out var completionProgress);
             Assert.That(completionProgress.PreviousNormalizedTime, Is.EqualTo(0.95f).Within(0.0001f));
             Assert.That(completionProgress.CurrentNormalizedTime, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(completionProgress.TickIndex, Is.EqualTo(91));
             Assert.That(track.HasClips, Is.False);
         }
 
         private static bool HasExpectedActiveTrack(
             int entityId,
             TickEntityMotionKind motionKind,
+            int tickIndex,
             int sequenceOrActionPlanId)
         {
-            return HasExpectedTrack(entityId, motionKind, sequenceOrActionPlanId);
+            return HasExpectedTrack(entityId, motionKind, tickIndex, sequenceOrActionPlanId);
         }
 
         private static bool HasExpectedTrack(
             int entityId,
             TickEntityMotionKind motionKind,
+            int tickIndex,
             int sequenceOrActionPlanId)
         {
             return entityId == 30 &&
+                   tickIndex > 0 &&
                    sequenceOrActionPlanId > 0 &&
                    (motionKind == TickEntityMotionKind.BoxSlide || motionKind == TickEntityMotionKind.Flip);
         }

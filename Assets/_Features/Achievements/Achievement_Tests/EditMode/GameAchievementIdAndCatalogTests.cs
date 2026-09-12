@@ -10,17 +10,17 @@ namespace Game.Product.Achievements.Tests
         [Test]
         public void CanonicalToken_IsValidAndRoundTripsWithoutNormalization()
         {
-            Assert.That(GameAchievementId.TryCreate("campaign.complete", out var achievementId), Is.True);
+            Assert.That(GameAchievementId.TryCreate("campaign.level-4.clear", out var achievementId), Is.True);
             Assert.That(achievementId.IsValid, Is.True);
-            Assert.That(achievementId.Value, Is.EqualTo("campaign.complete"));
-            Assert.That(achievementId.ToString(), Is.EqualTo("campaign.complete"));
+            Assert.That(achievementId.Value, Is.EqualTo("campaign.level-4.clear"));
+            Assert.That(achievementId.ToString(), Is.EqualTo("campaign.level-4.clear"));
         }
 
         [TestCase(null)]
         [TestCase("")]
         [TestCase(" ")]
-        [TestCase(" campaign.complete")]
-        [TestCase("campaign.complete ")]
+        [TestCase(" campaign.level-4.clear")]
+        [TestCase("campaign.level-4.clear ")]
         [TestCase("Campaign.complete")]
         [TestCase("campaign/complete")]
         public void InvalidToken_IsRejectedWithoutTrimmingOrCaseConversion(string value)
@@ -39,8 +39,8 @@ namespace Game.Product.Achievements.Tests
         [Test]
         public void EqualityAndHash_AreOrdinalAndCaseSensitive()
         {
-            var first = GameAchievementId.Require("campaign.complete");
-            var same = GameAchievementId.Require("campaign.complete");
+            var first = GameAchievementId.Require("campaign.level-4.clear");
+            var same = GameAchievementId.Require("campaign.level-4.clear");
             var different = GameAchievementId.Require("campaign-complete");
 
             Assert.That(first, Is.EqualTo(same));
@@ -50,37 +50,23 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void ProductionCatalog_ContainsCanonicalCampaignAchievements()
+        public void ProductionCatalog_ContainsExactlyFiveLevelClearAchievements()
         {
             var catalog = GameAchievementCatalog.Production;
-
-            Assert.That(
-                catalog.TryGet(GameAchievementIds.NormalCampaignComplete, out var definition),
-                Is.True);
-            Assert.That(definition.Id.Value, Is.EqualTo("campaign.complete"));
-            Assert.That(definition.Kind, Is.EqualTo(GameAchievementKind.OneShot));
-            Assert.That(
-                catalog.TryGet(GameAchievementIds.CampaignStage1_2Clear, out var clear),
-                Is.True);
-            Assert.That(clear.Id.Value, Is.EqualTo("campaign.stage-1-2.clear"));
-            Assert.That(clear.Kind, Is.EqualTo(GameAchievementKind.OneShot));
-            Assert.That(
-                catalog.TryGet(
-                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
-                    out var efficient),
-                Is.True);
-            Assert.That(
-                efficient.Id.Value,
-                Is.EqualTo("campaign.stage-1-2.push-flip-within-25"));
-            Assert.That(efficient.Kind, Is.EqualTo(GameAchievementKind.OneShot));
-            Assert.That(catalog.Definitions.Count, Is.EqualTo(3));
+            Assert.That(catalog.Definitions.Count, Is.EqualTo(5));
+            for (var level = 0; level < 5; level++)
+            {
+                var id = GameAchievementId.Require($"campaign.level-{level}.clear");
+                Assert.That(catalog.TryGet(id, out var definition), Is.True);
+                Assert.That(definition.Kind, Is.EqualTo(GameAchievementKind.OneShot));
+            }
         }
 
         [Test]
         public void Catalog_RejectsNullDefinitionInvalidIdAndDuplicateId()
         {
             var canonical = new GameAchievementDefinition(
-                GameAchievementIds.NormalCampaignComplete,
+                GameAchievementIds.CampaignLevel4Clear,
                 GameAchievementKind.OneShot);
 
             Assert.Throws<ArgumentException>(() =>
@@ -97,7 +83,7 @@ namespace Game.Product.Achievements.Tests
         {
             var catalog = GameAchievementCatalog.Production;
 
-            Assert.That(catalog.TryGet(GameAchievementIds.NormalCampaignComplete, out _), Is.True);
+            Assert.That(catalog.TryGet(GameAchievementIds.CampaignLevel4Clear, out _), Is.True);
             Assert.That(GameAchievementId.TryCreate("CAMPAIGN.COMPLETE", out var mismatch), Is.False);
             Assert.That(catalog.TryGet(mismatch, out _), Is.False);
         }

@@ -7,6 +7,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
+using TMPro;
 using UnityEngine;
 
 namespace Game.Feature.UI.Composition
@@ -59,6 +60,13 @@ namespace Game.Feature.UI.Composition
                         localizedTypographyResolver,
                         typographyTheme: typographyTheme));
                 }
+
+                return new BindingScope(
+                    view,
+                    bindings,
+                    localizedTextResolver,
+                    localizedTypographyResolver,
+                    typographyTheme);
             }
             catch
             {
@@ -66,8 +74,6 @@ namespace Game.Feature.UI.Composition
                 view.UnbindStaticLocalization();
                 throw;
             }
-
-            return new BindingScope(view, bindings);
         }
 
         private static void DisposeBindings(List<LocalizedTmpTextBinding> bindings)
@@ -84,12 +90,39 @@ namespace Game.Feature.UI.Composition
         {
             private readonly PausePopupView _view;
             private readonly List<LocalizedTmpTextBinding> _bindings;
+            private readonly List<LocalizedTmpTextBinding> _stageNameBindings = new(2);
+            private readonly IReadOnlyList<TMP_Text> _stageNameTargets;
+            private readonly ILocalizedTextResolver _localizedTextResolver;
+            private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
+            private readonly GameplayUiTypographyTheme _typographyTheme;
             private bool _isDisposed;
 
-            public BindingScope(PausePopupView view, List<LocalizedTmpTextBinding> bindings)
+            public BindingScope(
+                PausePopupView view,
+                List<LocalizedTmpTextBinding> bindings,
+                ILocalizedTextResolver localizedTextResolver,
+                ILocalizedTypographyResolver localizedTypographyResolver,
+                GameplayUiTypographyTheme typographyTheme)
             {
                 _view = view;
                 _bindings = bindings;
+                _stageNameTargets = view.CreateStageNameLocalizationTargets();
+                _localizedTextResolver = localizedTextResolver;
+                _localizedTypographyResolver = localizedTypographyResolver;
+                _typographyTheme = typographyTheme;
+
+                try
+                {
+                    ValidateStageNameTargets();
+                    _view.SelectedStageDescriptorChanged += HandleSelectedStageDescriptorChanged;
+                    RefreshStageNameBindings(_view.CurrentSelectedStageDescriptor);
+                }
+                catch
+                {
+                    _view.SelectedStageDescriptorChanged -= HandleSelectedStageDescriptorChanged;
+                    DisposeBindings(_stageNameBindings);
+                    throw;
+                }
             }
 
             public void Dispose()
@@ -99,9 +132,68 @@ namespace Game.Feature.UI.Composition
                     return;
                 }
 
+                _view.SelectedStageDescriptorChanged -= HandleSelectedStageDescriptorChanged;
+                DisposeBindings(_stageNameBindings);
                 DisposeBindings(_bindings);
                 _view.UnbindStaticLocalization();
                 _isDisposed = true;
+            }
+
+            private void ValidateStageNameTargets()
+            {
+                if (_stageNameTargets == null || _stageNameTargets.Count != 2)
+                {
+                    throw new InvalidOperationException(
+                        "PausePopup requires exactly two authored stage-name targets.");
+                }
+
+                for (var i = 0; i < _stageNameTargets.Count; i++)
+                {
+                    var target = _stageNameTargets[i];
+                    if (target == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"PausePopup stage-name target at index {i} is not assigned.");
+                    }
+
+                    if (TypographyBinding.FindFor(target) == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"PausePopup stage-name target '{target.name}' requires an authored TypographyBinding.");
+                    }
+                }
+            }
+
+            private void HandleSelectedStageDescriptorChanged(LocalizedTextDescriptor descriptor)
+            {
+                RefreshStageNameBindings(descriptor);
+            }
+
+            private void RefreshStageNameBindings(LocalizedTextDescriptor descriptor)
+            {
+                DisposeBindings(_stageNameBindings);
+                if (string.IsNullOrWhiteSpace(descriptor.Table) ||
+                    string.IsNullOrWhiteSpace(descriptor.Key))
+                {
+                    for (var i = 0; i < _stageNameTargets.Count; i++)
+                    {
+                        _stageNameTargets[i].text = string.Empty;
+                    }
+
+                    return;
+                }
+
+                for (var i = 0; i < _stageNameTargets.Count; i++)
+                {
+                    var target = _stageNameTargets[i];
+                    _stageNameBindings.Add(new LocalizedTmpTextBinding(
+                        target,
+                        descriptor,
+                        _localizedTextResolver,
+                        _localizedTypographyResolver,
+                        typographyTheme: _typographyTheme,
+                        typographyBinding: TypographyBinding.FindFor(target)));
+                }
             }
         }
     }

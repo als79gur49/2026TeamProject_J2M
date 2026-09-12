@@ -49,9 +49,14 @@ materialized as configuration drift.
 The release entry also treats the `com.unity.collections 2.6.2` copies of
 `System.IO.Hashing.dll` and `System.Runtime.CompilerServices.Unsafe.dll` as
 test-only managed plugins. Their Windows Player compatibility is disabled only
-inside a separate build transaction and restored in `finally`. Missing importers,
-package-version drift, apply failure, or restore failure fail closed. A successful
-Player must contain neither DLL in `VectorQuake_Data/Managed` nor either name in
+inside a separate build transaction and restored in `finally`. Because PackageCache
+import settings are immutable, the transaction uses each importer's transient
+`SetIncludeInBuildDelegate` callback instead of rewriting package metadata. The
+callback denies inclusion for the build and is replaced in `finally` with the
+captured effective decision for the remainder of the batch process; the effective
+include decision is verified before and after. Missing importers, package-version
+drift, apply failure, or restore failure fail closed. A successful Player must
+contain neither DLL in `VectorQuake_Data/Managed` nor either name in
 `ScriptingAssemblies.json`.
 
 Build acceptance is strict:

@@ -32,10 +32,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private const string LabStageIdValue = "stage-0-1";
         private const string WardStageIdValue = "stage-2-1";
         private const string LocalePreferenceKey = "ui.selected_locale";
-        private const string Climate2000FontPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
-        private const string Climate2019FontPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        private const string KboMediumFontPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
+        private const string KboLightFontPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
         private const string ManifestFileName = "m1a-hud-guide-capture.log";
         private const int ExpectedRemainingChances = 2;
         private const int ExpectedMaxChances = 3;
@@ -422,12 +422,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 yield return null;
                 yield return new WaitForEndOfFrame();
 
-                var climate2000 = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2000FontPath);
-                var climate2019 = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2019FontPath);
-                if (climate2000 == null || climate2019 == null)
+                var kboMedium = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboMediumFontPath);
+                var kboLight = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboLightFontPath);
+                if (kboMedium == null || kboLight == null)
                 {
                     throw new InvalidOperationException(
-                        $"Climate font missing at {Climate2000FontPath} or {Climate2019FontPath}.");
+                        $"KBO Dia Gothic font missing at {KboMediumFontPath} or {KboLightFontPath}.");
                 }
 
                 var targets = new Dictionary<string, TMP_Text>(StringComparer.Ordinal)
@@ -456,8 +456,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                             expectedTexts[pair.Key],
                             scenario.Locale,
                             string.Equals(pair.Key, "StageName", StringComparison.Ordinal)
-                                ? climate2000
-                                : climate2019,
+                                ? kboMedium
+                                : kboLight,
                             localizedTarget: true,
                             requestedWidth,
                             requestedHeight));
@@ -635,10 +635,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         $"Production StageInfoViewModel did not resolve '{scenario.StageName}'.");
                 }
 
-                var climate2000 = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2000FontPath);
-                if (climate2000 == null)
+                var kboMedium = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboMediumFontPath);
+                if (kboMedium == null)
                 {
-                    throw new InvalidOperationException($"Climate font missing at {Climate2000FontPath}.");
+                    throw new InvalidOperationException($"KBO Dia Gothic font missing at {KboMediumFontPath}.");
                 }
 
                 Time.timeScale = 0f;
@@ -654,7 +654,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     stageNameLabel,
                     scenario.StageName,
                     scenario.Locale,
-                    climate2000,
+                    kboMedium,
                     localizedTarget: true,
                     requestedWidth,
                     requestedHeight);
@@ -925,7 +925,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 !ReferenceEquals(target.font, expectedKoreanFont))
             {
                 throw new InvalidOperationException(
-                    $"{name} ko-KR target did not resolve the Climate font.");
+                    $"{name} ko-KR target did not resolve the KBO Dia Gothic font.");
             }
 
             var inheritedAlpha = target.color.a * target.canvasRenderer.GetAlpha();

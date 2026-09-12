@@ -63,7 +63,7 @@ namespace Game.Feature.UI.Composition.Editor
             LogResult(result);
             result.ThrowIfFailed();
 
-            CaptureClimateDiagnosticsForSlice(targetName, localeCode, outputDirectory, ReadOptions(args));
+            CaptureKboDiaGothicDiagnosticsForSlice(targetName, localeCode, outputDirectory, ReadOptions(args));
         }
 
         public static void ReconstructCanonicalManifestFromCommandLine()
@@ -106,7 +106,7 @@ namespace Game.Feature.UI.Composition.Editor
             result.ThrowIfFailed();
         }
 
-        private static void CaptureClimateDiagnosticsForSlice(
+        private static void CaptureKboDiaGothicDiagnosticsForSlice(
             string targetName,
             string localeCode,
             string outputDirectory,
@@ -131,7 +131,7 @@ namespace Game.Feature.UI.Composition.Editor
                 string.IsNullOrWhiteSpace(targetName))
             {
                 var confirmPopupResult = TypographyPreviewScreenshotUtility.CaptureScreenshots(
-                    TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets
+                    TypographyPreviewScreenshotUtility.KboDiaGothicDiagnosticTargets
                         .Where(target => string.Equals(target.FileStem, "ConfirmPopup", StringComparison.Ordinal)),
                     new[] { localeCode },
                     System.IO.Path.Combine(outputDirectory, "Diagnostics"),
@@ -148,7 +148,7 @@ namespace Game.Feature.UI.Composition.Editor
             TypographyPreviewScreenshotTarget[] targets;
             if (string.Equals(targetName, "Settings", StringComparison.Ordinal))
             {
-                targets = TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets
+                targets = TypographyPreviewScreenshotUtility.KboDiaGothicDiagnosticTargets
                     .Where(target =>
                         string.Equals(target.FileStem, "SettingsAudioMuted", StringComparison.Ordinal) ||
                         string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal))
@@ -156,7 +156,7 @@ namespace Game.Feature.UI.Composition.Editor
             }
             else if (string.Equals(targetName, "Pause", StringComparison.Ordinal))
             {
-                targets = TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets
+                targets = TypographyPreviewScreenshotUtility.KboDiaGothicDiagnosticTargets
                     .Where(target => string.Equals(target.FileStem, "ConfirmPopup", StringComparison.Ordinal))
                     .ToArray();
             }

@@ -204,6 +204,217 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void ReplacementPreparationFailure_DoesNotPublishCandidate_AndSameCandidateCanRetry()
+        {
+            var oldView = CreateView(5);
+            _sync.CacheDrivers(40, oldView);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState(windup: true, dead: true));
+            var replacement = CreateView(1);
+            var invalidBinding = AddInvalidBinding(replacement);
+
+            var failure = Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, replacement));
+            Assert.That(failure.Message, Does.Contain("at least one binding"));
+            Assert.That(_sync.DriverCacheResolveCount, Is.EqualTo(1), "A failed candidate is not published.");
+            _sync.CacheDrivers(40, oldView);
+            Assert.That(_sync.DriverCacheHitCount, Is.EqualTo(1));
+
+            Object.DestroyImmediate(invalidBinding);
+            _sync.CacheDrivers(40, replacement);
+            var driver = replacement.GetComponent<EnemyAnimatorDriver>();
+            Assert.That(driver.LastPresentationState.DidDie, Is.True);
+            Assert.That(driver.DeathSignalCount, Is.Zero);
+            Assert.That(driver.LastPresentationState.StartedSummonWindupThisTick, Is.False,
+                "The recovery store must erase event flags, not preserve replayable commands.");
+            Assert.That(_sync.DriverCacheResolveCount, Is.EqualTo(2));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FailedReplacement_OldViewDestroyed_RetryRestoresValueSnapshot(bool observeMissingView)
+        {
+            var oldView = CreateView(1);
+            _sync.CacheDrivers(40, oldView);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState(windup: true, dead: true));
+            var replacement = CreateView(1);
+            var invalidBinding = AddInvalidBinding(replacement);
+            Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, replacement));
+            Object.DestroyImmediate(oldView.gameObject);
+            if (observeMissingView) _sync.CacheDrivers(40, null);
+
+            Object.DestroyImmediate(invalidBinding);
+            _sync.CacheDrivers(40, replacement);
+            var driver = replacement.GetComponent<EnemyAnimatorDriver>();
+            Assert.That(driver.LastPresentationState.DidDie, Is.True);
+            Assert.That(driver.LastPresentationState.StartedSummonWindupThisTick, Is.False);
+            Assert.That(driver.DeathSignalCount, Is.Zero);
+            Assert.That(driver.UtilityWindupSignalCount, Is.Zero);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FailedReplacement_ReleaseOrReset_DoesNotLeakSnapshotIntoReusedId(bool reset)
+        {
+            var oldView = CreateView(1);
+            _sync.CacheDrivers(40, oldView);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState(dead: true));
+            var failedCandidate = CreateView(1);
+            AddInvalidBinding(failedCandidate);
+            Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, failedCandidate));
+            Object.DestroyImmediate(oldView.gameObject);
+            if (reset) _sync.Reset(); else _sync.ReleaseEntity(40);
+
+            var nextLifetime = CreateView(1);
+            _sync.CacheDrivers(40, nextLifetime);
+            Assert.That(nextLifetime.GetComponent<EnemyAnimatorDriver>().LastPresentationState.DidDie, Is.False);
+            Assert.That(nextLifetime.GetComponent<EnemyAnimatorDriver>().LastPresentationState.EntityId, Is.Zero);
+        }
+
+        [Test]
+        public void FailedReplacement_NewerSemanticInputOverridesSnapshotAndOldDriver()
+        {
+            var oldView = CreateView(1);
+            _sync.CacheDrivers(40, oldView);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState(dead: true));
+            var replacement = CreateView(1);
+            var invalidBinding = AddInvalidBinding(replacement);
+            Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, replacement));
+
+            Assert.Throws<InvalidOperationException>(() => _sync.ApplyTickPresentation(
+                Result(new[] { Enemy(40) }, TickPresentationData.Empty), _views, (_, _) => 0f));
+            Object.DestroyImmediate(invalidBinding);
+            _sync.CacheDrivers(40, replacement);
+            Assert.That(replacement.GetComponent<EnemyAnimatorDriver>().LastPresentationState.DidDie, Is.False,
+                "New semantic input wins even when the previous cached driver is still alive.");
+        }
+
+        [Test]
+        public void FailedReplacement_NewerDirectDeathSurvivesAnotherFailedAttempt()
+        {
+            var oldView = CreateView(1);
+            _sync.CacheDrivers(40, oldView);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState());
+            var replacement = CreateView(1);
+            var invalidBinding = AddInvalidBinding(replacement);
+            Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, replacement));
+            Object.DestroyImmediate(oldView.gameObject);
+            Assert.Throws<InvalidOperationException>(() => _sync.BeginEnemyDeathPresentation(40, _views));
+
+            Object.DestroyImmediate(invalidBinding);
+            _sync.CacheDrivers(40, replacement);
+            Assert.That(replacement.GetComponent<EnemyAnimatorDriver>().LastPresentationState.DidDie, Is.True);
+            Assert.That(replacement.GetComponent<EnemyAnimatorDriver>().DeathSignalCount, Is.Zero);
+        }
+
+        [Test]
+        public void OldNormalizationFailure_PublishesPreparedReplacement_AndRethrowsOriginalException()
+        {
+            var oldView = CreateView(5);
+            _sync.CacheDrivers(40, oldView);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState(dead: true));
+            var replacement = CreateView(1);
+            var expected = new InvalidOperationException("old normalization failure");
+            _sync.BeforeDriverBindingNormalizationForTests = _ => throw expected;
+            try
+            {
+                var actual = Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, replacement));
+                Assert.That(actual, Is.SameAs(expected));
+                Assert.That(actual.StackTrace, Does.Contain(nameof(GameplayAnimationSyncCoordinator)));
+                Assert.That(_sync.DriverCacheResolveCount, Is.EqualTo(2));
+                _sync.CacheDrivers(40, replacement);
+                Assert.That(_sync.DriverCacheHitCount, Is.EqualTo(1));
+                Assert.That(replacement.GetComponent<EnemyAnimatorDriver>().LastPresentationState.DidDie, Is.True);
+                Assert.That(_sync.TryGetEnemyScalePulseDriver(40, _views, out _), Is.False);
+            }
+            finally { _sync.BeforeDriverBindingNormalizationForTests = null; }
+        }
+
+        [Test]
+        public void ReleaseNormalizationFailure_ClearsBindingsTracksHoldsAndFailureSnapshot()
+        {
+            var oldView = CreateView(7);
+            _sync.CacheDrivers(40, oldView);
+            _sync.ApplyTickPresentation(PlayerResult(dead: false, attempt: true), _views, (_, _) => 1f);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState(dead: true));
+            var failedCandidate = CreateView(1);
+            AddInvalidBinding(failedCandidate);
+            Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, failedCandidate));
+            var expected = new InvalidOperationException("release normalization failure");
+            _sync.BeforeDriverBindingNormalizationForTests = _ => throw expected;
+            try
+            {
+                Assert.That(Assert.Throws<InvalidOperationException>(() => _sync.ReleaseEntity(40)), Is.SameAs(expected));
+                Assert.That(_sync.HasActivePlayerVisualHold, Is.False);
+                Assert.DoesNotThrow(() => _sync.ReleaseEntity(40));
+                var nextLifetime = CreateView(1);
+                _sync.CacheDrivers(40, nextLifetime);
+                Assert.That(nextLifetime.GetComponent<EnemyAnimatorDriver>().LastPresentationState.EntityId, Is.Zero);
+            }
+            finally { _sync.BeforeDriverBindingNormalizationForTests = null; }
+        }
+
+        [Test]
+        public void FailedReplacement_NewerPlayerDeathRetiresOldHoldBeforeRetry()
+        {
+            var oldView = CreateView(3);
+            _sync.CacheDrivers(40, oldView);
+            _sync.ApplyTickPresentation(PlayerResult(dead: false, attempt: true), _views, (_, _) => 1f);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState());
+            Assert.That(_sync.HasActivePlayerVisualHold, Is.True);
+            var replacement = CreateView(3);
+            var invalidBinding = AddInvalidBinding(replacement);
+
+            // This input creates the first failure snapshot, then must supersede it.
+            Assert.Throws<InvalidOperationException>(() => _sync.ApplyTickPresentation(
+                PlayerResult(dead: true, attempt: false), _views, (_, _) => 1f));
+            Assert.That(_sync.HasActivePlayerVisualHold, Is.False);
+            Assert.That(_sync.ResolvePlayerAnimationState(40, false, false), Is.EqualTo(PlayerViewAnimationState.Death));
+            Object.DestroyImmediate(oldView.gameObject);
+            Object.DestroyImmediate(invalidBinding);
+            _sync.CacheDrivers(40, replacement);
+            var driver = replacement.GetComponent<PlayerAnimatorDriver>();
+            Assert.That(driver.LastPresentationState.DidDie, Is.True);
+            Assert.That(driver.LastPresentationState.DidDieThisTick, Is.False);
+            Assert.That(driver.ActionStartSignalCount, Is.Zero);
+            Assert.That(_sync.ResolvePlayerAnimationState(40, false, false), Is.EqualTo(PlayerViewAnimationState.Death));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FailedReplacement_NewerPlayerCancelRetiresActionHoldButPreservesDeathOverride(bool wasDead)
+        {
+            var oldView = CreateView(3);
+            _sync.CacheDrivers(40, oldView);
+            _sync.ApplyTickPresentation(PlayerResult(dead: false, attempt: true), _views, (_, _) => 1f);
+            if (wasDead)
+            {
+                _sync.ApplyTickPresentation(PlayerResult(dead: true, attempt: false), _views, (_, _) => 1f);
+            }
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState());
+            var replacement = CreateView(3);
+            var invalidBinding = AddInvalidBinding(replacement);
+            Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, replacement));
+            Assert.Throws<InvalidOperationException>(() => _sync.ApplyTickPresentation(
+                PlayerResult(dead: false, attempt: false, canceled: true), _views, (_, _) => 1f));
+
+            Assert.That(_sync.HasActivePlayerVisualHold, Is.False);
+            var expected = wasDead ? PlayerViewAnimationState.Death : PlayerViewAnimationState.Idle;
+            Assert.That(_sync.ResolvePlayerAnimationState(40, false, false), Is.EqualTo(expected));
+            Object.DestroyImmediate(oldView.gameObject);
+            Object.DestroyImmediate(invalidBinding);
+            _sync.CacheDrivers(40, replacement);
+            Assert.That(_sync.ResolvePlayerAnimationState(40, false, false), Is.EqualTo(expected));
+            Assert.That(replacement.GetComponent<PlayerAnimatorDriver>().LastPresentationState.CanceledThisTick, Is.False);
+            Assert.That(replacement.GetComponent<PlayerAnimatorDriver>().ActionStartSignalCount, Is.Zero);
+        }
+
+        private static EnemyAnimationBindingAuthoring AddInvalidBinding(GameplayEntityView view)
+        {
+            var binding = view.gameObject.AddComponent<EnemyAnimationBindingAuthoring>();
+            binding.ConfigureForTests(Array.Empty<EnemyAnimationCueBinding>(), -1f);
+            return binding;
+        }
+
+        [Test]
         public void PlayerHoldAndDeath_SurviveReplacement_AndMissingDriverClearsState()
         {
             var oldView = CreateView(2);
@@ -348,6 +559,85 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally { Object.DestroyImmediate(clip); }
         }
 
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        public void FailedUtilityReplacement_RetryUsesCurrentTrackTimeAndHonorsExpiryOrNewCancel(bool expire, bool cancel)
+        {
+            var clip = new AnimationClip();
+            clip.SetCurve(string.Empty, typeof(Transform), "localPosition.x", AnimationCurve.Linear(0f, 0f, 0.3f, 1f));
+            try
+            {
+                var oldView = CreateView(1);
+                ConfigureUtilityTiming(oldView, clip);
+                _sync.CacheDrivers(40, oldView);
+                _sync.ApplyTickPresentation(UtilityResult(EnemyUtilityPresentationPhase.WindupStarted), _views, (_, _) => 0f);
+                _sync.AdvancePresentationBeforeEnemySemantic(0.1f);
+                var replacement = CreateView(1);
+                ConfigureUtilityTiming(replacement, clip);
+                var invalidBinding = AddInvalidBinding(replacement);
+                Assert.Throws<InvalidOperationException>(() => _sync.CacheDrivers(40, replacement));
+                Object.DestroyImmediate(oldView.gameObject);
+                _sync.AdvancePresentationBeforeEnemySemantic(expire ? 0.5f : 0.2f);
+                if (cancel)
+                {
+                    Assert.Throws<InvalidOperationException>(() => _sync.ApplyTickPresentation(
+                        UtilityResult(EnemyUtilityPresentationPhase.Canceled), _views, (_, _) => 0f));
+                }
+
+                Object.DestroyImmediate(invalidBinding);
+                _sync.CacheDrivers(40, replacement);
+                var driver = replacement.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver.UtilityWindupSignalCount, Is.Zero);
+                Assert.That(driver.LastPresentationState.StartedUtilityWindupThisTick, Is.False);
+                if (expire || cancel)
+                {
+                    Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+                }
+                else
+                {
+                    Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                    _sync.AdvancePresentationBeforeEnemySemantic(0.19f);
+                    Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                    _sync.AdvancePresentationBeforeEnemySemantic(0.02f);
+                    Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero,
+                        "The retry uses the continuing track, not the elapsed time at failure.");
+                }
+            }
+            finally { Object.DestroyImmediate(clip); }
+        }
+
+        [Test]
+        public void IncomingDeathOnFirstFailedReplacement_RetryKeepsDeathAfterOldViewIsDestroyed()
+        {
+            var oldView = CreateView(1);
+            _sync.CacheDrivers(40, oldView);
+            oldView.GetComponent<EnemyAnimatorDriver>().Apply(SummonState());
+            var replacement = CreateView(1);
+            var invalidBinding = AddInvalidBinding(replacement);
+            Assert.Throws<InvalidOperationException>(() => _sync.BeginEnemyDeathPresentation(40, _views));
+            Object.DestroyImmediate(oldView.gameObject);
+            Object.DestroyImmediate(invalidBinding);
+            _sync.CacheDrivers(40, replacement);
+            Assert.That(replacement.GetComponent<EnemyAnimatorDriver>().LastPresentationState.DidDie, Is.True);
+            Assert.That(replacement.GetComponent<EnemyAnimatorDriver>().DeathSignalCount, Is.Zero);
+        }
+
+        private static TickResult UtilityResult(EnemyUtilityPresentationPhase phase)
+        {
+            var data = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(), null, Array.Empty<TickVisibilityChange>(), Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(), Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(), Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(), Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(), Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                enemyUtilitySignals: new[] { new TickEnemyUtilityPresentationSignal(40,
+                    EnemyUtilityPresentationKind.GravityFieldAura, phase,
+                    startTick: 1, executeTick: 3, durationTicks: 2, effectIndex: 0, activationSequence: 5) });
+            return Result(new[] { Enemy(40) }, data);
+        }
+
         private static void ConfigureUtilityTiming(GameplayEntityView view, AnimationClip clip)
         {
             var authoring = view.gameObject.AddComponent<EnemyAnimationTimingAuthoring>();
@@ -422,14 +712,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 false, false, false, false, false, false, false, false, false, false, false, false, dead,
                 startedSummonWindupThisTick: windup, startedSummonRecoverThisTick: recover, summonCanceledThisTick: canceled);
 
-        private static TickResult PlayerResult(bool dead, bool attempt)
+        private static TickResult PlayerResult(bool dead, bool attempt, bool canceled = false)
         {
             var entity = Enemy(40);
             entity.unitRole = UnitRole.Player;
             entity.hp = dead ? 0 : 1;
             return Result(new[] { entity }, new TickPresentationData(
                 Array.Empty<TickEntityMotion>(), null, Array.Empty<TickVisibilityChange>(), Array.Empty<TickTransitionVisibilityChange>(),
-                Array.Empty<TickPlayerActionPresentationSignal>(), Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                canceled ? new[] { new TickPlayerActionPresentationSignal(40, PlayerActionKind.None,
+                    activeActionSequence: 1, startedThisTick: false, completedThisTick: false, canceledThisTick: true) }
+                    : Array.Empty<TickPlayerActionPresentationSignal>(), Array.Empty<TickPlayerLocomotionPresentationSignal>(),
                 Array.Empty<TickPlayerDamagePresentationSignal>(), Array.Empty<TickEnemyDamagePresentationSignal>(),
                 Array.Empty<TickEnemyActionPresentationSignal>(), Array.Empty<TickEnemyJumpPresentationSignal>(),
                 Array.Empty<TickEntityExitPresentationSignal>(),

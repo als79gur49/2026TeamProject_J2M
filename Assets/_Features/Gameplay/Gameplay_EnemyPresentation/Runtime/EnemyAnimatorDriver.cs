@@ -21,7 +21,21 @@ namespace Game.Feature.Gameplay.Host
     public sealed class EnemyAnimatorDriver : MonoBehaviour
     {
         private const string DefaultLocomotionStateName = "Move";
-        private const string DeathStateName = "Death";
+        private const string LegacyActionWindupState = "Windup";
+        private const string LegacyJumpWindupState = "JumpWindup";
+        private const string LegacyJumpAirborneState = "JumpAirborne";
+        private const string LegacyChargeActiveState = "Charge";
+        private const string LegacyActionRecoveryState = "Recover";
+        private const string LegacyGlideWindupState = "Fly_Start";
+        private const string LegacyGlideActiveState = "Fly_Loop";
+        private const string LegacyGlideRecoveryState = "Fly_Done";
+        private const string LegacyActionWindupTrigger = "Windup";
+        private const string LegacyJumpWindupTrigger = "JumpWindup";
+        private const string LegacyJumpAirborneTrigger = "JumpAirborne";
+        private const string LegacyActionExecuteTrigger = "Attack";
+        private const string LegacyActionRecoveryTrigger = "Recover";
+        private const string LegacyHitTrigger = "Hit";
+        private const string LegacyDeathTrigger = "Death";
         private const string AiModeParameterName = "EnemyAiMode";
         private const string ActiveActionKindParameterName = "EnemyActionKind";
         private const string JumpPhaseParameterName = "EnemyJumpPhase";
@@ -34,22 +48,6 @@ namespace Game.Feature.Gameplay.Host
         private static readonly int MovingParameterHash = Animator.StringToHash(MovingParameterName);
 
         [SerializeField] private Animator animator;
-        [SerializeField] private EnemyAnimationTimingAuthoring animationTimingAuthoring;
-        [SerializeField] private string windupStateName = "Windup";
-        [SerializeField] private string jumpWindupStateName = "JumpWindup";
-        [SerializeField] private string jumpAirborneStateName = "JumpAirborne";
-        [SerializeField] private string chargeActiveStateName = "Charge";
-        [SerializeField] private string recoveryStateName = "Recover";
-        [SerializeField] private string glideWindupStateName = "Fly_Start";
-        [SerializeField] private string glideActiveStateName = "Fly_Loop";
-        [SerializeField] private string glideRecoveryStateName = "Fly_Done";
-        [SerializeField] private string windupTriggerName = "Windup";
-        [SerializeField] private string jumpWindupTriggerName = "JumpWindup";
-        [SerializeField] private string jumpAirborneTriggerName = "JumpAirborne";
-        [SerializeField] private string attackTriggerName = "Attack";
-        [SerializeField] private string recoveryTriggerName = "Recover";
-        [SerializeField] private string hitTriggerName = "Hit";
-        [SerializeField] private string deathTriggerName = "Death";
 
         public EnemyViewPresentationState LastPresentationState { get; private set; }
 
@@ -89,11 +87,25 @@ namespace Game.Feature.Gameplay.Host
 
         public int DeathSignalCount { get; private set; }
 
-        public float DeathPresentationDurationSeconds => ResolveDeathPresentationDurationSeconds();
+        [Obsolete(
+            "Enemy animation no longer owns death presentation duration. This compatibility value is always zero.",
+            false)]
+        public float DeathPresentationDurationSeconds => 0f;
 
         public float GetPresentationDurationSeconds(EnemyPresentationPhase phase)
         {
-            ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
+            if (TryResolveAnimationBinding(out _))
+            {
+                return GetPresentationDurationSeconds(ResolvePhaseCompatibilityCue(phase));
+            }
+
+            ResolveLegacyAnimatorSpeed(phase, out var presentationDurationSeconds);
+            return presentationDurationSeconds;
+        }
+
+        internal float GetPresentationDurationSeconds(EnemyAnimationCue cue)
+        {
+            ResolveAnimatorSpeedForCue(cue, out var presentationDurationSeconds);
             return presentationDurationSeconds;
         }
 
@@ -121,16 +133,41 @@ namespace Game.Feature.Gameplay.Host
         private int _recoveryTriggerDispatchCount;
         private AnimatorStateSnapshot _jumpAirborneTopologySuspendSnapshot;
         private float _lastJumpAirborneNormalizedTime;
-        private string _pendingCrossFadeStateName = string.Empty;
-        private bool _pendingCrossFadeRequiresOverride;
-        private EnemyPresentationPhase _pendingRestoredPhase;
-        private float _pendingRestoredNormalizedTime;
+        private bool _animationBindingResolved;
+        private bool _usesNewAnimationBinding;
+        private EnemyAnimationBindingSnapshot _animationBinding;
+        private EnemyAnimationPendingStateCommand _pendingStateCommand;
+        private ReplacementStateCommand _pendingReplacementState;
 
         public bool HasJumpAirborneTopologySuspendSnapshot => _jumpAirborneTopologySuspendSnapshot.HasValue;
 
         internal bool CanDriveCurrentAnimator => CanDriveAnimator(ResolveAnimator());
 
-        public int DebugLastJumpAirborneStateShortNameHash => Animator.StringToHash(jumpAirborneStateName);
+        internal Animator ResolveAnimatorForBindingValidation()
+        {
+            return animator != null
+                ? animator
+                : GetComponentInChildren<Animator>();
+        }
+
+        public int DebugLastJumpAirborneStateShortNameHash
+        {
+            get
+            {
+                var stateName = ResolveJumpAirborneRestorableStateName();
+                if (string.IsNullOrWhiteSpace(stateName))
+                {
+                    return 0;
+                }
+
+                return EnemyAnimatorStateNameResolver.TryResolveLayerZeroStateHash(
+                    ResolveAnimator(),
+                    stateName,
+                    out var stateHash)
+                    ? stateHash
+                    : Animator.StringToHash(stateName);
+            }
+        }
 
         public float DebugLastJumpAirborneNormalizedTime =>
             HasJumpAirborneTopologySuspendSnapshot
@@ -145,70 +182,186 @@ namespace Game.Feature.Gameplay.Host
         private void Reset()
         {
             animator = GetComponentInChildren<Animator>();
-            animationTimingAuthoring = GetComponent<EnemyAnimationTimingAuthoring>();
         }
 
-        // Rebind persistent state without consuming the previous View's one-shot
-        // flags. Pulse progression belongs to its own View and is not transferred.
+        // Transfer values only. Previous one-shot flags are not dispatch requests.
         internal void RestorePresentationState(in EnemyViewPresentationState state)
         {
-            _pendingCrossFadeStateName = string.Empty;
-            _pendingCrossFadeRequiresOverride = false;
-            _pendingRestoredPhase = EnemyPresentationPhase.None;
+            _pendingStateCommand = default;
+            _pendingReplacementState = default;
             _jumpAirborneTopologySuspendSnapshot = default;
             _lastJumpAirborneNormalizedTime = 0f;
             LastPresentationState = state;
             CurrentAiMode = state.AiMode;
             CurrentActiveActionKind = state.ActiveActionKind;
             IsMoving = state.IsMoving;
-            if (state.DidDie)
-            {
-                RestorePresentationPhase(EnemyPresentationPhase.Death);
-            }
-            else
-            {
-                ResyncAnimatorStateFromLastPresentation();
-            }
-        }
-
-        // Rebinding initializes the new Animator directly; it is not an animation
-        // event and does not require an authored cross-fade override or trigger.
-        internal void RestorePresentationPhase(EnemyPresentationPhase phase, float normalizedTime = 0f)
-        {
-            _pendingRestoredPhase = LastPresentationState.DidDie ? EnemyPresentationPhase.Death : phase;
-            _pendingRestoredNormalizedTime = LastPresentationState.DidDie ? 0f : Mathf.Clamp01(normalizedTime);
             var targetAnimator = ResolveAnimator();
-            ApplyAnimatorTiming(targetAnimator, _pendingRestoredPhase);
-            TryConsumePendingNamedStateCrossFade(targetAnimator);
-        }
-
-        internal void UpdatePendingUtilityPresentationPhase(EnemyPresentationPhase phase, float normalizedTime)
-        {
-            if (_pendingRestoredPhase == EnemyPresentationPhase.Windup ||
-                _pendingRestoredPhase == EnemyPresentationPhase.Recovery)
+            if (!IsPresentationPaused)
             {
-                _pendingRestoredPhase = phase;
-                _pendingRestoredNormalizedTime = Mathf.Clamp01(normalizedTime);
+                SyncOptionalParameters(targetAnimator, state);
             }
+            RestorePresentationCue(ResolveActiveTimingCue(state));
         }
 
-        private void UpdatePendingRestoreForCurrentState()
+        internal EnemyAnimationDispatchResult RestorePresentationCue(
+            EnemyAnimationCue cue, float normalizedTime = 0f)
         {
-            if (_pendingRestoredPhase == EnemyPresentationPhase.None)
+            // A new replacement request supersedes commands from the old View life.
+            _pendingStateCommand = default;
+            _pendingReplacementState = default;
+            if (LastPresentationState.DidDie)
+            {
+                cue = EnemyAnimationCue.Death;
+                normalizedTime = 0f;
+            }
+
+            if (!TryResolveReplacementState(cue, out var stateName, out var strict))
+            {
+                return EnemyAnimationDispatchResult.Unsupported;
+            }
+
+            normalizedTime = NormalizeAnimatorTime(normalizedTime);
+            if (IsUtilityCue(cue))
+            {
+                normalizedTime = Mathf.Clamp01(normalizedTime);
+            }
+            _pendingReplacementState = new ReplacementStateCommand(cue, stateName, normalizedTime, strict);
+            var targetAnimator = ResolveAnimator();
+            if (!IsPresentationPaused)
+            {
+                ApplyAnimatorTimingForCue(targetAnimator, cue);
+            }
+            return TryConsumePendingReplacementState(targetAnimator)
+                ? EnemyAnimationDispatchResult.Applied
+                : EnemyAnimationDispatchResult.Queued;
+        }
+
+        internal void UpdatePendingUtilityPresentationCue(EnemyAnimationCue cue, float normalizedTime)
+        {
+            if (!_pendingReplacementState.HasValue || !IsUtilityCue(_pendingReplacementState.Cue))
             {
                 return;
             }
             if (LastPresentationState.DidDie)
             {
-                // Death may arrive while an inactive replacement is still waiting
-                // for its utility restore. It must also survive utility expiry.
-                _pendingRestoredPhase = EnemyPresentationPhase.Death;
-                _pendingRestoredNormalizedTime = 0f;
+                RestorePresentationCue(EnemyAnimationCue.Death);
+                return;
             }
-            else if (_pendingRestoredPhase == EnemyPresentationPhase.Death)
+            if (!IsUtilityCue(cue))
             {
-                _pendingRestoredPhase = EnemyPresentationPhase.None;
+                _pendingReplacementState = default;
+                return;
             }
+            if (!TryResolveReplacementState(cue, out var stateName, out var strict))
+            {
+                _pendingReplacementState = default;
+                return;
+            }
+            _pendingReplacementState = new ReplacementStateCommand(
+                cue, stateName, Mathf.Clamp01(NormalizeAnimatorTime(normalizedTime)), strict);
+        }
+
+        private bool UpdatePendingRestoreForCurrentState()
+        {
+            if (!_pendingReplacementState.HasValue)
+            {
+                return false;
+            }
+            if (LastPresentationState.DidDie)
+            {
+                // A terminal replacement owns the next playable state. Do not leave an
+                // ordinary command from the same unavailable View life to replay later.
+                _pendingStateCommand = default;
+                var terminalReplacementPrepared = _pendingReplacementState.Cue == EnemyAnimationCue.Death;
+                if (_pendingReplacementState.Cue != EnemyAnimationCue.Death)
+                {
+                    terminalReplacementPrepared =
+                        RestorePresentationCue(EnemyAnimationCue.Death) != EnemyAnimationDispatchResult.Unsupported;
+                }
+                return terminalReplacementPrepared;
+            }
+            else if (_pendingReplacementState.Cue == EnemyAnimationCue.Death ||
+                     (LastPresentationState.UtilityCanceledThisTick && IsUtilityCue(_pendingReplacementState.Cue)))
+            {
+                _pendingReplacementState = default;
+            }
+            return false;
+        }
+
+        private static bool IsUtilityCue(EnemyAnimationCue cue)
+        {
+            return cue == EnemyAnimationCue.UtilityWindup || cue == EnemyAnimationCue.UtilityRecovery;
+        }
+
+        private bool TryResolveReplacementState(EnemyAnimationCue cue, out string stateName, out bool strict)
+        {
+            if (TryResolveAnimationBinding(out var animationBinding))
+            {
+                strict = true;
+                stateName = string.Empty;
+                if (!animationBinding.TryGetBinding(cue, out var binding))
+                {
+                    return false;
+                }
+                if (binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.State)
+                {
+                    stateName = binding.TargetName;
+                }
+                else if (binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.Trigger)
+                {
+                    if (cue == EnemyAnimationCue.JumpAirborne)
+                    {
+                        stateName = binding.SustainedStateName;
+                    }
+                    else if (EnemyAnimationBindingSnapshot.AllowsReplacementState(cue, binding.PrimaryDispatchMode))
+                    {
+                        stateName = binding.ReplacementStateName;
+                    }
+                }
+                return !string.IsNullOrWhiteSpace(stateName);
+            }
+            // Legacy compatibility retains its existing eligibility, never inferred Trigger states.
+            return TryResolveRestorableState(cue, out stateName, out _, out strict);
+        }
+
+        private bool TryConsumePendingReplacementState(Animator targetAnimator)
+        {
+            if (!_pendingReplacementState.HasValue || IsPresentationPaused || !CanDriveAnimator(targetAnimator))
+            {
+                return false;
+            }
+            var pending = _pendingReplacementState;
+            var stateHash = ResolveStateHashForCommand(targetAnimator, pending.StateName, pending.FailOnUnresolvedState);
+            PlayAnimatorState(targetAnimator, stateHash, pending.StateName, pending.NormalizedTime);
+            if (pending.Cue == EnemyAnimationCue.JumpAirborne)
+            {
+                // Hidden synchronization may have captured an initial topology pose
+                // while this replacement was unavailable. Its prepared time wins.
+                _jumpAirborneTopologySuspendSnapshot = default;
+                _lastJumpAirborneNormalizedTime = pending.NormalizedTime;
+            }
+            ApplyAnimatorTimingForCue(targetAnimator, pending.Cue);
+            LastCrossFadedStateName = pending.StateName;
+            LastCrossFadeDurationSeconds = 0f;
+            _pendingReplacementState = default;
+            return true;
+        }
+
+        private readonly struct ReplacementStateCommand
+        {
+            public ReplacementStateCommand(EnemyAnimationCue cue, string stateName, float normalizedTime, bool failOnUnresolvedState)
+            {
+                HasValue = true;
+                Cue = cue;
+                StateName = stateName;
+                NormalizedTime = normalizedTime;
+                FailOnUnresolvedState = failOnUnresolvedState;
+            }
+            public bool HasValue { get; }
+            public EnemyAnimationCue Cue { get; }
+            public string StateName { get; }
+            public float NormalizedTime { get; }
+            public bool FailOnUnresolvedState { get; }
         }
 
         public void Apply(in EnemyViewPresentationState state)
@@ -222,7 +375,7 @@ namespace Game.Feature.Gameplay.Host
         {
             var previousState = LastPresentationState;
             LastPresentationState = state;
-            UpdatePendingRestoreForCurrentState();
+            var terminalReplacementOwnsApply = UpdatePendingRestoreForCurrentState();
             CurrentAiMode = state.AiMode;
             CurrentActiveActionKind = state.ActiveActionKind;
             IsMoving = state.IsMoving;
@@ -235,8 +388,9 @@ namespace Game.Feature.Gameplay.Host
             var targetAnimator = ResolveAnimator();
             TryConsumePendingNamedStateCrossFade(targetAnimator);
             SyncOptionalParameters(targetAnimator, state);
+            var preserveJumpAirbornePrimaryTrigger = false;
 
-            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(state));
+            ApplyAnimatorTimingForCue(targetAnimator, ResolveActiveTimingCue(state));
             if (state.JumpPhase != EnemyJumpPhase.Airborne)
             {
                 _jumpAirborneTopologySuspendSnapshot = default;
@@ -247,10 +401,7 @@ namespace Game.Feature.Gameplay.Host
                 !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.JumpWindup))
             {
                 JumpWindupSignalCount++;
-                if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.JumpWindup))
-                {
-                    SetTrigger(targetAnimator, jumpWindupTriggerName);
-                }
+                DispatchCue(EnemyAnimationCue.JumpWindup, targetAnimator, terminalReplacementOwnsApply);
             }
 
             if (state.StartedJumpAirborneThisTick &&
@@ -258,16 +409,14 @@ namespace Game.Feature.Gameplay.Host
             {
                 _jumpAirborneTopologySuspendSnapshot = default;
                 JumpAirborneSignalCount++;
-                if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.JumpAirborne))
-                {
-                    SetTrigger(targetAnimator, jumpAirborneTriggerName);
-                }
+                DispatchCue(EnemyAnimationCue.JumpAirborne, targetAnimator, terminalReplacementOwnsApply);
+                preserveJumpAirbornePrimaryTrigger = IsPrimaryTriggerDispatch(EnemyAnimationCue.JumpAirborne);
             }
 
             if (state.LandedFromJumpThisTick &&
                 !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.JumpLand))
             {
-                TryApplyNamedStateCrossFade(targetAnimator, DefaultLocomotionStateName);
+                DispatchCue(EnemyAnimationCue.JumpLanding, targetAnimator, terminalReplacementOwnsApply);
             }
 
             var suppressChargeActiveStart =
@@ -278,27 +427,23 @@ namespace Game.Feature.Gameplay.Host
                  (state.ChargePhase == EnemyChargePhase.Active && previousState.ChargePhase != EnemyChargePhase.Active)))
             {
                 ChargeActiveSignalCount++;
-                TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.ChargeActive);
+                DispatchCue(EnemyAnimationCue.ChargeActive, targetAnimator, terminalReplacementOwnsApply);
             }
 
             var handledGlideWindup = false;
             if (state.StartedGlideWindupThisTick)
             {
                 GlideWindupSignalCount++;
-                handledGlideWindup = TryApplyNamedStateCrossFade(
-                    targetAnimator,
-                    glideWindupStateName,
-                    requireOverride: true);
+                var result = DispatchCue(EnemyAnimationCue.GlideWindup, targetAnimator, terminalReplacementOwnsApply);
+                handledGlideWindup = _usesNewAnimationBinding ||
+                                     result != EnemyAnimationDispatchResult.Unsupported;
             }
 
             if (state.StartedGlideActiveThisTick ||
                 (state.GlidePhase == EnemyGlidePhase.Active && previousState.GlidePhase != EnemyGlidePhase.Active))
             {
                 GlideActiveSignalCount++;
-                TryApplyNamedStateCrossFade(
-                    targetAnimator,
-                    glideActiveStateName,
-                    requireOverride: true);
+                DispatchCue(EnemyAnimationCue.GlideActive, targetAnimator, terminalReplacementOwnsApply);
             }
 
             if (state.StartedWindupThisTick &&
@@ -306,32 +451,41 @@ namespace Game.Feature.Gameplay.Host
                   IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.ChargeWindup)))
             {
                 WindupSignalCount++;
-                if (!handledGlideWindup &&
-                    !TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup))
+                if (!handledGlideWindup)
                 {
-                    DispatchWindupTrigger(targetAnimator);
+                    if (state.StartedChargeWindupThisTick)
+                    {
+                        DispatchCue(EnemyAnimationCue.ChargeWindup, targetAnimator, terminalReplacementOwnsApply);
+                    }
+                    else if (!SupportsUtilityWindupCue(state))
+                    {
+                        DispatchCue(EnemyAnimationCue.ActionWindup, targetAnimator, terminalReplacementOwnsApply);
+                    }
                 }
             }
 
             if (state.StartedUtilityWindupThisTick)
             {
-                PlayUtilityWindup(state.UtilityPresentationKind);
+                PlayUtilityWindup(
+                    state.UtilityPresentationKind,
+                    targetAnimator,
+                    dispatchCue: !handledGlideWindup && !state.StartedChargeWindupThisTick,
+                    terminalReplacementOwnsApply: terminalReplacementOwnsApply);
             }
 
             if (state.ExecutedThisTick)
             {
                 AttackSignalCount++;
-                SetTrigger(targetAnimator, attackTriggerName);
+                DispatchCue(EnemyAnimationCue.ActionExecute, targetAnimator, terminalReplacementOwnsApply);
             }
 
             var handledGlideRecovery = false;
             if (state.StartedGlideRecoverThisTick)
             {
                 GlideRecoverySignalCount++;
-                handledGlideRecovery = TryApplyNamedStateCrossFade(
-                    targetAnimator,
-                    glideRecoveryStateName,
-                    requireOverride: true);
+                var result = DispatchCue(EnemyAnimationCue.GlideRecovery, targetAnimator, terminalReplacementOwnsApply);
+                handledGlideRecovery = _usesNewAnimationBinding ||
+                                       result != EnemyAnimationDispatchResult.Unsupported;
             }
 
             if (state.StartedRecoveryThisTick &&
@@ -339,27 +493,37 @@ namespace Game.Feature.Gameplay.Host
                   IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.ChargeRecover)))
             {
                 RecoverySignalCount++;
-                if (!handledGlideRecovery &&
-                    !TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Recovery))
+                if (!handledGlideRecovery)
                 {
-                    DispatchRecoveryTrigger(targetAnimator);
+                    var recoveryCue = state.StartedChargeRecoverThisTick
+                        ? EnemyAnimationCue.ChargeRecovery
+                        : state.StartedUtilityRecoverThisTick
+                            ? EnemyAnimationCue.UtilityRecovery
+                            : state.StartedSummonRecoverThisTick
+                                ? EnemyAnimationCue.None
+                                : EnemyAnimationCue.ActionRecovery;
+                    if (recoveryCue != EnemyAnimationCue.None)
+                    {
+                        DispatchCue(recoveryCue, targetAnimator, terminalReplacementOwnsApply);
+                    }
                 }
             }
 
             if (state.TookDamage)
             {
                 HitSignalCount++;
-                SetTrigger(targetAnimator, hitTriggerName);
+                DispatchCue(EnemyAnimationCue.Hit, targetAnimator, terminalReplacementOwnsApply);
             }
 
             if (state.DidDie &&
                 !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.DeathTrigger))
             {
                 DeathSignalCount++;
-                SetTrigger(targetAnimator, deathTriggerName);
+                DispatchCue(EnemyAnimationCue.Death, targetAnimator, terminalReplacementOwnsApply);
             }
 
             if (state.JumpPhase == EnemyJumpPhase.Airborne &&
+                (!state.StartedJumpAirborneThisTick || !preserveJumpAirbornePrimaryTrigger) &&
                 !state.LandedFromJumpThisTick &&
                 !state.DidDie)
             {
@@ -390,8 +554,8 @@ namespace Game.Feature.Gameplay.Host
             var targetAnimator = ResolveAnimator();
             TryConsumePendingNamedStateCrossFade(targetAnimator);
             SyncOptionalParameters(targetAnimator, settledState);
-            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(settledState));
-            TryApplyNamedStateCrossFade(targetAnimator, DefaultLocomotionStateName);
+            ApplyAnimatorTimingForCue(targetAnimator, ResolveActiveTimingCue(settledState));
+            DispatchCue(EnemyAnimationCue.JumpLanding, targetAnimator);
             SyncRuntimeState(IsVisible, IsMoving, playbackSuppressed: false);
         }
 
@@ -424,7 +588,7 @@ namespace Game.Feature.Gameplay.Host
 
             SyncOptionalMovingParameter(targetAnimator, isMoving);
 
-            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
+            ApplyAnimatorTimingForCue(targetAnimator, ResolveActiveTimingCue(LastPresentationState));
             if (isJumpAirborne &&
                 isVisible &&
                 !effectivePlaybackSuppressed)
@@ -451,7 +615,10 @@ namespace Game.Feature.Gameplay.Host
                 PreserveJumpAirborneAnimatorForTopologySuspend(targetAnimator);
             }
 
-            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState), driveAnimator: false);
+            ApplyAnimatorTimingForCue(
+                targetAnimator,
+                ResolveActiveTimingCue(LastPresentationState),
+                driveAnimator: false);
         }
 
         public void ApplyPresentationPhaseTiming(EnemyPresentationPhase phase)
@@ -461,23 +628,38 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            ApplyAnimatorTiming(ResolveAnimator(), phase);
+            if (TryResolveAnimationBinding(out _))
+            {
+                ApplyPresentationCueTiming(ResolvePhaseCompatibilityCue(phase));
+                return;
+            }
+
+            ApplyLegacyAnimatorTiming(ResolveAnimator(), phase);
+        }
+
+        internal void ApplyPresentationCueTiming(EnemyAnimationCue cue)
+        {
+            if (IsPresentationPaused)
+            {
+                return;
+            }
+
+            ApplyAnimatorTimingForCue(ResolveAnimator(), cue);
         }
 
         public void RestorePresentationTiming()
         {
-            // A utility track may end before an inactive replacement can consume it.
-            if (_pendingRestoredPhase == EnemyPresentationPhase.Windup ||
-                _pendingRestoredPhase == EnemyPresentationPhase.Recovery)
+            // Expiry belongs to Utility only; a terminal replacement must survive it.
+            if (_pendingReplacementState.HasValue && IsUtilityCue(_pendingReplacementState.Cue))
             {
-                _pendingRestoredPhase = EnemyPresentationPhase.None;
+                _pendingReplacementState = default;
             }
             if (IsPresentationPaused)
             {
                 return;
             }
 
-            ApplyAnimatorTiming(ResolveAnimator(), ResolvePresentationPhase(LastPresentationState));
+            ApplyAnimatorTimingForCue(ResolveAnimator(), ResolveActiveTimingCue(LastPresentationState));
         }
 
         public bool ResyncAnimatorStateFromLastPresentation()
@@ -493,51 +675,40 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var targetAnimator = ResolveAnimator();
-            TryConsumePendingNamedStateCrossFade(targetAnimator);
-            SyncOptionalParameters(targetAnimator, LastPresentationState);
-            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
-
-            // Death can retain the previous jump/glide phase in its presentation
-            // carrier. Do not overwrite the terminal animation during resync.
-            if (LastPresentationState.DidDie)
+            if (TryConsumePendingReplacementState(targetAnimator))
             {
-                return false;
-            }
-
-            if (LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne &&
-                EnsureJumpAirborneAnimatorState(targetAnimator))
-            {
+                SyncOptionalParameters(targetAnimator, LastPresentationState);
                 return true;
             }
-
-            switch (LastPresentationState.GlidePhase)
+            if (_pendingReplacementState.HasValue)
             {
-                case EnemyGlidePhase.Windup:
-                    return TryApplyNamedStateCrossFade(targetAnimator, glideWindupStateName, requireOverride: true);
-
-                case EnemyGlidePhase.Active:
-                    return TryApplyNamedStateCrossFade(targetAnimator, glideActiveStateName, requireOverride: true);
-
-                case EnemyGlidePhase.Recovery:
-                    return TryApplyNamedStateCrossFade(targetAnimator, glideRecoveryStateName, requireOverride: true);
+                // An unavailable replacement still owns its prepared progress.
+                // General resync must not replace it with an ordinary time-zero command.
+                return false;
+            }
+            TryConsumePendingNamedStateCrossFade(targetAnimator);
+            SyncOptionalParameters(targetAnimator, LastPresentationState);
+            var activeCue = ResolveActiveTimingCue(LastPresentationState);
+            ApplyAnimatorTimingForCue(targetAnimator, activeCue);
+            if (activeCue == EnemyAnimationCue.JumpAirborne &&
+                _jumpAirborneTopologySuspendSnapshot.HasValue)
+            {
+                return RestoreJumpAirborneAnimatorAfterTopologySuspend(targetAnimator);
             }
 
-            var phase = ResolvePresentationPhase(LastPresentationState);
-            switch (phase)
-            {
-                case EnemyPresentationPhase.Windup:
-                case EnemyPresentationPhase.Recovery:
-                case EnemyPresentationPhase.JumpWindup:
-                case EnemyPresentationPhase.JumpAirborne:
-                case EnemyPresentationPhase.ChargeActive:
-                    return TryApplyPresentationCrossFade(targetAnimator, phase);
-
-                default:
-                    return false;
-            }
+            return TryRestoreCueState(activeCue, targetAnimator);
         }
 
         public void PlayUtilityWindup(EnemyUtilityPresentationKind kind)
+        {
+            PlayUtilityWindup(kind, ResolveAnimator(), dispatchCue: true);
+        }
+
+        private void PlayUtilityWindup(
+            EnemyUtilityPresentationKind kind,
+            Animator targetAnimator,
+            bool dispatchCue,
+            bool terminalReplacementOwnsApply = false)
         {
             if (kind != EnemyUtilityPresentationKind.GravityFieldAura)
             {
@@ -549,15 +720,20 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var targetAnimator = ResolveAnimator();
             UtilityWindupSignalCount++;
-            if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup))
+            if (dispatchCue)
             {
-                DispatchWindupTrigger(targetAnimator);
+                DispatchCue(EnemyAnimationCue.UtilityWindup, targetAnimator, terminalReplacementOwnsApply);
             }
         }
 
-        public float PlayDeathPresentation(int entityId)
+        private static bool SupportsUtilityWindupCue(in EnemyViewPresentationState state)
+        {
+            return state.StartedUtilityWindupThisTick &&
+                   state.UtilityPresentationKind == EnemyUtilityPresentationKind.GravityFieldAura;
+        }
+
+        internal void PlayDeathCue(int entityId)
         {
             var targetAnimator = ResolveAnimator();
             var currentState = LastPresentationState.EntityId == 0
@@ -580,13 +756,21 @@ namespace Game.Feature.Gameplay.Host
             IsMoving = false;
             if (IsPresentationPaused)
             {
-                return DeathPresentationDurationSeconds;
+                return;
             }
 
             DeathSignalCount++;
-            SetTrigger(targetAnimator, deathTriggerName);
-            ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.Death);
-            return DeathPresentationDurationSeconds;
+            DispatchCue(EnemyAnimationCue.Death, targetAnimator);
+            ApplyAnimatorTimingForCue(targetAnimator, EnemyAnimationCue.Death);
+        }
+
+        [Obsolete(
+            "Enemy animation no longer owns death presentation duration. Use the typed enemy presentation playback path.",
+            false)]
+        public float PlayDeathPresentation(int entityId)
+        {
+            PlayDeathCue(entityId);
+            return 0f;
         }
 
         private Animator ResolveAnimator()
@@ -599,20 +783,38 @@ namespace Game.Feature.Gameplay.Host
             return animator;
         }
 
+        private bool TryResolveAnimationBinding(out EnemyAnimationBindingSnapshot animationBinding)
+        {
+            if (_animationBindingResolved)
+            {
+                animationBinding = _animationBinding;
+                return _usesNewAnimationBinding;
+            }
+
+            var authoring = EnemyAnimationBindingAuthoring.GetOptionalValidatedRoot(this);
+            _animationBindingResolved = true;
+            _usesNewAnimationBinding = authoring != null;
+            _animationBinding = authoring?.CreateSnapshot();
+            animationBinding = _animationBinding;
+            return _usesNewAnimationBinding;
+        }
+
         private bool TryResolveAnimationTiming(out EnemyAnimationTimingSnapshot animationTiming)
         {
+            if (TryResolveAnimationBinding(out _))
+            {
+                animationTiming = default;
+                return false;
+            }
+
             if (_animationTimingResolved)
             {
                 animationTiming = _animationTiming;
                 return _hasAnimationTimingAuthoring;
             }
 
-            if (animationTimingAuthoring == null)
-            {
-                animationTimingAuthoring = GetComponent<EnemyAnimationTimingAuthoring>();
-            }
-
-            if (animationTimingAuthoring == null)
+            var authoring = GetComponent<EnemyAnimationTimingAuthoring>();
+            if (authoring == null)
             {
                 _animationTimingResolved = true;
                 _hasAnimationTimingAuthoring = false;
@@ -621,19 +823,42 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            _animationTiming = animationTimingAuthoring.CreateSnapshot();
+            _animationTiming = authoring.CreateSnapshot();
             _animationTimingResolved = true;
             _hasAnimationTimingAuthoring = true;
             animationTiming = _animationTiming;
             return true;
         }
 
-        private void ApplyAnimatorTiming(
+        internal void ApplyAnimatorTimingForCue(EnemyAnimationCue cue)
+        {
+            ApplyAnimatorTimingForCue(ResolveAnimator(), cue);
+        }
+
+        private void ApplyAnimatorTimingForCue(
+            Animator targetAnimator,
+            EnemyAnimationCue cue,
+            bool driveAnimator = true)
+        {
+            var resolvedSpeed = ResolveAnimatorSpeedForCue(cue, out var presentationDurationSeconds);
+            ApplyResolvedAnimatorTiming(targetAnimator, resolvedSpeed, presentationDurationSeconds, driveAnimator);
+        }
+
+        private void ApplyLegacyAnimatorTiming(
             Animator targetAnimator,
             EnemyPresentationPhase phase,
             bool driveAnimator = true)
         {
-            var resolvedSpeed = ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
+            var resolvedSpeed = ResolveLegacyAnimatorSpeed(phase, out var presentationDurationSeconds);
+            ApplyResolvedAnimatorTiming(targetAnimator, resolvedSpeed, presentationDurationSeconds, driveAnimator);
+        }
+
+        private void ApplyResolvedAnimatorTiming(
+            Animator targetAnimator,
+            float resolvedSpeed,
+            float presentationDurationSeconds,
+            bool driveAnimator)
+        {
             CurrentAnimatorSpeed = resolvedSpeed;
             CurrentPresentationDurationSeconds = presentationDurationSeconds;
             if (IsPresentationPaused)
@@ -641,40 +866,60 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var targetSpeed = IsPlaybackSuppressed
-                ? 0f
-                : resolvedSpeed;
-
+            var targetSpeed = IsPlaybackSuppressed ? 0f : resolvedSpeed;
             if (driveAnimator && CanSetAnimatorSpeed(targetAnimator))
             {
                 targetAnimator.speed = targetSpeed;
             }
         }
 
-        private bool TryApplyPresentationCrossFade(Animator targetAnimator, EnemyPresentationPhase phase)
-        {
-            var stateName = ResolveStateName(phase);
-            return TryApplyNamedStateCrossFade(targetAnimator, stateName, requireOverride: true);
-        }
-
-        private float ResolveAnimatorSpeed(
-            EnemyPresentationPhase phase,
+        private float ResolveAnimatorSpeedForCue(
+            EnemyAnimationCue cue,
             out float presentationDurationSeconds)
         {
-            if (phase == EnemyPresentationPhase.None)
+            if (cue == EnemyAnimationCue.None || cue == EnemyAnimationCue.Death)
             {
                 presentationDurationSeconds = 0f;
                 return 1f;
             }
 
-            var hasReferenceClipLength = TryResolveReferenceClipLengthSeconds(
+            if (!TryResolveAnimationBinding(out var animationBinding))
+            {
+                return ResolveLegacyAnimatorSpeed(ResolveLegacyPresentationPhase(cue), out presentationDurationSeconds);
+            }
+
+            if (!animationBinding.TryGetBinding(cue, out var binding) || !binding.HasReferenceClipLength)
+            {
+                presentationDurationSeconds = 0f;
+                return 1f;
+            }
+
+            if (binding.AnimatorDurationSeconds == EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel)
+            {
+                presentationDurationSeconds = binding.ReferenceClipLengthSeconds;
+                return 1f;
+            }
+
+            presentationDurationSeconds = binding.AnimatorDurationSeconds;
+            return Mathf.Max(0.01f, binding.ReferenceClipLengthSeconds / binding.AnimatorDurationSeconds);
+        }
+
+        private float ResolveLegacyAnimatorSpeed(
+            EnemyPresentationPhase phase,
+            out float presentationDurationSeconds)
+        {
+            if (phase == EnemyPresentationPhase.None || phase == EnemyPresentationPhase.Death)
+            {
+                presentationDurationSeconds = 0f;
+                return 1f;
+            }
+
+            var hasReferenceClipLength = TryResolveLegacyReferenceClipLengthSeconds(
                 phase,
                 out var referenceClipLengthSeconds);
-            if (!TryResolveAnimatorDurationOverride(phase, out var overrideDurationSeconds))
+            if (!TryResolveLegacyAnimatorDurationOverride(phase, out var overrideDurationSeconds))
             {
-                presentationDurationSeconds = hasReferenceClipLength
-                    ? referenceClipLengthSeconds
-                    : 0f;
+                presentationDurationSeconds = hasReferenceClipLength ? referenceClipLengthSeconds : 0f;
                 return 1f;
             }
 
@@ -688,7 +933,7 @@ namespace Game.Feature.Gameplay.Host
             return Mathf.Max(0.01f, referenceClipLengthSeconds / overrideDurationSeconds);
         }
 
-        private bool TryResolveAnimatorDurationOverride(
+        private bool TryResolveLegacyAnimatorDurationOverride(
             EnemyPresentationPhase phase,
             out float durationSeconds)
         {
@@ -702,23 +947,12 @@ namespace Game.Feature.Gameplay.Host
             {
                 case EnemyPresentationPhase.JumpWindup:
                     return animationTiming.TryGetJumpWindupAnimatorDurationOverride(out durationSeconds);
-
                 case EnemyPresentationPhase.JumpAirborne:
                     return animationTiming.TryGetJumpAirborneAnimatorDurationOverride(out durationSeconds);
-
                 case EnemyPresentationPhase.Windup:
                     return animationTiming.TryGetAttackWindupAnimatorDurationOverride(out durationSeconds);
-
-                case EnemyPresentationPhase.ChargeActive:
-                    durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
-                    return false;
-
                 case EnemyPresentationPhase.Recovery:
                     return animationTiming.TryGetRecoverAnimatorDurationOverride(out durationSeconds);
-
-                case EnemyPresentationPhase.Death:
-                    return animationTiming.TryGetDeathAnimatorDurationOverride(out durationSeconds);
-
                 default:
                     durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
                     return false;
@@ -736,7 +970,7 @@ namespace Game.Feature.Gameplay.Host
             return animationTiming.TryGetStateTransitionCrossFadeDurationOverride(out durationSeconds);
         }
 
-        private bool TryResolveReferenceClipLengthSeconds(
+        private bool TryResolveLegacyReferenceClipLengthSeconds(
             EnemyPresentationPhase phase,
             out float referenceClipLengthSeconds)
         {
@@ -768,97 +1002,248 @@ namespace Game.Feature.Gameplay.Host
                     return animationTiming.TryGetRecoverReferenceClipLengthSeconds(
                         out referenceClipLengthSeconds);
 
-                case EnemyPresentationPhase.Death:
-                    return animationTiming.TryGetDeathReferenceClipLengthSeconds(
-                        out referenceClipLengthSeconds);
-
                 default:
                     referenceClipLengthSeconds = 0f;
                     return false;
             }
         }
 
-        private string ResolveStateName(EnemyPresentationPhase phase)
-        {
-            switch (phase)
-            {
-                case EnemyPresentationPhase.JumpWindup:
-                    return jumpWindupStateName;
-
-                case EnemyPresentationPhase.JumpAirborne:
-                    return jumpAirborneStateName;
-
-                case EnemyPresentationPhase.Windup:
-                    return windupStateName;
-
-                case EnemyPresentationPhase.ChargeActive:
-                    return chargeActiveStateName;
-
-                case EnemyPresentationPhase.Recovery:
-                    return recoveryStateName;
-
-                case EnemyPresentationPhase.Death:
-                    return DeathStateName;
-
-                default:
-                    return string.Empty;
-            }
-        }
-
-        private float ResolveDeathPresentationDurationSeconds()
-        {
-            ResolveAnimatorSpeed(EnemyPresentationPhase.Death, out var presentationDurationSeconds);
-            return presentationDurationSeconds;
-        }
-
-        private static EnemyPresentationPhase ResolvePresentationPhase(in EnemyViewPresentationState state)
+        internal EnemyAnimationCue ResolveActiveTimingCue(in EnemyViewPresentationState state)
         {
             if (state.DidDie)
             {
-                return EnemyPresentationPhase.Death;
+                return EnemyAnimationCue.Death;
             }
 
             switch (state.JumpPhase)
             {
                 case EnemyJumpPhase.Windup:
-                    return EnemyPresentationPhase.JumpWindup;
-
+                    return EnemyAnimationCue.JumpWindup;
                 case EnemyJumpPhase.Airborne:
-                    return EnemyPresentationPhase.JumpAirborne;
+                    return EnemyAnimationCue.JumpAirborne;
+            }
+
+            if (state.GlidePhase == EnemyGlidePhase.Windup)
+            {
+                return EnemyAnimationCue.GlideWindup;
+            }
+
+            if (state.GlidePhase == EnemyGlidePhase.Recovery)
+            {
+                return EnemyAnimationCue.GlideRecovery;
             }
 
             switch (state.ChargePhase)
             {
                 case EnemyChargePhase.Windup:
-                    return EnemyPresentationPhase.Windup;
-
+                    return EnemyAnimationCue.ChargeWindup;
                 case EnemyChargePhase.Active:
-                    return EnemyPresentationPhase.ChargeActive;
-
+                    return EnemyAnimationCue.ChargeActive;
                 case EnemyChargePhase.Recover:
-                    return EnemyPresentationPhase.Recovery;
+                    return EnemyAnimationCue.ChargeRecovery;
             }
 
             switch (state.GlidePhase)
             {
-                case EnemyGlidePhase.Windup:
-                    return EnemyPresentationPhase.Windup;
+                case EnemyGlidePhase.Active:
+                    return EnemyAnimationCue.GlideActive;
+            }
 
-                case EnemyGlidePhase.Recovery:
-                    return EnemyPresentationPhase.Recovery;
+            if (state.UtilityPresentationKind != EnemyUtilityPresentationKind.None ||
+                state.StartedUtilityWindupThisTick ||
+                state.StartedUtilityRecoverThisTick ||
+                state.StartedSummonWindupThisTick ||
+                state.StartedSummonRecoverThisTick)
+            {
+                return EnemyAnimationCue.None;
             }
 
             switch (state.AiMode)
             {
                 case EnemyAiMode.Attack:
-                    return EnemyPresentationPhase.Windup;
-
+                    return EnemyAnimationCue.ActionWindup;
                 case EnemyAiMode.Recover:
-                    return EnemyPresentationPhase.Recovery;
-
+                    return EnemyAnimationCue.ActionRecovery;
                 default:
-                    return EnemyPresentationPhase.None;
+                    return EnemyAnimationCue.None;
             }
+        }
+
+        private EnemyAnimationCue ResolvePhaseCompatibilityCue(EnemyPresentationPhase phase)
+        {
+            switch (phase)
+            {
+                case EnemyPresentationPhase.None:
+                    return EnemyAnimationCue.None;
+                case EnemyPresentationPhase.JumpWindup:
+                    return EnemyAnimationCue.JumpWindup;
+                case EnemyPresentationPhase.JumpAirborne:
+                    return EnemyAnimationCue.JumpAirborne;
+                case EnemyPresentationPhase.ChargeActive:
+                    return EnemyAnimationCue.ChargeActive;
+                case EnemyPresentationPhase.Death:
+                    return EnemyAnimationCue.Death;
+                case EnemyPresentationPhase.Windup:
+                case EnemyPresentationPhase.Recovery:
+                    if (TryResolvePhaseCueFromLastPresentation(phase, out var resolvedCue))
+                    {
+                        return resolvedCue;
+                    }
+
+                    return ResolveSingleConfiguredTimingCue(phase);
+                default:
+                    return EnemyAnimationCue.None;
+            }
+        }
+
+        private bool TryResolvePhaseCueFromLastPresentation(
+            EnemyPresentationPhase phase,
+            out EnemyAnimationCue cue)
+        {
+            if (phase == EnemyPresentationPhase.Windup)
+            {
+                if (LastPresentationState.JumpPhase == EnemyJumpPhase.Windup)
+                {
+                    cue = EnemyAnimationCue.JumpWindup;
+                    return true;
+                }
+
+                if (LastPresentationState.GlidePhase == EnemyGlidePhase.Windup)
+                {
+                    cue = EnemyAnimationCue.GlideWindup;
+                    return true;
+                }
+
+                if (LastPresentationState.ChargePhase == EnemyChargePhase.Windup)
+                {
+                    cue = EnemyAnimationCue.ChargeWindup;
+                    return true;
+                }
+
+                if (LastPresentationState.StartedUtilityWindupThisTick ||
+                    LastPresentationState.UtilityPhase == EnemyUtilityEffectPhase.Windup)
+                {
+                    cue = EnemyAnimationCue.UtilityWindup;
+                    return true;
+                }
+
+                if (LastPresentationState.StartedSummonWindupThisTick)
+                {
+                    cue = EnemyAnimationCue.None;
+                    return true;
+                }
+
+                if (LastPresentationState.ActiveActionKind != EnemyActionKind.None ||
+                    LastPresentationState.AiMode == EnemyAiMode.Attack)
+                {
+                    cue = EnemyAnimationCue.ActionWindup;
+                    return true;
+                }
+            }
+            else if (phase == EnemyPresentationPhase.Recovery)
+            {
+                if (LastPresentationState.GlidePhase == EnemyGlidePhase.Recovery)
+                {
+                    cue = EnemyAnimationCue.GlideRecovery;
+                    return true;
+                }
+
+                if (LastPresentationState.ChargePhase == EnemyChargePhase.Recover)
+                {
+                    cue = EnemyAnimationCue.ChargeRecovery;
+                    return true;
+                }
+
+                if (LastPresentationState.StartedUtilityRecoverThisTick ||
+                    LastPresentationState.UtilityPhase == EnemyUtilityEffectPhase.Recover)
+                {
+                    cue = EnemyAnimationCue.UtilityRecovery;
+                    return true;
+                }
+
+                if (LastPresentationState.StartedSummonRecoverThisTick)
+                {
+                    cue = EnemyAnimationCue.None;
+                    return true;
+                }
+
+                if (LastPresentationState.ActiveActionKind != EnemyActionKind.None ||
+                    LastPresentationState.AiMode == EnemyAiMode.Recover)
+                {
+                    cue = EnemyAnimationCue.ActionRecovery;
+                    return true;
+                }
+            }
+
+            cue = EnemyAnimationCue.None;
+            return false;
+        }
+
+        private EnemyAnimationCue ResolveSingleConfiguredTimingCue(EnemyPresentationPhase phase)
+        {
+            if (!TryResolveAnimationBinding(out var animationBinding))
+            {
+                return EnemyAnimationCue.None;
+            }
+
+            var match = EnemyAnimationCue.None;
+            var matchCount = 0;
+            foreach (var binding in animationBinding.Bindings)
+            {
+                if (!binding.HasReferenceClipLength || !IsCueInCompatibilityPhase(binding.Cue, phase))
+                {
+                    continue;
+                }
+
+                match = binding.Cue;
+                matchCount++;
+            }
+
+            if (matchCount > 1)
+            {
+                throw new InvalidOperationException(
+                    $"{phase} timing is ambiguous across {matchCount} configured enemy animation cue bindings.");
+            }
+
+            return match;
+        }
+
+        private static bool IsCueInCompatibilityPhase(EnemyAnimationCue cue, EnemyPresentationPhase phase)
+        {
+            return phase switch
+            {
+                EnemyPresentationPhase.Windup =>
+                    cue == EnemyAnimationCue.ActionWindup ||
+                    cue == EnemyAnimationCue.ChargeWindup ||
+                    cue == EnemyAnimationCue.GlideWindup ||
+                    cue == EnemyAnimationCue.UtilityWindup,
+                EnemyPresentationPhase.Recovery =>
+                    cue == EnemyAnimationCue.ActionRecovery ||
+                    cue == EnemyAnimationCue.ChargeRecovery ||
+                    cue == EnemyAnimationCue.GlideRecovery ||
+                    cue == EnemyAnimationCue.UtilityRecovery,
+                _ => false,
+            };
+        }
+
+        private static EnemyPresentationPhase ResolveLegacyPresentationPhase(EnemyAnimationCue cue)
+        {
+            return cue switch
+            {
+                EnemyAnimationCue.JumpWindup => EnemyPresentationPhase.JumpWindup,
+                EnemyAnimationCue.JumpAirborne => EnemyPresentationPhase.JumpAirborne,
+                EnemyAnimationCue.ActionWindup or
+                EnemyAnimationCue.ChargeWindup or
+                EnemyAnimationCue.GlideWindup or
+                EnemyAnimationCue.UtilityWindup => EnemyPresentationPhase.Windup,
+                EnemyAnimationCue.ChargeActive => EnemyPresentationPhase.ChargeActive,
+                EnemyAnimationCue.ActionRecovery or
+                EnemyAnimationCue.ChargeRecovery or
+                EnemyAnimationCue.GlideRecovery or
+                EnemyAnimationCue.UtilityRecovery => EnemyPresentationPhase.Recovery,
+                EnemyAnimationCue.Death => EnemyPresentationPhase.Death,
+                _ => EnemyPresentationPhase.None,
+            };
         }
 
         private void SyncOptionalParameters(Animator targetAnimator, in EnemyViewPresentationState state)
@@ -1029,20 +1414,287 @@ namespace Game.Feature.Gameplay.Host
             };
         }
 
-        private void DispatchWindupTrigger(Animator targetAnimator)
+        internal EnemyAnimationDispatchResult DispatchCue(EnemyAnimationCue cue)
         {
-            if (SetTrigger(targetAnimator, windupTriggerName))
+            return DispatchCue(cue, ResolveAnimator());
+        }
+
+        private EnemyAnimationDispatchResult DispatchCue(
+            EnemyAnimationCue cue,
+            Animator targetAnimator,
+            bool terminalReplacementOwnsApply = false)
+        {
+            if (terminalReplacementOwnsApply && cue != EnemyAnimationCue.Death)
+            {
+                return EnemyAnimationDispatchResult.AnimatorUnavailable;
+            }
+
+            EnemyAnimationRuntimeBinding binding;
+            float stateCrossFadeSeconds;
+            var usesNewBinding = TryResolveAnimationBinding(out var animationBinding);
+            if (usesNewBinding)
+            {
+                if (!animationBinding.TryGetBinding(cue, out binding))
+                {
+                    return EnemyAnimationDispatchResult.Unsupported;
+                }
+
+                stateCrossFadeSeconds = binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.State
+                    ? animationBinding.DefaultStateCrossFadeDurationSeconds
+                    : 0f;
+            }
+            else if (!TryResolveLegacyDispatchBinding(cue, out binding, out stateCrossFadeSeconds))
+            {
+                return EnemyAnimationDispatchResult.Unsupported;
+            }
+
+            if (binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.State)
+            {
+                return DispatchStateCommand(
+                    cue,
+                    binding.TargetName,
+                    stateCrossFadeSeconds,
+                    targetAnimator,
+                    failOnUnresolvedState: usesNewBinding);
+            }
+
+            if (binding.PrimaryDispatchMode != EnemyAnimationDispatchMode.Trigger ||
+                string.IsNullOrWhiteSpace(binding.TargetName))
+            {
+                return EnemyAnimationDispatchResult.Unsupported;
+            }
+
+            // A fresh Trigger request normally supersedes the previous replacement even
+            // if unavailable. Once this input has promoted a terminal Death replacement,
+            // lower-priority cues from the same input cannot erase its next playable state.
+            if (!ShouldPreserveUnavailableTerminalReplacement(targetAnimator))
+            {
+                _pendingReplacementState = default;
+            }
+
+            if (!CanDriveAnimator(targetAnimator))
+            {
+                return EnemyAnimationDispatchResult.AnimatorUnavailable;
+            }
+
+            if (!SetTrigger(targetAnimator, binding.TargetName))
+            {
+                return EnemyAnimationDispatchResult.AnimatorUnavailable;
+            }
+
+            _pendingReplacementState = default;
+            if (cue == EnemyAnimationCue.ActionWindup ||
+                cue == EnemyAnimationCue.ChargeWindup ||
+                cue == EnemyAnimationCue.UtilityWindup)
             {
                 _windupTriggerDispatchCount++;
             }
-        }
-
-        private void DispatchRecoveryTrigger(Animator targetAnimator)
-        {
-            if (SetTrigger(targetAnimator, recoveryTriggerName))
+            else if (cue == EnemyAnimationCue.ActionRecovery ||
+                     cue == EnemyAnimationCue.ChargeRecovery ||
+                     cue == EnemyAnimationCue.UtilityRecovery)
             {
                 _recoveryTriggerDispatchCount++;
             }
+
+            return EnemyAnimationDispatchResult.Applied;
+        }
+
+        private bool IsPrimaryTriggerDispatch(EnemyAnimationCue cue)
+        {
+            if (TryResolveAnimationBinding(out var animationBinding))
+            {
+                return animationBinding.TryGetBinding(cue, out var binding) &&
+                       binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.Trigger;
+            }
+
+            return TryResolveLegacyDispatchBinding(cue, out var legacyBinding, out _) &&
+                   legacyBinding.PrimaryDispatchMode == EnemyAnimationDispatchMode.Trigger;
+        }
+
+        internal bool TryRestoreCueState(EnemyAnimationCue cue)
+        {
+            return TryRestoreCueState(cue, ResolveAnimator());
+        }
+
+        private bool TryRestoreCueState(EnemyAnimationCue cue, Animator targetAnimator)
+        {
+            if (!TryResolveRestorableState(cue, out var stateName, out var crossFadeSeconds, out var strict))
+            {
+                return false;
+            }
+
+            return DispatchStateCommand(
+                       cue,
+                       stateName,
+                       crossFadeSeconds,
+                       targetAnimator,
+                       failOnUnresolvedState: strict) == EnemyAnimationDispatchResult.Applied;
+        }
+
+        private bool TryResolveRestorableState(
+            EnemyAnimationCue cue,
+            out string stateName,
+            out float crossFadeSeconds,
+            out bool failOnUnresolvedState)
+        {
+            if (TryResolveAnimationBinding(out var animationBinding))
+            {
+                failOnUnresolvedState = true;
+                if (!animationBinding.TryGetBinding(cue, out var binding))
+                {
+                    stateName = string.Empty;
+                    crossFadeSeconds = 0f;
+                    return false;
+                }
+
+                if (binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.State)
+                {
+                    stateName = binding.TargetName;
+                    crossFadeSeconds = animationBinding.DefaultStateCrossFadeDurationSeconds;
+                    return true;
+                }
+
+                if (cue == EnemyAnimationCue.JumpAirborne &&
+                    binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.Trigger)
+                {
+                    stateName = binding.SustainedStateName;
+                    crossFadeSeconds = 0f;
+                    return true;
+                }
+
+                stateName = string.Empty;
+                crossFadeSeconds = 0f;
+                return false;
+            }
+
+            failOnUnresolvedState = false;
+            if (!TryResolveAnimationTiming(out _))
+            {
+                stateName = string.Empty;
+                crossFadeSeconds = 0f;
+                return false;
+            }
+
+            if (cue == EnemyAnimationCue.JumpAirborne)
+            {
+                stateName = LegacyJumpAirborneState;
+                crossFadeSeconds = TryResolveStateTransitionCrossFadeDurationOverride(out var jumpCrossFade)
+                    ? Mathf.Max(0f, jumpCrossFade)
+                    : 0f;
+                return !string.IsNullOrWhiteSpace(stateName);
+            }
+
+            if (TryResolveLegacyDispatchBinding(cue, out var legacyBinding, out crossFadeSeconds) &&
+                legacyBinding.PrimaryDispatchMode == EnemyAnimationDispatchMode.State)
+            {
+                stateName = legacyBinding.TargetName;
+                return true;
+            }
+
+            stateName = string.Empty;
+            crossFadeSeconds = 0f;
+            return false;
+        }
+
+        private bool TryResolveLegacyDispatchBinding(
+            EnemyAnimationCue cue,
+            out EnemyAnimationRuntimeBinding binding,
+            out float stateCrossFadeSeconds)
+        {
+            if (!TryResolveAnimationTiming(out _))
+            {
+                binding = default;
+                stateCrossFadeSeconds = 0f;
+                return false;
+            }
+
+            var hasCrossFade = TryResolveStateTransitionCrossFadeDurationOverride(out var crossFadeSeconds);
+            stateCrossFadeSeconds = hasCrossFade ? Mathf.Max(0f, crossFadeSeconds) : 0f;
+            var mode = EnemyAnimationDispatchMode.Trigger;
+            var targetName = string.Empty;
+
+            switch (cue)
+            {
+                case EnemyAnimationCue.ActionWindup:
+                case EnemyAnimationCue.ChargeWindup:
+                case EnemyAnimationCue.UtilityWindup:
+                    mode = hasCrossFade ? EnemyAnimationDispatchMode.State : EnemyAnimationDispatchMode.Trigger;
+                    targetName = hasCrossFade ? LegacyActionWindupState : LegacyActionWindupTrigger;
+                    break;
+                case EnemyAnimationCue.ActionExecute:
+                    targetName = LegacyActionExecuteTrigger;
+                    break;
+                case EnemyAnimationCue.ActionRecovery:
+                case EnemyAnimationCue.ChargeRecovery:
+                case EnemyAnimationCue.UtilityRecovery:
+                    mode = hasCrossFade ? EnemyAnimationDispatchMode.State : EnemyAnimationDispatchMode.Trigger;
+                    targetName = hasCrossFade ? LegacyActionRecoveryState : LegacyActionRecoveryTrigger;
+                    break;
+                case EnemyAnimationCue.JumpWindup:
+                    mode = hasCrossFade ? EnemyAnimationDispatchMode.State : EnemyAnimationDispatchMode.Trigger;
+                    targetName = hasCrossFade ? LegacyJumpWindupState : LegacyJumpWindupTrigger;
+                    break;
+                case EnemyAnimationCue.JumpAirborne:
+                    mode = hasCrossFade ? EnemyAnimationDispatchMode.State : EnemyAnimationDispatchMode.Trigger;
+                    targetName = hasCrossFade ? LegacyJumpAirborneState : LegacyJumpAirborneTrigger;
+                    break;
+                case EnemyAnimationCue.JumpLanding:
+                    mode = EnemyAnimationDispatchMode.State;
+                    targetName = DefaultLocomotionStateName;
+                    break;
+                case EnemyAnimationCue.ChargeActive:
+                    if (!hasCrossFade)
+                    {
+                        binding = default;
+                        return false;
+                    }
+
+                    mode = EnemyAnimationDispatchMode.State;
+                    targetName = LegacyChargeActiveState;
+                    break;
+                case EnemyAnimationCue.GlideWindup:
+                case EnemyAnimationCue.GlideActive:
+                case EnemyAnimationCue.GlideRecovery:
+                    if (!hasCrossFade)
+                    {
+                        binding = default;
+                        return false;
+                    }
+
+                    mode = EnemyAnimationDispatchMode.State;
+                    targetName = cue switch
+                    {
+                        EnemyAnimationCue.GlideWindup => LegacyGlideWindupState,
+                        EnemyAnimationCue.GlideActive => LegacyGlideActiveState,
+                        _ => LegacyGlideRecoveryState,
+                    };
+                    break;
+                case EnemyAnimationCue.Hit:
+                    targetName = LegacyHitTrigger;
+                    break;
+                case EnemyAnimationCue.Death:
+                    targetName = LegacyDeathTrigger;
+                    break;
+                default:
+                    binding = default;
+                    return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetName))
+            {
+                binding = default;
+                return false;
+            }
+
+            binding = new EnemyAnimationRuntimeBinding(
+                cue,
+                mode,
+                targetName,
+                cue == EnemyAnimationCue.JumpAirborne ? LegacyJumpAirborneState : string.Empty,
+                EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                null,
+                0f);
+            return true;
         }
 
         private static bool SetTrigger(Animator targetAnimator, string parameterName)
@@ -1053,7 +1705,30 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            targetAnimator.SetTrigger(Animator.StringToHash(parameterName));
+            var parameterHash = Animator.StringToHash(parameterName);
+            var matchingParameterCount = 0;
+            var parameters = targetAnimator.parameters;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                var parameter = parameters[i];
+                if (parameter.nameHash != parameterHash)
+                {
+                    continue;
+                }
+
+                matchingParameterCount++;
+                if (parameter.type != AnimatorControllerParameterType.Trigger)
+                {
+                    return false;
+                }
+            }
+
+            if (matchingParameterCount != 1)
+            {
+                return false;
+            }
+
+            targetAnimator.SetTrigger(parameterHash);
             return true;
         }
 
@@ -1084,14 +1759,23 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
+            if (LastPresentationState.DidDie || LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
             {
                 return false;
             }
 
-            var fallbackStateHash = targetAnimator != null
-                ? ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName)
-                : Animator.StringToHash(jumpAirborneStateName);
+            if (!TryResolveRestorableState(
+                    EnemyAnimationCue.JumpAirborne,
+                    out var jumpAirborneState,
+                    out _,
+                    out var strictStateResolution))
+            {
+                return false;
+            }
+
+            var fallbackStateHash = targetAnimator != null && CanDriveAnimator(targetAnimator)
+                ? ResolveStateHashForCommand(targetAnimator, jumpAirborneState, strictStateResolution)
+                : Animator.StringToHash(jumpAirborneState);
             if (!CanDriveAnimator(targetAnimator))
             {
                 _jumpAirborneTopologySuspendSnapshot = new AnimatorStateSnapshot(
@@ -1101,20 +1785,25 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var stateInfo = targetAnimator.GetCurrentAnimatorStateInfo(0);
-            if (!IsJumpAirborneAnimatorState(stateInfo))
+            if (!EnemyAnimatorStateNameResolver.IsLayerZeroState(stateInfo, jumpAirborneState))
             {
-                var ensuredStateHash = ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName);
-                PlayAnimatorState(targetAnimator, ensuredStateHash, Mathf.Max(0f, _lastJumpAirborneNormalizedTime));
-                ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
-                LastCrossFadedStateName = jumpAirborneStateName;
+                var ensuredStateHash = ResolveStateHashForCommand(
+                    targetAnimator,
+                    jumpAirborneState,
+                    strictStateResolution);
+                PlayAnimatorState(
+                    targetAnimator,
+                    ensuredStateHash,
+                    jumpAirborneState,
+                    Mathf.Max(0f, _lastJumpAirborneNormalizedTime));
+                ApplyAnimatorTimingForCue(targetAnimator, EnemyAnimationCue.JumpAirborne);
+                LastCrossFadedStateName = jumpAirborneState;
                 stateInfo = targetAnimator.GetCurrentAnimatorStateInfo(0);
             }
 
             var stateHash = stateInfo.shortNameHash != 0 ? stateInfo.shortNameHash : fallbackStateHash;
             if (stateHash != fallbackStateHash &&
-                !stateInfo.IsName(jumpAirborneStateName) &&
-                !stateInfo.IsName($"Base Layer.{jumpAirborneStateName}") &&
-                !stateInfo.IsName($"Base Layer.Locomotion.{jumpAirborneStateName}"))
+                !EnemyAnimatorStateNameResolver.IsLayerZeroState(stateInfo, jumpAirborneState))
             {
                 stateHash = fallbackStateHash;
             }
@@ -1143,7 +1832,8 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne ||
+            if (LastPresentationState.DidDie ||
+                LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne ||
                 !_jumpAirborneTopologySuspendSnapshot.HasValue)
             {
                 return false;
@@ -1156,10 +1846,11 @@ namespace Game.Feature.Gameplay.Host
 
             var snapshot = _jumpAirborneTopologySuspendSnapshot;
             _jumpAirborneTopologySuspendSnapshot = default;
-            PlayAnimatorState(targetAnimator, snapshot.StateHash, snapshot.NormalizedTime);
-            ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
+            var jumpAirborneState = ResolveJumpAirborneRestorableStateName();
+            PlayAnimatorState(targetAnimator, snapshot.StateHash, jumpAirborneState, snapshot.NormalizedTime);
+            ApplyAnimatorTimingForCue(targetAnimator, EnemyAnimationCue.JumpAirborne);
             _lastJumpAirborneNormalizedTime = snapshot.NormalizedTime;
-            LastCrossFadedStateName = jumpAirborneStateName;
+            LastCrossFadedStateName = jumpAirborneState;
             JumpAirborneRestoreCount++;
             return true;
         }
@@ -1171,7 +1862,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
+            if (LastPresentationState.DidDie || LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
             {
                 return false;
             }
@@ -1186,31 +1877,43 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
+            if (!TryResolveRestorableState(
+                    EnemyAnimationCue.JumpAirborne,
+                    out var jumpAirborneState,
+                    out var crossFadeSeconds,
+                    out var strictStateResolution))
+            {
+                return false;
+            }
+
             var currentState = targetAnimator.GetCurrentAnimatorStateInfo(0);
-            if (IsJumpAirborneAnimatorState(currentState))
+            if (EnemyAnimatorStateNameResolver.IsLayerZeroState(currentState, jumpAirborneState))
             {
                 _lastJumpAirborneNormalizedTime = NormalizeAnimatorTime(currentState.normalizedTime);
-                ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
+                ApplyAnimatorTimingForCue(targetAnimator, EnemyAnimationCue.JumpAirborne);
                 return true;
             }
 
-            var fallbackNormalizedTime = Mathf.Max(0f, _lastJumpAirborneNormalizedTime);
-            var stateHash = ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName);
-            PlayAnimatorState(targetAnimator, stateHash, fallbackNormalizedTime);
-            ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
-            LastCrossFadedStateName = jumpAirborneStateName;
-            return true;
+            var result = DispatchStateCommand(
+                EnemyAnimationCue.JumpAirborne,
+                jumpAirborneState,
+                crossFadeSeconds,
+                targetAnimator,
+                strictStateResolution);
+            if (result == EnemyAnimationDispatchResult.Applied)
+            {
+                targetAnimator.Update(0f);
+            }
+
+            ApplyAnimatorTimingForCue(targetAnimator, EnemyAnimationCue.JumpAirborne);
+            return result == EnemyAnimationDispatchResult.Applied;
         }
 
-        private bool IsJumpAirborneAnimatorState(AnimatorStateInfo stateInfo)
-        {
-            return stateInfo.IsName(jumpAirborneStateName) ||
-                   stateInfo.IsName($"Base Layer.{jumpAirborneStateName}") ||
-                   stateInfo.IsName($"Base Layer.Locomotion.{jumpAirborneStateName}") ||
-                   stateInfo.shortNameHash == Animator.StringToHash(jumpAirborneStateName);
-        }
-
-        private void PlayAnimatorState(Animator targetAnimator, int stateHash, float normalizedTime)
+        private void PlayAnimatorState(
+            Animator targetAnimator,
+            int stateHash,
+            string stateName,
+            float normalizedTime)
         {
             targetAnimator.Play(stateHash, 0, normalizedTime);
             targetAnimator.Update(0f);
@@ -1227,14 +1930,14 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            targetAnimator.Play($"Base Layer.{jumpAirborneStateName}", 0, normalizedTime);
+            targetAnimator.Play(EnemyAnimatorStateNameResolver.GetRootPath(stateName), 0, normalizedTime);
             targetAnimator.Update(0f);
             if (targetAnimator.GetCurrentAnimatorStateInfo(0).shortNameHash != 0)
             {
                 return;
             }
 
-            targetAnimator.Play(jumpAirborneStateName, 0, normalizedTime);
+            targetAnimator.Play(stateName, 0, normalizedTime);
             targetAnimator.Update(0f);
         }
 
@@ -1248,46 +1951,52 @@ namespace Game.Feature.Gameplay.Host
             return Mathf.Max(0f, normalizedTime);
         }
 
-        private bool TryApplyNamedStateCrossFade(
-            Animator targetAnimator,
+        private EnemyAnimationDispatchResult DispatchStateCommand(
+            EnemyAnimationCue cue,
             string stateName,
-            bool requireOverride = false)
+            float crossFadeSeconds,
+            Animator targetAnimator,
+            bool failOnUnresolvedState)
         {
             if (IsPresentationPaused)
             {
-                return false;
+                return EnemyAnimationDispatchResult.AnimatorUnavailable;
             }
 
             if (string.IsNullOrWhiteSpace(stateName))
             {
-                return false;
+                return EnemyAnimationDispatchResult.Unsupported;
             }
 
-            var hasOverride = TryResolveStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds);
-            if (requireOverride && !hasOverride)
+            if (ShouldPreserveUnavailableTerminalReplacement(targetAnimator))
             {
-                return false;
+                _pendingStateCommand = default;
+                return EnemyAnimationDispatchResult.AnimatorUnavailable;
             }
 
-            var resolvedDurationSeconds = hasOverride
-                ? Mathf.Max(0f, crossFadeDurationSeconds)
-                : 0f;
+            _pendingReplacementState = default;
+            var resolvedDurationSeconds = Mathf.Max(0f, crossFadeSeconds);
             LastCrossFadeDurationSeconds = resolvedDurationSeconds;
             LastCrossFadedStateName = stateName;
 
             if (!CanDriveAnimator(targetAnimator))
             {
-                _pendingCrossFadeStateName = stateName;
-                _pendingCrossFadeRequiresOverride = requireOverride;
-                return false;
+                _pendingStateCommand = new EnemyAnimationPendingStateCommand(
+                    cue,
+                    stateName,
+                    resolvedDurationSeconds);
+                return EnemyAnimationDispatchResult.Queued;
             }
 
-            var stateHash = ResolveAnimatorStateHash(targetAnimator, stateName);
+            var stateHash = ResolveStateHashForCommand(
+                targetAnimator,
+                stateName,
+                failOnUnresolvedState);
             targetAnimator.CrossFadeInFixedTime(
                 stateHash,
                 resolvedDurationSeconds);
-            ClearPendingNamedStateCrossFade(stateName);
-            return true;
+            _pendingStateCommand = default;
+            return EnemyAnimationDispatchResult.Applied;
         }
 
         private bool TryConsumePendingNamedStateCrossFade(Animator targetAnimator)
@@ -1297,49 +2006,62 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (_pendingRestoredPhase != EnemyPresentationPhase.None && CanDriveAnimator(targetAnimator))
+            if (TryConsumePendingReplacementState(targetAnimator))
             {
-                var restoredStateHash = ResolveAnimatorStateHash(targetAnimator, ResolveStateName(_pendingRestoredPhase));
-                targetAnimator.Play(restoredStateHash, 0, _pendingRestoredNormalizedTime);
-                _pendingRestoredPhase = EnemyPresentationPhase.None;
                 return true;
             }
 
-            if (string.IsNullOrWhiteSpace(_pendingCrossFadeStateName) ||
+            if (!_pendingStateCommand.HasValue ||
                 !CanDriveAnimator(targetAnimator))
             {
                 return false;
             }
 
-            var stateName = _pendingCrossFadeStateName;
-            var requireOverride = _pendingCrossFadeRequiresOverride;
-            var hasOverride = TryResolveStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds);
-            if (requireOverride && !hasOverride)
-            {
-                return false;
-            }
-
-            var resolvedDurationSeconds = hasOverride
-                ? Mathf.Max(0f, crossFadeDurationSeconds)
-                : 0f;
-            var stateHash = ResolveAnimatorStateHash(targetAnimator, stateName);
-            targetAnimator.CrossFadeInFixedTime(stateHash, resolvedDurationSeconds);
-            LastCrossFadeDurationSeconds = resolvedDurationSeconds;
-            LastCrossFadedStateName = stateName;
-            _pendingCrossFadeStateName = string.Empty;
-            _pendingCrossFadeRequiresOverride = false;
+            var pending = _pendingStateCommand;
+            var stateHash = ResolveStateHashForCommand(
+                targetAnimator,
+                pending.StateName,
+                failOnUnresolvedState: _usesNewAnimationBinding);
+            targetAnimator.CrossFadeInFixedTime(stateHash, pending.CrossFadeSeconds);
+            LastCrossFadeDurationSeconds = pending.CrossFadeSeconds;
+            LastCrossFadedStateName = pending.StateName;
+            _pendingStateCommand = default;
             return true;
         }
 
-        private void ClearPendingNamedStateCrossFade(string appliedStateName)
+        private static int ResolveStateHashForCommand(
+            Animator targetAnimator,
+            string stateName,
+            bool failOnUnresolvedState)
         {
-            if (!string.Equals(_pendingCrossFadeStateName, appliedStateName, StringComparison.Ordinal))
+            if (EnemyAnimatorStateNameResolver.TryResolveLayerZeroStateHash(
+                    targetAnimator,
+                    stateName,
+                    out var stateHash))
             {
-                return;
+                return stateHash;
             }
 
-            _pendingCrossFadeStateName = string.Empty;
-            _pendingCrossFadeRequiresOverride = false;
+            if (failOnUnresolvedState)
+            {
+                throw new InvalidOperationException(
+                    $"Animation state '{stateName}' cannot be resolved on layer 0.");
+            }
+
+            return EnemyAnimatorStateNameResolver.ResolveLayerZeroStateHashOrFallback(
+                targetAnimator,
+                stateName);
+        }
+
+        private string ResolveJumpAirborneRestorableStateName()
+        {
+            return TryResolveRestorableState(
+                       EnemyAnimationCue.JumpAirborne,
+                       out var stateName,
+                       out _,
+                       out _)
+                ? stateName
+                : string.Empty;
         }
 
         private static bool CanDriveAnimator(Animator targetAnimator)
@@ -1348,32 +2070,20 @@ namespace Game.Feature.Gameplay.Host
                    targetAnimator.runtimeAnimatorController != null;
         }
 
+        private bool ShouldPreserveUnavailableTerminalReplacement(Animator targetAnimator)
+        {
+            return LastPresentationState.DidDie &&
+                   _pendingReplacementState.HasValue &&
+                   _pendingReplacementState.Cue == EnemyAnimationCue.Death &&
+                   !CanDriveAnimator(targetAnimator);
+        }
+
         private static bool CanSetAnimatorSpeed(Animator targetAnimator)
         {
             return targetAnimator != null &&
                    targetAnimator.enabled &&
                    targetAnimator.isActiveAndEnabled &&
                    targetAnimator.gameObject.activeInHierarchy;
-        }
-
-        private static int ResolveAnimatorStateHash(Animator targetAnimator, string stateName)
-        {
-            var shortNameHash = Animator.StringToHash(stateName);
-            if (targetAnimator.HasState(0, shortNameHash))
-            {
-                return shortNameHash;
-            }
-
-            var rootStateHash = Animator.StringToHash($"Base Layer.{stateName}");
-            if (targetAnimator.HasState(0, rootStateHash))
-            {
-                return rootStateHash;
-            }
-
-            var locomotionStateHash = Animator.StringToHash($"Base Layer.Locomotion.{stateName}");
-            return targetAnimator.HasState(0, locomotionStateHash)
-                ? locomotionStateHash
-                : shortNameHash;
         }
 
         public enum EnemyPresentationPhase

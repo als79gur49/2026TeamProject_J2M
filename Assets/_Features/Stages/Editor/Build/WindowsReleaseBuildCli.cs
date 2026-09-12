@@ -599,9 +599,7 @@ internal sealed class UnityWindowsReleaseManagedPluginSettings :
         foreach (var path in WindowsReleaseBuildPolicy.TestOnlyManagedPluginPaths)
         {
             var importer = RequireImporter(path);
-            importer.SetCompatibleWithAnyPlatform(false);
-            importer.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows64, false);
-            importer.SaveAndReimport();
+            importer.SetIncludeInBuildDelegate(_ => false);
         }
     }
 
@@ -610,8 +608,7 @@ internal sealed class UnityWindowsReleaseManagedPluginSettings :
         return WindowsReleaseBuildPolicy.TestOnlyManagedPluginPaths.All(path =>
         {
             var importer = RequireImporter(path);
-            return !importer.GetCompatibleWithAnyPlatform() &&
-                   !importer.GetCompatibleWithPlatform(BuildTarget.StandaloneWindows64);
+            return !importer.ShouldIncludeInBuild();
         });
     }
 
@@ -620,12 +617,8 @@ internal sealed class UnityWindowsReleaseManagedPluginSettings :
         foreach (var state in snapshot.plugins ?? Array.Empty<ManagedPluginState>())
         {
             var importer = RequireImporter(state.assetPath);
-            importer.SetCompatibleWithAnyPlatform(false);
-            importer.SetCompatibleWithPlatform(
-                BuildTarget.StandaloneWindows64,
-                state.compatibleWithStandaloneWindows64);
-            importer.SetCompatibleWithAnyPlatform(state.compatibleWithAnyPlatform);
-            importer.SaveAndReimport();
+            var shouldIncludeInBuild = state.shouldIncludeInBuild;
+            importer.SetIncludeInBuildDelegate(_ => shouldIncludeInBuild);
         }
     }
 
@@ -634,10 +627,7 @@ internal sealed class UnityWindowsReleaseManagedPluginSettings :
         return (snapshot.plugins ?? Array.Empty<ManagedPluginState>()).All(state =>
         {
             var importer = RequireImporter(state.assetPath);
-            return importer.GetCompatibleWithAnyPlatform() ==
-                       state.compatibleWithAnyPlatform &&
-                   importer.GetCompatibleWithPlatform(BuildTarget.StandaloneWindows64) ==
-                       state.compatibleWithStandaloneWindows64;
+            return importer.ShouldIncludeInBuild() == state.shouldIncludeInBuild;
         });
     }
 
@@ -658,9 +648,7 @@ internal sealed class UnityWindowsReleaseManagedPluginSettings :
         return new ManagedPluginState
         {
             assetPath = path,
-            compatibleWithAnyPlatform = importer.GetCompatibleWithAnyPlatform(),
-            compatibleWithStandaloneWindows64 =
-                importer.GetCompatibleWithPlatform(BuildTarget.StandaloneWindows64),
+            shouldIncludeInBuild = importer.ShouldIncludeInBuild(),
         };
     }
 

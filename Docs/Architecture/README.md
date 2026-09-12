@@ -6,8 +6,8 @@
   - tick simulation의 canonical architecture spec
 - [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
   - gameplay authoritative boundary를 UI layer까지 확장한 canonical UI architecture spec
-- [Climate-Crisis-KR-Typography-Migration-Closeout.md](./Climate-Crisis-KR-Typography-Migration-Closeout.md)
-  - current Climate Crisis KR asset, 19-role, authored-sizing, layout, glyph, visual-evidence closeout
+- [KBO-Dia-Gothic-Typography-Migration-Closeout.md](./KBO-Dia-Gothic-Typography-Migration-Closeout.md)
+  - current KBO Dia Gothic Light/Medium asset, 19-role, authored-sizing, glyph, license, and visual-validation closeout
 - [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
   - Push/Flip 등 gameplay rule appendix
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
@@ -26,6 +26,8 @@
   - current store-neutral provider request, resolution, Local default, and application lifecycle contract
 - [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
   - product-global achievement IDs, earned ledger, pending publication outbox, atomic persistence, and store-neutral publication boundary
+- [Steam-Achievement-Smoke-Retirement-Plan.md](./Steam-Achievement-Smoke-Retirement-Plan.md)
+  - Steam smoke and measurement retirement plan and implementation record, retained publication/callback contracts, test migration, and bounded validation evidence
 - [Docs/Testing/Platform-Provider-Selection-Validation.md](../Testing/Platform-Provider-Selection-Validation.md)
   - focused source-only selection matrix, production-boundary probes, and mutation evidence rules
 - [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md)
@@ -54,12 +56,38 @@
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
 - [Gameplay-Presentation-Driver-Cache-Optimization-Plan.md](./Gameplay-Presentation-Driver-Cache-Optimization-Plan.md)
   - three-driver lookup cache implementation and validation record with campaign 10-prefab inventory, fixed View configuration, Player preservation, replacement lifecycle, and bounded CPU/GC evidence
+- [Gameplay-Main-Conflict-Resolution-Direction-2026-09-12.md](./Gameplay-Main-Conflict-Resolution-Direction-2026-09-12.md)
+  - main integration contract and execution record for replacement-only Cue restoration, explicit binding metadata, failure recovery and per-lane validation
 - [Gameplay-Optimization-Integration-Plan-2026-09-11.md](./Gameplay-Optimization-Integration-Plan-2026-09-11.md)
   - reviewed C/D branch integration proposal with pinned revisions, implementation inventory, behavior changes, dirty-work preservation, merge conflicts, and validation criteria; integration and merged-revision validation remain unexecuted
 - [Gameplay-Optimization-Integration-Execution-Prompt-2026-09-11.md](./Gameplay-Optimization-Integration-Execution-Prompt-2026-09-11.md)
   - executable local-integration prompt covering input preservation, ancestry-preserving merge, contract reconciliation, validation, fresh performance evidence, and closeout; runs only when explicitly requested
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
+- [UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md](./UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md)
+  - proposed A/B/C split plan for test-tier remediation, strict-governance delta closure, original SHA preservation, sequential merge-commit integration, and same-revision PR evidence; execution requires the documented merge-method, deterministic-delta, and evidence-root preconditions
+- [UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md](./UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md)
+  - active handoff prompt for executing the proposed A/B/C split one PR at a time with D-drive worktrees, scoped commit/push authority, explicit merge approval stops, and final-head evidence gates
+- [Enemy-View-Prefab-Scalability-Maintainability-Audit.md](./Enemy-View-Prefab-Scalability-Maintainability-Audit.md)
+  - current record of the initial Enemy View Inspector audit, subsequent legacy-lifecycle cleanup, production prefab/controller contracts, and follow-up validation gates
+- [Enemy-Animation-Sparse-Binding-Implementation-Plan.md](./Enemy-Animation-Sparse-Binding-Implementation-Plan.md)
+  - completed Slice 0~5 implementation and validation record for sparse per-View animation cue authoring; checked-in migration mutation entrypoints remain retired
+- [Enemy-Animation-Sparse-Binding-Slice5-Inspector-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice5-Inspector-Closeout.md)
+  - final closeout for Inspector/runtime diagnostic parity, five representative production Inspector captures, B0 governance disposition, validation evidence, and bounded non-claims
+- [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Plan.md)
+  - execution plan for manifest-driven production 10-view migration, dry-run/apply separation, asset identity validation, rollback, and Slice 2 completion gates
+- [Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice2-Production-Migration-Closeout.md)
+  - completed Slice 2 inventory, approved migration digest, RocketFace clip-role review, validation evidence, rollback boundary, and non-claims
+- [Enemy-Animation-Sparse-Binding-Slice3-Legacy-View-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Slice3-Legacy-View-Retirement-Closeout.md)
+  - completed retirement of four zero-reference legacy Enemy View prefabs, immutable 14-row disposition ledger, current 10/8/0 inventory, validation evidence, and rollback boundary
+- [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Plan.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Plan.md)
+  - executed Slice 4A plan for removing the completed one-time mutation tool while preserving the read-only manifest, resolved prefab inventory, deleted-GUID residue guards, and post-removal re-audit boundary
+- [Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md](./Enemy-Animation-Sparse-Binding-Migration-Tool-Retirement-Closeout.md)
+  - current Slice 4A closeout for the retired menu/apply/report surface, permanent resolved-asset audit, validation evidence, remaining BlackEye baseline failures, and Slice 4B non-approval boundary
+- [Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md](./Enemy-Animation-Sparse-Binding-Slice4B-Legacy-Inspector-Retirement-Plan.md)
+  - implemented Slice 4B plan and closeout for the Driver `animator`-only serialized surface, Timing opt-in gate, exact 160-line production cleanup, Kali/SecBot no-command behavior, validation evidence, and non-claims
+- [Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md](./Enemy-Animation-Sparse-Binding-Slice0-Characterization-Prompt.md)
+  - historical Slice 0 execution prompt whose Astreton, Jumping, DrSaturn, timing/dispatch, resync, and suppression contracts remain in the permanent test suite; it is not a current execution entrypoint
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
   - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Standard-only Charge BehaviorModule production content, and Phase 2 trigger boundaries
 - [Enemy-AI-Phase1-Merge-Gate.md](./Enemy-AI-Phase1-Merge-Gate.md)

@@ -67,9 +67,9 @@ GameObject:
   - component: {fileID: 2823823344174377908}
   - component: {fileID: 6633445522110099887}
   - component: {fileID: 4994410876415863292}
-  - component: {fileID: 2407586926128549279}
   - component: {fileID: 5500000000000000102}
   - component: {fileID: 5500000000000000103}
+  - component: {fileID: 1556832692041346032}
   m_Layer: 0
   m_Name: EnemyView_JPeter
   m_TagString: Untagged
@@ -133,45 +133,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimatorDriver
   animator: {fileID: 0}
-  animationTimingAuthoring: {fileID: 2407586926128549279}
-  windupStateName: Windup
-  jumpWindupStateName: JumpWindup
-  jumpAirborneStateName: JumpAirborne
-  chargeActiveStateName: Charge
-  recoveryStateName: Recover
-  glideWindupStateName: Fly_Start
-  glideActiveStateName: Fly_Loop
-  glideRecoveryStateName: Fly_Done
-  windupTriggerName: Windup
-  jumpWindupTriggerName: JumpWindup
-  jumpAirborneTriggerName: JumpAirborne
-  attackTriggerName: Attack
-  recoveryTriggerName: Recover
-  hitTriggerName: Hit
-  deathTriggerName: Death
---- !u!114 &2407586926128549279
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1747997918927781177}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 221aa3bf1f4e4fec8fe376442cc63a61, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimationTimingAuthoring
-  attackWindupAnimatorDurationSeconds: -1
-  jumpWindupAnimatorDurationSeconds: -1
-  jumpAirborneAnimatorDurationSeconds: -1
-  recoverAnimatorDurationSeconds: -1
-  deathAnimatorDurationSeconds: -1
-  stateTransitionCrossFadeDurationSeconds: -1
-  attackWindupReferenceClip: {fileID: 0}
-  jumpWindupReferenceClip: {fileID: 0}
-  jumpAirborneReferenceClip: {fileID: 0}
-  recoverReferenceClip: {fileID: 0}
-  deathReferenceClip: {fileID: 0}
 --- !u!114 &5500000000000000102
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -203,6 +164,32 @@ MonoBehaviour:
   peakScaleMultiplier: 1.1
   windupEndScaleMultiplier: 0.75
   recoverEndScaleMultiplier: 1
+--- !u!114 &1556832692041346032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1747997918927781177}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec56f2a2d2f04a14ac0a0f810100525a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EnemyAnimationBindingAuthoring
+  defaultStateCrossFadeDurationSeconds: -1
+  bindings:
+  - cue: 90
+    primaryDispatchMode: 1
+    targetName: Hit
+    sustainedStateName: 
+    animatorDurationSeconds: -1
+    referenceClip: {fileID: 0}
+  - cue: 91
+    primaryDispatchMode: 1
+    targetName: Death
+    sustainedStateName: 
+    animatorDurationSeconds: -1
+    referenceClip: {fileID: 0}
 --- !u!1001 &1688274191991749584
 PrefabInstance:
   m_ObjectHideFlags: 0

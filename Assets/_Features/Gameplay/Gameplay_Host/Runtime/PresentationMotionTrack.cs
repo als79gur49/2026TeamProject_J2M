@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
@@ -45,17 +46,21 @@ namespace Game.Feature.Gameplay.Host
     {
         public PresentationMotionInstanceKey(
             PresentationMotionKind kind,
+            int tickIndex,
             int correlationId,
             int entityId,
             bool usesTickFallback)
         {
             Kind = kind;
+            TickIndex = Math.Max(0, tickIndex);
             CorrelationId = correlationId;
             EntityId = entityId;
             UsesTickFallback = usesTickFallback;
         }
 
         public PresentationMotionKind Kind { get; }
+
+        public int TickIndex { get; }
 
         public int CorrelationId { get; }
 
@@ -66,6 +71,7 @@ namespace Game.Feature.Gameplay.Host
         public bool Equals(PresentationMotionInstanceKey other)
         {
             return Kind == other.Kind &&
+                   TickIndex == other.TickIndex &&
                    CorrelationId == other.CorrelationId &&
                    EntityId == other.EntityId &&
                    UsesTickFallback == other.UsesTickFallback;
@@ -78,14 +84,16 @@ namespace Game.Feature.Gameplay.Host
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Kind, CorrelationId, EntityId, UsesTickFallback);
+            return HashCode.Combine(Kind, TickIndex, CorrelationId, EntityId, UsesTickFallback);
         }
 
         public static PresentationMotionInstanceKey CreateFlipImpactStay(
-            in FlipImpactStayMotionCommand command)
+            in FlipImpactStayMotionCommand command,
+            int tickIndex)
         {
             return new PresentationMotionInstanceKey(
                 PresentationMotionKind.FlipImpactStay,
+                tickIndex,
                 command.SourceActionPlanId > 0 ? command.SourceActionPlanId : command.PresentationSeed,
                 command.BoxEntityId,
                 command.SourceActionPlanId <= 0);
@@ -93,15 +101,183 @@ namespace Game.Feature.Gameplay.Host
 
         public static PresentationMotionInstanceKey CreateFlipImpactStay(
             in FlipImpactPresentationSignal signal,
-            int tickIndexFallback)
+            int tickIndex)
         {
             return new PresentationMotionInstanceKey(
                 PresentationMotionKind.FlipImpactStay,
-                signal.SourceActionPlanId > 0 ? signal.SourceActionPlanId : tickIndexFallback,
+                tickIndex,
+                signal.SourceActionPlanId > 0 ? signal.SourceActionPlanId : tickIndex,
                 signal.BoxEntityId,
                 signal.SourceActionPlanId <= 0);
         }
 
+    }
+
+    internal sealed class PresentationMotionCompletionLedger
+    {
+        private readonly struct Scope : IEquatable<Scope>
+        {
+            public Scope(PresentationMotionKind kind, int entityId)
+            {
+                Kind = kind;
+                EntityId = entityId;
+            }
+
+            public PresentationMotionKind Kind { get; }
+
+            public int EntityId { get; }
+
+            public bool Equals(Scope other)
+            {
+                return Kind == other.Kind && EntityId == other.EntityId;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is Scope other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(Kind, EntityId);
+            }
+        }
+
+        private readonly struct Correlation : IEquatable<Correlation>
+        {
+            public Correlation(int correlationId, bool usesTickFallback)
+            {
+                CorrelationId = correlationId;
+                UsesTickFallback = usesTickFallback;
+            }
+
+            public int CorrelationId { get; }
+
+            public bool UsesTickFallback { get; }
+
+            public bool Equals(Correlation other)
+            {
+                return CorrelationId == other.CorrelationId &&
+                       UsesTickFallback == other.UsesTickFallback;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is Correlation other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(CorrelationId, UsesTickFallback);
+            }
+        }
+
+        private sealed class CompletionEntry
+        {
+            public int LatestTickIndex;
+            public readonly HashSet<Correlation> Correlations = new();
+        }
+
+        private readonly Dictionary<Scope, CompletionEntry> _entries = new();
+        private readonly List<Scope> _removeScopes = new();
+
+        public int Count
+        {
+            get
+            {
+                var count = 0;
+                foreach (var entry in _entries.Values)
+                {
+                    count += entry.Correlations.Count;
+                }
+
+                return count;
+            }
+        }
+
+        internal int ScopeCount => _entries.Count;
+
+        public bool IsCompleted(in PresentationMotionInstanceKey key)
+        {
+            var scope = new Scope(key.Kind, key.EntityId);
+            if (!_entries.TryGetValue(scope, out var entry))
+            {
+                return false;
+            }
+
+            if (key.TickIndex < entry.LatestTickIndex)
+            {
+                return true;
+            }
+
+            return key.TickIndex == entry.LatestTickIndex &&
+                   entry.Correlations.Contains(new Correlation(key.CorrelationId, key.UsesTickFallback));
+        }
+
+        public void RecordCompleted(in PresentationMotionInstanceKey key)
+        {
+            var scope = new Scope(key.Kind, key.EntityId);
+            if (!_entries.TryGetValue(scope, out var entry))
+            {
+                entry = new CompletionEntry
+                {
+                    LatestTickIndex = key.TickIndex,
+                };
+                _entries.Add(scope, entry);
+            }
+            else if (key.TickIndex < entry.LatestTickIndex)
+            {
+                return;
+            }
+            else if (key.TickIndex > entry.LatestTickIndex)
+            {
+                entry.LatestTickIndex = key.TickIndex;
+                entry.Correlations.Clear();
+            }
+
+            entry.Correlations.Add(new Correlation(key.CorrelationId, key.UsesTickFallback));
+        }
+
+        public int RemoveEntity(int entityId)
+        {
+            _removeScopes.Clear();
+            var removedCount = 0;
+            foreach (var scope in _entries.Keys)
+            {
+                if (scope.EntityId == entityId)
+                {
+                    _removeScopes.Add(scope);
+                    removedCount += _entries[scope].Correlations.Count;
+                }
+            }
+
+            for (var index = 0; index < _removeScopes.Count; index++)
+            {
+                _entries.Remove(_removeScopes[index]);
+            }
+
+            _removeScopes.Clear();
+            return removedCount;
+        }
+
+        public bool ContainsEntity(int entityId)
+        {
+            foreach (var scope in _entries.Keys)
+            {
+                if (scope.EntityId == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void Clear()
+        {
+            _entries.Clear();
+            _removeScopes.Clear();
+        }
     }
 
     internal readonly struct PresentationMotionPhase
@@ -383,9 +559,11 @@ namespace Game.Feature.Gameplay.Host
             return new PresentationMotionTrack(command);
         }
 
-        public static PresentationMotionTrack CreateFlipImpactStay(in FlipImpactStayMotionCommand command)
+        public static PresentationMotionTrack CreateFlipImpactStay(
+            in FlipImpactStayMotionCommand command,
+            int tickIndex)
         {
-            return Create(FlipImpactStayPresentationMotionCommandAdapter.ToPresentationMotionCommand(command));
+            return Create(FlipImpactStayPresentationMotionCommandAdapter.ToPresentationMotionCommand(command, tickIndex));
         }
 
         public void Advance(float deltaTime)
@@ -427,6 +605,7 @@ namespace Game.Feature.Gameplay.Host
 
             var currentNormalizedTime = NormalizedTime;
             progressSample = new MotionTrackProgressSample(
+                _command.InstanceKey.TickIndex,
                 EntityId,
                 TickEntityMotionKind.Flip,
                 _previousPresentedNormalizedTime,
@@ -467,14 +646,15 @@ namespace Game.Feature.Gameplay.Host
     internal static class FlipImpactStayPresentationMotionCommandAdapter
     {
         public static PresentationMotionCommand ToPresentationMotionCommand(
-            in FlipImpactStayMotionCommand command)
+            in FlipImpactStayMotionCommand command,
+            int tickIndex)
         {
             var sourcePose = command.SourcePose;
             var impactPose = command.ImpactPose;
             return new PresentationMotionCommand(
                 command.BoxEntityId,
                 PresentationMotionKind.FlipImpactStay,
-                PresentationMotionInstanceKey.CreateFlipImpactStay(command),
+                PresentationMotionInstanceKey.CreateFlipImpactStay(command, tickIndex),
                 sourcePose,
                 impactPose,
                 sourcePose,

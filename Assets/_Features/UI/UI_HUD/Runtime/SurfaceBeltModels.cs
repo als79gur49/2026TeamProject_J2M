@@ -12,16 +12,10 @@ namespace Game.Feature.UI.HUD
     public readonly struct SurfaceBeltCellViewModel : IEquatable<SurfaceBeltCellViewModel>
     {
         public SurfaceBeltCellViewModel(int slotIndex, int offset, bool isCurrent)
-            : this(slotIndex, offset, isCurrent, showButtonBadge: true)
-        {
-        }
-
-        public SurfaceBeltCellViewModel(int slotIndex, int offset, bool isCurrent, bool showButtonBadge)
         {
             SlotIndex = SurfaceBeltSlotMapping.WrapSlot(slotIndex);
             Offset = offset;
             IsCurrent = isCurrent;
-            ShowButtonBadge = showButtonBadge;
         }
 
         public int SlotIndex { get; }
@@ -30,14 +24,11 @@ namespace Game.Feature.UI.HUD
 
         public bool IsCurrent { get; }
 
-        public bool ShowButtonBadge { get; }
-
         public bool Equals(SurfaceBeltCellViewModel other)
         {
             return SlotIndex == other.SlotIndex &&
                    Offset == other.Offset &&
-                   IsCurrent == other.IsCurrent &&
-                   ShowButtonBadge == other.ShowButtonBadge;
+                   IsCurrent == other.IsCurrent;
         }
 
         public override bool Equals(object obj)
@@ -47,7 +38,7 @@ namespace Game.Feature.UI.HUD
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(SlotIndex, Offset, IsCurrent, ShowButtonBadge);
+            return HashCode.Combine(SlotIndex, Offset, IsCurrent);
         }
     }
 

@@ -8,3 +8,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Game.Integration.Simulation.Tests")]
 [assembly: InternalsVisibleTo("Game.Integration.Replay.Tests")]
 [assembly: InternalsVisibleTo("Game.TestInfrastructure")]
+[assembly: InternalsVisibleTo("Game.Feature.Gameplay.EnemyPresentation.Editor")]

@@ -40,8 +40,8 @@ namespace Game.Product.Achievements.Tests
             var document = new ProductAchievementDocument
             {
                 SchemaVersion = 1,
-                EarnedAchievementIds = new[] { "future.z", "campaign.complete", "future.z", "future.a" },
-                PendingAchievementPublicationIds = new[] { "future.z", "campaign.complete", "future.z" },
+                EarnedAchievementIds = new[] { "future.z", "campaign.level-4.clear", "future.z", "future.a" },
+                PendingAchievementPublicationIds = new[] { "future.z", "campaign.level-4.clear", "future.z" },
             };
 
             var status = ProductAchievementDocumentNormalizer.TryNormalize(document, out var normalized);
@@ -49,10 +49,10 @@ namespace Game.Product.Achievements.Tests
             Assert.That(status, Is.EqualTo(AchievementDocumentValidationStatus.Valid));
             Assert.That(
                 normalized.EarnedAchievementIds,
-                Is.EqualTo(new[] { "campaign.complete", "future.a", "future.z" }));
+                Is.EqualTo(new[] { "campaign.level-4.clear", "future.a", "future.z" }));
             Assert.That(
                 normalized.PendingAchievementPublicationIds,
-                Is.EqualTo(new[] { "campaign.complete", "future.z" }));
+                Is.EqualTo(new[] { "campaign.level-4.clear", "future.z" }));
         }
 
         [Test]
@@ -76,7 +76,7 @@ namespace Game.Product.Achievements.Tests
             var document = new ProductAchievementDocument
             {
                 EarnedAchievementIds = Array.Empty<string>(),
-                PendingAchievementPublicationIds = new[] { "campaign.complete" },
+                PendingAchievementPublicationIds = new[] { "campaign.level-4.clear" },
             };
 
             var status = ProductAchievementDocumentNormalizer.TryNormalize(document, out var normalized);
@@ -86,7 +86,7 @@ namespace Game.Product.Achievements.Tests
         }
 
         [TestCase("")]
-        [TestCase(" campaign.complete")]
+        [TestCase(" campaign.level-4.clear")]
         [TestCase("CAMPAIGN.COMPLETE")]
         public void InvalidToken_IsSchemaInvalid(string token)
         {

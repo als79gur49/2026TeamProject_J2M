@@ -33,8 +33,8 @@ namespace Game.Feature.UI.Tests
             "Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureOverlayFromPlayMode";
         public const string HudPrefabPath =
             "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
-        public const string ClimateFontPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
+        public const string KboLightFontPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset";
         public const string ManifestFileName = "objective-hud-capture.log";
 
         private static readonly CaptureScenario[] Scenarios =
@@ -85,7 +85,7 @@ namespace Game.Feature.UI.Tests
             var unexpectedPixelDelta = -1L;
             IReadOnlyList<CaptureAssetMutationEvidence> mutationEvidence =
                 Array.Empty<CaptureAssetMutationEvidence>();
-            var assetGuard = CaptureAssetMutationGuard.Capture(new[] { ClimateFontPath });
+            var assetGuard = CaptureAssetMutationGuard.Capture(new[] { KboLightFontPath });
             try
             {
                 foreach (var scenario in Scenarios)
@@ -224,7 +224,7 @@ namespace Game.Feature.UI.Tests
             var unexpectedPixelDelta = -1L;
             IReadOnlyList<CaptureAssetMutationEvidence> mutationEvidence =
                 Array.Empty<CaptureAssetMutationEvidence>();
-            var assetGuard = CaptureAssetMutationGuard.Capture(new[] { ClimateFontPath });
+            var assetGuard = CaptureAssetMutationGuard.Capture(new[] { KboLightFontPath });
             try
             {
                 foreach (var scenario in Scenarios)
@@ -337,10 +337,10 @@ namespace Game.Feature.UI.Tests
             }
 
             assetGuard.IncludeFontAssets(prefab);
-            var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateFontPath);
-            if (climate == null)
+            var kboLight = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboLightFontPath);
+            if (kboLight == null)
             {
-                throw new InvalidOperationException($"Climate font was not found at {ClimateFontPath}.");
+                throw new InvalidOperationException($"KBO Dia Gothic Light font was not found at {KboLightFontPath}.");
             }
 
             var prefabHud = prefab.GetComponent<HUDRootView>();
@@ -456,7 +456,7 @@ namespace Game.Feature.UI.Tests
                     scenario,
                     objectiveView,
                     activeRows,
-                    climate,
+                    kboLight,
                     englishHeaderFont,
                     englishHeaderMaterial,
                     englishHeaderStyle,
@@ -563,10 +563,10 @@ namespace Game.Feature.UI.Tests
             }
             assetGuard.IncludeFontAssets(prefab);
 
-            var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateFontPath);
-            if (climate == null)
+            var kboLight = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KboLightFontPath);
+            if (kboLight == null)
             {
-                throw new InvalidOperationException($"Climate font was not found at {ClimateFontPath}.");
+                throw new InvalidOperationException($"KBO Dia Gothic Light font was not found at {KboLightFontPath}.");
             }
 
             var prefabHud = prefab.GetComponent<HUDRootView>();
@@ -660,7 +660,7 @@ namespace Game.Feature.UI.Tests
                     scenario,
                     objectiveView,
                     activeRows,
-                    climate,
+                    kboLight,
                     englishHeaderFont,
                     englishHeaderMaterial,
                     englishHeaderStyle,
@@ -915,7 +915,7 @@ namespace Game.Feature.UI.Tests
             CaptureScenario scenario,
             ObjectiveHudView view,
             IReadOnlyList<ActiveRow> activeRows,
-            TMP_FontAsset climate,
+            TMP_FontAsset kboLight,
             TMP_FontAsset englishHeaderFont,
             Material englishHeaderMaterial,
             FontStyles englishHeaderStyle,
@@ -942,16 +942,16 @@ namespace Game.Feature.UI.Tests
             {
                 AssertIdentity(
                     view.HeaderLabel,
-                    climate,
-                    climate.material,
+                    kboLight,
+                    kboLight.material,
                     FontStyles.Normal,
                     "ko-KR header");
                 foreach (var row in activeRows)
                 {
                     AssertIdentity(
                         row.Label,
-                        climate,
-                        climate.material,
+                        kboLight,
+                        kboLight.material,
                         FontStyles.Normal,
                         "ko-KR row");
                 }

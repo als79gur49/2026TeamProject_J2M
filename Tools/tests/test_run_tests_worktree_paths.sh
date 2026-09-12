@@ -11,9 +11,9 @@ PRINT_CONFIG_OUTPUT="$(mktemp)"
 MISMATCH_OUTPUT="$(mktemp)"
 CORE_DRY_RUN_OUTPUT="$(mktemp)"
 FULL_DRY_RUN_OUTPUT="$(mktemp)"
-HEAD_CLIMATE_CONTRACT_OUTPUT="$(mktemp)"
-CANDIDATE_CLIMATE_CONTRACT_OUTPUT="$(mktemp)"
-trap 'rm -f "$PRINT_CONFIG_OUTPUT" "$MISMATCH_OUTPUT" "$CORE_DRY_RUN_OUTPUT" "$FULL_DRY_RUN_OUTPUT" "$HEAD_CLIMATE_CONTRACT_OUTPUT" "$CANDIDATE_CLIMATE_CONTRACT_OUTPUT"' EXIT
+HEAD_KBO_CONTRACT_OUTPUT="$(mktemp)"
+CANDIDATE_KBO_CONTRACT_OUTPUT="$(mktemp)"
+trap 'rm -f "$PRINT_CONFIG_OUTPUT" "$MISMATCH_OUTPUT" "$CORE_DRY_RUN_OUTPUT" "$FULL_DRY_RUN_OUTPUT" "$HEAD_KBO_CONTRACT_OUTPUT" "$CANDIDATE_KBO_CONTRACT_OUTPUT"' EXIT
 
 assert_contains() {
     local path="$1"
@@ -41,13 +41,13 @@ assert_not_contains() {
 
 bash -n run_tests.sh
 
-sed -n '/^verify_climate_committed_source_integrity() {/,/^}/p' run_tests.sh > "$HEAD_CLIMATE_CONTRACT_OUTPUT"
-assert_contains "$HEAD_CLIMATE_CONTRACT_OUTPUT" 'head_climate_sdf_sha256="$('
-assert_contains "$HEAD_CLIMATE_CONTRACT_OUTPUT" 'git_head_runner_constant CLIMATE_COMMITTED_SDF_SHA256'
+sed -n '/^verify_kbo_committed_source_integrity() {/,/^}/p' run_tests.sh > "$HEAD_KBO_CONTRACT_OUTPUT"
+assert_contains "$HEAD_KBO_CONTRACT_OUTPUT" 'head_kbo_medium_sdf_sha256="$('
+assert_contains "$HEAD_KBO_CONTRACT_OUTPUT" 'git_head_runner_constant KBO_MEDIUM_COMMITTED_SDF_SHA256'
 
-sed -n '/^verify_climate_worktree_source_integrity() {/,/^}/p' run_tests.sh > "$CANDIDATE_CLIMATE_CONTRACT_OUTPUT"
-assert_contains "$CANDIDATE_CLIMATE_CONTRACT_OUTPUT" 'candidate_sdf_hash="$('
-assert_contains "$CANDIDATE_CLIMATE_CONTRACT_OUTPUT" 'if [ "$candidate_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then'
+sed -n '/^verify_kbo_worktree_source_integrity() {/,/^}/p' run_tests.sh > "$CANDIDATE_KBO_CONTRACT_OUTPUT"
+assert_contains "$CANDIDATE_KBO_CONTRACT_OUTPUT" 'candidate_sdf_hash="$('
+assert_contains "$CANDIDATE_KBO_CONTRACT_OUTPUT" 'if [ "$candidate_sdf_hash" != "$KBO_MEDIUM_COMMITTED_SDF_SHA256" ]; then'
 
 ./run_tests.sh --print-config > "$PRINT_CONFIG_OUTPUT"
 assert_contains "$PRINT_CONFIG_OUTPUT" "PROJECT_PATH_WSL=$ROOT_DIR"

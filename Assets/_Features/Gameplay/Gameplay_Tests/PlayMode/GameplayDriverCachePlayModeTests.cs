@@ -152,6 +152,58 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [UnityTest, Category("Full")]
         public IEnumerator ActualDrSaturn_PendingUtilityReplacementDies_ResumesDeath() => CheckUtilityReplacement(true, true, true);
 
+        [UnityTest, Category("Full")]
+        public IEnumerator ActualDrSaturn_UtilityRecoveryReplacement_RestoresRecoverAndRemainingTime() =>
+            CheckUtilityReplacement(false, false, recovery: true);
+
+        [UnityTest, Category("Full")]
+        public IEnumerator ActualDrSaturn_InactiveUtilityRecoveryReplacement_RestoresRecoverOnResume() =>
+            CheckUtilityReplacement(true, false, recovery: true);
+
+        [UnityTest, Category("Full")]
+        public IEnumerator ActualDrSaturn_InactiveUnpausedFatalHit_PreservesDeathAfterUtilityExpiry()
+        {
+            var root = new GameObject("FatalHitReplacement");
+            var sync = new GameplayAnimationSyncCoordinator { DriverCacheDiagnosticsEnabled = true };
+            try
+            {
+                var oldView = CreateDrSaturn(root.transform);
+                var views = new Dictionary<int, GameplayEntityView> { [40] = oldView };
+                sync.CacheDrivers(40, oldView);
+                sync.ApplyTickPresentation(UtilityResult(true), views, (_, _) => 0f);
+                var duration = oldView.GetComponent<EnemyAnimatorDriver>().CurrentPresentationDurationSeconds;
+                Assert.That(duration, Is.GreaterThan(0f));
+                sync.AdvancePresentationBeforeEnemySemantic(duration * 0.4f);
+
+                var replacement = CreateDrSaturn(root.transform);
+                replacement.gameObject.SetActive(false);
+                var driver = replacement.GetComponent<EnemyAnimatorDriver>();
+                views[40] = replacement;
+                sync.CacheDrivers(40, replacement);
+
+                driver.Apply(State(dead: true, damaged: true));
+                Assert.That(driver.HitSignalCount, Is.EqualTo(1));
+                Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
+                sync.AdvancePresentationBeforeEnemySemantic(duration);
+                yield return null;
+
+                replacement.gameObject.SetActive(true);
+                sync.SyncEnemyRuntimeState(40, true, false, false, views);
+                sync.ResyncEnemyAnimatorState(40, views);
+                var animator = replacement.GetComponentInChildren<Animator>();
+                animator.Update(0f);
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Death"), Is.True);
+
+                sync.SyncEnemyRuntimeState(40, true, false, false, views);
+                sync.ResyncEnemyAnimatorState(40, views);
+                animator.Update(0f);
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Death"), Is.True);
+                Assert.That(driver.HitSignalCount, Is.EqualTo(1));
+                Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
+            }
+            finally { sync.Reset(); Object.DestroyImmediate(root); }
+        }
+
         private static IEnumerator CheckDeathReplacement(bool inactive, bool airborne = false)
         {
             var root = new GameObject("DeathReplacement");
@@ -199,7 +251,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             finally { sync.Reset(); Object.DestroyImmediate(root); }
         }
 
-        private static IEnumerator CheckUtilityReplacement(bool inactive, bool expire, bool dieBeforeResume = false)
+        private static IEnumerator CheckUtilityReplacement(bool inactive, bool expire, bool dieBeforeResume = false, bool recovery = false)
         {
             var root = new GameObject("UtilityReplacement");
             var sync = new GameplayAnimationSyncCoordinator { DriverCacheDiagnosticsEnabled = true };
@@ -208,7 +260,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var oldView = CreateDrSaturn(root.transform);
                 var views = new Dictionary<int, GameplayEntityView> { [40] = oldView };
                 sync.CacheDrivers(40, oldView);
-                sync.ApplyTickPresentation(UtilityResult(true), views, (_, _) => 0f);
+                sync.ApplyTickPresentation(UtilityResult(true, recovery), views, (_, _) => 0f);
                 var duration = oldView.GetComponent<EnemyAnimatorDriver>().CurrentPresentationDurationSeconds;
                 Assert.That(duration, Is.GreaterThan(0f));
                 sync.AdvancePresentationBeforeEnemySemantic(duration * 0.4f);
@@ -233,7 +285,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 sync.SyncEnemyRuntimeState(40, true, false, false, views);
                 var animator = replacement.GetComponentInChildren<Animator>();
                 animator.Update(0f);
-                Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName(dieBeforeResume ? "Death" : expire ? "Move" : "Windup"), Is.True);
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName(dieBeforeResume ? "Death" : expire ? "Move" : recovery ? "Recover" : "Windup"), Is.True);
                 Assert.That(driver.UtilityWindupSignalCount, Is.Zero);
                 Assert.That(driver.WindupSignalCount, Is.Zero);
                 Assert.That(driver.DeathSignalCount, Is.Zero);
@@ -271,7 +323,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return view;
         }
 
-        private static TickResult UtilityResult(bool start)
+        private static TickResult UtilityResult(bool start, bool recovery = false)
         {
             var entity = new EntityState
             {
@@ -287,7 +339,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Array.Empty<TickEnemyJumpPresentationSignal>(), Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
                 enemyUtilitySignals: start ? new[] { new TickEnemyUtilityPresentationSignal(40,
-                    EnemyUtilityPresentationKind.GravityFieldAura, EnemyUtilityPresentationPhase.WindupStarted,
+                    EnemyUtilityPresentationKind.GravityFieldAura, recovery ? EnemyUtilityPresentationPhase.RecoverStarted : EnemyUtilityPresentationPhase.WindupStarted,
                     startTick: 1, executeTick: 3, durationTicks: 2, effectIndex: 0, activationSequence: 5) } : null);
             // PlayMode has no access to simulation's internal constructor; supply only
             // the read-only presentation inputs, as other presentation PlayMode fixtures do.
@@ -300,10 +352,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         private static EnemyViewPresentationState State(bool windup = false, bool recover = false,
-            bool canceled = false, bool dead = false, bool airborne = false) => new EnemyViewPresentationState(
+            bool canceled = false, bool dead = false, bool airborne = false, bool damaged = false) => new EnemyViewPresentationState(
                 40, 1, EnemyAiMode.Patrol, EnemyActionKind.None,
                 airborne ? EnemyJumpPhase.Airborne : EnemyJumpPhase.None, EnemyChargePhase.None,
-                false, false, false, false, false, false, false, false, false, false, false, false, dead,
+                false, false, false, false, false, false, false, false, false, false, false, damaged, dead,
                 startedSummonWindupThisTick: windup, startedSummonRecoverThisTick: recover, summonCanceledThisTick: canceled);
     }
 }

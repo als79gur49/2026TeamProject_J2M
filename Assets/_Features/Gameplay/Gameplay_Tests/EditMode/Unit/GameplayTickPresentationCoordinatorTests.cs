@@ -45,14 +45,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string GravityFieldLockedTintProperty = "_GravityFieldLockedTint";
         private const string GravityFieldDimFactorProperty = "_GravityFieldDimFactor";
         private const string GravityFieldTintStrengthProperty = "_GravityFieldTintStrength";
-        private const string GravityFieldEmissionOmissionProperty = "_GravityFieldEmissionOmission";
+        private const string GravityFieldEmissionSuppressionProperty = "_GravityFieldEmissionSuppression";
         private const float GravityFieldLockRevealInSeconds = 0.234f;
         private const float GravityFieldLockRevealOutSeconds = 0.208f;
         private const string EnemyInactiveBlendProperty = "_InactiveBlend";
         private const string EnemyInactiveNoiseRevealProperty = "_InactiveNoiseReveal";
         private const string EnemyInactiveTintProperty = "_InactiveTint";
         private const string EnemyInactiveDesaturateStrengthProperty = "_DesaturateStrength";
-        private const string EnemyInactiveEmissionOmissionProperty = "_EmissionOmission";
+        private const string EnemyInactiveEmissionSuppressionProperty = "_EmissionSuppression";
         private const float EnemyInactiveRevealInSeconds = 0.25f;
         private const float EnemyInactiveRevealOutSeconds = 0.18f;
         private const string StaticBoxShowcasePrefabPath =
@@ -1660,7 +1660,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                     var request = port.Requests.Last();
                     Assert.That(request.PlayerEntityId, Is.EqualTo(10));
-                    Assert.That(request.AnimationPayload.ActionKind, Is.EqualTo(semanticCase.ActionKind));
+                    Assert.That(
+                        request.AnimationPayload.ActionKind,
+                        Is.EqualTo(ToPresentationAnimationActionKind(semanticCase.ActionKind)));
                     Assert.That(request.AnimationPayload.SourceSequenceId, Is.EqualTo(semanticCase.SequenceId));
                     Assert.That(request.CueKey, Is.EqualTo(semanticCase.CueKey));
                     Assert.That(request.AnimationPayload.PhaseKind, Is.EqualTo(semanticCase.PhaseKind));
@@ -2236,7 +2238,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(GetPresentationTrackState(coordinator).LocalMotionTracks.ContainsKey(40), Is.False);
-                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotionKeys.Any(key => key.EntityId == 40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotions.ContainsEntity(40), Is.False);
                 Assert.That(GetPresentationTrackState(coordinator).FlipInteractionTracks, Is.Empty);
                 AssertPositionApproximately(view.ModelRoot.localPosition, Vector3.zero);
                 Assert.That(Quaternion.Angle(view.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
@@ -2249,6 +2251,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     destinationCell,
                     TickEntityMotionKind.BoxSlide));
                 driver.ApplyInteraction(new Vector3(0.25f, 0.1f, 0f), Quaternion.Euler(0f, 0f, 15f), 1f);
+                var trackState = GetPresentationTrackState(coordinator);
+                trackState.CompletedPresentationMotions.RecordCompleted(
+                    new PresentationMotionInstanceKey(
+                        PresentationMotionKind.FlipImpactStay,
+                        tickIndex: 34,
+                        correlationId: 7,
+                        entityId: 999,
+                        usesTickFallback: false));
+                trackState.CompletedPresentationMotions.RecordCompleted(
+                    new PresentationMotionInstanceKey(
+                        PresentationMotionKind.FlipImpactStay,
+                        tickIndex: 34,
+                        correlationId: 8,
+                        entityId: 999,
+                        usesTickFallback: false));
+                Assert.That(trackState.CompletedPresentationMotions.Count, Is.EqualTo(2));
                 coordinator.HardCleanupPresentationExtensions();
 
                 Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
@@ -2259,7 +2277,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(GetPresentationTrackState(coordinator).LocalMotionTracks.ContainsKey(40), Is.False);
-                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotionKeys.Any(key => key.EntityId == 40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotions.ContainsEntity(40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotions.ContainsEntity(999), Is.False);
+                Assert.That(
+                    coordinator.BoxMotionProductionTelemetrySnapshot.CleanupDiagnostics.StaleCompletedKeyClearedCount,
+                    Is.EqualTo(2));
                 Assert.That(GetPresentationTrackState(coordinator).FlipInteractionTracks, Is.Empty);
                 AssertPositionApproximately(view.ModelRoot.localPosition, Vector3.zero);
                 Assert.That(Quaternion.Angle(view.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
@@ -3691,7 +3713,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GetRendererColor(renderer, GravityFieldLockedTintProperty));
                 Assert.That(GetRendererFloat(renderer, GravityFieldDimFactorProperty), Is.EqualTo(0.55f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldTintStrengthProperty), Is.EqualTo(0.15f).Within(0.0001f));
-                Assert.That(GetRendererFloat(renderer, GravityFieldEmissionOmissionProperty), Is.EqualTo(0.85f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldEmissionSuppressionProperty), Is.EqualTo(0.85f).Within(0.0001f));
 
                 target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealInSeconds * 0.5f);
 
@@ -3722,12 +3744,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
                 PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", new[] { renderer });
-                PlayerViewPrefabTestUtility.SetSerializedField(target, "gravityFieldEmissionOmission", 0.42f);
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "gravityFieldEmissionSuppression", 0.42f);
 
                 target.ApplyGravityFieldLockedTarget(1);
 
                 Assert.That(
-                    GetRendererFloat(renderer, GravityFieldEmissionOmissionProperty),
+                    GetRendererFloat(renderer, GravityFieldEmissionSuppressionProperty),
                     Is.EqualTo(0.42f).Within(0.0001f));
             }
             finally
@@ -3901,7 +3923,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Assert.That(material.HasProperty(GravityFieldLockRevealProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.HasProperty(GravityFieldLockNoiseMapProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.HasProperty(GravityFieldLockEdgeWidthProperty), Is.True, $"{prefabPath} {material.name}");
-                        Assert.That(material.HasProperty(GravityFieldEmissionOmissionProperty), Is.True, $"{prefabPath} {material.name}");
+                        Assert.That(material.HasProperty(GravityFieldEmissionSuppressionProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, $"{prefabPath} {material.name}");
                         Assert.That(
                             material.GetFloat(GravityFieldLockEdgeWidthProperty),
@@ -3928,7 +3950,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(material, Is.Not.Null, materialPath);
                 Assert.That(material.shader, Is.SameAs(lockableShader), materialPath);
-                Assert.That(material.HasProperty(GravityFieldEmissionOmissionProperty), Is.True, materialPath);
+                Assert.That(material.HasProperty(GravityFieldEmissionSuppressionProperty), Is.True, materialPath);
                 Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, materialPath);
                 Assert.That(material.GetFloat(GravityFieldLockEdgeWidthProperty), Is.InRange(0.001f, 0.5f), materialPath);
             }
@@ -9582,8 +9604,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
-                var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
 
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -9756,8 +9776,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
-                var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
 
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -12312,7 +12330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.25f, 0.5f, 0.75f, 1f),
                 desaturateStrength: 0.35f,
-                emissionOmission: 0.45f);
+                emissionSuppression: 0.45f);
 
             try
             {
@@ -12324,7 +12342,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new Color(0.25f, 0.5f, 0.75f, 1f),
                     GetRendererColor(renderer, EnemyInactiveTintProperty));
                 Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.35f).Within(0.0001f));
-                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionOmissionProperty), Is.EqualTo(0.45f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.45f).Within(0.0001f));
             }
             finally
             {
@@ -12344,7 +12362,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.1f, 0.2f, 0.3f, 1f),
                 desaturateStrength: 0.4f,
-                emissionOmission: 0.5f);
+                emissionSuppression: 0.5f);
 
             try
             {
@@ -12591,7 +12609,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.18f, 0.28f, 0.38f, 1f),
                 desaturateStrength: 0.22f,
-                emissionOmission: 0.66f);
+                emissionSuppression: 0.66f);
 
             try
             {
@@ -12610,7 +12628,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
                 AssertColorApproximately(new Color(0.18f, 0.28f, 0.38f, 1f), GetRendererColor(renderer, EnemyInactiveTintProperty));
                 Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.22f).Within(0.0001f));
-                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionOmissionProperty), Is.EqualTo(0.66f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.66f).Within(0.0001f));
             }
             finally
             {
@@ -12628,7 +12646,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.42f, 0.33f, 0.24f, 1f),
                 desaturateStrength: 0.31f,
-                emissionOmission: 0.72f);
+                emissionSuppression: 0.72f);
 
             try
             {
@@ -12656,7 +12674,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
                 AssertColorApproximately(new Color(0.42f, 0.33f, 0.24f, 1f), GetRendererColor(renderer, EnemyInactiveTintProperty));
                 Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.31f).Within(0.0001f));
-                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionOmissionProperty), Is.EqualTo(0.72f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.72f).Within(0.0001f));
             }
             finally
             {
@@ -14455,6 +14473,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private static PresentationAnimationActionKind ToPresentationAnimationActionKind(
+            PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => PresentationAnimationActionKind.Push,
+                PlayerActionKind.Flip => PresentationAnimationActionKind.Flip,
+                _ => PresentationAnimationActionKind.None,
+            };
+        }
+
         private readonly struct PlayerActionAnimationSemanticCase
         {
             public PlayerActionAnimationSemanticCase(
@@ -15857,14 +15886,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EnemyInactiveVisualSettings CreateEnemyInactiveVisualSettings(
             Color inactiveTint,
             float desaturateStrength,
-            float emissionOmission,
+            float emissionSuppression,
             float revealInSeconds = 0.25f,
             float revealOutSeconds = 0.18f)
         {
             var settings = ScriptableObject.CreateInstance<EnemyInactiveVisualSettings>();
             PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveTint", inactiveTint);
             PlayerViewPrefabTestUtility.SetSerializedField(settings, "desaturateStrength", desaturateStrength);
-            PlayerViewPrefabTestUtility.SetSerializedField(settings, "emissionOmission", emissionOmission);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "emissionSuppression", emissionSuppression);
             PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveRevealInSeconds", revealInSeconds);
             PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveRevealOutSeconds", revealOutSeconds);
             PlayerViewPrefabTestUtility.SetSerializedField(
@@ -16594,12 +16623,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
-        public void DeathOrExitRetained_SuppressesLiveGlideAdditiveOffset()
+        [Category("Extended")]
+        public void ExitRetained_SuppressesLiveGlideAdditiveOffset()
         {
             AssertGlideSuppressedByRetainedState(trackState => trackState.DeferredExitRetainedEntityIds.Add(40));
             AssertGlideSuppressedByRetainedState(trackState => trackState.ContactDelayedRetainedEntityIds.Add(40));
-            AssertGlideSuppressedByRetainedState(trackState => trackState.DeathPresentationPlayingEntityIds.Add(40));
         }
 
         [Test]
@@ -17483,24 +17511,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void RetainedDeathExitCandidateCollection_CollectsDeathPresentationPlayingWithRetainedPose()
-        {
-            var stateStore = new GameplayPresentationStateStore();
-            var trackState = new GameplayPresentationTrackState();
-            MarkEnemy(stateStore, 40);
-            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
-
-            var frames = Resolve(stateStore, trackState, sourceTick: 91);
-            var candidates = new PresentationVisibilityCandidateSet();
-            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
-
-            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
-            AssertRetainedDeathExitCandidate(entityCandidates.Single(), PresentationOwnerRole.Enemy, sourceTick: 91);
-        }
-
-        [Test]
-        [Category("Core")]
         public void RetainedDeathExitCandidateCollection_CollectsDeferredExitRetainedWithRetainedPose()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -17543,24 +17553,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var trackState = new GameplayPresentationTrackState();
             MarkEnemy(stateStore, 40);
             stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-
-            var frames = Resolve(stateStore, trackState, sourceTick: 91);
-            var candidates = new PresentationVisibilityCandidateSet();
-            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
-
-            Assert.That(candidates.TryGetCandidates(40, out _), Is.False);
-            Assert.That(candidates.CandidateCount, Is.Zero);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void RetainedDeathExitCandidateCollection_DoesNotCollectDeathStateWithoutRetainedPose()
-        {
-            var stateStore = new GameplayPresentationStateStore();
-            var trackState = new GameplayPresentationTrackState();
-            MarkEnemy(stateStore, 40);
-            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
 
             var frames = Resolve(stateStore, trackState, sourceTick: 91);
             var candidates = new PresentationVisibilityCandidateSet();
@@ -17641,7 +17633,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var trackState = new GameplayPresentationTrackState();
             MarkEnemy(stateStore, 40);
             stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
+            trackState.ContactDelayedRetainedEntityIds.Add(40);
             var frames = Resolve(stateStore, trackState, sourceTick: 91);
             var visibility = new ResolvedPresentationVisibilitySet();
             visibility.SetVisibility(new ResolvedEntityPresentationVisibility(
@@ -17702,24 +17694,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(trackState.DeferredExitRetainedEntityIds.Contains(40), Is.True);
             Assert.That(trackState.ContactDelayedRetainedEntityIds.Contains(40), Is.True);
-            Assert.That(stateStore.RetainedLocalTargetPoses.ContainsKey(40), Is.True);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void RetainedDeathExitCandidateCollection_DoesNotOwnDeathPresentationState()
-        {
-            var stateStore = new GameplayPresentationStateStore();
-            var trackState = new GameplayPresentationTrackState();
-            MarkEnemy(stateStore, 40);
-            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
-            var frames = Resolve(stateStore, trackState, sourceTick: 91);
-            var candidates = new PresentationVisibilityCandidateSet();
-
-            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
-
-            Assert.That(trackState.DeathPresentationPlayingEntityIds.Contains(40), Is.True);
             Assert.That(stateStore.RetainedLocalTargetPoses.ContainsKey(40), Is.True);
         }
 
@@ -18743,8 +18717,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
-        public void RetainedTransitionFinalWriteOnly_RetainedDeathExitBeatsJumpDetachedInProductionFinalSet()
+        [Category("Extended")]
+        public void RetainedTransitionFinalWriteOnly_ContactDelayedExitBeatsJumpDetachedInProductionFinalSet()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -18756,7 +18730,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PoseAt(3f),
                     new SurfaceCell(FaceId.Floor, 2, 3));
             stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
-            trackState.DeathPresentationPlayingEntityIds.Add(40);
+            trackState.ContactDelayedRetainedEntityIds.Add(40);
 
             var frames = Resolve(stateStore, trackState, sourceTick: 77);
             var visibility = ResolveVisibility(
@@ -19278,7 +19252,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool hasActiveOriginalViewMotion = false,
             bool isDeferredExitRetained = false,
             bool isContactDelayedRetained = false,
-            bool isDeathPresentationPlaying = false,
             bool hasTransitionVisibility = false,
             VisibilityTrack visibilityTrack = null,
             float deltaTime = 0f)
@@ -19296,7 +19269,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hasActiveOriginalViewMotion,
                     isDeferredExitRetained,
                     isContactDelayedRetained,
-                    isDeathPresentationPlaying,
                     hasResolvedVisibility,
                     hasResolvedVisibility && resolvedEntityVisibility.IsVisible,
                     hasTransitionVisibility));

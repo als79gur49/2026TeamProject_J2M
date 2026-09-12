@@ -17,25 +17,30 @@
 - Current PR-T5 ChanceLost slot root explicit binding rerun: green on 2026-06-12 KST
 - Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST
 - Current transition Title/Message payload decommission rerun: green on 2026-07-31 KST
-- Current Climate Crisis KR PR2 typography contract rerun: green on 2026-07-26 KST with code-head `CommandLine-20260726-052954`, Settings 38 applied / 13 skipped, six canonical PNGs, and three separate Climate diagnostic PNGs
+- Historical Climate Crisis KR PR2 typography contract rerun: green on 2026-07-26 KST with code-head `CommandLine-20260726-052954`, Settings 38 applied / 13 skipped, six canonical PNGs, and three separate Climate diagnostic PNGs; superseded by the KBO Dia Gothic migration
+- Current KBO Dia Gothic typography migration rerun: green on 2026-09-05 KST, Windows UI build passed and Unity UI EditMode `1348 total / 0 failed`; Medium owns the existing 10 large/emphasis Display/UI/Utility roles and Light owns the remaining 9 Heading/Body roles, TTF/SDF GUID and material/atlas local IDs are preserved, and both atlases were regenerated from the supplied unmodified TTFs with native managed glyph coverage and no fallback
 - Current Settings movement-key toggle rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1357 total / 0 failed`; Settings now has 37 locale-themed bindings / 10 invariant bindings over 47 TMP targets
 - Current Settings Push/Flip keycap rebind rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1361 total / 0 failed`; Settings now has 35 locale-themed bindings / 10 invariant bindings over 45 TMP targets, with the obsolete Change localization entry removed
 - Current fullscreen cursor confinement rerun: green on 2026-08-15 KST, Windows UI build passed and Unity UI EditMode `1386 total / 0 failed`
-- Current comic-sequence terminology rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path is retired and the current runtime is sprite-sequence only. The 2026-08-21 product follow-up removes the temporary outro validation Definition, leaves the Gameplay scene reference explicitly null, and preserves the missing-content direct-return contract.
-- Current production-outro removal rerun: green on 2026-08-21 KST, Windows UI build passed, Unity UI EditMode `1341 total / 0 failed`, and filtered actual-scene PlayMode `1 total / 0 failed`; an active completed campaign skips comic presentation, completes the regular Main Menu lifecycle, and does not mark absent outro content complete
+- Comic-sequence terminology rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path was retired and the current runtime remains sprite-sequence only. The 2026-08-21 product follow-up temporarily removed the validation-only outro Definition and left the Gameplay scene reference explicitly null; that scene-wiring state is superseded by the production activation row below.
+- Historical production-outro removal rerun: green on 2026-08-21 KST, Windows UI build passed, Unity UI EditMode `1341 total / 0 failed`, and filtered actual-scene PlayMode `1 total / 0 failed`; at that revision an active completed campaign skipped comic presentation, completed the regular Main Menu lifecycle, and did not mark absent outro content complete
+- Current production-outro activation rerun: green on 2026-09-03 KST, Windows UI build passed, Unity UI EditMode `1340 total / 0 failed`, filtered Full EditMode matched `0`, and filtered actual-scene PlayMode passed `1 total / 0 failed`; the authored one-page sequence cumulatively reveals six independent panels in fixed order, keeps panels 3 and 4 as separate advance steps, completes the opaque Main Menu handoff, and marks outro progress once
+- Current SurfaceBelt center remainder badge rerun: green on 2026-09-04 KST, Windows UI build passed and Unity UI EditMode `1344 total / 0 failed`; only centered `Cell_0` authors one number-free 32x32 `NormalBadge` on the visual's left, its frame/fill use the Objective completion gold, and its active/inactive alpha is selected by the current sector's `HasAnyRemaining` value. Initial binding is immediate; later state changes use DOTween color/scale transitions, and new active sectors receive one runtime-isolated All In 1 Shine without replaying on identical binds
 - Current comic-sequence audio-settings follow-up rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1345 total / 0 failed`; authored intro audio follows both Master and BGM mute/volume settings while retaining the comic-sequence fade gain
 - Current comic-sequence BGM-focus recovery rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1347 total / 0 failed`; cancellation and unsuccessful handoff restore the router's current BGM selection, while synchronously accepted scene routes keep the source-scene BGM stopped for destination takeover
 - Current comic-sequence enter-fade follow-up rerun: green on 2026-08-22 KST, Windows UI build passed and Unity UI EditMode `1348 total / 0 failed`; entry keeps the overlay background transparent while the dedicated fade layer transitions the visible source scene to opaque black, then fixes the background to black before the first comic page reveal
-- Current NanumGothic retirement rerun: green on 2026-08-23 KST, Windows UI build passed and Unity UI EditMode `1336 total / 0 failed`; the unused Nanum TTF/SDF/SyntheticBold assets and preservation-only validation/runner contracts were removed after confirming Climate 2000/2019 own all production ko-KR typography roles
+- Historical NanumGothic retirement rerun: green on 2026-08-23 KST, Windows UI build passed and Unity UI EditMode `1336 total / 0 failed`; the unused Nanum TTF/SDF/SyntheticBold assets and preservation-only validation/runner contracts were removed after confirming the then-current Climate 2000/2019 mapping
 - Current blocked-save recovery fail-closed rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1338 total / 0 failed`; incomplete resets remain globally blocked, Retry resumes the pending transaction, and destructive reset remains limited to incompatible/corrupt profile states
 - Current blocked-save typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; the recovery title, detail, and two actions use authored semantic bindings, while ordinal fallback remains card-only
 - Current Gameplay Stage Name typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; Stage Name resolves `HeaderLarge` through the theme for both locales and adds target-local TMP `UpperCase` presentation without changing World Guide or transition-label default-locale restoration
-- Current Pause progression stepper rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; previous/current/upcoming states, larger group-start diamonds, one persistent current ring, informational Left/Right behavior, and real screenshot-preview campaign binding are guarded
+- Historical Pause progression stepper rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; this predates the selectable stage-image browser contract introduced on 2026-09-05 KST
+- Current Pause stage-image browser rerun: green on 2026-09-05 KST, Windows UI build passed and Unity UI EditMode `1346 total / 0 failed`; the prefab-authored horizontal ScrollRect renders one undecorated image per stage, uses the current stage only as the initial selection, reserves double width for the selected image so adjacent images move without overlap, exposes the localized stage name, and opens a pause-owned full-canvas preview from selected click or Submit
 - Current campaign MainMenu separated-launch-result rerun: green on 2026-08-25 KST, Windows UI build passed and Unity UI EditMode `1352 total / 0 failed`; slot cards consume immutable entry/evaluation/action inputs, profile blocked recovery remains a separate global path, and the combined validation facade/corrected clone is retired
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1336 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1336 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
-- Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
+- Current Unity UI EditMode: `1348 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1348 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current manual visual result: user-performed visual validation completed on 2026-09-05 KST; the automated `./run_tests.sh typography-visual` capture lane was not run for this working-tree migration
+- Current KBO interpretation: 19/19 ko-KR roles use KBO Dia Gothic Medium/Light with Normal style and authored sizing, managed glyph fallback is 0, and the Pause/audio/display layout contracts remain guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -44,14 +49,15 @@
 
 ## Structural Delta
 - Added tests:
+  - SurfaceBelt center remainder badge guards proving the canonical HUD authors exactly one `ButtonBadgeGroup` to the left of the `Cell_0` visual, contains exactly one number-free 32x32 `NormalBadge` whose frame/fill share the Objective completion gold, leaves neighboring cells unbound, uses active style for normal-only, MoonBlock-only, or combined remainder, and uses inactive style only when `HasAnyRemaining` is false; focused transition guards additionally cover immediate first bind, active/inactive tween lifecycle, active-sector confirmation without identical-bind replay, disable-time stabilization, and runtime-isolated All In 1 Shine material wiring
   - blocked-save recovery typography guards proving four authored semantic bindings, en-US/ko-KR font/material round-trip with authored sizing preserved, and fail-fast behavior when a non-card binding is missing instead of applying a card-ordinal fallback
   - blocked-save state classification, retry-only IO/permission policy, destructive reset confirmation/cancel flow, status revalidation, locale refresh, startup reset resumption, and incompatible/corrupt profile archive-and-empty-profile recovery guards
-  - comic-sequence import/layout guards, exact 13-click progression, explicit null production-outro scene wiring, shared intro/outro routing contracts including missing-content direct return, current comic-sequence component presence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, Master/BGM/fade audio-setting composition, setup-failure cleanup, and pointer-only background click ownership
+  - comic-sequence import/layout guards, exact intro progression, authored six-panel production-outro scene wiring and order, shared intro/outro routing contracts including missing-content direct return, current comic-sequence component presence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, Master/BGM/fade audio-setting composition, setup-failure cleanup, and pointer-only background click ownership
   - comic-sequence BGM-focus guards proving cancellation restores current router selection after the terminal callback, synchronously accepted routing commits without source-scene BGM restart, and unsuccessful/stale/duplicate routing never commits the audio handoff
   - comic-sequence enter-fade guard proving the source scene remains visible at entry start, the dedicated black layer gains opacity during the authored duration, and the persistent black background is enabled only after full cover before initial content reveal
   - fullscreen cursor confinement policy guards covering focused borderless fullscreen, windowed/unfocused release, unsupported-platform no-op, idempotent writes, shared-display ownership, authored default-cursor hotspot/dimensions, and installer focus/pause/update lifecycle reconciliation
   - Settings movement-key production guards proving the authored `WASDKeyDisplay` button toggles WASD/arrow visuals in both directions with click feedback, and `Input.Movement.Toggle` shows its `SelectionFrame` and submits once on Enter without Slider edit mode
-  - Climate Crisis KR 2000/2019 committed TTF/SDF Git-blob, GUID, and material-localID preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, and approved Pause/audio/display layout guards; importer-derived working hashes and ScaleRatio values are diagnostic only, and retired Nanum preservation-only tests/assets were removed after migration completion
+  - KBO Dia Gothic Medium/Light committed TTF/SDF Git-blob, GUID, and material/atlas-localID preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, license notice, representative Main Menu brand-image separation, and approved Pause/audio/display layout guards; canonical working hashes, calculated ScaleRatio values `0.9/1/0.73125`, and byte convergence are required; the historical migration rerun above does not validate the later serialization correction
   - Climate ko-KR diagnostic screenshot coverage for ConfirmPopup, Settings Audio muted, and Settings Display status, kept outside the exact canonical six-file root
   - locale-independent typography P2 guards for invalid invariant style enums, null-theme invariant/themed preview parity, parent/child Selection normalization, independent roots, repeated preview calls, unique restore counts, live Settings 38-count capture, and schema-v1 manifest rejection of Settings count 51
   - production Settings typography composition tests that open Settings through the actual Main Menu scene installer/overlay path and the actual UIAudioScene installer/coordinator path, then verify the shared catalog/builder, exact closure across all 51 TMP targets / binding targets / manifest entries, 36 governed-target font/material/fontStyle parity, open dropdown live-item restyling, and prefab-authored `en-US -> ko-KR -> en-US` restoration
@@ -102,10 +108,15 @@
   - blocked-save typography follow-up slice-local delta: `+3` executed UI cases covering authored bindings, locale round-trip/sizing preservation, and missing-binding fail-fast behavior
   - Gameplay Stage Name typography follow-up pre-change and current rerun: `1341 total / 0 failed`
   - Gameplay Stage Name typography follow-up slice-local delta: `+0`; the existing locale round-trip guard now asserts en-US and ko-KR `HeaderLarge` theme identity plus target-local TMP `UpperCase` while retaining authored sizing
-  - Pause progression stepper pre-change and current rerun: `1341 total / 0 failed`
-  - Pause progression stepper slice-local delta: `+0`; existing mapper, prefab, and screenshot-preview guards were strengthened and renamed without changing the executed-case count
+  - Pause stage-image browser pre-change observed result: `1344 total / 0 failed`
+  - Pause stage-image browser current rerun: `1346 total / 0 failed`
+  - Pause stage-image browser slice-local delta: `+2`; new guards cover the prefab-authored shell/panel/overlay/marker dependencies and selected-stage name locale refresh while the existing mapper, navigation, and screenshot-preview guards were updated to the image-browser contract
   - production-outro removal pre-change and current UI rerun: `1341 total / 0 failed`
   - production-outro removal slice-local UI delta: `+0`; the temporary Definition parity test was replaced one-for-one by explicit null scene wiring coverage, with the renamed actual-scene PlayMode smoke validated separately as `1 total / 0 failed`
+  - production-outro activation slice-local UI delta: `+0`; the explicit-null scene guard was replaced one-for-one by authored six-panel order/layout/import/scene-wiring coverage, while the renamed actual-scene PlayMode smoke separately passed `1 total / 0 failed`
+  - SurfaceBelt center remainder badge pre-change observed result: `1340 total / 0 failed`
+  - SurfaceBelt center remainder badge current rerun: `1344 total / 0 failed`
+  - SurfaceBelt center remainder badge slice-local delta: `+4`; one residue-contract test and three focused transition/lifecycle tests were added while existing presenter and canonical prefab guards were updated to the single-center, number-free `HasAnyRemaining` contract and its DOTween/All In 1 presentation behavior
   - comic-sequence audio-settings follow-up pre-change observed result: `1343 total / 0 failed`
   - comic-sequence audio-settings follow-up current rerun: `1345 total / 0 failed`
   - comic-sequence audio-settings follow-up slice-local delta: `+2`; focused guards cover Master/BGM/fade volume composition and Master-or-BGM mute behavior
@@ -118,6 +129,7 @@
 - Removed tests:
   - 12 NanumGothic-specific source/SDF/glyph/fallback validation cases and one legacy Climate migration retention case were removed with the retired assets; the locale-independent lower-layer boundary remains covered by the stronger existing theme-model guard, and the Settings localization-key coverage contract was preserved as a font-independent test, for a net UI executed-case delta of `-12` (`1348 -> 1336`)
   - the temporary outro validation-copy parity guard was replaced by an explicit null production-scene wiring guard after the duplicate Definition asset was removed; shared outro routing behavior remains covered
+  - the later production-outro activation replaced that explicit-null guard with authored asset/order/layout/import and production-scene wiring coverage; the generic missing-content direct-return routing test remains intentionally covered
   - the 70-method mixed legacy suite containing `CinematicVideoOverlayView`, `VideoClip`, viewport/aspect, skip-policy, video coordinator, and routing tests was removed with the retired MP4 runtime; shared intro/outro routing coverage was retained in `ComicIntroOutroRoutingTests`, and comic overlay/coordinator behavior is covered in `ComicSequenceFlowTests`
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -126,12 +138,12 @@
   - Duplicate common transition content prefab files and stale common-only content view types were removed after PR-T2 collapsed the shared physical content mapping.
   - ObjectiveStatus screen controller tests were removed with the retired ObjectiveStatus production screen.
 - Renamed / merged / split tests:
-  - renamed the Pause prefab progression tests around readable sequence states and removal of the second navigation cursor so their names describe the surviving informational-stepper contract
+  - replaced the former informational Pause stepper contract with a prefab-authored, selectable stage-image browser and pause-owned full-canvas preview; the current stage now determines only the initial selection and owns no separate decoration
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
   - renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic
 - Replaced weak guards:
   - color-only current-marker and movable viewed-frame assertions are replaced by full sequence-state mapping, a persistent current ring, rail/node geometry checks, and screenshot-preview payload closure
-  - Stage Name's generic authored-English/Climate assertion is replaced by exact en-US Orbitron `HeaderLarge`, ko-KR Climate 2000 theme font/material/style, and target-local TMP `UpperCase` assertions; World Guide remains independently fixed to Climate 2019
+  - Stage Name's generic authored-English assertion is replaced by exact en-US Orbitron `HeaderLarge`, ko-KR KBO Dia Gothic Medium theme font/material/style, and target-local TMP `UpperCase` assertions; World Guide remains independently fixed to KBO Dia Gothic Light
   - retired video playback/skip/aspect guards are replaced by sprite import-resolution, normalized panel-layout, click sequencing, final-transition fade, ownership cleanup, audio-focus ordering, and current comic-sequence component presence coverage
   - retired movement Slider, separate Arrow/WASD display-group alpha/Light checks, `Use Arrow Keys` localized label, and movement-current text expectations are replaced by one state-driven visual toggle contract
   - title-only and injected Korean font-resolver evidence is replaced by production Scene/Catalog composition coverage over all 36 governed Settings TMP targets, while a separate exact 51-target closure guard catches new unbound TMP or unclassified binding additions
@@ -154,7 +166,7 @@
   - legitimate public-surface evolution is allowed only when it is durable, architecture-relevant, and lands with the functional change, updated freeze expectation, matching behavior guard, and baseline/doc rationale in the same change
 - Stale baseline wording correction:
   - the baseline note and `Docs/Testing/Gameplay-Test-Automation-Guide.md` must be updated together when the UI lane scope, interpretation, or counts change
-  - Climate committed source identity must remain a pre-Unity Git-object gate; UI tests must not reinterpret a known importer-derived working serialization as source corruption
+  - KBO Dia Gothic committed source identity must remain a pre-Unity Git-object gate; UI tests must not reinterpret a known importer-derived working serialization as source corruption
 - Weak-to-strong guard replacement:
   - replacing a weak guard is acceptable only when this note records the old seam, the stronger replacement guard, and the reason the replacement is stronger
 - Accidental seam erosion:
@@ -188,7 +200,8 @@
 - PlayMode escalation status:
   - no additional UI PlayMode tests were added in Stage 9
   - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
-  - comic-sequence production scene bootstrap continues to be covered by actual-scene PlayMode smoke: intro presentation remains exercised, while the Gameplay outro case now proves that an active completed campaign with no authored outro content skips presentation and uses the regular Main Menu lifecycle; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
+  - the SurfaceBelt center remainder badge change required no additional PlayMode escalation because its prefab hierarchy, serialized references, remainder-state binding, active/inactive distinction, tween replay rules, disable cleanup, and isolated Shine material are covered by the canonical HUD and focused EditMode tests; manual in-game visual inspection remains not run
+  - comic-sequence production scene bootstrap continues to be covered by actual-scene PlayMode smoke: intro presentation remains exercised, while the Gameplay outro case now proves six cumulative panel advances, opaque handoff, Main Menu lifecycle completion, and one-time progress persistence with authored production content; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
 
 ## Covered Freeze Evidence
 - architectural seams are guarded by tests, not only by convention
@@ -254,8 +267,8 @@
 ## Companion Smoke Check
 - Command: `./run_tests.sh core`
 - Status: green
-- Core EditMode: `212 total / 0 failed`
-- Core PlayMode: `109 total / 0 failed`
+- Core EditMode: `217 total / 0 failed`
+- Core PlayMode: `111 total / 0 failed`
 - Interpretation:
   - this remains a companion smoke lane, not a replacement for `./run_tests.sh ui`
   - Stage 9 evidence is incomplete if the UI lane passes on a worktree where the companion core lane is not rerun
@@ -309,3 +322,12 @@
 - `./run_tests.sh core`: Core EditMode `217 total / 0 failed`; Core PlayMode `109 total / 0 failed`.
 - `./run_tests.sh ui`: Windows UI build passed; Unity UI EditMode `1352 total / 0 failed`.
 - Broad unfiltered `full` and manual Player/build smoke were not run; no broad-green claim is made.
+
+## 2026-09-06 KBO serialization correction
+
+- Same working-tree `./run_tests.sh ui`: Windows build passed; EditMode 1355 passed, 0 failed.
+- Added four TMP canonical-ratio recalculation/rejection cases; changed two importer-drift allowance cases to rejection.
+- Both KBO SDF files remained byte-identical after Unity; no automatic restore was needed.
+- This run also includes the pending HUD badge split and authored-position regression cases.
+- Evidence: `/mnt/d/J2M/evidence/20260906-kbo-canonical-commit/ui/`.
+- Broad full, visual capture, and manual Player checks were not run; the visual runner requires clean tracked HEAD inputs and unrelated Addressables edits remain preserved.

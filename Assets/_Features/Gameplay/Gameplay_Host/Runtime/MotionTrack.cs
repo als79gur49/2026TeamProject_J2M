@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct MotionTrackProgressSample
     {
         public MotionTrackProgressSample(
+            int tickIndex,
             int entityId,
             TickEntityMotionKind motionKind,
             float previousNormalizedTime,
@@ -22,6 +23,7 @@ namespace Game.Feature.Gameplay.Host
             int sequenceOrActionPlanId = 0,
             MotionTrackProgressSourceKind sourceKind = MotionTrackProgressSourceKind.LocalMotion)
         {
+            TickIndex = Math.Max(0, tickIndex);
             EntityId = entityId;
             MotionKind = motionKind;
             PreviousNormalizedTime = Mathf.Clamp01(previousNormalizedTime);
@@ -29,6 +31,8 @@ namespace Game.Feature.Gameplay.Host
             SequenceOrActionPlanId = Math.Max(0, sequenceOrActionPlanId);
             SourceKind = sourceKind;
         }
+
+        public int TickIndex { get; }
 
         public int EntityId { get; }
 
@@ -47,6 +51,7 @@ namespace Game.Feature.Gameplay.Host
         internal MotionTrackProgressSample WithEntityId(int entityId)
         {
             return new MotionTrackProgressSample(
+                TickIndex,
                 entityId,
                 MotionKind,
                 PreviousNormalizedTime,
@@ -54,6 +59,7 @@ namespace Game.Feature.Gameplay.Host
                 SequenceOrActionPlanId,
                 SourceKind);
         }
+
     }
 
     public sealed class MotionTrack
@@ -65,6 +71,8 @@ namespace Game.Feature.Gameplay.Host
         public TickEntityMotionKind HeadMotionKind => _clips[0].MotionKind;
 
         public int HeadSequenceOrActionPlanId => _clips[0].SequenceOrActionPlanId;
+
+        internal int HeadSourceTickIndex => _clips[0].SourceTickIndex;
 
         public TickEntityMotionKind TailMotionKind => _clips[_clips.Count - 1].MotionKind;
 
@@ -103,12 +111,16 @@ namespace Game.Feature.Gameplay.Host
             _clips.Clear();
         }
 
-        internal bool Contains(TickEntityMotionKind motionKind, int sequenceOrActionPlanId)
+        internal bool Contains(
+            TickEntityMotionKind motionKind,
+            int sourceTickIndex,
+            int sequenceOrActionPlanId)
         {
             for (var index = 0; index < _clips.Count; index++)
             {
                 var clip = _clips[index];
                 if (clip.MotionKind == motionKind &&
+                    clip.SourceTickIndex == sourceTickIndex &&
                     clip.SequenceOrActionPlanId == sequenceOrActionPlanId)
                 {
                     return true;
@@ -179,6 +191,7 @@ namespace Game.Feature.Gameplay.Host
                      clip.MotionKind == TickEntityMotionKind.Flip))
                 {
                     progressSample = new MotionTrackProgressSample(
+                        clip.SourceTickIndex,
                         0,
                         clip.MotionKind,
                         previousNormalizedTime,
@@ -225,6 +238,7 @@ namespace Game.Feature.Gameplay.Host
             float durationSeconds,
             bool interpolateRotation,
             float flipPeakHeightWorld,
+            int sourceTickIndex,
             int sequenceOrActionPlanId)
         {
             _motionKind = motionKind;
@@ -233,6 +247,7 @@ namespace Game.Feature.Gameplay.Host
             StartPose = startPose;
             EndPose = endPose;
             DurationSeconds = durationSeconds;
+            SourceTickIndex = Math.Max(0, sourceTickIndex);
             SequenceOrActionPlanId = Math.Max(0, sequenceOrActionPlanId);
             ElapsedSeconds = 0f;
         }
@@ -242,6 +257,8 @@ namespace Game.Feature.Gameplay.Host
         public float ElapsedSeconds { get; private set; }
 
         public int SequenceOrActionPlanId { get; }
+
+        internal int SourceTickIndex { get; }
 
         public GameplayEntityPose EndPose { get; private set; }
 
@@ -266,6 +283,27 @@ namespace Game.Feature.Gameplay.Host
             float flipPeakHeightWorld,
             int sequenceOrActionPlanId = 0)
         {
+            return CreateWithSourceTick(
+                motionKind,
+                startPose,
+                endPose,
+                durationSeconds,
+                interpolateRotation,
+                flipPeakHeightWorld,
+                sourceTickIndex: 0,
+                sequenceOrActionPlanId);
+        }
+
+        internal static MotionClip CreateWithSourceTick(
+            TickEntityMotionKind motionKind,
+            GameplayEntityPose startPose,
+            GameplayEntityPose endPose,
+            float durationSeconds,
+            bool interpolateRotation,
+            float flipPeakHeightWorld,
+            int sourceTickIndex,
+            int sequenceOrActionPlanId)
+        {
             return new MotionClip(
                 motionKind,
                 startPose,
@@ -273,6 +311,7 @@ namespace Game.Feature.Gameplay.Host
                 Mathf.Max(durationSeconds, 0.0001f),
                 interpolateRotation,
                 flipPeakHeightWorld,
+                sourceTickIndex,
                 sequenceOrActionPlanId);
         }
 

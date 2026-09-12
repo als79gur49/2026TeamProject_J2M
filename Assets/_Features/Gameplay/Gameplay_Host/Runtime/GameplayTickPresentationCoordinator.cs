@@ -487,6 +487,7 @@ namespace Game.Feature.Gameplay.Host
         internal bool HasActiveLocalMotionTrack(
             int entityId,
             TickEntityMotionKind motionKind,
+            int sourceTickIndex,
             int sequenceOrActionPlanId)
         {
             return entityId > 0 &&
@@ -495,19 +496,21 @@ namespace Game.Feature.Gameplay.Host
                    track != null &&
                    track.HasClips &&
                    track.HeadMotionKind == motionKind &&
+                   track.HeadSourceTickIndex == sourceTickIndex &&
                    track.HeadSequenceOrActionPlanId == sequenceOrActionPlanId;
         }
 
         internal bool HasLocalMotionTrack(
             int entityId,
             TickEntityMotionKind motionKind,
+            int sourceTickIndex,
             int sequenceOrActionPlanId)
         {
             return entityId > 0 &&
                    sequenceOrActionPlanId > 0 &&
                    _trackState.LocalMotionTracks.TryGetValue(entityId, out var track) &&
                    track != null &&
-                   track.Contains(motionKind, sequenceOrActionPlanId);
+                   track.Contains(motionKind, sourceTickIndex, sequenceOrActionPlanId);
         }
 
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
@@ -633,11 +636,6 @@ namespace Game.Feature.Gameplay.Host
                 out var resolvedPendingContactRemaining)
                 ? resolvedPendingContactRemaining
                 : 0f;
-            var pendingDeathRemaining = _exitPresentationController.TryGetPendingDeathPresentationCleanupRemainingSeconds(
-                entityId,
-                out var resolvedPendingDeathRemaining)
-                ? resolvedPendingDeathRemaining
-                : 0f;
 
             return new GameplayEntityPresentationLifecycleDebugSnapshot(
                 timelineTimeSeconds,
@@ -649,12 +647,9 @@ namespace Game.Feature.Gameplay.Host
                 hasEntityViewComponent,
                 _stateStore.ViewsByEntityId.ContainsKey(entityId),
                 _trackState.ContactDelayedRetainedEntityIds.Contains(entityId),
-                _trackState.DeathPresentationPlayingEntityIds.Contains(entityId),
                 _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId),
                 _exitPresentationController.HasPendingContactDelayedExit(entityId),
                 pendingContactRemaining,
-                _exitPresentationController.HasPendingDeathPresentationCleanup(entityId),
-                pendingDeathRemaining,
                 hasView && view.gameObject.name.Contains("_PooledVfx"),
                 rendererEnabled,
                 rendererActiveInHierarchy,
@@ -715,6 +710,7 @@ namespace Game.Feature.Gameplay.Host
                 topologyRotationTweenSettings,
                 () => CubeCenter);
             _exitPresentationController.Configure(_projector, _timingProfile);
+            _summonedEnemyPresentationResolver.ResetSession();
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ConfigureViewRegistry(viewBinder.ViewRegistry);
             _moonBlockDestructionPresentationController.ResetSession();
@@ -1041,6 +1037,7 @@ namespace Game.Feature.Gameplay.Host
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
             _boxMotionLane.ResetSession(BoxMotionTelemetryCleanupReason.PresentInitial);
+            _summonedEnemyPresentationResolver.ResetSession();
             _trackState.ResetSession();
             _resolvedPresentationFrames.Clear();
             _resolvedPresentationChannels.Clear();
@@ -1182,7 +1179,6 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockDestructionPresentationController.UpdateSequences(
                 _moonBlockEmergencePresentationController,
                 _lastPresentedTickIndex);
-            _exitPresentationController.AdvanceDeathPresentationCleanups(deltaTime);
             _exitPresentationController.AdvanceContactDelayedEntityExits(deltaTime);
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
             _moonBlockDestructionPresentationController.UpdateSequences(
@@ -1499,13 +1495,42 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            _hasTornDownPresentationRuntime = true;
-            HardCleanupPresentationExtensions();
-            DetachBlockAudioRuntime();
-            DetachGravityFieldAudioRuntime();
-            DetachTileFeatureAudioRuntime();
-            DetachTopologyAudioRuntime();
-            DetachGameplayAudioRuntime();
+            List<Exception> cleanupExceptions = null;
+            TryTeardownStep(_summonedEnemyPresentationResolver.ResetSession, ref cleanupExceptions);
+            TryTeardownStep(HardCleanupPresentationExtensions, ref cleanupExceptions);
+            TryTeardownStep(DetachBlockAudioRuntime, ref cleanupExceptions);
+            TryTeardownStep(DetachGravityFieldAudioRuntime, ref cleanupExceptions);
+            TryTeardownStep(DetachTileFeatureAudioRuntime, ref cleanupExceptions);
+            TryTeardownStep(DetachTopologyAudioRuntime, ref cleanupExceptions);
+            TryTeardownStep(DetachGameplayAudioRuntime, ref cleanupExceptions);
+
+            if (cleanupExceptions == null)
+            {
+                _hasTornDownPresentationRuntime = true;
+                return;
+            }
+
+            if (cleanupExceptions.Count == 1)
+            {
+                throw cleanupExceptions[0];
+            }
+
+            throw new AggregateException(
+                "One or more presentation runtime teardown steps failed.",
+                cleanupExceptions);
+        }
+
+        private static void TryTeardownStep(Action cleanupStep, ref List<Exception> cleanupExceptions)
+        {
+            try
+            {
+                cleanupStep();
+            }
+            catch (Exception exception)
+            {
+                cleanupExceptions ??= new List<Exception>();
+                cleanupExceptions.Add(exception);
+            }
         }
 
         private void PresentDiagnosticsPipelineIfEnabled(TickResult result)
@@ -1797,12 +1822,9 @@ namespace Game.Feature.Gameplay.Host
             bool hasEntityViewComponent,
             bool viewsByEntityIdContainsEntityId,
             bool contactDelayedRetainedEntityIdsContainsEntityId,
-            bool deathPresentationPlayingEntityIdsContainsEntityId,
             bool retainedLocalTargetPosesContainsEntityId,
             bool pendingContactExitContainsEntityId,
             float pendingContactExitRemainingSeconds,
-            bool pendingDeathCleanupContainsEntityId,
-            float pendingDeathCleanupRemainingSeconds,
             bool isVfxPooledInstance,
             bool rendererEnabled,
             bool rendererActiveInHierarchy,
@@ -1819,12 +1841,9 @@ namespace Game.Feature.Gameplay.Host
             HasEntityViewComponent = hasEntityViewComponent;
             ViewsByEntityIdContainsEntityId = viewsByEntityIdContainsEntityId;
             ContactDelayedRetainedEntityIdsContainsEntityId = contactDelayedRetainedEntityIdsContainsEntityId;
-            DeathPresentationPlayingEntityIdsContainsEntityId = deathPresentationPlayingEntityIdsContainsEntityId;
             RetainedLocalTargetPosesContainsEntityId = retainedLocalTargetPosesContainsEntityId;
             PendingContactExitContainsEntityId = pendingContactExitContainsEntityId;
             PendingContactExitRemainingSeconds = pendingContactExitRemainingSeconds;
-            PendingDeathCleanupContainsEntityId = pendingDeathCleanupContainsEntityId;
-            PendingDeathCleanupRemainingSeconds = pendingDeathCleanupRemainingSeconds;
             IsVfxPooledInstance = isVfxPooledInstance;
             RendererEnabled = rendererEnabled;
             RendererActiveInHierarchy = rendererActiveInHierarchy;
@@ -1851,17 +1870,11 @@ namespace Game.Feature.Gameplay.Host
 
         public bool ContactDelayedRetainedEntityIdsContainsEntityId { get; }
 
-        public bool DeathPresentationPlayingEntityIdsContainsEntityId { get; }
-
         public bool RetainedLocalTargetPosesContainsEntityId { get; }
 
         public bool PendingContactExitContainsEntityId { get; }
 
         public float PendingContactExitRemainingSeconds { get; }
-
-        public bool PendingDeathCleanupContainsEntityId { get; }
-
-        public float PendingDeathCleanupRemainingSeconds { get; }
 
         public bool IsVfxPooledInstance { get; }
 

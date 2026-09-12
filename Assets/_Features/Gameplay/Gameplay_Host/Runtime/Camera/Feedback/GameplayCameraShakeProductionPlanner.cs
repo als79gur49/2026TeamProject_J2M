@@ -17,11 +17,14 @@ namespace Game.Feature.Gameplay.Host
 
         private readonly struct FlipActionIdentity : IEquatable<FlipActionIdentity>
         {
-            public FlipActionIdentity(int boxEntityId, int sourceActionPlanId)
+            public FlipActionIdentity(int tickIndex, int boxEntityId, int sourceActionPlanId)
             {
+                TickIndex = tickIndex;
                 BoxEntityId = boxEntityId;
                 SourceActionPlanId = sourceActionPlanId;
             }
+
+            public int TickIndex { get; }
 
             public int BoxEntityId { get; }
 
@@ -29,7 +32,8 @@ namespace Game.Feature.Gameplay.Host
 
             public bool Equals(FlipActionIdentity other)
             {
-                return BoxEntityId == other.BoxEntityId &&
+                return TickIndex == other.TickIndex &&
+                       BoxEntityId == other.BoxEntityId &&
                        SourceActionPlanId == other.SourceActionPlanId;
             }
 
@@ -42,13 +46,15 @@ namespace Game.Feature.Gameplay.Host
             {
                 unchecked
                 {
-                    return (BoxEntityId * 397) ^ SourceActionPlanId;
+                    var hash = TickIndex;
+                    hash = (hash * 397) ^ BoxEntityId;
+                    return (hash * 397) ^ SourceActionPlanId;
                 }
             }
 
             public override string ToString()
             {
-                return $"Box={BoxEntityId}, ActionPlan={SourceActionPlanId}";
+                return $"Tick={TickIndex}, Box={BoxEntityId}, ActionPlan={SourceActionPlanId}";
             }
         }
 
@@ -135,8 +141,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool Present(
             TickResult result,
-            Func<int, TickEntityMotionKind, int, bool> hasActiveLocalMotionTrack,
-            Func<int, TickEntityMotionKind, int, bool> hasLocalMotionTrack,
+            Func<int, TickEntityMotionKind, int, int, bool> hasActiveLocalMotionTrack,
+            Func<int, TickEntityMotionKind, int, int, bool> hasLocalMotionTrack,
             Func<int, EnemyJumpLandingCameraFeedbackKind> resolveJumpLandingFeedback = null)
         {
             if (result?.PresentationData == null ||
@@ -235,8 +241,8 @@ namespace Game.Feature.Gameplay.Host
             int tickIndex,
             IReadOnlyList<BoxSlideStartPresentationSignal> pushSlideStartSignals,
             IReadOnlyList<FlipFloorImpactPresentationSignal> flipFloorImpactSignals,
-            Func<int, TickEntityMotionKind, int, bool> hasActiveLocalMotionTrack,
-            Func<int, TickEntityMotionKind, int, bool> hasLocalMotionTrack)
+            Func<int, TickEntityMotionKind, int, int, bool> hasActiveLocalMotionTrack,
+            Func<int, TickEntityMotionKind, int, int, bool> hasLocalMotionTrack)
         {
             return Present(
                 tickIndex,
@@ -252,8 +258,8 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyList<BoxSlideStartPresentationSignal> pushSlideStartSignals,
             IReadOnlyList<FlipImpactPresentationSignal> flipImpactSignals,
             IReadOnlyList<FlipFloorImpactPresentationSignal> flipFloorImpactSignals,
-            Func<int, TickEntityMotionKind, int, bool> hasActiveLocalMotionTrack,
-            Func<int, TickEntityMotionKind, int, bool> hasLocalMotionTrack)
+            Func<int, TickEntityMotionKind, int, int, bool> hasActiveLocalMotionTrack,
+            Func<int, TickEntityMotionKind, int, int, bool> hasLocalMotionTrack)
         {
             if (tickIndex < 0 ||
                 hasActiveLocalMotionTrack == null ||
@@ -307,6 +313,7 @@ namespace Game.Feature.Gameplay.Host
 
                     var pending = pair.Value;
                     if (pending.ProgressSource != sample.SourceKind ||
+                        pending.Request.TickIndex != sample.TickIndex ||
                         pending.Request.SourceEntityId != sample.EntityId ||
                         pending.Request.SequenceOrActionPlanId != sample.SequenceOrActionPlanId ||
                         sample.PreviousNormalizedTime >= pending.ContactNormalizedTime ||
@@ -555,7 +562,7 @@ namespace Game.Feature.Gameplay.Host
         private bool PresentPushSlideLaunches(
             int tickIndex,
             IReadOnlyList<BoxSlideStartPresentationSignal> signals,
-            Func<int, TickEntityMotionKind, int, bool> hasActiveLocalMotionTrack)
+            Func<int, TickEntityMotionKind, int, int, bool> hasActiveLocalMotionTrack)
         {
             var submitted = false;
             if (signals == null)
@@ -571,6 +578,7 @@ namespace Game.Feature.Gameplay.Host
                     !hasActiveLocalMotionTrack(
                         signal.BoxEntityId,
                         TickEntityMotionKind.BoxSlide,
+                        tickIndex,
                         signal.SourceActionPlanId))
                 {
                     continue;
@@ -597,7 +605,7 @@ namespace Game.Feature.Gameplay.Host
         private void RegisterOrdinaryFlipLandings(
             int tickIndex,
             IReadOnlyList<FlipFloorImpactPresentationSignal> signals,
-            Func<int, TickEntityMotionKind, int, bool> hasLocalMotionTrack)
+            Func<int, TickEntityMotionKind, int, int, bool> hasLocalMotionTrack)
         {
             if (signals == null)
             {
@@ -614,8 +622,10 @@ namespace Game.Feature.Gameplay.Host
                     !hasLocalMotionTrack(
                         signal.BoxEntityId,
                         TickEntityMotionKind.Flip,
+                        tickIndex,
                         signal.SourceActionPlanId) ||
                     !TryRegisterFlipOutcome(
+                        tickIndex,
                         signal.BoxEntityId,
                         signal.SourceActionPlanId,
                         FlipCameraOutcomeKind.OrdinaryLanding))
@@ -656,7 +666,7 @@ namespace Game.Feature.Gameplay.Host
                             out var priority) ||
                         signal.BoxEntityId <= 0 ||
                         signal.SourceActionPlanId <= 0 ||
-                        !TryRegisterFlipOutcome(signal.BoxEntityId, signal.SourceActionPlanId, outcome))
+                        !TryRegisterFlipOutcome(tickIndex, signal.BoxEntityId, signal.SourceActionPlanId, outcome))
                     {
                         continue;
                     }
@@ -691,6 +701,7 @@ namespace Game.Feature.Gameplay.Host
                     signal.SourceActionPlanId <= 0 ||
                     signal.VisualContactNormalizedTime <= 0f ||
                     !TryRegisterFlipOutcome(
+                        tickIndex,
                         signal.BoxEntityId,
                         signal.SourceActionPlanId,
                         FlipCameraOutcomeKind.HostileFollowThrough))
@@ -730,11 +741,12 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private bool TryRegisterFlipOutcome(
+            int tickIndex,
             int boxEntityId,
             int sourceActionPlanId,
             FlipCameraOutcomeKind outcome)
         {
-            var identity = new FlipActionIdentity(boxEntityId, sourceActionPlanId);
+            var identity = new FlipActionIdentity(tickIndex, boxEntityId, sourceActionPlanId);
             if (!_flipOutcomesByAction.TryGetValue(identity, out var existing))
             {
                 _flipOutcomesByAction.Add(identity, outcome);

@@ -259,21 +259,17 @@ namespace Game.Feature.Gameplay.Host
                 durationSeconds = Mathf.Max(durationSeconds, jumpTrack.RemainingSeconds);
             }
 
+            // Player death still uses the generic visibility-remove track. Keep its authored
+            // animation duration as the hide tail, while enemy exits remain owned by the
+            // typed death cue and DeathMotion presentation contract.
             if (changeKind == TickVisibilityChangeKind.Remove &&
                 _stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType) &&
                 entityType == EntityType.Unit &&
                 _stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) &&
-                view != null)
+                view != null &&
+                TryResolvePlayerDeathAnimatorDurationSeconds(view, out var playerDeathDurationSeconds))
             {
-                if (TryResolveDeathAnimatorDurationSeconds(view, out var deathAnimatorDurationSeconds))
-                {
-                    durationSeconds = Mathf.Max(durationSeconds, deathAnimatorDurationSeconds);
-                }
-
-                if (TryResolveDeathViewTailSeconds(view, out var deathViewTailSeconds))
-                {
-                    durationSeconds = Mathf.Max(durationSeconds, deathViewTailSeconds);
-                }
+                durationSeconds = Mathf.Max(durationSeconds, playerDeathDurationSeconds);
             }
 
             return durationSeconds;
@@ -325,42 +321,19 @@ namespace Game.Feature.Gameplay.Host
                 DefaultFlipImpactStayPostContactHoldNormalizedDuration);
         }
 
-        private static bool TryResolveDeathAnimatorDurationSeconds(
+        private static bool TryResolvePlayerDeathAnimatorDurationSeconds(
             GameplayEntityView view,
             out float durationSeconds)
         {
             durationSeconds = 0f;
-
-            if (view.TryGetComponent<PlayerAnimatorDriver>(out var playerDriver) &&
-                playerDriver != null)
-            {
-                durationSeconds = playerDriver.DeathPresentationDurationSeconds;
-                return durationSeconds > 0f;
-            }
-
-            if (view.TryGetComponent<EnemyAnimatorDriver>(out var enemyDriver) &&
-                enemyDriver != null)
-            {
-                durationSeconds = enemyDriver.DeathPresentationDurationSeconds;
-                return durationSeconds > 0f;
-            }
-
-            return false;
-        }
-
-        private static bool TryResolveDeathViewTailSeconds(
-            GameplayEntityView view,
-            out float durationSeconds)
-        {
-            durationSeconds = 0f;
-            var authoring = EntityEffectPresentationAuthoring.GetOptionalValidatedAuthoring(view);
-            if (authoring == null)
+            if (!view.TryGetComponent<PlayerAnimatorDriver>(out var playerDriver) ||
+                playerDriver == null)
             {
                 return false;
             }
 
-            durationSeconds = authoring.DeathViewTailSeconds;
-            return EntityEffectPresentationAuthoring.IsOverrideDuration(durationSeconds);
+            durationSeconds = playerDriver.DeathPresentationDurationSeconds;
+            return durationSeconds > 0f;
         }
 
         private static PlayerActionKind ResolvePlayerActionKind(PlayerPresentationPhase phase)

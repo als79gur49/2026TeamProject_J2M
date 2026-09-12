@@ -117,6 +117,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshPlayerDeathHoldTracks(presentationData, previousCommittedLocalTargetPoses);
             RefreshMotionClips(
                 presentationData,
+                result.TickIndex,
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 projector,
@@ -145,7 +146,11 @@ namespace Game.Feature.Gameplay.Host
                 projector,
                 timingProfile);
             RefreshTransitionVisibilityState(presentationData, projector);
-            RefreshFlipInteractionTracks(presentationData, timingProfile, flipImpactTimingSettings);
+            RefreshFlipInteractionTracks(
+                result.TickIndex,
+                presentationData,
+                timingProfile,
+                flipImpactTimingSettings);
             _playerDeathDisplacementPlanner.RefreshTracks(presentationData, projector, timingProfile);
         }
 
@@ -211,6 +216,7 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedTopology,
                 projector,
                 timingProfile,
+                request.TickIndex,
                 payload.SourceActionPlanId);
             resultKind = started
                 ? GameplayMotionPlaybackResultKind.Started
@@ -928,6 +934,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshMotionClips(
             TickPresentationData presentationData,
+            int sourceTickIndex,
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
@@ -998,7 +1005,8 @@ namespace Game.Feature.Gameplay.Host
                     previousCommittedLocalTargetPoses,
                     previousCommittedTopology,
                     projector,
-                    timingProfile);
+                    timingProfile,
+                    sourceTickIndex);
             }
         }
 
@@ -1009,6 +1017,7 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
             GameplayTimingProfile timingProfile,
+            int sourceTickIndex = 0,
             int sequenceOrActionPlanId = 0)
         {
             var endLocalPose = ResolveMotionEndPose(motion, presentationData.TopologyMotion, projector);
@@ -1053,7 +1062,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             track.Append(
-                MotionClip.Create(
+                MotionClip.CreateWithSourceTick(
                     motion.MotionKind,
                     startLocalPose,
                     endLocalPose,
@@ -1066,6 +1075,7 @@ namespace Game.Feature.Gameplay.Host
                         endLocalPose,
                         projector,
                         timingProfile),
+                    sourceTickIndex,
                     sequenceOrActionPlanId));
 
             if (!_stateStore.CommittedLocalTargetPoses.ContainsKey(motion.EntityId))
@@ -1934,7 +1944,7 @@ namespace Game.Feature.Gameplay.Host
                     _trackState.CompletedOriginalViewMotionTrackIds.Add(entityId);
                     if (track != null)
                     {
-                        _trackState.CompletedPresentationMotionKeys.Add(track.InstanceKey);
+                        _trackState.CompletedPresentationMotions.RecordCompleted(track.InstanceKey);
                     }
                 }
             }
@@ -1959,7 +1969,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var key = PresentationMotionInstanceKey.CreateFlipImpactStay(signal, result.TickIndex);
-                if (_trackState.CompletedPresentationMotionKeys.Contains(key))
+                if (_trackState.CompletedPresentationMotions.IsCompleted(key))
                 {
                     continue;
                 }
@@ -1995,7 +2005,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _trackState.OriginalViewMotionTracks[signal.BoxEntityId] =
-                    PresentationMotionTrack.CreateFlipImpactStay(command);
+                    PresentationMotionTrack.CreateFlipImpactStay(command, result.TickIndex);
             }
         }
 
@@ -2028,7 +2038,7 @@ namespace Game.Feature.Gameplay.Host
                 payload.HasLandingCell,
                 payload.LandingCell);
             var key = PresentationMotionInstanceKey.CreateFlipImpactStay(signal, result.TickIndex);
-            if (_trackState.CompletedPresentationMotionKeys.Contains(key))
+            if (_trackState.CompletedPresentationMotions.IsCompleted(key))
             {
                 resultKind = GameplayMotionPlaybackResultKind.DuplicateActive;
                 return false;
@@ -2067,12 +2077,13 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _trackState.OriginalViewMotionTracks[signal.BoxEntityId] =
-                PresentationMotionTrack.CreateFlipImpactStay(command);
+                PresentationMotionTrack.CreateFlipImpactStay(command, result.TickIndex);
             resultKind = GameplayMotionPlaybackResultKind.Started;
             return true;
         }
 
         private void RefreshFlipInteractionTracks(
+            int tickIndex,
             TickPresentationData presentationData,
             GameplayTimingProfile timingProfile,
             FlipImpactTimingSettings flipImpactTimingSettings)
@@ -2147,11 +2158,11 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                track.CorrelateSourceActionPlan(signal.ActionPlanId);
                 track.UpdateFlipOutcome(signal.FlipOutcome, flipImpactTimingSettings);
 
                 if (signal.ExecutedThisTick)
                 {
+                    track.CorrelateSourceActionPlan(tickIndex, signal.ActionPlanId);
                     track.SetPhase(FlipInteractionPhase.AirborneFollow);
                     continue;
                 }

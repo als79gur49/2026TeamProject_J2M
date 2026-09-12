@@ -17,16 +17,16 @@ namespace Game.Product.Achievements.Tests
                 BeforeCallback = _ =>
                 {
                     Assert.That(repository.SaveCount, Is.EqualTo(1));
-                    Assert.That(repository.Current.EarnedAchievementIds, Does.Contain("campaign.complete"));
+                    Assert.That(repository.Current.EarnedAchievementIds, Does.Contain("campaign.level-4.clear"));
                     Assert.That(
                         repository.Current.PendingAchievementPublicationIds,
-                        Does.Contain("campaign.complete"));
+                        Does.Contain("campaign.level-4.clear"));
                 },
             };
             var coordinator = CreateCoordinator(repository, sink);
             Assert.That(coordinator.Initialize(), Is.True);
 
-            var result = coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            var result = coordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
 
             Assert.That(result, Is.EqualTo(AchievementEarnResult.EarnedNew));
             Assert.That(repository.SaveCount, Is.EqualTo(1));
@@ -44,8 +44,8 @@ namespace Game.Product.Achievements.Tests
 
             var result = coordinator.EarnBatch(new[]
             {
-                GameAchievementIds.CampaignStage1_2Clear,
-                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                GameAchievementIds.CampaignLevel1Clear,
+                GameAchievementIds.CampaignLevel2Clear,
             });
 
             Assert.That(result.Result, Is.EqualTo(AchievementEarnResult.EarnedNew));
@@ -67,17 +67,17 @@ namespace Game.Product.Achievements.Tests
             coordinator.Initialize();
             coordinator.EarnBatch(new[]
             {
-                GameAchievementIds.CampaignStage1_2Clear,
-                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                GameAchievementIds.CampaignLevel1Clear,
+                GameAchievementIds.CampaignLevel2Clear,
             });
 
             sink.CompleteBatch(0, new[]
             {
                 new AchievementPublicationItemResult(
-                    GameAchievementIds.CampaignStage1_2Clear,
+                    GameAchievementIds.CampaignLevel1Clear,
                     AchievementPublicationResult.AlreadySatisfied),
                 new AchievementPublicationItemResult(
-                    GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                    GameAchievementIds.CampaignLevel2Clear,
                     AchievementPublicationResult.AlreadySatisfied),
             });
 
@@ -95,20 +95,20 @@ namespace Game.Product.Achievements.Tests
             coordinator.Initialize();
             coordinator.EarnBatch(new[]
             {
-                GameAchievementIds.CampaignStage1_2Clear,
-                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
+                GameAchievementIds.CampaignLevel1Clear,
+                GameAchievementIds.CampaignLevel2Clear,
             });
 
             sink.CompleteBatch(0, new[]
             {
                 new AchievementPublicationItemResult(
-                    GameAchievementIds.CampaignStage1_2Clear,
+                    GameAchievementIds.CampaignLevel1Clear,
                     AchievementPublicationResult.AlreadySatisfied),
                 new AchievementPublicationItemResult(
                     GameAchievementId.Require("future.valid"),
                     AchievementPublicationResult.AlreadySatisfied),
                 new AchievementPublicationItemResult(
-                    GameAchievementIds.CampaignStage1_2Clear,
+                    GameAchievementIds.CampaignLevel1Clear,
                     AchievementPublicationResult.AlreadySatisfied),
             });
 
@@ -117,7 +117,7 @@ namespace Game.Product.Achievements.Tests
                 repository.Current.PendingAchievementPublicationIds,
                 Is.EqualTo(new[]
                 {
-                    GameAchievementIds.CampaignStage1_2PushFlipWithin25.Value,
+                    GameAchievementIds.CampaignLevel2Clear.Value,
                 }));
             Assert.That(coordinator.GetSnapshot().InFlightCount, Is.Zero);
         }
@@ -132,8 +132,8 @@ namespace Game.Product.Achievements.Tests
 
             var result = coordinator.EarnBatch(new[]
             {
-                GameAchievementIds.CampaignStage1_2Clear,
-                GameAchievementIds.CampaignStage1_2Clear,
+                GameAchievementIds.CampaignLevel1Clear,
+                GameAchievementIds.CampaignLevel1Clear,
             });
 
             Assert.That(result.Result, Is.EqualTo(AchievementEarnResult.InvalidAchievement));
@@ -151,7 +151,7 @@ namespace Game.Product.Achievements.Tests
             var coordinator = CreateCoordinator(repository, sink);
             coordinator.Initialize();
 
-            var result = coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            var result = coordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
 
             Assert.That(result, Is.EqualTo(AchievementEarnResult.PersistenceFailed));
             Assert.That(sink.PublishCount, Is.Zero);
@@ -167,10 +167,10 @@ namespace Game.Product.Achievements.Tests
             coordinator.Initialize();
 
             Assert.That(
-                coordinator.Earn(GameAchievementIds.NormalCampaignComplete),
+                coordinator.Earn(GameAchievementIds.CampaignLevel4Clear),
                 Is.EqualTo(AchievementEarnResult.EarnedNew));
             Assert.That(
-                coordinator.Earn(GameAchievementIds.NormalCampaignComplete),
+                coordinator.Earn(GameAchievementIds.CampaignLevel4Clear),
                 Is.EqualTo(AchievementEarnResult.AlreadyEarned));
 
             Assert.That(repository.SaveCount, Is.EqualTo(1));
@@ -187,10 +187,10 @@ namespace Game.Product.Achievements.Tests
             coordinator.Initialize();
 
             Assert.That(
-                coordinator.Earn(GameAchievementIds.NormalCampaignComplete),
+                coordinator.Earn(GameAchievementIds.CampaignLevel4Clear),
                 Is.EqualTo(AchievementEarnResult.EarnedNew));
             Assert.That(
-                coordinator.Earn(GameAchievementIds.NormalCampaignComplete),
+                coordinator.Earn(GameAchievementIds.CampaignLevel4Clear),
                 Is.EqualTo(AchievementEarnResult.AlreadyEarned));
 
             Assert.That(repository.SaveCount, Is.EqualTo(1));
@@ -207,7 +207,7 @@ namespace Game.Product.Achievements.Tests
                 new UnavailableAchievementPublicationSink());
             coordinator.Initialize();
 
-            Assert.DoesNotThrow(() => coordinator.Earn(GameAchievementIds.NormalCampaignComplete));
+            Assert.DoesNotThrow(() => coordinator.Earn(GameAchievementIds.CampaignLevel4Clear));
 
             Assert.That(repository.SaveCount, Is.EqualTo(1));
             AssertState(coordinator, earned: true, pending: true, inFlight: 0);
@@ -222,7 +222,7 @@ namespace Game.Product.Achievements.Tests
             sink.PublishBatch(
                 new AchievementPublicationBatch(new[]
                 {
-                    GameAchievementIds.NormalCampaignComplete,
+                    GameAchievementIds.CampaignLevel4Clear,
                 }),
                 result =>
                 {
@@ -246,7 +246,7 @@ namespace Game.Product.Achievements.Tests
             var coordinator = CreateCoordinator(repository, sink);
             coordinator.Initialize();
 
-            coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            coordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
 
             Assert.That(repository.SaveCount, Is.EqualTo(1));
             AssertState(coordinator, earned: true, pending: true, inFlight: 0);
@@ -260,7 +260,7 @@ namespace Game.Product.Achievements.Tests
             var coordinator = CreateCoordinator(repository, sink);
             coordinator.Initialize();
 
-            coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            coordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
             AssertState(coordinator, earned: true, pending: true, inFlight: 1);
 
             sink.Complete(0, AchievementPublicationResult.Submitted);
@@ -284,7 +284,7 @@ namespace Game.Product.Achievements.Tests
             var coordinator = CreateCoordinator(repository, new RecordingSink(publicationResult));
             coordinator.Initialize();
 
-            coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            coordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
 
             Assert.That(repository.SaveCount, Is.EqualTo(expectedSaves));
             AssertState(coordinator, earned: true, pending: pending, inFlight: 0);
@@ -302,7 +302,7 @@ namespace Game.Product.Achievements.Tests
                 new RecordingSink(AchievementPublicationResult.AlreadySatisfied));
             firstCoordinator.Initialize();
 
-            firstCoordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            firstCoordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
 
             AssertState(firstCoordinator, earned: true, pending: true, inFlight: 0);
             Assert.That(firstCoordinator.GetSnapshot().IsUsable, Is.True);
@@ -321,7 +321,7 @@ namespace Game.Product.Achievements.Tests
             var coordinator = CreateCoordinator(repository, new ThrowingSink());
             coordinator.Initialize();
 
-            Assert.DoesNotThrow(() => coordinator.Earn(GameAchievementIds.NormalCampaignComplete));
+            Assert.DoesNotThrow(() => coordinator.Earn(GameAchievementIds.CampaignLevel4Clear));
 
             Assert.That(repository.SaveCount, Is.EqualTo(1));
             AssertState(coordinator, earned: true, pending: true, inFlight: 0);
@@ -334,7 +334,7 @@ namespace Game.Product.Achievements.Tests
             var sink = RecordingSink.Async();
             var coordinator = CreateCoordinator(repository, sink);
             coordinator.Initialize();
-            coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            coordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
 
             sink.Complete(0, AchievementPublicationResult.Submitted);
             sink.Complete(0, AchievementPublicationResult.Submitted);
@@ -350,7 +350,7 @@ namespace Game.Product.Achievements.Tests
             var sink = RecordingSink.Async();
             var coordinator = CreateCoordinator(repository, sink);
             coordinator.Initialize();
-            coordinator.Earn(GameAchievementIds.NormalCampaignComplete);
+            coordinator.Earn(GameAchievementIds.CampaignLevel4Clear);
             var savesBeforeDispose = repository.SaveCount;
 
             coordinator.Dispose();
@@ -364,7 +364,7 @@ namespace Game.Product.Achievements.Tests
         public void Initialize_ReconcilesAllCatalogEarnedEvenWhenPendingIsEmpty()
         {
             var repository = new RecordingRepository(
-                Document(new[] { "campaign.complete" }, Array.Empty<string>()));
+                Document(new[] { "campaign.level-4.clear" }, Array.Empty<string>()));
             var sink = new RecordingSink(AchievementPublicationResult.Unavailable);
             var coordinator = CreateCoordinator(repository, sink);
 
@@ -379,7 +379,7 @@ namespace Game.Product.Achievements.Tests
         public void Initialize_ReconciliationIsBoundedOncePerCoordinatorSession()
         {
             var repository = new RecordingRepository(
-                Document(new[] { "campaign.complete" }, Array.Empty<string>()));
+                Document(new[] { "campaign.level-4.clear" }, Array.Empty<string>()));
             var sink = new RecordingSink(AchievementPublicationResult.Rejected);
             var coordinator = CreateCoordinator(repository, sink);
 
@@ -416,7 +416,7 @@ namespace Game.Product.Achievements.Tests
 
             Assert.That(coordinator.Initialize(), Is.False);
             Assert.That(
-                coordinator.Earn(GameAchievementIds.NormalCampaignComplete),
+                coordinator.Earn(GameAchievementIds.CampaignLevel4Clear),
                 Is.EqualTo(AchievementEarnResult.UnavailableState));
             Assert.That(repository.SaveCount, Is.Zero);
             Assert.That(sink.PublishCount, Is.Zero);
@@ -448,9 +448,9 @@ namespace Game.Product.Achievements.Tests
             int inFlight)
         {
             var snapshot = coordinator.GetSnapshot();
-            Assert.That(Contains(snapshot.EarnedAchievementIds, GameAchievementIds.NormalCampaignComplete), Is.EqualTo(earned));
+            Assert.That(Contains(snapshot.EarnedAchievementIds, GameAchievementIds.CampaignLevel4Clear), Is.EqualTo(earned));
             Assert.That(
-                Contains(snapshot.PendingAchievementPublicationIds, GameAchievementIds.NormalCampaignComplete),
+                Contains(snapshot.PendingAchievementPublicationIds, GameAchievementIds.CampaignLevel4Clear),
                 Is.EqualTo(pending));
             Assert.That(snapshot.InFlightCount, Is.EqualTo(inFlight));
         }
@@ -468,6 +468,72 @@ namespace Game.Product.Achievements.Tests
             }
 
             return false;
+        }
+
+        [Test]
+        public void RetiredPreReleaseIds_ArePreservedWithoutWritingPublishingOrGrantingReplacements()
+        {
+            var retired = new[] { "campaign.complete", "campaign.stage-1-2.clear",
+                "campaign.stage-1-2.push-flip-within-25" };
+            var repository = new RecordingRepository(Document(retired, retired));
+            repository.SaveResults.Enqueue(new AchievementDocumentSaveResult(
+                AchievementDocumentSaveStatus.IoFailed, "initialization must not write"));
+            var sink = RecordingSink.Async();
+            using var coordinator = CreateCoordinator(repository, sink);
+            Assert.That(coordinator.Initialize(), Is.True);
+            Assert.That(coordinator.ReconcileAllEarnedForNewPublicationSession(), Is.True);
+            foreach (var id in retired)
+            {
+                Assert.That(coordinator.Earn(GameAchievementId.Require(id)),
+                    Is.EqualTo(AchievementEarnResult.InvalidAchievement));
+            }
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(sink.PublishCount, Is.Zero);
+            Assert.That(repository.Current.EarnedAchievementIds, Is.EqualTo(retired));
+            Assert.That(repository.Current.PendingAchievementPublicationIds, Is.EqualTo(retired));
+            Assert.That(coordinator.GetSnapshot().EarnedAchievementIds.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void MixedOldAndNewRecords_PublishOnlyActiveLevelAchievements()
+        {
+            var ids = new[] { "campaign.complete", "campaign.stage-1-2.clear",
+                "campaign.stage-1-2.push-flip-within-25", "campaign.level-0.clear", "future.valid" };
+            var repository = new RecordingRepository(Document(ids, ids));
+            var sink = new RecordingSink(AchievementPublicationResult.Unavailable);
+            using var coordinator = CreateCoordinator(repository, sink);
+            Assert.That(coordinator.Initialize(), Is.True);
+            Assert.That(sink.PublishCount, Is.EqualTo(1));
+            Assert.That(sink.LastBatch.AchievementIds,
+                Is.EqualTo(new[] { GameAchievementIds.CampaignLevel0Clear }));
+            Assert.That(coordinator.ReconcileAllEarnedForNewPublicationSession(), Is.True);
+            Assert.That(sink.PublishCount, Is.EqualTo(2));
+            Assert.That(sink.LastBatch.AchievementIds,
+                Is.EqualTo(new[] { GameAchievementIds.CampaignLevel0Clear }));
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(repository.Current.EarnedAchievementIds, Is.EqualTo(ids));
+            Assert.That(repository.Current.PendingAchievementPublicationIds, Is.EqualTo(ids));
+        }
+
+        [Test]
+        public void NewLevelEarn_PreservesInactiveOldRecordsWithoutConvertingThem()
+        {
+            var retired = new[] { "campaign.complete", "campaign.stage-1-2.clear",
+                "campaign.stage-1-2.push-flip-within-25" };
+            var repository = new RecordingRepository(Document(retired, retired));
+            var sink = RecordingSink.Async();
+            using var coordinator = CreateCoordinator(repository, sink);
+            Assert.That(coordinator.Initialize(), Is.True);
+            Assert.That(coordinator.Earn(GameAchievementIds.CampaignLevel1Clear),
+                Is.EqualTo(AchievementEarnResult.EarnedNew));
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            Assert.That(sink.PublishCount, Is.EqualTo(1));
+            Assert.That(sink.LastBatch.AchievementIds,
+                Is.EqualTo(new[] { GameAchievementIds.CampaignLevel1Clear }));
+            var expected = new[] { "campaign.complete", "campaign.stage-1-2.clear",
+                "campaign.stage-1-2.push-flip-within-25", "campaign.level-1.clear" };
+            Assert.That(repository.Current.EarnedAchievementIds, Is.EquivalentTo(expected));
+            Assert.That(repository.Current.PendingAchievementPublicationIds, Is.EquivalentTo(expected));
         }
 
         private sealed class RecordingRepository : IAchievementDocumentRepository

@@ -1,3 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 "Assets/Localization/Localization Settings.asset" whitespace=-blank-at-eol
+"Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset" whitespace=-blank-at-eol
+"Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset" whitespace=-blank-at-eol

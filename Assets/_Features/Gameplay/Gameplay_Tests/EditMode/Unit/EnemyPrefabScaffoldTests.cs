@@ -1,6 +1,8 @@
 using System.IO;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Stages;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -9,46 +11,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Full")]
-        public void EnemyViewNonAttackingPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming()
-        {
-            var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_NonAttacking.prefab");
-
-            StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
-            StringAssert.Contains("moveMotionDurationSeconds: 1", prefabText);
-            StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
-            StringAssert.DoesNotContain("EntityMotionPresentationAuthoring", prefabText);
-            StringAssert.DoesNotContain("pushMotionDurationSeconds", prefabText);
-            StringAssert.DoesNotContain("flipMotionDurationSeconds", prefabText);
-        }
-
-        [Test]
-        [Category("Full")]
-        public void EnemyViewAttackingPrefab_BindsExplicitEnemyTimingReferenceClips()
-        {
-            var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Attacking.prefab");
-
-            StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
-            StringAssert.Contains("attackWindupAnimatorDurationSeconds: 1", prefabText);
-            StringAssert.Contains("recoverAnimatorDurationSeconds: 1", prefabText);
-            StringAssert.Contains("attackWindupReferenceClip:", prefabText);
-            StringAssert.Contains("recoverReferenceClip:", prefabText);
-        }
-
-        [Test]
-        [Category("Full")]
         public void EnemyViewChargePrefab_BindsGenericMoveAuthoringWithoutLegacyChargeEntityMotionRuntimeField()
         {
-            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_RocketFace.prefab");
+            var prefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_RocketFace.prefab";
+            var prefabText = ReadNormalizedText(prefabPath);
+            var snapshot = LoadBinding(prefabPath);
 
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("moveMotionDurationSeconds: 0.85", prefabText);
             StringAssert.Contains("EntityMotionPresentationAuthoring", prefabText);
-            StringAssert.Contains(
-                "attackWindupReferenceClip: {fileID: 3060872287085348379, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}",
-                prefabText);
-            StringAssert.Contains(
-                "recoverReferenceClip: {fileID: -5059006814000262888, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}",
-                prefabText);
+            AssertBinding(snapshot, EnemyAnimationCue.ChargeWindup,
+                EnemyAnimationDispatchMode.State, "Windup", 0.4f);
+            AssertBinding(snapshot, EnemyAnimationCue.ChargeActive,
+                EnemyAnimationDispatchMode.State, "Charge", -1f);
+            AssertBinding(snapshot, EnemyAnimationCue.ChargeRecovery,
+                EnemyAnimationDispatchMode.State, "Recover", 0.4f);
         }
 
         [Test]
@@ -81,7 +58,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains("guid: bbf461ea260c63b4785c6c2c72a480bf", prefabText);
             StringAssert.Contains("guid: 506850279d08adc3d62015a52b2109e4", prefabText);
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
-            StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
+            AssertBinding(LoadBinding(
+                    StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Sunwheel.prefab"),
+                EnemyAnimationCue.Hit, EnemyAnimationDispatchMode.Trigger, "Hit", -1f);
             StringAssert.Contains("m_ApplyRootMotion: 0", prefabText);
         }
 
@@ -94,11 +73,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains("EnemyView_Astreton", prefabText);
             StringAssert.Contains("guid: 9870afb7c6d615c458c88e0e341207e3", prefabText);
             StringAssert.Contains("guid: 6be19350b5cac6763aebb3b88b54c091", prefabText);
-            StringAssert.Contains("jumpWindupAnimatorDurationSeconds: 0.5", prefabText);
-            StringAssert.Contains("jumpAirborneAnimatorDurationSeconds: 1.35", prefabText);
-            StringAssert.Contains("jumpWindupReferenceClip: {fileID: 9067093048684652814", prefabText);
-            StringAssert.Contains("jumpAirborneReferenceClip: {fileID: -5560811472042823391", prefabText);
+            var snapshot = LoadBinding(
+                StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Astreton.prefab");
+            AssertBinding(snapshot, EnemyAnimationCue.JumpWindup,
+                EnemyAnimationDispatchMode.State, "JumpWindup", 0.5f);
+            AssertBinding(snapshot, EnemyAnimationCue.JumpAirborne,
+                EnemyAnimationDispatchMode.State, "JumpAirborne", 1.35f);
+            AssertBinding(snapshot, EnemyAnimationCue.JumpLanding,
+                EnemyAnimationDispatchMode.State, "Move", -1f);
             StringAssert.Contains("m_ApplyRootMotion: 0", prefabText);
+        }
+
+        private static EnemyAnimationBindingSnapshot LoadBinding(string prefabPath)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+            Assert.That(prefab.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null, prefabPath);
+            var authoring = prefab.GetComponent<EnemyAnimationBindingAuthoring>();
+            Assert.That(authoring, Is.Not.Null, prefabPath);
+            return authoring.CreateSnapshot();
+        }
+
+        private static void AssertBinding(
+            EnemyAnimationBindingSnapshot snapshot,
+            EnemyAnimationCue cue,
+            EnemyAnimationDispatchMode mode,
+            string target,
+            float duration)
+        {
+            Assert.That(snapshot.TryGetBinding(cue, out var binding), Is.True, cue.ToString());
+            Assert.That(binding.PrimaryDispatchMode, Is.EqualTo(mode), cue.ToString());
+            Assert.That(binding.TargetName, Is.EqualTo(target), cue.ToString());
+            Assert.That(binding.AnimatorDurationSeconds, Is.EqualTo(duration).Within(0.0001f), cue.ToString());
         }
 
         private static string ReadNormalizedText(string assetPath)

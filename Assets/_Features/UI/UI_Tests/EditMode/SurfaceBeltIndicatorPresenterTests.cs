@@ -24,15 +24,8 @@ namespace Game.Feature.UI.Tests
 
             var firstOffset = -(SurfaceBeltViewModel.AuthoredCellCount / 2);
             var expectedOffsets = Enumerable.Range(firstOffset, SurfaceBeltViewModel.AuthoredCellCount).ToArray();
-            var expectedButtonBadgeVisibility = presenter.ViewModel.Cells
-                .Select(cell => cell.Offset >= -1 && cell.Offset < SurfaceBeltSlotMapping.SurfaceCount - 1)
-                .ToArray();
-
             Assert.That(presenter.ViewModel.Cells, Has.Length.EqualTo(SurfaceBeltViewModel.AuthoredCellCount));
             Assert.That(presenter.ViewModel.Cells.Select(cell => cell.Offset).ToArray(), Is.EqualTo(expectedOffsets));
-            Assert.That(
-                presenter.ViewModel.Cells.Select(cell => cell.ShowButtonBadge).ToArray(),
-                Is.EqualTo(expectedButtonBadgeVisibility));
             Assert.That(presenter.ViewModel.Cells.Count(cell => cell.IsCurrent), Is.EqualTo(1));
             Assert.That(presenter.ViewModel.Cells.Single(cell => cell.IsCurrent).Offset, Is.EqualTo(0));
         }

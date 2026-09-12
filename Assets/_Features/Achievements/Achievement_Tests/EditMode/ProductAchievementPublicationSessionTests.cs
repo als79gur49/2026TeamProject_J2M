@@ -116,7 +116,7 @@ namespace Game.Product.Achievements.Tests
             var results = new List<AchievementPublicationResult>();
 
             router.PublishBatch(
-                Batch(GameAchievementIds.NormalCampaignComplete),
+                Batch(GameAchievementIds.CampaignLevel4Clear),
                 result => results.Add(result.Items[0].Result));
             Assert.That(router.TryDetach(session, sink), Is.True);
             sink.Complete(AchievementPublicationResult.Submitted);
@@ -176,9 +176,9 @@ namespace Game.Product.Achievements.Tests
         {
             return new ProductAchievementDocument
             {
-                EarnedAchievementIds = new[] { GameAchievementIds.NormalCampaignComplete.Value },
+                EarnedAchievementIds = new[] { GameAchievementIds.CampaignLevel4Clear.Value },
                 PendingAchievementPublicationIds = pending
-                    ? new[] { GameAchievementIds.NormalCampaignComplete.Value }
+                    ? new[] { GameAchievementIds.CampaignLevel4Clear.Value }
                     : Array.Empty<string>(),
             };
         }
@@ -188,7 +188,7 @@ namespace Game.Product.Achievements.Tests
         {
             var result = AchievementPublicationResult.Failed;
             router.PublishBatch(
-                Batch(GameAchievementIds.NormalCampaignComplete),
+                Batch(GameAchievementIds.CampaignLevel4Clear),
                 observed => result = observed.Items[0].Result);
             return result;
         }

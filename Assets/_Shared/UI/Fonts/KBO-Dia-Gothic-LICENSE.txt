@@ -1,0 +1,51 @@
+KBO Dia Gothic project compliance summary
+
+Copyright and intellectual property owner: Korea Baseball Organization (KBO)
+
+This file summarizes the project's review; it is not a replacement for the
+official KBO license. The current official page and License Guide Ver.2 control.
+
+KBO distributes KBO Dia Gothic free of charge to individual and corporate
+users. Commercial use and software embedding are permitted within the official
+scope, and redistribution of the original font is permitted. The embedding
+table covers web, mobile, desktop, and server software fonts, mobile games,
+application/system fonts, and game-device UI fonts.
+
+CI / BI use is not permitted. This includes representative uses for company,
+brand, and product names; logos and marks; slogans and catchphrases; and brand
+package designs. In this project, KBO Dia Gothic must not be used as the
+representative branding for the game title VectorQuake, the developer name J2M,
+or related brand expressions.
+
+The font itself may not be sold. Keep the supplied distribution form: do not
+edit the TTF files or redistribute a modified or adapted font. The official
+license also prohibits use on illegal sites, in false or exaggerated
+advertising, and in works contrary to public order or accepted morality.
+
+KBO may use images of printed materials and advertising materials (including
+online advertising) made with the font for KBO promotion; the user may ask KBO
+not to do so.
+
+This project includes the unmodified Light and Medium TTF files. The generated
+TextMesh Pro SDF assets are technically separate Unity rendering assets and are
+not offered as standalone font products. The official KBO license does not
+expressly address TextMesh Pro SDF assets or confirm how their distribution is
+treated under its modification and redistribution restrictions. Treat this as
+an unresolved license interpretation and seek KBO/KBOP confirmation before
+release. Until then, do not describe SDF distribution as explicitly approved;
+Static versus Dynamic atlas population does not resolve that question.
+
+No explicit end-credit or license-file bundling requirement was identified in
+the reviewed official materials. This notice is retained voluntarily for
+provenance and release governance.
+
+Official font and license page:
+https://www.koreabaseball.com/Reference/etc/KboFont.aspx
+
+Official KBO Dia Gothic License Guide Ver.2 (PDF):
+https://6ptotvmi5753.edge.naverncp.com/KBO_FILE/file_down/KBO_%EB%8B%A4%EC%9D%B4%EC%95%84%EA%B3%A0%EB%94%95_%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4_%EC%95%88%EB%82%B4_Ver2.pdf
+
+License contact:
+kbop@koreabaseball.or.kr
+
+Reviewed: 2026-09-05

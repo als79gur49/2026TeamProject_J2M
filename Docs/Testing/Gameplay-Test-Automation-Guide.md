@@ -18,7 +18,8 @@
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 현재 fullscreen cursor confinement touched slice는 2026-08-15 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1386 total / 0 failed`가 통과했다. 이는 위 pinned snapshot row를 대체하거나 서로 다른 날짜 artifact를 합산하는 주장이 아니다.
-- 현재 comic-sequence 전환 slice는 2026-08-19 KST에 기존 MP4/VideoPlayer 전용 런타임과 70-method legacy mixed suite를 제거하고 13개 공통 라우팅 테스트 및 확장된 만화 회귀 guard로 대체했다. 당시 표시 검증용이던 별도 아웃트로 Definition은 2026-08-21 KST 제품 결정으로 제거되었고, Gameplay production 씬은 아웃트로 Definition을 명시적 null로 두어 최종 클리어에서도 일반 메인 메뉴 전환으로 즉시 위임한다. 공용 아웃트로 런타임·라우팅·저장 계약은 향후 실제 콘텐츠 연결을 위해 유지한다. 같은 변경의 Windows UI build와 Unity UI EditMode `1341 total / 0 failed`, filtered actual-scene PlayMode `1 total / 0 failed`가 통과했으며, 이는 위 pinned snapshot이나 broad full-lane 결과를 대체하지 않는다.
+- 현재 KBO Dia Gothic typography migration은 2026-09-05 KST에 `./run_tests.sh ui`와 `./run_tests.sh core`로 검증했다. UI는 Windows build와 Unity EditMode `1348 total / 0 failed`, core는 EditMode `217/0`과 PlayMode `111 total / 107 passed / 4 skipped / 0 failed`가 통과했다. ko-KR의 큰 글자·강조 역할 10개는 Medium, 나머지 제목·본문 역할 9개는 Light를 사용하고, 기존 theme 참조 GUID와 TMP material/atlas local ID를 보존했다. managed Korean glyph의 missing/fallback은 각각 `0`이다. 이 결과는 위 pinned snapshot row를 대체하지 않는다.
+- 현재 comic-sequence 전환 slice는 2026-08-19 KST에 기존 MP4/VideoPlayer 전용 런타임과 70-method legacy mixed suite를 제거하고 13개 공통 라우팅 테스트 및 확장된 만화 회귀 guard로 대체했다. 2026-08-21 KST에는 표시 검증용 임시 아웃트로 Definition을 제거했지만, 2026-09-03 KST 제품 콘텐츠 follow-up에서 실제 6패널 아웃트로 Definition을 추가하고 Gameplay production 씬에 다시 연결했다. 최종 클리어의 Game Clear Main 입력은 `1-1 -> 1-2 -> 1-3 -> 1-4 -> 1-5 -> 1-6` 누적 순서로 재생한 뒤 `ComicOutroToMainMenu`로 전환하고 성공 시 `OutroComicCompleted`를 기록한다. 같은 working tree에서 `./run_tests.sh ui`의 Windows UI build와 Unity UI EditMode `1340 total / 0 failed`, filtered `full`의 EditMode `0` 및 actual-scene PlayMode `1 total / 0 failed`가 통과했으며, 이는 위 pinned snapshot이나 broad full-lane 결과를 대체하지 않는다.
 - 현재 comic-sequence enter-fade follow-up은 2026-08-22 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1348 total / 0 failed`가 통과했다. 진입 시작에는 overlay background를 투명하게 유지해 source scene이 보이도록 하고, dedicated black layer가 authored duration 동안 불투명해진 뒤에만 background를 검정으로 고정하고 첫 페이지 reveal을 시작한다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
 - 현재 campaign PlayerPrefs retirement / JSON save integration slice는 2026-08-23 KST에 같은 리비전으로 재검증했다. `./run_tests.sh ui`의 Windows UI build와 Unity UI EditMode `1353 total / 0 failed`, `./run_tests.sh core`의 EditMode `217 total / 0 failed`와 PlayMode `109 total / 0 failed`, save architecture/adapter/PlayerPrefs-removal filtered EditMode `54/12/6 total / 0 failed`가 통과했다. UI는 intent·confirmation·recovery presentation만 소유하고 Stages가 JSON persistence·active-slot/local launch state·atomic file lifecycle을 소유한다. 명시적 DirectPlay 임시 상태 삭제는 rollback을 복구하지 않으며, 이 증거는 pinned snapshot을 대체하거나 broad full-lane green을 주장하지 않는다.
 - 아래 2026-08-24 typed-committer 및 slot clone/canonicalization 두 행은 당시 과도기 구조의 역사 기록이다. complete replacement, removed mapper, shared canonicalization 설명은 current Phase 5 runtime composition을 설명하지 않는다.
@@ -30,8 +31,9 @@
 - 현재 campaign save 장기 구조 개선 Phase 5 closeout은 2026-08-25 KST의 동일 working-tree code 상태에서 재검증했다. README/pre-release policy의 removed mapper/canonicalizer/full-replacement 설명을 immutable state, common transition engine, strict state mapper, separated evaluator/action policy, explicit raw boundary의 실제 composition으로 교정하고 architecture documentation guard를 보강했다. 먼저 `CampaignSaveArchitectureV2Tests` filtered `full`이 EditMode `114/0`, matching PlayMode `0`; transition/parser/mapper/service/adapter/recovery/DirectPlay/achievement/production-entry 15-fixture filtered `full`이 EditMode `472/0`, matching PlayMode `0`; `./run_tests.sh core`가 EditMode `217/0`, PlayMode `109/0`; `./run_tests.sh ui`가 Windows UI build와 Unity UI EditMode `1352/0`을 통과했다. old runtime shim, raw-carrier consumer, saved-chance zero, generated scene source audit와 `git diff --check`도 통과했다. broad unfiltered `full`과 manual Player/build smoke는 실행하지 않았으므로 project-wide/full recovery claim은 하지 않는다.
 - 현재 blocked-save recovery slice는 2026-08-20 KST에 `./run_tests.sh ui`로 fail-closed 재검증했으며, Windows UI build와 Unity UI EditMode `1338 total / 0 failed`가 통과했다. 버전 불일치/손상은 retry와 명시적 전체 초기화를 제공하고, IO/권한 실패 및 미완료 reset은 retry만 제공한다. 미완료 reset 동안 모든 campaign save write는 차단된다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
 - 현재 blocked-save typography follow-up은 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. `BlockedSaveRecovery` 제목/설명/두 action은 authored `TypographyBinding`으로 각각 `HeaderMedium`/`Body`/`Button`/`Button`을 명시한다. 순번 기반 style fallback은 SaveSlotCard의 8-target 계약에만 제한되며, en-US/ko-KR font/material round-trip과 authored sizing 보존을 검증한다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
-- 현재 Gameplay Stage Name typography follow-up은 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. Stage Name은 양 locale 모두 `HeaderLarge` Theme를 사용하여 en-US는 Orbitron ExtraBold, ko-KR은 Climate Crisis KR 2000을 해석하고 authored sizing을 보존하며, localized source string을 바꾸지 않고 TMP `UpperCase` 표시를 적용한다. World Guide와 transition label의 en-US Prefab 복원 계약은 변경하지 않았다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
-- 현재 Pause progression stepper slice는 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. 진행도는 previous/current/upcoming 상태, 더 큰 group-start 다이아몬드, 영구 current ring을 사용하는 정보형 수평 스테퍼이며 별도 Left/Right 커서를 소유하지 않는다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
+- 현재 Gameplay Stage Name typography follow-up은 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. Stage Name은 양 locale 모두 `HeaderLarge` Theme를 사용하여 en-US는 Orbitron ExtraBold, ko-KR은 KBO Dia Gothic Medium을 해석하고 authored sizing을 보존하며, localized source string을 바꾸지 않고 TMP `UpperCase` 표시를 적용한다. World Guide와 transition label의 en-US Prefab 복원 계약은 변경하지 않았다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
+- 2026-08-20 KST의 Pause progression 정보형 stepper 결과(`1341 total / 0 failed`)는 과거 근거다. 현재 계약은 장식 없는 stage-preview 이미지 전용 수평 ScrollRect, current stage 기반 최초 선택, 선택 이미지 2배 확대, Left/Right 선택, 클릭·Submit 전체화면 미리보기다. 이 과거 수치는 위 pinned snapshot row를 대체하지 않는다.
+- 현재 SurfaceBelt center remainder badge slice는 2026-09-04 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1344 total / 0 failed`가 통과했다. 중앙 `Cell_0` visual의 왼쪽만 숫자 없는 단일 32x32 `NormalBadge`를 소유하고, 외곽/내곽은 Objective 완료 골드로 통일하며 현재 sector의 `HasAnyRemaining`이 참이면 활성, 거짓이면 흐린 비활성 알파를 사용한다. 첫 bind는 즉시 안정 상태를 적용하고, 이후 활성/비활성 전환은 DOTween 색상·스케일 전환을 사용하며 새 활성 sector 진입은 런타임 복제한 All In 1 UI-mask material의 one-shot Shine으로 확인한다. 동일 sector/동일 상태는 연출을 재시작하지 않고 이웃 sector cell은 badge를 소유하지 않는다. 별도 PlayMode 및 수동 인게임 시각 검증은 실행하지 않았고, 이 수치는 pinned snapshot을 대체하지 않는다.
 - 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-10 KST 현재 재실행에서는 재현되지 않았다.
 - 삭제 후보는 별도 제품 결정, 현재 lane evidence, baseline note 갱신이 같은 변경에 포함될 때만 제거한다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
@@ -58,7 +60,8 @@
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - The current fullscreen cursor confinement touched slice was rerun with `./run_tests.sh ui` on 2026-08-15 KST; the Windows UI build and Unity UI EditMode `1386 total / 0 failed` passed. This does not replace the pinned snapshot row above or combine artifacts from different dates.
-- The current comic-sequence transition slice removed the MP4/VideoPlayer-only runtime and a 70-method legacy mixed suite on 2026-08-19 KST, replacing it with 13 shared-routing tests and expanded comic regression guards. The separate outro definition used for temporary presentation validation was removed by the 2026-08-21 KST product decision. The Gameplay production scene now leaves the outro definition explicitly null so final clear delegates immediately to the regular Main Menu transition, while the shared outro runtime, routing, and save contracts remain available for future authored content. On the same change, the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed, along with filtered actual-scene PlayMode `1 total / 0 failed`; this does not replace the pinned snapshot or constitute a broad full-lane result.
+- The current KBO Dia Gothic typography migration was validated with `./run_tests.sh ui` and `./run_tests.sh core` on 2026-09-05 KST. UI passed the Windows build and Unity EditMode `1348 total / 0 failed`; core passed EditMode `217/0` and PlayMode `111 total / 107 passed / 4 skipped / 0 failed`. Ten large-text/emphasis roles in ko-KR use Medium, while the remaining nine heading/body roles use Light; existing theme-reference GUIDs and TMP material/atlas local IDs remain stable. Managed Korean glyph missing/fallback counts are both `0`. This does not replace the pinned snapshot row above.
+- The current comic-sequence transition slice removed the MP4/VideoPlayer-only runtime and a 70-method legacy mixed suite on 2026-08-19 KST, replacing it with 13 shared-routing tests and expanded comic regression guards. The temporary presentation-only outro definition was removed on 2026-08-21 KST, then the 2026-09-03 KST production-content follow-up added the actual six-panel outro definition and reconnected the Gameplay production scene. After final clear, the Game Clear Main action presents the cumulative `1-1 -> 1-2 -> 1-3 -> 1-4 -> 1-5 -> 1-6` sequence, routes through `ComicOutroToMainMenu`, and records `OutroComicCompleted` after successful route acceptance. On the same working tree, `./run_tests.sh ui` passed the Windows UI build and Unity UI EditMode `1340 total / 0 failed`; filtered `full` ran `0` matching EditMode tests and passed the actual-scene PlayMode `1 total / 0 failed`. This does not replace the pinned snapshot or constitute a broad full-lane result.
 - The current comic-sequence enter-fade follow-up was rerun with `./run_tests.sh ui` on 2026-08-22 KST; the Windows UI build and Unity UI EditMode `1348 total / 0 failed` passed. Entry keeps the overlay background transparent so the source scene remains visible while the dedicated black layer becomes opaque over the authored duration, then fixes the background to black before the first-page reveal begins. This does not replace the pinned snapshot row above.
 - The current campaign PlayerPrefs-retirement / JSON-save-integration slice was rerun on the same revision on 2026-08-23 KST. The Windows UI build and Unity UI EditMode `1353 total / 0 failed` passed under `./run_tests.sh ui`; `./run_tests.sh core` passed EditMode `217 total / 0 failed` and PlayMode `109 total / 0 failed`; and the save-architecture, adapter, and PlayerPrefs-removal filtered EditMode fixtures passed `54/12/6 total / 0 failed`. UI owns intent, confirmation, and recovery presentation, while Stages owns JSON persistence, active-slot/local launch state, and atomic file lifecycle. Explicit DirectPlay temporary-state deletion does not recover rollback residue. This evidence neither replaces the pinned snapshot nor claims a broad full-lane green result.
 - The following two 2026-08-24 typed-committer and slot-clone/canonicalization rows are historical records of the transitional structure. Their complete-replacement, removed-mapper, and shared-canonicalization wording does not describe the current Phase 5 runtime composition.
@@ -70,8 +73,9 @@
 - The campaign-save long-term structural-remediation Phase 5 closeout was rerun on the same working-tree code state on 2026-08-25 KST. The README and pre-release policy were reconciled from removed mapper/canonicalizer/full-replacement wording to the actual immutable-state, common-transition-engine, strict-state-mapper, separated-evaluator/action-policy, and explicit-raw-boundary composition, with stronger architecture documentation guards. The filtered `full` run for `CampaignSaveArchitectureV2Tests` first passed EditMode `114/0` with `0` matching PlayMode tests; the 15-fixture transition/parser/mapper/service/adapter/recovery/DirectPlay/achievement/production-entry filtered `full` run passed EditMode `472/0` with `0` matching PlayMode tests; `./run_tests.sh core` passed EditMode `217/0` and PlayMode `109/0`; and `./run_tests.sh ui` passed the Windows UI build and Unity UI EditMode `1352/0`. Old-runtime-shim, raw-carrier-consumer, saved-chance-zero, generated-scene source audits and `git diff --check` also passed. The broad unfiltered `full` lane and manual Player/build smoke were not run, so this is not a project-wide or full-recovery claim.
 - The current blocked-save recovery slice was rerun fail-closed with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1338 total / 0 failed` passed. Unsupported/corrupt profiles expose retry plus explicit full reset, while IO/authorization failures and incomplete resets expose retry only. All campaign save writes stay blocked while a reset is pending. This does not replace the pinned snapshot row above.
 - The current blocked-save typography follow-up was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Authored `TypographyBinding` components assign `HeaderMedium`/`Body`/`Button`/`Button` to the `BlockedSaveRecovery` title, detail, and two actions. Ordinal style fallback is restricted to the eight-target SaveSlotCard contract, with en-US/ko-KR font/material round-trip and authored-sizing preservation covered. This does not replace the pinned snapshot row above.
-- The current Gameplay Stage Name typography follow-up was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Stage Name now uses the `HeaderLarge` theme in both locales, resolving Orbitron ExtraBold for en-US and Climate Crisis KR 2000 for ko-KR while preserving authored sizing, and adds TMP `UpperCase` presentation without mutating localized source strings. The en-US prefab-restoration contracts for World Guide and transition labels remain unchanged. This does not replace the pinned snapshot row above.
-- The current Pause-progression stepper slice was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Progression is now an informational horizontal stepper with previous/current/upcoming states, larger group-start diamonds, and a persistent current ring, and it owns no separate Left/Right cursor. This does not replace the pinned snapshot row above.
+- The current Gameplay Stage Name typography follow-up was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Stage Name now uses the `HeaderLarge` theme in both locales, resolving Orbitron ExtraBold for en-US and KBO Dia Gothic Medium for ko-KR while preserving authored sizing, and adds TMP `UpperCase` presentation without mutating localized source strings. The en-US prefab-restoration contracts for World Guide and transition labels remain unchanged. This does not replace the pinned snapshot row above.
+- The 2026-08-20 KST Pause-progression informational-stepper result (`1341 total / 0 failed`) is historical evidence. The current contract is a decoration-free horizontal ScrollRect containing only stage-preview images, with the current stage determining the initial selection, doubled selected-image size, Left/Right selection, and click/Submit full-canvas preview. The historical count does not replace the pinned snapshot row above.
+- The current SurfaceBelt center-remainder-badge slice was rerun with `./run_tests.sh ui` on 2026-09-04 KST; the Windows UI build and Unity UI EditMode `1344 total / 0 failed` passed. Only centered `Cell_0` owns one number-free 32x32 `NormalBadge` to the left of its visual; frame and fill share the Objective completion gold, and the current sector's `HasAnyRemaining` selects fully lit or dim inactive alpha. The first bind applies a stable state immediately; later active/inactive changes use DOTween color/scale transitions, and entry into a new active sector plays a one-shot Shine through a runtime-cloned All In 1 UI-mask material. Same-sector/same-state binds do not replay the effect, and neighboring cells own no badge. Separate PlayMode and manual in-game visual validation were not run, and this does not replace the pinned snapshot row above.
 - The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-10 KST rerun.
 - UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
@@ -149,7 +153,7 @@
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md`와 이 가이드는 같은 변경에서 함께 갱신해야 한다.
 - root `UI-Current-Structure-Source.md`도 current UI structure나 stale-token audit 기준이 바뀌는 변경에서는 함께 갱신해야 한다.
 - Scene transition payload decommission evidence는 `StageTransitionChanceLostPayload`와 `SceneTransitionOverlayModel`의 generic `Title` / `Message` 부재, coordinator resolver 부재, typed progress/chance-loss 보존, canonical content routing과 production-prefab smoke를 함께 검증해야 한다.
-- Pause progression evidence는 sequence mapper의 previous/current/upcoming 상태, group-start와 stage 노드의 상대 크기, rail 정렬, current ring 단일 소유, informational Left/Right 입력 계약, 그리고 screenshot preview의 실제 campaign payload 바인딩을 함께 검증해야 한다.
+- Pause progression evidence는 canonical sequence와 현지화된 이름, 단일 inactive image template, line/frame/overlay/node-background 부재, current stage 기반 최초 선택, 선택 이미지의 2배 layout 폭과 인접 이미지 non-overlap, 좌우 선택/스크롤 clamp, 첫 클릭 선택과 재클릭·Submit 확대, 확대 중 command 차단, Cancel 우선 닫기, placeholder catalog, 그리고 screenshot preview의 실제 campaign payload 바인딩을 함께 검증해야 한다.
 
 ### English Original
 - The UI baseline note is not a count-only ledger.
@@ -163,7 +167,7 @@
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md` and this guide must be updated together in the same change.
 - Root `UI-Current-Structure-Source.md` must also be updated in the same change when current UI structure or stale-token audit policy changes.
 - Scene-transition payload decommission evidence must jointly verify the absence of generic `Title` / `Message` members from `StageTransitionChanceLostPayload` and `SceneTransitionOverlayModel`, the absence of coordinator copy resolvers, preservation of typed progress/chance-loss state, canonical content routing, and a production-prefab smoke.
-- Pause-progression evidence must jointly cover previous/current/upcoming mapper states, relative group-start/stage node sizing, rail alignment, single ownership of the current ring, the informational Left/Right input contract, and real campaign-payload binding in screenshot preview.
+- Pause-progression evidence must jointly cover the canonical sequence and localized names, one inactive image template, absence of line/frame/overlay/node-background decoration, current-stage initial selection, doubled selected-image layout width with non-overlapping adjacent images, clamped horizontal selection/scrolling, first-click selection and second-click/Submit expansion, command blocking while expanded, Cancel-first close behavior, the placeholder catalog, and real campaign-payload binding in screenshot preview.
 
 ## Gameplay audio verification wording / Gameplay audio verification wording
 ### 한국어
@@ -502,7 +506,7 @@ WSL CLI
 ```bash
 ./run_tests.sh core
 ./run_tests.sh ui
-./run_tests.sh climate-glyph-update
+./run_tests.sh kbo-glyph-update
 ./run_tests.sh typography-visual
 ./run_tests.sh gameplay-performance
 ./run_tests.sh cleanup-s3-capture-smoke
@@ -526,23 +530,23 @@ WSL CLI
   - 일반적인 로컬 개발 루프에서 사용한다.
   - governance 검사 후 Windows `dotnet` core build, Unity Core EditMode, Unity Core feature gate EditMode, Unity Core PlayMode를 순서대로 실행한다.
   - Core feature gate EditMode는 broad feature EditMode가 아니라 명시적으로 core gate에 승격된 `Phase3BGate` 테스트만 실행한다.
-  - 각 Unity invocation은 shared Climate SDF integrity guard 안에서 실행된다. Guard는 invocation 전 canonical tracked 상태만 소유하고, exact known importer drift만 byte snapshot으로 복원·검증하며, pre-existing 또는 unexpected mutation은 덮어쓰지 않고 실패시킨다.
+  - 각 Unity invocation은 shared KBO Dia Gothic SDF integrity guard 안에서 실행된다. Guard는 invocation 전 canonical tracked 상태만 소유하고, 실행 전후 전체 byte가 같은 `NO_MUTATION`만 통과시킨다. Pre-existing 또는 unexpected mutation은 덮어쓰지 않고 실패시킨다.
   - pre-commit 훅이 사용하는 명령이다.
 - `./run_tests.sh ui`
   - Stage 9 이후 UI architecture hardening 및 Stage 4–8 seam preservation 검증에 사용한다.
-  - Unity 시작 전에 Climate 2000/2019 TTF/SDF의 `HEAD` Git blob, GUID, material localID를 검사한다. working-file hash와 importer-derived ScaleRatio는 source canonical 판정에 사용하지 않고 pre/post import diagnostic으로 별도 기록한다.
-  - UI EditMode도 core와 동일한 shared Climate SDF integrity guard를 사용하며, per-invocation evidence에는 before/imported/final SHA, classification, changed-field signature, restore 결과가 기록된다.
+  - Unity 시작 전에 KBO Dia Gothic Medium/Light TTF/SDF의 `HEAD` Git blob, GUID, material/atlas localID를 검사한다. working-file canonical hash와 TMP 계산 비율 `0.9/1/0.73125` 및 Unity 빈 scalar 공백을 source 계약으로 고정한다.
+  - UI EditMode도 core와 동일한 shared KBO Dia Gothic SDF integrity guard를 사용하며, per-invocation evidence에는 before/imported/final SHA, classification, changed-field signature, restore 결과가 기록된다.
   - governance 검사 후 Windows `dotnet` UI test build, Unity UI EditMode assembly 실행만 수행한다.
   - `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, `TestResults/wsl-unity-ui-editmode.xml`을 남긴다.
   - `core`를 대체하지 않으며, UI slice를 넓히기 전 targeted evidence를 얻기 위한 명령이다.
-- `./run_tests.sh climate-glyph-update`
-  - committed Climate 2000/2019 source identity를 preflight한 뒤 현재 관리 ko-KR String Table corpus의 실제 missing glyph만 canonical TMP asset에 추가한다.
-  - Climate 2000/2019 runtime font를 source TTF에서 원자적으로 갱신하며 missing/fallback 0을 강제한다.
+- `./run_tests.sh kbo-glyph-update`
+  - committed KBO Dia Gothic Medium/Light source identity를 preflight한 뒤 현재 관리 ko-KR String Table corpus로 두 canonical TMP atlas를 재생성한다.
+  - 두 runtime font를 source TTF에서 원자적으로 갱신하며 missing/fallback 0과 preserved GUID/material/atlas identity를 강제한다.
   - 테스트 lane이 아니며 filter를 받지 않는다.
 - `./run_tests.sh typography-visual`
   - committed P2 revision에서 Settings/Pause/Main Menu의 en-US/ko-KR 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
-  - current worktree/Unity path, 동일 프로젝트 process, revision gate, guarded Climate asset 복원, manifest PASS fields, Settings 35 및 localized 20/20, 6개 PNG byte size/SHA-256을 검증한다.
-  - Climate PR2에서는 ko-KR Settings Audio muted, Settings Display status, ConfirmPopup 진단 PNG를 `Diagnostics/`에 추가 생성한다. 이 파일들은 canonical root의 exact 6-file manifest와 분리되며, 진단 capture failure는 해당 slice를 실패시킨다.
+  - current worktree/Unity path, 동일 프로젝트 process, revision gate, guarded KBO Dia Gothic asset 복원, manifest PASS fields, Settings 35 및 localized 20/20, 6개 PNG byte size/SHA-256을 검증한다.
+  - ko-KR Settings Audio muted, Settings Display status, ConfirmPopup 진단 PNG를 `Diagnostics/`에 추가 생성한다. 이 파일들은 canonical root의 exact 6-file manifest와 분리되며, 진단 capture failure는 해당 slice를 실패시킨다.
   - raw Unity log와 canonical `capture.log`을 분리하고, 기존 output은 overwrite하지 않으며 실패 output도 진단을 위해 보존한다.
   - `./run_tests.sh --dry-run typography-visual`은 실제 Unity path, current worktree project path, execute method, output/log/manifest path, 1920x1080, isolated slice 인자를 출력한다.
 - `./run_tests.sh gameplay-performance`
@@ -568,6 +572,11 @@ WSL CLI
   - fixture 전체 실행이 필요한 PlayMode 테스트는 `full --filter X`로 실행한다. 예: `./run_tests.sh full --filter PlayerMovementPlayModeTests`.
   - broad core evidence와 fixture-wide targeted evidence는 서로 다른 claim으로 보고해야 한다.
 
+- `UNITY_TEST_TIMEOUT_SECONDS`는 Unity test bootstrap watchdog의 초 단위 예산이다(기본 `285`). runner의 외부 timeout은 이 값에 `15`초를 더한다(기본 `300`); 강제 종료의 추가 `10`초 grace와 asset/evidence cleanup은 유지한다.
+  - 넓은 suite 또는 초기 import에 기본 예산이 부족하면 `UNITY_TEST_TIMEOUT_SECONDS=900 ./run_tests.sh full`처럼 실행별로 명시한다. 양의 정수만 허용하며 `--print-config`/`--dry-run`으로 실제 두 예산을 확인한다.
+  - runner가 bootstrap 인자로 전달하므로 이 설정은 `WSLENV` 추가가 필요 없다. bootstrap은 duration과 절대 deadline을 SessionState에 보존해 domain reload가 예산을 다시 시작하지 않게 한다.
+  - timeout 종료 또는 XML 미생성은 테스트 통과가 아니다. capture/S3/visual interruption의 별도 timeout·종료 계약을 바꾸지 않는다.
+
 #### 종료 코드
 - `0`: 성공
 - `1`: 테스트 실패 또는 shell 검증 실패
@@ -582,7 +591,7 @@ WSL CLI
 ```bash
 ./run_tests.sh core
 ./run_tests.sh ui
-./run_tests.sh climate-glyph-update
+./run_tests.sh kbo-glyph-update
 ./run_tests.sh typography-visual
 ./run_tests.sh gameplay-performance
 ./run_tests.sh cleanup-s3-capture-smoke
@@ -606,23 +615,23 @@ WSL CLI
   - Use for normal local development.
   - Runs governance first, then Windows `dotnet` core build, Unity Core EditMode, Unity Core feature gate EditMode, and Unity Core PlayMode.
   - Core feature gate EditMode is not broad feature EditMode. It runs only tests explicitly promoted into the `Phase3BGate` core gate.
-  - Every Unity invocation runs inside the shared Climate SDF integrity guard. The guard owns only a canonical tracked pre-state, restores and verifies only the exact known importer drift from a byte snapshot, and fails without overwriting pre-existing or unexpected mutations.
+  - Every Unity invocation runs inside the shared KBO Dia Gothic SDF integrity guard. The guard owns only a canonical tracked pre-state, requires byte-identical pre/post state (`NO_MUTATION`), and fails without overwriting pre-existing or unexpected mutations.
   - This is the command used by pre-commit.
 - `./run_tests.sh ui`
   - Use for targeted Stage 9 UI hardening and Stage 4–8 seam-preservation validation.
-  - Before Unity starts, validates Climate 2000/2019 TTF/SDF `HEAD` Git blobs, GUIDs, and material local IDs. Working-file hashes and importer-derived ScaleRatio values are recorded separately as pre/post import diagnostics and do not define source identity.
-  - UI EditMode uses the same shared Climate SDF integrity guard as core, with per-invocation evidence for before/imported/final SHA, classification, changed-field signature, and restore outcome.
+  - Before Unity starts, validates KBO Dia Gothic Medium/Light TTF/SDF `HEAD` Git blobs, GUIDs, and material/atlas local IDs. Working-file canonical hashes, TMP-calculated ScaleRatio values `0.9/1/0.73125`, and Unity empty-scalar whitespace define the serialized source contract.
+  - UI EditMode uses the same shared KBO Dia Gothic SDF integrity guard as core, with per-invocation evidence for before/imported/final SHA, classification, changed-field signature, and restore outcome.
   - Runs governance first, then Windows `dotnet` build for `Game.Feature.UI.Tests.csproj`, then Unity EditMode with the `ui` selection in `TestRunnerCliBootstrap`.
   - Writes `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, and `TestResults/wsl-unity-ui-editmode.xml`.
   - It does not replace `core`; it exists to provide explicit Unity-side evidence for the UI assembly before broader UI expansion.
-- `./run_tests.sh climate-glyph-update`
-  - Preflights committed Climate 2000/2019 source identity, then adds only actually missing glyphs from the managed ko-KR String Table corpus to the canonical TMP assets.
-  - Atomically updates the Climate 2000/2019 runtime fonts from their source TTFs, enforcing zero missing glyphs and zero fallback dependency.
+- `./run_tests.sh kbo-glyph-update`
+  - Preflights committed KBO Dia Gothic Medium/Light source identity, then regenerates both canonical TMP atlases from the managed ko-KR String Table corpus.
+  - Atomically updates both runtime fonts from their source TTFs, enforcing zero missing glyphs, zero fallback dependency, and preserved GUID/material/atlas identity.
   - This is an asset-generation lane, not a test lane, and it does not accept filters.
 - `./run_tests.sh typography-visual`
   - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US and ko-KR from a committed P2 revision.
-  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, guarded Climate asset restoration, manifest PASS fields, exact Settings 35 and localized 20/20 counts, and all six PNG byte sizes/SHA-256 hashes.
-  - For Climate PR2, it also creates ko-KR Settings Audio muted, Settings Display status, and ConfirmPopup diagnostics under `Diagnostics/`. They remain outside the exact six-file canonical root manifest, and a diagnostic capture failure fails its slice.
+  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, guarded KBO Dia Gothic asset restoration, manifest PASS fields, exact Settings 35 and localized 20/20 counts, and all six PNG byte sizes/SHA-256 hashes.
+  - It also creates ko-KR Settings Audio muted, Settings Display status, and ConfirmPopup diagnostics under `Diagnostics/`. They remain outside the exact six-file canonical root manifest, and a diagnostic capture failure fails its slice.
   - Separates raw Unity logs from canonical `capture.log`, refuses existing output directories, and retains failed output for diagnostics.
   - `./run_tests.sh --dry-run typography-visual` prints the real Unity/current-worktree paths, execute method, output/log/manifest paths, 1920x1080 resolution, and isolated slice arguments without launching Unity.
 - `./run_tests.sh gameplay-performance`
@@ -647,6 +656,11 @@ WSL CLI
   - A filtered run may execute `0` tests in some Unity stages. The shell fails fast only when the aggregate match count across the core lane is `0`.
   - Use `full --filter X` when the full PlayMode fixture is the intended evidence. Example: `./run_tests.sh full --filter PlayerMovementPlayModeTests`.
   - Broad core evidence and fixture-wide targeted evidence must be reported as separate claims.
+
+- `UNITY_TEST_TIMEOUT_SECONDS` is the Unity test-bootstrap watchdog budget in seconds (default `285`). The outer runner timeout adds `15` seconds (default `300`); the additional `10`-second kill grace and asset/evidence cleanup remain in place.
+  - When a broad suite or initial import exceeds the default budget, opt in per run, for example `UNITY_TEST_TIMEOUT_SECONDS=900 ./run_tests.sh full`. Only positive integers are accepted; inspect both budgets with `--print-config`/`--dry-run`.
+  - The runner forwards an explicit bootstrap argument, so this setting needs no `WSLENV` entry. The bootstrap persists the duration and absolute deadline in SessionState so domain reload does not restart the budget.
+  - A timeout or missing XML is not a test pass. Separate capture/S3/visual-interruption timeout and termination contracts are unchanged.
 
 #### Exit codes
 - `0`: success.

@@ -72,7 +72,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void AchievementCapability_ContainsOnlyBoundedStoreSmokeSurface()
+        public void AchievementCapability_ContainsOnlyProductPublicationSurface()
         {
             var methodNames = typeof(ISteamAchievementApi)
                 .GetMethods()
@@ -189,7 +189,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         [Test]
         public void ExpectedSteamNameLiteral_HasOneProductionOwner()
         {
-            const string expectedName = "VQ_CAMPAIGN_COMPLETE";
+            const string expectedName = "VQ_LEVEL_4_CLEAR";
             var productionRoots = new[]
             {
                 "Assets/_Features/Achievements",

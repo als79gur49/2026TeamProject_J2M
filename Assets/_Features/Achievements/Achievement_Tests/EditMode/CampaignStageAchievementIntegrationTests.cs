@@ -18,10 +18,11 @@ namespace Game.Product.Achievements.Tests
         public void SetUp()
         {
             _definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
-            var entry = new CampaignStageSequenceEntry();
-            entry.Set(StageId.CreateOrThrow("stage-1-2"), "level-1");
-            _definition.SetEntries(new[] { entry });
-            _resolver = new CampaignStageSequenceResolver(_definition);
+            SetSequence(("stage-0-1", "level-0"), ("stage-0-3", "level-0"),
+                ("stage-1-1", "level-1"), ("stage-1-2", "level-1"),
+                ("stage-2-1", "level-2"), ("stage-2-2", "level-2"),
+                ("stage-3-1", "level-3"), ("stage-3-3", "level-3"),
+                ("stage-4-1", "level-4"), ("stage-4-3", "level-4"));
         }
 
         [TearDown]
@@ -30,121 +31,166 @@ namespace Game.Product.Achievements.Tests
             UnityEngine.Object.DestroyImmediate(_definition);
         }
 
-        [TestCase(24, true)]
-        [TestCase(25, true)]
-        [TestCase(26, false)]
-        public void PushFlipRule_UsesInclusiveTwentyFiveBoundary(
-            int combinedUses,
-            bool expected)
+        [TestCase(0, "stage-0-3")]
+        [TestCase(1, "stage-1-2")]
+        [TestCase(2, "stage-2-2")]
+        [TestCase(3, "stage-3-3")]
+        [TestCase(4, "stage-4-3")]
+        public void LevelFinalClear_EarnsOnlyItsLevel(int level, string stage)
         {
-            var rule = new CampaignStageAchievementRule(
-                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
-                StageId.CreateOrThrow("stage-1-2"),
-                maxCombinedPushFlipUses: 25);
-            var readModel = CreateState(new SaveSlotData
+            var sink = new RecordingSink();
+            new CampaignStageAchievementIntegration(sink).TryEarnFromCommittedSlot(
+                Slot(CreateRecord(stage, 100)), _resolver);
+            Assert.That(sink.BatchCount, Is.EqualTo(1));
+            Assert.That(sink.Ids, Is.EqualTo(new[]
             {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
-                CurrentLevelGroupId = "level-1",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                NormalStagePerformanceRecords = new[]
-                {
-                    CreateRecord("stage-1-2", combinedUses),
-                },
-            }).NormalStagePerformanceRecords[0];
+                GameAchievementId.Require($"campaign.level-{level}.clear"),
+            }));
+        }
 
-            Assert.That(
-                rule.IsSatisfiedBy(readModel),
-                Is.EqualTo(expected));
+        [TestCase("stage-0-1")]
+        [TestCase("stage-1-1")]
+        [TestCase("stage-2-1")]
+        [TestCase("stage-3-1")]
+        [TestCase("stage-4-1")]
+        [TestCase("stage-9-9")]
+        public void IntermediateOrUnsequencedClear_EarnsNothing(string stage)
+        {
+            var sink = new RecordingSink();
+            new CampaignStageAchievementIntegration(sink).TryEarnFromCommittedSlot(
+                Slot(CreateRecord(stage, 0)), _resolver);
+            Assert.That(sink.BatchCount, Is.Zero);
+        }
+
+        [TestCase(0)]
+        [TestCase(25)]
+        [TestCase(26)]
+        [TestCase(100)]
+        public void LevelClear_HasNoPushFlipLimit(int count)
+        {
+            var sink = new RecordingSink();
+            new CampaignStageAchievementIntegration(sink).TryEarnFromCommittedSlot(
+                Slot(CreateRecord("stage-1-2", count)), _resolver);
+            Assert.That(sink.Ids, Is.EqualTo(new[] { GameAchievementIds.CampaignLevel1Clear }));
         }
 
         [Test]
-        public void CommittedState_ProvidesCanonicalPerformanceRecordsWithoutRecoveryProjection()
+        public void AuthoredOrderAndGroup_OwnFinalityIncludingNoncontiguousGroups()
         {
-            var readModels = CreateState(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
-                CurrentLevelGroupId = "level-1",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                NormalStagePerformanceRecords = new[]
-                {
-                    CreateRecord("stage-1-2", 25),
-                    CreateRecord("stage-1-1", 8),
-                },
-            }).NormalStagePerformanceRecords;
-
-            Assert.That(readModels, Has.Count.EqualTo(2));
-            Assert.That(readModels[0].StageId.Value, Is.EqualTo("stage-1-1"));
-            Assert.That(readModels[0].BestCombinedPushFlipUses, Is.EqualTo(8));
-            Assert.That(readModels[1].StageId.Value, Is.EqualTo("stage-1-2"));
-            Assert.That(readModels[1].BestCombinedPushFlipUses, Is.EqualTo(25));
-        }
-
-        [TestCase(25, 2)]
-        [TestCase(26, 1)]
-        public void CommittedStageRecord_EarnsClearAndEligibleThresholdAchievements(
-            int combinedUses,
-            int expectedEarnCount)
-        {
+            SetSequence(("last-by-name", "level-4"), ("middle", "level-0"),
+                ("first-by-name", "level-4"), ("unrelated", "level-9"));
             var sink = new RecordingSink();
             var integration = new CampaignStageAchievementIntegration(sink);
-            var slot = CreateState(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
-                CurrentLevelGroupId = "level-1",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                NormalStagePerformanceRecords = new[]
-                {
-                    CreateRecord("stage-1-2", combinedUses),
-                },
-            });
+            integration.TryEarnFromCommittedSlot(Slot(CreateRecord("last-by-name", 0)), _resolver);
+            Assert.That(sink.Ids, Is.Empty);
+            integration.TryEarnFromCommittedSlot(Slot(CreateRecord("first-by-name", 0)), _resolver);
+            Assert.That(sink.Ids, Is.EqualTo(new[] { GameAchievementIds.CampaignLevel4Clear }));
+        }
 
-            integration.TryEarnFromCommittedSlot(slot, _resolver);
+        [Test]
+        public void AppendedStage_ReevaluatesUnawardedHistoryAgainstCurrentFinalStage()
+        {
+            SetSequence(("stage-1-2", "level-1"), ("new-ending", "level-1"));
+            var sink = new RecordingSink();
+            var integration = new CampaignStageAchievementIntegration(sink);
+            integration.TryEarnFromCommittedSlot(Slot(CreateRecord("stage-1-2", 0)), _resolver);
+            Assert.That(sink.Ids, Is.Empty);
+            integration.TryEarnFromCommittedSlot(Slot(CreateRecord("new-ending", 0)), _resolver);
+            Assert.That(sink.Ids, Is.EqualTo(new[] { GameAchievementIds.CampaignLevel1Clear }));
+        }
 
+        [Test]
+        public void AllFiveLevelRecords_AreSubmittedInOneBatch()
+        {
+            var sink = new RecordingSink();
+            new CampaignStageAchievementIntegration(sink).TryEarnFromCommittedSlot(
+                Slot(CreateRecord("stage-0-3", 0), CreateRecord("stage-1-2", 0),
+                    CreateRecord("stage-2-2", 0), CreateRecord("stage-3-3", 0),
+                    CreateRecord("stage-4-3", 0)), _resolver);
             Assert.That(sink.BatchCount, Is.EqualTo(1));
-            Assert.That(sink.Ids, Has.Count.EqualTo(expectedEarnCount));
-            Assert.That(sink.Ids, Does.Contain(GameAchievementIds.CampaignStage1_2Clear));
-            Assert.That(
-                sink.Ids.Contains(GameAchievementIds.CampaignStage1_2PushFlipWithin25),
-                Is.EqualTo(combinedUses <= 25));
+            Assert.That(sink.Ids, Is.EqualTo(new[]
+            {
+                GameAchievementIds.CampaignLevel0Clear, GameAchievementIds.CampaignLevel1Clear,
+                GameAchievementIds.CampaignLevel2Clear, GameAchievementIds.CampaignLevel3Clear,
+                GameAchievementIds.CampaignLevel4Clear,
+            }));
+        }
+
+        [Test]
+        public void MissingGroupOrResolver_DoesNotInventAnAchievement()
+        {
+            SetSequence(("stage-1-2", "level-9"));
+            var sink = new RecordingSink();
+            var integration = new CampaignStageAchievementIntegration(sink);
+            integration.TryEarnFromCommittedSlot(Slot(CreateRecord("stage-1-2", 0)), _resolver);
+            integration.TryEarnFromCommittedSlot(Slot(CreateRecord("stage-1-2", 0)), null);
+            integration.TryEarnFromCommittedSlot(null, _resolver);
+            Assert.That(sink.BatchCount, Is.Zero);
+        }
+
+        [Test]
+        public void ProductionSequence_EarnsExactlyTheFiveDocumentedLevelEndings()
+        {
+            var definition = UnityEditor.AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/Catalog/CampaignMain_StageSequence.asset");
+            Assert.That(definition, Is.Not.Null);
+            var resolver = new CampaignStageSequenceResolver(definition);
+            var endings = new[] { "stage-0-3", "stage-1-2", "stage-2-2", "stage-3-3", "stage-4-3" };
+            for (var level = 0; level < endings.Length; level++)
+            {
+                var sink = new RecordingSink();
+                new CampaignStageAchievementIntegration(sink).TryEarnFromCommittedSlot(
+                    Slot(CreateRecord(endings[level], 0)), resolver);
+                Assert.That(sink.Ids, Is.EqualTo(new[]
+                {
+                    GameAchievementId.Require($"campaign.level-{level}.clear"),
+                }));
+            }
         }
 
         [Test]
         public void StartupReconciliation_ReplaysPersistedStageRecordsWithoutSlotMutation()
         {
             var sink = new RecordingSink();
-            var stageIntegration = new CampaignStageAchievementIntegration(sink);
-            var reconciler = new NormalCampaignCompletionAchievementStartupReconciler(
-                new NormalCampaignCompletionAchievementIntegration(sink),
-                stageIntegration);
-            var slot = new SaveSlotData
+            var reconciler = new CampaignStageAchievementStartupReconciler(
+                new CampaignStageAchievementIntegration(sink));
+            var store = new ReadOnlyCampaignStore(new SaveSlotData
             {
                 SlotNumber = 1,
                 CurrentStageId = StageId.CreateOrThrow("stage-1-2"),
                 CurrentLevelGroupId = "level-1",
-                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
-                NormalStagePerformanceRecords = new[]
-                {
-                    CreateRecord("stage-1-2", 25),
-                },
-            };
-            var store = new ReadOnlyCampaignStore(slot);
-
-            var result = reconciler.Reconcile(
-                store,
-                _resolver,
-                EditorDirectPlayContext.None);
-
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.NotAttempted));
-            Assert.That(sink.Ids, Is.EquivalentTo(new[]
-            {
-                GameAchievementIds.CampaignStage1_2Clear,
-                GameAchievementIds.CampaignStage1_2PushFlipWithin25,
-            }));
+                NormalStagePerformanceRecords = new[] { CreateRecord("stage-1-2", 26) },
+            });
+            var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.Completed));
+            Assert.That(sink.Ids, Is.EqualTo(new[] { GameAchievementIds.CampaignLevel1Clear }));
             Assert.That(store.LoadCount, Is.EqualTo(1));
             Assert.That(store.MutationCount, Is.Zero);
+        }
+
+        private void SetSequence(params (string stage, string group)[] values)
+        {
+            var entries = new List<CampaignStageSequenceEntry>();
+            foreach (var value in values)
+            {
+                var entry = new CampaignStageSequenceEntry();
+                entry.Set(StageId.CreateOrThrow(value.stage), value.group);
+                entries.Add(entry);
+            }
+            _definition.SetEntries(entries.ToArray());
+            _resolver = new CampaignStageSequenceResolver(_definition);
+        }
+
+        private static CampaignSlotState Slot(params NormalStagePerformanceRecord[] records)
+        {
+            return CreateState(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
+                CurrentLevelGroupId = "level-0",
+                RemainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances,
+                NormalStagePerformanceRecords = records,
+            });
         }
 
         private static NormalStagePerformanceRecord CreateRecord(

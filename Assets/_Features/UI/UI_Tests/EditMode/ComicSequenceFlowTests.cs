@@ -15,6 +15,9 @@ namespace Game.Feature.UI.Tests
         private const string IntroSequencePath =
             "Assets/_Features/UI/UI_Composition/Authoring/ComicSequences/Intro/" +
             "IntroComicSequence_CampaignMain.asset";
+        private const string OutroSequencePath =
+            "Assets/_Features/UI/UI_Composition/Authoring/ComicSequences/Outro/" +
+            "OutroComicSequence_CampaignMain.asset";
         private const string GameplayScenePath =
             "Assets/Scenes/UIAudioScene.unity";
 
@@ -80,8 +83,38 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ProductionGameplayScene_LeavesOutroDefinitionUnassigned()
+        public void ProductionOutroSequence_UsesAuthoredSixPanelOrderAndSceneWiring()
         {
+            var definition = AssetDatabase.LoadAssetAtPath<ComicSequenceDefinition>(
+                OutroSequencePath);
+            Assert.That(definition, Is.Not.Null, $"Missing {OutroSequencePath}");
+            Assert.That(definition.TryValidate(out var failureReason), Is.True, failureReason);
+            Assert.That(definition.Pages, Has.Length.EqualTo(1));
+            Assert.That(definition.Pages[0].Panels, Has.Length.EqualTo(6));
+            Assert.That(
+                Array.ConvertAll(definition.Pages[0].Panels, panel => panel.Sprite.name),
+                Is.EqualTo(new[] { "1-1", "1-2", "1-3", "1-4", "1-5", "1-6" }));
+            Assert.That(
+                Array.ConvertAll(definition.Pages[0].Panels, panel => panel.HasReplacement),
+                Is.All.False);
+            Assert.That(
+                Array.ConvertAll(definition.Pages[0].Panels, panel => panel.ReferenceRect),
+                Is.EqualTo(new[]
+                {
+                    new Rect(0f, 0f, 704f, 440f),
+                    new Rect(103f, 526f, 853f, 480f),
+                    new Rect(1085f, 73.17969f, 83.00781f, 337.8906f),
+                    new Rect(1194.8633f, 39f, 640.1367f, 405.76172f),
+                    new Rect(982f, 535f, 866f, 451f),
+                    new Rect(1448f, 1004f, 448f, 50f),
+                }));
+            Assert.That(definition.HasFinalTransition, Is.False);
+            Assert.That(definition.AudioClip, Is.Null);
+            foreach (var panel in definition.Pages[0].Panels)
+            {
+                AssertUiSpriteImport(panel.Sprite);
+            }
+
             var projectRoot = System.IO.Path.GetFullPath(
                 System.IO.Path.Combine(UnityEngine.Application.dataPath, ".."));
             var sceneText = System.IO.File.ReadAllText(
@@ -89,11 +122,9 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 sceneText,
-                Does.Contain("_outroComicSequence: {fileID: 0}"));
-            Assert.That(
-                sceneText,
-                Does.Not.Contain("d58280cd100a46cc89dd187f38310202"),
-                "The retired temporary outro definition must not remain as a missing GUID reference.");
+                Does.Contain(
+                    "_outroComicSequence: {fileID: 11400000, " +
+                    "guid: a4c8e2f1d7634b55a3f0e6c91b72d001, type: 2}"));
         }
 
         [Test]

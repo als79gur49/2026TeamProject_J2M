@@ -551,8 +551,7 @@ namespace Game.Feature.Gameplay.Host
                     resolvedFrame.Provenance.TerminalSource != PresentationPoseSourceKind.None ||
                     resolvedFrame.OwnerRole != PresentationOwnerRole.Enemy ||
                     _trackState.DeferredExitRetainedEntityIds.Contains(entityId) ||
-                    _trackState.ContactDelayedRetainedEntityIds.Contains(entityId) ||
-                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId))
+                    _trackState.ContactDelayedRetainedEntityIds.Contains(entityId))
                 {
                     continue;
                 }
@@ -582,7 +581,6 @@ namespace Game.Feature.Gameplay.Host
             bool hasActiveOriginalViewMotion,
             bool isDeferredExitRetained,
             bool isContactDelayedRetained,
-            bool isDeathPresentationPlaying,
             bool hasResolvedVisibility,
             bool isResolvedVisible,
             bool hasTransitionVisibility)
@@ -594,7 +592,6 @@ namespace Game.Feature.Gameplay.Host
             HasActiveOriginalViewMotion = hasActiveOriginalViewMotion;
             IsDeferredExitRetained = isDeferredExitRetained;
             IsContactDelayedRetained = isContactDelayedRetained;
-            IsDeathPresentationPlaying = isDeathPresentationPlaying;
             HasResolvedVisibility = hasResolvedVisibility;
             IsResolvedVisible = isResolvedVisible;
             HasTransitionVisibility = hasTransitionVisibility;
@@ -614,8 +611,6 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsContactDelayedRetained { get; }
 
-        public bool IsDeathPresentationPlaying { get; }
-
         public bool HasResolvedVisibility { get; }
 
         public bool IsResolvedVisible { get; }
@@ -634,7 +629,6 @@ namespace Game.Feature.Gameplay.Host
                    inputs.HasActiveOriginalViewMotion ||
                    inputs.IsDeferredExitRetained ||
                    inputs.IsContactDelayedRetained ||
-                   inputs.IsDeathPresentationPlaying ||
                    (inputs.HasResolvedVisibility && inputs.IsResolvedVisible) ||
                    inputs.HasTransitionVisibility;
         }
@@ -678,8 +672,7 @@ namespace Game.Feature.Gameplay.Host
                     resolvedFrame.Provenance.TerminalSource != PresentationPoseSourceKind.None ||
                     resolvedFrame.OwnerRole != PresentationOwnerRole.Enemy ||
                     _trackState.DeferredExitRetainedEntityIds.Contains(entityId) ||
-                    _trackState.ContactDelayedRetainedEntityIds.Contains(entityId) ||
-                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId))
+                    _trackState.ContactDelayedRetainedEntityIds.Contains(entityId))
                 {
                     continue;
                 }
@@ -816,11 +809,6 @@ namespace Game.Feature.Gameplay.Host
                 sourceTick,
                 resolvedFrames,
                 candidateSet);
-            CollectRetainedDeathOrExitOwnerSet(
-                _trackState.DeathPresentationPlayingEntityIds,
-                sourceTick,
-                resolvedFrames,
-                candidateSet);
         }
 
         public void CollectTransitionEntityVisibility(
@@ -912,9 +900,6 @@ namespace Game.Feature.Gameplay.Host
                 var isContactDelayedRetained =
                     _trackState.ContactDelayedRetainedEntityIds.Contains(entityId) &&
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
-                var isDeathPresentationPlaying =
-                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
-                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
                 var hasResolvedVisibility = _winnerResolver.TryResolveCandidateWinner(
                     candidateSet,
                     entityId,
@@ -928,7 +913,6 @@ namespace Game.Feature.Gameplay.Host
                         hasActiveOriginalViewMotion,
                         isDeferredExitRetained,
                         isContactDelayedRetained,
-                        isDeathPresentationPlaying,
                         hasResolvedVisibility,
                         hasResolvedVisibility && resolvedEntityVisibility.IsVisible,
                         _stateStore.TransitionVisibilityStates.ContainsKey(entityId)));
@@ -1652,9 +1636,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedOriginalViewMotionTrackIds = new();
         private readonly List<FlipInteractionResetRequest> _flipInteractionResetRequests = new();
         private readonly Dictionary<int, FlipInteractionTrack> _flipInteractionTracks = new();
-        private readonly HashSet<PresentationMotionInstanceKey> _completedPresentationMotionKeys = new();
+        private readonly PresentationMotionCompletionLedger _completedPresentationMotions = new();
         private readonly HashSet<int> _contactDelayedRetainedEntityIds = new();
-        private readonly HashSet<int> _deathPresentationPlayingEntityIds = new();
         private readonly HashSet<int> _deferredExitRetainedEntityIds = new();
         private readonly Dictionary<int, EnemyAirbornePresentationKey> _activeAirborneJumpTrackKeys = new();
         private readonly HashSet<EnemyAirbornePresentationKey> _completedAirborneJumpTrackKeys = new();
@@ -1706,11 +1689,9 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, FlipInteractionTrack> FlipInteractionTracks => _flipInteractionTracks;
 
-        public HashSet<PresentationMotionInstanceKey> CompletedPresentationMotionKeys => _completedPresentationMotionKeys;
+        public PresentationMotionCompletionLedger CompletedPresentationMotions => _completedPresentationMotions;
 
         public HashSet<int> ContactDelayedRetainedEntityIds => _contactDelayedRetainedEntityIds;
-
-        public HashSet<int> DeathPresentationPlayingEntityIds => _deathPresentationPlayingEntityIds;
 
         public HashSet<int> DeferredExitRetainedEntityIds => _deferredExitRetainedEntityIds;
 
@@ -1777,7 +1758,7 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _completedFlipInteractionTrackIds.Clear();
-            _completedPresentationMotionKeys.Clear();
+            _completedPresentationMotions.Clear();
             _completedJumpTrackIds.Clear();
             _completedJumpWindupRotationTrackIds.Clear();
             _completedMotionTrackIds.Clear();
@@ -1788,7 +1769,6 @@ namespace Game.Feature.Gameplay.Host
             _flipInteractionResetRequests.Clear();
             _flipInteractionTracks.Clear();
             _contactDelayedRetainedEntityIds.Clear();
-            _deathPresentationPlayingEntityIds.Clear();
             _deferredExitRetainedEntityIds.Clear();
             _activeAirborneJumpTrackKeys.Clear();
             _completedAirborneJumpTrackKeys.Clear();

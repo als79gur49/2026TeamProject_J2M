@@ -333,8 +333,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -357,7 +357,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(earningSink.SaveWasCommittedAtEarn, Is.True);
                 Assert.That(
                     earningSink.LastAchievementId,
-                    Is.EqualTo(GameAchievementIds.NormalCampaignComplete));
+                    Is.EqualTo(GameAchievementIds.CampaignLevel4Clear));
             }
             finally
             {
@@ -367,7 +367,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void NormalStage1_2Clear_CommitsAttemptRecordBeforeEarningBothStageAchievements()
+        public void NormalLevel1FinalClear_CommitsAttemptRecordBeforeEarningLevelAchievement()
         {
             var store = RecordingCampaignSaveSlotStore.WithSlot(
                 CreateCampaignSlot(1, "stage-1-2"));
@@ -394,11 +394,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(records, Has.Length.EqualTo(1));
                 Assert.That(records[0].StageId.Value, Is.EqualTo("stage-1-2"));
                 Assert.That(records[0].BestCombinedPushFlipUses, Is.Zero);
-                Assert.That(earningSink.EarnCount, Is.EqualTo(2));
+                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
                 Assert.That(earningSink.SaveWasCommittedAtEarn, Is.True);
                 Assert.That(
                     earningSink.LastAchievementId,
-                    Is.EqualTo(GameAchievementIds.CampaignStage1_2PushFlipWithin25));
+                    Is.EqualTo(GameAchievementIds.CampaignLevel1Clear));
             }
             finally
             {
@@ -406,11 +406,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [TestCase(24, 2)]
-        [TestCase(25, 2)]
+        [TestCase(24, 1)]
+        [TestCase(25, 1)]
         [TestCase(26, 1)]
         [Category("Core")]
-        public void NormalStage1_2Clear_ProductionFeedPersistsExactPushFlipBoundaryBeforeEarning(
+        public void NormalLevel1FinalClear_ProductionFeedEarnsRegardlessOfPushFlipCount(
             int combinedPushFlipUses,
             int expectedEarnCount)
         {
@@ -491,11 +491,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(earningSink.EarnCount, Is.EqualTo(expectedEarnCount));
                 Assert.That(
                     earningSink.EarnedAchievementIds,
-                    Does.Contain(GameAchievementIds.CampaignStage1_2Clear));
+                    Does.Contain(GameAchievementIds.CampaignLevel1Clear));
                 Assert.That(
                     earningSink.EarnedAchievementIds.Contains(
-                        GameAchievementIds.CampaignStage1_2PushFlipWithin25),
-                    Is.EqualTo(combinedPushFlipUses <= 25));
+                        GameAchievementIds.CampaignLevel2Clear),
+                    Is.False);
             }
             finally
             {
@@ -523,8 +523,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 var exception = Assert.Throws<TargetInvocationException>(() =>
                     InvokeStageClear(
@@ -559,8 +559,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -603,8 +603,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     store,
                     slotNumber: 1,
                     editorDirectPlayContext: context,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -646,8 +646,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -691,8 +691,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 Assert.Throws<TargetInvocationException>(() =>
                     InvokeStageClear(
@@ -715,7 +715,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FinalClear_PresentNullReceiptIsNotSilentlyReplaced()
+        public void FinalClear_PreservesPresentNullReceiptButEarnsFromNewStageRecord()
         {
             var slot = CreateCampaignSlot(1, "stage-4-3");
             slot.HasNormalCampaignCompletionReceipt = true;
@@ -730,8 +730,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -739,7 +739,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(store.LoadSlot(1).HasNormalCampaignCompletionReceipt, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
-                Assert.That(earningSink.EarnCount, Is.Zero);
+                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
+                Assert.That(earningSink.LastAchievementId, Is.EqualTo(GameAchievementIds.CampaignLevel4Clear));
             }
             finally
             {
@@ -764,8 +765,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 Assert.DoesNotThrow(() => InvokeStageClear(
                     controller,
@@ -796,7 +797,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration: new ThrowingAchievementIntegration());
+                    stageAchievementIntegration: new ThrowingAchievementIntegration());
 
                 Assert.DoesNotThrow(() => InvokeStageClear(
                     controller,
@@ -828,8 +829,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    achievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    stageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -2124,8 +2125,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     router,
                     chanceDisplayOverride: null,
                     terminalTransitionPort: new FakeTerminalTransitionPort(),
-                    normalCampaignCompletionAchievementIntegration:
-                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+                    campaignStageAchievementIntegration:
+                        new CampaignStageAchievementIntegration(earningSink));
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
                 var deathAndClearTick = CreateDeathTickResult(
@@ -2617,7 +2618,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             RecordingCampaignSaveSlotStore store,
             int slotNumber,
             EditorDirectPlayContext? editorDirectPlayContext = null,
-            INormalCampaignCompletionAchievementIntegration achievementIntegration = null,
             ICampaignStageAchievementIntegration stageAchievementIntegration = null)
         {
             var host = CreateHostWithInput(
@@ -2634,7 +2634,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 chanceDisplayOverride: null,
                 terminalTransitionPort: new FakeTerminalTransitionPort(),
                 editorDirectPlayContext: editorDirectPlayContext,
-                normalCampaignCompletionAchievementIntegration: achievementIntegration,
                 campaignStageAchievementIntegration: stageAchievementIntegration);
         }
 
@@ -3498,12 +3497,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private sealed class ThrowingAchievementIntegration :
-            INormalCampaignCompletionAchievementIntegration
+            ICampaignStageAchievementIntegration
         {
-            public NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
-                NormalCampaignCompletionFact completion,
-                CampaignStageSequenceResolver sequenceResolver,
-                CampaignSlotState committedSlot)
+            public void TryEarnFromCommittedSlot(
+                CampaignSlotState committedSlot,
+                CampaignStageSequenceResolver sequenceResolver)
             {
                 throw new InvalidOperationException("simulated integration failure");
             }

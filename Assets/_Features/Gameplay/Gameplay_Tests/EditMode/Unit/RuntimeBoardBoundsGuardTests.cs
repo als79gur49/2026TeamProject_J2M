@@ -4219,27 +4219,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
 
             CollectionAssert.AreEquivalent(
-                new[]
-                {
-                    "animator",
-                    "animationTimingAuthoring",
-                    "windupStateName",
-                    "jumpWindupStateName",
-                    "jumpAirborneStateName",
-                    "chargeActiveStateName",
-                    "recoveryStateName",
-                    "glideWindupStateName",
-                    "glideActiveStateName",
-                    "glideRecoveryStateName",
-                    "windupTriggerName",
-                    "jumpWindupTriggerName",
-                    "jumpAirborneTriggerName",
-                    "attackTriggerName",
-                    "recoveryTriggerName",
-                    "hitTriggerName",
-                    "deathTriggerName",
-                },
+                new[] { "animator" },
                 serializedFieldNames);
+            foreach (var retiredName in new[]
+                     {
+                         "animationTimingAuthoring",
+                         "windupStateName",
+                         "jumpWindupStateName",
+                         "jumpAirborneStateName",
+                         "chargeActiveStateName",
+                         "recoveryStateName",
+                         "glideWindupStateName",
+                         "glideActiveStateName",
+                         "glideRecoveryStateName",
+                         "windupTriggerName",
+                         "jumpWindupTriggerName",
+                         "jumpAirborneTriggerName",
+                         "attackTriggerName",
+                         "recoveryTriggerName",
+                         "hitTriggerName",
+                         "deathTriggerName",
+                     })
+            {
+                Assert.That(
+                    typeof(EnemyAnimatorDriver).GetField(
+                        retiredName,
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+                    Is.Null,
+                    retiredName);
+            }
             Assert.That(serializedFieldNames, Does.Not.Contain("aiModeParameterName"));
             Assert.That(serializedFieldNames, Does.Not.Contain("activeActionKindParameterName"));
             Assert.That(serializedFieldNames, Does.Not.Contain("movingParameterName"));
@@ -6530,9 +6538,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayTickViewPresenter_EnemyDeathExitSignal_HidesOriginalViewImmediately_AndTransientCompletesAfterDedicatedDuration()
+        public void GameplayTickViewPresenter_EnemyDeathExitSignal_HidesOriginalViewImmediately_AndRemainsHiddenAcrossDeathMotionDuration()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_EnemyDeathExitSignal_HidesOriginalViewImmediately_AndTransientCompletesAfterDedicatedDuration");
+            var rootObject = new GameObject("GameplayTickViewPresenter_EnemyDeathExitSignal_HidesOriginalViewImmediately_AndRemainsHiddenAcrossDeathMotionDuration");
             var cameraObject = new GameObject("GameplayTickViewPresenter_EnemyDeathExitSignal_OutputCamera");
 
             try
@@ -6583,6 +6591,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     },
                     topology);
 
+                Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
+
                 presenter.Present(
                     CreateTickResult(
                         new[]
@@ -6610,13 +6620,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                     presentationSeed: 123456789),
                             })));
 
-                Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
                 Assert.That(enemyView.gameObject.activeSelf, Is.False);
 
                 presenter.UpdatePresentation(timingProfile.EnemyDeathEffectDurationSeconds * 0.5f);
                 Assert.That(enemyView.gameObject.activeSelf, Is.False);
 
                 presenter.UpdatePresentation(timingProfile.EnemyDeathEffectDurationSeconds * 0.5f);
+                Assert.That(enemyView.gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -7945,11 +7955,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.HasEntityViewComponent, Is.True);
             Assert.That(snapshot.ViewsByEntityIdContainsEntityId, Is.True);
             Assert.That(snapshot.ContactDelayedRetainedEntityIdsContainsEntityId, Is.True);
-            Assert.That(snapshot.DeathPresentationPlayingEntityIdsContainsEntityId, Is.False);
             Assert.That(snapshot.RetainedLocalTargetPosesContainsEntityId, Is.True);
             Assert.That(snapshot.PendingContactExitContainsEntityId, Is.True);
             Assert.That(snapshot.PendingContactExitRemainingSeconds, Is.GreaterThan(0f));
-            Assert.That(snapshot.PendingDeathCleanupContainsEntityId, Is.False);
             Assert.That(snapshot.GameObjectActiveSelf, Is.True);
             Assert.That(snapshot.RendererEnabled, Is.True);
             Assert.That(snapshot.RendererActiveInHierarchy, Is.True);
@@ -7970,10 +7978,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.HasEntityViewComponent, Is.True);
             Assert.That(snapshot.ViewsByEntityIdContainsEntityId, Is.True);
             Assert.That(snapshot.ContactDelayedRetainedEntityIdsContainsEntityId, Is.False);
-            Assert.That(snapshot.DeathPresentationPlayingEntityIdsContainsEntityId, Is.False);
             Assert.That(snapshot.RetainedLocalTargetPosesContainsEntityId, Is.False);
             Assert.That(snapshot.PendingContactExitContainsEntityId, Is.False);
-            Assert.That(snapshot.PendingDeathCleanupContainsEntityId, Is.False);
             Assert.That(snapshot.GameObjectActiveSelf, Is.False);
             Assert.That(snapshot.RendererActiveInHierarchy, Is.False);
             Assert.That(snapshot.IsVfxPooledInstance, Is.False);

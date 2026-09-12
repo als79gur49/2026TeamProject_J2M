@@ -38,8 +38,8 @@ namespace Game.Feature.UI.Tests
         public const int DiagnosticHeight = 540;
 
         private const string RootShellResourcePath = "UI/GameplayUiCanvasRootShell";
-        private const string ClimateFontPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        private const string KboMediumFontPath =
+            "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
         private const string StringTableSharedDataPath =
             "Assets/Localization/StringTables/UI/UI Shared Data.asset";
 

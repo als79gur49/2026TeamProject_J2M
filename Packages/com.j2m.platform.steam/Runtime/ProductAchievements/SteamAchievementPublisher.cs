@@ -45,8 +45,6 @@ namespace Game.Platform.Steam.ProductAchievements
         private PublicationSessionState _state;
         private bool _beginAttempted;
         private bool _callbacksRegistered;
-        private int _statsStoredObservationCount;
-        private SteamCallbackResult? _lastStatsStoredResult;
 
         internal SteamAchievementPublisher(
             ISteamNativeApi lifecycleApi,
@@ -61,28 +59,6 @@ namespace Game.Platform.Steam.ProductAchievements
             _mapping = mapping ?? throw new ArgumentNullException(nameof(mapping));
             _monotonicSeconds = monotonicSeconds ??
                 throw new ArgumentNullException(nameof(monotonicSeconds));
-        }
-
-        internal int StatsStoredObservationCount
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return _statsStoredObservationCount;
-                }
-            }
-        }
-
-        internal SteamCallbackResult? LastStatsStoredResult
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return _lastStatsStoredResult;
-                }
-            }
         }
 
         internal bool BeginSession(SteamAchievementSessionPrerequisites prerequisites)
@@ -429,17 +405,7 @@ namespace Game.Platform.Steam.ProductAchievements
 
         private void ObserveStatsStored(SteamStatsStoredObservation observation)
         {
-            lock (_gate)
-            {
-                if (_state == PublicationSessionState.Disposed ||
-                    observation.AppId != _prerequisites.ObservedAppId)
-                {
-                    return;
-                }
-
-                _statsStoredObservationCount++;
-                _lastStatsStoredResult = observation.Result;
-            }
+            // Keep the callback pair contract; unnamed stats results do not decide product outcomes.
         }
 
         private void ObserveAchievementStored(

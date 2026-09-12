@@ -61,7 +61,7 @@ namespace Game.Product.Achievements.Tests
                 new TemporarySavePathProvider(_canonicalSavesRoot));
             Assert.That(owner.Initialize(), Is.True);
 
-            var earned = owner.EarningSink.Earn(GameAchievementIds.NormalCampaignComplete);
+            var earned = owner.EarningSink.Earn(GameAchievementIds.CampaignLevel4Clear);
 
             Assert.That(earned, Is.EqualTo(AchievementEarnResult.EarnedNew));
             Assert.That(File.Exists(AchievementPath), Is.True);
@@ -125,7 +125,7 @@ namespace Game.Product.Achievements.Tests
             Directory.CreateDirectory(_canonicalSavesRoot);
             File.WriteAllText(
                 AchievementPath,
-                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[\"campaign.complete\"],\"PendingAchievementPublicationIds\":[\"campaign.complete\"]}");
+                "{\"SchemaVersion\":1,\"EarnedAchievementIds\":[\"campaign.level-4.clear\"],\"PendingAchievementPublicationIds\":[\"campaign.level-4.clear\"]}");
             using var owner = new ProductAchievementApplicationLifetimeOwner(
                 new TemporarySavePathProvider(_canonicalSavesRoot));
 
@@ -141,7 +141,7 @@ namespace Game.Product.Achievements.Tests
             Assert.That(snapshot.Value.InFlightCount, Is.Zero);
             Assert.That(
                 File.ReadAllText(AchievementPath),
-                Does.Contain("\"PendingAchievementPublicationIds\":[\"campaign.complete\"]"));
+                Does.Contain("\"PendingAchievementPublicationIds\":[\"campaign.level-4.clear\"]"));
         }
 
         [Test]
@@ -160,9 +160,9 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void LifetimeOwner_StartupReceiptReconciliation_RunsOnceAfterHostInitialization()
+        public void LifetimeOwner_StartupStageReconciliation_RunsOnceAfterHostInitialization()
         {
-            var campaignStore = new ReceiptCampaignStore(CreateValidReceiptSlot());
+            var campaignStore = new StageCampaignStore(CreateClearedStageSlot());
             var campaignFactoryCount = 0;
             using var owner = new ProductAchievementApplicationLifetimeOwner(
                 new TemporarySavePathProvider(_canonicalSavesRoot),
@@ -174,12 +174,12 @@ namespace Game.Product.Achievements.Tests
                 sequenceResolverFactory: CreateResolver);
 
             Assert.That(owner.Initialize(), Is.True);
-            var first = owner.ReconcileNormalCampaignCompletionReceipt();
-            var second = owner.ReconcileNormalCampaignCompletionReceipt();
+            var first = owner.ReconcileCampaignStageAchievements();
+            var second = owner.ReconcileCampaignStageAchievements();
             var host = owner.Host as ProductAchievementApplicationHost;
 
-            Assert.That(first, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
-            Assert.That(second, Is.EqualTo(NormalCampaignCompletionAchievementResult.AlreadyReconciled));
+            Assert.That(first, Is.EqualTo(CampaignStageAchievementReconciliationResult.Completed));
+            Assert.That(second, Is.EqualTo(CampaignStageAchievementReconciliationResult.AlreadyReconciled));
             Assert.That(campaignFactoryCount, Is.EqualTo(1));
             Assert.That(campaignStore.LoadCount, Is.EqualTo(1));
             Assert.That(host, Is.Not.Null);
@@ -193,7 +193,7 @@ namespace Game.Product.Achievements.Tests
         public void LifetimeOwner_DirectPlayStartup_SkipsProfileRead(
             EditorDirectPlayMode mode)
         {
-            var campaignStore = new ReceiptCampaignStore(CreateValidReceiptSlot());
+            var campaignStore = new StageCampaignStore(CreateClearedStageSlot());
             var campaignFactoryCount = 0;
             var sequenceFactoryCount = 0;
             using var owner = new ProductAchievementApplicationLifetimeOwner(
@@ -215,9 +215,9 @@ namespace Game.Product.Achievements.Tests
                 });
 
             Assert.That(owner.Initialize(), Is.True);
-            var result = owner.ReconcileNormalCampaignCompletionReceipt();
+            var result = owner.ReconcileCampaignStageAchievements();
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.DirectPlayExcluded));
+            Assert.That(result, Is.EqualTo(CampaignStageAchievementReconciliationResult.DirectPlayExcluded));
             Assert.That(campaignFactoryCount, Is.Zero);
             Assert.That(sequenceFactoryCount, Is.Zero);
             Assert.That(campaignStore.LoadCount, Is.Zero);
@@ -325,7 +325,7 @@ namespace Game.Product.Achievements.Tests
             }
         }
 
-        private static SaveSlotData CreateValidReceiptSlot()
+        private static SaveSlotData CreateClearedStageSlot()
         {
             return new SaveSlotData
             {
@@ -333,6 +333,14 @@ namespace Game.Product.Achievements.Tests
                 CurrentStageId = StageId.CreateOrThrow("stage-4-3"),
                 CurrentLevelGroupId = "level-4",
                 CampaignCompleted = true,
+                NormalStagePerformanceRecords = new[]
+                {
+                    new NormalStagePerformanceRecord
+                    {
+                        StageId = StageId.CreateOrThrow("stage-4-3"),
+                        BestCombinedPushFlipUses = 40,
+                    },
+                },
                 HasNormalCampaignCompletionReceipt = true,
                 NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
                 {
@@ -357,19 +365,19 @@ namespace Game.Product.Achievements.Tests
             return resolver;
         }
 
-        private sealed class ReceiptCampaignStore : ICampaignSaveQuery
+        private sealed class StageCampaignStore : ICampaignSaveQuery
         {
             private readonly CampaignSlotEntry _slot;
 
-            public ReceiptCampaignStore(SaveSlotData slot)
+            public StageCampaignStore(SaveSlotData slot)
             {
                 _slot = CreateEntry(slot);
             }
 
-            public string DiagnosticsKey => nameof(ReceiptCampaignStore);
+            public string DiagnosticsKey => nameof(StageCampaignStore);
 
             public CampaignSaveLoadReport LastCampaignLoadReport =>
-                CampaignSaveLoadReport.Loaded("receipt test profile", nameof(ReceiptCampaignStore));
+                CampaignSaveLoadReport.Loaded("receipt test profile", nameof(StageCampaignStore));
 
             public int LoadCount { get; private set; }
 

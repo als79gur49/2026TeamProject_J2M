@@ -1187,7 +1187,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator M4MissingOutroContent_SkipsComicAndReturnsToMainMenu()
+        public IEnumerator M4ProductionOutroContent_PlaysSixPanelsAndReturnsToMainMenu()
         {
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
             var saveStore =
@@ -1234,20 +1234,57 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 source.ScreenController.SetRoot(new ScreenRequest(
                     ScreenId.GameClear,
                     GameClearScreenPayload.Default,
-                    "m4-missing-outro-content"));
+                    "m4-production-outro-content"));
                 source.GameClearScreenView.ClickMain();
 
                 var overlay =
                     Object.FindFirstObjectByType<ComicSequenceOverlayView>(
                         FindObjectsInactive.Include);
                 Assert.That(overlay, Is.Not.Null);
-                Assert.That(overlay.IsPresenting, Is.False);
-                Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
+                Assert.That(overlay.IsPresenting, Is.True);
                 Assert.That(MainMenuEntryPresentationRegistry.IsActive, Is.True);
                 Assert.That(
                     MainMenuEntryPresentationRegistry.Current.TransitionIntent,
-                    Is.EqualTo(SceneTransitionIntent.ReturnToMainMenu));
+                    Is.EqualTo(SceneTransitionIntent.ComicOutroToMainMenu));
                 Assert.That(saveStore.LoadSlot(1).State.OutroComicCompleted, Is.False);
+
+                overlay.AdvanceForTesting(10f);
+                overlay.AdvanceForTesting(10f);
+                Assert.That(
+                    overlay.CurrentPresentationState,
+                    Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
+                Assert.That(overlay.CurrentPageIndex, Is.Zero);
+                Assert.That(overlay.VisiblePanelCount, Is.EqualTo(1));
+
+                var advanceCount = 0;
+                while (overlay.CurrentPresentationState !=
+                           ComicSequencePresentationState.AwaitingOpaqueRender &&
+                       advanceCount < 6)
+                {
+                    Assert.That(
+                        overlay.CurrentPresentationState,
+                        Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
+                    overlay.RequestAdvance();
+                    advanceCount++;
+                    overlay.AdvanceForTesting(10f);
+                    if (advanceCount < 6)
+                    {
+                        Assert.That(overlay.CurrentPageIndex, Is.Zero);
+                        Assert.That(
+                            overlay.VisiblePanelCount,
+                            Is.EqualTo(advanceCount + 1));
+                    }
+                }
+
+                Assert.That(advanceCount, Is.EqualTo(6));
+                Assert.That(
+                    overlay.CurrentPresentationState,
+                    Is.EqualTo(ComicSequencePresentationState.AwaitingOpaqueRender));
+                Assert.That(overlay.AcknowledgeOpaqueRenderForTesting(), Is.True);
+                Assert.That(
+                    ComicSequenceOpaqueHandoffRegistry.Current.Phase,
+                    Is.EqualTo(
+                        ComicSequenceOpaqueHandoffPhase.ComicSequenceOpaqueRendered));
 
                 var sawPersistentRender = false;
                 var sawMenuOpening = false;
@@ -1300,7 +1337,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     MainMenuEntryPresentationRegistry.Current.Phase,
                     Is.EqualTo(SceneEntryPresentationPhase.Completed));
                 Assert.That(destination.IsGameplayEntryInteractionBlocked, Is.False);
-                Assert.That(saveStore.LoadSlot(1).State.OutroComicCompleted, Is.False);
+                Assert.That(saveStore.LoadSlot(1).State.OutroComicCompleted, Is.True);
             }
             finally
             {
