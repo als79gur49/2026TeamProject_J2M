@@ -5,9 +5,10 @@ namespace Game.Feature.UI.Screens
 {
     internal static class SettingsFocusGraphBinding
     {
-        private const string HeaderAudioTabNodeId = "Header.AudioTab";
-        private const string HeaderDisplayTabNodeId = "Header.DisplayTab";
-        private const string HeaderInputTabNodeId = "Header.InputTab";
+        internal const string HeaderBackNodeId = "Header.Back";
+        internal const string HeaderAudioTabNodeId = "Header.AudioTab";
+        internal const string HeaderDisplayTabNodeId = "Header.DisplayTab";
+        internal const string HeaderInputTabNodeId = "Header.InputTab";
         private const string AudioMainSliderNodeId = "Audio.Main.Slider";
         private const string AudioMainMuteNodeId = "Audio.Main.Mute";
         private const string AudioBgmSliderNodeId = "Audio.Bgm.Slider";
@@ -30,6 +31,13 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
+            view.RegisterFocusNode(
+                HeaderBackNodeId,
+                UiFocusRegion.Header,
+                UiFocusNodeKind.Button,
+                0,
+                0,
+                () => SettingsScreenView.InvokeAndReturnTrue(view.ClickBack));
             view.RegisterFocusNode(
                 HeaderAudioTabNodeId,
                 UiFocusRegion.Header,
@@ -123,6 +131,16 @@ namespace Game.Feature.UI.Screens
                 0,
                 () => SettingsScreenView.InvokeAndReturnTrue(view.InputView.ClickReset),
                 isInteractable: () => view.InputView != null && view.InputView.IsResetInteractable);
+        }
+
+        internal static string GetHeaderTabNodeId(SettingsSectionId sectionId)
+        {
+            return sectionId switch
+            {
+                SettingsSectionId.Display => HeaderDisplayTabNodeId,
+                SettingsSectionId.Input => HeaderInputTabNodeId,
+                _ => HeaderAudioTabNodeId,
+            };
         }
 
         public static void CommitEditedNode(SettingsScreenView view, string nodeId)
