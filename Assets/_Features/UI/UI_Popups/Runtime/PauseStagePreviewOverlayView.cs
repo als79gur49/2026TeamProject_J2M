@@ -1,5 +1,6 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,13 +8,14 @@ using UnityEngine.UI;
 namespace Game.Feature.UI.Popups
 {
     [DisallowMultipleComponent]
-    public sealed class PauseStagePreviewOverlayView : MonoBehaviour
+    public sealed class PauseStagePreviewOverlayView : MonoBehaviour, IUiNavigationTarget
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private TMP_Text _stageNameLabel;
         [SerializeField] private Image _previewImage;
         [SerializeField] private Button _closeButton;
+        [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
         [SerializeField, Min(0f)] private float _openDurationSeconds = 0.18f;
         [SerializeField, Min(0f)] private float _closeDurationSeconds = 0.12f;
         [SerializeField, Range(0.1f, 1f)] private float _closedScale = 0.85f;
@@ -21,6 +23,7 @@ namespace Game.Feature.UI.Popups
         private Tween _transitionTween;
         private bool _isOpen;
         private bool _isClosing;
+        private bool _isNavigationFocusRevealed;
 
         public event Action CloseRequested;
 
@@ -30,6 +33,13 @@ namespace Game.Feature.UI.Popups
 
         public TMP_Text StageNameLabel => _stageNameLabel;
 
+        public bool CanHandleUiNavigation =>
+            _isOpen &&
+            !_isClosing &&
+            isActiveAndEnabled &&
+            _canvasGroup != null &&
+            _canvasGroup.interactable;
+
         private void OnEnable()
         {
             BindCloseButton();
@@ -38,6 +48,7 @@ namespace Game.Feature.UI.Popups
         private void OnDisable()
         {
             StopTransition();
+            OnNavigationFocusLost();
             if (_closeButton != null)
             {
                 _closeButton.onClick.RemoveListener(HandleCloseClicked);
@@ -56,6 +67,7 @@ namespace Game.Feature.UI.Popups
         public void Open(PauseStagePreviewSelection selection)
         {
             StopTransition();
+            OnNavigationFocusLost();
             BindCloseButton();
             _isOpen = true;
             _isClosing = false;
@@ -113,6 +125,7 @@ namespace Game.Feature.UI.Popups
             }
 
             StopTransition();
+            OnNavigationFocusLost();
             _isClosing = true;
             if (_canvasGroup != null)
             {
@@ -152,9 +165,73 @@ namespace Game.Feature.UI.Popups
             ApplyClosedState();
         }
 
+        public bool HandleNavigate(UiNavigationCommand command)
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            if (!_isNavigationFocusRevealed)
+            {
+                OnNavigationFocusGained();
+            }
+
+            return false;
+        }
+
+        public bool HandleSubmit()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            if (!_isNavigationFocusRevealed)
+            {
+                OnNavigationFocusGained();
+                return true;
+            }
+
+            _navigationGroup?.PlaySelectedSubmitFeedback();
+            RequestClose();
+            return true;
+        }
+
+        public bool HandleCancel()
+        {
+            if (!CanHandleUiNavigation)
+            {
+                return false;
+            }
+
+            RequestClose();
+            return true;
+        }
+
+        public void OnNavigationFocusGained()
+        {
+            if (CanHandleUiNavigation)
+            {
+                _isNavigationFocusRevealed = true;
+                _navigationGroup?.SetSelectedIndex(0);
+            }
+        }
+
+        public void OnNavigationFocusLost()
+        {
+            _isNavigationFocusRevealed = false;
+            _navigationGroup?.HideAllFrames();
+        }
+
         private void HandleCloseClicked()
         {
-            if (_isOpen && !_isClosing)
+            RequestClose();
+        }
+
+        private void RequestClose()
+        {
+            if (CanHandleUiNavigation)
             {
                 CloseRequested?.Invoke();
             }
@@ -191,6 +268,7 @@ namespace Game.Feature.UI.Popups
             var wasOpen = _isOpen;
             _isOpen = false;
             _isClosing = false;
+            OnNavigationFocusLost();
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 0f;

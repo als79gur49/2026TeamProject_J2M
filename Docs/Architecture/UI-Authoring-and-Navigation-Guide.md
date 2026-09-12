@@ -67,6 +67,8 @@ Under the current desktop production input profile, every visible and enabled ac
 - canonical Submit activation;
 - exactly one semantic action per accepted input.
 
+These behaviors are the required contract. The component hierarchy in the next section is the default authoring recipe, not a requirement that every valid control use the same concrete components. A control may use `SelectionFrame`, a native selected transition, or another explicit focus treatment as long as the complete contract is preserved and tested.
+
 Pointer and Submit paths converge on one semantic method or event such as `ClickBack`, `ClickConfirm`, or a bounded adapter action. Submit does not have to call `Button.onClick.Invoke()`.
 
 Cancel or Escape is a shortcut and nested-state exit mechanism. It does not replace focus and Submit support for a visible Back or Close action.
@@ -123,7 +125,9 @@ Use `UiSelectableButtonGroup` for small linear collections. Its serialized slot 
 
 ### Settings controls
 
-`UiFocusGraphNavigator` currently supports the Settings Header, Audio, Display, and Input regions, including slider edit mode and dropdown list mode. Its header IDs and tab activation behavior are Settings-oriented and must not be described or reused as a general arbitrary UI graph without first removing those assumptions.
+Despite its name, `UiFocusGraphNavigator` is currently a Settings-oriented navigator rather than a general arbitrary UI graph. It supports the fixed Header, Audio, Display, and Input regions, including slider edit mode and dropdown list mode. It also looks up the three Settings tab IDs (`Header.AudioTab`, `Header.DisplayTab`, and `Header.InputTab`) directly, and Header Left/Right movement both changes focus and activates the newly focused tab.
+
+Use it for the current Settings compound-input model. Before reusing it for a new compound screen, either remove those hard-coded region, ID, and activation assumptions or make and review an explicit extension whose domain behavior remains clear.
 
 ### Multi-domain screens
 
@@ -202,10 +206,17 @@ Avoid repository-wide assertions that every Unity `Button` has the same child co
 
 Repository guards may prohibit new production calls to known primitive interactive helpers such as `UiCanvasElementFactory.CreateButton()`. Runtime infrastructure and documented exceptions should be classified explicitly instead of blocked by a blanket `AddComponent<Button>` ban.
 
-## 12. Current Review Items
+## 12. Current Exceptions, Resolved Findings, and Migration Debt
 
-The following existing paths need separate migration or exception decisions; this guide does not silently change their behavior:
+Classify these paths by the functional contract in Section 4, not by the presence or absence of one component such as `SelectionFrame`.
 
-- `DemoStageControlPanelView`: fixed player-visible runtime hierarchy and pointer-only actions;
-- Pause preview Close: pointer action represented through overlay-level Submit and Cancel rather than an independent focus node;
-- remaining runtime-generated Main Menu popup, Settings overlay, and Comic fixed shells: review whether they are infrastructure or prefab migration candidates.
+| Path | Current behavior | Classification and follow-up |
+| --- | --- | --- |
+| Settings `LanguageCycleButton` | Pointer, hover, `SelectionFrame`, graph reachability, and Submit parity are present. The earlier missing `SettingsFocusGraphBinding` node was fixed by registering `Display.Language.Button`. | Resolved finding, not remaining debt. Keep the pointer/Submit exactly-once and unavailable-control skip tests. |
+| `DemoStageControlPanelView` | The fixed panel and all six Buttons are created at runtime. `HandleNavigate()` and `HandleSubmit()` always return `false`; only pointer actions and Cancel-to-close are available. | Highest-priority prefab-first and keyboard-accessibility debt. Migrate the fixed hierarchy to an authored prefab and provide an explicit navigation target for all six actions, or approve and document a bounded exception with equivalent keyboard behavior. |
+| Pause preview Close button | The preview overlay owns a single-slot Close navigation group with an authored `SelectionFrame`. Every open resets its local reveal cycle, the first subsequent Submit or Navigate reveals Close, pointer click and the following focused Submit converge on the same close request, and Cancel remains the nested-state shortcut. Actual pointer hover is not suppressed. | Resolved finding. Keep hidden-open, reveal-only first input, exactly-once Close, submit feedback, focus cleanup, and progression-focus restoration tests. |
+| Save Slot recovery Retry/Reset | Directional navigation and Submit select and invoke the actions. Focus is shown through the Buttons' native selection transition instead of `SelectionFrame`. | Contract-compatible non-standard focus treatment, not debt solely because `SelectionFrame` is absent. Retain tests that prove visible focus, hidden/unavailable action skipping, and exactly-once Submit behavior. |
+| Pause progression marker | Click and keyboard Submit open the preview. Selected-image sizing is the focus/selection treatment; there is no standard `SelectionFrame`. | Contract-compatible specialized control. Preserve unambiguous size-based selection plus pointer/keyboard parity tests rather than forcing the standard button hierarchy. |
+| Remaining runtime-generated Main Menu popup, Settings overlay, and Comic fixed shells | Fixed runtime hierarchy remains in several production paths. | Review each path as infrastructure, documented exception, or prefab migration candidate; do not copy it as precedent without that classification. |
+
+The remaining actionable debt is therefore the Demo Stage Control migration and the unclassified fixed runtime shells. The resolved Settings language and Pause preview Close paths, plus the two explicit alternative focus treatments, must not be reported as missing keyboard support merely because their navigation ownership or visuals differ from the standard recipe.

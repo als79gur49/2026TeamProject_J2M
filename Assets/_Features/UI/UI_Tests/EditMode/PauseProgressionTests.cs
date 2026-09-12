@@ -2,7 +2,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.Composition;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using UnityEditor;
@@ -87,6 +89,9 @@ namespace Game.Feature.UI.Tests
             var shell = (RectTransform)prefab.transform;
             var panel = shell.Find("PausePanel") as RectTransform;
             var overlay = shell.Find("StagePreviewOverlay") as RectTransform;
+            var overlayView = overlay.GetComponent<PauseStagePreviewOverlayView>();
+            var closeButton = GetField<Button>(overlayView, "_closeButton");
+            var closeNavigation = GetField<UiSelectableButtonGroup>(overlayView, "_navigationGroup");
             var progression = GetField<PauseProgressionStripView>(prefab, "_progressionView");
             var scrollRect = GetField<ScrollRect>(progression, "_scrollRect");
             var previewCatalog = GetField<PauseStagePreviewCatalog>(progression, "_previewCatalog");
@@ -105,7 +110,15 @@ namespace Game.Feature.UI.Tests
             Assert.That(overlay.gameObject.activeSelf, Is.False);
             Assert.That(GetField<RectTransform>(prefab, "_enterMotionRoot"), Is.SameAs(panel));
             Assert.That(GetField<CanvasGroup>(prefab, "_enterCanvasGroup"), Is.SameAs(panel.GetComponent<CanvasGroup>()));
-            Assert.That(GetField<PauseStagePreviewOverlayView>(prefab, "_previewOverlay"), Is.SameAs(overlay.GetComponent<PauseStagePreviewOverlayView>()));
+            Assert.That(GetField<PauseStagePreviewOverlayView>(prefab, "_previewOverlay"), Is.SameAs(overlayView));
+            Assert.That(closeButton.GetComponent<UiHoverScaleEffect>(), Is.Not.Null);
+            Assert.That(closeNavigation.IsConfigured, Is.True);
+            Assert.That(closeNavigation.SlotCount, Is.EqualTo(1));
+            Assert.That(closeNavigation.GetSlot(0).Button, Is.SameAs(closeButton));
+            Assert.That(closeNavigation.GetSlot(0).SelectionFrame, Is.Not.Null);
+            Assert.That(closeNavigation.GetSlot(0).SelectionFrame.transform.IsChildOf(closeButton.transform), Is.True);
+            Assert.That(closeNavigation.GetSlot(0).SelectionFrame.raycastTarget, Is.False);
+            Assert.That(closeNavigation.GetSlot(0).SelectionFrame.gameObject.activeSelf, Is.False);
             Assert.That(scrollRect.movementType, Is.EqualTo(ScrollRect.MovementType.Clamped));
             Assert.That(previewCatalog, Is.Not.Null);
             Assert.That(AssetDatabase.GetAssetPath(previewCatalog), Is.EqualTo(PausePreviewCatalogPath));
@@ -242,10 +255,15 @@ namespace Game.Feature.UI.Tests
                 SetField(overlay, "_closeDurationSeconds", 0f);
                 Assert.That(view.HandleSubmit(), Is.True);
                 Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+                Assert.That(view.HandleSubmit(), Is.True);
+                Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: true);
                 view.ClickResume();
                 Assert.That(completionCount, Is.Zero);
                 Assert.That(view.HandleCancel(), Is.True);
                 Assert.That(overlay.IsOpen, Is.False);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
                 view.ClickResume();
                 Assert.That(completionCount, Is.EqualTo(1));
             }
@@ -283,6 +301,8 @@ namespace Game.Feature.UI.Tests
                 var stageNameTargets = view.CreateStageNameLocalizationTargets();
                 var markers = GetField<List<PauseProgressionMarkerView>>(progression, "_markers");
                 var overlay = GetField<PauseStagePreviewOverlayView>(view, "_previewOverlay");
+                var closedCount = 0;
+                overlay.Closed += () => closedCount++;
                 SetField(overlay, "_closeDurationSeconds", 0f);
 
                 Assert.That(stageNameTargets.Count, Is.EqualTo(2));
@@ -300,31 +320,194 @@ namespace Game.Feature.UI.Tests
                 markers[1].GetComponent<Button>().onClick.Invoke();
 
                 Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
                 Assert.That(stageNameTargets[0].text, Is.Empty);
                 Assert.That(stageNameTargets[1].text, Is.Empty);
                 Assert.That(view.HandleNavigate(UiNavigationCommand.Left), Is.False);
+                AssertPreviewCloseFocus(overlay, expectedVisible: true);
                 Assert.That(progression.SelectedIndex, Is.EqualTo(1));
 
                 var closeButton = GetField<Button>(overlay, "_closeButton");
                 closeButton.onClick.Invoke();
 
                 Assert.That(overlay.IsOpen, Is.False);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+                Assert.That(closedCount, Is.EqualTo(1));
 
                 markers[1].GetComponent<Button>().onClick.Invoke();
                 Assert.That(overlay.IsOpen, Is.True);
                 view.OnNavigationFocusGained();
+                AssertPreviewCloseFocus(overlay, expectedVisible: true);
                 Assert.That(view.HandleSubmit(), Is.True);
                 Assert.That(overlay.IsOpen, Is.False);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+                Assert.That(closedCount, Is.EqualTo(2));
                 Assert.That(progression.SelectedIndex, Is.EqualTo(1));
 
                 Assert.That(view.HandleSubmit(), Is.True);
                 Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
                 closeButton.onClick.Invoke();
                 Assert.That(overlay.IsOpen, Is.False);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+                Assert.That(closedCount, Is.EqualTo(3));
             }
             finally
             {
                 Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void PreviewOpenedByPointer_FirstSubmitRevealsClose_SecondSubmitCloses()
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(PausePrefabPath);
+            var root = Object.Instantiate(prefab.gameObject);
+            var routerObject = new GameObject(nameof(PreviewOpenedByPointer_FirstSubmitRevealsClose_SecondSubmitCloses));
+            try
+            {
+                var view = root.GetComponent<PausePopupView>();
+                var progression = GetField<PauseProgressionStripView>(view, "_progressionView");
+                var overlay = GetField<PauseStagePreviewOverlayView>(view, "_previewOverlay");
+                view.Bind(CreatePopupViewModel(CreateCanonicalSnapshot("stage-2-1")));
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+                SetField(overlay, "_closeDurationSeconds", 0f);
+
+                var markers = GetField<List<PauseProgressionMarkerView>>(progression, "_markers");
+                markers[progression.SelectedIndex].GetComponent<Button>().onClick.Invoke();
+                Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(view),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: true);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(overlay.IsOpen, Is.False);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+            }
+            finally
+            {
+                Object.DestroyImmediate(routerObject);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void PreviewOpenedByFocusedSubmit_NextSubmitRevealsClose_FollowingSubmitCloses()
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(PausePrefabPath);
+            var root = Object.Instantiate(prefab.gameObject);
+            var routerObject = new GameObject(nameof(PreviewOpenedByFocusedSubmit_NextSubmitRevealsClose_FollowingSubmitCloses));
+            try
+            {
+                var view = root.GetComponent<PausePopupView>();
+                var overlay = GetField<PauseStagePreviewOverlayView>(view, "_previewOverlay");
+                var closeButton = GetField<Button>(overlay, "_closeButton");
+                var closeFeedback = closeButton.GetComponent<UiHoverScaleEffect>();
+                Assert.That(closeFeedback, Is.Not.Null);
+                SetField(closeFeedback, "_durationSeconds", 0f);
+
+                view.Bind(CreatePopupViewModel(CreateCanonicalSnapshot("stage-2-1")));
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+                SetField(overlay, "_closeDurationSeconds", 0f);
+                overlay.OnNavigationFocusLost();
+                var unfocusedScale = closeFeedback.Target.localScale;
+                var selectedScale = unfocusedScale * GetField<float>(closeFeedback, "_hoverScale");
+
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(view),
+                    () => false,
+                    () => false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(overlay.IsOpen, Is.False);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+                Assert.That(closeFeedback.Target.localScale, Is.EqualTo(unfocusedScale));
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: true);
+                Assert.That(closeFeedback.Target.localScale, Is.EqualTo(selectedScale));
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(overlay.IsOpen, Is.False);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+                Assert.That(closeFeedback.Target.localScale, Is.EqualTo(unfocusedScale));
+            }
+            finally
+            {
+                Object.DestroyImmediate(routerObject);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void PreviewOpenedWithInheritedFocus_FirstNavigateOnlyRevealsClose()
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(PausePrefabPath);
+            var root = Object.Instantiate(prefab.gameObject);
+            try
+            {
+                var view = root.GetComponent<PausePopupView>();
+                var progression = GetField<PauseProgressionStripView>(view, "_progressionView");
+                var overlay = GetField<PauseStagePreviewOverlayView>(view, "_previewOverlay");
+                view.Bind(CreatePopupViewModel(CreateCanonicalSnapshot("stage-2-1")));
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+                view.OnNavigationFocusGained();
+
+                var selectedIndex = progression.SelectedIndex;
+                Assert.That(view.HandleSubmit(), Is.True);
+                Assert.That(overlay.IsOpen, Is.True);
+                AssertPreviewCloseFocus(overlay, expectedVisible: false);
+
+                Assert.That(view.HandleNavigate(UiNavigationCommand.Left), Is.False);
+                Assert.That(overlay.IsOpen, Is.True);
+                Assert.That(progression.SelectedIndex, Is.EqualTo(selectedIndex));
+                AssertPreviewCloseFocus(overlay, expectedVisible: true);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        private static void AssertPreviewCloseFocus(
+            PauseStagePreviewOverlayView overlay,
+            bool expectedVisible)
+        {
+            var navigation = GetField<UiSelectableButtonGroup>(overlay, "_navigationGroup");
+            var frame = navigation.GetSlot(0).SelectionFrame;
+            Assert.That(frame.gameObject.activeSelf && frame.color.a > 0.001f, Is.EqualTo(expectedVisible));
+        }
+
+        private sealed class FixedNavigationTargetResolver : IUiNavigationTargetResolver
+        {
+            private readonly IUiNavigationTarget _target;
+
+            public FixedNavigationTargetResolver(IUiNavigationTarget target)
+            {
+                _target = target;
+            }
+
+            public UiNavigationTargetResolution Resolve()
+            {
+                return UiNavigationTargetResolution.Open(_target);
             }
         }
 

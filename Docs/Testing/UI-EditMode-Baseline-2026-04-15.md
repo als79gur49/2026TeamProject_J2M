@@ -336,3 +336,23 @@
 - This run also includes the pending HUD badge split and authored-position regression cases.
 - Evidence: `/mnt/d/J2M/evidence/20260906-kbo-canonical-commit/ui/`.
 - Broad full, visual capture, and manual Player checks were not run; the visual runner requires clean tracked HEAD inputs and unrelated Addressables edits remain preserved.
+
+## Pause Preview Close Keyboard Accessibility — 2026-09-13
+
+### Structural Delta
+- `StagePreviewOverlay/CloseButton` now owns an authored, non-raycast `SelectionFrame` through a one-slot `UiSelectableButtonGroup`; its existing `Button` and `UiHoverScaleEffect` remain the pointer and feedback components.
+- `PauseStagePreviewOverlayView` is the local single-action navigation target. Focused Submit plays the shared button feedback and emits the same close request as pointer click, while Cancel remains a nested-state exit shortcut.
+- `PausePopupView` retains router-facing popup ownership and delegates only the open preview state to the `PreviewClose` domain. Every preview open starts a new hidden-focus cycle, even when the Pause target already has revealed keyboard focus, and close returns to the existing progression selection.
+
+### Guard Evolution and Responsibility Shift
+- Prefab guards require the one-slot group, Close ownership, inactive authored frame, non-raycast selection image, and existing hover feedback.
+- Behavior guards cover hidden keyboard-open and pointer-open state, first subsequent Submit or Navigate reveal, following-Submit close, Cancel close, exactly-once closure, keyboard-selected scale cleanup, and preserved progression selection.
+- The Close action no longer relies on Pause-level unconditional Submit handling. Overlay-local navigation now owns its focus and submit feedback without becoming a new popup-stack entry or reusing the Settings-oriented focus graph.
+
+### Same-Working-Tree Validation
+- `./run_tests.sh ui`: Windows UI build passed; Unity UI EditMode `1370 total / 0 failed`.
+- `./run_tests.sh core`: Core EditMode `282 total / 0 failed`; Core PlayMode `111 total / 0 failed`.
+- The shared KBO Dia Gothic Medium/Light integrity guard reported `NO_MUTATION` for both assets and required no restore.
+- Existing soft governance warnings remained advisory and did not change the touched UI result.
+- The runner detected and removed its two generated `InitTestScene` artifacts after Core PlayMode; no generated scene residue remains.
+- Separate manual Editor/Player visual validation and broad `./run_tests.sh full` were not run; no claim is made for those scopes.
