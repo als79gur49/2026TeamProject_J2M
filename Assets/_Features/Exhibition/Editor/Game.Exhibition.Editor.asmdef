@@ -1,0 +1,10 @@
+{
+  "name": "Game.Exhibition.Editor",
+  "rootNamespace": "Game.Exhibition.Editor",
+  "references": [
+    "Game.Feature.Stages.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

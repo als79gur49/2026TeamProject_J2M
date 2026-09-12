@@ -1263,6 +1263,112 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void ParticipantReset_ConfirmationCancellationAndTransitionRespectMenuGate()
+        {
+            var port = new FakeParticipantResetPort();
+            var confirm = new FakeConfirmPopupPort();
+            var blocked = false;
+            var hub = new MainMenuHubController(new FakeSettingsPort(), new FakeApplicationQuitPort(),
+                confirm, _ => { }, port, () => blocked);
+            var intent = new MainMenuCommandIntent(MainMenuCommandKind.PrepareParticipant);
+            hub.HandleCommand(intent);
+            hub.HandleCommand(intent);
+            Assert.That(confirm.Requests.Count, Is.EqualTo(1));
+            Assert.That(confirm.Requests[0].IsConfirmDestructive, Is.True);
+            Assert.That(port.Requests, Is.Zero);
+            confirm.Complete(false);
+            Assert.That(port.Requests, Is.Zero);
+            hub.HandleCommand(intent);
+            blocked = true;
+            confirm.Complete(true);
+            Assert.That(port.Requests, Is.Zero);
+            blocked = false;
+            hub.HandleCommand(intent);
+            confirm.Complete(true);
+            Assert.That(port.Requests, Is.EqualTo(1));
+            port.CanRequest = false;
+            hub.HandleCommand(intent);
+            Assert.That(confirm.Requests.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ParticipantReset_PrefabButtonUsesExistingNavigationAndBlocksWithLaunch()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
+            var view = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                var serialized = new SerializedObject(view);
+                var button = (Button)serialized.FindProperty("_participantResetButton").objectReferenceValue;
+                Assert.That(button, Is.Not.Null);
+                Assert.That(serialized.FindProperty("_participantResetButtonLabel").objectReferenceValue, Is.Not.Null);
+                view.SetVisible(true);
+                InvokePrivate(view, "OnEnable");
+                view.ShowSection(MainMenuSectionId.None);
+                view.SetParticipantResetAvailable(true);
+                Assert.That(button.interactable, Is.True);
+                view.SetParticipantResetVisible(false);
+                Assert.That(button.gameObject.activeSelf, Is.False);
+                view.SetParticipantResetVisible(true);
+                Assert.That(button.gameObject.activeSelf, Is.True);
+                var commands = 0;
+                view.CommandRequested += intent => { if (intent.CommandKind == MainMenuCommandKind.PrepareParticipant) commands++; };
+                button.onClick.Invoke();
+                Assert.That(commands, Is.EqualTo(1));
+                view.SetLaunchInteractionBlocked(true);
+                button.onClick.Invoke();
+                Assert.That(commands, Is.EqualTo(1));
+                Assert.That(button.interactable, Is.False);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(view.gameObject); }
+        }
+
+        [Test]
+        public void ParticipantRecovery_ConfirmPrefabConsumesBackAndBusyActions()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<ConfirmPopupView>(
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab");
+            var view = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                var model = new ConfirmPopupViewModel();
+                model.SetContent("Recovery", "Pending", "Restart", "Quit", false);
+                view.Bind(model);
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+                var completions = 0;
+                view.CompletionRequested += _ => completions++;
+                view.ConfigureActions(false, false, true);
+                Assert.That(view.HandleCancel(), Is.True);
+                view.ClickConfirm(); view.ClickCancel();
+                Assert.That(completions, Is.Zero);
+                view.ConfigureActions(true, true, true);
+                view.HandleCancel();
+                Assert.That(completions, Is.Zero);
+                view.ClickConfirm();
+                Assert.That(completions, Is.EqualTo(1));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(view.gameObject); }
+        }
+
+        private sealed class FakeParticipantResetPort : IParticipantResetPort
+        {
+            public event Action Changed { add { } remove { } }
+            public bool BlocksMenu => false;
+            public bool IsBusy => false;
+            public bool CanRequest { get; set; } = true;
+            public bool SuppressSaveSeedImport => false;
+            public string Error => null;
+            public int Requests;
+            public System.Threading.Tasks.Task PrepareMenuAsync() => System.Threading.Tasks.Task.CompletedTask;
+            public void CompleteMenuInitialization() { }
+            public void LeaveMenu() { }
+            public void FailMenuInitialization(string reason) => Assert.Fail(reason);
+            public void RequestReset() => Requests++;
+            public void Restart() { }
+        }
+
         private sealed class FakeApplicationQuitPort : IApplicationQuitPort
         {
             public int QuitCount { get; private set; }

@@ -19,6 +19,38 @@ MonoBehaviour:
     m_Items:
     - rid: 5336917459874873345
   m_TableData:
+  - m_Id: 790000000000
+    m_Localized: "다음 참가자 준비"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000001
+    m_Localized: "현재 저장 경로의 모든 슬롯·활성 진행·업적 장부와 현재 Steam 계정의 대상 업적을 초기화하고 재시작할까요?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000002
+    m_Localized: "설정은 보존합니다. 삭제한 진행은 복구할 수 없습니다."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000003
+    m_Localized: "초기화 후 재시작"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000004
+    m_Localized: "다음 참가자 준비\n(Steam 연결 필요)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000005
+    m_Localized: "다음 참가자를 준비하고 있습니다. 잠시 기다려 주세요."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000006
+    m_Localized: "다시 실행"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000007
+    m_Localized: "닫기"
+    m_Metadata:
+      m_Items: []
   - m_Id: 1818714112
     m_Localized: "\uC124\uC815"
     m_Metadata:

@@ -1,0 +1,35 @@
+{
+  "name": "Game.Exhibition.Tests",
+  "rootNamespace": "Game.Exhibition.Tests",
+  "references": [
+    "Game.Exhibition.Application",
+    "Game.Exhibition.Integration",
+    "Game.Product.Achievements.Domain",
+    "Game.Product.Achievements.Infrastructure",
+    "Game.Product.Achievements.Composition",
+    "Game.Feature.Stages",
+    "Game.Platform.Steam",
+    "Game.Feature.UI.Composition",
+    "Unity.ugui",
+    "Game.Exhibition.Editor",
+    "Game.Feature.Stages.Editor",
+    "Unity.InputSystem",
+    "Unity.TextMeshPro",
+    "Game.Feature.UI.Application",
+    "Game.Feature.UI.Flow",
+    "Game.Feature.UI.Popups",
+    "Game.Feature.UI.Screens",
+    "Game.Platform.Runtime",
+    "Game.Feature.UI.Composition.Editor",
+    "Game.Feature.UI.ViewShared"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

@@ -25,6 +25,18 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private Image _confirmButtonImage;
         [SerializeField] private UiSelectableButtonGroup _actionNavigationGroup = new UiSelectableButtonGroup();
 
+        private bool _confirmEnabled = true;
+        private bool _cancelEnabled = true;
+        private bool _consumeBack;
+        public void ConfigureActions(bool confirmEnabled, bool cancelEnabled, bool consumeBack)
+        {
+            _confirmEnabled = confirmEnabled;
+            _cancelEnabled = cancelEnabled;
+            _consumeBack = consumeBack;
+            if (_confirmButton != null) _confirmButton.interactable = confirmEnabled;
+            if (_cancelButton != null) _cancelButton.interactable = cancelEnabled;
+        }
+
         private ConfirmPopupViewModel _viewModel;
         private bool _isVisible;
         private Tween _enterTween;
@@ -173,6 +185,7 @@ namespace Game.Feature.UI.Popups
 
         public bool HandleCancel()
         {
+            if (_consumeBack) return true;
             if (!CanHandleUiNavigation)
             {
                 return false;
@@ -194,7 +207,7 @@ namespace Game.Feature.UI.Popups
 
         public void ClickConfirm()
         {
-            if (!CanEmit())
+            if (!_confirmEnabled || !CanEmit())
             {
                 return;
             }
@@ -204,7 +217,7 @@ namespace Game.Feature.UI.Popups
 
         public void ClickCancel()
         {
-            if (!CanEmit())
+            if (!_cancelEnabled || !CanEmit())
             {
                 return;
             }

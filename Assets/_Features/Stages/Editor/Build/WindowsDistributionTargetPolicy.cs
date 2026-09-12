@@ -86,6 +86,7 @@ public static class WindowsDistributionTargetPolicy
     public const string SystemIoHashingArtifact = "System.IO.Hashing.dll";
     public const string UnsafeArtifact =
         "System.Runtime.CompilerServices.Unsafe.dll";
+    public const string ParticipantRestartArtifact = "Exhibition-Relaunch.ps1";
     public const string ThirdPartyNoticesArtifact = "ThirdPartyNotices.txt";
     public const string UnityPlayerThirdPartyNoticesArtifact =
         "UnityPlayerThirdPartyNotices.pdf";
@@ -277,6 +278,7 @@ public static class WindowsDistributionTargetPolicy
             Array.Empty<string>(),
             new[]
             {
+                ParticipantRestartArtifact,
                 ThirdPartyNoticesArtifact,
                 UnityPlayerThirdPartyNoticesArtifact,
             },
@@ -298,6 +300,7 @@ public static class WindowsDistributionTargetPolicy
             new[] { ProviderSelectorArgument, SteamProviderId },
             new[]
             {
+                ParticipantRestartArtifact,
                 ThirdPartyNoticesArtifact,
                 UnityPlayerThirdPartyNoticesArtifact,
                 SteamNativeArtifact,
@@ -425,6 +428,7 @@ public static class WindowsDistributionTargetPolicy
 
         var publicNoticeArtifacts = new[]
         {
+            ParticipantRestartArtifact,
             ThirdPartyNoticesArtifact,
             UnityPlayerThirdPartyNoticesArtifact,
         };

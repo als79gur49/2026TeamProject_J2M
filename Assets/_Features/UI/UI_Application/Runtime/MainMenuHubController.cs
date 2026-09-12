@@ -10,13 +10,19 @@ namespace Game.Feature.UI.Application
         private readonly IConfirmPopupPort _confirmPopupPort;
         private readonly Action<MainMenuSectionId> _showSection;
         private readonly IMainMenuSettingsPort _settingsPort;
+        private readonly IParticipantResetPort _participantReset;
+        private readonly Func<bool> _interactionBlocked;
+        private bool _confirmationPending;
 
         public MainMenuHubController(
             IMainMenuSettingsPort settingsPort,
             IApplicationQuitPort applicationQuitPort,
             IConfirmPopupPort confirmPopupPort,
-            Action<MainMenuSectionId> showSection)
+            Action<MainMenuSectionId> showSection,
+            IParticipantResetPort participantReset = null, Func<bool> interactionBlocked = null)
         {
+            _participantReset = participantReset;
+            _interactionBlocked = interactionBlocked ?? (() => false);
             _settingsPort = settingsPort ?? throw new ArgumentNullException(nameof(settingsPort));
             _applicationQuitPort = applicationQuitPort ?? throw new ArgumentNullException(nameof(applicationQuitPort));
             _confirmPopupPort = confirmPopupPort ?? throw new ArgumentNullException(nameof(confirmPopupPort));
@@ -25,11 +31,24 @@ namespace Game.Feature.UI.Application
 
         public void HandleCommand(MainMenuCommandIntent intent)
         {
+            if (_interactionBlocked() || _participantReset?.BlocksMenu == true) return;
             switch (intent.CommandKind)
             {
                 case MainMenuCommandKind.OpenSettings:
                     _showSection(MainMenuSectionId.None);
                     _settingsPort.OpenSettings();
+                    break;
+
+                case MainMenuCommandKind.PrepareParticipant:
+                    if (_confirmationPending || _participantReset?.CanRequest != true) return;
+                    _confirmationPending = true;
+                    _confirmPopupPort.Request(MainMenuLocalization.CreateConfirmationPayload(
+                        MainMenuConfirmationKind.PrepareParticipant), confirmed =>
+                    {
+                        _confirmationPending = false;
+                        if (confirmed && !_interactionBlocked() && _participantReset.CanRequest)
+                            _participantReset.RequestReset();
+                    });
                     break;
 
                 case MainMenuCommandKind.Quit:
@@ -40,7 +59,8 @@ namespace Game.Feature.UI.Application
 
         public void HandleNavigation(MainMenuNavigationIntent intent)
         {
-            if (intent.SectionId == MainMenuSectionId.None)
+            if (_interactionBlocked() || _participantReset?.BlocksMenu == true ||
+                intent.SectionId == MainMenuSectionId.None)
             {
                 return;
             }

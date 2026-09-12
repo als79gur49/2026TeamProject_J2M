@@ -54,6 +54,7 @@ function New-RawFixture {
     param([string]$Root)
     New-Item -ItemType Directory -Path $Root -Force | Out-Null
     Write-FixtureFile $Root "VectorQuake.exe" "exe"
+    Write-FixtureFile $Root "Exhibition-Relaunch.ps1" "restart helper"
     Write-FixtureFile $Root "ThirdPartyNotices.txt" `
         (Get-ValidThirdPartyNoticeFixture)
     [IO.File]::WriteAllBytes(

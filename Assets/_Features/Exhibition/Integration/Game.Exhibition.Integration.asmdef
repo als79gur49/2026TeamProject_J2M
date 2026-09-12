@@ -1,0 +1,36 @@
+{
+  "name": "Game.Exhibition.Integration",
+  "rootNamespace": "Game.Exhibition.Integration",
+  "references": [
+    "Game.Exhibition.Application",
+    "Game.Platform.Runtime",
+    "Game.Platform.Steam",
+    "Game.Platform.Steam.SteamworksNet",
+    "Game.Product.Achievements.Domain",
+    "Game.Product.Achievements.Infrastructure",
+    "Game.Product.Achievements.Composition",
+    "Game.Feature.Stages",
+    "Unity.TextMeshPro",
+    "Unity.ugui",
+    "Unity.InputSystem",
+    "com.rlabrecque.steamworks.net",
+    "Game.Product.Achievements.CampaignIntegration",
+    "Game.Feature.UI.Composition",
+    "Game.Feature.UI.Application",
+    "Game.Feature.UI.Flow"
+  ],
+  "includePlatforms": [
+    "Editor",
+    "WindowsStandalone64"
+  ],
+  "defineConstraints": [
+    "J2M_STEAMWORKSNET_AVAILABLE"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.j2m.thirdparty.steamworksnet",
+      "expression": "[2025.165.0-j2m.1]",
+      "define": "J2M_STEAMWORKSNET_AVAILABLE"
+    }
+  ]
+}

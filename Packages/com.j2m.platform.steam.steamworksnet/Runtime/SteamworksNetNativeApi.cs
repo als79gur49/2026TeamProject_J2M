@@ -3,7 +3,7 @@ using Steamworks;
 
 namespace Game.Platform.Steam.SteamworksNet
 {
-    public sealed class SteamworksNetNativeApi : ISteamNativeApi, ISteamAchievementApi
+    public sealed class SteamworksNetNativeApi : ISteamNativeApi, ISteamAchievementApi, ISteamObservationIdentityApi
     {
         private readonly Func<Action<UserStatsStored_t>, IDisposable>
             statsStoredCallbackFactory;
@@ -57,6 +57,8 @@ namespace Game.Platform.Steam.SteamworksNet
             return SteamUtils.GetAppID().m_AppId;
         }
 
+        public ulong GetSteamId() => SteamUser.GetSteamID().m_SteamID;
+
         public bool IsSteamIdValid()
         {
             return SteamUser.GetSteamID().IsValid();
@@ -84,11 +86,13 @@ namespace Game.Platform.Steam.SteamworksNet
 
         public bool SetAchievement(string achievementName)
         {
+            SteamOverlayObservationAccess.RequireWritesAllowed();
             return SteamUserStats.SetAchievement(achievementName);
         }
 
         public bool StoreStats()
         {
+            SteamOverlayObservationAccess.RequireWritesAllowed();
             return SteamUserStats.StoreStats();
         }
 

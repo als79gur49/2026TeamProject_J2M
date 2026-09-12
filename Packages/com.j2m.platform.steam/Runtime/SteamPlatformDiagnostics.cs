@@ -11,7 +11,9 @@ namespace Game.Platform.Steam
             bool steamIdentityValid,
             bool loggedOn,
             SteamPlatformFailureReason lastFailureReason,
-            string lastExceptionType)
+            string lastExceptionType,
+            int shutdownCallCount = 0,
+            bool shutdownReturned = false)
         {
             State = state;
             InitializationAttempted = initializationAttempted;
@@ -22,6 +24,8 @@ namespace Game.Platform.Steam
             LoggedOn = loggedOn;
             LastFailureReason = lastFailureReason;
             LastExceptionType = lastExceptionType ?? string.Empty;
+            ShutdownCallCount = shutdownCallCount;
+            ShutdownReturned = shutdownReturned;
         }
 
         public string ProviderId => SteamPlatformRuntime.ProviderId.Value;
@@ -43,5 +47,9 @@ namespace Game.Platform.Steam
         public SteamPlatformFailureReason LastFailureReason { get; }
 
         public string LastExceptionType { get; }
+
+        public int ShutdownCallCount { get; }
+
+        public bool ShutdownReturned { get; }
     }
 }

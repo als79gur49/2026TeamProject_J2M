@@ -13,7 +13,7 @@ namespace Game.Platform.Runtime
         private static PlatformProviderSelectionRequest currentRequest =
             PlatformProviderSelectionRequest.None(CommandLineSource);
 
-        internal static PlatformProviderSelectionRequest CurrentRequest => currentRequest;
+        public static PlatformProviderSelectionRequest CurrentRequest => currentRequest;
 
         internal static PlatformProviderSelectionRequest ParseArguments(
             IReadOnlyList<string> arguments)

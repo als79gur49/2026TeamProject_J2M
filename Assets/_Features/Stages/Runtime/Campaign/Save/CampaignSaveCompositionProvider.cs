@@ -2,6 +2,41 @@ namespace Game.Feature.Stages
 {
     public static class CampaignSaveCompositionProvider
     {
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetProductionSession()
+        {
+            productionComposition = null;
+            productionCompositionOverride = null;
+            observationOnly = false;
+            resetTrial = false;
+            productionAccessSuspended = false;
+        }
+
+        // Immutable build policy: session resets and missing arguments cannot enable writers.
+        public static bool ObservationBuild
+        {
+            get
+            {
+#if J2M_OVERLAY_OBSERVATION_ONLY && !UNITY_EDITOR
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+        private static bool observationOnly;
+        private static bool resetTrial;
+        public static void InhibitForResetTrial() { resetTrial = true; productionAccessSuspended = true; }
+        public static void RequireProductionWritesAllowed()
+        {
+            if (observationOnly || ObservationBuild) throw new System.InvalidOperationException("Observation session forbids participant save mutation and recovery.");
+        }
+        public static bool HasProductionComposition => productionComposition != null;
+        public static void InhibitForObservation() { observationOnly = true; productionAccessSuspended = true; }
+        private static bool productionAccessSuspended;
+        public static void SuspendProductionAccess() => productionAccessSuspended = true;
+        public static void ReleaseProductionAccess() { if (!observationOnly && !ObservationBuild && !resetTrial) productionAccessSuspended = false; }
+
         private static ProductionComposition productionComposition;
         private static ProductionComposition productionCompositionOverride;
 
@@ -111,6 +146,8 @@ namespace Game.Feature.Stages
 
         private static ProductionComposition GetOrCreateProductionComposition()
         {
+            if (productionAccessSuspended || ObservationBuild)
+                throw new System.InvalidOperationException("Participant recovery must finish before opening campaign saves.");
             if (productionCompositionOverride != null)
             {
                 return productionCompositionOverride;

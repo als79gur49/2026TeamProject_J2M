@@ -402,6 +402,7 @@ public static class WindowsDistributionStager
                 path,
                 WindowsDistributionTargetPolicy.UnityPlayerThirdPartyNoticesArtifact,
                 StringComparison.Ordinal) ||
+            string.Equals(path, WindowsDistributionTargetPolicy.ParticipantRestartArtifact, StringComparison.Ordinal) ||
             string.Equals(path, "UnityPlayer.dll", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(path, "UnityCrashHandler64.exe", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(path, "GameAssembly.dll", StringComparison.OrdinalIgnoreCase) ||

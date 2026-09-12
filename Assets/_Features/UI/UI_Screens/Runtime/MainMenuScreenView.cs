@@ -19,6 +19,7 @@ namespace Game.Feature.UI.Screens
         private const int StartCommandIndex = 0;
         private const int SettingsCommandIndex = 1;
         private const int QuitCommandIndex = 2;
+        private const int ParticipantCommandIndex = 3;
 
         private const string MissingAuthoredStructureMessage =
             "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, SaveSlotOverlayLayer, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, SaveSlotBlocker, and command SelectionFrame slots.";
@@ -37,6 +38,34 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _startButtonLabel;
         [SerializeField] private Button _settingsButton;
         [SerializeField] private TMP_Text _settingsButtonLabel;
+        [SerializeField] private Button _participantResetButton;
+        [SerializeField] private TMP_Text _participantResetButtonLabel;
+        private bool _participantResetAvailable;
+        private ILocalizedTextResolver _participantTextResolver;
+        private GameplayUiTypographyTheme _participantTypographyTheme;
+        private LocalizedTmpTextBinding _participantLabelBinding;
+
+        public void SetParticipantResetVisible(bool visible)
+        {
+            if (_participantResetButton != null) _participantResetButton.gameObject.SetActive(visible);
+        }
+
+        public void SetParticipantResetAvailable(bool available)
+        {
+            _participantResetAvailable = available;
+            if (_participantResetButton != null)
+                _participantResetButton.interactable = available && !_launchInteractionBlocked &&
+                    ActiveSection != MainMenuSectionId.SaveSlots;
+            _participantLabelBinding?.Dispose();
+            _participantLabelBinding = null;
+            if (_participantResetButtonLabel != null && _participantTextResolver != null)
+                _participantLabelBinding = new LocalizedTmpTextBinding(_participantResetButtonLabel,
+                    new LocalizedTextDescriptor("UI", available ? "ui.main_menu.participant_reset.title" :
+                        "ui.main_menu.participant_reset.unavailable", LocalizedTextRole.Button, LocalizedTextWeight.Regular),
+                    _participantTextResolver, DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: _participantTypographyTheme);
+        }
+
         [SerializeField] private Button _quitButton;
         [SerializeField] private TMP_Text _quitButtonLabel;
         [SerializeField] private UiSelectableButtonGroup _commandNavigationGroup = new UiSelectableButtonGroup();
@@ -93,6 +122,9 @@ namespace Game.Feature.UI.Screens
             GameplayUiTypographyTheme typographyTheme = null)
         {
             UnbindStaticLocalization();
+            _participantTextResolver = textResolver;
+            _participantTypographyTheme = typographyTheme;
+            SetParticipantResetAvailable(_participantResetAvailable);
             if (payload == null)
             {
                 return;
@@ -182,6 +214,9 @@ namespace Game.Feature.UI.Screens
 
         public void UnbindStaticLocalization()
         {
+            _participantLabelBinding?.Dispose();
+            _participantLabelBinding = null;
+            _participantTextResolver = null;
             if (_localizedStaticBindings == null)
             {
                 return;
@@ -327,6 +362,11 @@ namespace Game.Feature.UI.Screens
                 case SettingsCommandIndex:
                     _commandNavigationGroup.PlaySelectedSubmitFeedback();
                     ClickSettings();
+                    return true;
+
+                case ParticipantCommandIndex:
+                    _commandNavigationGroup.PlaySelectedSubmitFeedback();
+                    ClickParticipantReset();
                     return true;
 
                 case QuitCommandIndex:
@@ -515,6 +555,7 @@ namespace Game.Feature.UI.Screens
             Rebind(_startButton, ClickStart);
             Rebind(_settingsButton, ClickSettings);
             Rebind(_quitButton, ClickQuit);
+            Rebind(_participantResetButton, ClickParticipantReset);
         }
 
         private void UnwireButtons()
@@ -522,6 +563,7 @@ namespace Game.Feature.UI.Screens
             Unbind(_startButton, ClickStart);
             Unbind(_settingsButton, ClickSettings);
             Unbind(_quitButton, ClickQuit);
+            Unbind(_participantResetButton, ClickParticipantReset);
         }
 
         private void ApplySaveSlotModalState(bool showSaveSlots)
@@ -564,8 +606,16 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        public void ClickParticipantReset()
+        {
+            if (_launchInteractionBlocked || !_participantResetAvailable) return;
+            CommandRequested?.Invoke(new MainMenuCommandIntent(MainMenuCommandKind.PrepareParticipant));
+        }
+
         private void ApplyCommandButtonsInteractable(bool interactable)
         {
+            if (_participantResetButton != null)
+                _participantResetButton.interactable = interactable && _participantResetAvailable;
             if (_startButton != null)
             {
                 _startButton.interactable = interactable;

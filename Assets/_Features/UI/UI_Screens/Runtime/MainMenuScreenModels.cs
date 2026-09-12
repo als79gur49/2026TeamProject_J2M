@@ -73,6 +73,7 @@ namespace Game.Feature.UI.Screens
         None = 0,
         OpenSettings = 1,
         Quit = 2,
+        PrepareParticipant = 3,
     }
 
     public readonly struct MainMenuCommandIntent

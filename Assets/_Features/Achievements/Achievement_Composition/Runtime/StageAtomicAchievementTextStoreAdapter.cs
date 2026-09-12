@@ -5,7 +5,7 @@ using Game.Product.Achievements.Infrastructure;
 
 namespace Game.Product.Achievements.Composition
 {
-    public sealed class StageAtomicAchievementTextStoreAdapter : IAchievementTextStore
+    public sealed class StageAtomicAchievementTextStoreAdapter : IAchievementTextStore, IDestructiveAchievementTextStore
     {
         private readonly IAtomicTextFileStore _store;
         private readonly string _rootDirectory;
@@ -36,6 +36,19 @@ namespace Game.Product.Achievements.Composition
         public void WriteAllTextAtomic(string fileName, string contents)
         {
             _store.WriteAllTextAtomic(fileName, contents);
+        }
+
+        public void ResetToEmpty(string fileName, string contents)
+        {
+            // Resolve interrupted writes before replacing both automatic recovery sources.
+            // A failure leaves the caller's reset request pending for a complete retry.
+            var backup = fileName + ".bak";
+            _store.RecoverInterruptedWrite(backup);
+            _store.RecoverInterruptedWrite(fileName);
+            _store.WriteAllTextAtomicWithoutBackup(backup, contents);
+            _store.WriteAllTextAtomicWithoutBackup(fileName, contents);
+            _store.CleanupTempFiles(backup);
+            _store.CleanupTempFiles(fileName);
         }
 
         public bool TryRestoreBackup(string fileName)

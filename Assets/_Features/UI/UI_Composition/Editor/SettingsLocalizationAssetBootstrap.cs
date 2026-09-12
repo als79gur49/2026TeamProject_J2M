@@ -133,6 +133,14 @@ namespace Game.Feature.UI.Composition.Editor
             (MainMenuLocalizationContract.Keys.SaveRecoveryResetBody, "Delete the incompatible save data and every save slot, then start over?", "호환되지 않는 저장 데이터와 모든 저장 슬롯을 삭제하고 새로 시작할까요?", false),
             (MainMenuLocalizationContract.Keys.SaveRecoveryResetWarning, "All progress will be deleted.", "모든 진행 상황이 삭제됩니다.", false),
             (MainMenuLocalizationContract.Keys.SaveRecoveryResetConfirm, "Delete All", "모두 삭제", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetTitle, "Prepare Next Participant", "다음 참가자 준비", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetBody, "Reset every slot, active progress and achievement ledger at the current save location, and the target achievements of the current Steam account, then restart?", "현재 저장 경로의 모든 슬롯·활성 진행·업적 장부와 현재 Steam 계정의 대상 업적을 초기화하고 재시작할까요?", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetWarning, "Settings are preserved. Progress cannot be recovered.", "설정은 보존합니다. 삭제한 진행은 복구할 수 없습니다.", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetConfirm, "Reset and Restart", "초기화 후 재시작", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetUnavailable, "Prepare Next Participant\n(Steam required)", "다음 참가자 준비\n(Steam 연결 필요)", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetBusy, "Preparing the next participant. Please wait.", "다음 참가자를 준비하고 있습니다. 잠시 기다려 주세요.", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetRestart, "Restart", "다시 실행", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetClose, "Close", "닫기", false),
         };
 
         public static void EnsureSettingsLocalizationAssetsAndQuit()

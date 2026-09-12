@@ -16,6 +16,9 @@ namespace Game.Platform.Runtime
         private static bool hasSelection;
         private static PlatformRuntimeSelectionResult selection;
 
+        public static bool HasSelection => hasSelection;
+        public static PlatformRuntimeSelectionResult CurrentSelection => selection;
+
         internal static bool IsSealed => isSealed;
 
         internal static int RegisteredFactoryCount => Factories.Count;

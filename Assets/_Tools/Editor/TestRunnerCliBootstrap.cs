@@ -221,7 +221,8 @@ public static class TestRunnerCliBootstrap
 
         var executionSettings = new ExecutionSettings(filter)
         {
-            runSynchronously = _testMode == TestMode.EditMode,
+            runSynchronously = _testMode == TestMode.EditMode &&
+                !Environment.GetCommandLineArgs().Contains("-codexAsyncEditMode"),
         };
 
         try

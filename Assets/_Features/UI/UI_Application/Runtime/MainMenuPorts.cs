@@ -76,3 +76,43 @@ namespace Game.Feature.UI.Application
         void Quit();
     }
 }
+
+namespace Game.Feature.UI.Application
+{
+    /// <summary>Optional menu capability. Persistence, Steam and process lifetime stay behind this port.</summary>
+    public interface IParticipantResetPort
+    {
+        event System.Action Changed;
+        bool BlocksMenu { get; }
+        bool IsBusy { get; }
+        bool CanRequest { get; }
+        bool SuppressSaveSeedImport { get; }
+        string Error { get; }
+        System.Threading.Tasks.Task PrepareMenuAsync();
+        void CompleteMenuInitialization();
+        void LeaveMenu();
+        void FailMenuInitialization(string reason);
+        void RequestReset();
+        void Restart();
+    }
+
+    public interface IParticipantResetActionPresentation
+    {
+        bool HideResetAction { get; }
+    }
+
+    /// <summary>Optional owner of maintenance status; ordinary recovery keeps the shared popup.</summary>
+    public interface IParticipantResetStatusPresentation
+    {
+        bool OwnsStatusPresentation { get; }
+    }
+
+    public static class ParticipantResetMenuAccess
+    {
+        public static IParticipantResetPort Current { get; private set; }
+        public static void Register(IParticipantResetPort service) => Current = service;
+
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetSession() => Current = null;
+    }
+}

@@ -24,7 +24,7 @@ namespace Game.Feature.UI.Tests
         public void MainMenuContract_IsUniqueCompleteAndMatchesTablesBootstrapAndFallbacks()
         {
             var entries = MainMenuLocalizationContract.Entries;
-            Assert.That(entries, Has.Count.EqualTo(45));
+            Assert.That(entries, Has.Count.EqualTo(53));
             Assert.That(entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(entries.Count));
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.English)), Is.True);
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.Korean)), Is.True);

@@ -16,6 +16,23 @@ namespace Game.Product.Achievements.Infrastructure
             _textStore = textStore ?? throw new ArgumentNullException(nameof(textStore));
         }
 
+        /// <summary>Inspect only the canonical document; never repair, quarantine, or clean files.</summary>
+        public static AchievementDocumentLoadResult LoadReadOnly(string canonicalPath)
+        {
+            try
+            {
+                if (!File.Exists(canonicalPath))
+                    return new AchievementDocumentLoadResult(AchievementDocumentLoadStatus.Missing, null, "Canonical ledger missing.");
+                var result = TryRead(File.ReadAllText(canonicalPath), out var document);
+                var status = result == DocumentReadResult.Valid ? AchievementDocumentLoadStatus.Loaded :
+                    result == DocumentReadResult.UnsupportedVersion ? AchievementDocumentLoadStatus.UnsupportedVersion :
+                    result == DocumentReadResult.SchemaInvalid ? AchievementDocumentLoadStatus.SchemaInvalid : AchievementDocumentLoadStatus.CorruptNoFallback;
+                return new AchievementDocumentLoadResult(status, document, "Read-only canonical ledger inspection.");
+            }
+            catch (UnauthorizedAccessException e) { return new AchievementDocumentLoadResult(AchievementDocumentLoadStatus.Unauthorized, null, e.Message); }
+            catch (IOException e) { return new AchievementDocumentLoadResult(AchievementDocumentLoadStatus.IoFailed, null, e.Message); }
+        }
+
         public AchievementDocumentLoadResult Load()
         {
             try
@@ -146,6 +163,16 @@ namespace Game.Product.Achievements.Infrastructure
                         null,
                         "achievements.json is missing and achievements.json.bak is corrupt.");
             }
+        }
+
+        /// <summary>Destructively replaces the product ledger and its automatic recovery sources.</summary>
+        public void Reset()
+        {
+            if (!(_textStore is IDestructiveAchievementTextStore destructiveStore))
+                throw new NotSupportedException("The achievement text store does not support destructive reset.");
+            destructiveStore.ResetToEmpty(
+                AchievementFileName,
+                JsonUtility.ToJson(ProductAchievementDocument.CreateEmpty()));
         }
 
         public AchievementDocumentSaveResult Save(ProductAchievementDocument document)

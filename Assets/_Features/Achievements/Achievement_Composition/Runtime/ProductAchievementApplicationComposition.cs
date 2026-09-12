@@ -220,11 +220,13 @@ namespace Game.Product.Achievements.Composition
     internal static class ProductAchievementRuntimeBootstrap
     {
         private static ProductAchievementApplicationLifetimeOwner _owner;
+        internal static bool HasStarted => _owner != null;
         private static bool _quitHandlerRegistered;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetForSubsystemRegistration()
         {
+            ProductAchievementStartupControl.Reset();
             UnregisterQuitHandler();
             _owner?.Dispose();
             _owner = null;
@@ -234,9 +236,23 @@ namespace Game.Product.Achievements.Composition
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InitializeBeforeFirstScene()
         {
+            RunAutomaticStart(() => StartNow());
+        }
+
+        internal static void RunAutomaticStart(Action start)
+        {
+            if (ProductAchievementStartupControl.IsDeferred) return;
+            start();
+        }
+
+        internal static void StopForObservation() => _owner?.Dispose();
+
+        internal static bool StartNow()
+        {
+            if (ProductAchievementStartupControl.ServicesInhibited) return false;
             if (_owner != null)
             {
-                return;
+                return _owner.Initialize();
             }
 
             _owner = new ProductAchievementApplicationLifetimeOwner(
@@ -248,32 +264,45 @@ namespace Game.Product.Achievements.Composition
             RegisterQuitHandler();
             try
             {
-                _owner.Initialize();
+                return _owner.Initialize();
             }
             catch (Exception exception)
             {
                 Debug.LogWarning(
                     $"Product achievement initialization was contained: {exception.Message}");
+                return false;
             }
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void ReconcileCampaignStageAchievementsAfterFirstSceneLoad()
         {
-            if (Application.isBatchMode)
+            RunAutomaticReconciliation(Application.isBatchMode, () => _owner?.ReconcileCampaignStageAchievements());
+        }
+
+        internal static void RunAutomaticReconciliation(bool batchMode, Action reconcile)
+        {
+            if (batchMode || ProductAchievementStartupControl.IsDeferred ||
+                ProductAchievementStartupControl.RequiresExplicitReconciliation)
             {
                 return;
             }
 
             try
             {
-                _owner?.ReconcileCampaignStageAchievements();
+                reconcile();
             }
             catch (Exception exception)
             {
                 Debug.LogWarning(
                     $"Product achievement stage reconciliation was contained: {exception.Message}");
             }
+        }
+
+        internal static CampaignStageAchievementReconciliationResult ReconcileNow()
+        {
+            return _owner?.ReconcileCampaignStageAchievements() ??
+                CampaignStageAchievementReconciliationResult.ProductUnavailable;
         }
 
         private static void RegisterQuitHandler()
