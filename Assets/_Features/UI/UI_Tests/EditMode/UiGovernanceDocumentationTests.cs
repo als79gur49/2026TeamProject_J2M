@@ -118,6 +118,31 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiAuthoringGuidance_RequiresPrefabFirstReview_AndPointerKeyboardParity()
+        {
+            var guidelines = ReadRepoFile("Docs/Architecture/UI-Architecture-Guidelines.md");
+            var authoringGuide = ReadRepoFile("Docs/Architecture/UI-Authoring-and-Navigation-Guide.md");
+            var architectureIndex = ReadRepoFile("Docs/Architecture/README.md");
+
+            Assert.That(guidelines, Does.Contain("[UI-AUTH-001]"));
+            Assert.That(guidelines, Does.Contain("[UI-AUTH-002]"));
+            Assert.That(guidelines, Does.Contain("[UI-INPUT-001]"));
+            Assert.That(guidelines, Does.Contain("[UI-INPUT-002]"));
+            Assert.That(guidelines, Does.Contain("[UI-FOCUS-001]"));
+            Assert.That(guidelines, Does.Contain("Technical `Button` components"));
+            Assert.That(guidelines, Does.Contain("Cancel or Escape"));
+
+            Assert.That(authoringGuide, Does.Contain("## 2. Prefab-First Decision Matrix"));
+            Assert.That(authoringGuide, Does.Contain("## 4. Actionable Controls"));
+            Assert.That(authoringGuide, Does.Contain("## 6. Navigation Routing"));
+            Assert.That(authoringGuide, Does.Contain("## 10. Validation Checklist"));
+            Assert.That(authoringGuide, Does.Contain("UiFocusGraphNavigator"));
+            Assert.That(authoringGuide, Does.Contain("Settings-oriented"));
+            Assert.That(authoringGuide, Does.Contain("DemoStageControlPanelView"));
+            Assert.That(architectureIndex, Does.Contain("UI-Authoring-and-Navigation-Guide.md"));
+        }
+
+        [Test]
         public void UiBaselineNote_RecordsPhaseOneCanonicalDriftCorrections_AndDeletionProtections()
         {
             var baseline = ReadRepoFile("Docs/Testing/UI-EditMode-Baseline-2026-04-15.md");

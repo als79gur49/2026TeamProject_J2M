@@ -57,6 +57,7 @@
   - comic-sequence enter-fade guard proving the source scene remains visible at entry start, the dedicated black layer gains opacity during the authored duration, and the persistent black background is enabled only after full cover before initial content reveal
   - fullscreen cursor confinement policy guards covering focused borderless fullscreen, windowed/unfocused release, unsupported-platform no-op, idempotent writes, shared-display ownership, authored default-cursor hotspot/dimensions, and installer focus/pause/update lifecycle reconciliation
   - Settings movement-key production guards proving the authored `WASDKeyDisplay` button toggles WASD/arrow visuals in both directions with click feedback, and `Input.Movement.Toggle` shows its `SelectionFrame` and submits once on Enter without Slider edit mode
+  - Settings language-cycle navigation guards proving `Display.Language.Button` is reachable after the resolution and fullscreen controls, pointer click and keyboard Submit share the same semantic action exactly once, the authored `SelectionFrame` reveals focus, and unavailable language selection is skipped
   - KBO Dia Gothic Medium/Light committed TTF/SDF Git-blob, GUID, and material/atlas-localID preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, license notice, representative Main Menu brand-image separation, and approved Pause/audio/display layout guards; canonical working hashes, calculated ScaleRatio values `0.9/1/0.73125`, and byte convergence are required; the historical migration rerun above does not validate the later serialization correction
   - Climate ko-KR diagnostic screenshot coverage for ConfirmPopup, Settings Audio muted, and Settings Display status, kept outside the exact canonical six-file root
   - locale-independent typography P2 guards for invalid invariant style enums, null-theme invariant/themed preview parity, parent/child Selection normalization, independent roots, repeated preview calls, unique restore counts, live Settings 38-count capture, and schema-v1 manifest rejection of Settings count 51
@@ -126,6 +127,9 @@
   - comic-sequence enter-fade follow-up pre-change observed result: `1347 total / 0 failed`
   - comic-sequence enter-fade follow-up current rerun: `1348 total / 0 failed`
   - comic-sequence enter-fade follow-up slice-local UI delta: `+1`; the focused overlay guard covers transparent entry, in-progress black opacity, and full-cover background settlement before initial reveal
+  - Settings language-cycle navigation pre-change focused result: `108 total / 2 failed`; only the missing focus slot and skipped language node failed
+  - Settings language-cycle navigation implemented focused result: `108 total / 0 failed`
+  - Settings language-cycle navigation slice-local delta: `+2`; focused guards cover pointer/Submit exactly-once parity, authored focus reveal, and unavailable-node exclusion
 - Removed tests:
   - 12 NanumGothic-specific source/SDF/glyph/fallback validation cases and one legacy Climate migration retention case were removed with the retired assets; the locale-independent lower-layer boundary remains covered by the stronger existing theme-model guard, and the Settings localization-key coverage contract was preserved as a font-independent test, for a net UI executed-case delta of `-12` (`1348 -> 1336`)
   - the temporary outro validation-copy parity guard was replaced by an explicit null production-scene wiring guard after the duplicate Definition asset was removed; shared outro routing behavior remains covered
@@ -201,6 +205,7 @@
   - no additional UI PlayMode tests were added in Stage 9
   - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
   - the SurfaceBelt center remainder badge change required no additional PlayMode escalation because its prefab hierarchy, serialized references, remainder-state binding, active/inactive distinction, tween replay rules, disable cleanup, and isolated Shine material are covered by the canonical HUD and focused EditMode tests; manual in-game visual inspection remains not run
+  - the Settings language-cycle navigation change required no additional PlayMode escalation because the focus graph, serialized `SelectionFrame`, pointer/Submit semantic parity, and unavailable-node exclusion are covered by focused EditMode tests; manual Editor navigation inspection remains not run
   - comic-sequence production scene bootstrap continues to be covered by actual-scene PlayMode smoke: intro presentation remains exercised, while the Gameplay outro case now proves six cumulative panel advances, opaque handoff, Main Menu lifecycle completion, and one-time progress persistence with authored production content; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
 
 ## Covered Freeze Evidence
@@ -234,6 +239,7 @@
 - HUD remains a display consumer of mapped UI presentation state. It may raise bounded UI-owned requests such as pause flow, but `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current gameplay command paths.
 - Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore.
 - popup legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored popup creation path beneath `PopupLayer` via a fixed-shape popup-only catalog
+- Main Menu popup debt classification is now explicit: `EnsurePopupLayerView()` creates only the technical Backdrop/Content mount as runtime infrastructure, while the player-visible Confirm hierarchy is the catalog-authored `ConfirmPopup.prefab`; this documentation correction changes no runtime path or executed test count
 - popup prefab views remain visual/local only; popup callbacks, timers, and animation completions do not own lifecycle, stack mutation, or dismissibility policy
 - tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy
 - screen legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored screen creation path beneath `ScreenLayer` via a fixed-shape screen-only catalog
@@ -244,8 +250,9 @@
 - `StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens; their actions stay intent-only and do not locally decide root replacement policy
 - terminal result copy is descriptor-backed in UI.Application: StageResult owns only the localized Continue action, LevelFailed receives a typed gameplay failure reason and maps it to title/detail/restart/main descriptors, and GameClear owns localized title/main descriptors; Gameplay Host/UIAccess own no resolved terminal display strings or localization dependencies
 - `GameClearScreen` is a result-only terminal screen with title and main label bindings only; retired authored `RestartLevelButton` and `Detail` compatibility objects were removed from its runtime view and prefab
-- `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
+- `SettingsScreen` is one authored prefab hierarchy managed at runtime, with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
 - Main Menu and Gameplay now compose that Settings shell through the same `GameplayScreenPrefabCatalog -> SettingsScreenRuntimeBuilder` path. The catalog theme is mandatory, Main Menu owns only overlay Back/popup translation, external locale refresh preserves child state, and dropdown live item typography follows the same locale theme.
+- Main Menu Settings overlay debt classification is now explicit: its runtime-created ordering root, technical pointer blocker, and Content mount are infrastructure around the authored `SettingsScreen.prefab`, not a second runtime-built Settings hierarchy; this documentation correction changes no runtime path or executed test count
 - Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path through `MinimalStageCompletionReadModel`; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - current canonical `PopupId` values are `None`, `Pause`, `Confirm`, and `DemoStageControl`
@@ -277,6 +284,7 @@
 
 ### Structural Delta
 - Campaign progression, active-slot, and launch-state production truth now flows through the Stages-owned JSON composition. UI consumes `ICampaignSaveQuery`, `ICampaignSlotLifecyclePort`, `ICampaignContinuePreparationPort`, typed comic progress, and recovery ports instead of owning serialization or arbitrary slot mutation policy. Continue preparation carries only expected slot/stage/persisted-group/target-group identity; stale preparation clears only the caller-owned handoff, refreshes the panel, and never routes.
+- Comic runtime-generation debt is now bounded to the fixed `ComicSequenceOverlayView` base shell created by the two production installers. The Definition-sized, non-interactive panel pool remains runtime infrastructure; the fixed shell remains an open prefab migration candidate, and the classification update itself adds, removes, or renames no tests.
 - PlayerPrefs-backed campaign fallback, legacy import, and rollback-selection production paths are retired. Readiness probes remain diagnostics only and do not participate in production read, write, delete, or launch routing.
 - Main Menu pending-launch ownership is lifecycle-bound. Stale confirmations, disposed controllers, and commands that arrive after an accepted launch cannot delete or replace the accepted slot/handoff owner.
 - Direct-play temporary-state clearing is an explicit non-recovering delete operation. It removes the canonical file, backup, rollback residue, and both write-temp families for profile, local launch state, and pending reset without deleting quarantine/rejection evidence.
@@ -331,3 +339,23 @@
 - This run also includes the pending HUD badge split and authored-position regression cases.
 - Evidence: `/mnt/d/J2M/evidence/20260906-kbo-canonical-commit/ui/`.
 - Broad full, visual capture, and manual Player checks were not run; the visual runner requires clean tracked HEAD inputs and unrelated Addressables edits remain preserved.
+
+## Pause Preview Close Keyboard Accessibility — 2026-09-13
+
+### Structural Delta
+- `StagePreviewOverlay/CloseButton` now owns an authored, non-raycast `SelectionFrame` through a one-slot `UiSelectableButtonGroup`; its existing `Button` and `UiHoverScaleEffect` remain the pointer and feedback components.
+- `PauseStagePreviewOverlayView` is the local single-action navigation target. Focused Submit plays the shared button feedback and emits the same close request as pointer click, while Cancel remains a nested-state exit shortcut.
+- `PausePopupView` retains router-facing popup ownership and delegates only the open preview state to the `PreviewClose` domain. Every preview open starts a new hidden-focus cycle, even when the Pause target already has revealed keyboard focus, and close returns to the existing progression selection.
+
+### Guard Evolution and Responsibility Shift
+- Prefab guards require the one-slot group, Close ownership, inactive authored frame, non-raycast selection image, and existing hover feedback.
+- Behavior guards cover hidden keyboard-open and pointer-open state, first subsequent Submit or Navigate reveal, following-Submit close, Cancel close, exactly-once closure, keyboard-selected scale cleanup, and preserved progression selection.
+- The Close action no longer relies on Pause-level unconditional Submit handling. Overlay-local navigation now owns its focus and submit feedback without becoming a new popup-stack entry or reusing the Settings-oriented focus graph.
+
+### Same-Working-Tree Validation
+- `./run_tests.sh ui`: Windows UI build passed; Unity UI EditMode `1376 total / 0 failed` on the main integration working tree.
+- `./run_tests.sh core`: Core EditMode `282 total / 0 failed`; Core PlayMode `111 total / 0 failed`.
+- The shared KBO Dia Gothic Medium/Light integrity guard reported `NO_MUTATION` for both assets and required no restore.
+- Existing soft governance warnings remained advisory and did not change the touched UI result.
+- The runner detected and removed its two generated `InitTestScene` artifacts after Core PlayMode; no generated scene residue remains.
+- Separate manual Editor/Player visual validation and broad `./run_tests.sh full` were not run; no claim is made for those scopes.

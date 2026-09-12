@@ -30,12 +30,16 @@
   - 전시 참가자 초기화의 단순화 계약, 구현 연결, 전용 빌드 및 제거 방법
 - [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
   - product-global achievement IDs, earned ledger, pending publication outbox, atomic persistence, and store-neutral publication boundary
+- [Achievement-Fault-Injection-Test-Plan.md](../Testing/Achievement-Fault-Injection-Test-Plan.md)
+  - planned achievement fault injection, concurrent earning, competing file writers, disconnect/callback failures, and TDD reproduction criteria; new fault/load cases not yet executed
 - [Steam-Achievement-Smoke-Retirement-Plan.md](./Steam-Achievement-Smoke-Retirement-Plan.md)
   - Steam smoke and measurement retirement plan and implementation record, retained publication/callback contracts, test migration, and bounded validation evidence
 - [Docs/Testing/Platform-Provider-Selection-Validation.md](../Testing/Platform-Provider-Selection-Validation.md)
   - focused source-only selection matrix, production-boundary probes, and mutation evidence rules
 - [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md)
   - current runner/governance truth for `./run_tests.sh core`, `./run_tests.sh ui`, and PlayMode escalation expectations
+- [UI-Authoring-and-Navigation-Guide.md](./UI-Authoring-and-Navigation-Guide.md)
+  - supporting implementation guide for prefab-first UI authoring, bounded runtime-generation exceptions, and pointer/keyboard navigation parity
 - [Docs/Testing/Post-Stage-Content-Bounded-Lane-Operations.md](../Testing/Post-Stage-Content-Bounded-Lane-Operations.md)
   - supporting truth for post-stage-content bounded lane split, Lane A recovery streams, and cross-lane handoff codebook
 - [Topology-View-Camera-Canonical-Ownership-2026-04-24.md](./Topology-View-Camera-Canonical-Ownership-2026-04-24.md)

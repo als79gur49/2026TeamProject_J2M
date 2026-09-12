@@ -46,6 +46,10 @@ namespace Game.Feature.UI.Screens
 
         public SaveSlotActionSelection SelectedAction => _selectedAction;
 
+        public bool IsAtTopNavigationBoundary => IsBlockedView
+            ? !CanFocusRecovery(_selectedRecoveryIndex - 1)
+            : FindNextFocusableCardIndex(_selectedCardIndex, -1) < 0;
+
         public IReadOnlyList<TMP_Text> CreateTypographyTargets()
         {
             var targets = new List<TMP_Text>();

@@ -14,6 +14,7 @@ namespace Game.Feature.UI.Screens
         {
             Commands,
             SaveSlots,
+            SaveSlotClose,
         }
 
         private const int StartCommandIndex = 0;
@@ -22,7 +23,7 @@ namespace Game.Feature.UI.Screens
         private const int ParticipantCommandIndex = 3;
 
         private const string MissingAuthoredStructureMessage =
-            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, SaveSlotOverlayLayer, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, SaveSlotBlocker, and command SelectionFrame slots.";
+            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, SaveSlotOverlayLayer, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, SaveSlotBlocker, SaveSlotCloseButton, and command SelectionFrame slots.";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private RectTransform _topBar;
@@ -34,6 +35,9 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private GameObject _saveSlotBlockerRoot;
         [SerializeField] private CanvasGroup _saveSlotBlockerCanvasGroup;
         [SerializeField] private Image _saveSlotBlockerImage;
+        [SerializeField] private Button _saveSlotCloseButton;
+        [SerializeField] private Image _saveSlotCloseSelectionFrame;
+        [SerializeField] private UiSelectionVisualProfile _saveSlotCloseSelectionVisualProfile;
         [SerializeField] private Button _startButton;
         [SerializeField] private TMP_Text _startButtonLabel;
         [SerializeField] private Button _settingsButton;
@@ -107,6 +111,10 @@ namespace Game.Feature.UI.Screens
         {
             _launchInteractionBlocked = blocked;
             _saveSlotPanel?.SetInteractionBlocked(blocked);
+            if (_saveSlotCloseButton != null)
+            {
+                _saveSlotCloseButton.interactable = !blocked && ActiveSection == MainMenuSectionId.SaveSlots;
+            }
             ApplyCommandButtonsInteractable(!blocked && ActiveSection != MainMenuSectionId.SaveSlots);
             if (blocked)
             {
@@ -256,6 +264,9 @@ namespace Game.Feature.UI.Screens
                 _saveSlotBlockerRoot == null ||
                 _saveSlotBlockerCanvasGroup == null ||
                 _saveSlotBlockerImage == null ||
+                _saveSlotCloseButton == null ||
+                _saveSlotCloseSelectionFrame == null ||
+                _saveSlotCloseSelectionVisualProfile == null ||
                 _startButton == null ||
                 _startButtonLabel == null ||
                 _settingsButton == null ||
@@ -276,6 +287,8 @@ namespace Game.Feature.UI.Screens
             RequireOwnedBy(_saveSlotOverlayLayer, transform);
             RequireOwnedBy(_saveSlotPanel.transform, _saveSlotOverlayLayer);
             RequireOwnedBy(_saveSlotBlockerRoot.transform, _saveSlotOverlayLayer);
+            RequireOwnedBy(_saveSlotCloseButton.transform, _saveSlotOverlayLayer);
+            RequireOwnedBy(_saveSlotCloseSelectionFrame.transform, _saveSlotCloseButton.transform);
             RequireOwnedBy(_startButton.transform, _mainCommandPanel);
             RequireOwnedBy(_settingsButton.transform, _mainCommandPanel);
             RequireOwnedBy(_quitButton.transform, _mainCommandPanel);
@@ -301,6 +314,19 @@ namespace Game.Feature.UI.Screens
                 case UiNavigationCommand.Right:
                     if (IsSaveSlotPanelOpen())
                     {
+                        if (_activeFocusDomain == MainMenuFocusDomain.SaveSlotClose)
+                        {
+                            return HandleSaveSlotCloseNavigate(command);
+                        }
+
+                        if (command == UiNavigationCommand.Up &&
+                            TryEnterOrRestoreSaveSlotDomain(_navigationFocusVisible) &&
+                            _saveSlotPanel.IsAtTopNavigationBoundary)
+                        {
+                            FocusSaveSlotClose();
+                            return true;
+                        }
+
                         return TryEnterOrRestoreSaveSlotDomain(_navigationFocusVisible)
                             ? _saveSlotPanel.HandleNavigate(command)
                             : true;
@@ -350,6 +376,13 @@ namespace Game.Feature.UI.Screens
                 return _saveSlotPanel.HandleSubmit();
             }
 
+            if (_activeFocusDomain == MainMenuFocusDomain.SaveSlotClose)
+            {
+                ResolveSaveSlotCloseFeedback()?.PlaySubmitFeedback();
+                ClickSaveSlotClose();
+                return true;
+            }
+
             switch (_commandNavigationGroup.SelectedIndex)
             {
                 case StartCommandIndex:
@@ -386,7 +419,8 @@ namespace Game.Feature.UI.Screens
                 return true;
             }
 
-            if (_activeFocusDomain == MainMenuFocusDomain.SaveSlots)
+            if (_activeFocusDomain == MainMenuFocusDomain.SaveSlots ||
+                _activeFocusDomain == MainMenuFocusDomain.SaveSlotClose)
             {
                 CloseSaveSlotPanelAndReturnToStart();
                 return true;
@@ -414,6 +448,7 @@ namespace Game.Feature.UI.Screens
             _pendingEnterSaveSlotNavigation = false;
             _commandNavigationGroup?.HideAllFrames();
             _saveSlotPanel?.HideNavigationFrames();
+            HideSaveSlotCloseFocus();
         }
 
         public void ShowSection(MainMenuSectionId sectionId)
@@ -440,6 +475,7 @@ namespace Game.Feature.UI.Screens
                 {
                     _pendingEnterSaveSlotNavigation = false;
                     _saveSlotPanel.HideNavigationFrames();
+                    HideSaveSlotCloseFocus();
                     if (_activeFocusDomain == MainMenuFocusDomain.SaveSlots)
                     {
                         FocusCommandStart(showFrame: _navigationFocusVisible);
@@ -514,6 +550,7 @@ namespace Game.Feature.UI.Screens
             _commandNavigationGroup?.SetSelectedIndexSilently(_commandNavigationGroup.SelectedIndex);
             _commandNavigationGroup?.HideAllFrames();
             _saveSlotPanel?.HideNavigationFrames();
+            HideSaveSlotCloseFocus();
             _activeFocusDomain = MainMenuFocusDomain.Commands;
             _navigationFocusVisible = false;
             _pendingEnterSaveSlotNavigation = false;
@@ -556,6 +593,7 @@ namespace Game.Feature.UI.Screens
             Rebind(_settingsButton, ClickSettings);
             Rebind(_quitButton, ClickQuit);
             Rebind(_participantResetButton, ClickParticipantReset);
+            Rebind(_saveSlotCloseButton, ClickSaveSlotClose);
         }
 
         private void UnwireButtons()
@@ -564,12 +602,27 @@ namespace Game.Feature.UI.Screens
             Unbind(_settingsButton, ClickSettings);
             Unbind(_quitButton, ClickQuit);
             Unbind(_participantResetButton, ClickParticipantReset);
+            Unbind(_saveSlotCloseButton, ClickSaveSlotClose);
         }
 
         private void ApplySaveSlotModalState(bool showSaveSlots)
         {
             ApplySaveSlotBlockerState(showSaveSlots);
             ApplyCommandButtonsInteractable(!_launchInteractionBlocked && !showSaveSlots);
+            if (_saveSlotCloseButton != null)
+            {
+                _saveSlotCloseButton.interactable = !_launchInteractionBlocked && showSaveSlots;
+            }
+        }
+
+        private void ClickSaveSlotClose()
+        {
+            if (_launchInteractionBlocked || !IsSaveSlotPanelOpen())
+            {
+                return;
+            }
+
+            CloseSaveSlotPanelAndReturnToStart();
         }
 
         private void ApplySaveSlotOverlayState(bool showSaveSlots)
@@ -679,12 +732,19 @@ namespace Game.Feature.UI.Screens
 
         private bool TryEnterOrRestoreSaveSlotDomain(bool showFrame)
         {
-            if (_saveSlotPanel == null || !IsSaveSlotPanelOpen() || !_saveSlotPanel.HasFocusableCards)
+            if (_saveSlotPanel == null || !IsSaveSlotPanelOpen())
             {
                 return false;
             }
 
+            if (!_saveSlotPanel.HasFocusableCards)
+            {
+                FocusSaveSlotClose();
+                return true;
+            }
+
             _activeFocusDomain = MainMenuFocusDomain.SaveSlots;
+            HideSaveSlotCloseFocus();
             _commandNavigationGroup?.HideAllFrames();
             if (!_saveSlotPanel.RestorePreviousFocusOrFallback(showFrame))
             {
@@ -696,9 +756,15 @@ namespace Game.Feature.UI.Screens
 
         private bool TryKeepSaveSlotDomainValid()
         {
-            if (IsSaveSlotPanelOpen() && _saveSlotPanel != null && _saveSlotPanel.HasFocusableCards)
+            if (IsSaveSlotPanelOpen() && _saveSlotPanel != null)
             {
-                return _saveSlotPanel.RestorePreviousFocusOrFallback(_navigationFocusVisible);
+                if (_saveSlotPanel.HasFocusableCards)
+                {
+                    return _saveSlotPanel.RestorePreviousFocusOrFallback(_navigationFocusVisible);
+                }
+
+                FocusSaveSlotClose();
+                return false;
             }
 
             FocusCommandStart(showFrame: _navigationFocusVisible);
@@ -717,6 +783,7 @@ namespace Game.Feature.UI.Screens
             _activeFocusDomain = MainMenuFocusDomain.Commands;
             _pendingEnterSaveSlotNavigation = false;
             _saveSlotPanel?.HideNavigationFrames();
+            HideSaveSlotCloseFocus();
             _commandNavigationGroup?.SetSelectedIndex(StartCommandIndex);
             if (showFrame)
             {
@@ -726,6 +793,69 @@ namespace Game.Feature.UI.Screens
             {
                 _commandNavigationGroup?.HideAllFrames();
             }
+        }
+
+        private bool HandleSaveSlotCloseNavigate(UiNavigationCommand command)
+        {
+            if (command != UiNavigationCommand.Down)
+            {
+                return true;
+            }
+
+            if (_saveSlotPanel == null || !_saveSlotPanel.HasFocusableCards)
+            {
+                return true;
+            }
+
+            _activeFocusDomain = MainMenuFocusDomain.SaveSlots;
+            HideSaveSlotCloseFocus();
+            return _saveSlotPanel != null &&
+                   _saveSlotPanel.RestorePreviousFocusOrFallback(showFrame: _navigationFocusVisible);
+        }
+
+        private void FocusSaveSlotClose()
+        {
+            _activeFocusDomain = MainMenuFocusDomain.SaveSlotClose;
+            _commandNavigationGroup?.HideAllFrames();
+            _saveSlotPanel?.HideNavigationFrames();
+            ApplySaveSlotCloseFrame(focused: true);
+            ResolveSaveSlotCloseFeedback()?.SetNavigationFocused(true);
+            _saveSlotCloseButton?.Select();
+        }
+
+        private void HideSaveSlotCloseFocus()
+        {
+            ApplySaveSlotCloseFrame(focused: false);
+            ResolveSaveSlotCloseFeedback()?.SetNavigationFocused(false);
+        }
+
+        private void ApplySaveSlotCloseFrame(bool focused)
+        {
+            if (_saveSlotCloseSelectionFrame == null)
+            {
+                return;
+            }
+
+            if (_saveSlotCloseSelectionVisualProfile != null &&
+                _saveSlotCloseSelectionVisualProfile.FrameSprite != null)
+            {
+                _saveSlotCloseSelectionFrame.sprite = _saveSlotCloseSelectionVisualProfile.FrameSprite;
+            }
+
+            _saveSlotCloseSelectionFrame.color = _saveSlotCloseSelectionVisualProfile != null
+                ? (focused
+                    ? _saveSlotCloseSelectionVisualProfile.SelectedFrameColor
+                    : _saveSlotCloseSelectionVisualProfile.UnselectedFrameColor)
+                : (focused ? Color.white : new Color(1f, 1f, 1f, 0f));
+            _saveSlotCloseSelectionFrame.gameObject.SetActive(focused);
+        }
+
+        private IUiSelectionFeedback ResolveSaveSlotCloseFeedback()
+        {
+            return _saveSlotCloseButton != null &&
+                   _saveSlotCloseButton.TryGetComponent<IUiSelectionFeedback>(out var feedback)
+                ? feedback
+                : null;
         }
 
         private static void RequireOwnedBy(Transform child, Transform owner)

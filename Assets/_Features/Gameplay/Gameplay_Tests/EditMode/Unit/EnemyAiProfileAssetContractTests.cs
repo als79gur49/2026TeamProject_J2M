@@ -886,7 +886,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ProfileBinding_KeepsStageReachableProfiles_AndExcludesRetiredWindupMelee()
+        public void BlackEye_ProfileBinding_UsesWindupProjectileGameplayProfile()
         {
             var bindings = FindCampaignEnemyPresentationProfileBindings("black_eye");
             var profilePaths = bindings.Select(binding => binding.ProfilePath).Distinct().OrderBy(path => path).ToArray();
@@ -894,12 +894,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(bindings, Is.Not.Empty, "No campaign stage binds presentation id 'black_eye'.");
             Assert.That(
                 profilePaths,
-                Does.Contain(WindupProjectileProfilePath),
-                "Campaign BlackEye spawns must keep the Stage-reachable WindupProjectile gameplay profile.");
-            Assert.That(
-                profilePaths,
-                Does.Not.Contain(RetiredWindupMeleeProfilePath),
-                "Campaign BlackEye presentation bindings must not keep the retired WindupMelee repository profile.");
+                Is.EquivalentTo(new[] { WindupProjectileProfilePath }),
+                "BlackEye is a presentation/prefab id. Every campaign spawn using it must bind the WindupProjectile gameplay profile.");
             AssertCatalogEntryUsesPrefab("black_eye", "EnemyView_BlackEye.prefab");
         }
 
