@@ -44,6 +44,7 @@ namespace Game.Feature.Gameplay.Host
         private StageAudioResolvedData _resolvedAudioData = StageAudioAssembler.EmptyResolvedData;
         private readonly StageVisualRuntimeAdapter _stageVisualRuntimeAdapter = new();
         private readonly StageAudioRuntimeRequestSource _stageAudioRuntimeRequestSource = new();
+        private BgmRequestLease _stageBgmRequestLease;
         private BackgroundWallSurfaceTintPresenterAdapter _backgroundWallSurfaceTintPresenterAdapter;
         private BackgroundSpaceOrbitPresenterAdapter _backgroundSpaceOrbitPresenterAdapter;
 
@@ -311,45 +312,51 @@ namespace Game.Feature.Gameplay.Host
             _stageVisualRuntimeAdapter.Apply(
                 _resolvedPresentationDefinition,
                 ResolveStageBackgroundRoot());
-            _stageAudioRuntimeRequestSource.Apply(
-                _resolvedAudioData,
-                globalAudioFlowBootstrap.GetRequestRouterOrThrow());
-            AttachBackgroundWallSurfaceTintPresenter(host);
-            AttachBackgroundSpaceOrbitPresenter(host);
-            var terminalTransitionPort = CreateTerminalTransitionPort(gameObject);
-
-            if (!_campaignRuntimeActive)
+            ReplaceStageBgmRequestLease();
+            try
             {
-                if (host.UiAccess?.PresentationFeed is not GameplayHostPresentationFeed presentationFeed)
+                AttachBackgroundWallSurfaceTintPresenter(host);
+                AttachBackgroundSpaceOrbitPresenter(host);
+                var terminalTransitionPort = CreateTerminalTransitionPort(gameObject);
+
+                if (!_campaignRuntimeActive)
                 {
-                    throw new System.InvalidOperationException(
-                        "Stage-backed noncampaign bootstrap requires the production gameplay presentation feed.");
+                    if (host.UiAccess?.PresentationFeed is not GameplayHostPresentationFeed presentationFeed)
+                    {
+                        throw new System.InvalidOperationException(
+                            "Stage-backed noncampaign bootstrap requires the production gameplay presentation feed.");
+                    }
+
+                    // Direct-play/noncampaign scenes keep global respawn semantics and publish
+                    // no terminal destination. Demo Force Clear remains a minimal completion-only
+                    // command and does not install or invoke the campaign terminal authority.
+                    presentationFeed.DisableTerminalOutcomes();
+                    return;
                 }
 
-                // Direct-play/noncampaign scenes keep global respawn semantics and publish
-                // no terminal destination. Demo Force Clear remains a minimal completion-only
-                // command and does not install or invoke the campaign terminal authority.
-                presentationFeed.DisableTerminalOutcomes();
-                return;
-            }
+                if (_runningSlotContext == null)
+                {
+                    throw new System.InvalidOperationException("Campaign runtime requires a running slot context.");
+                }
 
-            if (_runningSlotContext == null)
+                _campaignFlowController = new CampaignGameplayFlowController(
+                    host,
+                    _saveSlotStore,
+                    _saveSlotStore,
+                    _runningSlotContext,
+                    RequireCampaignStageSequenceResolver(),
+                    CreateStageLaunchRouter(gameObject, gameObject.scene.name),
+                    _campaignChanceDisplayOverride,
+                    terminalTransitionPort,
+                    _runtimeDirectPlayContext,
+                    CreateCampaignStageAchievementIntegration());
+                _campaignFlowController.Bind();
+            }
+            catch
             {
-                throw new System.InvalidOperationException("Campaign runtime requires a running slot context.");
+                ReleaseStageBgmRequestLease();
+                throw;
             }
-
-            _campaignFlowController = new CampaignGameplayFlowController(
-                host,
-                _saveSlotStore,
-                _saveSlotStore,
-                _runningSlotContext,
-                RequireCampaignStageSequenceResolver(),
-                CreateStageLaunchRouter(gameObject, gameObject.scene.name),
-                _campaignChanceDisplayOverride,
-                terminalTransitionPort,
-                _runtimeDirectPlayContext,
-                CreateCampaignStageAchievementIntegration());
-            _campaignFlowController.Bind();
         }
 
         private CampaignStageSequenceResolver RequireCampaignStageSequenceResolver()
@@ -426,11 +433,29 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnDestroy()
         {
+            ReleaseStageBgmRequestLease();
             _backgroundSpaceOrbitPresenterAdapter?.Dispose();
             _backgroundSpaceOrbitPresenterAdapter = null;
             _backgroundWallSurfaceTintPresenterAdapter?.Dispose();
             _backgroundWallSurfaceTintPresenterAdapter = null;
             _campaignFlowController?.Dispose();
+        }
+
+        private void ReplaceStageBgmRequestLease()
+        {
+            var acquiredLease = _stageAudioRuntimeRequestSource.Apply(
+                _resolvedAudioData,
+                globalAudioFlowBootstrap.GetRequestRouterOrThrow());
+            var previousLease = _stageBgmRequestLease;
+            _stageBgmRequestLease = acquiredLease;
+            previousLease?.Dispose();
+        }
+
+        private void ReleaseStageBgmRequestLease()
+        {
+            var lease = _stageBgmRequestLease;
+            _stageBgmRequestLease = null;
+            lease?.Dispose();
         }
 
         private void AttachBackgroundSpaceOrbitPresenter(GameplaySceneHost host)

@@ -1100,7 +1100,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageAudioRuntimeRequestSource_SubmitsStageGameplayThroughRouter()
+        public void StageAudioRuntimeRequestSource_ProfileReturnsLifecycleLease()
         {
             var coordinator = new FakeBgmFlowCoordinator();
             var router = new BgmRequestRouter(coordinator);
@@ -1109,30 +1109,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var audioData = new StageAudioResolvedData(
                 new StageBgmResolvedSlot(StageBgmSlotMode.Profile, profile));
 
-            source.Apply(audioData, router);
+            var lease = source.Apply(audioData, router);
 
             Assert.That(coordinator.RequestCount, Is.EqualTo(1));
             Assert.That(coordinator.LastProfile, Is.SameAs(profile));
             Assert.That(router.ActiveRequest.HasValue, Is.True);
             Assert.That(router.ActiveRequest.Value.SourceKind, Is.EqualTo(BgmRequestSourceKind.StageGameplay));
             Assert.That(router.ActiveRequest.Value.Priority, Is.EqualTo(BgmRequestPriority.StageGameplay));
+
+            lease.Dispose();
+
+            Assert.That(router.ActiveRequest.HasValue, Is.False);
+            Assert.That(coordinator.StopCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
-        public void StageAudioRuntimeRequestSource_NoneSubmitsStageGameplaySilence()
+        public void StageAudioRuntimeRequestSource_NoneReturnsStopLifecycleLease()
         {
             var coordinator = new FakeBgmFlowCoordinator();
             var router = new BgmRequestRouter(coordinator);
             var source = new StageAudioRuntimeRequestSource();
 
-            source.Apply(StageAudioAssembler.EmptyResolvedData, router);
+            var lease = source.Apply(StageAudioAssembler.EmptyResolvedData, router);
 
             Assert.That(coordinator.StopCount, Is.EqualTo(1));
             Assert.That(router.ActiveRequest.HasValue, Is.True);
             Assert.That(router.ActiveRequest.Value.SourceKind, Is.EqualTo(BgmRequestSourceKind.StageGameplay));
             Assert.That(router.ActiveRequest.Value.StopBgm, Is.True);
             Assert.That(router.ActiveRequest.Value.Priority, Is.EqualTo(BgmRequestPriority.StageGameplay));
+
+            lease.Dispose();
+
+            Assert.That(router.ActiveRequest.HasValue, Is.False);
+            Assert.That(coordinator.StopCount, Is.EqualTo(1));
         }
 
         [Test]

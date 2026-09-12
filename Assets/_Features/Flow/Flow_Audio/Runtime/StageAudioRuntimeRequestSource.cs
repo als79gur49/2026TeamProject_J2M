@@ -5,7 +5,7 @@ namespace Game.Feature.Flow.Audio
 {
     public sealed class StageAudioRuntimeRequestSource
     {
-        public void Apply(StageAudioResolvedData audioData, BgmRequestRouter router)
+        public BgmRequestLease Apply(StageAudioResolvedData audioData, BgmRequestRouter router)
         {
             if (audioData == null)
             {
@@ -20,14 +20,13 @@ namespace Game.Feature.Flow.Audio
             var gameplayBgm = audioData.GameplayBgm;
             if (gameplayBgm.Mode == StageBgmSlotMode.Profile)
             {
-                router.Submit(BgmFlowRequest.ProfileRequest(
+                return router.Acquire(BgmFlowRequest.ProfileRequest(
                     BgmRequestSourceKind.StageGameplay,
                     BgmRequestPriority.StageGameplay,
                     gameplayBgm.Profile));
-                return;
             }
 
-            router.Submit(BgmFlowRequest.StopRequest(
+            return router.Acquire(BgmFlowRequest.StopRequest(
                 BgmRequestSourceKind.StageGameplay,
                 BgmRequestPriority.StageGameplay));
         }
