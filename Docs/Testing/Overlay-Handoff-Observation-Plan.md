@@ -1,5 +1,8 @@
 # Overlay 게임 교체 관찰 전용 진단 계획
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 > 아래는 구현 전 설계 기록이다. 구현 승인 이후 현재 연결·검증·운영 범위는 [구현 기록](./Overlay-Handoff-Observation.md)을 따른다.
 
 2026-09-09. 대상 `/mnt/d/J2M/worktrees/exhibition-reset`. **설계 문서이며 신규 진단 코드·빌드·실제 시험은 아직 없다.** 기존 Build25190245의 reset trial이나 Ctrl+Shift+F10에 아래 계약이 구현돼 있다고 해석하지 않는다.

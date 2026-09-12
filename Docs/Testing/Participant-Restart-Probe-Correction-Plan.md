@@ -1,5 +1,8 @@
 # Steam 재시작 선행 실험 수정안
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 2026-09-08. 대상: `/mnt/d/J2M/worktrees/exhibition-reset`.
 상태: 독립 재검토 및 문서 검토의 네 가지 보강 사항을 반영한 제안. 이 문서 작성으로 구현·검증·배포가 완료된 것은 아니다.
 

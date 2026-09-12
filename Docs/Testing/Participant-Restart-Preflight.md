@@ -1,5 +1,8 @@
 # Participant restart automation — isolated preflight experiments
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 Target: `/mnt/d/J2M/worktrees/exhibition-reset`. The user's 2026-09-07 integrated proposal is the product design baseline. This implementation prepares its prerequisite experiments; it does **not** connect CompletedReset to the production reset coordinator/service or declare automatic Steam restart ready for deployment.
 
 Proposed next corrections after the BuildID `25184112` native probe failure and independent re-review: [Steam 재시작 선행 실험 수정안](Participant-Restart-Probe-Correction-Plan.md). This is an unimplemented correction plan; the implementation and validation history below remains historical evidence.

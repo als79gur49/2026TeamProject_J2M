@@ -1,5 +1,8 @@
 # GameOnly 업적 표시 비교 구현
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 > **진행 방향 및 실제 결과 갱신 — 2026-09-09:** [진행 방향 정정](Achievement-Overlay-Refresh-Direction-Correction.md)이 후속 검토의 기준이다. Build25209388의 실제 run `4956de62dc69455fbf670e627feb9c7c`은 SDK 5개 미획득·로컬 초기화·Ready 이후에도 사용자 Overlay 보고에 대상 획득 표시가 남았다. 이는 과거 현상의 재현이며 새 해결책의 검증이 아니다. 아래 미실행 표기는 각 구현/후보 준비 시점의 이력으로 읽고, GameOnly reset 시험을 다시 시작하는 지시로 사용하지 않는다.
 
 2026-09-09. `Achievement-Overlay-Refresh-Next-Trial-Plan.md`의 제한된 후속 시험을 기존 reset trial에 구현한다. 이 문서는 구현·검증 상태이며 업로드, branch 변경, 설치, 실제 초기화 승인이 아니다.

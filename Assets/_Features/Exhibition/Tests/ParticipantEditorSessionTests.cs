@@ -73,8 +73,6 @@ namespace Game.Exhibition.Tests
             Assert.That(native.Callbacks, Is.GreaterThan(0));
             yield return new ExitPlayMode();
             Assert.That(native.Shutdowns, Is.EqualTo(1));
-            Assert.That(native.Disposals, Is.Zero,
-                "The main runtime no longer registers retired overlay diagnostics callbacks.");
             var callbacks = native.Callbacks;
             yield return new EnterPlayMode(false);
             Assert.That(cache.GetValue(null), Is.Null, "Previous Play session production cache must not survive.");
@@ -89,7 +87,7 @@ namespace Game.Exhibition.Tests
 
         private sealed class CountingNative : ISteamNativeApi
         {
-            public int Initializations, Callbacks, Shutdowns, Disposals;
+            public int Initializations, Callbacks, Shutdowns;
             public bool IsPacksizeCompatible() => true;
             public bool Initialize() { Initializations++; return true; }
             public void RunCallbacks() { Callbacks++; }
@@ -97,9 +95,6 @@ namespace Game.Exhibition.Tests
             public uint GetAppId() => 480;
             public bool IsSteamIdValid() => true;
             public bool IsLoggedOn() => true;
-            public bool IsOverlayEnabled() => false;
-            public void RegisterOverlayActivationCallback(Action<bool> observer) { }
-            public void DisposeOverlayActivationCallback() { Disposals++; }
         }
     }
 }

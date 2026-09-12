@@ -15,6 +15,18 @@ MonoBehaviour:
   m_TableCollectionName: UI
   m_TableCollectionNameGuidString: 1139bb803b655c2488dd6dca46c97cf5
   m_Entries:
+  - m_Id: 790000000008
+    m_Key: "ui.main_menu.participant_reset.legacy.body"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000009
+    m_Key: "ui.main_menu.participant_reset.legacy.action"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 790000000010
+    m_Key: "ui.main_menu.participant_reset.legacy.confirm.body"
+    m_Metadata:
+      m_Items: []
   - m_Id: 790000000000
     m_Key: ui.main_menu.participant_reset.title
     m_Metadata:

@@ -1,5 +1,8 @@
 # Overlay v3 runtime-1
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 `observation-v3-runtime-1` connects the compiled observation-only startup to the canonical platform host, a read-only Steam runtime, and the Windows helper. This is an implementation description, not evidence of a successful Steam refresh.
 
 ## Composition

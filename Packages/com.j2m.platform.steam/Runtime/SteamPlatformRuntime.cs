@@ -4,20 +4,19 @@ using Game.Platform.Steam.ProductAchievements;
 
 namespace Game.Platform.Steam
 {
-    public sealed class SteamPlatformRuntime : IPlatformRuntime, ISteamObservationAchievementsReader
+    public sealed class SteamPlatformRuntime : IPlatformRuntime
     {
         private const string NotInitializedDetail = "Steam provider has not been initialized.";
 
         private readonly ISteamNativeApi nativeApi;
         private readonly ISteamAchievementApi achievementApi;
-        private readonly ISteamProductAchievementPublicationFeature
-            productAchievementPublicationFeature;
-
-        private int ownerThread;
         private bool maintenanceOwned;
         private SteamAchievementMaintenanceLease maintenanceLease;
         private bool maintenanceFailed;
         private bool publicationStarted;
+
+        private readonly ISteamProductAchievementPublicationFeature
+            productAchievementPublicationFeature;
 
         private SteamPlatformRuntimeState state = SteamPlatformRuntimeState.NotInitialized;
         private SteamPlatformAvailability steamAvailability =
@@ -30,8 +29,6 @@ namespace Game.Platform.Steam
         private bool initializationSucceeded;
         private bool nativeInitialized;
         private bool shutdownAttempted;
-        private int shutdownCallCount;
-        private bool shutdownReturned;
         private uint observedAppId;
         private bool steamIdentityValid;
         private bool loggedOn;
@@ -58,21 +55,6 @@ namespace Game.Platform.Steam
                 new SteamProductAchievementPublicationFeature(dependencies, monotonicSeconds);
         }
 
-        internal SteamPlatformRuntime(
-            SteamRuntimeDependencies dependencies,
-            bool smokeRequested,
-            bool achievementSmokeRequested,
-            Func<double> monotonicSeconds,
-            Action<string> smokeLogger)
-            : this(dependencies, monotonicSeconds)
-        {
-            if (smokeRequested || achievementSmokeRequested)
-            {
-                throw new NotSupportedException(
-                    "Steam smoke instrumentation has been retired.");
-            }
-        }
-
         public static PlatformProviderId ProviderId { get; } = new PlatformProviderId("steam");
 
         PlatformProviderId IPlatformRuntime.ProviderId => ProviderId;
@@ -90,9 +72,7 @@ namespace Game.Platform.Steam
             steamIdentityValid,
             loggedOn,
             lastFailureReason,
-            lastExceptionType,
-            shutdownCallCount,
-            shutdownReturned);
+            lastExceptionType);
 
         public PlatformInitializationResult Initialize()
         {
@@ -107,8 +87,6 @@ namespace Game.Platform.Steam
                 return initializationResult;
             }
 
-            SteamOverlayObservationAccess.Starting(this);
-            ownerThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
             initializationAttempted = true;
             state = SteamPlatformRuntimeState.Initializing;
 
@@ -161,11 +139,8 @@ namespace Game.Platform.Steam
                 steamAvailability = SteamPlatformAvailability.Available();
                 initializationResult = PlatformInitializationResult.Success;
                 SteamAchievementMaintenanceAccess.Register(this);
-                if (!SteamOverlayObservationAccess.Requested &&
-                    !SteamAchievementMaintenanceAccess.IsDeferred)
-                {
+                if (!SteamAchievementMaintenanceAccess.IsDeferred)
                     StartDeferredPublication(refreshIdentity: false);
-                }
                 return initializationResult;
             }
             catch (Exception exception)
@@ -179,11 +154,6 @@ namespace Game.Platform.Steam
 
         public void Tick()
         {
-            if (SteamOverlayObservationAccess.ValidatedOwner)
-            {
-                SteamOverlayObservationAccess.RequireMainThread();
-            }
-
             if (state != SteamPlatformRuntimeState.Available ||
                 !nativeInitialized ||
                 shutdownAttempted)
@@ -194,11 +164,7 @@ namespace Game.Platform.Steam
             try
             {
                 nativeApi.RunCallbacks();
-                if (!SteamOverlayObservationAccess.Requested &&
-                    !SteamAchievementMaintenanceAccess.ResetTrial)
-                {
-                    productAchievementPublicationFeature.Tick();
-                }
+                productAchievementPublicationFeature.Tick();
             }
             catch (Exception exception)
             {
@@ -207,121 +173,42 @@ namespace Game.Platform.Steam
                     SteamPlatformFailureReason.CallbackException,
                     FormatException(exception),
                     exception);
-                if (!SteamOverlayObservationAccess.Requested)
-                {
-                    productAchievementPublicationFeature.OnRuntimeFaulted();
-                }
-            }
-        }
-
-        public SteamObservationAchievement ReadAchievement(string target)
-        {
-            RequireObservationThread();
-            if (achievementApi == null || string.IsNullOrWhiteSpace(target))
-            {
-                throw new InvalidOperationException(
-                    "Observation achievement getter unavailable.");
-            }
-
-            bool achieved;
-            var succeeded = achievementApi.GetAchievement(target, out achieved);
-            return new SteamObservationAchievement
-            {
-                Target = target,
-                ReadSucceeded = succeeded,
-                Achieved = succeeded ? (bool?)achieved : null,
-            };
-        }
-
-        public SteamObservationIdentity ReadObservationIdentity()
-        {
-            RequireObservationThread();
-            if (!(nativeApi is ISteamObservationIdentityApi identity))
-            {
-                throw new InvalidOperationException("Native identity getter unavailable.");
-            }
-
-            return new SteamObservationIdentity
-            {
-                AppId = nativeApi.GetAppId(),
-                SteamId = identity.GetSteamId(),
-                Valid = nativeApi.IsSteamIdValid(),
-                LoggedOn = nativeApi.IsLoggedOn(),
-            };
-        }
-
-        private void RequireObservationThread()
-        {
-            if (!SteamOverlayObservationAccess.Requested ||
-                !MaintenanceAvailable ||
-                ownerThread != System.Threading.Thread.CurrentThread.ManagedThreadId)
-            {
-                throw new InvalidOperationException(
-                    "Read-only observation requires the available runtime owner thread.");
+                productAchievementPublicationFeature.OnRuntimeFaulted();
             }
         }
 
         internal bool MaintenanceAvailable =>
-            state == SteamPlatformRuntimeState.Available &&
-            nativeInitialized &&
-            !shutdownAttempted;
+            state == SteamPlatformRuntimeState.Available && nativeInitialized && !shutdownAttempted;
 
         internal SteamAchievementMaintenanceLease AcquireMaintenance(
             Action<SteamStatsStoredObservation> stats,
             Action<SteamAchievementStoredObservation> achievements)
         {
-            SteamOverlayObservationAccess.RequireWritesAllowed();
-            if (!MaintenanceAvailable || publicationStarted || maintenanceOwned ||
-                maintenanceFailed || achievementApi == null)
-            {
-                throw new InvalidOperationException(
-                    "Steam achievement maintenance is unavailable.");
-            }
-
+            if (!MaintenanceAvailable || publicationStarted || maintenanceOwned || maintenanceFailed ||
+                achievementApi == null)
+                throw new InvalidOperationException("Steam achievement maintenance is unavailable.");
             achievementApi.RegisterAchievementStoreCallbacks(stats, achievements);
             maintenanceOwned = true;
-            maintenanceLease = new SteamAchievementMaintenanceLease(
-                achievementApi,
-                failed =>
-                {
-                    try
-                    {
-                        achievementApi.DisposeAchievementStoreCallbacks();
-                    }
-                    catch
-                    {
-                        maintenanceFailed = true;
-                        throw;
-                    }
-                    finally
-                    {
-                        maintenanceOwned = false;
-                        maintenanceFailed |= failed;
-                        maintenanceLease = null;
-                    }
-                });
+            maintenanceLease = new SteamAchievementMaintenanceLease(achievementApi, failed =>
+            {
+                try { achievementApi.DisposeAchievementStoreCallbacks(); }
+                catch { maintenanceFailed = true; throw; }
+                finally { maintenanceOwned = false; maintenanceFailed |= failed; maintenanceLease = null; }
+            });
             return maintenanceLease;
         }
 
         internal bool StartDeferredPublication(bool refreshIdentity = true)
         {
-            if (SteamOverlayObservationAccess.Requested ||
-                SteamAchievementMaintenanceAccess.ResetTrial ||
-                !MaintenanceAvailable || maintenanceOwned || maintenanceFailed)
-            {
-                return false;
-            }
-
+            if (!MaintenanceAvailable || maintenanceOwned || maintenanceFailed) return false;
             if (!publicationStarted)
             {
                 publicationStarted = true;
-                productAchievementPublicationFeature.OnSteamInitialized(
-                    initializationSucceeded: true,
+                productAchievementPublicationFeature.OnSteamInitialized(true,
                     observedAppId,
                     refreshIdentity ? nativeApi.IsSteamIdValid() : steamIdentityValid,
                     refreshIdentity ? nativeApi.IsLoggedOn() : loggedOn);
             }
-
             return productAchievementPublicationFeature.IsAttached;
         }
 
@@ -332,11 +219,6 @@ namespace Game.Platform.Steam
 
         public void Shutdown()
         {
-            if (SteamOverlayObservationAccess.ValidatedOwner)
-            {
-                SteamOverlayObservationAccess.RequireMainThread();
-            }
-
             if (shutdownAttempted)
             {
                 return;
@@ -345,16 +227,10 @@ namespace Game.Platform.Steam
             SteamAchievementMaintenanceAccess.Unregister(this);
             shutdownAttempted = true;
             state = SteamPlatformRuntimeState.ShuttingDown;
-            try
-            {
-                maintenanceLease?.Dispose();
-            }
+            try { maintenanceLease?.Dispose(); }
             catch (Exception exception)
             {
-                SetFailure(
-                    SteamPlatformFailureReason.ShutdownException,
-                    FormatException(exception),
-                    exception);
+                SetFailure(SteamPlatformFailureReason.ShutdownException, FormatException(exception), exception);
             }
             productAchievementPublicationFeature.DisposeBeforeNativeShutdown();
             if (!nativeInitialized)
@@ -365,9 +241,7 @@ namespace Game.Platform.Steam
 
             try
             {
-                shutdownCallCount++;
                 nativeApi.Shutdown();
-                shutdownReturned = true;
                 state = SteamPlatformRuntimeState.Shutdown;
             }
             catch (Exception exception)
@@ -419,7 +293,6 @@ namespace Game.Platform.Steam
                 lastExceptionType = exception.GetType().Name;
             }
         }
-
 
         private void SetFailure(
             SteamPlatformFailureReason failureReason,

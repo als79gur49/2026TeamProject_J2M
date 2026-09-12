@@ -14,15 +14,38 @@ namespace Game.Platform.Steam.Tests.EditMode
         [TestCase(2)]
         [TestCase(3)]
         [TestCase(4)]
-        public void ProductionMapping_MapsExactlyFiveLevelClearsBidirectionally(int level)
+        public void ProductionMapping_MapsLevelClearsBidirectionally(int level)
         {
             var mapping = SteamAchievementMapping.Production;
-            Assert.That(mapping.Entries.Count, Is.EqualTo(5));
+            Assert.That(mapping.Entries.Count, Is.EqualTo(18));
             var id = GameAchievementId.Require($"campaign.level-{level}.clear");
             Assert.That(mapping.TryGetExpectedSteamApiName(id, out var name), Is.True);
             Assert.That(name.Value, Is.EqualTo($"VQ_LEVEL_{level}_CLEAR"));
             Assert.That(mapping.TryGetGameAchievementId(name, out var reverseId), Is.True);
             Assert.That(reverseId, Is.EqualTo(id));
+        }
+
+        [TestCase("0-1", "VQ_STAGE_0_1_EFFICIENT_CLEAR")]
+        [TestCase("0-2", "VQ_STAGE_0_2_EFFICIENT_CLEAR")]
+        [TestCase("0-3", "VQ_STAGE_0_3_EFFICIENT_CLEAR")]
+        [TestCase("1-1", "VQ_STAGE_1_1_EFFICIENT_CLEAR")]
+        [TestCase("1-2", "VQ_STAGE_1_2_EFFICIENT_CLEAR")]
+        [TestCase("2-1", "VQ_STAGE_2_1_EFFICIENT_CLEAR")]
+        [TestCase("2-2", "VQ_STAGE_2_2_EFFICIENT_CLEAR")]
+        [TestCase("3-1", "VQ_STAGE_3_1_EFFICIENT_CLEAR")]
+        [TestCase("3-2", "VQ_STAGE_3_2_EFFICIENT_CLEAR")]
+        [TestCase("3-3", "VQ_STAGE_3_3_EFFICIENT_CLEAR")]
+        [TestCase("4-1", "VQ_STAGE_4_1_EFFICIENT_CLEAR")]
+        [TestCase("4-2", "VQ_STAGE_4_2_EFFICIENT_CLEAR")]
+        [TestCase("4-3", "VQ_STAGE_4_3_EFFICIENT_CLEAR")]
+        public void ProductionMapping_MapsEfficientClearsBidirectionally(string stage, string expected)
+        {
+            var mapping = SteamAchievementMapping.Production;
+            var id = GameAchievementId.Require($"campaign.stage-{stage}.efficient-clear");
+            Assert.That(mapping.TryGetExpectedSteamApiName(id, out var name), Is.True);
+            Assert.That(name.Value, Is.EqualTo(expected));
+            Assert.That(mapping.TryGetGameAchievementId(name, out var reverse), Is.True);
+            Assert.That(reverse, Is.EqualTo(id));
         }
 
         [TestCase(null)]

@@ -223,7 +223,7 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ExpectedProviderId = "local"
                 ExpectedLaunchArguments = @()
                 RequiredArtifacts = @(
-                    "Exhibition-Relaunch.ps1",
+                    "Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs",
                     $script:ThirdPartyNoticesFileName,
                     $script:UnityPlayerThirdPartyNoticesFileName
                 )
@@ -245,11 +245,11 @@ function Resolve-WindowsDistributionTargetPolicy {
                 ExpectedProviderId = "steam"
                 ExpectedLaunchArguments = @("-j2mPlatformProvider", "steam")
                 RequiredArtifacts = @(
-                    "Exhibition-Relaunch.ps1",
+                    "Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs",
                     $script:ThirdPartyNoticesFileName,
                     $script:UnityPlayerThirdPartyNoticesFileName,
                     "steam_api64.dll",
-                    "com.rlabrecque.steamworks.net.dll"
+                    "com.rlabrecque.steamworks.net.dll", "Game.Exhibition.Application.dll", "Game.Exhibition.Integration.dll"
                 )
                 ForbiddenArtifacts = @(
                     "steam_appid.txt",
@@ -564,144 +564,173 @@ function Test-GitState {
     return Test-ApprovedUntrackedPaths -Paths @($Snapshot.Untracked) -AllowedRoots $AllowedRoots
 }
 
+# Canonical local paths only. Reject aliases rather than guessing whether two
+# differently spelled project/Library paths share writable state.
+function Get-ReleaseLocalPath {
+    param([string]$Path)
+    if ($Path -notmatch '^[A-Za-z]:[\\/]') { throw "Unresolved local path: $Path" }
+    $full = [IO.Path]::GetFullPath($Path.Replace('/', '\')).TrimEnd('\')
+    $ancestor = $full
+    while ($ancestor) {
+        if (Test-Path -LiteralPath $ancestor) {
+            $item = Get-Item -LiteralPath $ancestor -Force -ErrorAction Stop
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Reparse path requires isolation: $ancestor"
+            }
+        }
+        $ancestor = [IO.Path]::GetDirectoryName($ancestor)
+    }
+    return $full
+}
+
+function Test-ReleasePathOverlap {
+    param([string]$Left, [string]$Right)
+    return $Left.Equals($Right, [StringComparison]::OrdinalIgnoreCase) -or
+        $Left.StartsWith($Right.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) -or
+        $Right.StartsWith($Left.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Split-ReleaseProcessCommand {
+    param([string]$Command)
+    if ([string]::IsNullOrWhiteSpace($Command)) { throw 'Missing process command line.' }
+    if (-not ('J2M.ReleaseCommandLine' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace J2M {
+    public static class ReleaseCommandLine {
+        [DllImport("shell32.dll", SetLastError=true)]
+        static extern IntPtr CommandLineToArgvW([MarshalAs(UnmanagedType.LPWStr)] string command, out int count);
+        [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr memory);
+        public static string[] Split(string command) {
+            int count; IntPtr memory = CommandLineToArgvW(command, out count);
+            if (memory == IntPtr.Zero) throw new InvalidOperationException("Command line parsing failed.");
+            try {
+                string[] result = new string[count];
+                for (int i = 0; i < count; i++) result[i] = Marshal.PtrToStringUni(Marshal.ReadIntPtr(memory, i * IntPtr.Size));
+                return result;
+            } finally { LocalFree(memory); }
+        }
+    }
+}
+'@
+    }
+    # Synthetic test commands may begin with a switch; real commands include exe.
+    return [J2M.ReleaseCommandLine]::Split('process.exe ' + $Command)
+}
+
+function Get-ReleaseUnityProject {
+    param([string[]]$Arguments)
+    $values = @()
+    for ($i = 0; $i -lt $Arguments.Count; $i++) {
+        if ($Arguments[$i] -ieq '-projectPath') {
+            if ($i + 1 -ge $Arguments.Count) { throw 'Missing project path.' }
+            $values += $Arguments[++$i]
+        }
+    }
+    if ($values.Count -ne 1) { throw 'Expected exactly one project path.' }
+    $project = Get-ReleaseLocalPath $values[0]
+    $null = Get-ReleaseLocalPath (Join-Path $project 'Library')
+    $null = Get-ReleaseLocalPath (Join-Path $project 'Temp')
+    return $project
+}
+
+function Open-ReleaseLease {
+    param([string]$Path)
+    $canonical = Get-ReleaseLocalPath $Path
+    New-Item -ItemType Directory -Path (Split-Path $canonical -Parent) -Force | Out-Null
+    return [IO.File]::Open($canonical, [IO.FileMode]::OpenOrCreate,
+        [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+}
+
 function Test-ReleaseProcessGate {
-    param(
-        [object[]]$Processes,
-        [string[]]$RepositoryFamilyPaths,
-        [Nullable[int]]$AllowedUnityPid = $null
-    )
+    param([object[]]$Processes, [string[]]$ProtectedProjectPaths,
+        [Nullable[int]]$AllowedUnityPid = $null, [string[]]$ProtectedOutputPaths = @())
     return (Get-ReleaseProcessGateResult -Processes $Processes `
-        -RepositoryFamilyPaths $RepositoryFamilyPaths `
-        -AllowedUnityPid $AllowedUnityPid).Allowed
+        -ProtectedProjectPaths $ProtectedProjectPaths -AllowedUnityPid $AllowedUnityPid `
+        -ProtectedOutputPaths $ProtectedOutputPaths).Allowed
 }
 
 function Get-ReleaseProcessGateResult {
-    param(
-        [object[]]$Processes,
-        [string[]]$RepositoryFamilyPaths,
-        [Nullable[int]]$AllowedUnityPid = $null
-    )
+    param([object[]]$Processes, [string[]]$ProtectedProjectPaths,
+        [Nullable[int]]$AllowedUnityPid = $null, [string[]]$ProtectedOutputPaths = @())
+    $projects = @($ProtectedProjectPaths | ForEach-Object { Get-ReleaseLocalPath $_ })
+    foreach ($project in $projects) {
+        $null = Get-ReleaseLocalPath (Join-Path $project 'Library')
+        $null = Get-ReleaseLocalPath (Join-Path $project 'Temp')
+    }
+    $outputs = @($ProtectedOutputPaths | ForEach-Object { Get-ReleaseLocalPath $_ })
     $byId = @{}
+    $unityAccepted = @{}
     foreach ($process in @($Processes)) { $byId[[int]$process.ProcessId] = $process }
-    $rejected = @()
-    $accepted = @()
-    foreach ($process in @($Processes)) {
-        $name = [string]$process.Name
-        if ($name -ieq "VectorQuake.exe") {
-            $rejected += [pscustomobject][ordered]@{
-                processId = [int]$process.ProcessId
-                parentProcessId = [int]$process.ParentProcessId
-                name = $name
-                commandLine = [string]$process.CommandLine
-                reason = "VectorQuakePlayerRunning"
-            }
-            continue
-        }
-        if ($name -ieq "Unity.exe") {
-            if ($null -ne $AllowedUnityPid -and
-                [int]$process.ProcessId -eq [int]$AllowedUnityPid) {
-                $accepted += [pscustomobject][ordered]@{
-                    processId = [int]$process.ProcessId
-                    parentProcessId = [int]$process.ParentProcessId
-                    name = $name
-                    commandLine = [string]$process.CommandLine
-                    attribution = "AllowedBuildUnity"
-                }
-                continue
-            }
-            $command = [string]$process.CommandLine
-            $attributed = $false
-            foreach ($familyPath in @($RepositoryFamilyPaths)) {
-                if ($command.IndexOf($familyPath, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                    $attributed = $true
-                    break
-                }
-            }
-            # Repository-family and unattributed Unity are both fail-closed.
-            $reason = if ($attributed) {
-                "RepositoryFamilyUnity"
-            } elseif ([string]::IsNullOrWhiteSpace($command)) {
-                "UnattributedUnity"
-            } else {
-                "UnexpectedUnity"
-            }
-            $rejected += [pscustomobject][ordered]@{
-                processId = [int]$process.ProcessId
-                parentProcessId = [int]$process.ParentProcessId
-                name = $name
-                commandLine = $command
-                reason = $reason
-            }
-            continue
-        }
-        if ($name -ieq "UnityCrashHandler64.exe") {
-            $parentId = [int]$process.ParentProcessId
-            if (-not $byId.ContainsKey($parentId)) {
-                $rejected += [pscustomobject][ordered]@{
-                    processId = [int]$process.ProcessId
-                    parentProcessId = $parentId
-                    name = $name
-                    commandLine = [string]$process.CommandLine
-                    reason = "CrashHandlerParentMissing"
-                }
-                continue
-            }
-            $parent = $byId[$parentId]
-            if ([string]$parent.Name -ieq "Unity.exe") {
-                if ($null -ne $AllowedUnityPid -and
-                    $parentId -eq [int]$AllowedUnityPid) {
-                    # Unity's own CrashHandler is an expected direct child of the
-                    # one explicitly allowed build process.
-                    $accepted += [pscustomobject][ordered]@{
-                        processId = [int]$process.ProcessId
-                        parentProcessId = $parentId
-                        name = $name
-                        commandLine = [string]$process.CommandLine
-                        attribution = "AllowedBuildCrashHandler"
-                    }
-                    continue
-                }
-                $parentCommand = [string]$parent.CommandLine
-                foreach ($familyPath in @($RepositoryFamilyPaths)) {
-                    if ($parentCommand.IndexOf(
-                            $familyPath, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                        $rejected += [pscustomobject][ordered]@{
-                            processId = [int]$process.ProcessId
-                            parentProcessId = $parentId
-                            name = $name
-                            commandLine = [string]$process.CommandLine
-                            parentName = [string]$parent.Name
-                            parentCommandLine = $parentCommand
-                            reason = "RepositoryFamilyCrashHandler"
-                        }
+    $rejected = @(); $accepted = @()
+    foreach ($process in @($Processes | Where-Object { $_.Name -ieq 'Unity.exe' -or $_.Name -ieq 'VectorQuake.exe' })) {
+        $reason = $null; $attribution = $null
+        if ($process.Name -ieq 'VectorQuake.exe') { $reason = 'VectorQuakePlayerRunning' }
+        elseif ($null -ne $AllowedUnityPid -and [int]$process.ProcessId -eq [int]$AllowedUnityPid) {
+            $attribution = 'AllowedBuildUnity'
+        } else {
+            try {
+                $arguments = @(Split-ReleaseProcessCommand ([string]$process.CommandLine))
+                $project = Get-ReleaseUnityProject $arguments
+                # Only descendants of this build, using its project, are owned workers.
+                $parentId = [int]$process.ParentProcessId; $seen = @{}; $owned = $false
+                while ($byId.ContainsKey($parentId) -and -not $seen.ContainsKey($parentId)) {
+                    $seen[$parentId] = $true
+                    if ($null -ne $AllowedUnityPid -and $parentId -eq [int]$AllowedUnityPid) {
+                        $ownerProject = Get-ReleaseUnityProject @(Split-ReleaseProcessCommand ([string]$byId[$parentId].CommandLine))
+                        $owned = $project.Equals($ownerProject, [StringComparison]::OrdinalIgnoreCase)
                         break
                     }
+                    $parentId = [int]$byId[$parentId].ParentProcessId
                 }
-            } elseif ([string]::IsNullOrWhiteSpace([string]$parent.Name)) {
-                $rejected += [pscustomobject][ordered]@{
-                    processId = [int]$process.ProcessId
-                    parentProcessId = $parentId
-                    name = $name
-                    commandLine = [string]$process.CommandLine
-                    reason = "CrashHandlerParentUnattributed"
+                if ($owned) { $attribution = 'AllowedBuildWorker' }
+                else {
+                    foreach ($protected in $projects) {
+                        if (Test-ReleasePathOverlap $project $protected) { $reason = 'ProtectedProjectUnity'; break }
+                    }
+                    if (-not $reason) {
+                        for ($i = 0; $i -lt $arguments.Count; $i++) {
+                            if ($arguments[$i] -in @('-releaseOutputPath', '-captureBuildPath',
+                                '-buildWindowsPlayer', '-buildWindows64Player', '-buildLinux64Player', '-buildOSXUniversalPlayer')) {
+                                if ($i + 1 -ge $arguments.Count) { throw 'Missing build output path.' }
+                                $null = Get-ReleaseLocalPath $arguments[$i + 1]
+                            }
+                        }
+                        # Inspect explicit paths, including build outputs, logs and test results.
+                        foreach ($argument in $arguments) {
+                            if ($argument -match '^[A-Za-z]:[\\/]') {
+                                $path = Get-ReleaseLocalPath $argument
+                                foreach ($protected in @($projects + $outputs)) {
+                                    if (Test-ReleasePathOverlap $path $protected) { $reason = 'ProtectedPathUnity'; break }
+                                }
+                            }
+                            if ($reason) { break }
+                        }
+                    }
+                    if (-not $reason) { $attribution = 'IsolatedProjectUnity' }
                 }
-            } else {
-                $accepted += [pscustomobject][ordered]@{
-                    processId = [int]$process.ProcessId
-                    parentProcessId = $parentId
-                    name = $name
-                    commandLine = [string]$process.CommandLine
-                    parentName = [string]$parent.Name
-                    attribution = "ClearlyAttributedOtherProduct"
-                }
-            }
+            } catch { $reason = 'UnresolvedUnityIsolation' }
         }
+        $entry = [ordered]@{ processId = [int]$process.ProcessId; parentProcessId = [int]$process.ParentProcessId
+            name = [string]$process.Name; commandLine = [string]$process.CommandLine }
+        if ($reason) { $entry.reason = $reason; $rejected += [pscustomobject]$entry }
+        else { $entry.attribution = $attribution; $accepted += [pscustomobject]$entry; $unityAccepted[[int]$process.ProcessId] = $true }
     }
-    return [pscustomobject]@{
-        Allowed = $rejected.Count -eq 0
-        AcceptedProcesses = @($accepted)
-        RejectedProcesses = @($rejected)
+    foreach ($process in @($Processes | Where-Object { $_.Name -ieq 'UnityCrashHandler64.exe' })) {
+        $parentId = [int]$process.ParentProcessId; $reason = $null; $attribution = $null
+        if (-not $byId.ContainsKey($parentId)) { $reason = 'CrashHandlerParentMissing' }
+        elseif ($byId[$parentId].Name -ieq 'Unity.exe') {
+            if ($unityAccepted.ContainsKey($parentId)) { $attribution = 'AcceptedUnityCrashHandler' }
+            else { $reason = 'RejectedUnityCrashHandler' }
+        } elseif ([string]::IsNullOrWhiteSpace([string]$byId[$parentId].Name)) { $reason = 'CrashHandlerParentUnattributed' }
+        else { $attribution = 'ClearlyAttributedOtherProduct' }
+        $entry = [ordered]@{ processId = [int]$process.ProcessId; parentProcessId = $parentId
+            name = [string]$process.Name; commandLine = [string]$process.CommandLine }
+        if ($reason) { $entry.reason = $reason; $rejected += [pscustomobject]$entry }
+        else { $entry.attribution = $attribution; $accepted += [pscustomobject]$entry }
     }
+    return [pscustomobject]@{ Allowed = $rejected.Count -eq 0; AcceptedProcesses = @($accepted); RejectedProcesses = @($rejected) }
 }
 
 function Write-ProcessGateDiagnostics {
@@ -2329,8 +2358,13 @@ function Test-SuccessControl {
 
 function Test-SnapshotEquality {
     param([Parameter(Mandatory)]$Before, [Parameter(Mandatory)]$After)
-    return (ConvertTo-Json $Before -Depth 8 -Compress) -ceq
-        (ConvertTo-Json $After -Depth 8 -Compress)
+    $left = [ordered]@{}; $right = [ordered]@{}
+    $beforeKeys = if ($Before -is [Collections.IDictionary]) { @($Before.Keys) } else { @($Before.PSObject.Properties.Name) }
+    $afterKeys = if ($After -is [Collections.IDictionary]) { @($After.Keys) } else { @($After.PSObject.Properties.Name) }
+    foreach ($key in @($beforeKeys | Sort-Object)) { if ($key -notin @('originMain', 'ahead', 'behind')) { $left[$key] = $Before.$key } }
+    foreach ($key in @($afterKeys | Sort-Object)) { if ($key -notin @('originMain', 'ahead', 'behind')) { $right[$key] = $After.$key } }
+    return (ConvertTo-Json $left -Depth 8 -Compress) -ceq
+        (ConvertTo-Json $right -Depth 8 -Compress)
 }
 
 function Assert-OutputPlan {
@@ -2607,16 +2641,6 @@ function Remove-EstablishedAddressablesResidue {
     }
 }
 
-function Get-RepositoryFamilyPaths {
-    param([string]$Root)
-    $lines = @(Invoke-GitPathList -Root $Root `
-        -Arguments @("worktree", "list", "--porcelain"))
-    return @($lines | Where-Object { $_ -like "worktree *" } |
-        ForEach-Object {
-            Convert-GitWorktreePathToWindows -Path $_.Substring(9)
-        })
-}
-
 function Write-FailureEvidence {
     param([string]$Path, [string]$Stage, [int]$ExitCode, [string]$SourceSha,
         [string]$RunId, [string]$PrivateLogPath, [string]$PrivateDiagnosticsPath = "",
@@ -2710,6 +2734,7 @@ function Invoke-WindowsReleasePipeline {
     $wrapperLog = ""
     $unityExitCode = $null
     $buildEvidenceReason = ""
+    $leases = @()
     $exitCode = $script:ReleaseExitCodes.WrapperInternalError
     try {
         $backendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
@@ -2768,27 +2793,30 @@ function Invoke-WindowsReleasePipeline {
             } else { $script:ReleaseExitCodes.UnknownUntrackedFailure }
             throw "Invocation worktree clean gate failed."
         }
-        $family = Get-RepositoryFamilyPaths -Root $RepositoryRoot
+        $buildSourcePlan = Resolve-BuildSourcePlan -BuildSourceRoot $BuildSourceRoot `
+            -PreparedBuildSourceRoot $PreparedBuildSourceRoot -SourceSha $sourceSha -RunId $RunId
+        $detached = [string]$buildSourcePlan.Path
+        $protectedProjects = @($RepositoryRoot, $detached | Select-Object -Unique)
+        $protectedOutputs = @($OutputRoot)
         # Keep the complete snapshot so CrashHandler parent attribution is possible.
         $processes = @(Get-CimInstance Win32_Process)
-        $preflightProcessGate = Get-ReleaseProcessGateResult `
-            -Processes $processes -RepositoryFamilyPaths $family
+        try {
+            $preflightProcessGate = Get-ReleaseProcessGateResult `
+                -Processes $processes -ProtectedProjectPaths $protectedProjects -ProtectedOutputPaths $protectedOutputs
+        } catch {
+            $exitCode = $script:ReleaseExitCodes.ProcessGateFailure
+            throw
+        }
         Write-ProcessGateDiagnostics -Path $processDiagnosticsPath -Phase "preflight" `
             -GateResult $preflightProcessGate
         if (-not $preflightProcessGate.Allowed) {
             $exitCode = $script:ReleaseExitCodes.ProcessGateFailure
-            throw "Repository process gate failed."
+            throw "Release isolation process gate failed."
         }
 
         $staging = Join-Path $parent ".staging-$RunId"
         $final = Join-Path $parent $RunId
         $failed = Join-Path (Join-Path $parent "failed") $RunId
-        $buildSourcePlan = Resolve-BuildSourcePlan `
-            -BuildSourceRoot $BuildSourceRoot `
-            -PreparedBuildSourceRoot $PreparedBuildSourceRoot `
-            -SourceSha $sourceSha `
-            -RunId $RunId
-        $detached = [string]$buildSourcePlan.Path
         if (-not (Test-BuildSourcePathBudget $detached)) {
             $exitCode = $script:ReleaseExitCodes.BuildSourcePathBudgetFailure
             throw "Detached source path exceeds the URP importer path budget."
@@ -2818,6 +2846,15 @@ function Invoke-WindowsReleasePipeline {
         } elseif (-not (Test-Path -LiteralPath $detached -PathType Container)) {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Prepared detached source does not exist."
+        }
+        try {
+            foreach ($project in $protectedProjects) {
+                $leases += Open-ReleaseLease (Join-Path $project 'Library\.j2m-release.lock')
+            }
+            $leases += Open-ReleaseLease (Join-Path $OutputRoot '.j2m-release-output.lock')
+        } catch {
+            $exitCode = $script:ReleaseExitCodes.ProcessGateFailure
+            throw "Release project/output already in use or not isolated: $($_.Exception.Message)"
         }
         $buildPre = Get-GitSnapshot -Root $detached -CanaryPaths $canaries -Detached
         Write-PrivateJson (Join-Path $privateRoot "build-source-pre.json") $buildPre
@@ -2909,7 +2946,7 @@ function Invoke-WindowsReleasePipeline {
         $unityProcess = Start-Process -FilePath $UnityExe -ArgumentList $unityArguments -PassThru
         $processesAfterStart = @(Get-CimInstance Win32_Process)
         $postStartProcessGate = Get-ReleaseProcessGateResult `
-            -Processes $processesAfterStart -RepositoryFamilyPaths $family `
+            -Processes $processesAfterStart -ProtectedProjectPaths $protectedProjects -ProtectedOutputPaths $protectedOutputs `
             -AllowedUnityPid $unityProcess.Id
         $processDiagnosticsPath = Join-Path $privateRoot "process-poststart.json"
         Write-ProcessGateDiagnostics -Path $processDiagnosticsPath -Phase "post-unity-start" `
@@ -2923,7 +2960,7 @@ function Invoke-WindowsReleasePipeline {
         $unityExitCode = [int]$unityProcess.ExitCode
         Write-WrapperLog $wrapperLog "unity" "Unity exited with code $unityExitCode."
         $postBuildProcessGate = Get-ReleaseProcessGateResult `
-            -Processes @(Get-CimInstance Win32_Process) -RepositoryFamilyPaths $family
+            -Processes @(Get-CimInstance Win32_Process) -ProtectedProjectPaths $protectedProjects -ProtectedOutputPaths $protectedOutputs
         $processDiagnosticsPath = Join-Path $privateRoot "process-postbuild.json"
         Write-ProcessGateDiagnostics -Path $processDiagnosticsPath -Phase "post-build" `
             -GateResult $postBuildProcessGate
@@ -3147,6 +3184,9 @@ function Invoke-WindowsReleasePipeline {
             }
         }
         return $exitCode
+    }
+    finally {
+        foreach ($lease in $leases) { $lease.Dispose() }
     }
 }
 

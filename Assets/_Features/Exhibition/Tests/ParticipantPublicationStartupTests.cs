@@ -17,7 +17,7 @@ namespace Game.Exhibition.Tests
 {
     // Production startup latch, native lifecycle, publication registration and earned-ledger
     // reconciliation are real. Only native SDK calls and the local document store are fakes.
-    public sealed class ResetOverlayStartupTests
+    public sealed class ParticipantPublicationStartupTests
     {
         private SteamPlatformRuntime runtime;
         private ProductAchievementCoordinator coordinator;
@@ -40,8 +40,6 @@ namespace Game.Exhibition.Tests
             ProductAchievementPublicationSessionHandoff.ClearController(controller);
             controller?.Dispose();
             coordinator?.Dispose();
-            foreach (var panel in Resources.FindObjectsOfTypeAll<ResetOverlayTrialPresentation>())
-                UnityEngine.Object.DestroyImmediate(panel.gameObject);
             ParticipantResetMenuAccess.Register(null);
             ResetStatics();
         }
@@ -52,7 +50,6 @@ namespace Game.Exhibition.Tests
             InvokeReset(typeof(SteamAchievementMaintenanceAccess), "Reset");
             InvokeReset(typeof(ProductAchievementStartupControl), "Reset");
             InvokeReset(typeof(CampaignSaveCompositionProvider), "ResetProductionSession");
-            InvokeReset(typeof(SteamOverlayObservationAccess), "Reset");
             InvokeReset(typeof(Game.Platform.Runtime.PlatformRuntimeRegistry), "ResetForSubsystemRegistration");
         }
 
@@ -64,9 +61,7 @@ namespace Game.Exhibition.Tests
         public void OrdinaryStartupReproducesEarnedLedgerPublication(bool pending)
         {
             var args = new[] { "game", "-j2mPlatformProvider", "steam" };
-            ResetOverlayTrialOptions selected = null;
-            ExhibitionApplication.InspectStartup(args, true, options => selected = options);
-            Assert.That(selected, Is.Null);
+            ExhibitionApplication.InspectProcessStartup(args, false, () => { });
             AssertAutomaticBootstrapCalls(expectedStart: 1, expectedReconcile: 1);
             StartPublicationComposition(pending);
             Assert.That(achievements.SetCount, Is.EqualTo(1));
@@ -75,85 +70,11 @@ namespace Game.Exhibition.Tests
             Assert.That(ProductAchievementStartupControl.IsDeferred, Is.False);
         }
 
-        private static IEnumerable TrialArguments()
-        {
-            yield return new TestCaseData((object)InitialArgs()).SetName("InitiatorDefersBeforeComposition");
-            yield return new TestCaseData((object)new[] { "game", "-j2mResetOverlayTrial" }).SetName("MissingTrialValueDefersBeforeComposition");
-            yield return new TestCaseData((object)new[] { "game", "-j2mResetOverlayTrial", "config", "-j2mResetOverlayTrial", "duplicate" }).SetName("DuplicateTrialDefersBeforeComposition");
-            yield return new TestCaseData((object)new[] { "game", "-j2mResetOverlayTrial", "config", "-j2mRestartExperiment", "FullCycle" }).SetName("MixedTrialDefersBeforeComposition");
-            yield return new TestCaseData((object)new[] { "game", "-j2mResetOverlayPhase", "wrong" }).SetName("InvalidRoleDefersBeforeComposition");
-            foreach (var role in new[] { "ResetWorker", "FinalObserver" })
-                yield return new TestCaseData((object)new[] { "game", "-j2mResetOverlayContext", "context", "-j2mResetOverlayPhase", role,
-                    "-j2mRestartObservation", "request", "-j2mPlatformProvider", "steam" }).SetName(role + "DefersBeforeComposition");
-        }
-
-        [TestCaseSource(nameof(TrialArguments))]
-        public void TrialArguments_BlockProductionPublisherEvenWithRegisteredEarnedController(string[] args)
-        {
-            bool deferredInsideCompose = false;
-            ResetOverlayTrialOptions selected = null;
-            ExhibitionApplication.InspectStartup(args, true, options =>
-            {
-                selected = options;
-                deferredInsideCompose = AllDeferred();
-            });
-            if (ResetOverlayTrialOptions.Parse(args, true).Error == null)
-            {
-                Assert.That(selected, Is.Not.Null);
-                Assert.That(deferredInsideCompose, Is.True, "Deferral must precede journal/config constructors.");
-            }
-            else
-            {
-                Assert.That(selected, Is.Null);
-                Assert.That(ParticipantResetMenuAccess.Current, Is.TypeOf<ResetOverlayTrial>());
-                Assert.That(((ResetOverlayTrial)ParticipantResetMenuAccess.Current).Stage, Is.EqualTo(ResetOverlayStage.Failed));
-            }
-            StartPublicationComposition(true);
-            AssertDeferredAndNativeReadOnly();
-        }
-
-        [TestCase("config")]
-        [TestCase("journal")]
-        [TestCase("constructor")]
-        [TestCase("diagnostics")]
-        public void CompositionFailureBeforeRuntimeRegistration_CannotReenablePublication(string failure)
-        {
-            bool deferredAtFailure = false;
-            ExhibitionApplication.InspectStartup(InitialArgs(), true, _ =>
-            {
-                deferredAtFailure = AllDeferred();
-                // Inject at the real pre-runtime composition boundary, not in a fake trial runtime.
-                throw new IOException(failure + " failed before native registration");
-            });
-            Assert.That(deferredAtFailure, Is.True);
-            Assert.That(ParticipantResetMenuAccess.Current, Is.TypeOf<ResetOverlayTrial>());
-            var failed = (ResetOverlayTrial)ParticipantResetMenuAccess.Current;
-            Assert.That(failed.Stage, Is.EqualTo(ResetOverlayStage.Failed));
-            Assert.That(failed.Error, Does.Contain(failure));
-            StartPublicationComposition(true);
-            AssertDeferredAndNativeReadOnly();
-        }
-
-        [Test]
-        public void LateTrialInspection_RejectsAlreadyStartedRuntimeInsteadOfClaimingBaselineWasProtected()
-        {
-            StartPublicationComposition(true);
-            Assert.That(achievements.SetCount, Is.EqualTo(1));
-            bool composed = false;
-            ExhibitionApplication.InspectStartup(InitialArgs(), true, _ => composed = true);
-            Assert.That(composed, Is.False);
-            Assert.That(ParticipantResetMenuAccess.Current, Is.TypeOf<ResetOverlayTrial>());
-            Assert.That(((ResetOverlayTrial)ParticipantResetMenuAccess.Current).Stage, Is.EqualTo(ResetOverlayStage.StartupAlreadyStarted));
-            Assert.That(((ResetOverlayTrial)ParticipantResetMenuAccess.Current).Error, Does.Contain("StartupAlreadyStarted"));
-            runtime.Tick();
-            Assert.That(achievements.SetCount, Is.EqualTo(1));
-        }
-
         [Test]
         public void BatchModeSuppressesAutomaticCampaignReconciliationInOrdinaryStartup()
         {
             int starts = 0, reconciliations = 0;
-            ExhibitionApplication.InspectStartup(new[] { "game" }, true, _ => { });
+            ExhibitionApplication.InspectProcessStartup(new[] { "game" }, true, () => Assert.Fail("Batch participant composition"));
             ProductAchievementRuntimeBootstrap.RunAutomaticStart(() => starts++);
             ProductAchievementRuntimeBootstrap.RunAutomaticReconciliation(true, () => reconciliations++);
             Assert.That(starts, Is.EqualTo(1));
@@ -161,29 +82,7 @@ namespace Game.Exhibition.Tests
         }
 
         [Test]
-        public void TrialCannotReleaseServicesOrProductionCampaignAccess()
-        {
-            ExhibitionApplication.InspectStartup(InitialArgs(), true, _ => { });
-            Assert.That(ProductAchievementStartupControl.StartDeferredServices(), Is.False);
-            Assert.That(typeof(ProductAchievementStartupControl).GetMethod("ReconcileCampaign").Invoke(null, null).ToString(), Is.EqualTo("NotAttempted"));
-            CampaignSaveCompositionProvider.ReleaseProductionAccess();
-            Assert.Throws<InvalidOperationException>(() => CampaignSaveCompositionProvider.CreateProductionProfileBacked());
-            StartPublicationComposition(true);
-            Assert.That(SteamAchievementMaintenanceAccess.StartPublication(), Is.False);
-            AssertDeferredAndNativeReadOnly();
-        }
-        [TestCase(false)][TestCase(true)]
-        public void UnsupportedAndBatchTrialCannotEnterOrdinaryStartup(bool batch)
-        {
-            bool composed = false;
-            ExhibitionApplication.InspectProcessStartup(InitialArgs(), batch, batch, _ => composed = true);
-            Assert.That(composed, Is.False);
-            Assert.That(ParticipantResetMenuAccess.Current, Is.TypeOf<ResetOverlayTrial>());
-            StartPublicationComposition(true); AssertDeferredAndNativeReadOnly();
-        }
-
-        [Test]
-        public void RuntimeCallbacksPutTrialInspectionBeforeAutomaticProductAndPlatformStartup()
+        public void RuntimeCallbacksPutParticipantInspectionBeforeAutomaticProductAndPlatformStartup()
         {
             AssertCallbackPhase(typeof(ExhibitionApplication), "InspectJournal", RuntimeInitializeLoadType.AfterAssembliesLoaded);
             AssertCallbackPhase(typeof(ProductAchievementRuntimeBootstrap), "InitializeBeforeFirstScene", RuntimeInitializeLoadType.BeforeSceneLoad);
@@ -212,45 +111,23 @@ namespace Game.Exhibition.Tests
             Assert.That(reconciliations, Is.EqualTo(expectedReconcile));
         }
 
-        private static string[] InitialArgs() => new[] { "game", "-j2mPlatformProvider", "steam", "-j2mResetOverlayTrial", "config" };
+
+        [Test]
+        public void CompositionFailureBeforeRuntimeHoldsPublicationAndCampaignAccess()
+        {
+            Assert.Throws<IOException>(() => ExhibitionApplication.InspectProcessStartup(new[] { "game" }, false,
+                () => throw new IOException("composition failed")));
+            Assert.That(AllDeferred(), Is.True);
+            Assert.Throws<InvalidOperationException>(() => CampaignSaveCompositionProvider.CreateProductionProfileBacked());
+            AssertAutomaticBootstrapCalls(0, 0);
+            StartPublicationComposition(true);
+            Assert.That(lifecycle.InitializeCount, Is.EqualTo(1));
+            Assert.That(lifecycle.CallbackCount, Is.EqualTo(2));
+            Assert.That(achievements.SetCount + achievements.StoreCount + achievements.GetCount, Is.Zero);
+        }
 
         private static bool AllDeferred()
             => ProductAchievementStartupControl.IsDeferred && SteamAchievementMaintenanceAccess.IsDeferred;
-
-        private void AssertDeferredAndNativeReadOnly()
-        {
-            Assert.That(AllDeferred(), Is.True);
-            AssertAutomaticBootstrapCalls(expectedStart: 0, expectedReconcile: 0);
-            Assert.Throws<InvalidOperationException>(() => CampaignSaveCompositionProvider.CreateProductionProfileBacked());
-            Assert.That(lifecycle.InitializeCount, Is.EqualTo(1));
-            Assert.That(lifecycle.CallbackCount, Is.EqualTo(2));
-            Assert.That(SteamAchievementMaintenanceAccess.IsAvailable, Is.True);
-            Assert.That(achievements.SetCount, Is.Zero);
-            Assert.That(achievements.StoreCount, Is.Zero);
-            Assert.That(achievements.GetCount, Is.Zero, "Automatic reconciliation must not consume the baseline.");
-            Assert.That(repository.SaveCount, Is.Zero);
-            Assert.That(coordinator.GetSnapshot().EarnedAchievementIds.Count, Is.EqualTo(1));
-            Assert.That(coordinator.GetSnapshot().PendingAchievementPublicationIds.Count, Is.EqualTo(1));
-            using (var lease = SteamAchievementMaintenanceAccess.Acquire(_ => { }, _ => { }))
-            {
-                Assert.That(lease.Api.GetAchievement(achievements.Name, out bool earned), Is.True);
-                Assert.That(earned, Is.False, "Read-only native baseline remains unearned.");
-                bool recorded = false;
-                var baseline = new ResetOverlayBaseline(() =>
-                {
-                    return achievements.Names.Select(name =>
-                    {
-                        if (!lease.Api.GetAchievement(name, out bool value))
-                            throw new IOException("baseline query failed");
-                        return value;
-                    }).ToArray();
-                }, values => recorded = true);
-                Assert.Throws<InvalidOperationException>(() => baseline.Prepare(),
-                    "The real baseline policy must reject all-false Steam state despite local earned data.");
-                Assert.That(recorded, Is.True);
-            }
-            Assert.That(achievements.SetCount + achievements.StoreCount, Is.Zero);
-        }
 
         private void StartPublicationComposition(bool pending)
         {
@@ -265,8 +142,7 @@ namespace Game.Exhibition.Tests
             lifecycle = new Native();
             achievements = new Achievements();
             runtime = new SteamPlatformRuntime(new SteamRuntimeDependencies(lifecycle, achievements),
-                smokeRequested: false, achievementSmokeRequested: false,
-                monotonicSeconds: () => 0d, smokeLogger: _ => { });
+                monotonicSeconds: () => 0d);
             Assert.That(runtime.Initialize().IsSuccess, Is.True);
             runtime.Tick();
             runtime.Tick();
@@ -297,9 +173,6 @@ namespace Game.Exhibition.Tests
             public uint GetAppId() => 5218360;
             public bool IsSteamIdValid() => true;
             public bool IsLoggedOn() => true;
-            public bool IsOverlayEnabled() => true;
-            public void RegisterOverlayActivationCallback(Action<bool> observer) { }
-            public void DisposeOverlayActivationCallback() { }
         }
 
         private sealed class Achievements : ISteamAchievementApi

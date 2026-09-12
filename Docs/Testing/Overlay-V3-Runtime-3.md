@@ -1,5 +1,8 @@
 # Overlay v3 단회 Steam 재실행 후보
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 이 문서는 runtime-3 소스 계약이다. 업로드·설치·실제 Steam 재실행 성공을 뜻하지 않는다. runtime-2 실행 기록은 변환하지 않는다.
 
 ## 변경한 실행 관계

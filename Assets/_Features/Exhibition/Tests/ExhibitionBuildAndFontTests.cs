@@ -32,6 +32,12 @@ namespace Game.Exhibition.Tests
                 Assert.That(WindowsDistributionTargetPolicy.SteamWindows.RequiredArtifacts, Does.Contain(name));
                 Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate(name), Is.True);
                 Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate("unrelated.ps1"), Is.False);
+                foreach (var helper in WindowsDistributionTargetPolicy.CompletedResetHelperArtifacts)
+                {
+                    Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate("RestartExperiment/" + helper), Is.True);
+                    Assert.That(WindowsDistributionTargetPolicy.SteamWindows.RequiredArtifacts, Does.Contain(helper));
+                }
+                Assert.That(WindowsDistributionStager.IsRuntimeIncludeCandidate("RestartExperiment/unrelated.cs"), Is.False);
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }

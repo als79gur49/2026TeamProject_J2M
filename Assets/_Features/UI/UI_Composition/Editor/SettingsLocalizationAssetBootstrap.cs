@@ -141,6 +141,9 @@ namespace Game.Feature.UI.Composition.Editor
             (MainMenuLocalizationContract.Keys.ParticipantResetBusy, "Preparing the next participant. Please wait.", "다음 참가자를 준비하고 있습니다. 잠시 기다려 주세요.", false),
             (MainMenuLocalizationContract.Keys.ParticipantResetRestart, "Restart", "다시 실행", false),
             (MainMenuLocalizationContract.Keys.ParticipantResetClose, "Close", "닫기", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetLegacyBody, "An unfinished reset from a previous test version cannot be resumed. You can start a new full reset for this version.", "이전 버전의 미완료 초기화는 이어서 진행할 수 없습니다. 현재 버전의 전체 초기화를 새로 시작할 수 있습니다.", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetLegacyAction, "Start New Full Reset", "새 전체 초기화", false),
+            (MainMenuLocalizationContract.Keys.ParticipantResetLegacyConfirmBody, "Reset all 18 achievements of the current Steam account, every campaign slot, active progress and the achievement ledger at this save location, then restart?", "현재 Steam 계정의 18가지 업적 전체와 현재 저장 경로의 모든 슬롯·활성 진행·업적 장부를 삭제하고 재시작할까요?", false),
         };
 
         public static void EnsureSettingsLocalizationAssetsAndQuit()

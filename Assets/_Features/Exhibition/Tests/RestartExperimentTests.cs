@@ -9,122 +9,15 @@ namespace Game.Exhibition.Tests
 {
     public sealed class RestartExperimentTests
     {
-        private sealed class RestartFake : IRestartHandoff
-        {
-            public Action Preflight = () => { }, Exit = () => { }, Starting = () => { };
-            public HandoffResult Result = HandoffResult.Accepted;
-            public int Starts, Exits;
-            public void ValidateAvailable(RestartPurpose purpose) => Preflight();
-            public RestartIdentity LastIdentity;
-            public HandoffResult StartHandoff(RestartIdentity identity, RestartPurpose purpose) { LastIdentity = identity; Starts++; Starting(); return Result; }
-            public void RequestExit() { Exits++; Exit(); }
-        }
-
-        [Test]
-        public void AcceptedIsMonotonicAcrossExitFailureNotificationsAndReentry()
-        {
-            var fake = new RestartFake();
-            var handoff = new Handoff(fake, () => new RestartIdentity(1, 2), e => throw new IOException("sink"));
-            int healthyNotifications = 0;
-            handoff.Changed += () => {
-                handoff.FailMenuInitialization("subscriber failure");
-                handoff.Start(RestartPurpose.CompletedReset);
-                throw new IOException("subscriber");
-            };
-            handoff.Changed += () => healthyNotifications++;
-            fake.Preflight = () => Assert.That(handoff.State, Is.EqualTo(HandoffState.Launching));
-            fake.Starting = () => handoff.Start(RestartPurpose.CompletedReset);
-            fake.Exit = () => {
-                Assert.That(handoff.State, Is.EqualTo(HandoffState.HandedOff));
-                throw new IOException("quit failed");
-            };
-            handoff.Start(RestartPurpose.CompletedReset);
-            handoff.Start(RestartPurpose.CompletedReset);
-            Assert.That(handoff.State, Is.EqualTo(HandoffState.HandedOff));
-            Assert.That(handoff.IsBusy && handoff.BlocksMenu, Is.True);
-            Assert.That(fake.Starts, Is.EqualTo(1)); Assert.That(fake.Exits, Is.EqualTo(1));
-            Assert.That(healthyNotifications, Is.GreaterThanOrEqualTo(2));
-        }
-
-        [TestCase(HandoffResult.Unknown, HandoffState.HandoffUncertain, 1)]
-        [TestCase(HandoffResult.NotStarted, HandoffState.LaunchFailed, 2)]
-        [TestCase(HandoffResult.Accepted, HandoffState.HandedOff, 1)]
-        public void OnlyDefiniteNonCreationAllowsAnotherHandoff(HandoffResult result, HandoffState state, int calls)
-        {
-            var fake = new RestartFake { Result = result };
-            var handoff = new Handoff(fake, () => new RestartIdentity(1, 2), null);
-            handoff.Start(RestartPurpose.CompletedReset); handoff.Start(RestartPurpose.CompletedReset);
-            Assert.That(handoff.State, Is.EqualTo(state)); Assert.That(fake.Starts, Is.EqualTo(calls));
-            Assert.That(fake.Exits, Is.EqualTo(result == HandoffResult.Accepted ? 1 : 0));
-        }
-
-        [Test]
-        public void StartExceptionIsUnknownAndPreflightExceptionIsRetryable()
-        {
-            var fake = new RestartFake { Preflight = () => throw new IOException("before creation") };
-            var handoff = new Handoff(fake, () => new RestartIdentity(1, 2), null);
-            handoff.Start(RestartPurpose.GameOnly);
-            Assert.That(handoff.State, Is.EqualTo(HandoffState.LaunchFailed)); Assert.That(fake.Starts, Is.Zero);
-            fake.Preflight = () => { }; fake.Starting = () => throw new IOException("creation uncertain");
-            handoff.Start(RestartPurpose.GameOnly); handoff.Start(RestartPurpose.GameOnly);
-            Assert.That(handoff.State, Is.EqualTo(HandoffState.HandoffUncertain)); Assert.That(fake.Starts, Is.EqualTo(1));
-            Assert.That(fake.Exits, Is.Zero);
-        }
-
-        [Test]
-        public void UnknownPurposeNeverReachesAdapter()
-        {
-            var fake = new RestartFake { Preflight = () => Assert.Fail("preflight called") };
-            var handoff = new Handoff(fake, () => new RestartIdentity(1, 2), null);
-            Assert.That(default(RestartPurpose), Is.EqualTo(RestartPurpose.GameOnly));
-            handoff.Start((RestartPurpose)77);
-            Assert.That(handoff.State, Is.EqualTo(HandoffState.LaunchFailed)); Assert.That(fake.Starts, Is.Zero);
-        }
-
-        [Test]
-        public void DefiniteFailureRetryKeepsCapturedIdentityWithoutAnotherRead()
-        {
-            var fake = new RestartFake { Result = HandoffResult.NotStarted };
-            int reads = 0;
-            var identity = new RestartIdentity(123, 456);
-            var handoff = new Handoff(fake, () => { reads++; return identity; }, null);
-            handoff.Start(RestartPurpose.CompletedReset);
-            fake.Result = HandoffResult.Accepted;
-            handoff.Start(RestartPurpose.CompletedReset);
-            Assert.That(reads, Is.EqualTo(1)); Assert.That(fake.LastIdentity, Is.SameAs(identity));
-            Assert.That(fake.Starts, Is.EqualTo(2)); Assert.That(fake.Exits, Is.EqualTo(1));
-        }
-
-        [Test, Category("Integration")]
-        public void ObservationV3UnavailableTransportStopsBeforeCycleValidationOrLock()
-        {
-            var env = new CycleFake();
-            var adapter = new ObservationV3Cycle(env, new UnavailableObservationLaunch(), ObservationLaunchOwner.SteamDelegated,
-                () => { Assert.Fail("Handoff must not start"); return null; });
-            Assert.Throws<InvalidOperationException>(() => Cycle.Run(adapter, Trial.FullCycle));
-            Assert.That(env.Shutdowns + env.SteamStarts + env.GameStarts + env.Probes + env.LockReleases, Is.Zero);
-        }
-        [Test, Category("Integration")]
-        public void ObservationV3ReusesFullCycleProbePolicyWithoutCallingDirectGameCreation()
-        {
-            var env = new CycleFake(); var fixture = new ObservationV3Tests.Fixture();
-            var adapter = new ObservationV3Cycle(env, fixture, ObservationLaunchOwner.SteamDelegated, () =>
-            {
-                Assert.That(env.Shutdowns, Is.EqualTo(1)); Assert.That(env.SteamStarts, Is.EqualTo(1)); Assert.That(env.Probes, Is.EqualTo(1));
-                throw new IOException("InjectedHandoffFailure");
-            });
-            Assert.Throws<IOException>(() => Cycle.Run(adapter, Trial.FullCycle));
-            Assert.That(env.GameStarts, Is.Zero); Assert.That(env.Stages, Does.Contain("HelperFailed"));
-            Assert.That(env.Stages, Does.Not.Contain("GameCreated"));
-        }
         private sealed class CycleFake : ICycleEnvironment
         {
             public long Now;
+            public Exception ExecutionError, CleanupError, ReleaseError;
+            public int Cleanups;
             public int Shutdowns, SteamStarts, GameStarts, Probes, LockReleases;
             public bool LockHeld, LockDenied, ParentStuck, SteamStuck, OtherGame, ReplacedSteam;
             public string FailStage;
             public Func<int, bool> Probe = budget => true;
-            public readonly List<string> Stages = new List<string>();
             public Action<string> Inspect = _ => { };
             public long ClockStep;
             public bool CommandStuck;
@@ -133,12 +26,13 @@ namespace Game.Exhibition.Tests
             public IDisposable AcquireCycleLock()
             {
                 if (LockDenied || LockHeld) throw new IOException("lock denied or contended");
-                LockHeld = true; return new Lease(() => { LockHeld = false; LockReleases++; });
+                LockHeld = true; return new Lease(() => { LockHeld = false; LockReleases++; if (ReleaseError != null) ThrowOrigin(ReleaseError); });
             }
             public bool ParentAlive() { Inspect("parent"); return ParentStuck || Now < 200; }
             public void EnsureNoOtherGame() { Inspect("game-check"); if (OtherGame) throw new IOException("manual game"); }
             public bool OriginalSteamAlive()
             {
+                if (ExecutionError != null) ThrowOrigin(ExecutionError);
                 Inspect("original"); if (ReplacedSteam) throw new IOException("replacement Steam");
                 return SteamStuck || Shutdowns == 0 || Now < 400;
             }
@@ -150,25 +44,90 @@ namespace Game.Exhibition.Tests
             public bool ProbeReady(Deadline deadline) { Inspect("probe-prepare"); int budget = (int)deadline.Remaining(); Probes++; return Probe(budget); }
             public void StartGame(Deadline deadline) { Inspect("game-prepare"); if (deadline != null) deadline.Remaining(); Assert.That(LockHeld, Is.True); GameStarts++; }
             public void Delay(int milliseconds) { Assert.That(milliseconds, Is.GreaterThan(0)); Now += milliseconds; }
-            public void Cleanup() { Assert.That(LockHeld, Is.True); Inspect("cleanup"); }
-            public void RecordTerminal(Exception error) { Assert.That(LockHeld, Is.True); Record(error == null ? "HelperCompleted" : "HelperFailed"); }
-            public void Record(string stage) { Inspect(stage); Stages.Add(stage); if (FailStage == stage) throw new IOException("evidence unavailable"); }
+            public void Cleanup() { Assert.That(LockHeld, Is.True); Cleanups++; Inspect("cleanup"); if (CleanupError != null) ThrowOrigin(CleanupError); }
             private sealed class Lease : IDisposable { private readonly Action release; public Lease(Action release) { this.release = release; } public void Dispose() => release(); }
         }
 
-        [TestCase(Trial.GameOnly, 0, 0, 0, 1)]
-        [TestCase(Trial.Survival, 1, 0, 0, 0)]
-        [TestCase(Trial.Probe, 1, 1, 1, 0)]
+
+
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void ThrowOrigin(Exception error) { throw error; }
+
+        [TestCase(true, false, false)]
+        [TestCase(false, true, false)]
+        [TestCase(false, false, true)]
+        [TestCase(true, true, true)]
+        public void FailurePreservesOriginAndReleasesResources(bool execute, bool cleanup, bool release)
+        {
+            var fake = new CycleFake {
+                ExecutionError = execute ? new System.ComponentModel.Win32Exception(5) : null,
+                CleanupError = cleanup ? new IOException("cleanup failure") : null,
+                ReleaseError = release ? new IOException("release failure") : null
+            };
+            Exception result = Assert.Catch(() => Cycle.Run(fake, Trial.FullCycle));
+            var failures = new List<Exception>();
+            CollectFailures(result, failures);
+            var expected = new List<Exception>();
+            if (execute) expected.Add(fake.ExecutionError);
+            if (cleanup) expected.Add(fake.CleanupError);
+            if (release) expected.Add(fake.ReleaseError);
+            Assert.That(failures, Is.EqualTo(expected));
+            foreach (var error in failures) Assert.That(error.StackTrace, Does.Contain("ThrowOrigin"));
+            if (execute) {
+                Assert.That(fake.ExecutionError.Data["RestartOperation"], Is.EqualTo("Execute"));
+                Assert.That(fake.SteamStarts + fake.Probes + fake.GameStarts, Is.Zero);
+            }
+            if (cleanup) Assert.That(fake.CleanupError.Data["RestartOperation"], Is.EqualTo("Cleanup"));
+            if (release) Assert.That(fake.ReleaseError.Data["RestartOperation"], Is.EqualTo("ReleaseCycleLock"));
+            Assert.That(fake.Cleanups, Is.EqualTo(1));
+            Assert.That(fake.LockReleases, Is.EqualTo(1));
+            Assert.That(fake.LockHeld, Is.False);
+        }
+
+        private static void CollectFailures(Exception error, List<Exception> failures)
+        {
+            var aggregate = error as AggregateException;
+            if (aggregate == null) { failures.Add(error); return; }
+            foreach (var inner in aggregate.InnerExceptions) CollectFailures(inner, failures);
+        }
+
+        [TestCase("command", 0, 0)]
+        [TestCase("steam-exited", 0, 0)]
+        [TestCase("game-prepare", 1, 1)]
+        public void AccessDeniedAfterShutdownDoesNotSubmitAnotherLaunch(string stage, int steamStarts, int probes)
+        {
+            var denied = new System.ComponentModel.Win32Exception(5);
+            var fake = new CycleFake();
+            fake.Inspect = current => { if (current == stage) ThrowOrigin(denied); };
+            Assert.That(Assert.Catch(() => Cycle.Run(fake, Trial.FullCycle)), Is.SameAs(denied));
+            Assert.That(fake.Shutdowns, Is.EqualTo(1));
+            Assert.That(fake.SteamStarts, Is.EqualTo(steamStarts));
+            Assert.That(fake.Probes, Is.EqualTo(probes));
+            Assert.That(fake.GameStarts, Is.Zero);
+            Assert.That(fake.Cleanups, Is.EqualTo(1));
+            Assert.That(fake.LockReleases, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void FailureContextKeepsInnerOperationAndNativeError()
+        {
+            var error = new System.ComponentModel.Win32Exception(5);
+            Cycle.Note(error, "RestartOperation", "StartSteam.CaptureNewSteamIdentity");
+            Cycle.Note(error, "RestartOperation", "Execute");
+            Assert.That(error.Data["RestartOperation"], Is.EqualTo("StartSteam.CaptureNewSteamIdentity"));
+            Assert.That(error.NativeErrorCode, Is.EqualTo(5));
+        }
+
         [TestCase(Trial.FullCycle, 1, 1, 1, 1)]
         public void TrialsHaveExactCreationCountsAndReleaseLock(Trial trial, int shutdown, int steam, int probes, int game)
         {
             var fake = new CycleFake(); Cycle.Run(fake, trial);
             Assert.That(new[] { fake.Shutdowns, fake.SteamStarts, fake.Probes, fake.GameStarts }, Is.EqualTo(new[] { shutdown, steam, probes, game }));
             Assert.That(fake.LockReleases, Is.EqualTo(1)); Assert.That(fake.LockHeld, Is.False);
-            if (trial == Trial.FullCycle) Assert.That(fake.Stages, Is.EqualTo(new[] { "LockAcquired", "ParentExited", "SteamExitRequested", "OriginalSteamExited", "SteamCreated", "ProbeReadyAndExited", "GameCreated", "HelperCompleted" }));
         }
 
-        [TestCase(Trial.GameOnly)] [TestCase(Trial.FullCycle)]
+        [TestCase(Trial.FullCycle)]
         public void LockFailureHasZeroSideEffects(Trial trial)
         {
             var fake = new CycleFake { LockDenied = true };
@@ -177,11 +136,11 @@ namespace Game.Exhibition.Tests
         }
 
         [Test]
-        public void MixedPurposeReentryContendsOnSameCycleLock()
+        public void FullCycleReentryContendsOnSameCycleLock()
         {
             var fake = new CycleFake();
             fake.Probe = budget => {
-                Assert.Throws<IOException>(() => Cycle.Run(fake, Trial.GameOnly));
+                Assert.Throws<IOException>(() => Cycle.Run(fake, Trial.FullCycle));
                 return true;
             };
             Cycle.Run(fake, Trial.FullCycle);
@@ -224,14 +183,6 @@ namespace Game.Exhibition.Tests
             var fake = new CycleFake();
             fake.Probe = budget => { fake.OtherGame = manualGame; fake.ReplacedSteam = !manualGame; return true; };
             Assert.Throws<IOException>(() => Cycle.Run(fake, Trial.FullCycle)); Assert.That(fake.GameStarts, Is.Zero);
-        }
-
-        [Test]
-        public void EvidenceFailureBeforeActionsDoesNotProceed()
-        {
-            var fake = new CycleFake { FailStage = "LockAcquired" };
-            Assert.Throws<IOException>(() => Cycle.Run(fake, Trial.FullCycle));
-            Assert.That(fake.Shutdowns + fake.SteamStarts + fake.GameStarts, Is.Zero); Assert.That(fake.LockHeld, Is.False);
         }
 
         [Test]
@@ -306,7 +257,7 @@ namespace Game.Exhibition.Tests
         public void FailedNativeInitEndsObservationWithoutQueryShutdownOrLibraryUnload(int code)
         {
             var result = new ProbeObservation(); int queries = 0, shutdowns = 0;
-            bool release = NativeProbe.ObserveSession(result, () => code, () => queries++, () => shutdowns++, _ => { });
+            bool release = NativeProbe.ObserveSession(result, () => code, () => queries++, () => shutdowns++);
             Assert.That(release, Is.False);
             Assert.That(queries + shutdowns, Is.Zero);
             Assert.That(result.ShutdownReturned, Is.False);
@@ -314,15 +265,13 @@ namespace Game.Exhibition.Tests
             else Assert.That(result.Error, Is.Not.Empty);
         }
 
-        [TestCase("none")] [TestCase("query")] [TestCase("init-log")] [TestCase("shutdown-log")] [TestCase("shutdown")]
-        public void SuccessfulNativeInitAlwaysAttemptsShutdownEvenWhenQueryOrEvidenceFails(string failure)
+        [TestCase("none")] [TestCase("query")] [TestCase("shutdown")]
+        public void SuccessfulNativeInitAlwaysAttemptsShutdownEvenWhenQueryFails(string failure)
         {
             var result = new ProbeObservation(); int shutdowns = 0;
             bool release = NativeProbe.ObserveSession(result, () => 0,
                 () => { if (failure == "query") throw new IOException("query"); },
-                () => { shutdowns++; if (failure == "shutdown") throw new IOException("shutdown"); },
-                stage => { if ((failure == "init-log" && stage == "ProbeInitReturned") ||
-                    (failure == "shutdown-log" && stage == "ProbeShutdownStarted")) throw new IOException("log"); });
+                () => { shutdowns++; if (failure == "shutdown") throw new IOException("shutdown"); });
             Assert.That(shutdowns, Is.EqualTo(1));
             Assert.That(release, Is.EqualTo(failure != "shutdown"));
             Assert.That(result.ShutdownReturned, Is.EqualTo(failure != "shutdown"));
@@ -378,7 +327,7 @@ namespace Game.Exhibition.Tests
             Assert.Throws<IOException>(() => WindowsCycleEnvironment.ValidateProbe(row, new ExperimentRequest { Nonce = "n" }, 3, 4));
         }
 
-        [TestCase(Trial.Probe, 0)] [TestCase(Trial.FullCycle, 1)]
+        [TestCase(Trial.FullCycle, 1)]
         public void NoSteamClientThenReadyReobservesWithoutAnotherClientCycle(Trial trial, int games)
         {
             var expected = new ExperimentRequest { Nonce = "n", AppId = 1, SteamId = 2 };
@@ -420,7 +369,7 @@ namespace Game.Exhibition.Tests
             Assert.That(fake.LockHeld, Is.False);
         }
 
-        [TestCase("probe-prepare")] [TestCase("game-prepare")] [TestCase("ProbeReadyAndExited")]
+        [TestCase("probe-prepare")] [TestCase("game-prepare")]
         public void ExpensiveFinalPreparationCannotLaunchAfterReadinessDeadline(string point)
         {
             var fake = new CycleFake();
@@ -438,7 +387,7 @@ namespace Game.Exhibition.Tests
             Assert.That(fake.LockHeld, Is.False);
         }
 
-        [TestCase(Trial.Survival)] [TestCase(Trial.Probe)] [TestCase(Trial.FullCycle)]
+        [TestCase(Trial.FullCycle)]
         public void OwnedCommandMustExitWithinOriginalShutdownBudget(Trial trial)
         {
             var fake = new CycleFake { CommandStuck = true };
@@ -454,33 +403,33 @@ namespace Game.Exhibition.Tests
         {
             var fake = new CycleFake();
             fake.Inspect = stage => { if (stage == "shutdown-create") fake.Now = 60200 + over; };
-            Assert.Throws<TimeoutException>(() => Cycle.Run(fake, Trial.Survival));
+            Assert.Throws<TimeoutException>(() => Cycle.Run(fake, Trial.FullCycle));
             Assert.That(fake.Shutdowns, Is.Zero);
         }
 
         [TestCase(false)] [TestCase(true)]
-        public void CleanupAndTerminalRecordAreInsideLockEvenOnFailure(bool fail)
+        public void CleanupIsInsideLockEvenOnFailure(bool fail)
         {
             var fake = new CycleFake(); var order = new List<string>();
             fake.Inspect = stage =>
             {
-                if (stage == "cleanup" || stage == "HelperFailed" || stage == "HelperCompleted")
+                if (stage == "cleanup")
                 { Assert.That(fake.LockHeld, Is.True); order.Add(stage); }
-                if (fail && stage == "LockAcquired") throw new IOException("primary");
+                if (fail && stage == "parent") throw new IOException("primary");
             };
-            if (fail) Assert.Throws<IOException>(() => Cycle.Run(fake, Trial.GameOnly));
-            else Cycle.Run(fake, Trial.GameOnly);
-            Assert.That(order, Is.EqualTo(new[] { "cleanup", fail ? "HelperFailed" : "HelperCompleted" }));
+            if (fail) Assert.Throws<IOException>(() => Cycle.Run(fake, Trial.FullCycle));
+            else Cycle.Run(fake, Trial.FullCycle);
+            Assert.That(order, Is.EqualTo(new[] { "cleanup" }));
             Assert.That(fake.LockHeld, Is.False);
         }
 
         [Test]
-        public void PrimaryCleanupAndTerminalRecordFailuresAllSurviveLockRelease()
+        public void PrimaryAndCleanupFailuresSurviveLockRelease()
         {
             var fake = new CycleFake();
-            fake.Inspect = stage => { if (stage == "LockAcquired" || stage == "cleanup" || stage == "HelperFailed") throw new IOException(stage); };
-            var error = Assert.Throws<AggregateException>(() => Cycle.Run(fake, Trial.Probe));
-            Assert.That(error.ToString(), Does.Contain("LockAcquired").And.Contain("cleanup").And.Contain("HelperFailed"));
+            fake.Inspect = stage => { if (stage == "parent" || stage == "cleanup") throw new IOException(stage); };
+            var error = Assert.Throws<AggregateException>(() => Cycle.Run(fake, Trial.FullCycle));
+            Assert.That(error.ToString(), Does.Contain("parent").And.Contain("cleanup"));
             Assert.That(fake.LockHeld, Is.False);
         }
 
@@ -493,11 +442,12 @@ namespace Game.Exhibition.Tests
         {
             long now = 0; int starts = 0;
             Action<string> cost = stage => { if (stage == point) now = 100; };
-            var request = new ExperimentRequest { Parent = new ProcessIdentity { Path = "game.exe" }, AppId = 123, Trial = Trial.FullCycle };
-            Assert.Throws<TimeoutException>(() => LaunchEnvironment.Start(() => LaunchEnvironment.PrepareGame(request, "request.json",
-                () => { }, () => cost("hash"), () => cost("client"), _ => cost("environment")),
-                new Deadline(() => now, 100, "late"), _ => { starts++; return null; }));
-            Assert.That(starts, Is.Zero);
+            WithCompletedRequest((request, requestPath) => {
+                Assert.Throws<TimeoutException>(() => LaunchEnvironment.Start(() => LaunchEnvironment.PrepareCompletedResetSubmission(request, requestPath,
+                    () => { }, () => cost("hash"), () => cost("client"), () => cost("environment")),
+                    new Deadline(() => now, 100, "late"), _ => { starts++; return null; }));
+                Assert.That(starts, Is.Zero);
+            });
         }
 
         [TestCase("client")] [TestCase("environment")]
@@ -506,7 +456,7 @@ namespace Game.Exhibition.Tests
             long now = 0; int starts = 0;
             Assert.Throws<TimeoutException>(() => LaunchEnvironment.Start(() => LaunchEnvironment.PrepareProbe(new ExperimentRequest { AppId = 123 },
                 () => new System.Diagnostics.ProcessStartInfo(), () => { if (point == "client") now = 100; },
-                _ => { if (point == "environment") now = 100; }), new Deadline(() => now, 100, "late"), _ => { starts++; return null; }));
+                () => { if (point == "environment") now = 100; }), new Deadline(() => now, 100, "late"), _ => { starts++; return null; }));
             Assert.That(starts, Is.Zero);
         }
 
@@ -516,10 +466,10 @@ namespace Game.Exhibition.Tests
             var row = new ProbeObservation { Nonce = "n", Pid = 3, StartTicks = 4 };
             NativeProbe.ObserveSession(row, () => NativeProbe.CaptureInit(row, buffer =>
             { System.Text.Encoding.UTF8.GetBytes("No Steam client").CopyTo(buffer, 0); return 2; }),
-                () => Assert.Fail("query"), () => Assert.Fail("shutdown"), _ => { });
+                () => Assert.Fail("query"), () => Assert.Fail("shutdown"));
             Assert.That(row.InitDiagnostic, Is.EqualTo("No Steam client"));
             Assert.That(WindowsCycleEnvironment.ValidateProbe(row, new ExperimentRequest { Nonce = "n" }, 3, 4), Is.False);
-            row.RecordError = "record failed";
+            row.QueryError = "query failed";
             Assert.Throws<IOException>(() => WindowsCycleEnvironment.ValidateProbe(row, new ExperimentRequest { Nonce = "n" }, 3, 4));
         }
 
@@ -528,7 +478,7 @@ namespace Game.Exhibition.Tests
             var row = new ProbeObservation { Nonce = "n", Pid = 3, StartTicks = 4 };
             bool unload = NativeProbe.ObserveSession(row, () => NativeProbe.CaptureInit(row, buffer =>
                 { System.Text.Encoding.UTF8.GetBytes("ConnectToGlobalUser failed.").CopyTo(buffer, 0); return 1; }),
-                () => Assert.Fail("query after failed Init"), () => Assert.Fail("Shutdown after failed Init"), _ => { });
+                () => Assert.Fail("query after failed Init"), () => Assert.Fail("Shutdown after failed Init"));
             Assert.That(unload, Is.False);
             Assert.That(row.Error, Is.Null);
             return row;
@@ -545,7 +495,7 @@ namespace Game.Exhibition.Tests
         }
 
         [TestCase("Error")] [TestCase("QueryError")] [TestCase("ShutdownError")]
-        [TestCase("CleanupError")] [TestCase("RecordError")] [TestCase("FailureStage")]
+        [TestCase("CleanupError")] [TestCase("FailureStage")]
         public void GlobalUserObservationCannotExcuseAnyOtherFailure(string field)
         {
             var row = GlobalUserUnavailable();
@@ -567,8 +517,8 @@ namespace Game.Exhibition.Tests
             Assert.Throws<IOException>(() => WindowsCycleEnvironment.ValidateProbe(row, new ExperimentRequest { Nonce = "n" }, 3, 4));
         }
 
-        [TestCase(Trial.Probe, false)] [TestCase(Trial.FullCycle, false)]
-        [TestCase(Trial.Probe, true)] [TestCase(Trial.FullCycle, true)]
+        [TestCase(Trial.FullCycle, false)]
+        [TestCase(Trial.FullCycle, true)]
         public void GlobalUserObservationUsesOneClientAndOriginalDeadline(Trial trial, bool persistent)
         {
             var fake = new CycleFake(); int observed = 0;
@@ -632,22 +582,124 @@ namespace Game.Exhibition.Tests
         [Test]
         public void PopupExceptionSummaryPreservesCompleteFailureInLogs()
         {
-            var attempt = new ProbeAttempt { Attempt = 2, FailureStage = "Result", Error = new string('x', 4000), CleanupError = "secondary" };
+            var attempt = new ProbeAttempt { Attempt = 2, FailureStage = "Execution", Error = new string('x', 4000), CleanupError = "secondary", ArtifactPath = @"D:\evidence\probe-attempt-002.json" };
             var error = new ProbeAttemptException(attempt);
             Assert.That(error.Message.Length, Is.LessThan(200));
-            Assert.That(error.ToString(), Does.Contain(attempt.Error).And.Contain("secondary"));
+            Assert.That(error.Message, Does.Contain(attempt.ArtifactPath));
+            Assert.That(error.InnerException.Message, Does.StartWith(attempt.Error).And.Contain("Cleanup error: secondary"));
         }
 
         [Test]
-        public void QueryShutdownAndRecordErrorsDoNotOverwritePrimary()
+        public void ProbeAttemptEvidencePreservesPrimaryAndStreamsWithoutOverwrite()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "j2m-probe-evidence-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var attempt = new ProbeAttempt { Attempt = 1, FailureStage = "Execution",
+                    Error = "Probe abnormal exit: ExitCode=1", ExitConfirmed = true, OwnedExitConfirmed = true,
+                    ExitCode = 1, Stdout = "s-not-json", Stderr = "native-primary", OutputComplete = true,
+                    ErrorOutputComplete = true, ParseDisposition = "SkippedBecauseProcessOrOutputFailed" };
+                ProbeAttemptEvidence.Save(attempt, root);
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stdout.txt")), Is.EqualTo("s-not-json"));
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stderr.txt")), Is.EqualTo("native-primary"));
+                string json = File.ReadAllText(Path.Combine(root, "probe-attempt-001.json"));
+                Assert.That(json, Does.Contain("Probe abnormal exit: ExitCode=1"));
+                Assert.That(json, Does.Contain("SkippedBecauseProcessOrOutputFailed"));
+                Assert.That(json, Does.Contain("StdoutSha256").And.Contain("StderrSha256"));
+                Assert.That(attempt.StdoutSha256, Is.EqualTo(HashText("s-not-json")));
+                Assert.That(attempt.StderrSha256, Is.EqualTo(HashText("native-primary")));
+                ProbeAttemptEvidence.Save(attempt, root);
+                Assert.That(attempt.Attempt, Is.EqualTo(2));
+                Assert.That(File.Exists(Path.Combine(root, "probe-attempt-002.json")), Is.True);
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stdout.txt")), Is.EqualTo("s-not-json"));
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Test]
+        public void ConcurrentProbeEvidenceAllocatesDistinctAttempts()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "j2m-probe-concurrent-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var first = new ProbeAttempt { Attempt = 1, Error = "first", Stdout = "one", Stderr = "first-error" };
+                var second = new ProbeAttempt { Attempt = 1, Error = "second", Stdout = "two", Stderr = "second-error" };
+                System.Threading.Tasks.Task.WaitAll(
+                    System.Threading.Tasks.Task.Run(() => ProbeAttemptEvidence.Save(first, root)),
+                    System.Threading.Tasks.Task.Run(() => ProbeAttemptEvidence.Save(second, root)));
+                Assert.That(first.Attempt, Is.Not.EqualTo(second.Attempt));
+                Assert.That(Directory.GetFiles(root, "probe-attempt-*.json").Length, Is.EqualTo(2));
+                Assert.That(Directory.GetFiles(root, "*.reservation").Length, Is.Zero);
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Test]
+        public void JsonCommitFailureDoesNotPublishMissingArtifactPath()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "j2m-probe-partial-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            Directory.CreateDirectory(Path.Combine(root, "probe-attempt-001.json"));
+            try
+            {
+                var attempt = new ProbeAttempt { Attempt = 1, FailureStage = "Execution", Error = "exit-primary", Stderr = "native-primary" };
+                var failure = Assert.Throws<IOException>(() => ProbeAttemptEvidence.Save(attempt, root));
+                attempt.ArtifactError = failure.ToString();
+                Assert.That(attempt.ArtifactPath, Is.Null);
+                Assert.That(File.Exists(Path.Combine(root, "probe-attempt-001.stderr.txt")), Is.True);
+                var reported = new ProbeAttemptException(attempt);
+                Assert.That(reported.Message, Does.Contain("partial"));
+                Assert.That(reported.InnerException.Message, Does.Contain("exit-primary").And.Contain("Evidence persistence error").And.Contain("native-primary"));
+                Assert.That(Directory.GetFiles(root, "*.reservation").Length, Is.Zero);
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        private static string HashText(string value)
+        {
+            using (var hash = System.Security.Cryptography.SHA256.Create())
+                return ExperimentFiles.Hex(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(value)));
+        }
+
+        [Test]
+        public void AbnormalChildExitSkipsJsonParsingAndPersistsBothStreams()
+        {
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows process evidence contract");
+            string root = Path.Combine(Path.GetTempPath(), "j2m-probe-exit-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                string body = "$null=[Console]::In.ReadLine();[Console]::Out.Write('s-not-json');" +
+                    "[Console]::Error.Write('native-primary');exit 1";
+                var start = new System.Diagnostics.ProcessStartInfo {
+                    FileName = ExperimentFiles.PowerShell,
+                    Arguments = "-NoProfile -EncodedCommand " + Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(body)),
+                    UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
+                    RedirectStandardOutput = true, RedirectStandardError = true
+                };
+                var expected = new ExperimentRequest { Nonce = "grant", EvidenceDirectory = root, AppId = 1, SteamId = 2 };
+                var error = Assert.Throws<ProbeAttemptException>(() => WindowsCycleEnvironment.RunOwnedProbe(start, 5000, expected));
+                Assert.That(error.InnerException.Message, Does.Contain("ExitCode=1"));
+                string json = File.ReadAllText(Path.Combine(root, "probe-attempt-001.json"));
+                Assert.That(json, Does.Contain("SkippedBecauseProcessOrOutputFailed"));
+                Assert.That(json, Does.Not.Contain("SerializationException"));
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stdout.txt")), Is.EqualTo("s-not-json"));
+                Assert.That(File.ReadAllText(Path.Combine(root, "probe-attempt-001.stderr.txt")), Is.EqualTo("native-primary"));
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Test]
+        public void QueryAndShutdownErrorsDoNotOverwritePrimary()
         {
             var row = new ProbeObservation();
             NativeProbe.ObserveSession(row, () => 0, () => { throw new IOException("query-primary"); },
-                () => { throw new IOException("shutdown-secondary"); }, stage => { if (stage.StartsWith("ProbeShutdown")) throw new IOException("record-third"); });
+                () => { throw new IOException("shutdown-secondary"); });
             Assert.That(row.Error, Does.Contain("query-primary"));
             Assert.That(row.QueryError, Does.Contain("query-primary"));
             Assert.That(row.ShutdownError, Does.Contain("shutdown-secondary"));
-            Assert.That(row.RecordError, Does.Contain("record-third"));
         }
 
         [Test]
@@ -655,12 +707,12 @@ namespace Game.Exhibition.Tests
         {
             var row = new ProbeObservation();
             Assert.That(NativeProbe.ObserveSession(row, () => { throw new IOException("init did not return"); },
-                () => Assert.Fail("query"), () => Assert.Fail("shutdown"), _ => { }), Is.False);
+                () => Assert.Fail("query"), () => Assert.Fail("shutdown")), Is.False);
             Assert.That(row.InitReturned, Is.False); Assert.That(row.InitDiagnostic, Is.Null);
             Assert.That(row.ShutdownCalled, Is.False);
         }
 
-        [TestCase("QueryError")] [TestCase("ShutdownError")] [TestCase("RecordError")] [TestCase("CleanupError")] [TestCase("FailureStage")]
+        [TestCase("QueryError")] [TestCase("ShutdownError")] [TestCase("CleanupError")] [TestCase("FailureStage")]
         public void ValidLookingReadyResultNeverBypassesSeparateErrors(string field)
         {
             var row = new ProbeObservation { InitDisposition = ProbeInitDisposition.Succeeded, InitCalled = true, InitReturned = true, QueryCalled = true, QueryReturned = true,
@@ -669,7 +721,7 @@ namespace Game.Exhibition.Tests
             Assert.Throws<IOException>(() => WindowsCycleEnvironment.ValidateProbe(row, new ExperimentRequest { Nonce = "n", AppId = 1, SteamId = 2 }, 3, 4));
         }
 
-        [TestCase(Trial.Survival)] [TestCase(Trial.Probe)] [TestCase(Trial.FullCycle)]
+        [TestCase(Trial.FullCycle)]
         public void EarlyAbnormalCommandExitStopsWithoutWaitingForClientTimeout(Trial trial)
         {
             var fake = new CycleFake { SteamStuck = true };
@@ -679,7 +731,7 @@ namespace Game.Exhibition.Tests
             Assert.That(fake.SteamStarts + fake.GameStarts + fake.Probes, Is.Zero);
         }
 
-        [TestCase(Trial.Survival)] [TestCase(Trial.Probe)] [TestCase(Trial.FullCycle)]
+        [TestCase(Trial.FullCycle)]
         public void ReplacementWhileOwnedCommandStillAliveStopsWithoutNewCycle(Trial trial)
         {
             var fake = new CycleFake { CommandStuck = true };
@@ -699,20 +751,83 @@ namespace Game.Exhibition.Tests
         }
 
         [Test]
-        public void ProductCycleShipsAlwaysWhileDiagnosticArtifactsRemainOptIn()
+        public void ProductCycleShipsOnlyOperationalHelpersAndRejectsStaleFiles()
         {
             var root = Path.Combine(Path.GetTempPath(), "j2m-restart-experiment-" + Guid.NewGuid().ToString("N"));
             try
             {
-                RestartExperimentBuildPostprocessor.CopyTools(root, false);
+                RestartExperimentBuildPostprocessor.CopyTools(root);
                 Assert.That(File.Exists(Path.Combine(root, "RestartExperiment", "Restart-Experiment.ps1")), Is.True);
                 Assert.That(File.Exists(Path.Combine(root, "RestartExperiment", "ObservationV3Wire.cs")), Is.False);
-                RestartExperimentBuildPostprocessor.CopyTools(root, true);
+                Assert.That(Directory.GetFiles(Path.Combine(root, "RestartExperiment")).Length, Is.EqualTo(4));
+                File.WriteAllText(Path.Combine(root, "RestartExperiment", "stale.json"), "{}");
                 Assert.That(File.ReadAllText(Path.Combine(root, "RestartExperiment", "RestartExperiment.cs")),
                     Is.EqualTo(File.ReadAllText("Assets/_Features/Exhibition/Integration/RestartExperiment.cs")));
-                Assert.Throws<UnityEditor.Build.BuildFailedException>(() => RestartExperimentBuildPostprocessor.CopyTools(root, false));
-                var prerequisites = ExperimentFiles.Read<ExperimentPrerequisites>(Path.Combine(root, "RestartExperiment", "prerequisites.example.json"));
-                Assert.That(prerequisites.ShutdownCommandVerified || prerequisites.ProbeContractReviewed || prerequisites.FailedInitExitReviewed, Is.False);
+                Assert.Throws<UnityEditor.Build.BuildFailedException>(() => RestartExperimentBuildPostprocessor.CopyTools(root));
+
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        [Test]
+        public void CompletedResetMappingContractMatchesCoordinatorAndFixedV2()
+        {
+            const string expected = "level-and-efficient-clear-v2";
+            Assert.That(ExhibitionResetCoordinator.MappingVersion, Is.EqualTo(expected));
+            // Reflection keeps the pre-production RED revision compilable.
+            var field = typeof(CompletedResetProductWire).GetField("SupportedMappingVersion");
+            Assert.That(field, Is.Not.Null, "The standalone helper must expose its supported mapping contract.");
+            Assert.That(field.GetRawConstantValue(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void CompletedResetCurrentMappingIsAccepted()
+        {
+            WithCompletedRequest((request, path) =>
+                Assert.DoesNotThrow(() => CompletedResetProductWire.ValidateRequestPath(request, path)));
+        }
+
+        [TestCase("level-clear-v1")]
+        [TestCase("unknown-mapping")]
+        public void CompletedResetIncompatibleMappingIsRejectedWithoutChangingOrConsumingJournal(string mapping)
+        {
+            WithCompletedRequest((request, path) =>
+            {
+                var journal = ExperimentFiles.Read<ProductReadyJournal>(request.ReadyJournalPath);
+                journal.MappingVersion = mapping;
+                File.WriteAllText(request.ReadyJournalPath, ExperimentFiles.Json(journal));
+                // Keep every integrity binding valid so this exercises mapping compatibility itself.
+                request.ReadyJournalSha256 = ExperimentFiles.Hash(request.ReadyJournalPath);
+                File.WriteAllText(path, ExperimentFiles.Json(request));
+                var before = File.ReadAllBytes(request.ReadyJournalPath);
+                var failure = Assert.Throws<IOException>(() => CompletedResetProductWire.ValidateRequestPath(request, path));
+                Assert.That(failure.Message, Does.Contain("achievement mapping is incompatible"));
+                CollectionAssert.AreEqual(before, File.ReadAllBytes(request.ReadyJournalPath));
+                Assert.That(File.Exists(path + ".consumed"), Is.False);
+            });
+        }
+
+        private static void WithCompletedRequest(Action<ExperimentRequest, string> action)
+        {
+            var root = Path.Combine(Path.GetTempPath(), "j2m-completed-reset-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var operation = Guid.NewGuid().ToString("N");
+                var journalPath = Path.Combine(root, "exhibition-reset.json");
+                File.WriteAllText(journalPath, ExperimentFiles.Json(new ProductReadyJournal { SchemaVersion = 1,
+                    OperationId = operation, State = "Ready", MappingVersion = "level-and-efficient-clear-v2", AppId = 123, SteamId = 456 }));
+                journalPath = WindowsIdentityCapture.CanonicalPath(journalPath);
+                var request = new ExperimentRequest { CompletedResetProduct = true, Nonce = Guid.NewGuid().ToString("N"),
+                    OperationId = operation, Trial = Trial.FullCycle, AppId = 123, SteamId = 456,
+                    ReadyJournalPath = journalPath, ReadyJournalSha256 = ExperimentFiles.Hash(journalPath),
+                    Steam = new ProcessIdentity { Path = @"C:\Steam\steam.exe" } };
+                var requestDirectory = Path.Combine(root, "participant-reset-handoff", operation);
+                Directory.CreateDirectory(requestDirectory);
+                request.EvidenceDirectory = requestDirectory;
+                var requestPath = Path.Combine(requestDirectory, "request.json");
+                File.WriteAllText(requestPath, ExperimentFiles.Json(request));
+                action(request, requestPath);
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
@@ -727,7 +842,7 @@ namespace Game.Exhibition.Tests
                 var operation = Guid.NewGuid().ToString("N");
                 var journalPath = Path.Combine(root, "exhibition-reset.json");
                 File.WriteAllText(journalPath, ExperimentFiles.Json(new ProductReadyJournal { SchemaVersion = 1,
-                    OperationId = operation, State = "Ready", MappingVersion = "level-clear-v1", AppId = 123, SteamId = 456 }));
+                    OperationId = operation, State = "Ready", MappingVersion = "level-and-efficient-clear-v2", AppId = 123, SteamId = 456 }));
                 journalPath = WindowsIdentityCapture.CanonicalPath(journalPath);
                 var request = new ExperimentRequest { CompletedResetProduct = true, Nonce = Guid.NewGuid().ToString("N"),
                     OperationId = operation, Trial = Trial.FullCycle, AppId = 123, SteamId = 456,
@@ -738,14 +853,14 @@ namespace Game.Exhibition.Tests
                 request.EvidenceDirectory = requestDirectory;
                 var requestPath = Path.Combine(requestDirectory, "request.json");
                 File.WriteAllText(requestPath, ExperimentFiles.Json(request));
-                var start = LaunchEnvironment.PrepareCompletedResetSubmission(request, requestPath, () => { }, () => { }, () => { }, _ => { });
+                var start = LaunchEnvironment.PrepareCompletedResetSubmission(request, requestPath, () => { }, () => { }, () => { }, () => { });
                 Assert.That(start.FileName, Is.EqualTo(request.Steam.Path));
                 Assert.That(start.Arguments, Does.StartWith("-applaunch 123 -- -j2mCompletedParticipantReset"));
                 Assert.That(start.Arguments, Does.Not.Contain("-j2mPlatformProvider"));
                 Assert.That(start.Arguments, Does.Contain("-j2mCompletedParticipantReset"));
                 Assert.That(start.Arguments, Does.Contain(ExperimentFiles.Hash(requestPath)));
                 File.WriteAllText(journalPath, ExperimentFiles.Json(new ProductReadyJournal { SchemaVersion = 1,
-                    OperationId = operation, State = "Pending", MappingVersion = "level-clear-v1", AppId = 123, SteamId = 456 }));
+                    OperationId = operation, State = "Pending", MappingVersion = "level-and-efficient-clear-v2", AppId = 123, SteamId = 456 }));
                 Assert.Throws<IOException>(() => CompletedResetProductWire.Validate(request));
             }
             finally { Directory.Delete(root, true); }

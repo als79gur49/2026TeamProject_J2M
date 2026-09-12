@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Game.Exhibition.Integration;
 using Game.Platform.Steam;
+using Game.Platform.Steam.ProductAchievements;
 using NUnit.Framework;
 
 namespace Game.Exhibition.Tests
@@ -25,46 +28,14 @@ namespace Game.Exhibition.Tests
             _api.StoreAction = () => Observe(SteamCallbackResult.Ok);
         }
 
-        private void Create(TimeSpan? timeout = null, IParticipantResetDiagnostics diagnostics = null)
+        private void Create(TimeSpan? timeout = null)
         {
             _protocol = new SteamExhibitionResetProtocol(_api,
                 name => { _clears++; return _clearResult; }, () => _validate(),
                 new[] { "A", "B" }, 123, () => _failed++, () => _released++,
-                timeout ?? TimeSpan.FromSeconds(1), diagnostics);
+                timeout ?? TimeSpan.FromSeconds(1));
         }
 
-        private sealed class Diagnostics : IParticipantResetDiagnostics
-        {
-            public int Calls;
-            public bool Throw;
-            public void SteamResetVerified(string[] names, SteamCallbackResult result)
-            {
-                Calls++;
-                if (Throw) throw new System.IO.IOException("diagnostic sink failed");
-            }
-            public void Capture(ParticipantResetDiagnosticStage stage) => throw new AssertionException("Unexpected capture");
-        }
-
-        [Test]
-        public async Task DiagnosticFailureDoesNotFailResetOrAddNativeReads()
-        {
-            var diagnostics = new Diagnostics { Throw = true };
-            Create(diagnostics: diagnostics); await _protocol.RunAsync();
-            Assert.That(diagnostics.Calls, Is.EqualTo(1));
-            Assert.That(_api.Reads, Is.EqualTo(4));
-            Assert.That(_api.Stores, Is.EqualTo(1));
-            Assert.That(_failed, Is.Zero); Assert.That(_released, Is.EqualTo(1));
-        }
-
-        [TestCase(false)] [TestCase(true)]
-        public void FailedReadbackDoesNotEmitVerifiedDiagnostic(bool achieved)
-        {
-            var diagnostics = new Diagnostics();
-            _api.ReadbackSucceeds = achieved; _api.ReadbackAchieved = achieved;
-            Create(diagnostics: diagnostics);
-            Assert.ThrowsAsync<InvalidOperationException>(async () => await _protocol.RunAsync());
-            Assert.That(diagnostics.Calls, Is.Zero);
-        }
         private void Observe(SteamCallbackResult result, uint appId = 123) =>
             _protocol.ObserveStatsStored(new SteamStatsStoredObservation(appId, result));
         private void AssertFailedRelease()
@@ -170,12 +141,93 @@ namespace Game.Exhibition.Tests
             Assert.That(_clears, Is.Zero); AssertFailedRelease();
         }
 
+        // Explicit release contract: do not derive the expected set from Production.
+        private static readonly string[] ProductionNames =
+        {
+            "VQ_LEVEL_0_CLEAR", "VQ_LEVEL_1_CLEAR", "VQ_LEVEL_2_CLEAR",
+            "VQ_LEVEL_3_CLEAR", "VQ_LEVEL_4_CLEAR",
+            "VQ_STAGE_0_1_EFFICIENT_CLEAR", "VQ_STAGE_0_2_EFFICIENT_CLEAR", "VQ_STAGE_0_3_EFFICIENT_CLEAR",
+            "VQ_STAGE_1_1_EFFICIENT_CLEAR", "VQ_STAGE_1_2_EFFICIENT_CLEAR",
+            "VQ_STAGE_2_1_EFFICIENT_CLEAR", "VQ_STAGE_2_2_EFFICIENT_CLEAR",
+            "VQ_STAGE_3_1_EFFICIENT_CLEAR", "VQ_STAGE_3_2_EFFICIENT_CLEAR", "VQ_STAGE_3_3_EFFICIENT_CLEAR",
+            "VQ_STAGE_4_1_EFFICIENT_CLEAR", "VQ_STAGE_4_2_EFFICIENT_CLEAR", "VQ_STAGE_4_3_EFFICIENT_CLEAR",
+        };
+        // Former production API names from commit 848dd652a; schema presence is not reset authorization.
+        private static readonly string[] RetiredNames =
+        {
+            "VQ_CAMPAIGN_COMPLETE", "VQ_STAGE_1_2_CLEAR", "VQ_STAGE_1_2_PUSH_FLIP_LE_25",
+        };
+
+        private List<string> CreateProduction(string failedClear = null)
+        {
+            var names = SteamAchievementMapping.Production.Entries
+                .Select(entry => entry.ExpectedSteamApiName.Value).ToArray();
+            Assert.That(names, Is.EquivalentTo(ProductionNames));
+            var cleared = new List<string>();
+            _protocol = new SteamExhibitionResetProtocol(_api,
+                name => { cleared.Add(name); return name != failedClear; }, () => _validate(),
+                names, 123, () => _failed++, () => _released++, TimeSpan.FromSeconds(1));
+            return cleared;
+        }
+
+        [Test]
+        public async Task ProductionResetClearsExactlyEighteenMappedAchievementsAndExcludesRetiredSchemaEntries()
+        {
+            _api.Available = ProductionNames.Concat(RetiredNames).ToArray();
+            var cleared = CreateProduction();
+            await _protocol.RunAsync();
+            Assert.That(cleared, Is.EquivalentTo(ProductionNames));
+            Assert.That(cleared.Distinct().Count(), Is.EqualTo(18));
+            Assert.That(cleared.Intersect(RetiredNames), Is.Empty);
+            Assert.That(_api.Stores, Is.EqualTo(1));
+            Assert.That(_api.ReadNames, Is.EquivalentTo(ProductionNames.Concat(ProductionNames)));
+            Assert.That(_api.CallbackRegistrations, Is.Zero);
+            Assert.That(_failed, Is.Zero); Assert.That(_released, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void MissingLastProductionSchemaEntryPreventsEveryDestructiveCall()
+        {
+            _api.Available = ProductionNames.Take(17).Concat(RetiredNames).ToArray();
+            var cleared = CreateProduction();
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await _protocol.RunAsync());
+            Assert.That(cleared, Is.Empty); Assert.That(_api.Stores, Is.Zero);
+            AssertFailedRelease();
+        }
+
+        [Test]
+        public void LastProductionClearFailureDoesNotStorePartialReset()
+        {
+            _api.Available = ProductionNames;
+            var cleared = CreateProduction(ProductionNames[17]);
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await _protocol.RunAsync());
+            Assert.That(cleared, Is.EqualTo(ProductionNames));
+            Assert.That(_api.Stores, Is.Zero);
+            Assert.That(_api.ReadNames, Is.EquivalentTo(ProductionNames));
+            AssertFailedRelease();
+        }
+
+        [Test]
+        public void LastProductionReadbackStillAchievedFailsAfterSuccessfulStore()
+        {
+            _api.Available = ProductionNames;
+            _api.ReadbackAchievedName = ProductionNames[17];
+            var cleared = CreateProduction();
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await _protocol.RunAsync());
+            Assert.That(cleared, Is.EquivalentTo(ProductionNames));
+            Assert.That(_api.Stores, Is.EqualTo(1));
+            Assert.That(_api.ReadNames, Is.EquivalentTo(ProductionNames.Concat(ProductionNames)));
+            AssertFailedRelease();
+        }
+
         private sealed class FakeApi : ISteamAchievementApi
         {
             public string[] Available = { "A", "B" };
             public string UnreadableBeforeStore;
             public bool ReadbackSucceeds = true;
             public bool ReadbackAchieved;
+            public string ReadbackAchievedName;
+            public readonly List<string> ReadNames = new List<string>();
             public bool StoreResult = true;
             public Action StoreAction;
             public int Stores;
@@ -185,7 +237,8 @@ namespace Game.Exhibition.Tests
             public string GetAchievementName(uint index) => Available[index];
             public bool GetAchievement(string name, out bool achieved)
             {
-                Reads++; achieved = Stores == 0 || ReadbackAchieved;
+                Reads++; ReadNames.Add(name);
+                achieved = Stores == 0 || ReadbackAchieved || name == ReadbackAchievedName;
                 return Stores == 0 ? name != UnreadableBeforeStore : ReadbackSucceeds;
             }
             public bool StoreStats() { Stores++; StoreAction?.Invoke(); return StoreResult; }

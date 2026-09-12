@@ -1,5 +1,8 @@
 # Overlay 관찰 진단 수정안 — 필수 기능만 유지
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 2026-09-09. 대상 `/mnt/d/J2M/worktrees/exhibition-reset`. **설계 수정안이며 새 코드·테스트 실행·빌드·업로드·설치·실제 시험은 없다.** 현재 설치 Build25203840은 기존 캡처 필수 흐름이다. 아래 간소화된 UI를 현재 설치본의 실행 안내로 사용하지 않는다.
 
 이 문서는 앞선 “보조 자료를 선택 기능으로 유지” 수정안을 대체한다. 보조 자료 생산자뿐 아니라 그 때문에 추가한 상태·비동기 수명·오류 채널·SDK 문서 체인을 폐기한다. 이전 문서는 [보존 사본](/mnt/d/J2M/evidence/overlay-minimal-plan-review/20260909/superseded-optional-plan.md)에만 남기며 구현 요구로 합치지 않는다.

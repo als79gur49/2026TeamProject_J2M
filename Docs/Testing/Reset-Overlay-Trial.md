@@ -1,5 +1,8 @@
 # Reset / Overlay 조율 시험
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 > 현재 제한된 두 역할 GameOnly 구현은 [Achievement-Overlay-Refresh-Implementation.md](Achievement-Overlay-Refresh-Implementation.md)를 따른다. 아래 FullCycle/final observer 내용은 과거 시험 동작과 근거의 기록이며 새 시험의 실행 요구가 아니다.
 
 2026-09-08. 별도 opt-in 진단 경로이며 제품 CompletedReset 구현 완료를 뜻하지 않는다. 기존 Ctrl+Shift+F10의 GameOnly/Probe/FullCycle은 업적을 초기화하지 않는다. 새 시험은 opt-in 진단 전용 화면에서 기준 상태 확인 후 시작한다. 일반 실행의 참가자 초기화 버튼과 구분한다.

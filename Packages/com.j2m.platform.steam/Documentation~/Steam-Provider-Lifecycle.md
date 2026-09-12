@@ -74,3 +74,18 @@ changing Steam Overlay configuration or native payloads. `Packsize.Test()` and n
 classification remain. The diagnostic-only `DllCheck.Test()` call is removed; an exception from
 that former pre-initialization observation can therefore no longer stop initialization. Errors
 from actual pack-size and native initialization calls are still contained and classified.
+
+## Exhibition participant maintenance
+
+The Windows participant-reset composition uses `SteamAchievementMaintenanceAccess`
+to defer publication before runtime registration. Native initialization and the
+single host callback pump still run. An exclusive maintenance lease owns the same
+atomic callback pair until reset completes; another lease or the publisher cannot
+claim it concurrently. A failed lease or callback disposal quarantines that session.
+Shutdown releases a live maintenance lease before the publisher and native shutdown;
+a disposal exception does not skip native shutdown.
+
+The normal publisher ignores StatsStored. The separate exhibition reset protocol
+requires the matching AppID's StatsStored OK, then verifies every mapped achievement
+is unearned before resetting local progress and committing Ready. This distinction
+preserves normal full-unlock publication semantics and reset durability.

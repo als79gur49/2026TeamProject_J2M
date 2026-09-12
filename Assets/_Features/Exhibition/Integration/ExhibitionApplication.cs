@@ -37,172 +37,43 @@ namespace Game.Exhibition.Integration
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void InspectJournal()
         {
-            bool enabled = false;
-#if J2M_PARTICIPANT_RESTART_EXPERIMENT && UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            enabled = true;
-#endif
-            InspectProcessStartup(Environment.GetCommandLineArgs(), enabled, Application.isBatchMode,
-                options => Compose(options, null, null), (completed, error) => Compose(null, completed, error));
+            InspectProcessStartup(Environment.GetCommandLineArgs(), Application.isBatchMode,
+                () => Compose(null, null), (completed, error) => Compose(completed, error));
         }
 
-        public static void InspectProcessStartup(string[] args, bool enabled, bool batchMode, Action<ResetOverlayTrialOptions> compose,
+        // Deferral precedes parsing so a malformed return cannot start ordinary writers.
+        public static void InspectProcessStartup(string[] args, bool batchMode, Action compose,
             Action<CompletedParticipantResetOptions, Exception> completedCompose = null)
         {
             if (CompletedParticipantResetOptions.Present(args))
             {
                 DeferServices();
-                CompletedParticipantResetOptions completed = null; Exception error = null;
+                CompletedParticipantResetOptions completed = null;
+                Exception error = null;
                 try
                 {
-                    if (batchMode || completedCompose == null || ResetOverlayTrialOptions.Present(args) ||
-                        OverlayHandoffObservationOptions.Present(args) || Game.Exhibition.RestartExperiment.ObservationV3Options.Present(args))
-                        throw new InvalidOperationException("Completed participant reset startup arguments cannot be combined or run in batch mode.");
+                    if (batchMode || completedCompose == null)
+                        throw new InvalidOperationException("Completed participant reset requires interactive startup composition.");
                     completed = CompletedParticipantResetOptions.Parse(args);
                 }
                 catch (Exception exception) { error = exception; }
-                if (completedCompose == null) throw error ?? new InvalidOperationException("Completed participant reset composition is unavailable.");
+                if (completedCompose == null)
+                    throw error ?? new InvalidOperationException("Completed participant reset composition is unavailable.");
                 completedCompose(completed, error);
                 return;
             }
-            if (InspectV3Startup(args, ProductAchievementStartupControl.ObservationBuild, enabled, batchMode)) return;
-            // Batch automation still avoids participant composition, but observation options must fail closed.
-            if (batchMode)
+            if (batchMode) return;
+            try { compose(); }
+            catch
             {
-                if (!InspectObservationStartup(args, enabled, _ => throw new InvalidOperationException("BatchObservationUnsupported")))
-                    InspectResetStartup(args, enabled, _ => throw new InvalidOperationException("BatchResetTrialUnsupported"));
-                return;
-            }
-            InspectStartup(args, enabled, compose);
-        }
-
-        // Called before any BeforeSceneLoad product or platform publisher registration.
-        // The opt-in latch is applied before filesystem/diagnostic/configuration composition.
-        public static void InspectStartup(string[] args, bool trialEnabled, Action<ResetOverlayTrialOptions> compose)
-        {
-            if (InspectV3Startup(args, ProductAchievementStartupControl.ObservationBuild, trialEnabled, false)) return;
-            if (InspectObservationStartup(args, trialEnabled, ComposeObservation)) return;
-            if (InspectResetStartup(args, trialEnabled, compose)) return;
-            ResetOverlayTrialOptions options = null;
-            try
-            {
-                if (options != null) DeferServices();
-                compose(options);
-            }
-            catch (Exception error)
-            {
-                // Preserve deferral even if constructors or diagnostics fail before a runtime exists.
                 ProductAchievementStartupControl.DeferAutomaticStart();
                 CampaignSaveCompositionProvider.SuspendProductionAccess();
+                // Registration may not exist yet; stop alone cannot latch the startup hold.
+                try { SteamAchievementMaintenanceAccess.DeferAutomaticPublication(); }
+                catch (InvalidOperationException) { /* An existing runtime is stopped below. */ }
                 SteamAchievementMaintenanceAccess.StopPublication();
-                if (options == null) throw;
-                var failed = new ResetOverlayTrial(null, null, options.Role, error);
-                ParticipantResetMenuAccess.Register(failed);
-                ResetOverlayTrialPresentation.Attach(failed, null);
+                throw;
             }
-        }
-
-        public static bool InspectResetStartup(string[] args, bool enabled, Action<ResetOverlayTrialOptions> compose)
-        {
-            if (!ResetOverlayTrialOptions.Present(args)) return false;
-            bool alreadyStarted = ProductAchievementStartupControl.ResetTrial || SteamAchievementMaintenanceAccess.ResetTrial ||
-                SteamOverlayObservationAccess.SessionRequested || ProductAchievementStartupControl.HasStarted || CampaignSaveCompositionProvider.HasProductionComposition ||
-                Game.Platform.Runtime.PlatformRuntimeRegistry.HasSelection || SteamOverlayObservationAccess.NativeStartupAttempted;
-            Exception failure = null;
-            foreach (Action inhibit in new Action[] { ProductAchievementStartupControl.InhibitForResetTrial,
-                CampaignSaveCompositionProvider.InhibitForResetTrial, SteamAchievementMaintenanceAccess.InhibitForResetTrial })
-                try { inhibit(); } catch (Exception e) { failure = failure ?? e; }
-            var options = ResetOverlayTrialOptions.Parse(args, enabled);
-            try
-            {
-                if (alreadyStarted)
-                {
-                    // Preserve prior history while revoking stale participant/native writers in a rejected session.
-                    CampaignSaveCompositionProvider.InhibitForObservation();
-                    SteamOverlayObservationAccess.InhibitWrites();
-                    throw new InvalidOperationException("StartupAlreadyStarted: prior service/native history is retained; this session is ineligible.");
-                }
-                if (failure != null) throw failure;
-                if (options.Error != null) throw options.Error;
-                compose(options);
-            }
-            catch (Exception error)
-            {
-                var failed = new ResetOverlayTrial(null, null, options.Role, error);
-                ParticipantResetMenuAccess.Register(failed);
-                ResetOverlayTrialPresentation.Attach(failed, null);
-            }
-            return true;
-        }
-
-        public static bool InspectObservationStartup(string[] args, bool enabled, Action<OverlayHandoffObservationOptions> compose)
-        {
-            if (!OverlayHandoffObservationOptions.Present(args)) return false;
-            // Capture history before inhibition/disposal. Later byte equality cannot make this a valid sample.
-            bool alreadyStarted = SteamOverlayObservationAccess.SessionRequested || ProductAchievementStartupControl.HasStarted || CampaignSaveCompositionProvider.HasProductionComposition ||
-                Game.Platform.Runtime.PlatformRuntimeRegistry.HasSelection || SteamOverlayObservationAccess.NativeStartupAttempted;
-            Exception failure = null;
-            foreach (Action inhibit in new Action[] { ProductAchievementStartupControl.InhibitForObservation,
-                CampaignSaveCompositionProvider.InhibitForObservation, () => SteamOverlayObservationAccess.InhibitWrites(),
-                SteamAchievementMaintenanceAccess.DeferAutomaticPublication })
-            {
-                try { inhibit(); }
-                catch (Exception e) { failure = failure ?? e; }
-            }
-            var options = OverlayHandoffObservationOptions.Parse(args, enabled);
-            try
-            {
-                if (alreadyStarted) throw new InvalidOperationException("StartupAlreadyStarted: prior runtime/service history is preserved; this session is ineligible.");
-                if (failure != null) throw failure;
-                if (options.Error != null) throw options.Error;
-                compose(options);
-            }
-            catch (Exception error)
-            {
-                var failed = new OverlayHandoffObservation(null, options.Role, error);
-                ParticipantResetMenuAccess.Register(failed);
-                OverlayHandoffObservationPresentation.Attach(failed);
-            }
-            return true;
-        }
-
-        public static bool InspectV3Startup(string[] args, bool observationOnlyBuild, bool enabled, bool batchMode)
-        {
-            if (!observationOnlyBuild && !Game.Exhibition.RestartExperiment.ObservationV3Options.Present(args)) return false;
-            bool started = SteamOverlayObservationAccess.SessionRequested || SteamOverlayObservationAccess.NativeStartupAttempted ||
-                ProductAchievementStartupControl.HasStarted || CampaignSaveCompositionProvider.HasProductionComposition ||
-                Game.Platform.Runtime.PlatformRuntimeRegistry.HasSelection;
-            Exception error = null;
-            foreach (Action inhibit in new Action[] { ProductAchievementStartupControl.InhibitForObservation,
-                CampaignSaveCompositionProvider.InhibitForObservation, SteamOverlayObservationAccess.BlockNativeStartup,
-                SteamAchievementMaintenanceAccess.DeferAutomaticPublication })
-                try { inhibit(); } catch (Exception e) { error = error ?? e; }
-            try
-            {
-                if (started) throw new InvalidOperationException("StartupAlreadyStarted");
-                if (error != null) throw error;
-                var parsed = Game.Exhibition.RestartExperiment.ObservationV3Options.Parse(args);
-                if (!enabled || batchMode) throw new InvalidOperationException("ObservationV3Unsupported");
-                if (!observationOnlyBuild) throw new InvalidOperationException("CompiledObservationBuildRequired");
-                // Synchronous deferral precedes the asynchronous input/peer validation and canonical release.
-                ObservationV3Runtime.StartObservation(parsed);
-                return true;
-            }
-            catch (Exception e) { error = e; }
-            var failed = new OverlayHandoffObservation(null, Game.Exhibition.RestartExperiment.OverlayObservationRole.None,
-                error ?? new InvalidOperationException("LaunchTransportUnavailable"));
-            ParticipantResetMenuAccess.Register(failed);
-            OverlayHandoffObservationPresentation.Attach(failed);
-            return true;
-        }
-
-        private static void ComposeObservation(OverlayHandoffObservationOptions options)
-        {
-            var paths = new ApplicationPersistentDataSavePathProvider();
-            instanceLock = AcquireSessionLock(paths);
-            var runtime = new OverlayHandoffObservationRuntime(options, paths);
-            var observation = new OverlayHandoffObservation(runtime, options.Role);
-            ParticipantResetMenuAccess.Register(observation);
-            OverlayHandoffObservationPresentation.Attach(observation);
         }
 
         private static void DeferServices()
@@ -211,44 +82,28 @@ namespace Game.Exhibition.Integration
             ProductAchievementStartupControl.DeferAutomaticStart();
             CampaignSaveCompositionProvider.SuspendProductionAccess();
             SteamAchievementMaintenanceAccess.DeferAutomaticPublication();
-            if (alreadyStarted) throw new InvalidOperationException("Trial startup contract violated: product services already started.");
+            if (alreadyStarted) throw new InvalidOperationException("Participant startup contract violated: product services already started.");
         }
 
-        private static void Compose(ResetOverlayTrialOptions trialOptions, CompletedParticipantResetOptions completedReset, Exception completedFailure)
+        private static void Compose(CompletedParticipantResetOptions completedReset, Exception completedFailure)
         {
             var paths = new ApplicationPersistentDataSavePathProvider();
             ResetRecord record = null;
+            bool suppressSeedImport = false;
             var journalPath = Path.Combine(paths.SaveRootPath, "exhibition-reset.json");
             var journal = new FileExhibitionResetJournal(journalPath);
-            var diagnostics = trialOptions == null ? ParticipantResetDiagnostics.Create(() => record, journal.Load) : null;
             var coordinator = new ExhibitionResetCoordinator(
-                journal, new SteamExhibitionResetAdapter(diagnostics), new ParticipantProgressResetAdapter(paths));
+                journal, new SteamExhibitionResetAdapter(), new ParticipantProgressResetAdapter(paths));
             Exception failure = completedFailure;
             try
             {
-                instanceLock = AcquireSessionLock(paths, trialOptions != null);
-                record = coordinator.ReadRecord();
+                instanceLock = AcquireSessionLock(paths);
+                record = completedReset == null && completedFailure == null ? coordinator.ReadStartupRecord() : coordinator.ReadRecord();
+                suppressSeedImport = journal.HasArchivedRecord;
             }
             catch (Exception exception) { failure = exception; }
-            if (trialOptions?.Error != null) failure = failure ?? trialOptions.Error;
-            if (trialOptions == null && completedReset == null && (failure != null || record?.State == ResetRecord.Pending))
+            if (completedReset == null && (failure != null || record?.State == ResetRecord.Pending))
                 DeferServices();
-            if (trialOptions != null)
-            {
-                ResetOverlayTrialRuntime runtime = null;
-                try
-                {
-                    if (failure != null) throw failure;
-                    if (trialOptions.Role == RestartExperiment.ResetOverlayRole.Initiator && record?.State != ResetRecord.Ready)
-                        throw new InvalidOperationException("An already Ready journal is required; Pending is never auto-resumed by the Initiator.");
-                    runtime = new ResetOverlayTrialRuntime(trialOptions.Role, trialOptions.Path, trialOptions.Observation, paths);
-                }
-                catch (Exception exception) { failure = exception; }
-                var trial = new ResetOverlayTrial(coordinator, runtime, trialOptions.Role, failure);
-                ParticipantResetMenuAccess.Register(trial);
-                ResetOverlayTrialPresentation.Attach(trial, runtime?.EvidenceDirectory);
-                return;
-            }
 #if UNITY_EDITOR
             IParticipantRestart restart = new EditorParticipantRestartAdapter();
             IParticipantRestart completedRestart = null;
@@ -275,10 +130,7 @@ namespace Game.Exhibition.Integration
             };
             IParticipantResetPort service = new ParticipantResetService(coordinator, restart,
                 () => SteamAchievementMaintenanceAccess.IsAvailable, SteamAchievementMaintenanceAccess.StopPublication,
-                startServices, reconcile, record, failure, diagnostics, completedRestart, completedReset, startRuntime);
-#if J2M_PARTICIPANT_RESTART_EXPERIMENT && UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            service = ParticipantRestartExperimentHook.Wrap(service, record);
-#endif
+                startServices, reconcile, record, failure, completedRestart, completedReset, startRuntime, suppressSeedImport);
             ParticipantResetMenuAccess.Register(service);
         }
     }

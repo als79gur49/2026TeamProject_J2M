@@ -1,5 +1,7 @@
 # Steam 업적 검증 구조 정리 계획
 
+> **브랜치 범위 정정:** 아래 구현 기록은 초기화 구현이 없던 main 계열에 한정된다. 전시 초기화는 별도 `feature/exhibition-reset`에 구현되어 있었다. 현재 통합은 [Exhibition-Runtime-Cleanup.md](./Exhibition-Runtime-Cleanup.md)를 따른다.
+
 > **현재 구현 상태:** smoke·계측 제거와 제품 테스트 이관을 구현했다. 현재 결과는 9절을 따른다. 1~8절은 삭제 전 검토·계획 당시의 기록으로 보존하며, 그 안의 미구현 표현은 당시 상태를 뜻한다.
 
 ## 1. 상태와 목적

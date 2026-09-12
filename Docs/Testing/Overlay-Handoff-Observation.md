@@ -1,5 +1,8 @@
 # Overlay handoff observation implementation
 
+> 이 문서는 당시 revision의 설계·관찰·검증 이력이다. 전시 초기화·재시작을 보존한 smoke·관측 구조 정리 후 현재 코드와 검증 상태는 [Exhibition Runtime Cleanup](../Architecture/Exhibition-Runtime-Cleanup.md)을 따른다. 아래 과거 명령과 삭제된 관측 도구는 현재 실행 절차가 아니다.
+
+
 > Historical implementation: 아래는 기존 Build25203840의 구현·검증 이력이며 새 최소안의 요구사항이 아니다. [필수 기능만 유지하는 수정안](./Overlay-Handoff-Observation-Correction-Plan.md)의 로컬 구현 및 검증 상태는 [최소안 구현 기록](./Overlay-Handoff-Observation-Minimal-Implementation.md)을 참조한다. 새 절차를 기존 설치본에 적용하지 않는다.
 
 Latest workflow correction: **BuildID 25203840** uploaded; branch/installation/live trial pending. [Validation, upload and operator steps](/mnt/d/J2M/evidence/overlay-handoff-observation/20260909T080144Z-observation-workflow/upload/upload-summary.md).

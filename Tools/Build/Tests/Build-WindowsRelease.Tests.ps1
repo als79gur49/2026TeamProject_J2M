@@ -177,7 +177,7 @@ function New-ZeroErrorEvidenceFixture {
         [string]$ExpectedProviderId = "local",
         [string[]]$ExpectedLaunchArguments = @(),
         [string[]]$RequiredArtifacts = @(
-            "Exhibition-Relaunch.ps1",
+            "Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs",
             "ThirdPartyNotices.txt",
             "UnityPlayerThirdPartyNotices.pdf"
         ),
@@ -348,7 +348,7 @@ function New-CanonicalEvidenceExpectation {
         ExpectedProviderId = "local"
         ExpectedLaunchArguments = @()
         RequiredArtifacts = @(
-            "Exhibition-Relaunch.ps1",
+            "Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs",
             "ThirdPartyNotices.txt",
             "UnityPlayerThirdPartyNotices.pdf"
         )
@@ -415,7 +415,7 @@ Invoke-Case "DirectWindows distribution expects Local without selector" {
     Assert-Equal "local" $target.ExpectedProviderId
     Assert-Equal 0 (@($target.ExpectedLaunchArguments).Count)
     Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts `
-        @("Exhibition-Relaunch.ps1", "ThirdPartyNotices.txt", "UnityPlayerThirdPartyNotices.pdf"))
+        @("Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs", "ThirdPartyNotices.txt", "UnityPlayerThirdPartyNotices.pdf"))
     Assert-True (Test-OrdinalArrayEqual $target.ForbiddenArtifacts @(
         "steam_api64.dll",
         "com.rlabrecque.steamworks.net.dll",
@@ -434,11 +434,11 @@ Invoke-Case "SteamWindows distribution expects canonical external selector" {
     Assert-True (Test-OrdinalArrayEqual $target.ExpectedLaunchArguments `
         @("-j2mPlatformProvider", "steam"))
     Assert-True (Test-OrdinalArrayEqual $target.RequiredArtifacts @(
-        "Exhibition-Relaunch.ps1",
+        "Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs",
         "ThirdPartyNotices.txt",
         "UnityPlayerThirdPartyNotices.pdf",
         "steam_api64.dll",
-        "com.rlabrecque.steamworks.net.dll"
+        "com.rlabrecque.steamworks.net.dll", "Game.Exhibition.Application.dll", "Game.Exhibition.Integration.dll"
     ))
     Assert-True (Test-OrdinalArrayEqual $target.ForbiddenArtifacts @(
         "steam_appid.txt",
@@ -488,7 +488,7 @@ Invoke-Case "backend output paths are separated" {
         Resolve-StoreBackendPolicy "IL2CPP" "BackendComparison" "InternalRc").Configuration
     Assert-False ($mono -ceq $il2cpp)
 }
-Invoke-Case "worktree-family Unity rejected" {
+Invoke-Case "protected project Unity rejected" {
     Assert-False (Test-ReleaseProcessGate @(
         (New-Process 10 1 "Unity.exe" "-projectPath C:\repo")
     ) @("C:\repo"))
@@ -522,7 +522,81 @@ Invoke-Case "repository CrashHandler outside allowed build rejected" {
     ) @("C:\repo") 99
     Assert-False $result.Allowed
     Assert-True (@($result.RejectedProcesses |
-        Where-Object { $_.reason -eq "RepositoryFamilyCrashHandler" }).Count -eq 1)
+        Where-Object { $_.reason -eq "RejectedUnityCrashHandler" }).Count -eq 1)
+}
+Invoke-Case "isolated sibling worktree Unity and CrashHandler accepted" {
+    $r = Get-ReleaseProcessGateResult @(
+        (New-Process 10 1 'Unity.exe' 'Unity.exe -projectPath "D:\worktrees\other project"'),
+        (New-Process 11 10 'UnityCrashHandler64.exe' '')
+    ) @('D:\worktrees\build')
+    Assert-True $r.Allowed
+    Assert-Equal 2 $r.AcceptedProcesses.Count
+}
+Invoke-Case "prefix sibling is not the same project" {
+    Assert-True (Test-ReleaseProcessGate @(
+        (New-Process 10 1 'Unity.exe' '-projectPath D:\project-other')
+    ) @('D:\project'))
+}
+Invoke-Case "normalized quoted project path rejected" {
+    Assert-False (Test-ReleaseProcessGate @(
+        (New-Process 10 1 'Unity.exe' 'Unity.exe "-projectPath" "d:/Project Space/../Project Space"')
+    ) @('D:\Project Space'))
+}
+foreach ($command in @('Unity.exe', 'Unity.exe -projectPath relative',
+    'Unity.exe -projectPath D:\other -projectPath D:\second',
+    'Unity.exe -projectPath', '')) {
+    Invoke-Case "unresolved Unity command rejected: $command" {
+        Assert-False (Test-ReleaseProcessGate @((New-Process 10 1 'Unity.exe' $command)) @('D:\project'))
+    }
+}
+Invoke-Case "isolated project writing protected output rejected" {
+    $r = Get-ReleaseProcessGateResult @(
+        (New-Process 10 1 'Unity.exe' '-projectPath D:\other -captureBuildPath D:\release\payload\game.exe')
+    ) @('D:\project') -ProtectedOutputPaths @('D:\release')
+    Assert-False $r.Allowed
+    Assert-Equal 'ProtectedPathUnity' $r.RejectedProcesses[0].reason
+}
+Invoke-Case "isolated project and output accepted" {
+    Assert-True (Test-ReleaseProcessGate @(
+        (New-Process 10 1 'Unity.exe' '-projectPath D:\other -releaseOutputPath D:\other-build\game.exe')
+    ) @('D:\project') -ProtectedOutputPaths @('D:\release'))
+}
+Invoke-Case "owned worker and its CrashHandler accepted in shuffled snapshot" {
+    $r = Get-ReleaseProcessGateResult @(
+        (New-Process 12 11 'UnityCrashHandler64.exe' ''),
+        (New-Process 11 10 'Unity.exe' '-name AssetImportWorker0 -projectPath D:\project'),
+        (New-Process 10 1 'Unity.exe' '-projectPath D:\project')
+    ) @('D:\project') 10
+    Assert-True $r.Allowed
+    Assert-Equal 3 $r.AcceptedProcesses.Count
+}
+Invoke-Case "unowned worker in build project rejected" {
+    Assert-False (Test-ReleaseProcessGate @(
+        (New-Process 11 99 'Unity.exe' '-name AssetImportWorker0 -projectPath D:\project'),
+        (New-Process 10 1 'Unity.exe' '-projectPath D:\project')
+    ) @('D:\project') 10)
+}
+Invoke-Case "Unity arriving after preflight is classified by isolation" {
+    Assert-True (Test-ReleaseProcessGate @() @('D:\project'))
+    Assert-False (Test-ReleaseProcessGate @((New-Process 10 1 'Unity.exe' '-projectPath D:\project')) @('D:\project'))
+    Assert-True (Test-ReleaseProcessGate @((New-Process 10 1 'Unity.exe' '-projectPath D:\other')) @('D:\project'))
+}
+Invoke-Case "shared remote reference movement is not source drift" {
+    $a = [ordered]@{ head='a'; tree='b'; originMain='old'; ahead=1; behind=0; tracked=@(); canaries=@{x='1'} }
+    $b = [ordered]@{ head='a'; tree='b'; originMain='new'; ahead=3; behind=2; tracked=@(); canaries=@{x='1'} }
+    Assert-True (Test-SnapshotEquality $a $b)
+    $b.tracked = @('Assets/changed.cs')
+    Assert-False (Test-SnapshotEquality $a $b)
+}
+Invoke-Case "relative build output cannot prove isolation" {
+    Assert-False (Test-ReleaseProcessGate @(
+        (New-Process 10 1 'Unity.exe' '-projectPath D:\other -releaseOutputPath relative\game.exe')
+    ) @('D:\project'))
+}
+Invoke-Case "JSON snapshot still detects HEAD drift" {
+    $a = '{"head":"a","originMain":"one"}' | ConvertFrom-Json
+    $b = '{"head":"b","originMain":"two"}' | ConvertFrom-Json
+    Assert-False (Test-SnapshotEquality $a $b)
 }
 Invoke-Case "git command uses process-local longpaths" {
     $arguments = @(Get-GitCommandArguments "C:\repo" @("worktree", "list"))
@@ -731,6 +805,37 @@ Invoke-Case "longest known critical importer suffix owns the path budget" {
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null
 try {
+    Invoke-Case "shared Library junction rejected" {
+        $root = Join-Path $temp 'isolation'
+        New-Item -ItemType Directory -Path "$root\build\Library", "$root\other" -Force | Out-Null
+        $junction = New-Item -ItemType Junction -Path "$root\other\Library" -Target "$root\build\Library"
+        try {
+            Assert-False (Test-ReleaseProcessGate @(
+                (New-Process 10 1 'Unity.exe' ('Unity.exe -projectPath "' + "$root\other" + '"'))
+            ) @("$root\build"))
+        } finally { $junction.Delete() }
+    }
+    Invoke-Case "project lease prevents double owner and releases" {
+        $path = Join-Path $temp 'lease\Library\.j2m-release.lock'
+        $first = Open-ReleaseLease $path
+        try {
+            $failed = $false
+            try { $unexpected = Open-ReleaseLease $path; $unexpected.Dispose() } catch { $failed = $true }
+            Assert-True $failed
+        } finally { $first.Dispose() }
+        $next = Open-ReleaseLease $path
+        $next.Dispose()
+    }
+    Invoke-Case "output lease prevents duplicate promotion owner" {
+        $path = Join-Path $temp 'lease-output\.j2m-release-output.lock'
+        $first = Open-ReleaseLease $path
+        try {
+            $failed = $false
+            try { $unexpected = Open-ReleaseLease $path; $unexpected.Dispose() } catch { $failed = $true }
+            Assert-True $failed
+        } finally { $first.Dispose() }
+    }
+
     $stage = Join-Path $temp "stage"
     $final = Join-Path $temp "final"
     $detached = Join-Path $temp "source"
@@ -1356,8 +1461,6 @@ try {
         $runId = "public-notice-preflight"
         $originalInvokeGitText = (Get-Command Invoke-GitText).ScriptBlock
         $originalGetGitSnapshot = (Get-Command Get-GitSnapshot).ScriptBlock
-        $originalGetRepositoryFamilyPaths =
-            (Get-Command Get-RepositoryFamilyPaths).ScriptBlock
         $originalTestBuildSourcePathBudget =
             (Get-Command Test-BuildSourcePathBudget).ScriptBlock
         $originalNoticeContract =
@@ -1383,10 +1486,6 @@ try {
                     untracked = @()
                     canaries = [ordered]@{}
                 }
-            }
-            Set-Item Function:\Get-RepositoryFamilyPaths {
-                param([string]$Root)
-                return @($Root)
             }
             Set-Item Function:\Get-CimInstance {
                 param([string]$ClassName)
@@ -1423,8 +1522,6 @@ try {
         } finally {
             Set-Item Function:\Invoke-GitText $originalInvokeGitText
             Set-Item Function:\Get-GitSnapshot $originalGetGitSnapshot
-            Set-Item Function:\Get-RepositoryFamilyPaths `
-                $originalGetRepositoryFamilyPaths
             Set-Item Function:\Test-BuildSourcePathBudget `
                 $originalTestBuildSourcePathBudget
             Set-Item Function:\Get-ThirdPartyNoticeSourceContract `
@@ -2092,7 +2189,7 @@ try {
         expectedProviderId = "local"
         expectedLaunchArguments = @()
         requiredArtifacts = @(
-            "Exhibition-Relaunch.ps1",
+            "Exhibition-Relaunch.ps1", "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs",
             "ThirdPartyNotices.txt",
             "UnityPlayerThirdPartyNotices.pdf"
         )

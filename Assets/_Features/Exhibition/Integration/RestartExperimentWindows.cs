@@ -1,4 +1,4 @@
-// Shared verbatim with the diagnostic PowerShell host. No Unity dependency, C# 5 syntax.
+// Shared verbatim with the participant restart PowerShell host. No Unity dependency, C# 5 syntax.
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -23,25 +23,15 @@ namespace Game.Exhibition.RestartExperiment
         public string Path, Sha256, UserSid, Logon;
     }
 
-    public enum ResetOverlayRole { None, Initiator, ResetWorker, FinalObserver }
-
     public sealed class ExperimentRequest
     {
-        public string Nonce, EvidenceDirectory, PrerequisitesPath, ToolsDirectory, DllPath;
+        public string Nonce, EvidenceDirectory, ToolsDirectory, DllPath;
         public string OperationId, Build;
-        public int OverlayObservationWireVersion;
-        public string OverlayObservationContextPath, OverlayObservationRunId, OverlayObservationContextSha256;
-        public OverlayObservationRole OverlayObservationChildRole;
-        public int ResetOverlayWireVersion;
-        public string ResetOverlayTrialId, ResetOverlayContextSha256;
-        public string ResetOverlayContextPath;
-        public ResetOverlayRole ResetOverlayChildRole;
         public uint AppId;
         public ulong SteamId;
         public Trial Trial;
         public ProcessIdentity Parent, Steam;
-        // Product participant-reset handoff. This is deliberately separate from
-        // the diagnostic reset/observation wires above.
+        // Product participant-reset handoff, bound to the completed journal.
         public bool CompletedResetProduct;
         public string ReadyJournalPath, ReadyJournalSha256;
     }
@@ -56,12 +46,14 @@ namespace Game.Exhibition.RestartExperiment
 
     public static class CompletedResetProductWire
     {
+        // Kept BCL-only for the cold PowerShell compiler; the NUnit contract pins this to the coordinator.
+        public const string SupportedMappingVersion = "level-and-efficient-clear-v2";
         public static bool HasRequest(ExperimentRequest request) { return request != null && request.CompletedResetProduct; }
         public static void Validate(ExperimentRequest request)
         {
-            if (!HasRequest(request)) return;
+            if (!HasRequest(request)) throw new IOException("Completed-reset product request required.");
             Guid operation;
-            if (request.Trial != Trial.FullCycle || OverlayObservationWire.HasObservation(request) || ResetOverlayWire.HasReset(request) ||
+            if (request.Trial != Trial.FullCycle ||
                 !Guid.TryParseExact(request.OperationId, "N", out operation) || string.IsNullOrWhiteSpace(request.ReadyJournalPath) ||
                 string.IsNullOrWhiteSpace(request.ReadyJournalSha256) || request.AppId == 0 || request.SteamId == 0)
                 throw new IOException("Invalid completed-reset product request.");
@@ -70,8 +62,10 @@ namespace Game.Exhibition.RestartExperiment
                 ExperimentFiles.Hash(path) != request.ReadyJournalSha256) throw new IOException("Completed-reset journal changed.");
             var journal = ExperimentFiles.Read<ProductReadyJournal>(path);
             if (journal == null || journal.SchemaVersion != 1 || journal.State != "Ready" || journal.OperationId != request.OperationId ||
-                journal.MappingVersion != "level-clear-v1" || journal.AppId != request.AppId || journal.SteamId != request.SteamId)
+                journal.AppId != request.AppId || journal.SteamId != request.SteamId)
                 throw new IOException("Completed-reset Ready journal mismatch.");
+            if (journal.MappingVersion != SupportedMappingVersion)
+                throw new IOException("Completed-reset achievement mapping is incompatible with this build. Expected " + SupportedMappingVersion + "; the journal was not changed.");
         }
         public static void ValidateRequestPath(ExperimentRequest request, string requestPath)
         {
@@ -83,342 +77,6 @@ namespace Game.Exhibition.RestartExperiment
                 !string.Equals(Path.GetFullPath(request.EvidenceDirectory), Path.GetDirectoryName(expected), StringComparison.OrdinalIgnoreCase))
                 throw new IOException("Completed-reset request location mismatch.");
         }
-    }
-
-    // Reset v2 is independent of the read-only observation wire and the product journal.
-    public sealed class ResetOverlayTrialContext
-    {
-        public int Version;
-        public string TrialId, HandoffNonce, ReadyOperationId, OperationId, MappingVersion, Directory, ConfigurationPath;
-        public string ConfigurationSha256, ManifestSha256, BaselinePath, BaselineSha256, OriginReportPath, OriginReportSha256;
-        public string InitialFilesPath, InitialFilesSha256, PendingFilesPath, PendingFilesSha256, ScopeConfirmedUtc;
-        public uint AppId;
-        public ulong SteamId;
-        public ProcessIdentity Origin, Steam;
-    }
-    public sealed class ResetOverlaySdkBaseline
-    {
-        public int Version;
-        public string TrialId, ReadyOperationId, MappingVersion, Source, Utc;
-        public ResetOverlayRole Role;
-        public ProcessIdentity Process;
-        public uint AppId;
-        public ulong SteamId;
-        public double MonotonicSeconds;
-        public string[] Names;
-        public bool[] QuerySucceeded, Achieved;
-    }
-    public sealed class ResetOverlayUserReport
-    {
-        public int Version;
-        public string TrialId, Source, Utc, Visibility, BaselineSha256, ResetResultSha256;
-        public ResetOverlayRole Role;
-        public ProcessIdentity Process;
-        public double MonotonicSeconds;
-        public bool AttemptReported;
-        public string[] Names, Judgments;
-    }
-    public sealed class ResetOverlayHelperCreation
-    {
-        public int Version;
-        public string Nonce;
-        public ProcessIdentity Origin, Helper;
-    }
-    public sealed class ResetOverlayChildReceipt
-    {
-        public int Version;
-        public string Nonce, TrialId, OperationId, ContextPath, ContextSha256, RequestSha256, MappingVersion;
-        public uint AppId;
-        public ulong SteamId;
-        public ResetOverlayRole Role;
-        public ProcessIdentity Origin, Child;
-    }
-    public static class ResetOverlayWire
-    {
-        public static string[] Names()
-        { return Enumerable.Range(0, 5).Select(i => "VQ_LEVEL_" + i + "_CLEAR").ToArray(); }
-        public static bool HasReset(ExperimentRequest r)
-        { return r.ResetOverlayWireVersion != 0 || r.ResetOverlayTrialId != null || r.ResetOverlayContextSha256 != null || r.ResetOverlayContextPath != null || r.ResetOverlayChildRole != ResetOverlayRole.None; }
-        public static bool Same(ProcessIdentity a, ProcessIdentity b)
-        { return a != null && b != null && WindowsIdentityCapture.SameProcess(a, b) && WindowsIdentityCapture.SameScope(a, b) &&
-            string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase) && a.Sha256 == b.Sha256; }
-        private static bool Identity(ProcessIdentity p)
-        { return p != null && p.Pid > 0 && p.StartTicks > 0 && p.Session >= 0 && !string.IsNullOrWhiteSpace(p.UserSid) && !string.IsNullOrWhiteSpace(p.Logon) && !string.IsNullOrWhiteSpace(p.Path) && OverlayObservationWire.Hash(p.Sha256); }
-        private static bool Id(string id) { Guid g; return Guid.TryParseExact(id, "N", out g); }
-        private static bool Timestamp(string utc, double mono)
-        { DateTimeOffset date; return DateTimeOffset.TryParse(utc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out date) && !double.IsNaN(mono) && !double.IsInfinity(mono) && mono >= 0; }
-        public static void ValidateRequest(ExperimentRequest r)
-        {
-            if (!HasReset(r)) return;
-            if (r.ResetOverlayWireVersion != 2 || !Id(r.ResetOverlayTrialId) || !Id(r.Nonce) || !Id(r.OperationId) ||
-                r.Trial != Trial.GameOnly || r.ResetOverlayChildRole != ResetOverlayRole.ResetWorker ||
-                string.IsNullOrWhiteSpace(r.ResetOverlayContextPath) || !OverlayObservationWire.Hash(r.ResetOverlayContextSha256) ||
-                OverlayObservationWire.HasObservation(r)) throw new IOException("Invalid reset overlay child role or old/partial/mixed reset wire.");
-        }
-        public static void ValidateBaseline(ResetOverlaySdkBaseline b)
-        {
-            if (b == null || b.Version != 2 || !Id(b.TrialId) || !Id(b.ReadyOperationId) || b.Role != ResetOverlayRole.Initiator ||
-                b.Source != "SDK" || b.AppId != 5218360 || b.SteamId == 0 || b.MappingVersion != "level-clear-v1" || !Identity(b.Process) ||
-                !Timestamp(b.Utc, b.MonotonicSeconds) || b.Names == null || !b.Names.SequenceEqual(Names()) ||
-                b.QuerySucceeded == null || b.QuerySucceeded.Length != 5 || b.QuerySucceeded.Any(v => !v) ||
-                b.Achieved == null || b.Achieved.Length != 5 || !b.Achieved.Any(v => v)) throw new IOException("A complete SDK baseline with an earned comparison target is required.");
-        }
-        public static void ValidateReport(ResetOverlayUserReport r, ResetOverlaySdkBaseline b, ResetOverlayRole role, ProcessIdentity process)
-        {
-            ValidateBaseline(b);
-            var targets = b.Names.Where((name, i) => b.Achieved[i]).ToArray();
-            if (r == null || r.Version != 2 || r.TrialId != b.TrialId || r.Role != role ||
-                (role != ResetOverlayRole.Initiator && role != ResetOverlayRole.ResetWorker) || r.Source != "User" || !Same(r.Process, process) ||
-                !Timestamp(r.Utc, r.MonotonicSeconds) || !OverlayObservationWire.Hash(r.BaselineSha256) ||
-                r.Names == null || !r.Names.SequenceEqual(targets) || r.Judgments == null || r.Judgments.Length != targets.Length ||
-                r.Judgments.Any(v => v != "earned" && v != "unearned" && v != "inconclusive") ||
-                (r.Visibility != "opened" && r.Visibility != "not-visible" && r.Visibility != "inconclusive") ||
-                r.AttemptReported != (r.Visibility != "inconclusive") ||
-                (r.Visibility != "opened" && r.Judgments.Any(v => v != "inconclusive")) ||
-                (role == ResetOverlayRole.Initiator ? r.ResetResultSha256 != null : !OverlayObservationWire.Hash(r.ResetResultSha256)))
-                throw new IOException("Invalid user achievement report.");
-        }
-        public static bool BaselineAgrees(ResetOverlayUserReport report)
-        { return report.Visibility == "opened" && report.AttemptReported && report.Judgments.All(v => v == "earned"); }
-        private static T Pinned<T>(string root, string path, string hash)
-        {
-            OverlayObservationWire.UnderRun(root, path);
-            if (!OverlayObservationWire.Hash(hash) || ExperimentFiles.Hash(path) != hash) throw new IOException("Reset evidence bytes changed.");
-            return ExperimentFiles.Read<T>(path);
-        }
-        public static ResetOverlayTrialContext ReadContext(ExperimentRequest r)
-        {
-            ValidateRequest(r);
-            if (!HasReset(r)) throw new IOException("Missing reset request.");
-            if (ExperimentFiles.Hash(r.ResetOverlayContextPath) != r.ResetOverlayContextSha256) throw new IOException("Reset context bytes changed.");
-            var c = ExperimentFiles.Read<ResetOverlayTrialContext>(r.ResetOverlayContextPath);
-            if (c == null || c.Version != 2 || c.TrialId != r.ResetOverlayTrialId || c.OperationId != r.OperationId || c.HandoffNonce != r.Nonce ||
-                !Id(c.ReadyOperationId) || c.ReadyOperationId == c.OperationId || c.MappingVersion != "level-clear-v1" ||
-                c.AppId != 5218360 || c.AppId != r.AppId || c.SteamId == 0 || c.SteamId != r.SteamId ||
-                !Identity(c.Origin) || !Identity(c.Steam) || !Same(c.Origin, r.Parent) || !Same(c.Steam, r.Steam) ||
-                !Timestamp(c.ScopeConfirmedUtc, 0) || !OverlayObservationWire.Hash(c.ConfigurationSha256) || !OverlayObservationWire.Hash(c.ManifestSha256))
-                throw new IOException("Invalid reset context identity/pins.");
-            if (!string.Equals(Path.GetFullPath(r.ToolsDirectory), Path.GetFullPath(Path.Combine(Path.GetDirectoryName(c.Origin.Path), "RestartExperiment")), StringComparison.OrdinalIgnoreCase) ||
-                !string.Equals(Path.GetFullPath(r.EvidenceDirectory), Path.GetFullPath(Path.Combine(c.Directory, "handoff-GameOnly")), StringComparison.OrdinalIgnoreCase)) throw new IOException("Reset request paths changed.");
-            OverlayObservationWire.UnderRun(c.Directory, r.ResetOverlayContextPath);
-            OverlayObservationWire.UnderRun(c.Directory, Path.Combine(r.EvidenceDirectory, "request.json"));
-            if (ExperimentFiles.Hash(c.ConfigurationPath) != c.ConfigurationSha256) throw new IOException("Reset config changed.");
-            var b = Pinned<ResetOverlaySdkBaseline>(c.Directory, c.BaselinePath, c.BaselineSha256);
-            ValidateBaseline(b);
-            if (b.TrialId != c.TrialId || b.ReadyOperationId != c.ReadyOperationId || b.MappingVersion != c.MappingVersion ||
-                b.AppId != c.AppId || b.SteamId != c.SteamId || !Same(b.Process, c.Origin)) throw new IOException("Baseline/context mismatch.");
-            var report = Pinned<ResetOverlayUserReport>(c.Directory, c.OriginReportPath, c.OriginReportSha256);
-            ValidateReport(report, b, ResetOverlayRole.Initiator, c.Origin);
-            if (report.BaselineSha256 != c.BaselineSha256 || !BaselineAgrees(report)) throw new IOException("Baseline screen report does not agree.");
-            foreach (var pair in new[] { new[] { c.InitialFilesPath, c.InitialFilesSha256 }, new[] { c.PendingFilesPath, c.PendingFilesSha256 } })
-            {
-                OverlayObservationWire.UnderRun(c.Directory, pair[0]);
-                if (!OverlayObservationWire.Hash(pair[1]) || ExperimentFiles.Hash(pair[0]) != pair[1]) throw new IOException("Participant manifest pin changed.");
-            }
-            return c;
-        }
-        public static void ClaimChildCreation(ExperimentRequest r)
-        {
-            ReadContext(r);
-            using (var file = new FileStream(Path.Combine(r.EvidenceDirectory, "child-creation.claim"), FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            { var bytes = Encoding.UTF8.GetBytes(r.Nonce); file.Write(bytes, 0, bytes.Length); file.Flush(true); }
-        }
-        public static ResetOverlayHelperCreation ReadCreation(ExperimentRequest r)
-        {
-            var row = ExperimentFiles.Read<ResetOverlayHelperCreation>(Path.Combine(r.EvidenceDirectory, "helper-created.json"));
-            if (row == null || row.Version != 2 || row.Nonce != r.Nonce || !Same(row.Origin, r.Parent) ||
-                row.Helper == null || row.Helper.Pid <= 0 || row.Helper.StartTicks <= 0 || string.IsNullOrWhiteSpace(row.Helper.Path) ||
-                !WindowsIdentityCapture.SameScope(row.Helper, r.Parent)) throw new IOException("Owned helper creation record missing or invalid.");
-            return row;
-        }
-    }
-    public static class ResetOverlayReceipt
-    {
-        public static string PathFor(ExperimentRequest request) { return Path.Combine(request.EvidenceDirectory, "reset-overlay-child.json"); }
-        public static void Write(ExperimentRequest request, ProcessIdentity child, string requestPath)
-        {
-            var c = ResetOverlayWire.ReadContext(request);
-            var row = new ResetOverlayChildReceipt { Version = 2, Nonce = request.Nonce, TrialId = c.TrialId, OperationId = c.OperationId,
-                ContextPath = request.ResetOverlayContextPath, ContextSha256 = request.ResetOverlayContextSha256, RequestSha256 = ExperimentFiles.Hash(requestPath),
-                Role = request.ResetOverlayChildRole, AppId = c.AppId, SteamId = c.SteamId, MappingVersion = c.MappingVersion, Origin = c.Origin, Child = child };
-            string path = PathFor(request), temporary = path + ".pending";
-            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                byte[] bytes = Encoding.UTF8.GetBytes(ExperimentFiles.Json(row));
-                stream.Write(bytes, 0, bytes.Length); stream.Flush(true);
-            }
-            File.Move(temporary, path);
-        }
-        public static bool Matches(ResetOverlayChildReceipt row, ExperimentRequest request, ProcessIdentity child, string requestPath)
-        {
-            var c = ResetOverlayWire.ReadContext(request);
-            return row != null && row.Version == 2 && row.Nonce == request.Nonce && row.TrialId == c.TrialId && row.OperationId == c.OperationId &&
-                row.ContextPath == request.ResetOverlayContextPath && row.ContextSha256 == request.ResetOverlayContextSha256 &&
-                row.RequestSha256 == ExperimentFiles.Hash(requestPath) && row.Role == ResetOverlayRole.ResetWorker &&
-                row.AppId == c.AppId && row.SteamId == c.SteamId && row.MappingVersion == c.MappingVersion &&
-                ResetOverlayWire.Same(row.Origin, c.Origin) && ResetOverlayWire.Same(row.Child, child);
-        }
-    }
-
-    public enum OverlayObservationRole { None, OriginObserver, ReplacementObserver }
-
-    // Shared observation wire. Missing version remains zero and is rejected; no reset journal migration.
-    public sealed class OverlayObservationContext
-    {
-        public int Version;
-        public string RunId, Directory, ConfigurationPath, ConfigurationSha256, ManifestSha256, SaveManifestSha256;
-        public string OperationId, ReadyState, MappingVersion;
-        public string OriginObservationPath, OriginObservationSha256;
-        public uint AppId;
-        public ulong SteamId;
-        public OverlayObservationRole Role;
-        public ProcessIdentity Origin;
-    }
-
-    public sealed class OverlayUserObservation
-    {
-        public string RunId, Source, Visibility, Utc;
-        public OverlayObservationRole Role;
-        public ProcessIdentity Process;
-        public bool AttemptReported;
-        public double MonotonicSeconds;
-    }
-
-    public sealed class OverlayObservationReceipt
-    {
-        public int Version;
-        public string Nonce, RunId, ContextPath, ContextSha256, ConfigurationSha256, ManifestSha256, OperationId, MappingVersion, ReadyState;
-        public OverlayObservationRole Role;
-        public uint AppId;
-        public ulong SteamId;
-        public ProcessIdentity Origin, Child;
-    }
-
-    public static class OverlayObservationWire
-    {
-        public static string ReceiptPath(ExperimentRequest request)
-        { return System.IO.Path.Combine(request.EvidenceDirectory, "overlay-observation-child.json"); }
-        public static bool HasObservation(ExperimentRequest request)
-        {
-            return request.OverlayObservationWireVersion != 0 || request.OverlayObservationChildRole != OverlayObservationRole.None ||
-                request.OverlayObservationContextPath != null || request.OverlayObservationRunId != null || request.OverlayObservationContextSha256 != null;
-        }
-        public static void ValidateRequest(ExperimentRequest request)
-        {
-            if (!HasObservation(request)) return;
-            Guid run, nonce;
-            if (!Guid.TryParseExact(request.Nonce, "N", out nonce) || request.OverlayObservationWireVersion != 2 || request.Trial != Trial.GameOnly ||
-                request.OverlayObservationChildRole != OverlayObservationRole.ReplacementObserver ||
-                string.IsNullOrWhiteSpace(request.OverlayObservationContextPath) || !Hash(request.OverlayObservationContextSha256) ||
-                !Guid.TryParseExact(request.OverlayObservationRunId, "N", out run) ||
-                ResetOverlayWire.HasReset(request))
-                throw new IOException("Invalid, partial or mixed observation request.");
-        }
-        public static bool Hash(string value)
-        { return value != null && value.Length == 64 && value.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')); }
-        public static void ValidateContext(OverlayObservationContext context, OverlayObservationRole role)
-        {
-            Guid run, op;
-            if (context == null || context.Version != 2 || context.Role != role ||
-                (role != OverlayObservationRole.OriginObserver && role != OverlayObservationRole.ReplacementObserver) ||
-                !Guid.TryParseExact(context.RunId, "N", out run) || !Guid.TryParseExact(context.OperationId, "N", out op) ||
-                context.ReadyState != "Ready" || string.IsNullOrWhiteSpace(context.MappingVersion) ||
-                string.IsNullOrWhiteSpace(context.Directory) || string.IsNullOrWhiteSpace(context.ConfigurationPath) ||
-                !Hash(context.ConfigurationSha256) || !Hash(context.ManifestSha256) || !Hash(context.SaveManifestSha256) ||
-                context.AppId != 5218360 || context.SteamId == 0 || context.Origin == null ||
-                context.Origin.Pid <= 0 || context.Origin.StartTicks <= 0 || !Hash(context.Origin.Sha256) || string.IsNullOrEmpty(context.Origin.Path))
-                throw new IOException("Invalid observation context.");
-            if (role == OverlayObservationRole.OriginObserver)
-            {
-                if (context.OriginObservationPath != null || context.OriginObservationSha256 != null)
-                    throw new IOException("Origin preparation cannot contain a future report reference.");
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(context.OriginObservationPath) || !Hash(context.OriginObservationSha256))
-                    throw new IOException("Origin user report reference is required.");
-                UnderRun(context.Directory, context.OriginObservationPath);
-            }
-        }
-        public static string UnderRun(string root, string path)
-        {
-            if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(root) || !Path.IsPathRooted(path))
-                throw new IOException("Absolute run/report paths are required.");
-            string prefix = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            string full = Path.GetFullPath(path);
-            if (!full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) throw new IOException("Evidence is outside the run directory.");
-            for (var dir = new DirectoryInfo(Path.GetDirectoryName(full)); dir != null && dir.FullName.Length >= prefix.TrimEnd(Path.DirectorySeparatorChar).Length; dir = dir.Parent)
-                if (dir.Exists && (dir.Attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("Reparse-point evidence path.");
-            if (File.Exists(full) && (File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0) throw new IOException("Reparse-point evidence file.");
-            return full;
-        }
-        public static void ValidateOriginReport(OverlayObservationContext context)
-        {
-            ValidateContext(context, OverlayObservationRole.ReplacementObserver);
-            string path = UnderRun(context.Directory, context.OriginObservationPath);
-            if (ExperimentFiles.Hash(path) != context.OriginObservationSha256) throw new IOException("Origin report bytes changed.");
-            var row = ExperimentFiles.Read<OverlayUserObservation>(path);
-            DateTimeOffset utc;
-            if (row == null || row.RunId != context.RunId || row.Role != OverlayObservationRole.OriginObserver ||
-                !Same(row.Process, context.Origin) || row.Source != "User" || !row.AttemptReported || row.Visibility != "opened" ||
-                !DateTimeOffset.TryParse(row.Utc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out utc) ||
-                double.IsNaN(row.MonotonicSeconds) || double.IsInfinity(row.MonotonicSeconds) || row.MonotonicSeconds < 0)
-                throw new IOException("Origin opened user report identity mismatch.");
-        }
-        public static OverlayObservationContext ReadContext(ExperimentRequest request)
-        {
-            ValidateRequest(request);
-            if (ExperimentFiles.Hash(request.OverlayObservationContextPath) != request.OverlayObservationContextSha256)
-                throw new IOException("Observation context bytes changed.");
-            var context = ExperimentFiles.Read<OverlayObservationContext>(request.OverlayObservationContextPath);
-            ValidateContext(context, OverlayObservationRole.ReplacementObserver);
-            UnderRun(context.Directory, request.OverlayObservationContextPath);
-            ValidateOriginReport(context);
-            if (context.RunId != request.OverlayObservationRunId || context.AppId != request.AppId || context.SteamId != request.SteamId ||
-                context.OperationId != request.OperationId || !Same(context.Origin, request.Parent))
-                throw new IOException("Observation request/context identity mismatch.");
-            return context;
-        }
-        private static bool Same(ProcessIdentity a, ProcessIdentity b)
-        {
-            return a != null && b != null && WindowsIdentityCapture.SameProcess(a, b) &&
-                string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase) && a.Sha256 == b.Sha256 && WindowsIdentityCapture.SameScope(a, b);
-        }
-        public static void WriteReceipt(ExperimentRequest request, ProcessIdentity child)
-        {
-            var c = ReadContext(request);
-            var row = new OverlayObservationReceipt { Version = 2, Nonce = request.Nonce, RunId = c.RunId,
-                ContextPath = request.OverlayObservationContextPath, ContextSha256 = request.OverlayObservationContextSha256, Role = OverlayObservationRole.ReplacementObserver,
-                AppId = c.AppId, SteamId = c.SteamId, ConfigurationSha256 = c.ConfigurationSha256, ManifestSha256 = c.ManifestSha256,
-                OperationId = c.OperationId, MappingVersion = c.MappingVersion, ReadyState = c.ReadyState, Origin = c.Origin, Child = child };
-            var path = ReceiptPath(request);
-            using (var stream = new FileStream(path + ".pending", FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                var bytes = Encoding.UTF8.GetBytes(ExperimentFiles.Json(row));
-                stream.Write(bytes, 0, bytes.Length); stream.Flush(true);
-            }
-            File.Move(path + ".pending", path);
-        }
-        public static ProcessIdentity CaptureChildAndWriteReceipt(ExperimentRequest request, Process process)
-        {
-            var child = WindowsIdentityCapture.Capture(process, true);
-            WriteReceipt(request, child);
-            return child;
-        }
-        public static bool Matches(OverlayObservationReceipt row, ExperimentRequest request, OverlayObservationContext c, ProcessIdentity child)
-        {
-            return row != null && row.Version == 2 && request.OverlayObservationWireVersion == 2 && c.Version == 2 && row.Nonce == request.Nonce && row.RunId == c.RunId &&
-                row.ContextPath == request.OverlayObservationContextPath && row.ContextSha256 == request.OverlayObservationContextSha256 && row.Role == OverlayObservationRole.ReplacementObserver &&
-                row.AppId == c.AppId && row.SteamId == c.SteamId && row.ConfigurationSha256 == c.ConfigurationSha256 &&
-                row.ManifestSha256 == c.ManifestSha256 && row.OperationId == c.OperationId && row.MappingVersion == c.MappingVersion &&
-                row.ReadyState == c.ReadyState && Same(row.Origin, c.Origin) && Same(row.Child, child);
-        }
-    }
-
-    public sealed class ExperimentPrerequisites
-    {
-        public string SteamExeSha256, DllSha256, GateAEvidence, GateBEvidence;
-        public bool ShutdownCommandVerified, ProbeContractReviewed, FailedInitExitReviewed, CallbackPumpReviewed;
     }
 
     public enum ProbeInitDisposition { Succeeded, NoSteamClient, GlobalUserConnectionUnavailable, Fatal }
@@ -452,7 +110,6 @@ namespace Game.Exhibition.RestartExperiment
         [DataMember(IsRequired = true)] public string QueryError;
         [DataMember(IsRequired = true)] public string ShutdownError;
         [DataMember(IsRequired = true)] public string CleanupError;
-        [DataMember(IsRequired = true)] public string RecordError;
         [DataMember(IsRequired = true)] public string Nonce;
         [DataMember(IsRequired = true)] public string Error;
         [DataMember(IsRequired = true)] public int Pid;
@@ -467,7 +124,10 @@ namespace Game.Exhibition.RestartExperiment
     public sealed class ProbeAttempt
     {
         public int WireVersion = 3, Attempt;
-        public string Nonce, Utc, Creation = "NotRequested", FailureStage, Error, CleanupError, CollectionError, RecordError, ResultError;
+        public string Nonce, Utc, Creation = "NotRequested", FailureStage, Error, CleanupError, CollectionError, ResultError;
+        public string ParseDisposition = "NotEvaluated", ArtifactPath, ArtifactStemPath, ArtifactError;
+        public int StdoutBytes, StderrBytes;
+        public string StdoutSha256, StderrSha256;
         public long StartedMilliseconds, ElapsedMilliseconds;
         public int? Pid, ExitCode;
         public long? StartTicks;
@@ -513,49 +173,97 @@ namespace Game.Exhibition.RestartExperiment
     {
         public ProbeAttemptException(ProbeAttempt attempt)
             : base("Probe attempt " + attempt.Attempt + " stopped at " + attempt.FailureStage +
-                ". See probe-attempts.jsonl for the SDK result and process diagnostics.",
-                new IOException(ExperimentFiles.Json(attempt)))
+                ". Evidence: " + EvidenceLocation(attempt) + ".",
+                new IOException(FailureDetails(attempt)))
         { }
+        private static string EvidenceLocation(ProbeAttempt attempt)
+        {
+            if (!string.IsNullOrWhiteSpace(attempt.ArtifactPath)) return attempt.ArtifactPath;
+            return string.IsNullOrWhiteSpace(attempt.ArtifactStemPath) ? "unavailable" : attempt.ArtifactStemPath + ".* (partial)";
+        }
+        private static string FailureDetails(ProbeAttempt attempt)
+        {
+            var details = new StringBuilder(attempt.Error ?? "Probe attempt failed without a primary error.");
+            if (!string.IsNullOrWhiteSpace(attempt.ArtifactError)) details.Append("\nEvidence persistence error: ").Append(Limit(attempt.ArtifactError, 2000));
+            if (!string.IsNullOrWhiteSpace(attempt.CleanupError)) details.Append("\nCleanup error: ").Append(Limit(attempt.CleanupError, 2000));
+            if (!string.IsNullOrWhiteSpace(attempt.CollectionError)) details.Append("\nCollection error: ").Append(Limit(attempt.CollectionError, 2000));
+            if (!string.IsNullOrWhiteSpace(attempt.Stderr)) details.Append("\nCaptured stderr: ").Append(Limit(attempt.Stderr, 4000));
+            return details.ToString();
+        }
+        private static string Limit(string value, int limit) { return value.Length <= limit ? value : value.Substring(0, limit) + " [truncated]"; }
     }
 
-    public enum LaunchRole { Helper, Steam, Probe, FullCycleGame, GameOnlyGame }
+    public static class ProbeAttemptEvidence
+    {
+        public static void Save(ProbeAttempt attempt, string directory)
+        {
+            if (attempt == null) throw new ArgumentNullException("attempt");
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+                throw new DirectoryNotFoundException("Validated probe evidence directory is unavailable.");
+            int number = Math.Max(1, attempt.Attempt); string stem = null, reservation = null;
+            while (reservation == null)
+            {
+                stem = Path.Combine(directory, "probe-attempt-" + number.ToString("000", CultureInfo.InvariantCulture));
+                try
+                {
+                    using (File.Open(stem + ".reservation", FileMode.CreateNew, FileAccess.Write, FileShare.None)) { }
+                    reservation = stem + ".reservation";
+                    if (File.Exists(stem + ".json") || File.Exists(stem + ".stdout.txt") || File.Exists(stem + ".stderr.txt"))
+                    { File.Delete(reservation); reservation = null; number++; }
+                }
+                catch (IOException) { number++; }
+            }
+            try
+            {
+                attempt.Attempt = number; attempt.ArtifactStemPath = stem;
+                byte[] stdout = new UTF8Encoding(false).GetBytes(attempt.Stdout ?? "");
+                byte[] stderr = new UTF8Encoding(false).GetBytes(attempt.Stderr ?? "");
+                attempt.StdoutBytes = stdout.Length; attempt.StderrBytes = stderr.Length;
+                attempt.StdoutSha256 = Hash(stdout); attempt.StderrSha256 = Hash(stderr);
+                WriteCreateOnly(stem + ".stdout.txt", stdout);
+                WriteCreateOnly(stem + ".stderr.txt", stderr);
+                string path = stem + ".json";
+                WriteCreateOnly(path, new UTF8Encoding(false).GetBytes(ExperimentFiles.Json(attempt)));
+                attempt.ArtifactPath = path;
+            }
+            finally { if (reservation != null && File.Exists(reservation)) File.Delete(reservation); }
+        }
+
+        private static string Hash(byte[] content)
+        { using (var hash = SHA256.Create()) return ExperimentFiles.Hex(hash.ComputeHash(content)); }
+
+        private static void WriteCreateOnly(string path, byte[] bytes)
+        {
+            string temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+                {
+                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Flush(true);
+                }
+                if (File.Exists(path)) throw new IOException("Probe evidence already exists: " + path);
+                File.Move(temporary, path);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
+    }
+
+    public enum LaunchRole { Steam = 1, Probe = 2, FullCycleGame = 3 }
 
     public static class LaunchEnvironment
     {
-        public const int PolicyVersion = 2;
-        public static ProcessStartInfo PrepareProbe(ExperimentRequest request, Func<ProcessStartInfo> host, Action checkClient, Action<string> record)
+        public static ProcessStartInfo PrepareProbe(ExperimentRequest request, Func<ProcessStartInfo> host, Action checkClient, Action afterPreparation)
         {
             checkClient();
             var start = host();
             start.RedirectStandardInput = true; start.RedirectStandardOutput = true; start.RedirectStandardError = true;
-            record(Apply(start, LaunchRole.Probe, request.AppId));
+            Apply(start, LaunchRole.Probe, request.AppId);
+            afterPreparation();
             return start;
         }
-        public static ProcessStartInfo PrepareGame(ExperimentRequest request, string requestPath, Action checkGame, Action verifyFile,
-            Action checkClient, Action<string> record)
-        {
-            ValidateChildRole(request);
-            checkGame(); verifyFile(); checkClient();
-            var start = new ProcessStartInfo { FileName = request.Parent.Path,
-                Arguments = "-j2mPlatformProvider steam -j2mRestartObservation " + ExperimentFiles.Quote(requestPath),
-                WorkingDirectory = System.IO.Path.GetDirectoryName(request.Parent.Path), UseShellExecute = false, CreateNoWindow = true };
-            if (OverlayObservationWire.HasObservation(request))
-            {
-                start.Arguments = "-j2mPlatformProvider steam -j2mOverlayHandoffContext " + ExperimentFiles.Quote(request.OverlayObservationContextPath) +
-                    " -j2mOverlayHandoffRequest " + ExperimentFiles.Quote(requestPath);
-            }
-            if (request.ResetOverlayChildRole != ResetOverlayRole.None)
-            {
-                start.Arguments += " -j2mResetOverlayContext " + ExperimentFiles.Quote(request.ResetOverlayContextPath) +
-                    " -j2mResetOverlayPhase " + request.ResetOverlayChildRole.ToString();
-            }
-
-            record(Apply(start, request.Trial == Trial.GameOnly ? LaunchRole.GameOnlyGame : LaunchRole.FullCycleGame, request.AppId));
-            return start;
-        }
-
         public static ProcessStartInfo PrepareCompletedResetSubmission(ExperimentRequest request, string requestPath,
-            Action checkGame, Action verifyFile, Action checkClient, Action<string> record)
+            Action checkGame, Action verifyFile, Action checkClient, Action afterPreparation)
         {
             CompletedResetProductWire.ValidateRequestPath(request, requestPath); checkGame(); verifyFile(); checkClient();
             var start = new ProcessStartInfo {
@@ -565,19 +273,19 @@ namespace Game.Exhibition.RestartExperiment
                     " -j2mCompletedParticipantResetHash " + ExperimentFiles.Hash(requestPath),
                 WorkingDirectory = Path.GetDirectoryName(request.Steam.Path), UseShellExecute = false, CreateNoWindow = true
             };
-            record(Apply(start, LaunchRole.FullCycleGame, request.AppId));
+            Apply(start, LaunchRole.FullCycleGame, request.AppId);
+            afterPreparation();
             return start;
         }
         public static void ValidateChildRole(ExperimentRequest request)
         {
-            OverlayObservationWire.ValidateRequest(request);
-            ResetOverlayWire.ValidateRequest(request);
+            CompletedResetProductWire.Validate(request);
         }
-        public static string Apply(ProcessStartInfo start, LaunchRole role, uint appId)
+        public static void Apply(ProcessStartInfo start, LaunchRole role, uint appId)
         {
             if (!Enum.IsDefined(typeof(LaunchRole), role)) throw new ArgumentOutOfRangeException("role");
             bool clean = role == LaunchRole.Steam || role == LaunchRole.Probe || role == LaunchRole.FullCycleGame;
-            bool setId = role == LaunchRole.Probe || role == LaunchRole.FullCycleGame || role == LaunchRole.GameOnlyGame;
+            bool setId = role == LaunchRole.Probe || role == LaunchRole.FullCycleGame;
             var names = start.EnvironmentVariables.Keys.Cast<string>().Where(k => k.StartsWith("Steam", StringComparison.OrdinalIgnoreCase)).OrderBy(k => k).ToArray();
             if (setId && appId == 0) throw new ArgumentOutOfRangeException("appId");
             if (clean) foreach (string key in names) start.EnvironmentVariables.Remove(key);
@@ -587,7 +295,6 @@ namespace Game.Exhibition.RestartExperiment
                 !(setId && (k == "SteamAppId" || k == "SteamGameId")))) throw new IOException("Steam environment cleanup failed.");
             bool match = !setId || (start.EnvironmentVariables["SteamAppId"] == id && start.EnvironmentVariables["SteamGameId"] == id);
             if (!match) throw new IOException("Steam AppID environment mismatch.");
-            return "EnvironmentPolicy=" + PolicyVersion + ";Role=" + role + ";PresentNames=" + string.Join(",", names) + ";AppIdMatches=" + match;
         }
 
         // The same final boundary is used by real launches and harmless process-backed tests.
@@ -702,13 +409,6 @@ namespace Game.Exhibition.RestartExperiment
         }
     }
 
-    public sealed class ExperimentObservation
-    {
-        public string Utc, Nonce, Stage, Error, OperationId, Build;
-        public long ElapsedMilliseconds;
-        public ProcessIdentity Observer, Parent, OriginalSteam, NewSteam, Child;
-    }
-
     public static class ExperimentFiles
     {
         public const string DllHash = "8de54d32508e216c9135b8bf025749243d44e404c1c22a8e5fe35acecabe7a9c";
@@ -801,25 +501,44 @@ namespace Game.Exhibition.RestartExperiment
 
         public static ProcessIdentity Capture(Process process, bool hash)
         {
-            IntPtr token;
-            if (!OpenProcessToken(process.Handle, 8, out token)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            string operation = "Process.Id";
+            int targetPid = 0;
             try
             {
-                Statistics stats; int returned;
-                if (!GetTokenInformation(token, 10, out stats, Marshal.SizeOf(typeof(Statistics)), out returned))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                // A newly created child can have an empty Mono Process.Modules collection.
-                var image = new StringBuilder(32768);
-                uint length = (uint)image.Capacity;
-                if (!QueryFullProcessImageName(process.Handle, 0, image, ref length))
-                    throw new Win32Exception(Marshal.GetLastWin32Error());
-                string path = CanonicalPath(image.ToString());
-                return new ProcessIdentity { Pid = process.Id, Session = SessionId(process.Id),
-                    StartTicks = process.StartTime.ToUniversalTime().Ticks, Path = path,
-                    Sha256 = hash ? ExperimentFiles.Hash(path) : null, UserSid = UserSid(token),
-                    Logon = stats.AuthenticationId.High.ToString("x8") + stats.AuthenticationId.Low.ToString("x8") };
+                targetPid = process.Id;
+                operation = "Process.Handle";
+                IntPtr handle = process.Handle;
+                operation = "OpenProcessToken";
+                IntPtr token;
+                if (!OpenProcessToken(handle, 8, out token)) throw new Win32Exception(Marshal.GetLastWin32Error());
+                try
+                {
+                    operation = "GetTokenInformation";
+                    Statistics stats; int returned;
+                    if (!GetTokenInformation(token, 10, out stats, Marshal.SizeOf(typeof(Statistics)), out returned))
+                        throw new Win32Exception(Marshal.GetLastWin32Error());
+                    operation = "QueryFullProcessImageName";
+                    var image = new StringBuilder(32768);
+                    uint length = (uint)image.Capacity;
+                    if (!QueryFullProcessImageName(handle, 0, image, ref length))
+                        throw new Win32Exception(Marshal.GetLastWin32Error());
+                    operation = "CanonicalImagePath";
+                    string path = CanonicalPath(image.ToString());
+                    operation = "ProcessIdToSessionId";
+                    int session = SessionId(targetPid);
+                    operation = "Process.StartTime";
+                    long startTicks = process.StartTime.ToUniversalTime().Ticks;
+                    operation = "ImageHash";
+                    string sha256 = hash ? ExperimentFiles.Hash(path) : null;
+                    operation = "TokenUserSid";
+                    string userSid = UserSid(token);
+                    return new ProcessIdentity { Pid = targetPid, Session = session,
+                        StartTicks = startTicks, Path = path, Sha256 = sha256, UserSid = userSid,
+                        Logon = stats.AuthenticationId.High.ToString("x8") + stats.AuthenticationId.Low.ToString("x8") };
+                }
+                finally { CloseHandle(token); }
             }
-            finally { CloseHandle(token); }
+            catch (Exception e) { Cycle.Note(e, "NativeOperation", operation); Cycle.Note(e, "TargetPid", targetPid); throw; }
         }
 
         private static string UserSid(IntPtr token)
@@ -849,20 +568,32 @@ namespace Game.Exhibition.RestartExperiment
         }
         public static ProcessIdentity Steam(ProcessIdentity owner, ProcessIdentity excluded = null)
         {
-            ProcessIdentity found = null;
-            foreach (var process in Process.GetProcessesByName("steam"))
-                using (process)
-                {
-                    if (process.HasExited) continue;
-                    if (excluded != null && process.Id == excluded.Pid && process.StartTime.ToUniversalTime().Ticks == excluded.StartTicks) continue;
-                    if (SessionId(process.Id) != owner.Session) continue;
-                    var candidate = Capture(process, true);
-                    if (!SameScope(candidate, owner)) throw new InvalidOperationException("Steam user/logon differs.");
-                    if (found != null) throw new InvalidOperationException("Multiple Steam clients; inspect manually.");
-                    found = candidate;
-                }
-            return found;
+            string operation = "EnumerateSteamProcesses";
+            int targetPid = 0;
+            try
+            {
+                ProcessIdentity found = null;
+                foreach (var process in Process.GetProcessesByName("steam"))
+                    using (process)
+                    {
+                        operation = "Process.Id"; targetPid = process.Id;
+                        operation = "Process.HasExited";
+                        if (process.HasExited) continue;
+                        operation = "ExcludedProcess.StartTime";
+                        if (excluded != null && targetPid == excluded.Pid && process.StartTime.ToUniversalTime().Ticks == excluded.StartTicks) continue;
+                        operation = "ProcessIdToSessionId";
+                        if (SessionId(targetPid) != owner.Session) continue;
+                        operation = "CaptureSteamIdentity";
+                        var candidate = Capture(process, true);
+                        if (!SameScope(candidate, owner)) throw new InvalidOperationException("Steam user/logon differs.");
+                        if (found != null) throw new InvalidOperationException("Multiple Steam clients; inspect manually.");
+                        found = candidate;
+                    }
+                return found;
+            }
+            catch (Exception e) { Cycle.Note(e, "NativeOperation", operation); Cycle.Note(e, "TargetPid", targetPid); throw; }
         }
+
         public static string LockName(ProcessIdentity steam)
         {
             string scope = steam.UserSid + "\n" + steam.Session + "\n" + steam.Logon + "\n" + steam.Path.ToUpperInvariant();
@@ -875,60 +606,42 @@ namespace Game.Exhibition.RestartExperiment
         private readonly ExperimentRequest request;
         private readonly string requestPath;
         private readonly Stopwatch clock = Stopwatch.StartNew();
-        private ProcessIdentity currentSteam, child, shutdownCommand;
+        private ProcessIdentity currentSteam, shutdownCommand;
         private OwnedShutdownCommand ownedShutdownCommand;
         private int attempts;
-        private bool completedResetSubmitted;
         public bool CycleEntered { get; private set; }
+        public string ValidatedHandoffDirectory { get; private set; }
         public long Milliseconds { get { return clock.ElapsedMilliseconds; } }
 
         public WindowsCycleEnvironment(ExperimentRequest request, string requestPath) { this.request = request; this.requestPath = requestPath; }
 
         public void Validate()
         {
-            LaunchEnvironment.ValidateChildRole(request);
-            Guid nonce;
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT || !Environment.Is64BitProcess ||
-                request.Parent == null || request.Steam == null || request.AppId == 0 || request.SteamId == 0 ||
-                !Guid.TryParseExact(request.Nonce, "N", out nonce) || !Enum.IsDefined(typeof(Trial), request.Trial))
-                throw new InvalidOperationException("Invalid x64 experiment request.");
-            using (var process = Process.GetCurrentProcess())
-                if (!WindowsIdentityCapture.SameScope(request.Parent, WindowsIdentityCapture.Capture(process, false)))
-                    throw new InvalidOperationException("Helper user/session/logon differs.");
-            if (!WindowsIdentityCapture.SameScope(request.Parent, request.Steam)) throw new InvalidOperationException("Steam scope differs.");
-            if (!request.CompletedResetProduct && !System.IO.Path.GetFullPath(request.EvidenceDirectory).StartsWith(@"D:\J2M\evidence\", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Evidence must be under D:\\J2M\\evidence.");
-            VerifyFile(request.Parent); VerifyFile(request.Steam);
-            if (!File.Exists(ExperimentFiles.PowerShell)) throw new FileNotFoundException("Windows PowerShell missing.");
-            foreach (var name in new[] { "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs" })
-                if (!File.Exists(System.IO.Path.Combine(request.ToolsDirectory, name))) throw new FileNotFoundException(name);
-            if (OverlayObservationWire.HasObservation(request)) OverlayObservationWire.ReadContext(request);
-            if (ResetOverlayWire.HasReset(request)) ResetOverlayWire.ReadContext(request);
-            if (request.CompletedResetProduct)
+            string operation = "Validate";
+            try
             {
+                LaunchEnvironment.ValidateChildRole(request);
+                Guid nonce;
+                if (Environment.OSVersion.Platform != PlatformID.Win32NT || !Environment.Is64BitProcess ||
+                    request.Parent == null || request.Steam == null || request.AppId == 0 || request.SteamId == 0 ||
+                    !Guid.TryParseExact(request.Nonce, "N", out nonce) || !Enum.IsDefined(typeof(Trial), request.Trial))
+                    throw new InvalidOperationException("Invalid x64 experiment request.");
+                using (var process = Process.GetCurrentProcess())
+                    if (!WindowsIdentityCapture.SameScope(request.Parent, WindowsIdentityCapture.Capture(process, false)))
+                        throw new InvalidOperationException("Helper user/session/logon differs.");
+                if (!WindowsIdentityCapture.SameScope(request.Parent, request.Steam)) throw new InvalidOperationException("Steam scope differs.");
+                VerifyFile(request.Parent); VerifyFile(request.Steam);
+                if (!File.Exists(ExperimentFiles.PowerShell)) throw new FileNotFoundException("Windows PowerShell missing.");
+                foreach (var name in new[] { "Restart-Experiment.ps1", "RestartExperiment.cs", "RestartExperimentWindows.cs", "RestartExperimentNativeProbe.cs" })
+                    if (!File.Exists(System.IO.Path.Combine(request.ToolsDirectory, name))) throw new FileNotFoundException(name);
                 CompletedResetProductWire.ValidateRequestPath(request, requestPath);
+                ValidatedHandoffDirectory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(requestPath));
                 if (request.Trial != Trial.FullCycle || ExperimentFiles.Hash(request.DllPath) != ExperimentFiles.DllHash)
                     throw new InvalidOperationException("Completed-reset Steam probe payload mismatch.");
-                return;
             }
-            if (request.Trial == Trial.GameOnly) return;
-            var prerequisites = ExperimentFiles.Read<ExperimentPrerequisites>(request.PrerequisitesPath);
-            if (!prerequisites.ShutdownCommandVerified || prerequisites.SteamExeSha256 != request.Steam.Sha256)
-                throw new InvalidOperationException("First verify this client's steam.exe -shutdown normally exits; record prerequisites.");
-            if (request.Trial == Trial.Survival) return;
-            if (!HasEvidence(prerequisites.GateAEvidence) || !prerequisites.ProbeContractReviewed ||
-                !prerequisites.FailedInitExitReviewed || !prerequisites.CallbackPumpReviewed ||
-                prerequisites.DllSha256 != ExperimentFiles.DllHash || ExperimentFiles.Hash(request.DllPath) != ExperimentFiles.DllHash)
-                throw new InvalidOperationException("Gate A / SDK165 Init, failed-Init process exit, callbacks review missing.");
-            if (request.Trial == Trial.FullCycle && !HasEvidence(prerequisites.GateBEvidence))
-                throw new InvalidOperationException("Gate B native lifecycle/tracking evidence missing.");
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
 
-        private static bool HasEvidence(string path)
-        {
-            return !string.IsNullOrEmpty(path) && System.IO.Path.GetFullPath(path).StartsWith(@"D:\J2M\evidence\", StringComparison.OrdinalIgnoreCase) &&
-                File.Exists(path) && new FileInfo(path).Length > 0;
-        }
         private static void VerifyFile(ProcessIdentity target)
         {
             if (string.IsNullOrEmpty(target.Sha256) || !string.Equals(WindowsIdentityCapture.CanonicalPath(target.Path), target.Path, StringComparison.OrdinalIgnoreCase) ||
@@ -954,114 +667,157 @@ namespace Game.Exhibition.RestartExperiment
         }
         public bool ParentAlive()
         {
-            Process process;
-            try { process = Process.GetProcessById(request.Parent.Pid); } catch (ArgumentException) { return false; }
-            using (process)
+            string operation = "ParentAlive";
+            try
             {
-                if (process.HasExited || process.StartTime.ToUniversalTime().Ticks != request.Parent.StartTicks) return false;
-                if (!WindowsIdentityCapture.SameProcess(request.Parent, WindowsIdentityCapture.Capture(process, false)))
-                    throw new InvalidOperationException("Parent identity changed.");
-                return true;
+                Process process;
+                try { process = Process.GetProcessById(request.Parent.Pid); } catch (ArgumentException) { return false; }
+                using (process)
+                {
+                    if (process.HasExited || process.StartTime.ToUniversalTime().Ticks != request.Parent.StartTicks) return false;
+                    if (!WindowsIdentityCapture.SameProcess(request.Parent, WindowsIdentityCapture.Capture(process, false)))
+                        throw new InvalidOperationException("Parent identity changed.");
+                    return true;
+                }
             }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void EnsureNoOtherGame()
         {
-            foreach (var process in Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(request.Parent.Path)))
-                using (process)
-                {
-                    if (process.HasExited || WindowsIdentityCapture.SessionId(process.Id) != request.Parent.Session) continue;
-                    var identity = WindowsIdentityCapture.Capture(process, false);
-                    if (WindowsIdentityCapture.SameProcess(identity, request.Parent)) continue;
-                    if (string.Equals(identity.Path, request.Parent.Path, StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("Another instance of the game appeared; no additional launch.");
-                }
+            string operation = "EnsureNoOtherGame";
+            try
+            {
+                foreach (var process in Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(request.Parent.Path)))
+                    using (process)
+                    {
+                        if (process.HasExited || WindowsIdentityCapture.SessionId(process.Id) != request.Parent.Session) continue;
+                        var identity = WindowsIdentityCapture.Capture(process, false);
+                        if (WindowsIdentityCapture.SameProcess(identity, request.Parent)) continue;
+                        if (string.Equals(identity.Path, request.Parent.Path, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidOperationException("Another instance of the game appeared; no additional launch.");
+                    }
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public bool OriginalSteamAlive()
         {
-            var found = WindowsIdentityCapture.Steam(request.Parent, shutdownCommand);
-            if (found == null) return false;
-            if (!WindowsIdentityCapture.SameProcess(found, request.Steam) || found.Sha256 != request.Steam.Sha256)
-                throw new InvalidOperationException("Replacement/restarted Steam detected; inspect manually.");
-            return true;
+            string operation = "OriginalSteamAlive";
+            try
+            {
+                var found = WindowsIdentityCapture.Steam(request.Parent, shutdownCommand);
+                if (found == null) return false;
+                if (!WindowsIdentityCapture.SameProcess(found, request.Steam) || found.Sha256 != request.Steam.Sha256)
+                    throw new InvalidOperationException("Replacement/restarted Steam detected; inspect manually.");
+                return true;
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void RequestSteamExit(Deadline deadline)
         {
-            ownedShutdownCommand = new OwnedShutdownCommand();
-            ownedShutdownCommand.Start(() =>
+            string operation = "RequestSteamExit";
+            try
             {
-                VerifyFile(request.Steam);
-                if (!OriginalSteamAlive()) throw new InvalidOperationException("Steam exited before shutdown request.");
-                return SteamStart("-shutdown");
-            }, deadline, Process.Start, process => new ProcessIdentity { Pid = process.Id, StartTicks = process.StartTime.ToUniversalTime().Ticks });
-            shutdownCommand = ownedShutdownCommand.Identity;
+                ownedShutdownCommand = new OwnedShutdownCommand();
+                ownedShutdownCommand.Start(() =>
+                {
+                    VerifyFile(request.Steam);
+                    if (!OriginalSteamAlive()) throw new InvalidOperationException("Steam exited before shutdown request.");
+                    return SteamStart("-shutdown");
+                }, deadline, Process.Start, process => new ProcessIdentity { Pid = process.Id, StartTicks = process.StartTime.ToUniversalTime().Ticks });
+                shutdownCommand = ownedShutdownCommand.Identity;
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public bool ShutdownCommandAlive()
         {
-            if (ownedShutdownCommand == null || shutdownCommand == null) throw new IOException("Shutdown command ownership unavailable.");
-            return ownedShutdownCommand.Alive(code => Record("ShutdownCommandExited:ExitCode=" + code));
+            string operation = "ShutdownCommandAlive";
+            try
+            {
+                if (ownedShutdownCommand == null || shutdownCommand == null) throw new IOException("Shutdown command ownership unavailable.");
+                return ownedShutdownCommand.Alive(code => { });
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void EnsureSteamExited()
         {
-            if (WindowsIdentityCapture.Steam(request.Parent, shutdownCommand) != null)
-                throw new IOException("Steam client appeared after original exit; inspect manually.");
+            string operation = "EnsureSteamExited";
+            try
+            {
+                if (WindowsIdentityCapture.Steam(request.Parent, shutdownCommand) != null)
+                    throw new IOException("Steam client appeared after original exit; inspect manually.");
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         private ProcessStartInfo SteamStart(string arguments)
         {
             var start = new ProcessStartInfo { FileName = request.Steam.Path, Arguments = arguments,
                 WorkingDirectory = System.IO.Path.GetDirectoryName(request.Steam.Path), UseShellExecute = false, CreateNoWindow = true };
-            Record(LaunchEnvironment.Apply(start, LaunchRole.Steam, request.AppId));
+            LaunchEnvironment.Apply(start, LaunchRole.Steam, request.AppId);
             return start;
         }
         public void StartSteam()
         {
-            EnsureNoOtherGame(); VerifyFile(request.Steam);
-            if (WindowsIdentityCapture.Steam(request.Parent) != null) throw new InvalidOperationException("Steam already restarted.");
-            using (var process = Process.Start(SteamStart("")))
+            string operation = "StartSteam";
+            try
             {
-                if (process == null) throw new IOException("Steam creation failed.");
-                currentSteam = WindowsIdentityCapture.Capture(process, true);
-                if (!WindowsIdentityCapture.SameScope(currentSteam, request.Steam) || currentSteam.Path != request.Steam.Path || currentSteam.Sha256 != request.Steam.Sha256)
-                    throw new IOException("New Steam target differs.");
+                EnsureNoOtherGame(); VerifyFile(request.Steam);
+                if (WindowsIdentityCapture.Steam(request.Parent) != null) throw new InvalidOperationException("Steam already restarted.");
+                operation = "StartSteam.ProcessStart";
+                using (var process = Process.Start(SteamStart("")))
+                {
+                    if (process == null) throw new IOException("Steam creation failed.");
+                    operation = "StartSteam.CaptureNewSteamIdentity";
+                    currentSteam = WindowsIdentityCapture.Capture(process, true);
+                    if (!WindowsIdentityCapture.SameScope(currentSteam, request.Steam) || currentSteam.Path != request.Steam.Path || currentSteam.Sha256 != request.Steam.Sha256)
+                        throw new IOException("New Steam target differs.");
+                }
             }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void EnsureNewSteamUnchanged()
         {
-            var found = WindowsIdentityCapture.Steam(request.Parent);
-            if (found == null || currentSteam == null || !WindowsIdentityCapture.SameProcess(found, currentSteam) || found.Sha256 != currentSteam.Sha256)
-                throw new InvalidOperationException("New Steam exited or was replaced; no cycle retry.");
+            string operation = "EnsureNewSteamUnchanged";
+            try
+            {
+                var found = WindowsIdentityCapture.Steam(request.Parent);
+                if (found == null || currentSteam == null || !WindowsIdentityCapture.SameProcess(found, currentSteam) || found.Sha256 != currentSteam.Sha256)
+                    throw new InvalidOperationException("New Steam exited or was replaced; no cycle retry.");
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public bool ProbeReady(Deadline deadline)
         {
-            var attempt = new ProbeAttempt { Attempt = ++attempts, Nonce = request.Nonce,
-                Utc = DateTime.UtcNow.ToString("o"), StartedMilliseconds = Milliseconds };
-            return RunOwnedProbe(() =>
+            string operation = "ProbeReady";
+            try
             {
-                return LaunchEnvironment.PrepareProbe(request, () => ExperimentFiles.HostStart(request.ToolsDirectory, requestPath, true),
-                    EnsureNewSteamUnchanged, Record);
-            }, deadline, () => Milliseconds, request, attempt,
-                row => Append("probes.jsonl", row), row => Append("probe-attempts.jsonl", row));
+                var attempt = new ProbeAttempt { Attempt = ++attempts, Nonce = request.Nonce,
+                    Utc = DateTime.UtcNow.ToString("o"), StartedMilliseconds = Milliseconds };
+                return RunOwnedProbe(() =>
+                {
+                    return LaunchEnvironment.PrepareProbe(request, () => ExperimentFiles.HostStart(request.ToolsDirectory, requestPath, true),
+                        EnsureNewSteamUnchanged, () => { });
+                }, deadline, () => Milliseconds, request, attempt);
+            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
-        private void Append<T>(string name, T row)
-        { File.AppendAllText(System.IO.Path.Combine(request.EvidenceDirectory, name), ExperimentFiles.Json(row) + Environment.NewLine); }
-
         // Convenience entry for harmless Windows child tests. Production supplies its absolute deadline.
-        public static bool RunOwnedProbe(ProcessStartInfo start, int budgetMilliseconds, ExperimentRequest expected, Action<ProbeObservation> observe)
+        public static bool RunOwnedProbe(ProcessStartInfo start, int budgetMilliseconds, ExperimentRequest expected)
         {
             if (budgetMilliseconds <= 0 || budgetMilliseconds > 10000) throw new ArgumentOutOfRangeException("budgetMilliseconds");
             var clock = Stopwatch.StartNew();
             return RunOwnedProbe(() => start, new Deadline(() => clock.ElapsedMilliseconds, budgetMilliseconds, "Probe timed out; no further launch."),
-                () => clock.ElapsedMilliseconds, expected, new ProbeAttempt { Attempt = 1, Nonce = expected.Nonce, Utc = DateTime.UtcNow.ToString("o") }, observe, null);
+                () => clock.ElapsedMilliseconds, expected, new ProbeAttempt { Attempt = 1, Nonce = expected.Nonce, Utc = DateTime.UtcNow.ToString("o") });
         }
         public static bool RunOwnedProbe(Func<ProcessStartInfo> prepare, Deadline deadline, Func<long> clock,
-            ExperimentRequest expected, ProbeAttempt attempt, Action<ProbeObservation> observe, Action<ProbeAttempt> recordAttempt)
-        { return RunOwnedProbe(prepare, deadline, clock, expected, attempt, observe, recordAttempt, new ProbeOperations()); }
+            ExperimentRequest expected, ProbeAttempt attempt)
+        { return RunOwnedProbe(prepare, deadline, clock, expected, attempt, new ProbeOperations()); }
 
         public static bool RunOwnedProbe(Func<ProcessStartInfo> prepare, Deadline deadline, Func<long> clock,
-            ExperimentRequest expected, ProbeAttempt attempt, Action<ProbeObservation> observe, Action<ProbeAttempt> recordAttempt, ProbeOperations operations)
-        { return RunOwnedProbeCore(prepare, deadline, clock, ProbeExpectation.FromLegacy(expected), attempt, observe, recordAttempt, operations, ParseProbe, expected.Nonce); }
+            ExperimentRequest expected, ProbeAttempt attempt, ProbeOperations operations)
+        { return RunOwnedProbeCore(prepare, deadline, clock, ProbeExpectation.FromLegacy(expected), attempt, operations, ParseProbe, expected.Nonce); }
 
         public static bool RunOwnedProbeCore(Func<ProcessStartInfo> prepare, Deadline deadline, Func<long> clock,
-            ProbeExpectation expected, ProbeAttempt attempt, Action<ProbeObservation> observe, Action<ProbeAttempt> recordAttempt,
+            ProbeExpectation expected, ProbeAttempt attempt,
             ProbeOperations operations, Func<string, ProbeObservation> parse, string grant)
         {
             Process process = null; ProbeJob job = null;
@@ -1171,20 +927,20 @@ namespace Game.Exhibition.RestartExperiment
                 !attempt.OutputComplete || !attempt.ErrorOutputComplete || attempt.StdoutTruncated || attempt.StderrTruncated)
                 attempt.Fail("ExitOutput", new IOException("Probe exit/output failed: ExitCode=" +
                     (attempt.ExitCode.HasValue ? attempt.ExitCode.ToString() : "Unknown") + "; Stderr=" + attempt.Stderr));
+            bool mayParse = attempt.Error == null && attempt.CleanupError == null && attempt.CollectionError == null &&
+                attempt.ExitConfirmed && attempt.OwnedExitConfirmed && attempt.ExitCode == 0 &&
+                attempt.OutputComplete && attempt.ErrorOutputComplete && !attempt.StdoutTruncated && !attempt.StderrTruncated;
             try
             {
-                // Parse complete bounded output even for failed exits, preserving useful diagnostics.
                 ProbeObservation row = null;
-                if (attempt.OutputComplete && !attempt.StdoutTruncated && !string.IsNullOrWhiteSpace(attempt.Stdout))
+                if (mayParse)
                 {
+                    attempt.ParseDisposition = "Attempted";
+                    if (string.IsNullOrWhiteSpace(attempt.Stdout)) throw new IOException("Probe result output is empty.");
                     row = parse(attempt.Stdout); attempt.Parsed = true;
                     attempt.IdentityValid = row.Nonce == expected.Nonce && row.Pid == attempt.Pid && row.StartTicks == attempt.StartTicks;
-                    if (observe != null)
-                    {
-                        try { observe(row); }
-                        catch (Exception e) { attempt.RecordError = e.ToString(); throw; }
-                    }
                 }
+                else attempt.ParseDisposition = "SkippedBecauseProcessOrOutputFailed";
                 if (attempt.Error != null || attempt.CleanupError != null || attempt.CollectionError != null)
                     throw new IOException("Probe has captured failure(s).");
                 if (!attempt.ExitConfirmed || !attempt.OwnedExitConfirmed || attempt.ExitCode != 0 ||
@@ -1198,18 +954,8 @@ namespace Game.Exhibition.RestartExperiment
             catch (Exception e) { attempt.ResultError = e.ToString(); attempt.Fail("Result", e); }
             attempt.ReadyObserved = ready && attempt.Error == null;
             attempt.ElapsedMilliseconds = clock() - attempt.StartedMilliseconds;
-            try { if (recordAttempt != null) recordAttempt(attempt); }
-            catch (Exception e)
-            {
-                attempt.RecordError = JoinError(attempt.RecordError, e); attempt.Fail("AttemptRecord", e); attempt.ReadyObserved = false;
-                // An independent file/host path retains the primary and recording errors if possible.
-                try
-                {
-                    if (string.IsNullOrEmpty(expected.EvidenceDirectory)) throw new IOException("No fallback evidence directory.");
-                    File.AppendAllText(System.IO.Path.Combine(expected.EvidenceDirectory, "probe-record-failures.jsonl"), ExperimentFiles.Json(attempt) + Environment.NewLine);
-                }
-                catch (Exception fallback) { attempt.RecordError = JoinError(attempt.RecordError, fallback); }
-            }
+            try { ProbeAttemptEvidence.Save(attempt, expected == null ? null : expected.EvidenceDirectory); }
+            catch (Exception e) { attempt.ArtifactError = e.ToString(); }
             if (attempt.Error != null) throw new ProbeAttemptException(attempt);
             return attempt.ReadyObserved;
         }
@@ -1281,7 +1027,7 @@ namespace Game.Exhibition.RestartExperiment
             if (row == null || row.WireVersion != 3 || !row.InitCalled || !row.InitReturned || row.Nonce != expected.Nonce || row.Pid != pid || row.StartTicks != ticks)
                 throw new IOException("Probe result identity mismatch (nonce/PID/start time).");
             if (!string.IsNullOrEmpty(row.Error) || !string.IsNullOrEmpty(row.FailureStage) ||
-                !string.IsNullOrEmpty(row.QueryError) || !string.IsNullOrEmpty(row.ShutdownError) || !string.IsNullOrEmpty(row.CleanupError) || !string.IsNullOrEmpty(row.RecordError))
+                !string.IsNullOrEmpty(row.QueryError) || !string.IsNullOrEmpty(row.ShutdownError) || !string.IsNullOrEmpty(row.CleanupError))
                 throw new IOException("Probe observation failed: " + ExperimentFiles.Json(row));
             if (row.InitDiagnostic != null && row.InitDiagnostic.Length > 1023) throw new IOException("Init diagnostic exceeds limit.");
             if (row.InitDisposition != ProbeInitPolicy.Classify(row.InitResult, row.InitDiagnostic))
@@ -1303,76 +1049,30 @@ namespace Game.Exhibition.RestartExperiment
         }
         public void StartGame(Deadline deadline)
         {
-            if (request.CompletedResetProduct)
+            string operation = "StartGame";
+            try
             {
                 using (var command = LaunchEnvironment.Start(() => LaunchEnvironment.PrepareCompletedResetSubmission(request, requestPath,
-                    EnsureNoOtherGame, () => VerifyFile(request.Parent), EnsureNewSteamUnchanged, Record), deadline, Process.Start))
+                    EnsureNoOtherGame, () => VerifyFile(request.Parent), EnsureNewSteamUnchanged, () => { }), deadline, Process.Start))
                 {
                     if (command == null) throw new IOException("Completed-reset Steam submission failed.");
-                    completedResetSubmitted = true;
                 }
-                return;
             }
-            using (var process = LaunchEnvironment.Start(() =>
-            {
-                if (ResetOverlayWire.HasReset(request))
-                {
-                    ResetOverlayWire.ReadContext(request);
-                    var creation = ResetOverlayWire.ReadCreation(request);
-                    using (var self = Process.GetCurrentProcess())
-                        if (!ResetOverlayWire.Same(creation.Helper, WindowsIdentityCapture.Capture(self, false))) throw new IOException("Helper creation owner mismatch.");
-                }
-                return LaunchEnvironment.PrepareGame(request, requestPath, EnsureNoOtherGame, () => VerifyFile(request.Parent), () =>
-                {
-                    if (request.Trial == Trial.GameOnly)
-                    { if (!OriginalSteamAlive()) throw new IOException("Steam exited during GameOnly handoff."); }
-                    else EnsureNewSteamUnchanged();
-                }, Record);
-            }, deadline, start => { if (ResetOverlayWire.HasReset(request)) { ResetOverlayWire.ClaimChildCreation(request); if (deadline != null) deadline.Remaining(); } return Process.Start(start); }))
-            {
-                if (process == null) throw new IOException("Game creation failed.");
-                if (OverlayObservationWire.HasObservation(request))
-                    child = OverlayObservationWire.CaptureChildAndWriteReceipt(request, process);
-                else child = WindowsIdentityCapture.Capture(process, ResetOverlayWire.HasReset(request));
-                if (request.ResetOverlayChildRole != ResetOverlayRole.None) ResetOverlayReceipt.Write(request, child, requestPath);
-            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
         public void Delay(int milliseconds)
         { if (milliseconds <= 0) throw new ArgumentOutOfRangeException("milliseconds"); Thread.Sleep(milliseconds); }
         public void Cleanup()
         {
-            // Releasing this handle never terminates the Steam command.
-            if (ownedShutdownCommand == null) return;
-            Exception failure = null;
+            string operation = "Cleanup";
             try
             {
-                if (!completedResetSubmitted)
-                    Record("ShutdownCommandFinalObservation:Creation=" + ownedShutdownCommand.Creation +
-                        ";Identity=" + (ownedShutdownCommand.Identity == null ? "Unknown" : ExperimentFiles.Json(ownedShutdownCommand.Identity)) +
-                        ";ExitConfirmed=" + (ownedShutdownCommand.ExitConfirmed.HasValue ? ownedShutdownCommand.ExitConfirmed.ToString() : "Unknown") +
-                        ";ExitCode=" + (ownedShutdownCommand.ExitCode.HasValue ? ownedShutdownCommand.ExitCode.ToString() : "Unknown"));
+                // Releasing this handle never terminates the Steam command.
+                if (ownedShutdownCommand == null) return;
+                try { ownedShutdownCommand.Dispose(); }
+                finally { ownedShutdownCommand = null; }
             }
-            catch (Exception e) { failure = e; }
-            try { ownedShutdownCommand.Dispose(); }
-            catch (Exception e) { failure = failure == null ? e : new AggregateException(failure, e); }
-            ownedShutdownCommand = null;
-            if (failure != null) throw failure;
-        }
-        public void Record(string stage) { if (!completedResetSubmitted) WriteObservation(request, stage, null, Milliseconds, currentSteam, child); }
-        public void RecordTerminal(Exception failure)
-        {
-            if (!completedResetSubmitted)
-                WriteObservation(request, failure == null ? "HelperCompleted" : "HelperFailed", failure == null ? null : failure.ToString(), Milliseconds, currentSteam, child);
-        }
-        public static void WriteObservation(ExperimentRequest request, string stage, string error, long elapsed, ProcessIdentity steam, ProcessIdentity child)
-        {
-            using (var process = Process.GetCurrentProcess())
-            {
-                var row = new ExperimentObservation { Utc = DateTime.UtcNow.ToString("o"), Nonce = request.Nonce,
-                    Stage = stage, Error = error, ElapsedMilliseconds = elapsed, OperationId = request.OperationId, Build = request.Build,
-                    Observer = WindowsIdentityCapture.Capture(process, false), Parent = request.Parent, OriginalSteam = request.Steam, NewSteam = steam, Child = child };
-                File.AppendAllText(System.IO.Path.Combine(request.EvidenceDirectory, "events-" + process.Id + ".jsonl"), ExperimentFiles.Json(row) + Environment.NewLine);
-            }
+            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
         }
     }
 }

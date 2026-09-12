@@ -5,7 +5,7 @@ using Game.Feature.UI.Application;
 namespace Game.Exhibition.Integration
 {
     /// <summary>One session, one resume attempt. A committed request always crosses a restart boundary.</summary>
-    public sealed class ParticipantResetService : IParticipantResetPort
+    public sealed class ParticipantResetService : IParticipantResetPort, IParticipantResetLegacyRecovery, IParticipantResetRetryPolicy
     {
         private readonly ExhibitionResetCoordinator coordinator;
         private readonly IParticipantRestart restart;
@@ -13,7 +13,6 @@ namespace Game.Exhibition.Integration
         private readonly Action stopPublication;
         private readonly Action startServices;
         private readonly Action reconcile;
-        private readonly IParticipantResetDiagnostics diagnostics;
         private readonly IParticipantRestart completedResetRestart;
         private readonly ICompletedParticipantResetReturn completedResetReturn;
         private readonly Action startRuntime;
@@ -27,12 +26,22 @@ namespace Game.Exhibition.Integration
         public bool CanRequest => menuReady && !BlocksMenu && !requestInProgress && steamAvailable();
         public bool SuppressSaveSeedImport { get; private set; }
         public string Error { get; private set; }
+        public bool RequiresLegacyRecovery { get; private set; }
+        public bool CanRestartAfterFailure
+        {
+            get
+            {
+                if (!BlocksMenu || IsBusy || completedResetReturn != null || RequiresLegacyRecovery) return false;
+                try { return coordinator.ReadRecord()?.MappingVersion == ExhibitionResetCoordinator.MappingVersion; }
+                catch { return false; }
+            }
+        }
 
         public ParticipantResetService(ExhibitionResetCoordinator coordinator, IParticipantRestart restart,
             Func<bool> steamAvailable, Action stopPublication, Action startServices, Action reconcile,
-            ResetRecord initialRecord, Exception startupFailure = null, IParticipantResetDiagnostics diagnostics = null,
+            ResetRecord initialRecord, Exception startupFailure = null,
             IParticipantRestart completedResetRestart = null, ICompletedParticipantResetReturn completedResetReturn = null,
-            Action startRuntime = null)
+            Action startRuntime = null, bool suppressSaveSeedImport = false)
         {
             this.coordinator = coordinator;
             this.restart = restart;
@@ -40,13 +49,14 @@ namespace Game.Exhibition.Integration
             this.stopPublication = stopPublication;
             this.startServices = startServices;
             this.reconcile = reconcile;
-            this.diagnostics = diagnostics;
             this.completedResetRestart = completedResetRestart;
             this.completedResetReturn = completedResetReturn;
             this.startRuntime = startRuntime;
             deferred = initialRecord?.State == ResetRecord.Pending;
             BlocksMenu = deferred || completedResetReturn != null || startupFailure != null;
-            SuppressSaveSeedImport = initialRecord != null;
+            SuppressSaveSeedImport = initialRecord != null || suppressSaveSeedImport;
+            RequiresLegacyRecovery = startupFailure == null && completedResetReturn == null && deferred &&
+                initialRecord.MappingVersion == ExhibitionResetCoordinator.PreviousMappingVersion;
             Error = startupFailure?.Message;
         }
 
@@ -54,7 +64,7 @@ namespace Game.Exhibition.Integration
         {
             if (prepareAttempted) return;
             prepareAttempted = true;
-            if (!string.IsNullOrEmpty(Error) || (!deferred && completedResetReturn == null)) return;
+            if (RequiresLegacyRecovery || !string.IsNullOrEmpty(Error) || (!deferred && completedResetReturn == null)) return;
             IsBusy = true;
             Changed?.Invoke();
             try
@@ -63,13 +73,11 @@ namespace Game.Exhibition.Integration
                 {
                     startRuntime?.Invoke();
                     completedResetReturn.Validate(coordinator);
-                    ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.BeforeServices);
                     startServices();
                     BlocksMenu = false;
                     return;
                 }
                 await coordinator.ResumeAsync();
-                ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.BeforeServices);
                 if (completedResetRestart != null)
                 {
                     var ready = coordinator.ReadRecord();
@@ -91,7 +99,6 @@ namespace Game.Exhibition.Integration
             {
                 if (deferred || completedResetReturn != null) reconcile();
                 menuReady = true;
-                ParticipantResetDiagnosticBoundary.Capture(diagnostics, ParticipantResetDiagnosticStage.MenuReady);
             }
             catch (Exception exception)
             {
@@ -142,9 +149,49 @@ namespace Game.Exhibition.Integration
             finally { requestInProgress = false; Changed?.Invoke(); }
         }
 
+        public void RequestLegacyReset()
+        {
+            if (!RequiresLegacyRecovery || IsBusy || requestInProgress) return;
+            requestInProgress = true;
+            IsBusy = true;
+            Error = null;
+            Changed?.Invoke();
+            try
+            {
+                restart.ValidateAvailable();
+                completedResetRestart?.ValidateAvailable();
+                coordinator.RequestLegacyReset();
+                RequiresLegacyRecovery = false;
+                SuppressSaveSeedImport = true;
+                stopPublication();
+                RestartCommitted();
+            }
+            catch (Exception exception)
+            {
+                // If replacement committed before a cleanup error, only the new request may restart.
+                try
+                {
+                    var actual = coordinator.ReadRecord();
+                    RequiresLegacyRecovery = actual?.State == ResetRecord.Pending &&
+                        actual.MappingVersion == ExhibitionResetCoordinator.PreviousMappingVersion;
+                }
+                catch { RequiresLegacyRecovery = false; }
+                Error = exception.Message;
+                IsBusy = false;
+                stopPublication();
+            }
+            finally
+            {
+                BlocksMenu = true;
+                menuReady = false;
+                requestInProgress = false;
+                Changed?.Invoke();
+            }
+        }
+
         public void Restart()
         {
-            if (!BlocksMenu || IsBusy || completedResetReturn != null) return;
+            if (!CanRestartAfterFailure) return;
             try { RestartCommitted(); }
             catch (Exception exception) { Error = exception.Message; IsBusy = false; Changed?.Invoke(); }
         }

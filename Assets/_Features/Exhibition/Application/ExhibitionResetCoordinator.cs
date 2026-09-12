@@ -36,6 +36,12 @@ namespace Game.Exhibition
         void Save(ResetRecord record);
     }
 
+    public interface IExhibitionResetJournalMaintenance
+    {
+        void ArchiveLegacyReady(ResetRecord expected);
+        void ReplaceLegacyPending(ResetRecord expected, ResetRecord replacement);
+    }
+
     public interface IExhibitionSteamReset
     {
         ResetIdentity GetIdentity();
@@ -49,7 +55,9 @@ namespace Game.Exhibition
 
     public sealed class ExhibitionResetCoordinator
     {
-        public const string MappingVersion = "level-clear-v1";
+        public const string PreviousMappingVersion = "level-clear-v1";
+        public const string MappingVersion = "level-and-efficient-clear-v2";
+        public const string IncompatibleMappingMessage = "지원하지 않는 초기화 기록입니다. 기록을 보존한 채 운영 담당자에게 문의해 주세요. 재시작만으로 해결되지 않습니다.";
         private readonly IExhibitionResetJournal _journal;
         private readonly IExhibitionSteamReset _steam;
         private readonly IParticipantProgressReset _progress;
@@ -79,6 +87,8 @@ namespace Game.Exhibition
                 if (existing != null)
                 {
                     ValidateRecord(existing);
+                    if (existing.MappingVersion != MappingVersion)
+                        throw new InvalidOperationException(IncompatibleMappingMessage);
                     if (existing.State == ResetRecord.Pending)
                         throw new InvalidOperationException("A participant reset is already pending. Restart to resume it.");
                 }
@@ -108,6 +118,8 @@ namespace Game.Exhibition
                 var record = _journal.Load();
                 if (record == null) return true;
                 ValidateRecord(record);
+                if (record.MappingVersion != MappingVersion)
+                    throw new InvalidOperationException(IncompatibleMappingMessage);
                 if (record.State == ResetRecord.Ready) return true;
                 ValidatePending(record);
                 guard?.Invoke();
@@ -140,6 +152,50 @@ namespace Game.Exhibition
             return record;
         }
 
+        public ResetRecord ReadStartupRecord()
+        {
+            Enter();
+            try
+            {
+                var record = ReadRecord();
+                if (record?.MappingVersion == PreviousMappingVersion && record.State == ResetRecord.Ready)
+                    Maintenance().ArchiveLegacyReady(record);
+                return record;
+            }
+            finally { Volatile.Write(ref _busy, 0); }
+        }
+
+        public void RequestLegacyReset()
+        {
+            Enter();
+            try
+            {
+                var record = ReadRecord();
+                if (record == null || record.MappingVersion != PreviousMappingVersion || record.State != ResetRecord.Pending)
+                    throw new InvalidOperationException("Only a previous-version pending reset can be requested again.");
+                var identity = _steam.GetIdentity();
+                if (identity.AppId == 0 || identity.SteamId == 0 ||
+                    identity.AppId != record.AppId || identity.SteamId != record.SteamId)
+                    throw new InvalidOperationException("Sign in to the Steam account and AppID recorded in the pending reset.");
+                var replacement = new ResetRecord { OperationId = Guid.NewGuid().ToString("N"),
+                    State = ResetRecord.Pending, AppId = identity.AppId, SteamId = identity.SteamId,
+                    MappingVersion = MappingVersion };
+                try { Maintenance().ReplaceLegacyPending(record, replacement); }
+                catch
+                {
+                    var actual = ReadRecord();
+                    if (actual == null || actual.OperationId != replacement.OperationId ||
+                        actual.State != replacement.State || actual.MappingVersion != MappingVersion ||
+                        actual.AppId != replacement.AppId || actual.SteamId != replacement.SteamId) throw;
+                }
+            }
+            finally { Volatile.Write(ref _busy, 0); }
+        }
+
+        private IExhibitionResetJournalMaintenance Maintenance() =>
+            _journal as IExhibitionResetJournalMaintenance ??
+            throw new InvalidOperationException("Durable reset journal maintenance is unavailable.");
+
         private void SaveCommitted(ResetRecord desired)
         {
             try { _journal.Save(desired); }
@@ -157,9 +213,10 @@ namespace Game.Exhibition
         private void ValidatePending(ResetRecord record)
         {
             var actual = _steam.GetIdentity();
-            if (record.MappingVersion != MappingVersion ||
-                actual.AppId != record.AppId || actual.SteamId != record.SteamId)
-                throw new InvalidOperationException("Sign in to the Steam account and AppID recorded in the pending reset, with the same achievement mapping.");
+            if (record.MappingVersion != MappingVersion)
+                throw new InvalidOperationException(IncompatibleMappingMessage);
+            if (actual.AppId != record.AppId || actual.SteamId != record.SteamId)
+                throw new InvalidOperationException("Sign in to the Steam account and AppID recorded in the pending reset, before resuming the reset.");
         }
 
         private static void ValidateRecord(ResetRecord record)
@@ -168,6 +225,8 @@ namespace Game.Exhibition
                 (record.State != ResetRecord.Pending && record.State != ResetRecord.Ready) ||
                 record.AppId == 0 || record.SteamId == 0 || string.IsNullOrWhiteSpace(record.MappingVersion))
                 throw new InvalidOperationException("The participant reset record is corrupt or unsupported.");
+            if (record.MappingVersion != MappingVersion && record.MappingVersion != PreviousMappingVersion)
+                throw new InvalidOperationException(IncompatibleMappingMessage);
         }
     }
 }

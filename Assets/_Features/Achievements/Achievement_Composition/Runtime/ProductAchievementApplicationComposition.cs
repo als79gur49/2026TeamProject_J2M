@@ -245,11 +245,9 @@ namespace Game.Product.Achievements.Composition
             start();
         }
 
-        internal static void StopForObservation() => _owner?.Dispose();
 
         internal static bool StartNow()
         {
-            if (ProductAchievementStartupControl.ServicesInhibited) return false;
             if (_owner != null)
             {
                 return _owner.Initialize();

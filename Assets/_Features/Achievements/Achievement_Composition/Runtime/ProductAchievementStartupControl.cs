@@ -6,26 +6,7 @@ namespace Game.Product.Achievements.Composition
     public static class ProductAchievementStartupControl
     {
         public static bool HasStarted => ProductAchievementRuntimeBootstrap.HasStarted;
-        public static bool ObservationBuild => Game.Feature.Stages.CampaignSaveCompositionProvider.ObservationBuild;
-        private static bool observationOnly;
-        public static bool ObservationOnly { get => observationOnly || ObservationBuild; private set => observationOnly = value; }
-        public static bool ResetTrial { get; private set; }
-        public static bool ServicesInhibited => ObservationOnly || ResetTrial;
-        public static void InhibitForResetTrial()
-        {
-            ResetTrial = true;
-            DeferAutomaticStart();
-            ProductAchievementRuntimeBootstrap.StopForObservation();
-        }
-        public static void InhibitForObservation()
-        {
-            ObservationOnly = true;
-            DeferAutomaticStart();
-            ProductAchievementRuntimeBootstrap.StopForObservation();
-        }
-
-        private static bool deferred;
-        public static bool IsDeferred { get => deferred || ObservationBuild; private set => deferred = value; }
+        public static bool IsDeferred { get; private set; }
         internal static bool RequiresExplicitReconciliation { get; private set; }
 
         public static void DeferAutomaticStart()
@@ -36,19 +17,16 @@ namespace Game.Product.Achievements.Composition
 
         public static bool StartDeferredServices()
         {
-            if (ServicesInhibited) return false;
             var success = ProductAchievementRuntimeBootstrap.StartNow();
             if (success) IsDeferred = false;
             return success;
         }
 
         public static CampaignStageAchievementReconciliationResult ReconcileCampaign()
-            => ServicesInhibited ? CampaignStageAchievementReconciliationResult.NotAttempted : ProductAchievementRuntimeBootstrap.ReconcileNow();
+            => ProductAchievementRuntimeBootstrap.ReconcileNow();
 
         internal static void Reset()
         {
-            ObservationOnly = false;
-            ResetTrial = false;
             IsDeferred = false;
             RequiresExplicitReconciliation = false;
         }

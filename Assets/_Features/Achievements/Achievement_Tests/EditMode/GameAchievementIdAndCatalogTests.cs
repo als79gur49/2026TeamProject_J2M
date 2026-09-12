@@ -50,16 +50,37 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void ProductionCatalog_ContainsExactlyFiveLevelClearAchievements()
+        public void ProductionCatalog_ContainsExactlyEighteenOneShotAchievements()
         {
             var catalog = GameAchievementCatalog.Production;
-            Assert.That(catalog.Definitions.Count, Is.EqualTo(5));
+            Assert.That(catalog.Definitions.Count, Is.EqualTo(18));
             for (var level = 0; level < 5; level++)
             {
                 var id = GameAchievementId.Require($"campaign.level-{level}.clear");
                 Assert.That(catalog.TryGet(id, out var definition), Is.True);
                 Assert.That(definition.Kind, Is.EqualTo(GameAchievementKind.OneShot));
             }
+        }
+
+        [TestCase("0-1")]
+        [TestCase("0-2")]
+        [TestCase("0-3")]
+        [TestCase("1-1")]
+        [TestCase("1-2")]
+        [TestCase("2-1")]
+        [TestCase("2-2")]
+        [TestCase("3-1")]
+        [TestCase("3-2")]
+        [TestCase("3-3")]
+        [TestCase("4-1")]
+        [TestCase("4-2")]
+        [TestCase("4-3")]
+        public void ProductionCatalog_ContainsEfficientClear(string stage)
+        {
+            Assert.That(GameAchievementCatalog.Production.TryGet(
+                GameAchievementId.Require($"campaign.stage-{stage}.efficient-clear"),
+                out var definition), Is.True);
+            Assert.That(definition.Kind, Is.EqualTo(GameAchievementKind.OneShot));
         }
 
         [Test]

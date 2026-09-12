@@ -55,6 +55,10 @@ function New-RawFixture {
     New-Item -ItemType Directory -Path $Root -Force | Out-Null
     Write-FixtureFile $Root "VectorQuake.exe" "exe"
     Write-FixtureFile $Root "Exhibition-Relaunch.ps1" "restart helper"
+    foreach ($helper in @('Restart-Experiment.ps1', 'RestartExperiment.cs',
+            'RestartExperimentWindows.cs', 'RestartExperimentNativeProbe.cs')) {
+        Write-FixtureFile $Root ("RestartExperiment/" + $helper) ("operational helper " + $helper)
+    }
     Write-FixtureFile $Root "ThirdPartyNotices.txt" `
         (Get-ValidThirdPartyNoticeFixture)
     [IO.File]::WriteAllBytes(
@@ -63,6 +67,8 @@ function New-RawFixture {
     Write-FixtureFile $Root "UnityPlayer.dll" "unity"
     Write-FixtureFile $Root "VectorQuake_Data\globalgamemanagers" "managers"
     Write-FixtureFile $Root "VectorQuake_Data\Managed\Game.dll" "game-managed"
+    Write-FixtureFile $Root "VectorQuake_Data\Managed\Game.Exhibition.Application.dll" "reset application"
+    Write-FixtureFile $Root "VectorQuake_Data\Managed\Game.Exhibition.Integration.dll" "reset integration"
     Write-FixtureFile $Root "VectorQuake_Data\ScriptingAssemblies.json" `
         '{"names":["Game.dll"]}'
     Write-FixtureFile $Root "MonoBleedingEdge\etc\mono\config" "mono-runtime"
@@ -103,6 +109,14 @@ try {
         Assert-Equal 1 $result.SteamNativeCount
         Assert-Equal 1 $result.SteamManagedCount
         Assert-Equal 0 $result.SteamAppIdCount
+        foreach ($relative in @('Exhibition-Relaunch.ps1',
+                'RestartExperiment/Restart-Experiment.ps1', 'RestartExperiment/RestartExperiment.cs',
+                'RestartExperiment/RestartExperimentWindows.cs', 'RestartExperiment/RestartExperimentNativeProbe.cs',
+                'VectorQuake_Data/Managed/Game.Exhibition.Application.dll',
+                'VectorQuake_Data/Managed/Game.Exhibition.Integration.dll')) {
+            Assert-Equal ([IO.File]::ReadAllText((Join-Path $rawRoot $relative))) `
+                ([IO.File]::ReadAllText((Join-Path $result.PayloadRoot $relative)))
+        }
         Assert-True (Test-Path -LiteralPath (
             Join-Path $result.PayloadRoot "ThirdPartyNotices.txt") -PathType Leaf)
         Assert-True (Test-Path -LiteralPath (

@@ -30,6 +30,7 @@ namespace Game.Feature.UI.Application
         QuitGame,
         ResetBlockedProfile,
         PrepareParticipant,
+        ReplaceLegacyParticipantReset,
     }
 
     public static class MainMenuLocalization
@@ -131,6 +132,14 @@ namespace Game.Feature.UI.Application
 
             switch (kind)
             {
+                case MainMenuConfirmationKind.ReplaceLegacyParticipantReset:
+                    return new ConfirmPopupPayload(
+                        Descriptor(MainMenuLocalizationEntryId.ParticipantResetTitle),
+                        Descriptor(MainMenuLocalizationEntryId.ParticipantResetLegacyConfirmBody),
+                        Descriptor(MainMenuLocalizationEntryId.ParticipantResetWarning),
+                        Descriptor(MainMenuLocalizationEntryId.ParticipantResetConfirm),
+                        cancel, isConfirmDestructive: true);
+
                 case MainMenuConfirmationKind.PrepareParticipant:
                     return new ConfirmPopupPayload(
                         Descriptor(MainMenuLocalizationEntryId.ParticipantResetTitle),

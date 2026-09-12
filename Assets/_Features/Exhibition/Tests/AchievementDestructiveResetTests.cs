@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using Game.Exhibition.Integration;
 using Game.Feature.Stages;
 using Game.Product.Achievements;
 using Game.Product.Achievements.Composition;
@@ -24,8 +26,8 @@ namespace Game.Exhibition.Tests
         {
             var old = JsonUtility.ToJson(new ProductAchievementDocument
             {
-                EarnedAchievementIds = new[] { "level-clear-0" },
-                PendingAchievementPublicationIds = new[] { "level-clear-0" },
+                EarnedAchievementIds = GameAchievementCatalog.Production.Definitions.Select(d => d.Id.Value).ToArray(),
+                PendingAchievementPublicationIds = GameAchievementCatalog.Production.Definitions.Select(d => d.Id.Value).ToArray(),
             });
             File.WriteAllText(Canonical, old);
             File.WriteAllText(Canonical + ".bak", old);
@@ -49,6 +51,50 @@ namespace Game.Exhibition.Tests
             Repository.Reset();
             Assert.That(File.ReadAllText(settings), Is.EqualTo("operator settings"));
             Assert.That(File.ReadAllText(diagnostic), Is.EqualTo("diagnostics"));
+        }
+
+        [Test]
+        public void FreshCoordinatorAfterResetDoesNotRepublishAndCanEarnEfficientAchievementAgain()
+        {
+            var names = GameAchievementCatalog.Production.Definitions.Select(d => d.Id.Value).ToArray();
+            Assert.That(names.Length, Is.EqualTo(18));
+            var old = JsonUtility.ToJson(new ProductAchievementDocument
+            {
+                EarnedAchievementIds = names, PendingAchievementPublicationIds = names,
+            });
+            File.WriteAllText(Canonical, old);
+            File.WriteAllText(Canonical + ".bak", old);
+            File.WriteAllText(Canonical + ".rollback", old);
+            new ParticipantProgressResetAdapter(new Paths(_root)).Reset();
+            AssertEmpty(Repository.Load());
+            var sink = new PublicationSpy();
+            using (var coordinator = new ProductAchievementCoordinator(Repository, GameAchievementCatalog.Production, sink))
+            {
+                Assert.That(coordinator.Initialize(), Is.True);
+                Assert.That(sink.Calls, Is.Zero);
+                var id = GameAchievementIds.CampaignStage1_2EfficientClear;
+                Assert.That(coordinator.Earn(id), Is.EqualTo(AchievementEarnResult.EarnedNew));
+                Assert.That(coordinator.Earn(id), Is.EqualTo(AchievementEarnResult.AlreadyEarned));
+                Assert.That(sink.Calls, Is.EqualTo(1));
+                Assert.That(sink.Last.AchievementIds, Is.EqualTo(new[] { id }));
+                Assert.That(Repository.Load().Document.EarnedAchievementIds, Is.EqualTo(new[] { id.Value }));
+            }
+        }
+
+        private sealed class Paths : SavePathProviderBase
+        {
+            public Paths(string root) : base(root) { }
+        }
+
+        private sealed class PublicationSpy : IAchievementPublicationSink
+        {
+            public int Calls;
+            public AchievementPublicationBatch Last;
+            public void PublishBatch(AchievementPublicationBatch batch, Action<AchievementPublicationBatchResult> completed)
+            {
+                Calls++; Last = batch;
+                completed(AchievementPublicationBatchResult.Uniform(batch, AchievementPublicationResult.Submitted));
+            }
         }
 
         private static void AssertEmpty(AchievementDocumentLoadResult loaded)

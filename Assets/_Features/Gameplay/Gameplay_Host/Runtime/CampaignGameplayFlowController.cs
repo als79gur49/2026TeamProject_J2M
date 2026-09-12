@@ -512,7 +512,7 @@ namespace Game.Feature.Gameplay.Host
                         normalStageClear));
                 if (normalStageClear.HasValue)
                 {
-                    TryEarnCampaignStageAchievements(commit.Slot);
+                    TryEarnCampaignStageAchievements(commit.Slot, normalStageClear.Value);
                 }
             }
             else
@@ -541,7 +541,7 @@ namespace Game.Feature.Gameplay.Host
 
                 if (normalStageClear.HasValue)
                 {
-                    TryEarnCampaignStageAchievements(commit.Slot);
+                    TryEarnCampaignStageAchievements(commit.Slot, normalStageClear.Value);
                 }
             }
 
@@ -575,17 +575,20 @@ namespace Game.Feature.Gameplay.Host
             };
         }
 
-        private void TryEarnCampaignStageAchievements(CampaignSlotState committedSlot)
+        private void TryEarnCampaignStageAchievements(
+            CampaignSlotState committedSlot,
+            NormalCampaignStageClearFact currentClear)
         {
             try
             {
-                _campaignStageAchievementIntegration.TryEarnFromCommittedSlot(
+                _campaignStageAchievementIntegration.TryEarnFromCommittedClear(
                     committedSlot,
-                    _sequenceResolver);
+                    _sequenceResolver,
+                    currentClear);
             }
             catch
             {
-                // Durable performance records remain the startup recovery source.
+                // Level clears recover from records; efficient clears require another qualifying clear.
             }
         }
 
