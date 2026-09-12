@@ -202,6 +202,75 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SaveSlotPanel_UpFromTopCard_FocusesClose_AndDownRestoresCard()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+            harness.View.OnNavigationFocusGained();
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var closeFrame = GetPrivateField<Image>(harness.View, "_saveSlotCloseSelectionFrame");
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(IsSelectionFrameVisiblyShown(closeFrame), Is.True);
+            AssertSaveSlotFramesHidden(harness.Cards, isHidden: true);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(IsSelectionFrameVisiblyShown(closeFrame), Is.False);
+            Assert.That(IsFrameVisible(harness.Cards[0], "_primarySelectionFrame"), Is.True);
+        }
+
+        [Test]
+        public void SaveSlotPanel_CloseFocusedSubmit_UsesSameClosePathAsCancel()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+            harness.View.OnNavigationFocusGained();
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.None));
+            Assert.That(harness.View.SelectedCommandIndex, Is.EqualTo(0));
+            Assert.That(harness.Panel.gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void SaveSlotPanel_CloseFocusedCancel_ClosesPanelAndReturnsFocusToStart()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness();
+            harness.View.OnNavigationFocusGained();
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(harness.View.HandleCancel(), Is.True);
+
+            Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.None));
+            Assert.That(harness.View.SelectedCommandIndex, Is.EqualTo(0));
+            Assert.That(harness.Panel.gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void SaveSlotPanel_NoFocusableCardAction_FocusesCloseAndKeepsItReachable()
+        {
+            using var harness = CreateMainMenuSaveSlotHarness(
+                CreateCardViewModel(1, SaveSlotIntentKind.None, showDelete: false),
+                CreateCardViewModel(2, SaveSlotIntentKind.None, showDelete: false),
+                CreateCardViewModel(3, SaveSlotIntentKind.None, showDelete: false));
+            harness.View.OnNavigationFocusGained();
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var closeFrame = GetPrivateField<Image>(harness.View, "_saveSlotCloseSelectionFrame");
+
+            Assert.That(IsSelectionFrameVisiblyShown(closeFrame), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(IsSelectionFrameVisiblyShown(closeFrame), Is.True);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.None));
+            Assert.That(harness.Panel.gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
         public void ConfirmPopupNavigation_CancelInput_UsesClickCancelCompletionPath()
         {
             using var harness = CreateConfirmPopupHarness(isDestructive: false);
@@ -1031,6 +1100,7 @@ namespace Game.Feature.UI.Tests
 
             var expectedIds = new[]
             {
+                "Header.Back",
                 "Header.AudioTab",
                 "Header.DisplayTab",
                 "Header.InputTab",
@@ -1042,6 +1112,7 @@ namespace Game.Feature.UI.Tests
                 "Audio.Sfx.Mute",
                 "Display.Resolution.Dropdown",
                 "Display.Fullscreen.Toggle",
+                "Display.Language.Button",
                 "Display.Apply.Button",
                 "Display.Revert.Button",
                 "Input.Movement.Toggle",
@@ -1270,6 +1341,58 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
                 Assert.That(GetSettingsFocusNodeId(harness.View), Is.Not.EqualTo("Header.Back"));
             }
+        }
+
+        [TestCase(SettingsSectionId.Audio, "Header.AudioTab")]
+        [TestCase(SettingsSectionId.Display, "Header.DisplayTab")]
+        [TestCase(SettingsSectionId.Input, "Header.InputTab")]
+        public void SettingsHeaderTab_UpFocusesBack_DownReturnsToActiveTab(
+            SettingsSectionId sectionId,
+            string expectedHeaderNodeId)
+        {
+            using var harness = CreateSettingsHarness(sectionId);
+            MoveToCurrentHeaderTab(harness.View);
+            var slots = GetPrivateField<UiFocusNodeSlot[]>(harness.View, "_focusNodeSlots");
+            var backFrame = FindSettingsFocusSlot(slots, "Header.Back").SelectionFrame;
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.Back"));
+            Assert.That(IsSelectionFrameVisiblyShown(backFrame), Is.True);
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(sectionId));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo(expectedHeaderNodeId));
+            Assert.That(IsSelectionFrameVisiblyShown(backFrame), Is.False);
+            Assert.That(harness.ScreenViewModel.SelectedSection, Is.EqualTo(sectionId));
+        }
+
+        [Test]
+        public void SettingsBackButton_DirectionalInputStaysFocused()
+        {
+            using var harness = CreateSettingsHarness();
+            MoveToCurrentHeaderTab(harness.View);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.Back"));
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.Back"));
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Header.Back"));
+        }
+
+        [Test]
+        public void SettingsBackButton_Submit_ReusesClickBackPath()
+        {
+            using var harness = CreateSettingsHarness();
+            var backCount = 0;
+            harness.View.BackRequested += () => backCount++;
+            MoveToCurrentHeaderTab(harness.View);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(backCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -2093,11 +2216,54 @@ namespace Game.Feature.UI.Tests
             Assert.That(applyCount, Is.EqualTo(1));
         }
 
+        [Test]
+        public void SettingsDisplayLanguageCycle_PointerAndSubmit_UseSameActionExactlyOnce()
+        {
+            using var harness = CreateSettingsHarness(
+                SettingsSectionId.Display,
+                languageSelectionAvailable: true);
+            var languageCycleCount = 0;
+            harness.View.DisplayView.LanguageCycleRequested += () => languageCycleCount++;
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Language.Button"));
+
+            var slots = GetPrivateField<UiFocusNodeSlot[]>(harness.View, "_focusNodeSlots");
+            var languageSlot = FindSettingsFocusSlot(slots, "Display.Language.Button");
+            Assert.That(IsSelectionFrameVisiblyShown(languageSlot.SelectionFrame), Is.True);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(languageCycleCount, Is.EqualTo(1));
+
+            var languageButton = GetPrivateField<Button>(harness.View.DisplayView, "_languageCycleButton");
+            Assert.That(languageButton.GetComponent<UiHoverScaleEffect>(), Is.Not.Null);
+            languageButton.onClick.Invoke();
+
+            Assert.That(languageCycleCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void SettingsDisplayLanguageCycle_WhenUnavailable_IsSkippedByNavigation()
+        {
+            using var harness = CreateSettingsHarness(
+                SettingsSectionId.Display,
+                languageSelectionAvailable: false);
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Apply.Button"));
+        }
+
         private static SettingsHarness CreateSettingsHarness(
             SettingsSectionId selectedSection = SettingsSectionId.Audio,
             IReadOnlyList<string> resolutionOptions = null,
             int selectedResolutionIndex = 0,
-            bool inputControlsInteractable = true)
+            bool inputControlsInteractable = true,
+            bool languageSelectionAvailable = false)
         {
             var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
                 UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
@@ -2125,7 +2291,10 @@ namespace Game.Feature.UI.Tests
                 string.Empty,
                 0f,
                 false,
-                isDisplayStatusVisible: false);
+                isDisplayStatusVisible: false,
+                languageLabelText: "Language",
+                currentLanguageText: "English",
+                isLanguageSelectionAvailable: languageSelectionAvailable);
             inputViewModel.SetContent(
                 "Movement",
                 false,
@@ -2325,6 +2494,8 @@ namespace Game.Feature.UI.Tests
             var startButton = CreateButton("StartButton", commandPanel);
             var settingsButton = CreateButton("SettingsButton", commandPanel);
             var quitButton = CreateButton("QuitButton", commandPanel);
+            var closeButton = CreateButton("SaveSlotCloseButton", root.transform);
+            var closeSelectionFrame = CreateFrame(closeButton.transform);
 
             var panelObject = new GameObject("SaveSlotPanelView", typeof(RectTransform));
             panelObject.transform.SetParent(contentHost, false);
@@ -2342,6 +2513,9 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(view, "_bottomBar", bottomBar);
             SetPrivateField(view, "_mainCommandPanel", commandPanel);
             SetPrivateField(view, "_saveSlotPanel", panel);
+            SetPrivateField(view, "_saveSlotCloseButton", closeButton);
+            SetPrivateField(view, "_saveSlotCloseSelectionFrame", closeSelectionFrame);
+            SetPrivateField(view, "_saveSlotCloseSelectionVisualProfile", UiSelectionVisualProfile.CreateRuntimeDefault());
             SetPrivateField(view, "_startButton", startButton);
             SetPrivateField(view, "_settingsButton", settingsButton);
             SetPrivateField(view, "_quitButton", quitButton);

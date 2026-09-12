@@ -26,15 +26,15 @@ MonoBehaviour:
   - EntityId: 118
     PresentationId: black_eye
   - EntityId: 119
-    PresentationId: black_eye
+    PresentationId: startis
   - EntityId: 120
-    PresentationId: black_eye
+    PresentationId: startis
   - EntityId: 121
-    PresentationId: black_eye
+    PresentationId: startis
   - EntityId: 122
-    PresentationId: black_eye
+    PresentationId: startis
   - EntityId: 123
-    PresentationId: black_eye
+    PresentationId: startis
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
   staticEntityPresentationBindings:
   - EntityId: 2

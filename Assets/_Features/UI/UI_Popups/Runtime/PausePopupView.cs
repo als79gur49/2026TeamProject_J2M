@@ -14,6 +14,7 @@ namespace Game.Feature.UI.Popups
         {
             Progression = 0,
             Commands = 1,
+            PreviewClose = 2,
         }
 
         [SerializeField] private GameObject _root;
@@ -218,12 +219,17 @@ namespace Game.Feature.UI.Popups
 
         public bool HandleNavigate(UiNavigationCommand command)
         {
-            if (!CanHandleUiNavigation || _navigationGroup == null)
+            if (!CanHandleUiNavigation)
             {
                 return false;
             }
 
             if (_previewOverlay != null && _previewOverlay.IsOpen)
+            {
+                return _previewOverlay.HandleNavigate(command);
+            }
+
+            if (_navigationGroup == null)
             {
                 return false;
             }
@@ -277,8 +283,7 @@ namespace Game.Feature.UI.Popups
 
             if (_previewOverlay != null && _previewOverlay.IsOpen)
             {
-                CloseStagePreview();
-                return true;
+                return _previewOverlay.HandleSubmit();
             }
 
             if (_navigationRegion == PauseNavigationRegion.Progression)
@@ -323,8 +328,7 @@ namespace Game.Feature.UI.Popups
                 return false;
             }
 
-            CloseStagePreview();
-            return true;
+            return _previewOverlay.HandleCancel();
         }
 
         public void OnNavigationFocusGained()
@@ -332,6 +336,7 @@ namespace Game.Feature.UI.Popups
             if (_previewOverlay != null && _previewOverlay.IsOpen)
             {
                 _navigationGroup?.HideAllFrames();
+                _previewOverlay.OnNavigationFocusGained();
                 return;
             }
 
@@ -347,6 +352,7 @@ namespace Game.Feature.UI.Popups
         public void OnNavigationFocusLost()
         {
             _navigationGroup?.HideAllFrames();
+            _previewOverlay?.OnNavigationFocusLost();
         }
 
         private void OnDestroy()
@@ -568,6 +574,8 @@ namespace Game.Feature.UI.Popups
                 return;
             }
 
+            _navigationRegion = PauseNavigationRegion.PreviewClose;
+            _navigationGroup?.HideAllFrames();
             _previewOverlay.Open(selection);
         }
 
@@ -583,6 +591,7 @@ namespace Game.Feature.UI.Popups
 
         private void HandleStagePreviewClosed()
         {
+            _previewOverlay?.OnNavigationFocusLost();
             _navigationRegion = PauseNavigationRegion.Progression;
             _navigationGroup?.HideAllFrames();
         }

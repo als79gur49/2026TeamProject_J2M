@@ -103,6 +103,11 @@ In sections that define mixed rules, each rule must be marked with one of these 
 - `Default Guidance` Prefer explicit policy objects over ad hoc booleans spread across views.
 - `Default Guidance` Prefer per-feature UI modules over a single monolithic UI bucket.
 - `Default Guidance` Keep temporary local state local. Promote it only when flow or persistence rules require it.
+- `[UI-AUTH-001]` `Default Guidance` New or substantially redesigned player-visible screens, popups, HUD slices, and fixed widgets review existing authored prefabs and reusable authored components first, and use prefab authoring as the default.
+- `Default Guidance` A control does not need its own prefab asset. Author a fixed control inside its owning screen, popup, or HUD prefab unless independent reuse justifies a reusable component prefab.
+- `Default Guidance` Variable-length collections clone or pool an authored item template instead of rebuilding the item's visual hierarchy from primitive runtime objects.
+
+The supporting implementation procedure, decision matrix, navigation patterns, and validation checklist live in [UI-Authoring-and-Navigation-Guide.md](./UI-Authoring-and-Navigation-Guide.md).
 
 ## 7. Exceptions and Local Variations
 
@@ -126,6 +131,8 @@ Required exception categories and limits:
 - `Default Guidance` Non-modal overlays are allowed only through explicit flow and block policy.
 - `Default Guidance` UI-local transient animation state is allowed in the view or viewmodel layer when it does not redefine gameplay state.
 - `Default Guidance` Migration-time exceptions are allowed only with explicit owner, scope, and removal plan.
+- `Optional / Local Choice` Runtime creation is allowed for non-visual infrastructure, technical pointer surfaces, variable data-driven children, and procedural non-interactive presentation when their ownership and lifetime are explicit.
+- `Non-Negotiable` A fixed player-visible interactive hierarchy that remains runtime-generated must document its target, reason, owner, supported input paths, and removal or review condition.
 - `Non-Negotiable` Undocumented exceptions are violations.
 
 `Optional / Local Choice` Local implementation may choose exact internal composition, helper types, or data carriers when those choices stay inside the canonical layer and boundary rules defined here.
@@ -473,6 +480,8 @@ Composition lifecycle:
 
 - `Non-Negotiable` `UI_Composition` owns runtime bootstrap, gameplay-host binding, runtime factory selection, and canvas/layer assembly.
 - `Non-Negotiable` `GameplayUiFlowInstaller` assembles `GameplayUiPresentationSource`, controllers, coordinator, presenters, and root view binding from gameplay-owned `UIAccess` seams.
+- `[UI-AUTH-002]` `Non-Negotiable` Runtime composition normally instantiates, validates, binds, populates, and disposes authored UI. It must not duplicate a fixed player-visible hierarchy in code merely for implementation convenience.
+- `Non-Negotiable` Missing canonical prefab authoring fails fast. A silent runtime fallback that recreates the fixed visual hierarchy is not a production recovery path.
 - `Default Guidance` `GameplayScreenRuntimeFactory` and `GameplayPopupRuntimeFactory` stay composition-owned because they translate flow/runtime requests into mounted Unity runtime objects.
 
 Subscription rules:
@@ -511,6 +520,18 @@ Rules:
 - `Default Guidance` Non-modal overlays should declare what they block and what they allow.
 - `Default Guidance` HUD interactability under overlay should be an explicit policy decision, not an implicit default.
 - `Optional / Local Choice` Exact internal implementation of the blocking mechanism may vary as long as policy remains centralized and enforceable.
+
+Desktop interaction and navigation rules:
+
+- `[UI-INPUT-001]` `Non-Negotiable` Under the current desktop production input profile, every visible and enabled player-facing actionable control supports pointer activation and canonical navigation Submit activation.
+- `[UI-INPUT-002]` `Non-Negotiable` Pointer activation and Submit activation converge on the same semantic action and execute it exactly once per accepted input. Calling `Button.onClick.Invoke()` is not itself required.
+- `[UI-FOCUS-001]` `Non-Negotiable` Every active actionable control is reachable in its owning `IUiNavigationTarget`. Hidden and non-interactable controls are excluded, and invalidated focus is recovered or cleared.
+- `Non-Negotiable` A visible Back or Close action is not keyboard-accessible merely because Cancel or Escape can perform the same operation; the action itself must be reachable and submittable.
+- `Non-Negotiable` Keyboard focus has an unambiguous visible indicator that is cleared on focus loss. Pointer hover and keyboard focus remain independently understandable.
+- `Non-Negotiable` The canonical router's reveal contract is preserved: the first Submit with hidden navigation focus reveals focus without activation, while Navigate reveals focus and still dispatches that movement.
+- `Default Guidance` Standard text and icon buttons use `UiHoverScaleEffect` plus an authored `SelectionFrame` and `UiSelectionVisualProfile`. A tested equivalent focus or pointer-feedback treatment is allowed when the control design requires it.
+- `Default Guidance` Each navigation domain defines entry, exit, disabled-item handling, and boundary behavior as wrap, consume, cross-domain transition, or not-handled.
+- `Non-Negotiable` Technical `Button` components such as backdrops, pointer blockers, and drag-capture surfaces are not actionable controls and must not be added to focus navigation. Required keyboard-equivalent behavior belongs to modal Cancel or Back policy.
 
 ## 17. Folder and Naming Guidelines
 
@@ -591,6 +612,9 @@ Required test directions:
 - `Non-Negotiable` Add presenter or viewmodel tests for authoritative read-model to presentation mapping.
 - `Non-Negotiable` Add architecture guard tests for dependency direction, bounded public surfaces, and removed diagnostics overlay absence.
 - `Default Guidance` Add integration tests for screen, popup, and HUD interaction boundaries.
+- `Non-Negotiable` Add pointer and navigation tests for every new or materially changed player-facing actionable control.
+- `Non-Negotiable` Prove pointer/Submit semantic parity, exactly-once execution, focus reachability, hidden or disabled exclusion, and focus cleanup at the owning screen, popup, or HUD boundary.
+- `Default Guidance` Prefab contract tests verify canonical catalog registration, required serialized references, expected root view ownership, and authored focus-feedback configuration without freezing incidental YAML or exact hierarchy counts.
 
 Required scenarios:
 
@@ -618,6 +642,9 @@ Required scenarios:
 - `Non-Negotiable` A monolithic presenter owning navigation, gameplay interpretation, modal policy, and rendering state together.
 - `Non-Negotiable` Undocumented migration exceptions.
 - `Non-Negotiable` Mixed terminology where multiple names refer to one canonical role.
+- `Non-Negotiable` Recreating a fixed player-visible screen, popup, HUD slice, or interactive widget from primitive runtime objects without a documented authoring exception.
+- `Non-Negotiable` Shipping a pointer-only actionable control or treating Cancel/Escape as a substitute for navigation focus and Submit on a visible Back or Close action.
+- `Non-Negotiable` Treating Unity `Selectable.navigation` or EventSystem selection alone as proof that the project navigation router can reach and submit a control.
 
 ## 20. Maintenance / Update Policy
 
@@ -662,6 +689,9 @@ Maintenance rule:
 - [ ] The document defines the rule severity model.
 - [ ] The document separates hard constraints from default guidance.
 - [ ] The document defines an explicit exception policy.
+- [ ] The document defines prefab-first authoring and bounded runtime-generation exceptions.
+- [ ] The document requires pointer and canonical Submit parity for player-facing actionable controls.
+- [ ] The document distinguishes actionable controls from technical pointer surfaces.
 - [ ] The document defines `UIFlowCoordinator`, `ScreenController`, `PopupController`, `HUDController`, and `UIBlockPolicy`.
 - [ ] The document defines `UI_Composition` as the sole runtime composition root and gameplay-host bridge.
 - [ ] The document defines `Screen`, `Popup`, `HUD`, `Presenter`, `View`, `ViewModel`, `Query`, `Reader`, `Facade`, `Access Layer`, and `Application Layer`.

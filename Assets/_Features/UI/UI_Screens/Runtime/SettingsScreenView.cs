@@ -251,6 +251,11 @@ namespace Game.Feature.UI.Screens
                 return true;
             }
 
+            if (TryHandleBackButtonNavigation(command))
+            {
+                return true;
+            }
+
             return _focusGraph.Navigate(command) != UiFocusMoveResult.NotHandled;
         }
 
@@ -457,6 +462,32 @@ namespace Game.Feature.UI.Screens
             {
                 _focusGraph.HideAllFrames();
             }
+        }
+
+        private bool TryHandleBackButtonNavigation(UiNavigationCommand command)
+        {
+            var currentNodeId = _focusGraph.CurrentNodeId.Value;
+            if (string.Equals(currentNodeId, SettingsFocusGraphBinding.HeaderBackNodeId, StringComparison.Ordinal))
+            {
+                if (command == UiNavigationCommand.Down)
+                {
+                    var sectionId = _viewModel != null ? _viewModel.SelectedSection : SettingsSectionId.Audio;
+                    _focusGraph.Focus(new UiFocusNodeId(SettingsFocusGraphBinding.GetHeaderTabNodeId(sectionId)));
+                }
+
+                return true;
+            }
+
+            if (command != UiNavigationCommand.Up ||
+                (!string.Equals(currentNodeId, SettingsFocusGraphBinding.HeaderAudioTabNodeId, StringComparison.Ordinal) &&
+                 !string.Equals(currentNodeId, SettingsFocusGraphBinding.HeaderDisplayTabNodeId, StringComparison.Ordinal) &&
+                 !string.Equals(currentNodeId, SettingsFocusGraphBinding.HeaderInputTabNodeId, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            _focusGraph.Focus(new UiFocusNodeId(SettingsFocusGraphBinding.HeaderBackNodeId));
+            return true;
         }
 
         internal void RegisterFocusNode(

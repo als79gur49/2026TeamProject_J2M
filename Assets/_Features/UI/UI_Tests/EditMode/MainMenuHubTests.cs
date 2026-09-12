@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
@@ -232,6 +233,10 @@ namespace Game.Feature.UI.Tests
             var saveSlotBlockerRoot = GetPrivateField<GameObject>(prefab, "_saveSlotBlockerRoot");
             var saveSlotBlockerCanvasGroup = GetPrivateField<CanvasGroup>(prefab, "_saveSlotBlockerCanvasGroup");
             var saveSlotBlockerImage = GetPrivateField<Image>(prefab, "_saveSlotBlockerImage");
+            var saveSlotCloseButton = GetPrivateField<Button>(prefab, "_saveSlotCloseButton");
+            var saveSlotCloseSelectionFrame = GetPrivateField<Image>(prefab, "_saveSlotCloseSelectionFrame");
+            var saveSlotCloseSelectionVisualProfile =
+                GetPrivateField<UiSelectionVisualProfile>(prefab, "_saveSlotCloseSelectionVisualProfile");
 
             Assert.That(topBar.transform.IsChildOf(prefab.transform), Is.True);
             Assert.That(contentHost.transform.IsChildOf(prefab.transform), Is.True);
@@ -245,6 +250,15 @@ namespace Game.Feature.UI.Tests
             Assert.That(saveSlotBlockerImage.color.a, Is.EqualTo(0.48f).Within(0.001f));
             Assert.That(saveSlotBlockerCanvasGroup.blocksRaycasts, Is.False);
             Assert.That(saveSlotBlockerImage.raycastTarget, Is.False);
+            Assert.That(saveSlotCloseButton, Is.Not.Null);
+            Assert.That(saveSlotCloseButton.transform.IsChildOf(saveSlotOverlayLayer), Is.True);
+            Assert.That(saveSlotCloseButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
+            AssertCommandButtonHoverScaleEffect(saveSlotCloseButton.transform);
+            Assert.That(saveSlotCloseSelectionFrame, Is.Not.Null);
+            Assert.That(saveSlotCloseSelectionFrame.transform.IsChildOf(saveSlotCloseButton.transform), Is.True);
+            Assert.That(saveSlotCloseSelectionFrame.raycastTarget, Is.False);
+            Assert.That(saveSlotCloseSelectionFrame.gameObject.activeSelf, Is.False);
+            Assert.That(saveSlotCloseSelectionVisualProfile, Is.Not.Null);
             Assert.That(startButton.transform.IsChildOf(commandPanel), Is.True);
             Assert.That(settingsButton.transform.IsChildOf(commandPanel), Is.True);
             Assert.That(quitButton.transform.IsChildOf(commandPanel), Is.True);
@@ -316,6 +330,11 @@ namespace Game.Feature.UI.Tests
                 saveSlotBlockerRoot.transform.SetParent(saveSlotOverlayLayer, false);
                 var saveSlotBlockerCanvasGroup = saveSlotBlockerRoot.AddComponent<CanvasGroup>();
                 var saveSlotBlockerImage = saveSlotBlockerRoot.AddComponent<Image>();
+                var saveSlotCloseButton = CreateButton("SaveSlotCloseButton", saveSlotOverlayLayer);
+                var saveSlotCloseSelectionFrame = CreateSelectionFrame(
+                    "SelectionFrame",
+                    saveSlotCloseButton.transform);
+                var saveSlotCloseSelectionVisualProfile = UiSelectionVisualProfile.CreateRuntimeDefault();
 
                 var startButton = CreateButton("StartButton", commandPanel);
                 var settingsButton = CreateButton("SettingsButton", commandPanel);
@@ -334,6 +353,9 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(view, "_saveSlotBlockerRoot", saveSlotBlockerRoot);
                 SetPrivateField(view, "_saveSlotBlockerCanvasGroup", saveSlotBlockerCanvasGroup);
                 SetPrivateField(view, "_saveSlotBlockerImage", saveSlotBlockerImage);
+                SetPrivateField(view, "_saveSlotCloseButton", saveSlotCloseButton);
+                SetPrivateField(view, "_saveSlotCloseSelectionFrame", saveSlotCloseSelectionFrame);
+                SetPrivateField(view, "_saveSlotCloseSelectionVisualProfile", saveSlotCloseSelectionVisualProfile);
                 SetPrivateField(view, "_startButton", startButton);
                 SetPrivateField(view, "_startButtonLabel", startLabel);
                 SetPrivateField(view, "_settingsButton", settingsButton);
@@ -686,6 +708,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 harness.View.ShowSection(MainMenuSectionId.None);
+                var closeButton = GetPrivateField<Button>(harness.View, "_saveSlotCloseButton");
 
                 Assert.That(harness.SaveSlotOverlayLayer.gameObject.activeSelf, Is.False);
                 Assert.That(harness.SaveSlotBlockerRoot.activeSelf, Is.False);
@@ -694,6 +717,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.StartButton.interactable, Is.True);
                 Assert.That(harness.SettingsButton.interactable, Is.True);
                 Assert.That(harness.QuitButton.interactable, Is.True);
+                Assert.That(closeButton.interactable, Is.False);
 
                 harness.View.ShowSection(MainMenuSectionId.SaveSlots);
 
@@ -706,6 +730,32 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.StartButton.interactable, Is.False);
                 Assert.That(harness.SettingsButton.interactable, Is.False);
                 Assert.That(harness.QuitButton.interactable, Is.False);
+                Assert.That(closeButton.interactable, Is.True);
+
+                harness.View.SetLaunchInteractionBlocked(true);
+
+                Assert.That(closeButton.interactable, Is.False);
+            }
+            finally
+            {
+                harness.Dispose();
+            }
+        }
+
+        [Test]
+        public void MainMenuScreenView_SaveSlotCloseButton_ClosesPanelAndReturnsFocusToStart()
+        {
+            var harness = CreateShellHarness(withPanel: true);
+            try
+            {
+                var closeButton = GetPrivateField<Button>(harness.View, "_saveSlotCloseButton");
+                harness.View.ShowSection(MainMenuSectionId.SaveSlots);
+
+                closeButton.onClick.Invoke();
+
+                Assert.That(harness.View.ActiveSection, Is.EqualTo(MainMenuSectionId.None));
+                Assert.That(harness.View.SaveSlotPanel.gameObject.activeSelf, Is.False);
+                Assert.That(harness.View.SelectedCommandIndex, Is.EqualTo(0));
             }
             finally
             {
@@ -984,6 +1034,11 @@ namespace Game.Feature.UI.Tests
             saveSlotBlockerRoot.SetActive(false);
             var saveSlotBlockerCanvasGroup = saveSlotBlockerRoot.AddComponent<CanvasGroup>();
             var saveSlotBlockerImage = saveSlotBlockerRoot.AddComponent<Image>();
+            var saveSlotCloseButton = CreateButton("SaveSlotCloseButton", saveSlotOverlayLayer);
+            var saveSlotCloseSelectionFrame = CreateSelectionFrame(
+                "SelectionFrame",
+                saveSlotCloseButton.transform);
+            var saveSlotCloseSelectionVisualProfile = UiSelectionVisualProfile.CreateRuntimeDefault();
             SaveSlotPanelView panel = null;
             if (withPanel)
             {
@@ -1002,6 +1057,9 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(view, "_saveSlotBlockerRoot", saveSlotBlockerRoot);
             SetPrivateField(view, "_saveSlotBlockerCanvasGroup", saveSlotBlockerCanvasGroup);
             SetPrivateField(view, "_saveSlotBlockerImage", saveSlotBlockerImage);
+            SetPrivateField(view, "_saveSlotCloseButton", saveSlotCloseButton);
+            SetPrivateField(view, "_saveSlotCloseSelectionFrame", saveSlotCloseSelectionFrame);
+            SetPrivateField(view, "_saveSlotCloseSelectionVisualProfile", saveSlotCloseSelectionVisualProfile);
             SetPrivateField(view, "_startButton", startButton);
             SetPrivateField(view, "_settingsButton", settingsButton);
             SetPrivateField(view, "_quitButton", quitButton);
