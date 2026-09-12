@@ -5,7 +5,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -23,6 +25,28 @@ namespace Game.Feature.UI.Composition
         internal const string WidthArgument = "--gameplay-performance-width";
         internal const string HeightArgument = "--gameplay-performance-height";
         internal const string RevisionArgument = "--gameplay-performance-revision";
+        internal const string CleanupStrategyArgument = "--gameplay-cleanup-strategy";
+        internal const string CampaignIdArgument = "--gameplay-evidence-campaign-id";
+        internal const string AttemptIdArgument = "--gameplay-evidence-attempt-id";
+        internal const string AttemptOrdinalArgument = "--gameplay-evidence-attempt-ordinal";
+        internal const string AttemptKindArgument = "--gameplay-evidence-attempt-kind";
+        internal const string CaptureNonceArgument = "--gameplay-evidence-capture-nonce";
+        internal const string EvidenceStageArgument = "--gameplay-evidence-stage";
+        internal const string ActiveStrategiesArgument = "--gameplay-evidence-active-strategies";
+        internal const string PreBuildHeadArgument = "--gameplay-evidence-pre-build-head";
+        internal const string PreBuildWorktreeArgument = "--gameplay-evidence-pre-build-worktree-sha256";
+        internal const string PostRestoreHeadArgument = "--gameplay-evidence-post-restore-head";
+        internal const string PostRestoreWorktreeArgument = "--gameplay-evidence-post-restore-worktree-sha256";
+        internal const string RuntimeTreeArgument = "--gameplay-evidence-runtime-tree-sha256";
+        internal const string PlayerArtifactArgument = "--gameplay-evidence-player-artifact-sha256";
+        internal const string BuildPayloadArgument = "--gameplay-evidence-build-payload-sha256";
+        internal const string RunnerHashArgument = "--gameplay-evidence-runner-sha256";
+        internal const string PerformanceValidatorHashArgument = "--gameplay-evidence-performance-validator-sha256";
+        internal const string CleanupValidatorHashArgument = "--gameplay-evidence-cleanup-validator-sha256";
+        internal const string AggregatorHashArgument = "--gameplay-evidence-aggregator-sha256";
+        internal const string ManifestToolHashArgument = "--gameplay-evidence-manifest-tool-sha256";
+        internal const string WorkloadContractHashArgument = "--gameplay-evidence-workload-contract-sha256";
+        internal const string HarnessHashArgument = "--gameplay-evidence-harness-sha256";
         internal const string SuccessMarker = "GAMEPLAY_PERFORMANCE:PASS";
         internal const string FailureMarker = "GAMEPLAY_PERFORMANCE:FAIL";
 
@@ -30,6 +54,11 @@ namespace Game.Feature.UI.Composition
         private const int DefaultWarmupFrames = 120;
         private const int DefaultTickInterval = 6;
         private const float HostReadyTimeoutSeconds = 30f;
+        private const int CleanupCalibrationWarmupTicks = 200;
+        private const int CleanupCalibrationSampleTicks = 200;
+        private const int CleanupCalibrationRepetitions = 3;
+        private const int CleanupAllocationWarmupFrames = 30;
+        private const int CleanupAllocationSampleFrames = 100;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InstallWhenRequested()
@@ -60,14 +89,77 @@ namespace Game.Feature.UI.Composition
             var width = ReadPositiveInt(WidthArgument, 1920);
             var height = ReadPositiveInt(HeightArgument, 1080);
             var revision = ReadArgumentValue(RevisionArgument);
+            var campaignId = ReadArgumentValue(CampaignIdArgument);
+            var attemptId = ReadArgumentValue(AttemptIdArgument);
+            var attemptOrdinalText = ReadArgumentValue(AttemptOrdinalArgument);
+            var attemptKind = ReadArgumentValue(AttemptKindArgument);
+            var captureNonce = ReadArgumentValue(CaptureNonceArgument);
+            var evidenceStage = ReadArgumentValue(EvidenceStageArgument);
+            var activeStrategies = ReadArgumentValue(ActiveStrategiesArgument);
+            var preBuildHead = ReadArgumentValue(PreBuildHeadArgument);
+            var preBuildWorktree = ReadArgumentValue(PreBuildWorktreeArgument);
+            var postRestoreHead = ReadArgumentValue(PostRestoreHeadArgument);
+            var postRestoreWorktree = ReadArgumentValue(PostRestoreWorktreeArgument);
+            var runtimeTree = ReadArgumentValue(RuntimeTreeArgument);
+            var playerArtifact = ReadArgumentValue(PlayerArtifactArgument);
+            var buildPayload = ReadArgumentValue(BuildPayloadArgument);
+            var runnerHash = ReadArgumentValue(RunnerHashArgument);
+            var performanceValidatorHash = ReadArgumentValue(PerformanceValidatorHashArgument);
+            var cleanupValidatorHash = ReadArgumentValue(CleanupValidatorHashArgument);
+            var aggregatorHash = ReadArgumentValue(AggregatorHashArgument);
+            var manifestToolHash = ReadArgumentValue(ManifestToolHashArgument);
+            var workloadContractHash = ReadArgumentValue(WorkloadContractHashArgument);
+            var harnessHash = ReadArgumentValue(HarnessHashArgument);
+            if (!int.TryParse(attemptOrdinalText, NumberStyles.None, CultureInfo.InvariantCulture, out var attemptOrdinal) ||
+                attemptOrdinal <= 0 ||
+                string.IsNullOrWhiteSpace(campaignId) || string.IsNullOrWhiteSpace(attemptId) ||
+                string.IsNullOrWhiteSpace(attemptKind) || string.IsNullOrWhiteSpace(captureNonce) ||
+                string.IsNullOrWhiteSpace(evidenceStage) || string.IsNullOrWhiteSpace(activeStrategies) ||
+                string.IsNullOrWhiteSpace(preBuildHead) || string.IsNullOrWhiteSpace(preBuildWorktree) ||
+                string.IsNullOrWhiteSpace(postRestoreHead) || string.IsNullOrWhiteSpace(postRestoreWorktree) ||
+                string.IsNullOrWhiteSpace(runtimeTree) || string.IsNullOrWhiteSpace(playerArtifact) ||
+                string.IsNullOrWhiteSpace(buildPayload) || string.IsNullOrWhiteSpace(runnerHash) ||
+                string.IsNullOrWhiteSpace(performanceValidatorHash) || string.IsNullOrWhiteSpace(cleanupValidatorHash) ||
+                string.IsNullOrWhiteSpace(aggregatorHash) || string.IsNullOrWhiteSpace(manifestToolHash) ||
+                string.IsNullOrWhiteSpace(workloadContractHash) || string.IsNullOrWhiteSpace(harnessHash))
+            {
+                Fail("Evidence Contract v4 capture identity is missing or invalid");
+                yield break;
+            }
+            var cleanupStrategy = ReadArgumentValue(CleanupStrategyArgument);
+            if (string.IsNullOrWhiteSpace(cleanupStrategy))
+            {
+                cleanupStrategy = "A";
+            }
 
             Directory.CreateDirectory(outputDirectory);
             QualitySettings.vSyncCount = 0;
             UnityEngine.Application.targetFrameRate = -1;
             Screen.SetResolution(width, height, FullScreenMode.Windowed);
 
-            GameplaySceneHost host = null;
+            var resolutionReady = false;
             var deadline = Time.realtimeSinceStartup + HostReadyTimeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if (Screen.width == width && Screen.height == height)
+                {
+                    resolutionReady = true;
+                    break;
+                }
+
+                yield return null;
+            }
+
+            if (!resolutionReady)
+            {
+                Fail(
+                    $"requested resolution did not become active: " +
+                    $"requested={width}x{height} actual={Screen.width}x{Screen.height}");
+                yield break;
+            }
+
+            GameplaySceneHost host = null;
+            deadline = Time.realtimeSinceStartup + HostReadyTimeoutSeconds;
             while (Time.realtimeSinceStartup < deadline)
             {
                 host = FindFirstObjectByType<GameplaySceneHost>(FindObjectsInactive.Include);
@@ -128,13 +220,13 @@ namespace Game.Feature.UI.Composition
             }
 
             var records = new List<FrameRecord>(sampleFrames * 2);
+            var gcAllocated = ProfilerRecorder.StartNew(
+                ProfilerCategory.Memory,
+                "GC Allocated In Frame",
+                1);
             using (var drawCalls = ProfilerRecorder.StartNew(
                        ProfilerCategory.Render,
                        "Draw Calls Count",
-                       1))
-            using (var gcAllocated = ProfilerRecorder.StartNew(
-                       ProfilerCategory.Memory,
-                       "GC Allocated In Frame",
                        1))
             {
                 yield return SamplePhase(
@@ -156,6 +248,7 @@ namespace Game.Feature.UI.Composition
                     gcAllocated,
                     records);
             }
+            gcAllocated.Dispose();
 
             var idleSummary = PhaseSummary.Create("render-idle", records);
             var gameplaySummary = PhaseSummary.Create("gameplay-neutral-tick", records);
@@ -168,9 +261,46 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
+            string cleanupCalibrationJson;
+            try
+            {
+                cleanupCalibrationJson = CleanupSlice3PlayerCalibration.CaptureJson(
+                    cleanupStrategy,
+                    CleanupCalibrationWarmupTicks,
+                    CleanupCalibrationSampleTicks,
+                    CleanupCalibrationRepetitions);
+                cleanupCalibrationJson = NormalizeCleanupCalibrationSchema2(cleanupCalibrationJson);
+            }
+            catch (Exception exception)
+            {
+                Fail($"Cleanup S3-A calibration failed closed: {exception.Message}");
+                yield break;
+            }
+
+            string cleanupAllocationJson = null;
+            yield return CaptureCleanupAllocationCalibration(
+                cleanupStrategy,
+                value => cleanupAllocationJson = value);
+            if (string.IsNullOrWhiteSpace(cleanupAllocationJson))
+            {
+                Fail("Cleanup S3-A allocation calibration did not produce a result");
+                yield break;
+            }
+
+            cleanupCalibrationJson = AppendJsonProperty(
+                cleanupCalibrationJson,
+                "frameAllocationCalibration",
+                cleanupAllocationJson);
+
             WriteManifest(
                 outputDirectory,
                 revision,
+                BuildCaptureIdentityJson(
+                    campaignId, attemptId, attemptOrdinal, attemptKind, captureNonce,
+                    evidenceStage, activeStrategies, preBuildHead, preBuildWorktree,
+                    postRestoreHead, postRestoreWorktree, runtimeTree, playerArtifact,
+                    buildPayload, runnerHash, performanceValidatorHash, cleanupValidatorHash,
+                    aggregatorHash, manifestToolHash, workloadContractHash, harnessHash),
                 width,
                 height,
                 sampleFrames,
@@ -179,7 +309,8 @@ namespace Game.Feature.UI.Composition
                 drawCallsAvailable: idleSummary.ValidDrawCallSamples > 0,
                 gcAllocatedAvailable: idleSummary.ValidGcAllocatedSamples > 0,
                 idleSummary,
-                gameplaySummary);
+                gameplaySummary,
+                cleanupCalibrationJson);
 
             Debug.Log(
                 $"{SuccessMarker} resolution={Screen.width}x{Screen.height} " +
@@ -233,9 +364,206 @@ namespace Game.Feature.UI.Composition
             }
         }
 
+        private static IEnumerator CaptureCleanupAllocationCalibration(
+            string cleanupStrategy,
+            Action<string> completed)
+        {
+            MeasureAllocationCounterProbeBytes();
+            var allocationCounterProbeBytes = MeasureAllocationCounterProbeBytes();
+            var phaseJson = new List<string>(4);
+            yield return CaptureCleanupAllocationPhase(
+                cleanupStrategy,
+                "cleanup-s3-target-wall-empty-v2",
+                true,
+                phaseJson);
+            yield return CaptureCleanupAllocationPhase(
+                cleanupStrategy,
+                "cleanup-s3-target-wall-empty-v2",
+                false,
+                phaseJson);
+            yield return CaptureCleanupAllocationPhase(
+                cleanupStrategy,
+                "cleanup-s3-stress-dense-v2",
+                true,
+                phaseJson);
+            yield return CaptureCleanupAllocationPhase(
+                cleanupStrategy,
+                "cleanup-s3-stress-dense-v2",
+                false,
+                phaseJson);
+
+            completed(
+                "{" +
+                "\"signal\":\"GC.GetAllocatedBytesForCurrentThread delta around exactly one synthetic tick\"" +
+                ",\"allocationCounterProbeBytes\":" + allocationCounterProbeBytes +
+                ",\"warmupFramesPerPhase\":" + CleanupAllocationWarmupFrames +
+                ",\"sampleFramesPerPhase\":" + CleanupAllocationSampleFrames +
+                ",\"phases\":[" + string.Join(",", phaseJson) + "]" +
+                "}");
+        }
+
+        private static long MeasureAllocationCounterProbeBytes()
+        {
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            var probe = new byte[4096];
+            probe[0] = 1;
+            var allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
+            GC.KeepAlive(probe);
+            return Math.Max(0L, allocatedAfter - allocatedBefore);
+        }
+
+        private static IEnumerator CaptureCleanupAllocationPhase(
+            string cleanupStrategy,
+            string workloadId,
+            bool captureDiagnostics,
+            ICollection<string> phaseJson)
+        {
+            var session = CleanupSlice3PlayerCalibration.CreateAllocationSession(
+                cleanupStrategy,
+                workloadId);
+            for (var frame = 0; frame < CleanupAllocationWarmupFrames; frame++)
+            {
+                session.RunTick(6000 + frame, captureDiagnostics);
+                FrameTimingManager.CaptureFrameTimings();
+                yield return null;
+            }
+
+            var samples = new List<long>(CleanupAllocationSampleFrames);
+            for (var frame = 0; frame < CleanupAllocationSampleFrames; frame++)
+            {
+                var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+                session.RunTick(7000 + frame, captureDiagnostics);
+                var allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
+                samples.Add(Math.Max(0L, allocatedAfter - allocatedBefore));
+                yield return null;
+            }
+
+            phaseJson.Add(
+                "{" +
+                "\"workloadId\":\"" + Escape(session.WorkloadId) + "\"" +
+                ",\"strategy\":\"" + Escape(cleanupStrategy) + "\"" +
+                ",\"scheduleHash\":\"" + session.ScheduleHash + "\"" +
+                ",\"initialWorldFingerprint\":\"" + session.InitialWorldFingerprint + "\"" +
+                ",\"captureDiagnostics\":" + (captureDiagnostics ? "true" : "false") +
+                ",\"validSamples\":" + samples.Count +
+                ",\"gcAllocatedBytesPerTick\":" + LongMetricSummary.Create(samples).ToJson() +
+                "}");
+        }
+
+        private static string AppendJsonProperty(string objectJson, string name, string valueJson)
+        {
+            if (string.IsNullOrEmpty(objectJson) || objectJson[objectJson.Length - 1] != '}')
+            {
+                throw new InvalidOperationException("Cleanup calibration JSON root is malformed.");
+            }
+
+            return objectJson.Substring(0, objectJson.Length - 1) +
+                   ",\"" + Escape(name) + "\":" + valueJson + "}";
+        }
+
+        private static string NormalizeCleanupCalibrationSchema2(string source)
+        {
+            const string prefix = "{\"schemaVersion\":1,\"stage\":\"S3-A\",\"strategy\":\"A\",";
+            if (string.IsNullOrEmpty(source) || !source.StartsWith(prefix, StringComparison.Ordinal) ||
+                source[source.Length - 1] != '}')
+            {
+                throw new InvalidOperationException("Cleanup calibration schema-1 producer shape changed.");
+            }
+
+            var normalized =
+                "{\"schemaVersion\":2,\"evidenceContractVersion\":4," +
+                "\"stage\":\"S3-A\",\"activeStrategies\":[\"A\"]," +
+                source.Substring(prefix.Length);
+            normalized = normalized.Replace(
+                ",\"workloads\":[",
+                ",\"captures\":[{\"strategy\":\"A\",\"workloads\":[");
+            normalized = normalized.Substring(0, normalized.Length - 1) + "}]}";
+            normalized = AddRunKeys(normalized, "cleanup-s3-target-wall-empty-v2");
+            normalized = AddRunKeys(normalized, "cleanup-s3-stress-dense-v2");
+            return normalized;
+        }
+
+        private static string AddRunKeys(string source, string workloadId)
+        {
+            var marker = "\"workloadId\":\"" + workloadId + "\"";
+            var start = source.IndexOf(marker, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                throw new InvalidOperationException($"Cleanup workload {workloadId} is missing.");
+            }
+
+            var next = source.IndexOf("\"workloadId\":\"", start + marker.Length, StringComparison.Ordinal);
+            var length = next < 0 ? source.Length - start : next - start;
+            var workload = source.Substring(start, length);
+            workload = Regex.Replace(
+                workload,
+                "\\\"repetition\\\":([0-9]+)",
+                match =>
+                    "\"runKey\":\"A/" + workloadId + "/" + match.Groups[1].Value +
+                    "\",\"repetition\":" + match.Groups[1].Value,
+                RegexOptions.CultureInvariant);
+            return source.Substring(0, start) + workload + source.Substring(start + length);
+        }
+
+        private static string BuildCaptureIdentityJson(
+            string campaignId,
+            string attemptId,
+            int attemptOrdinal,
+            string attemptKind,
+            string captureNonce,
+            string stage,
+            string activeStrategies,
+            string preBuildHead,
+            string preBuildWorktree,
+            string postRestoreHead,
+            string postRestoreWorktree,
+            string runtimeTree,
+            string playerArtifact,
+            string buildPayload,
+            string runnerHash,
+            string performanceValidatorHash,
+            string cleanupValidatorHash,
+            string aggregatorHash,
+            string manifestToolHash,
+            string workloadContractHash,
+            string harnessHash)
+        {
+            if (!string.Equals(stage, "S3-A", StringComparison.Ordinal) ||
+                !string.Equals(activeStrategies, "A", StringComparison.Ordinal) ||
+                !string.Equals(attemptKind, "calibration", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("S3-A capture identity stage/strategy/kind is invalid.");
+            }
+
+            return "{" +
+                   "\"campaignId\":\"" + Escape(campaignId) + "\"" +
+                   ",\"attemptId\":\"" + Escape(attemptId) + "\"" +
+                   ",\"attemptOrdinal\":" + attemptOrdinal +
+                   ",\"attemptKind\":\"" + Escape(attemptKind) + "\"" +
+                   ",\"captureNonce\":\"" + Escape(captureNonce) + "\"" +
+                   ",\"stage\":\"" + Escape(stage) + "\"" +
+                   ",\"activeStrategies\":[\"A\"]" +
+                   ",\"preBuildHeadSha\":\"" + Escape(preBuildHead) + "\"" +
+                   ",\"preBuildWorktreeSha256\":\"" + Escape(preBuildWorktree) + "\"" +
+                   ",\"postRestoreHeadSha\":\"" + Escape(postRestoreHead) + "\"" +
+                   ",\"postRestoreWorktreeSha256\":\"" + Escape(postRestoreWorktree) + "\"" +
+                   ",\"runtimeTreeSha256\":\"" + Escape(runtimeTree) + "\"" +
+                   ",\"playerArtifactSha256\":\"" + Escape(playerArtifact) + "\"" +
+                   ",\"buildPayloadSha256\":\"" + Escape(buildPayload) + "\"" +
+                   ",\"runnerSha256\":\"" + Escape(runnerHash) + "\"" +
+                   ",\"performanceValidatorSha256\":\"" + Escape(performanceValidatorHash) + "\"" +
+                   ",\"cleanupValidatorSha256\":\"" + Escape(cleanupValidatorHash) + "\"" +
+                   ",\"aggregatorSha256\":\"" + Escape(aggregatorHash) + "\"" +
+                   ",\"manifestToolSha256\":\"" + Escape(manifestToolHash) + "\"" +
+                   ",\"workloadContractSha256\":\"" + Escape(workloadContractHash) + "\"" +
+                   ",\"harnessSha256\":\"" + Escape(harnessHash) + "\"" +
+                   "}";
+        }
+
         private static void WriteManifest(
             string outputDirectory,
             string revision,
+            string captureIdentityJson,
             int requestedWidth,
             int requestedHeight,
             int sampleFrames,
@@ -244,11 +572,14 @@ namespace Game.Feature.UI.Composition
             bool drawCallsAvailable,
             bool gcAllocatedAvailable,
             PhaseSummary idle,
-            PhaseSummary gameplay)
+            PhaseSummary gameplay,
+            string cleanupCalibrationJson)
         {
             var builder = new StringBuilder();
             builder.AppendLine("{");
-            builder.AppendLine("  \"schemaVersion\": 1,");
+            builder.AppendLine("  \"schemaVersion\": 2,");
+            builder.AppendLine("  \"evidenceContractVersion\": 4,");
+            builder.Append("  \"captureIdentity\": ").Append(captureIdentityJson).AppendLine(",");
             builder.AppendLine("  \"measurementKind\": \"release-like-player-headroom\",");
             builder.AppendLine("  \"budgetVerdict\": \"NOT_CONFIGURED\",");
             builder.AppendLine($"  \"revision\": \"{Escape(revision)}\",");
@@ -277,11 +608,44 @@ namespace Game.Feature.UI.Composition
             builder.AppendLine("  \"phases\": [");
             builder.Append("    ").Append(idle.ToJson()).AppendLine(",");
             builder.Append("    ").Append(gameplay.ToJson()).AppendLine();
-            builder.AppendLine("  ]");
+            builder.AppendLine("  ],");
+            builder.Append("  \"cleanupSlice3Calibration\": ")
+                .AppendLine(cleanupCalibrationJson);
             builder.AppendLine("}");
-            File.WriteAllText(
-                Path.Combine(outputDirectory, "performance-metrics.json"),
-                builder.ToString());
+            var destination = Path.Combine(outputDirectory, "performance-metrics.json");
+            var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var stream = new FileStream(
+                           temporary,
+                           FileMode.CreateNew,
+                           FileAccess.Write,
+                           FileShare.None,
+                           4096,
+                           FileOptions.WriteThrough))
+                using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+                {
+                    writer.Write(builder.ToString());
+                    writer.Flush();
+                    stream.Flush(true);
+                }
+
+                if (File.Exists(destination))
+                {
+                    File.Replace(temporary, destination, null);
+                }
+                else
+                {
+                    File.Move(temporary, destination);
+                }
+            }
+            finally
+            {
+                if (File.Exists(temporary))
+                {
+                    File.Delete(temporary);
+                }
+            }
         }
 
         private static bool HasArgument(string argument)

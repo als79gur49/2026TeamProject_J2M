@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -34,6 +35,21 @@ namespace Game.Feature.Gameplay.Host
 
     public sealed class GameplayAnimationSyncCoordinator
     {
+        private readonly Dictionary<int, DriverCacheEntry> _driverCacheByEntityId = new();
+        // Allocated only after a failed replacement; never consulted on normal cache hits.
+        private Dictionary<int, ReplacementRestoreSnapshot> _replacementRestoreSnapshots;
+        // Fault injection is confined to the cleanup boundary, outside frame/cache-hit paths.
+        internal Action<int> BeforeDriverBindingNormalizationForTests { get; set; }
+        private readonly List<int> _hiddenDriverEntityIds = new();
+        private readonly List<KeyValuePair<int, PlayerViewPresentationState>> _playerStatesToApply = new();
+
+        // Opt-in cumulative counters (including across Reset); no per-hit allocation.
+        internal bool DriverCacheDiagnosticsEnabled { get; set; }
+        internal long DriverComponentLookupCount { get; private set; }
+        internal long DriverCacheResolveCount { get; private set; }
+        internal long DriverCacheHitCount { get; private set; }
+        internal long DestroyedCachedDriverCount { get; private set; }
+
         private readonly List<int> _completedEnemyUtilityAnimationEntityIds = new();
         private readonly List<int> _completedPlayerVisualHoldEntityIds = new();
         private readonly HashSet<int> _contactDelayedEnemyDeathEntityIds = new();
@@ -91,6 +107,11 @@ namespace Game.Feature.Gameplay.Host
 
             foreach (var pair in _playerAnimatorDriversByEntityId)
             {
+                if (pair.Value == null)
+                {
+                    continue;
+                }
+
                 var state = PlayerViewPresentationMapper.CreateInitial(pair.Key);
                 _playerViewPresentationStates[pair.Key] = state;
                 pair.Value.Apply(state);
@@ -138,7 +159,24 @@ namespace Game.Feature.Gameplay.Host
                     state = state.WithJumpLandingCompletionHold();
                 }
 
-                if (TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
+                RefreshFailedEnemyRestoreSnapshot(state);
+                if (state.DidDie || state.UtilityCanceledThisTick)
+                {
+                    _enemyUtilityAnimationTracks.Remove(pair.Key);
+                }
+                EnemyAnimatorDriver driver;
+                try
+                {
+                    TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out driver);
+                }
+                catch
+                {
+                    // Preparation captured the last applied values. Retain this newer
+                    // input for retry without changing successful Apply's phase edges.
+                    RefreshFailedEnemyRestoreSnapshot(state);
+                    throw;
+                }
+                if (driver != null)
                 {
                     driver.Apply(state, enemyPresentationOneShotBlockMask);
                     RefreshEnemyUtilityAnimationTrack(pair.Key, state, driver);
@@ -158,9 +196,26 @@ namespace Game.Feature.Gameplay.Host
 
             PreservePlayerFlipOutcomeState();
             ReleasePlayerDeathOverridesForRespawnSpawns(result.PresentationData, viewsByEntityId);
+            _playerStatesToApply.Clear();
             foreach (var pair in _playerViewPresentationStates)
             {
-                if (TryGetPlayerAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
+                _playerStatesToApply.Add(pair);
+            }
+            for (var i = 0; i < _playerStatesToApply.Count; i++)
+            {
+                var pair = _playerStatesToApply[i];
+                RefreshFailedPlayerRestoreSnapshot(pair.Value);
+                PlayerAnimatorDriver driver;
+                try
+                {
+                    TryGetPlayerAnimatorDriver(pair.Key, viewsByEntityId, out driver);
+                }
+                catch
+                {
+                    RefreshFailedPlayerRestoreSnapshot(pair.Value);
+                    throw;
+                }
+                if (driver != null)
                 {
                     if (pair.Value.DidDie)
                     {
@@ -205,8 +260,22 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (!TryGetPlayerAnimatorDriver(request.Target.EntityId, viewsByEntityId, out var driver) ||
-                driver == null)
+            PlayerAnimatorDriver driver;
+            try
+            {
+                TryGetPlayerAnimatorDriver(request.Target.EntityId, viewsByEntityId, out driver);
+            }
+            catch
+            {
+                if (TryMapPlayerActionAnimationPlayback(request.AnimationPayload,
+                    out _, out var incomingPhase, out var incomingRestart, out _))
+                {
+                    RefreshFailedPlayerRestoreSnapshot(
+                        CreatePlayerActionAnimationPresentationState(request, incomingPhase, incomingRestart));
+                }
+                throw;
+            }
+            if (driver == null)
             {
                 result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.DriverMissing);
                 return false;
@@ -225,6 +294,7 @@ namespace Game.Feature.Gameplay.Host
 
             var presentationState = CreatePlayerActionAnimationPresentationState(request, phase, restart);
             _playerViewPresentationStates[request.PlayerEntityId] = presentationState;
+            RefreshFailedPlayerRestoreSnapshot(presentationState);
             UpdatePlayerVisualHold(
                 request.PlayerEntityId,
                 presentationState,
@@ -297,8 +367,31 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (!TryGetEnemyAnimatorDriver(request.Target.EntityId, viewsByEntityId, out var driver) ||
-                driver == null)
+            if (_replacementRestoreSnapshots != null &&
+                _replacementRestoreSnapshots.TryGetValue(request.EnemyEntityId, out var failedSnapshot) &&
+                TryCreateEnemyPresentationPlaybackState(request, failedSnapshot.Enemy,
+                    out var incomingState, out _, out _))
+            {
+                RefreshFailedEnemyRestoreSnapshot(incomingState);
+            }
+
+            EnemyAnimatorDriver driver;
+            try
+            {
+                TryGetEnemyAnimatorDriver(request.Target.EntityId, viewsByEntityId, out driver);
+            }
+            catch
+            {
+                if (_replacementRestoreSnapshots != null &&
+                    _replacementRestoreSnapshots.TryGetValue(request.EnemyEntityId, out var retrySnapshot) &&
+                    TryCreateEnemyPresentationPlaybackState(request, retrySnapshot.Enemy,
+                        out var retryState, out _, out _))
+                {
+                    RefreshFailedEnemyRestoreSnapshot(retryState);
+                }
+                throw;
+            }
+            if (driver == null)
             {
                 result = new GameplayEnemyPresentationPlaybackResult(
                     GameplayEnemyPresentationPlaybackResultKind.DriverMissing);
@@ -325,6 +418,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _enemyViewPresentationStates[request.EnemyEntityId] = presentationState;
+            RefreshFailedEnemyRestoreSnapshot(presentationState);
             if (useDeathCommand)
             {
                 _contactDelayedEnemyDeathEntityIds.Remove(request.EnemyEntityId);
@@ -659,6 +753,7 @@ namespace Game.Feature.Gameplay.Host
             foreach (var pair in _playerViewPresentationStates)
             {
                 if (!_playerAnimatorDriversByEntityId.TryGetValue(pair.Key, out var driver) ||
+                    driver == null ||
                     pair.Value.ActiveActionKind != PlayerActionKind.Flip ||
                     pair.Value.FlipOutcome != TickPlayerFlipOutcomeKind.None)
                 {
@@ -680,7 +775,8 @@ namespace Game.Feature.Gameplay.Host
             {
                 var entityId = _playerFlipOutcomeStateUpdateEntityIds[i];
                 if (!_playerViewPresentationStates.TryGetValue(entityId, out var currentState) ||
-                    !_playerAnimatorDriversByEntityId.TryGetValue(entityId, out var driver))
+                    !_playerAnimatorDriversByEntityId.TryGetValue(entityId, out var driver) ||
+                    driver == null)
                 {
                     continue;
                 }
@@ -767,7 +863,10 @@ namespace Game.Feature.Gameplay.Host
         {
             foreach (var pair in _enemyScalePulseDriversByEntityId)
             {
-                pair.Value?.Advance(deltaTime);
+                if (pair.Value != null)
+                {
+                    pair.Value.Advance(deltaTime);
+                }
             }
         }
 
@@ -780,63 +879,63 @@ namespace Game.Feature.Gameplay.Host
 
         public void CacheDrivers(int entityId, GameplayEntityView view)
         {
-            CacheEnemyAnimatorDriver(entityId, view);
-            CacheEnemyScalePulseDriver(entityId, view);
-            CachePlayerAnimatorDriver(entityId, view);
+            var drivers = ResolveDrivers(entityId, view);
+            // Preserve missing-player cleanup even on committed-frame negative hits.
+            if (drivers.Player == null)
+            {
+                ClearMissingPlayerPresentationState(entityId);
+            }
         }
 
         public void Reset()
         {
-            _completedPlayerVisualHoldEntityIds.Clear();
-            _playerVisualHoldEntityIds.Clear();
-            foreach (var pair in _enemyScalePulseDriversByEntityId)
+            try
             {
-                pair.Value?.NormalizeToBaseScale();
+                foreach (var pair in _enemyScalePulseDriversByEntityId)
+                {
+                    if (pair.Value != null)
+                    {
+                        pair.Value.NormalizeToBaseScale();
+                    }
+                }
             }
-
-            _enemyAnimatorDriversByEntityId.Clear();
-            _enemyScalePulseDriversByEntityId.Clear();
-            _enemyUtilityAnimationEntityIds.Clear();
-            _enemyUtilityAnimationTracks.Clear();
-            _enemyViewPresentationStates.Clear();
-            _contactDelayedEnemyDeathEntityIds.Clear();
-            _playerAnimatorDriversByEntityId.Clear();
-            _playerDeathVisualOverrideEntityIds.Clear();
-            _playerFlipOutcomeStateUpdateEntityIds.Clear();
-            _playerVisualHoldStates.Clear();
-            _playerViewPresentationStates.Clear();
-            LastStageClearPlayerPresentationDelaySeconds = 0f;
+            finally
+            {
+                _completedPlayerVisualHoldEntityIds.Clear();
+                _playerVisualHoldEntityIds.Clear();
+                _completedEnemyUtilityAnimationEntityIds.Clear();
+                _driverCacheByEntityId.Clear();
+                _replacementRestoreSnapshots?.Clear();
+                _hiddenDriverEntityIds.Clear();
+                _playerStatesToApply.Clear();
+                _enemyAnimatorDriversByEntityId.Clear();
+                _enemyScalePulseDriversByEntityId.Clear();
+                _enemyUtilityAnimationEntityIds.Clear();
+                _enemyUtilityAnimationTracks.Clear();
+                _enemyViewPresentationStates.Clear();
+                _contactDelayedEnemyDeathEntityIds.Clear();
+                _playerAnimatorDriversByEntityId.Clear();
+                _playerDeathVisualOverrideEntityIds.Clear();
+                _playerFlipOutcomeStateUpdateEntityIds.Clear();
+                _playerVisualHoldStates.Clear();
+                _playerViewPresentationStates.Clear();
+                LastStageClearPlayerPresentationDelaySeconds = 0f;
+            }
         }
 
         public void ReleaseEntity(int entityId)
         {
-            Exception normalizationException = null;
-            if (_enemyScalePulseDriversByEntityId.TryGetValue(entityId, out var scalePulseDriver) &&
-                scalePulseDriver != null)
+            try
             {
-                try
-                {
-                    scalePulseDriver.NormalizeToBaseScale();
-                }
-                catch (Exception exception)
-                {
-                    normalizationException = exception;
-                }
+                RemoveDriverBindings(entityId);
             }
-
-            _enemyAnimatorDriversByEntityId.Remove(entityId);
-            _enemyScalePulseDriversByEntityId.Remove(entityId);
-            _enemyUtilityAnimationTracks.Remove(entityId);
-            _enemyViewPresentationStates.Remove(entityId);
-            _contactDelayedEnemyDeathEntityIds.Remove(entityId);
-            _playerAnimatorDriversByEntityId.Remove(entityId);
-            _playerDeathVisualOverrideEntityIds.Remove(entityId);
-            _playerVisualHoldStates.Remove(entityId);
-            _playerViewPresentationStates.Remove(entityId);
-
-            if (normalizationException != null)
+            finally
             {
-                throw normalizationException;
+                _enemyUtilityAnimationTracks.Remove(entityId);
+                _enemyViewPresentationStates.Remove(entityId);
+                _contactDelayedEnemyDeathEntityIds.Remove(entityId);
+                _replacementRestoreSnapshots?.Remove(entityId);
+                ClearMissingPlayerPresentationState(entityId);
             }
         }
 
@@ -895,9 +994,10 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (state.DidDie)
+            if (state.DidDie || state.UtilityCanceledThisTick)
             {
                 _enemyUtilityAnimationTracks.Remove(entityId);
+                driver.UpdatePendingUtilityPresentationCue(EnemyAnimationCue.None, 0f);
                 return;
             }
 
@@ -997,6 +1097,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            driver.UpdatePendingUtilityPresentationCue(track.Cue, track.ElapsedSeconds / track.DurationSeconds);
             driver.ApplyPresentationCueTiming(track.Cue);
         }
 
@@ -1051,11 +1152,41 @@ namespace Game.Feature.Gameplay.Host
         {
             _contactDelayedEnemyDeathEntityIds.Remove(entityId);
             _enemyUtilityAnimationTracks.Remove(entityId);
-            if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
+            var state = default(EnemyViewPresentationState);
+            if (_replacementRestoreSnapshots != null &&
+                _replacementRestoreSnapshots.TryGetValue(entityId, out var snapshot))
             {
-                driver.PlayDeathCue(entityId);
+                state = snapshot.Enemy;
             }
-
+            else if (_driverCacheByEntityId.TryGetValue(entityId, out var cached) && cached.Enemy != null)
+            {
+                state = cached.Enemy.LastPresentationState;
+            }
+            else
+            {
+                _enemyViewPresentationStates.TryGetValue(entityId, out state);
+            }
+            if (state.EntityId != entityId)
+            {
+                state = new EnemyViewPresentationState(entityId, 0, EnemyAiMode.None, EnemyActionKind.None,
+                    false, false, false, false, false, true);
+            }
+            state = state.WithDidDie(true);
+            RefreshFailedEnemyRestoreSnapshot(state);
+            try
+            {
+                if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
+                {
+                    driver.PlayDeathCue(entityId);
+                }
+            }
+            catch
+            {
+                // The first failed candidate created the snapshot. Update it before
+                // resolver ownership cleanup can destroy the previous View.
+                RefreshFailedEnemyRestoreSnapshot(state);
+                throw;
+            }
             return 0f;
         }
 
@@ -1065,29 +1196,41 @@ namespace Game.Feature.Gameplay.Host
             Func<int, PlayerViewAnimationState, float> resolveHiddenPlayerMotionDurationSeconds,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
         {
+            // Resolve may replace/remove execution entries. Never enumerate that map
+            // while invoking a lazy resolver (Registry.Rebuild need not emit events).
+            _hiddenDriverEntityIds.Clear();
             foreach (var pair in _enemyAnimatorDriversByEntityId)
             {
-                if (visibleEntityIds.Contains(pair.Key))
+                if (!visibleEntityIds.Contains(pair.Key))
                 {
-                    continue;
+                    _hiddenDriverEntityIds.Add(pair.Key);
                 }
-
-                pair.Value.SyncHiddenRuntimeState(
-                    isMoving: false,
-                    playbackSuppressed: false);
             }
 
+            for (var i = 0; i < _hiddenDriverEntityIds.Count; i++)
+            {
+                if (TryGetEnemyAnimatorDriver(_hiddenDriverEntityIds[i], viewsByEntityId, out var driver))
+                {
+                    driver.SyncHiddenRuntimeState(isMoving: false, playbackSuppressed: false);
+                }
+            }
+
+            _hiddenDriverEntityIds.Clear();
             foreach (var pair in _playerAnimatorDriversByEntityId)
             {
-                if (visibleEntityIds.Contains(pair.Key))
+                if (!visibleEntityIds.Contains(pair.Key))
                 {
-                    continue;
+                    _hiddenDriverEntityIds.Add(pair.Key);
                 }
+            }
 
-                if (TryGetPlayerAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
+            for (var i = 0; i < _hiddenDriverEntityIds.Count; i++)
+            {
+                var entityId = _hiddenDriverEntityIds[i];
+                if (TryGetPlayerAnimatorDriver(entityId, viewsByEntityId, out var driver))
                 {
                     driver.SyncHiddenRuntimeState();
-                    _playerDeathVisualOverrideEntityIds.Remove(pair.Key);
+                    _playerDeathVisualOverrideEntityIds.Remove(entityId);
                 }
             }
         }
@@ -1231,19 +1374,6 @@ namespace Game.Feature.Gameplay.Host
             return new PlayerAnimationPlaybackResolution(PlayerViewAnimationState.Idle);
         }
 
-        private void CacheEnemyAnimatorDriver(int entityId, GameplayEntityView view)
-        {
-            if (view != null &&
-                view.TryGetComponent<EnemyAnimatorDriver>(out var driver) &&
-                driver != null)
-            {
-                _enemyAnimatorDriversByEntityId[entityId] = driver;
-                return;
-            }
-
-            _enemyAnimatorDriversByEntityId.Remove(entityId);
-        }
-
         private void BuildContactDelayedEnemyDeathEntityIds(TickPresentationData presentationData)
         {
             _contactDelayedEnemyDeathEntityIds.Clear();
@@ -1268,33 +1398,285 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void CacheEnemyScalePulseDriver(int entityId, GameplayEntityView view)
+        private void ClearMissingPlayerPresentationState(int entityId)
         {
-            if (view != null &&
-                view.TryGetComponent<EnemySummonScalePulsePresentationDriver>(out var driver) &&
-                driver != null)
-            {
-                _enemyScalePulseDriversByEntityId[entityId] = driver;
-                return;
-            }
-
-            _enemyScalePulseDriversByEntityId.Remove(entityId);
-        }
-
-        private void CachePlayerAnimatorDriver(int entityId, GameplayEntityView view)
-        {
-            if (view != null &&
-                view.TryGetComponent<PlayerAnimatorDriver>(out var driver) &&
-                driver != null)
-            {
-                _playerAnimatorDriversByEntityId[entityId] = driver;
-                return;
-            }
-
-            _playerAnimatorDriversByEntityId.Remove(entityId);
             _playerDeathVisualOverrideEntityIds.Remove(entityId);
             _playerVisualHoldStates.Remove(entityId);
             _playerViewPresentationStates.Remove(entityId);
+            if (_replacementRestoreSnapshots != null &&
+                _replacementRestoreSnapshots.TryGetValue(entityId, out var snapshot))
+            {
+                _replacementRestoreSnapshots[entityId] = new ReplacementRestoreSnapshot(snapshot.Enemy, default);
+            }
+        }
+
+        // The supplied View's three-component configuration is frozen at its first
+        // successful resolve. Missing View is not a negative component result.
+        // Additions on the same View require ReleaseEntity/Reset and a new lifetime.
+        // A destroyed positive is retired, not searched again; its provenance stays
+        // in the entry's presence mask. Hiding a View does not end this lifetime.
+        private DriverCacheEntry ResolveDrivers(int entityId, GameplayEntityView view)
+        {
+            var hadEntry = _driverCacheByEntityId.TryGetValue(entityId, out var cached);
+            if (view == null)
+            {
+                try
+                {
+                    RemoveDriverBindings(entityId);
+                }
+                finally
+                {
+                    ClearMissingPlayerPresentationState(entityId);
+                }
+                return default;
+            }
+
+            if (hadEntry && ReferenceEquals(cached.View, view))
+            {
+                if (DriverCacheDiagnosticsEnabled)
+                {
+                    DriverCacheHitCount++;
+                }
+                if (RetireDestroyedDrivers(entityId, ref cached))
+                {
+                    _driverCacheByEntityId[entityId] = cached;
+                }
+                return cached;
+            }
+
+            // Failed replacement values outlive a destroyed owned View. New semantic
+            // inputs update those values before resolution, so an old live driver cannot
+            // overwrite a newer Death/cancel received while its replacement was failing.
+            var snapshot = default(ReplacementRestoreSnapshot);
+            var hasSnapshot = _replacementRestoreSnapshots != null &&
+                _replacementRestoreSnapshots.TryGetValue(entityId, out snapshot);
+            var enemyState = hasSnapshot ? snapshot.Enemy :
+                hadEntry && cached.Enemy != null ? cached.Enemy.LastPresentationState : default;
+            var playerState = hasSnapshot ? snapshot.Player :
+                hadEntry && cached.Player != null ? cached.Player.LastPresentationState : default;
+            if (enemyState.EntityId == 0)
+            {
+                _enemyViewPresentationStates.TryGetValue(entityId, out enemyState);
+            }
+            if (playerState.EntityId == 0)
+            {
+                _playerViewPresentationStates.TryGetValue(entityId, out playerState);
+            }
+
+            DriverCacheEntry resolved;
+            try
+            {
+                view.TryGetComponent<EnemyAnimatorDriver>(out var enemy);
+                view.TryGetComponent<PlayerAnimatorDriver>(out var player);
+                view.TryGetComponent<EnemySummonScalePulsePresentationDriver>(out var pulse);
+                if (DriverCacheDiagnosticsEnabled)
+                {
+                    DriverComponentLookupCount += 3;
+                }
+                resolved = new DriverCacheEntry(view, enemy, player, pulse);
+
+                // Prepare locally before retiring the previous binding. Restore value
+                // state and current track time without dispatching old events or pulse.
+                if (enemy != null && enemyState.EntityId == entityId)
+                {
+                    enemy.RestorePresentationState(enemyState);
+                    if (_enemyUtilityAnimationTracks.TryGetValue(entityId, out var track) &&
+                        track.IsActive && CanApplyEnemyUtilityAnimationTrack(enemyState))
+                    {
+                        enemy.RestorePresentationCue(track.Cue, track.ElapsedSeconds / track.DurationSeconds);
+                        // Timing is independent from optional visual restoration support.
+                        enemy.ApplyPresentationCueTiming(track.Cue);
+                    }
+                }
+                if (player != null && playerState.EntityId == entityId)
+                {
+                    player.RestorePresentationState(playerState);
+                }
+            }
+            catch
+            {
+                if (enemyState.EntityId == entityId || playerState.EntityId == entityId)
+                {
+                    _replacementRestoreSnapshots ??= new Dictionary<int, ReplacementRestoreSnapshot>();
+                    _replacementRestoreSnapshots[entityId] = new ReplacementRestoreSnapshot(enemyState, playerState);
+                }
+                throw;
+            }
+
+            ExceptionDispatchInfo normalizationFailure = null;
+            try
+            {
+                RemoveDriverBindings(entityId);
+            }
+            catch (Exception exception)
+            {
+                normalizationFailure = ExceptionDispatchInfo.Capture(exception);
+            }
+
+            // Publication contains no user callbacks. Even if old normalization failed,
+            // the fully prepared candidate must become the next cache hit.
+            _driverCacheByEntityId[entityId] = resolved;
+            if (resolved.Enemy != null)
+            {
+                _enemyAnimatorDriversByEntityId[entityId] = resolved.Enemy;
+            }
+            if (resolved.Player != null)
+            {
+                _playerAnimatorDriversByEntityId[entityId] = resolved.Player;
+            }
+            if (resolved.Pulse != null)
+            {
+                _enemyScalePulseDriversByEntityId[entityId] = resolved.Pulse;
+            }
+            if (resolved.Player == null)
+            {
+                ClearMissingPlayerPresentationState(entityId);
+            }
+            _replacementRestoreSnapshots?.Remove(entityId);
+            if (DriverCacheDiagnosticsEnabled)
+            {
+                DriverCacheResolveCount++;
+            }
+            normalizationFailure?.Throw();
+            return resolved;
+        }
+
+        private bool RetireDestroyedDrivers(int entityId, ref DriverCacheEntry entry)
+        {
+            var retired = 0;
+            if (!ReferenceEquals(entry.Enemy, null) && entry.Enemy == null)
+            {
+                entry.Enemy = null;
+                _enemyAnimatorDriversByEntityId.Remove(entityId);
+                retired++;
+            }
+            if (!ReferenceEquals(entry.Player, null) && entry.Player == null)
+            {
+                entry.Player = null;
+                _playerAnimatorDriversByEntityId.Remove(entityId);
+                ClearMissingPlayerPresentationState(entityId);
+                retired++;
+            }
+            if (!ReferenceEquals(entry.Pulse, null) && entry.Pulse == null)
+            {
+                entry.Pulse = null;
+                _enemyScalePulseDriversByEntityId.Remove(entityId);
+                retired++;
+            }
+            if (DriverCacheDiagnosticsEnabled)
+            {
+                DestroyedCachedDriverCount += retired;
+            }
+            return retired != 0;
+        }
+
+        private void RemoveDriverBindings(int entityId)
+        {
+            try
+            {
+                if (_enemyScalePulseDriversByEntityId.TryGetValue(entityId, out var pulse) && pulse != null)
+                {
+                    BeforeDriverBindingNormalizationForTests?.Invoke(entityId);
+                    pulse.NormalizeToBaseScale();
+                }
+            }
+            finally
+            {
+                _enemyAnimatorDriversByEntityId.Remove(entityId);
+                _playerAnimatorDriversByEntityId.Remove(entityId);
+                _enemyScalePulseDriversByEntityId.Remove(entityId);
+                _driverCacheByEntityId.Remove(entityId);
+            }
+        }
+
+        private void RefreshFailedEnemyRestoreSnapshot(in EnemyViewPresentationState state)
+        {
+            if (_replacementRestoreSnapshots == null ||
+                !_replacementRestoreSnapshots.TryGetValue(state.EntityId, out var snapshot))
+            {
+                return;
+            }
+            _replacementRestoreSnapshots[state.EntityId] = new ReplacementRestoreSnapshot(state, snapshot.Player);
+            if (state.DidDie || state.UtilityCanceledThisTick)
+            {
+                _enemyUtilityAnimationTracks.Remove(state.EntityId);
+            }
+        }
+
+        private void RefreshFailedPlayerRestoreSnapshot(in PlayerViewPresentationState state)
+        {
+            if (_replacementRestoreSnapshots != null &&
+                _replacementRestoreSnapshots.TryGetValue(state.EntityId, out var snapshot))
+            {
+                _replacementRestoreSnapshots[state.EntityId] = new ReplacementRestoreSnapshot(snapshot.Enemy, state);
+                // A failed resolve must not postpone terminal/cancel hold policy.
+                // Ordinary cancellation does not retire Death; respawn owns that seam.
+                if (state.DidDie)
+                {
+                    _playerDeathVisualOverrideEntityIds.Add(state.EntityId);
+                    _playerVisualHoldStates.Remove(state.EntityId);
+                }
+                else if (state.CanceledThisTick)
+                {
+                    RemovePlayerVisualHoldUnlessStageClear(state.EntityId);
+                }
+            }
+        }
+
+        // Value-only recovery: no GameObject ownership, pending command or Utility clock.
+        // Event flags are erased at the storage boundary, not merely ignored on replay.
+        private readonly struct ReplacementRestoreSnapshot
+        {
+            public ReplacementRestoreSnapshot(in EnemyViewPresentationState enemy, in PlayerViewPresentationState player)
+            {
+                Enemy = new EnemyViewPresentationState(
+                    enemy.EntityId, enemy.TickIndex, enemy.AiMode, enemy.ActiveActionKind,
+                    enemy.JumpPhase, enemy.ChargePhase, enemy.IsMoving,
+                    startedWindupThisTick: false, executedThisTick: false, startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false, startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false, retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false, startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false, tookDamage: false, enemy.DidDie,
+                    enemy.JumpOutcome, enemy.GlidePhase,
+                    utilityPresentationKind: enemy.UtilityPresentationKind,
+                    utilityPhase: enemy.UtilityPhase, utilityEffectIndex: enemy.UtilityEffectIndex,
+                    utilityActivationSequence: enemy.UtilityActivationSequence,
+                    summonEffectIndex: enemy.SummonEffectIndex,
+                    summonActivationSequence: enemy.SummonActivationSequence);
+                Player = new PlayerViewPresentationState(
+                    player.EntityId, player.TickIndex, player.ActiveActionKind, player.ActiveActionSequence,
+                    startedThisTick: false, executedThisTick: false, completedThisTick: false,
+                    canceledThisTick: false, player.ShouldPlayWalkLoop, player.IsRecoveryPhase,
+                    player.DidDie, didDieThisTick: false, tookDamageThisTick: false,
+                    player.ActionPlanId, player.FlipOutcome, player.HasFlipImpactContactTiming,
+                    player.FlipTargetBoxEntityId, player.DeathSourceEntityId,
+                    player.ResolvedDamageSourceAvailable, player.DamageAmountAtFatalHit,
+                    player.DeathDirectionHintKind, player.DeathFallbackFacing,
+                    hasPlayerOutcome: player.HasPlayerOutcome, playerOutcomeKind: player.PlayerOutcomeKind);
+            }
+
+            public EnemyViewPresentationState Enemy { get; }
+            public PlayerViewPresentationState Player { get; }
+        }
+
+        private struct DriverCacheEntry
+        {
+            public DriverCacheEntry(GameplayEntityView view, EnemyAnimatorDriver enemy,
+                PlayerAnimatorDriver player, EnemySummonScalePulsePresentationDriver pulse)
+            {
+                View = view;
+                Enemy = enemy;
+                Player = player;
+                Pulse = pulse;
+                InitialPresenceMask = (enemy != null ? 1 : 0) | (player != null ? 2 : 0) | (pulse != null ? 4 : 0);
+            }
+
+            public readonly GameplayEntityView View;
+            public EnemyAnimatorDriver Enemy;
+            public PlayerAnimatorDriver Player;
+            public EnemySummonScalePulsePresentationDriver Pulse;
+            // Entry existence means all three lookups completed, including absence.
+            public readonly int InitialPresenceMask;
         }
 
         private void UpdatePlayerVisualHold(
@@ -1489,75 +1871,38 @@ namespace Game.Feature.Gameplay.Host
             _playerVisualHoldStates.Remove(entityId);
         }
 
-        private bool TryGetEnemyAnimatorDriver(
+        internal bool TryGetEnemyAnimatorDriver(
             int entityId,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             out EnemyAnimatorDriver driver)
         {
-            if (_enemyAnimatorDriversByEntityId.TryGetValue(entityId, out driver) &&
-                driver != null)
-            {
-                return true;
-            }
-
-            if (viewsByEntityId.TryGetValue(entityId, out var view) &&
-                view != null &&
-                view.TryGetComponent<EnemyAnimatorDriver>(out driver) &&
-                driver != null)
-            {
-                _enemyAnimatorDriversByEntityId[entityId] = driver;
-                return true;
-            }
-
-            driver = null;
-            return false;
+            viewsByEntityId.TryGetValue(entityId, out var view);
+            driver = ResolveDrivers(entityId, view).Enemy;
+            return driver != null;
         }
 
-        private bool TryGetEnemyScalePulseDriver(
+        internal bool TryGetEnemyScalePulseDriver(
             int entityId,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             out EnemySummonScalePulsePresentationDriver driver)
         {
-            if (_enemyScalePulseDriversByEntityId.TryGetValue(entityId, out driver) &&
-                driver != null)
-            {
-                return true;
-            }
-
-            if (viewsByEntityId.TryGetValue(entityId, out var view) &&
-                view != null &&
-                view.TryGetComponent<EnemySummonScalePulsePresentationDriver>(out driver) &&
-                driver != null)
-            {
-                _enemyScalePulseDriversByEntityId[entityId] = driver;
-                return true;
-            }
-
-            driver = null;
-            return false;
+            viewsByEntityId.TryGetValue(entityId, out var view);
+            driver = ResolveDrivers(entityId, view).Pulse;
+            return driver != null;
         }
 
-        private bool TryGetPlayerAnimatorDriver(
+        internal bool TryGetPlayerAnimatorDriver(
             int entityId,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             out PlayerAnimatorDriver driver)
         {
-            if (_playerAnimatorDriversByEntityId.TryGetValue(entityId, out driver) &&
-                driver != null)
+            viewsByEntityId.TryGetValue(entityId, out var view);
+            driver = ResolveDrivers(entityId, view).Player;
+            if (driver != null)
             {
                 return true;
             }
-
-            if (viewsByEntityId.TryGetValue(entityId, out var view) &&
-                view != null &&
-                view.TryGetComponent<PlayerAnimatorDriver>(out driver) &&
-                driver != null)
-            {
-                _playerAnimatorDriversByEntityId[entityId] = driver;
-                return true;
-            }
-
-            driver = null;
+            ClearMissingPlayerPresentationState(entityId);
             return false;
         }
 

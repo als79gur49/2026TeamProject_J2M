@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "workloads": {
+    "cleanup-s3-stress-dense-v2": {
+      "entityCount": 256,
+      "initialWorldFingerprint": "2282b3ceaea055d8d382f7c2c20d4d915d11d54ed37c6cc0231784753e2dc924",
+      "scheduleHash": "ac786715ea3dd77f89423fb30db33d209c2529da97e7c53d140760522a517b24",
+      "seed": 31002,
+      "wallCount": 256
+    },
+    "cleanup-s3-target-wall-empty-v2": {
+      "entityCount": 256,
+      "initialWorldFingerprint": "6d3a0d63249ca1bf4517ccbc39c808fa4db0efee2f61e80fd14757fa18da39bc",
+      "scheduleHash": "672ce82fe95f40bb5077fa7014ab501a849dc35072a997328bd06108fb1e6385",
+      "seed": 31001,
+      "wallCount": 256
+    }
+  }
+}

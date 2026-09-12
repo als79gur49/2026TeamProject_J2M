@@ -500,6 +500,149 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Full")]
+        public void SummonedEnemyPresentationResolver_ReplacementPreservesAppliedDeathWithoutReplay(bool alreadyCached)
+        {
+            var rootObject = new GameObject("ReplacementStateLifetime");
+            var prefabObject = new GameObject("SummonedPrefab");
+            var replacementObject = new GameObject("Replacement");
+            try
+            {
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var store = new GameplayPresentationStateStore();
+                var resolver = CreateResolverWithOwnedView(rootObject, prefabObject, registry, store,
+                    out var owned, out var sync);
+                owned.GetComponent<EnemyAnimatorDriver>().PlayDeathCue(41);
+                var replacement = replacementObject.AddComponent<GameplayEntityView>();
+                replacement.Initialize(41);
+                var driver = replacementObject.AddComponent<EnemyAnimatorDriver>();
+                store.ViewsByEntityId[41] = replacement;
+                if (alreadyCached) sync.CacheDrivers(41, replacement);
+
+                Assert.That(resolver.ReleaseOwnedViewIfPresent(41), Is.True);
+                Assert.That(owned == null, Is.True);
+                Assert.That(driver.LastPresentationState.DidDie, Is.True);
+                Assert.That(driver.LastPresentationState.EntityId, Is.EqualTo(41));
+                Assert.That(driver.DeathSignalCount, Is.Zero);
+                Assert.That(GetCachedEnemyAnimatorDriver(sync, 41), Is.SameAs(driver));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(replacementObject);
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Full")]
+        public void SummonedEnemyPresentationResolver_ReplacementPreservesContinuingUtilityTrack(bool alreadyCached)
+        {
+            var rootObject = new GameObject("ReplacementUtilityLifetime");
+            var prefabObject = new GameObject("SummonedPrefab");
+            var replacementObject = new GameObject("Replacement");
+            var clip = new AnimationClip();
+            clip.SetCurve(string.Empty, typeof(Transform), "localPosition.x", AnimationCurve.Linear(0f, 0f, 0.3f, 1f));
+            try
+            {
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var store = new GameplayPresentationStateStore();
+                var resolver = CreateResolverWithOwnedView(rootObject, prefabObject, registry, store,
+                    out var owned, out var sync);
+                ConfigureUtilityBinding(owned, clip);
+                store.ViewsByEntityId[41] = owned;
+                var data = new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(), null, Array.Empty<TickVisibilityChange>(), Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(), Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(), Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(), Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(), Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>(),
+                    enemyUtilitySignals: new[] { new TickEnemyUtilityPresentationSignal(41,
+                        EnemyUtilityPresentationKind.GravityFieldAura, EnemyUtilityPresentationPhase.WindupStarted,
+                        startTick: 1, executeTick: 3, durationTicks: 2, effectIndex: 0, activationSequence: 5) });
+                var result = new TickResult(1, Array.Empty<TickPhase>(), Array.Empty<string>(),
+                    MovementPhaseResult.Empty, AttackPhaseResult.Empty,
+                    new[] { CreateEnemyEntity(41, new Vector2Int(1, 0)) }, Array.Empty<string>(),
+                    new CubeTopologyState(FaceId.Floor), data, string.Empty, TickTrace.Empty);
+                sync.ApplyTickPresentation(result, store.ViewsByEntityId, (_, _) => 0f);
+                sync.AdvancePresentationBeforeEnemySemantic(0.2f);
+
+                var replacement = replacementObject.AddComponent<GameplayEntityView>();
+                replacement.Initialize(41);
+                var driver = replacementObject.AddComponent<EnemyAnimatorDriver>();
+                ConfigureUtilityBinding(replacement, clip);
+                store.ViewsByEntityId[41] = replacement;
+                if (alreadyCached) sync.CacheDrivers(41, replacement);
+                Assert.That(resolver.ReleaseOwnedViewIfPresent(41), Is.True);
+                Assert.That(owned == null, Is.True);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.UtilityWindupSignalCount, Is.Zero);
+                sync.AdvancePresentationBeforeEnemySemantic(0.29f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                sync.AdvancePresentationBeforeEnemySemantic(0.02f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(replacementObject);
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        private static void ConfigureUtilityBinding(GameplayEntityView view, AnimationClip clip)
+        {
+            view.gameObject.AddComponent<EnemyAnimationBindingAuthoring>().ConfigureForTests(
+                new[] { EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.UtilityWindup,
+                    EnemyAnimationDispatchMode.Trigger, "Windup", animatorDurationSeconds: 0.5f,
+                    referenceClip: clip, replacementStateName: "Windup") }, -1f);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void SummonedEnemyPresentationResolver_PreparationFailureDestroysOwnedView_RetryRestoresDeath()
+        {
+            var rootObject = new GameObject("ReplacementFailureLifetime");
+            var prefabObject = new GameObject("SummonedPrefab");
+            var replacementObject = new GameObject("Replacement");
+            try
+            {
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var store = new GameplayPresentationStateStore();
+                var resolver = CreateResolverWithOwnedView(rootObject, prefabObject, registry, store,
+                    out var owned, out var sync);
+                owned.GetComponent<EnemyAnimatorDriver>().PlayDeathCue(41);
+                var replacement = replacementObject.AddComponent<GameplayEntityView>();
+                replacement.Initialize(41);
+                var driver = replacementObject.AddComponent<EnemyAnimatorDriver>();
+                var invalidBinding = replacementObject.AddComponent<EnemyAnimationBindingAuthoring>();
+                invalidBinding.ConfigureForTests(Array.Empty<EnemyAnimationCueBinding>(), -1f);
+                store.ViewsByEntityId[41] = replacement;
+
+                Assert.Throws<InvalidOperationException>(() => resolver.ReleaseOwnedViewIfPresent(41));
+                Assert.That(owned == null, Is.True, "Ownership cleanup still destroys the previous View on restore failure.");
+                Assert.That(store.ViewsByEntityId[41], Is.SameAs(replacement));
+                Assert.That(resolver.ReleaseOwnedViewIfPresent(41), Is.False);
+                UnityEngine.Object.DestroyImmediate(invalidBinding);
+                sync.CacheDrivers(41, replacement);
+                Assert.That(driver.LastPresentationState.DidDie, Is.True);
+                Assert.That(driver.LastPresentationState.EntityId, Is.EqualTo(41));
+                Assert.That(driver.DeathSignalCount, Is.Zero);
+                Assert.That(GetCachedEnemyAnimatorDriver(sync, 41), Is.SameAs(driver));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(replacementObject);
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         [Test]
         [Category("Extended")]
         public void SummonedEnemyPresentationResolver_RegisterSubscriberThrows_RollsBackOwnedView()

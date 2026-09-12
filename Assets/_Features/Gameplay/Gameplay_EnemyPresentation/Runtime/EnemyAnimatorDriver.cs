@@ -137,6 +137,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _usesNewAnimationBinding;
         private EnemyAnimationBindingSnapshot _animationBinding;
         private EnemyAnimationPendingStateCommand _pendingStateCommand;
+        private ReplacementStateCommand _pendingReplacementState;
 
         public bool HasJumpAirborneTopologySuspendSnapshot => _jumpAirborneTopologySuspendSnapshot.HasValue;
 
@@ -183,6 +184,186 @@ namespace Game.Feature.Gameplay.Host
             animator = GetComponentInChildren<Animator>();
         }
 
+        // Transfer values only. Previous one-shot flags are not dispatch requests.
+        internal void RestorePresentationState(in EnemyViewPresentationState state)
+        {
+            _pendingStateCommand = default;
+            _pendingReplacementState = default;
+            _jumpAirborneTopologySuspendSnapshot = default;
+            _lastJumpAirborneNormalizedTime = 0f;
+            LastPresentationState = state;
+            CurrentAiMode = state.AiMode;
+            CurrentActiveActionKind = state.ActiveActionKind;
+            IsMoving = state.IsMoving;
+            var targetAnimator = ResolveAnimator();
+            if (!IsPresentationPaused)
+            {
+                SyncOptionalParameters(targetAnimator, state);
+            }
+            RestorePresentationCue(ResolveActiveTimingCue(state));
+        }
+
+        internal EnemyAnimationDispatchResult RestorePresentationCue(
+            EnemyAnimationCue cue, float normalizedTime = 0f)
+        {
+            // A new replacement request supersedes commands from the old View life.
+            _pendingStateCommand = default;
+            _pendingReplacementState = default;
+            if (LastPresentationState.DidDie)
+            {
+                cue = EnemyAnimationCue.Death;
+                normalizedTime = 0f;
+            }
+
+            if (!TryResolveReplacementState(cue, out var stateName, out var strict))
+            {
+                return EnemyAnimationDispatchResult.Unsupported;
+            }
+
+            normalizedTime = NormalizeAnimatorTime(normalizedTime);
+            if (IsUtilityCue(cue))
+            {
+                normalizedTime = Mathf.Clamp01(normalizedTime);
+            }
+            _pendingReplacementState = new ReplacementStateCommand(cue, stateName, normalizedTime, strict);
+            var targetAnimator = ResolveAnimator();
+            if (!IsPresentationPaused)
+            {
+                ApplyAnimatorTimingForCue(targetAnimator, cue);
+            }
+            return TryConsumePendingReplacementState(targetAnimator)
+                ? EnemyAnimationDispatchResult.Applied
+                : EnemyAnimationDispatchResult.Queued;
+        }
+
+        internal void UpdatePendingUtilityPresentationCue(EnemyAnimationCue cue, float normalizedTime)
+        {
+            if (!_pendingReplacementState.HasValue || !IsUtilityCue(_pendingReplacementState.Cue))
+            {
+                return;
+            }
+            if (LastPresentationState.DidDie)
+            {
+                RestorePresentationCue(EnemyAnimationCue.Death);
+                return;
+            }
+            if (!IsUtilityCue(cue))
+            {
+                _pendingReplacementState = default;
+                return;
+            }
+            if (!TryResolveReplacementState(cue, out var stateName, out var strict))
+            {
+                _pendingReplacementState = default;
+                return;
+            }
+            _pendingReplacementState = new ReplacementStateCommand(
+                cue, stateName, Mathf.Clamp01(NormalizeAnimatorTime(normalizedTime)), strict);
+        }
+
+        private bool UpdatePendingRestoreForCurrentState()
+        {
+            if (!_pendingReplacementState.HasValue)
+            {
+                return false;
+            }
+            if (LastPresentationState.DidDie)
+            {
+                // A terminal replacement owns the next playable state. Do not leave an
+                // ordinary command from the same unavailable View life to replay later.
+                _pendingStateCommand = default;
+                var terminalReplacementPrepared = _pendingReplacementState.Cue == EnemyAnimationCue.Death;
+                if (_pendingReplacementState.Cue != EnemyAnimationCue.Death)
+                {
+                    terminalReplacementPrepared =
+                        RestorePresentationCue(EnemyAnimationCue.Death) != EnemyAnimationDispatchResult.Unsupported;
+                }
+                return terminalReplacementPrepared;
+            }
+            else if (_pendingReplacementState.Cue == EnemyAnimationCue.Death ||
+                     (LastPresentationState.UtilityCanceledThisTick && IsUtilityCue(_pendingReplacementState.Cue)))
+            {
+                _pendingReplacementState = default;
+            }
+            return false;
+        }
+
+        private static bool IsUtilityCue(EnemyAnimationCue cue)
+        {
+            return cue == EnemyAnimationCue.UtilityWindup || cue == EnemyAnimationCue.UtilityRecovery;
+        }
+
+        private bool TryResolveReplacementState(EnemyAnimationCue cue, out string stateName, out bool strict)
+        {
+            if (TryResolveAnimationBinding(out var animationBinding))
+            {
+                strict = true;
+                stateName = string.Empty;
+                if (!animationBinding.TryGetBinding(cue, out var binding))
+                {
+                    return false;
+                }
+                if (binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.State)
+                {
+                    stateName = binding.TargetName;
+                }
+                else if (binding.PrimaryDispatchMode == EnemyAnimationDispatchMode.Trigger)
+                {
+                    if (cue == EnemyAnimationCue.JumpAirborne)
+                    {
+                        stateName = binding.SustainedStateName;
+                    }
+                    else if (EnemyAnimationBindingSnapshot.AllowsReplacementState(cue, binding.PrimaryDispatchMode))
+                    {
+                        stateName = binding.ReplacementStateName;
+                    }
+                }
+                return !string.IsNullOrWhiteSpace(stateName);
+            }
+            // Legacy compatibility retains its existing eligibility, never inferred Trigger states.
+            return TryResolveRestorableState(cue, out stateName, out _, out strict);
+        }
+
+        private bool TryConsumePendingReplacementState(Animator targetAnimator)
+        {
+            if (!_pendingReplacementState.HasValue || IsPresentationPaused || !CanDriveAnimator(targetAnimator))
+            {
+                return false;
+            }
+            var pending = _pendingReplacementState;
+            var stateHash = ResolveStateHashForCommand(targetAnimator, pending.StateName, pending.FailOnUnresolvedState);
+            PlayAnimatorState(targetAnimator, stateHash, pending.StateName, pending.NormalizedTime);
+            if (pending.Cue == EnemyAnimationCue.JumpAirborne)
+            {
+                // Hidden synchronization may have captured an initial topology pose
+                // while this replacement was unavailable. Its prepared time wins.
+                _jumpAirborneTopologySuspendSnapshot = default;
+                _lastJumpAirborneNormalizedTime = pending.NormalizedTime;
+            }
+            ApplyAnimatorTimingForCue(targetAnimator, pending.Cue);
+            LastCrossFadedStateName = pending.StateName;
+            LastCrossFadeDurationSeconds = 0f;
+            _pendingReplacementState = default;
+            return true;
+        }
+
+        private readonly struct ReplacementStateCommand
+        {
+            public ReplacementStateCommand(EnemyAnimationCue cue, string stateName, float normalizedTime, bool failOnUnresolvedState)
+            {
+                HasValue = true;
+                Cue = cue;
+                StateName = stateName;
+                NormalizedTime = normalizedTime;
+                FailOnUnresolvedState = failOnUnresolvedState;
+            }
+            public bool HasValue { get; }
+            public EnemyAnimationCue Cue { get; }
+            public string StateName { get; }
+            public float NormalizedTime { get; }
+            public bool FailOnUnresolvedState { get; }
+        }
+
         public void Apply(in EnemyViewPresentationState state)
         {
             Apply(state, EnemyPresentationOneShotBlockMask.None);
@@ -194,6 +375,7 @@ namespace Game.Feature.Gameplay.Host
         {
             var previousState = LastPresentationState;
             LastPresentationState = state;
+            var terminalReplacementOwnsApply = UpdatePendingRestoreForCurrentState();
             CurrentAiMode = state.AiMode;
             CurrentActiveActionKind = state.ActiveActionKind;
             IsMoving = state.IsMoving;
@@ -219,7 +401,7 @@ namespace Game.Feature.Gameplay.Host
                 !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.JumpWindup))
             {
                 JumpWindupSignalCount++;
-                DispatchCue(EnemyAnimationCue.JumpWindup, targetAnimator);
+                DispatchCue(EnemyAnimationCue.JumpWindup, targetAnimator, terminalReplacementOwnsApply);
             }
 
             if (state.StartedJumpAirborneThisTick &&
@@ -227,14 +409,14 @@ namespace Game.Feature.Gameplay.Host
             {
                 _jumpAirborneTopologySuspendSnapshot = default;
                 JumpAirborneSignalCount++;
-                DispatchCue(EnemyAnimationCue.JumpAirborne, targetAnimator);
+                DispatchCue(EnemyAnimationCue.JumpAirborne, targetAnimator, terminalReplacementOwnsApply);
                 preserveJumpAirbornePrimaryTrigger = IsPrimaryTriggerDispatch(EnemyAnimationCue.JumpAirborne);
             }
 
             if (state.LandedFromJumpThisTick &&
                 !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.JumpLand))
             {
-                DispatchCue(EnemyAnimationCue.JumpLanding, targetAnimator);
+                DispatchCue(EnemyAnimationCue.JumpLanding, targetAnimator, terminalReplacementOwnsApply);
             }
 
             var suppressChargeActiveStart =
@@ -245,14 +427,14 @@ namespace Game.Feature.Gameplay.Host
                  (state.ChargePhase == EnemyChargePhase.Active && previousState.ChargePhase != EnemyChargePhase.Active)))
             {
                 ChargeActiveSignalCount++;
-                DispatchCue(EnemyAnimationCue.ChargeActive, targetAnimator);
+                DispatchCue(EnemyAnimationCue.ChargeActive, targetAnimator, terminalReplacementOwnsApply);
             }
 
             var handledGlideWindup = false;
             if (state.StartedGlideWindupThisTick)
             {
                 GlideWindupSignalCount++;
-                var result = DispatchCue(EnemyAnimationCue.GlideWindup, targetAnimator);
+                var result = DispatchCue(EnemyAnimationCue.GlideWindup, targetAnimator, terminalReplacementOwnsApply);
                 handledGlideWindup = _usesNewAnimationBinding ||
                                      result != EnemyAnimationDispatchResult.Unsupported;
             }
@@ -261,7 +443,7 @@ namespace Game.Feature.Gameplay.Host
                 (state.GlidePhase == EnemyGlidePhase.Active && previousState.GlidePhase != EnemyGlidePhase.Active))
             {
                 GlideActiveSignalCount++;
-                DispatchCue(EnemyAnimationCue.GlideActive, targetAnimator);
+                DispatchCue(EnemyAnimationCue.GlideActive, targetAnimator, terminalReplacementOwnsApply);
             }
 
             if (state.StartedWindupThisTick &&
@@ -273,11 +455,11 @@ namespace Game.Feature.Gameplay.Host
                 {
                     if (state.StartedChargeWindupThisTick)
                     {
-                        DispatchCue(EnemyAnimationCue.ChargeWindup, targetAnimator);
+                        DispatchCue(EnemyAnimationCue.ChargeWindup, targetAnimator, terminalReplacementOwnsApply);
                     }
                     else if (!SupportsUtilityWindupCue(state))
                     {
-                        DispatchCue(EnemyAnimationCue.ActionWindup, targetAnimator);
+                        DispatchCue(EnemyAnimationCue.ActionWindup, targetAnimator, terminalReplacementOwnsApply);
                     }
                 }
             }
@@ -287,20 +469,21 @@ namespace Game.Feature.Gameplay.Host
                 PlayUtilityWindup(
                     state.UtilityPresentationKind,
                     targetAnimator,
-                    dispatchCue: !handledGlideWindup && !state.StartedChargeWindupThisTick);
+                    dispatchCue: !handledGlideWindup && !state.StartedChargeWindupThisTick,
+                    terminalReplacementOwnsApply: terminalReplacementOwnsApply);
             }
 
             if (state.ExecutedThisTick)
             {
                 AttackSignalCount++;
-                DispatchCue(EnemyAnimationCue.ActionExecute, targetAnimator);
+                DispatchCue(EnemyAnimationCue.ActionExecute, targetAnimator, terminalReplacementOwnsApply);
             }
 
             var handledGlideRecovery = false;
             if (state.StartedGlideRecoverThisTick)
             {
                 GlideRecoverySignalCount++;
-                var result = DispatchCue(EnemyAnimationCue.GlideRecovery, targetAnimator);
+                var result = DispatchCue(EnemyAnimationCue.GlideRecovery, targetAnimator, terminalReplacementOwnsApply);
                 handledGlideRecovery = _usesNewAnimationBinding ||
                                        result != EnemyAnimationDispatchResult.Unsupported;
             }
@@ -321,7 +504,7 @@ namespace Game.Feature.Gameplay.Host
                                 : EnemyAnimationCue.ActionRecovery;
                     if (recoveryCue != EnemyAnimationCue.None)
                     {
-                        DispatchCue(recoveryCue, targetAnimator);
+                        DispatchCue(recoveryCue, targetAnimator, terminalReplacementOwnsApply);
                     }
                 }
             }
@@ -329,14 +512,14 @@ namespace Game.Feature.Gameplay.Host
             if (state.TookDamage)
             {
                 HitSignalCount++;
-                DispatchCue(EnemyAnimationCue.Hit, targetAnimator);
+                DispatchCue(EnemyAnimationCue.Hit, targetAnimator, terminalReplacementOwnsApply);
             }
 
             if (state.DidDie &&
                 !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.DeathTrigger))
             {
                 DeathSignalCount++;
-                DispatchCue(EnemyAnimationCue.Death, targetAnimator);
+                DispatchCue(EnemyAnimationCue.Death, targetAnimator, terminalReplacementOwnsApply);
             }
 
             if (state.JumpPhase == EnemyJumpPhase.Airborne &&
@@ -378,7 +561,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void SyncRuntimeState(bool isVisible, bool isMoving, bool playbackSuppressed = false)
         {
-            var isJumpAirborne = LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
+            var isJumpAirborne = !LastPresentationState.DidDie && LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
             var effectivePlaybackSuppressed = playbackSuppressed || (isJumpAirborne && !isVisible);
             IsVisible = isVisible;
             IsMoving = isMoving;
@@ -416,7 +599,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void SyncHiddenRuntimeState(bool isMoving, bool playbackSuppressed = false)
         {
-            var isJumpAirborne = LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
+            var isJumpAirborne = !LastPresentationState.DidDie && LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
             IsVisible = false;
             IsMoving = isMoving;
             IsPlaybackSuppressed = playbackSuppressed || isJumpAirborne;
@@ -466,6 +649,11 @@ namespace Game.Feature.Gameplay.Host
 
         public void RestorePresentationTiming()
         {
+            // Expiry belongs to Utility only; a terminal replacement must survive it.
+            if (_pendingReplacementState.HasValue && IsUtilityCue(_pendingReplacementState.Cue))
+            {
+                _pendingReplacementState = default;
+            }
             if (IsPresentationPaused)
             {
                 return;
@@ -487,6 +675,17 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var targetAnimator = ResolveAnimator();
+            if (TryConsumePendingReplacementState(targetAnimator))
+            {
+                SyncOptionalParameters(targetAnimator, LastPresentationState);
+                return true;
+            }
+            if (_pendingReplacementState.HasValue)
+            {
+                // An unavailable replacement still owns its prepared progress.
+                // General resync must not replace it with an ordinary time-zero command.
+                return false;
+            }
             TryConsumePendingNamedStateCrossFade(targetAnimator);
             SyncOptionalParameters(targetAnimator, LastPresentationState);
             var activeCue = ResolveActiveTimingCue(LastPresentationState);
@@ -508,7 +707,8 @@ namespace Game.Feature.Gameplay.Host
         private void PlayUtilityWindup(
             EnemyUtilityPresentationKind kind,
             Animator targetAnimator,
-            bool dispatchCue)
+            bool dispatchCue,
+            bool terminalReplacementOwnsApply = false)
         {
             if (kind != EnemyUtilityPresentationKind.GravityFieldAura)
             {
@@ -523,7 +723,7 @@ namespace Game.Feature.Gameplay.Host
             UtilityWindupSignalCount++;
             if (dispatchCue)
             {
-                DispatchCue(EnemyAnimationCue.UtilityWindup, targetAnimator);
+                DispatchCue(EnemyAnimationCue.UtilityWindup, targetAnimator, terminalReplacementOwnsApply);
             }
         }
 
@@ -550,6 +750,7 @@ namespace Game.Feature.Gameplay.Host
                     didDie: true)
                 : LastPresentationState.WithDidDie(true);
             LastPresentationState = currentState;
+            UpdatePendingRestoreForCurrentState();
             CurrentAiMode = currentState.AiMode;
             CurrentActiveActionKind = currentState.ActiveActionKind;
             IsMoving = false;
@@ -1218,8 +1419,16 @@ namespace Game.Feature.Gameplay.Host
             return DispatchCue(cue, ResolveAnimator());
         }
 
-        private EnemyAnimationDispatchResult DispatchCue(EnemyAnimationCue cue, Animator targetAnimator)
+        private EnemyAnimationDispatchResult DispatchCue(
+            EnemyAnimationCue cue,
+            Animator targetAnimator,
+            bool terminalReplacementOwnsApply = false)
         {
+            if (terminalReplacementOwnsApply && cue != EnemyAnimationCue.Death)
+            {
+                return EnemyAnimationDispatchResult.AnimatorUnavailable;
+            }
+
             EnemyAnimationRuntimeBinding binding;
             float stateCrossFadeSeconds;
             var usesNewBinding = TryResolveAnimationBinding(out var animationBinding);
@@ -1255,6 +1464,14 @@ namespace Game.Feature.Gameplay.Host
                 return EnemyAnimationDispatchResult.Unsupported;
             }
 
+            // A fresh Trigger request normally supersedes the previous replacement even
+            // if unavailable. Once this input has promoted a terminal Death replacement,
+            // lower-priority cues from the same input cannot erase its next playable state.
+            if (!ShouldPreserveUnavailableTerminalReplacement(targetAnimator))
+            {
+                _pendingReplacementState = default;
+            }
+
             if (!CanDriveAnimator(targetAnimator))
             {
                 return EnemyAnimationDispatchResult.AnimatorUnavailable;
@@ -1265,6 +1482,7 @@ namespace Game.Feature.Gameplay.Host
                 return EnemyAnimationDispatchResult.AnimatorUnavailable;
             }
 
+            _pendingReplacementState = default;
             if (cue == EnemyAnimationCue.ActionWindup ||
                 cue == EnemyAnimationCue.ChargeWindup ||
                 cue == EnemyAnimationCue.UtilityWindup)
@@ -1541,7 +1759,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
+            if (LastPresentationState.DidDie || LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
             {
                 return false;
             }
@@ -1614,7 +1832,8 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne ||
+            if (LastPresentationState.DidDie ||
+                LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne ||
                 !_jumpAirborneTopologySuspendSnapshot.HasValue)
             {
                 return false;
@@ -1643,7 +1862,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
+            if (LastPresentationState.DidDie || LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
             {
                 return false;
             }
@@ -1749,6 +1968,13 @@ namespace Game.Feature.Gameplay.Host
                 return EnemyAnimationDispatchResult.Unsupported;
             }
 
+            if (ShouldPreserveUnavailableTerminalReplacement(targetAnimator))
+            {
+                _pendingStateCommand = default;
+                return EnemyAnimationDispatchResult.AnimatorUnavailable;
+            }
+
+            _pendingReplacementState = default;
             var resolvedDurationSeconds = Mathf.Max(0f, crossFadeSeconds);
             LastCrossFadeDurationSeconds = resolvedDurationSeconds;
             LastCrossFadedStateName = stateName;
@@ -1778,6 +2004,11 @@ namespace Game.Feature.Gameplay.Host
             if (IsPresentationPaused)
             {
                 return false;
+            }
+
+            if (TryConsumePendingReplacementState(targetAnimator))
+            {
+                return true;
             }
 
             if (!_pendingStateCommand.HasValue ||
@@ -1837,6 +2068,14 @@ namespace Game.Feature.Gameplay.Host
         {
             return CanSetAnimatorSpeed(targetAnimator) &&
                    targetAnimator.runtimeAnimatorController != null;
+        }
+
+        private bool ShouldPreserveUnavailableTerminalReplacement(Animator targetAnimator)
+        {
+            return LastPresentationState.DidDie &&
+                   _pendingReplacementState.HasValue &&
+                   _pendingReplacementState.Cue == EnemyAnimationCue.Death &&
+                   !CanDriveAnimator(targetAnimator);
         }
 
         private static bool CanSetAnimatorSpeed(Animator targetAnimator)

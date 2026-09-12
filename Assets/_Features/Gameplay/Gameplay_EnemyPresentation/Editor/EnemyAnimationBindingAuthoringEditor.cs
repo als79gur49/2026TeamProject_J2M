@@ -84,6 +84,13 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                     new GUIContent("Sustained State"));
             }
 
+            if (ShouldShowReplacementState(cue, mode))
+            {
+                EditorGUILayout.PropertyField(
+                    row.FindPropertyRelative("replacementStateName"),
+                    new GUIContent("Replacement State (Optional)"));
+            }
+
             if (ShouldShowTiming(cue))
             {
                 EditorGUILayout.PropertyField(
@@ -135,6 +142,13 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                    mode == EnemyAnimationDispatchMode.Trigger;
         }
 
+        internal static bool ShouldShowReplacementState(
+            EnemyAnimationCue cue,
+            EnemyAnimationDispatchMode mode)
+        {
+            return EnemyAnimationBindingSnapshot.AllowsReplacementState(cue, mode);
+        }
+
         internal static bool ShouldShowTiming(EnemyAnimationCue cue)
         {
             return EnemyAnimationCueCatalog.TryGet(cue, out var metadata) && metadata.SupportsTiming;
@@ -146,6 +160,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             row.FindPropertyRelative("primaryDispatchMode").intValue = (int)EnemyAnimationDispatchMode.None;
             row.FindPropertyRelative("targetName").stringValue = string.Empty;
             row.FindPropertyRelative("sustainedStateName").stringValue = string.Empty;
+            row.FindPropertyRelative("replacementStateName").stringValue = string.Empty;
             row.FindPropertyRelative("animatorDurationSeconds").floatValue =
                 EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
             row.FindPropertyRelative("referenceClip").objectReferenceValue = null;
@@ -166,6 +181,11 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 if (!ShouldShowSustainedState(cue, mode))
                 {
                     row.FindPropertyRelative("sustainedStateName").stringValue = string.Empty;
+                }
+
+                if (!ShouldShowReplacementState(cue, mode))
+                {
+                    row.FindPropertyRelative("replacementStateName").stringValue = string.Empty;
                 }
 
                 if (!ShouldShowTiming(cue))

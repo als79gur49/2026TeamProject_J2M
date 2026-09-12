@@ -46,6 +46,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private EnemyAnimationDispatchMode primaryDispatchMode;
         [SerializeField] private string targetName;
         [SerializeField] private string sustainedStateName;
+        [SerializeField] private string replacementStateName;
         [SerializeField] private float animatorDurationSeconds;
         [SerializeField] private AnimationClip referenceClip;
 
@@ -57,6 +58,8 @@ namespace Game.Feature.Gameplay.Host
 
         public string SustainedStateName => sustainedStateName;
 
+        public string ReplacementStateName => replacementStateName;
+
         public float AnimatorDurationSeconds => animatorDurationSeconds;
 
         public AnimationClip ReferenceClip => referenceClip;
@@ -67,7 +70,8 @@ namespace Game.Feature.Gameplay.Host
             string targetName,
             string sustainedStateName = "",
             float animatorDurationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
-            AnimationClip referenceClip = null)
+            AnimationClip referenceClip = null,
+            string replacementStateName = "")
         {
             return new EnemyAnimationCueBinding
             {
@@ -75,6 +79,7 @@ namespace Game.Feature.Gameplay.Host
                 primaryDispatchMode = primaryDispatchMode,
                 targetName = targetName,
                 sustainedStateName = sustainedStateName,
+                replacementStateName = replacementStateName,
                 animatorDurationSeconds = animatorDurationSeconds,
                 referenceClip = referenceClip,
             };
@@ -90,12 +95,14 @@ namespace Game.Feature.Gameplay.Host
             string sustainedStateName,
             float animatorDurationSeconds,
             AnimationClip referenceClip,
-            float referenceClipLengthSeconds)
+            float referenceClipLengthSeconds,
+            string replacementStateName = "")
         {
             Cue = cue;
             PrimaryDispatchMode = primaryDispatchMode;
             TargetName = targetName;
             SustainedStateName = sustainedStateName;
+            ReplacementStateName = replacementStateName ?? string.Empty;
             AnimatorDurationSeconds = animatorDurationSeconds;
             ReferenceClip = referenceClip;
             ReferenceClipLengthSeconds = referenceClipLengthSeconds;
@@ -108,6 +115,8 @@ namespace Game.Feature.Gameplay.Host
         public string TargetName { get; }
 
         public string SustainedStateName { get; }
+
+        public string ReplacementStateName { get; }
 
         public float AnimatorDurationSeconds { get; }
 

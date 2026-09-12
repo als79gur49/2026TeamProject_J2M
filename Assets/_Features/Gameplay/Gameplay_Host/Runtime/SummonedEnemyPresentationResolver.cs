@@ -264,25 +264,19 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (_animationSync != null)
                 {
-                    _animationSync.ReleaseEntity(entityId);
+                    if (replacementView != null)
+                    {
+                        _animationSync.CacheDrivers(entityId, replacementView);
+                    }
+                    else
+                    {
+                        _animationSync.ReleaseEntity(entityId);
+                    }
                 }
             }
             catch (Exception exception)
             {
                 cleanupExceptions = new List<Exception> { exception };
-            }
-
-            try
-            {
-                if (_animationSync != null && replacementView != null)
-                {
-                    _animationSync.CacheDrivers(entityId, replacementView);
-                }
-            }
-            catch (Exception exception)
-            {
-                cleanupExceptions ??= new List<Exception>();
-                cleanupExceptions.Add(exception);
             }
 
             try

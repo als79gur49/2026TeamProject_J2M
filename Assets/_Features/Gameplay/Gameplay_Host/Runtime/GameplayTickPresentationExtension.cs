@@ -122,6 +122,11 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<Animator, AnimatorPauseState> animatorStates = new();
         private readonly Dictionary<ParticleSystem, ParticlePauseState> particleStates = new();
 
+        private readonly List<MonoBehaviour> behaviourBuffer = new();
+        private readonly List<Animator> animatorBuffer = new();
+        private readonly List<ParticleSystem> particleBuffer = new();
+        private bool registrationBuffersInUse;
+
         public bool IsPaused { get; private set; }
 
         public void SetPresentationPaused(bool paused)
@@ -142,6 +147,61 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            // A callback may register another root or Clear this registry. Only the
+            // outer owner may touch these buffers; nested calls retain array semantics.
+            if (registrationBuffersInUse)
+            {
+                RegisterRootArrays(root);
+                return;
+            }
+
+            registrationBuffersInUse = true;
+            try
+            {
+                RegisterRootLists(root);
+            }
+            finally
+            {
+                behaviourBuffer.Clear();
+                animatorBuffer.Clear();
+                particleBuffer.Clear();
+                registrationBuffersInUse = false;
+            }
+        }
+
+        private void RegisterRootLists(GameObject root)
+        {
+            root.GetComponentsInChildren(true, behaviourBuffer);
+            RegisterBehaviourBuffer();
+            root.GetComponentsInChildren(true, animatorBuffer);
+            RegisterAnimatorBuffer();
+            root.GetComponentsInChildren(true, particleBuffer);
+            RegisterParticleBuffer();
+        }
+
+        private void RegisterBehaviourBuffer()
+        {
+            for (var i = 0; i < behaviourBuffer.Count; i++)
+            {
+                if (behaviourBuffer[i] is IGameplayPresentationPausable pausable)
+                    Register(pausable);
+                else if (ReflectedPausableTarget.TryCreate(behaviourBuffer[i], out var reflectedTarget))
+                    Register(reflectedTarget);
+            }
+        }
+
+        private void RegisterAnimatorBuffer()
+        {
+            for (var i = 0; i < animatorBuffer.Count; i++) Register(animatorBuffer[i]);
+        }
+
+        private void RegisterParticleBuffer()
+        {
+            for (var i = 0; i < particleBuffer.Count; i++) Register(particleBuffer[i]);
+        }
+
+        private void RegisterRootArrays(GameObject root)
+        {
             var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
             for (var i = 0; i < behaviours.Length; i++)
             {
@@ -170,6 +230,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void Clear()
         {
+            // Active registration owns its buffers until its finally block completes.
             pausableTargets.Clear();
             reflectedPausableTargets.Clear();
             animatorStates.Clear();

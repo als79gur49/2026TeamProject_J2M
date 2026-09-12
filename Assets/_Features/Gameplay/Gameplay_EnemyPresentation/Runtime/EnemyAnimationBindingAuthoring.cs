@@ -66,6 +66,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 ValidateSustainedState(source, metadata);
+                ValidateReplacementState(source);
                 var referenceClipLengthSeconds = ValidateAndResolveTiming(source, metadata);
                 if (source.PrimaryDispatchMode == EnemyAnimationDispatchMode.State)
                 {
@@ -79,7 +80,8 @@ namespace Game.Feature.Gameplay.Host
                     source.SustainedStateName,
                     source.AnimatorDurationSeconds,
                     source.ReferenceClip,
-                    referenceClipLengthSeconds);
+                    referenceClipLengthSeconds,
+                    source.ReplacementStateName);
                 if (!byCue.TryAdd(source.Cue, runtimeBinding))
                 {
                     throw new InvalidOperationException($"Duplicate enemy animation cue binding: {source.Cue}.");
@@ -91,6 +93,24 @@ namespace Game.Feature.Gameplay.Host
                 new ReadOnlyDictionary<EnemyAnimationCue, EnemyAnimationRuntimeBinding>(byCue),
                 defaultStateCrossFadeDurationSeconds,
                 hasPrimaryStateBinding);
+        }
+
+        internal static bool AllowsReplacementState(EnemyAnimationCue cue, EnemyAnimationDispatchMode mode)
+        {
+            return mode == EnemyAnimationDispatchMode.Trigger &&
+                   (cue == EnemyAnimationCue.UtilityWindup ||
+                    cue == EnemyAnimationCue.UtilityRecovery ||
+                    cue == EnemyAnimationCue.Death);
+        }
+
+        private static void ValidateReplacementState(in EnemyAnimationCueBinding binding)
+        {
+            if (!string.IsNullOrWhiteSpace(binding.ReplacementStateName) &&
+                !AllowsReplacementState(binding.Cue, binding.PrimaryDispatchMode))
+            {
+                throw new InvalidOperationException(
+                    $"{binding.Cue} does not allow a replacement state name for {binding.PrimaryDispatchMode} dispatch.");
+            }
         }
 
         private static void ValidateSustainedState(

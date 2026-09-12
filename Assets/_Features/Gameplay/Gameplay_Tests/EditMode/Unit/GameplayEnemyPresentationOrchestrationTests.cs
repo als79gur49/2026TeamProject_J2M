@@ -14,7 +14,7 @@ using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.PresentationRuntime;
 using NUnit.Framework;
-using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -29,7 +29,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int ChargeRecoverEnemyId = 45;
         private const int DeathEnemyId = 46;
         private const int TickIndex = 31;
-        private const string EnemyAnimatorControllerPath = "Assets/3DM/2BlackEye/BlackEye.controller";
         private static readonly CubeTopologyState Topology = new(FaceId.Floor);
         private static readonly SurfaceCell SourceCell = new(FaceId.Floor, 0, 0);
         private static readonly SurfaceCell TargetCell = new(FaceId.Floor, 1, 0);
@@ -179,12 +178,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var rootObject = new GameObject(nameof(EnemyPresentation_ControlledSyncPort_MapsTypedCuesToCurrentDriverCommands));
 
+            var factory = new EnemyPresentationViewFactory(rootObject.transform, addDriver: true, addAnimator: true);
+
             try
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
                     playbackPort: null,
-                    new EnemyPresentationViewFactory(rootObject.transform, addDriver: true, addAnimator: true));
+                    factory);
 
                 coordinator.Present(CreateEnemyPresentationTickResult());
 
@@ -204,6 +205,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
+                factory.Dispose();
             }
         }
 
@@ -289,12 +291,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var rootObject = new GameObject(nameof(EnemyPresentation_LifecycleCleanup_ClearsGuardDiagnosticsPortAndStaleDriverState));
             var port = new RecordingEnemyPresentationPlaybackPort();
 
+            var factory = new EnemyPresentationViewFactory(rootObject.transform, addDriver: true, addAnimator: true);
+
             try
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
                     port,
-                    new EnemyPresentationViewFactory(rootObject.transform, addDriver: true, addAnimator: true));
+                    factory);
 
                 coordinator.Present(CreateEnemyPresentationTickResult());
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(7));
@@ -319,6 +323,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
+                factory.Dispose();
             }
         }
 
@@ -910,11 +915,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private sealed class EnemyPresentationViewFactory : IGameplayEntityViewFactory
+        private sealed class EnemyPresentationViewFactory : IGameplayEntityViewFactory, IDisposable
         {
             private readonly bool _addAnimator;
             private readonly bool _addDriver;
             private readonly Transform _parent;
+            private readonly List<UnityEngine.Object> _ownedAnimationObjects = new();
+            private AnimatorController _controller;
+            private AnimationClip _referenceClip;
 
             public EnemyPresentationViewFactory(Transform parent, bool addDriver, bool addAnimator = false)
             {
@@ -937,14 +945,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var driver = viewObject.AddComponent<EnemyAnimatorDriver>();
                 if (_addAnimator)
                 {
+                    EnsureAnimationFixture();
                     var animator = viewObject.AddComponent<Animator>();
-                    animator.runtimeAnimatorController =
-                        AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(EnemyAnimatorControllerPath);
-                    Assert.That(animator.runtimeAnimatorController, Is.Not.Null, EnemyAnimatorControllerPath);
+                    animator.runtimeAnimatorController = _controller;
                     PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
+                    viewObject.AddComponent<EnemyAnimationBindingAuthoring>().ConfigureForTests(
+                        new[]
+                        {
+                            TimedState(EnemyAnimationCue.JumpWindup, "JumpWindup"),
+                            TimedState(EnemyAnimationCue.JumpAirborne, "JumpAirborne"),
+                            EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.JumpLanding,
+                                EnemyAnimationDispatchMode.State, "Move"),
+                            TimedState(EnemyAnimationCue.ChargeWindup, "Windup"),
+                            EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.ChargeActive,
+                                EnemyAnimationDispatchMode.State, "Charge"),
+                            TimedState(EnemyAnimationCue.ChargeRecovery, "Recover"),
+                            TimedState(EnemyAnimationCue.ActionWindup, "Windup"),
+                            TimedState(EnemyAnimationCue.ActionRecovery, "Recover"),
+                            EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.ActionExecute,
+                                EnemyAnimationDispatchMode.Trigger, "Attack"),
+                            EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.Hit,
+                                EnemyAnimationDispatchMode.Trigger, "Hit"),
+                            EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.Death,
+                                EnemyAnimationDispatchMode.Trigger, "Death"),
+                        }, stateCrossFadeDurationSeconds: 0f);
+                    animator.Rebind();
+                    animator.Update(0f);
                 }
 
                 return view;
+            }
+
+            public void Dispose()
+            {
+                for (var i = _ownedAnimationObjects.Count - 1; i >= 0; i--)
+                {
+                    UnityEngine.Object.DestroyImmediate(_ownedAnimationObjects[i]);
+                }
+                _ownedAnimationObjects.Clear();
+                _controller = null;
+                _referenceClip = null;
+            }
+
+            private EnemyAnimationCueBinding TimedState(EnemyAnimationCue cue, string stateName)
+            {
+                return EnemyAnimationCueBinding.CreateForTests(cue, EnemyAnimationDispatchMode.State,
+                    stateName, animatorDurationSeconds: 1f, referenceClip: _referenceClip);
+            }
+
+            private void EnsureAnimationFixture()
+            {
+                if (_controller != null) return;
+
+                // This orchestration fixture declares the commands it verifies. The
+                // unrelated BlackEye controller had only Take 001 and never defined Move.
+                _referenceClip = new AnimationClip { name = "OrchestrationReference", hideFlags = HideFlags.HideAndDontSave };
+                _referenceClip.SetCurve(string.Empty, typeof(Transform), "m_LocalPosition.x",
+                    AnimationCurve.Linear(0f, 0f, 1f, 0f));
+                _ownedAnimationObjects.Add(_referenceClip);
+                var machine = new AnimatorStateMachine { hideFlags = HideFlags.HideAndDontSave };
+                _ownedAnimationObjects.Add(machine);
+                var states = new Dictionary<string, AnimatorState>();
+                foreach (var name in new[] { "Idle", "Move", "JumpWindup", "JumpAirborne", "Windup", "Charge", "Recover", "Attack", "Hit", "Death" })
+                {
+                    var state = machine.AddState(name);
+                    state.motion = _referenceClip;
+                    states.Add(name, state);
+                    _ownedAnimationObjects.Add(state);
+                }
+                machine.defaultState = states["Idle"];
+                _controller = new AnimatorController
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    layers = new[] { new AnimatorControllerLayer
+                    {
+                        name = "Base Layer", defaultWeight = 1f, stateMachine = machine,
+                    } },
+                };
+                _ownedAnimationObjects.Add(_controller);
+                foreach (var trigger in new[] { "Attack", "Hit", "Death" })
+                {
+                    _controller.AddParameter(trigger, AnimatorControllerParameterType.Trigger);
+                    var transition = machine.AddAnyStateTransition(states[trigger]);
+                    transition.hasExitTime = false;
+                    transition.duration = 0f;
+                    transition.AddCondition(AnimatorConditionMode.If, 0f, trigger);
+                    _ownedAnimationObjects.Add(transition);
+                }
             }
         }
     }

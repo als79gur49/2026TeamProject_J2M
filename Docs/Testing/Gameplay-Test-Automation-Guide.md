@@ -509,6 +509,7 @@ WSL CLI
 ./run_tests.sh kbo-glyph-update
 ./run_tests.sh typography-visual
 ./run_tests.sh gameplay-performance
+./run_tests.sh cleanup-s3-capture-smoke
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
@@ -555,6 +556,11 @@ WSL CLI
   - 제품 성능 예산이 아직 고정되지 않았으므로 `GAMEPLAY_PERFORMANCE:PASS`는 capture/instrumentation 성공만 뜻하고 metrics의 `budgetVerdict`는 `NOT_CONFIGURED`로 남긴다.
   - Unity build가 건드릴 수 있는 ProjectSettings, Scriptable Build Pipeline 설정, PC render pipeline asset, Addressables settings/Windows metadata와 generated `link.xml`은 build 전 존재 여부와 byte snapshot으로 복원한다. 기존 사용자 변경을 canonical state로 간주하여 덮어쓰지 않는다.
   - 새 evidence는 `/mnt/d/J2M/evidence/gameplay-performance`, build는 `/mnt/d/J2M/builds/gameplay-performance` 아래 timestamp 디렉터리에 저장한다. 이 lane은 성능 수집이며 `core`, `ui`, `full` 회귀 검증을 대체하지 않는다.
+- `./run_tests.sh cleanup-s3-capture-smoke`
+  - `VECTORQUAKE_CAPTURE_BUILD` Player에서 Cleanup S3-A actual producer JSON을 생성하고 reference cardinality/parity, v4 context, performance/Cleanup admission, calibration, final manifest transport를 한 경계로 검증한다.
+  - 공식 성능 capture나 성능 verdict가 아니다. evidence와 build는 각각 `/mnt/d/J2M/evidence/cleanup-s3-capture-smoke/<uuid>`와 `/mnt/d/J2M/builds/cleanup-s3-capture-smoke/<uuid>`의 exclusive leaf에 저장하며 `gameplay-performance` namespace를 사용하지 않는다.
+  - allocation signal이 유효하면 final v4 manifest는 미승인 full-scan expectation 때문에 authoritative `HOLD`를 유지한다. 현재 머신처럼 allocation liveness가 `0`이면 exact allocation-only Cleanup rejection/Hold만 허용하며 reference sub-contract는 계속 green이어야 한다.
+  - wrapper 성공은 `Cleanup S3 capture smoke: PASS (non-official; authoritative manifest remains HOLD)`만 출력한다. 이는 `core`, `ui`, `full`, 공식 capture를 대체하지 않는다.
 - `./run_tests.sh full`
   - 안정화 직전, 통합 직전, 혹은 넓은 회귀를 조사할 때 사용한다.
   - governance 검사 후 Windows solution build, Unity Full EditMode, Unity Full PlayMode를 실행한다.
@@ -565,6 +571,11 @@ WSL CLI
   - filtered run에서는 일부 Unity stage가 `0`개를 실행할 수 있다. shell은 전체 core lane 합산 match가 `0`일 때만 fail-fast한다.
   - fixture 전체 실행이 필요한 PlayMode 테스트는 `full --filter X`로 실행한다. 예: `./run_tests.sh full --filter PlayerMovementPlayModeTests`.
   - broad core evidence와 fixture-wide targeted evidence는 서로 다른 claim으로 보고해야 한다.
+
+- `UNITY_TEST_TIMEOUT_SECONDS`는 Unity test bootstrap watchdog의 초 단위 예산이다(기본 `285`). runner의 외부 timeout은 이 값에 `15`초를 더한다(기본 `300`); 강제 종료의 추가 `10`초 grace와 asset/evidence cleanup은 유지한다.
+  - 넓은 suite 또는 초기 import에 기본 예산이 부족하면 `UNITY_TEST_TIMEOUT_SECONDS=900 ./run_tests.sh full`처럼 실행별로 명시한다. 양의 정수만 허용하며 `--print-config`/`--dry-run`으로 실제 두 예산을 확인한다.
+  - runner가 bootstrap 인자로 전달하므로 이 설정은 `WSLENV` 추가가 필요 없다. bootstrap은 duration과 절대 deadline을 SessionState에 보존해 domain reload가 예산을 다시 시작하지 않게 한다.
+  - timeout 종료 또는 XML 미생성은 테스트 통과가 아니다. capture/S3/visual interruption의 별도 timeout·종료 계약을 바꾸지 않는다.
 
 #### 종료 코드
 - `0`: 성공
@@ -583,6 +594,7 @@ WSL CLI
 ./run_tests.sh kbo-glyph-update
 ./run_tests.sh typography-visual
 ./run_tests.sh gameplay-performance
+./run_tests.sh cleanup-s3-capture-smoke
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
@@ -629,6 +641,11 @@ WSL CLI
   - Because no product performance budget is pinned yet, `GAMEPLAY_PERFORMANCE:PASS` means capture/instrumentation success only and `budgetVerdict` remains `NOT_CONFIGURED`.
   - Restores ProjectSettings, Scriptable Build Pipeline settings, the PC render-pipeline asset, Addressables settings/Windows metadata, and generated `link.xml` to their pre-build existence state and byte snapshots, treating pre-existing user changes as the state to preserve.
   - Stores timestamped evidence under `/mnt/d/J2M/evidence/gameplay-performance` and builds under `/mnt/d/J2M/builds/gameplay-performance`. This performance capture does not replace `core`, `ui`, or `full` regression validation.
+- `./run_tests.sh cleanup-s3-capture-smoke`
+  - Produces actual Cleanup S3-A JSON in a `VECTORQUAKE_CAPTURE_BUILD` Player and validates reference cardinality/parity, v4 context, performance/Cleanup admission, calibration, and final-manifest transport as one cross-boundary chain.
+  - This is not an official performance capture or performance verdict. It uses exclusive UUID leaves under `/mnt/d/J2M/evidence/cleanup-s3-capture-smoke` and `/mnt/d/J2M/builds/cleanup-s3-capture-smoke`, never the `gameplay-performance` namespace.
+  - With a valid allocation signal, the final v4 manifest remains authoritatively `HOLD` only because the full-scan expectation is unapproved. If allocation liveness is `0`, only the exact allocation-only Cleanup rejection/Hold envelope is accepted and the reference sub-contract must still be green.
+  - The only wrapper success line is `Cleanup S3 capture smoke: PASS (non-official; authoritative manifest remains HOLD)`. It does not replace `core`, `ui`, `full`, or an official capture.
 - `./run_tests.sh full`
   - Use before stabilization, integration, or when investigating broader regressions.
   - Runs governance first, then Windows solution build, then Unity Full EditMode and Full PlayMode.
@@ -639,6 +656,11 @@ WSL CLI
   - A filtered run may execute `0` tests in some Unity stages. The shell fails fast only when the aggregate match count across the core lane is `0`.
   - Use `full --filter X` when the full PlayMode fixture is the intended evidence. Example: `./run_tests.sh full --filter PlayerMovementPlayModeTests`.
   - Broad core evidence and fixture-wide targeted evidence must be reported as separate claims.
+
+- `UNITY_TEST_TIMEOUT_SECONDS` is the Unity test-bootstrap watchdog budget in seconds (default `285`). The outer runner timeout adds `15` seconds (default `300`); the additional `10`-second kill grace and asset/evidence cleanup remain in place.
+  - When a broad suite or initial import exceeds the default budget, opt in per run, for example `UNITY_TEST_TIMEOUT_SECONDS=900 ./run_tests.sh full`. Only positive integers are accepted; inspect both budgets with `--print-config`/`--dry-run`.
+  - The runner forwards an explicit bootstrap argument, so this setting needs no `WSLENV` entry. The bootstrap persists the duration and absolute deadline in SessionState so domain reload does not restart the budget.
+  - A timeout or missing XML is not a test pass. Separate capture/S3/visual-interruption timeout and termination contracts are unchanged.
 
 #### Exit codes
 - `0`: success.

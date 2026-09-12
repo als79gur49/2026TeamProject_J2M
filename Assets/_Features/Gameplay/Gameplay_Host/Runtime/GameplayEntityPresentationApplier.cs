@@ -77,8 +77,10 @@ namespace Game.Feature.Gameplay.Host
             bool isOnVisualFrontFace,
             Vector3 localPosition,
             Quaternion localRotation,
-            EnemyVisualSemanticState enemyVisualState)
+            EnemyVisualSemanticState enemyVisualState,
+            GameplayEntityView view)
         {
+            View = view;
             EntityId = entityId;
             EntityType = entityType;
             UnitRole = unitRole;
@@ -103,6 +105,8 @@ namespace Game.Feature.Gameplay.Host
             LocalRotation = localRotation;
             EnemyVisualState = enemyVisualState;
         }
+
+        private GameplayEntityView View { get; }
 
         public int EntityId { get; }
 
@@ -152,7 +156,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool Equals(EntityPresentationApplySignature other)
         {
-            return EntityId == other.EntityId &&
+            return ReferenceEquals(View, other.View) &&
+                   EntityId == other.EntityId &&
                    EntityType == other.EntityType &&
                    UnitRole == other.UnitRole &&
                    IsVisible == other.IsVisible &&
@@ -189,7 +194,8 @@ namespace Game.Feature.Gameplay.Host
         {
             unchecked
             {
-                var hash = EntityId;
+                var hash = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(View);
+                hash = (hash * 397) ^ EntityId;
                 hash = (hash * 397) ^ (int)EntityType;
                 hash = (hash * 397) ^ (int)UnitRole;
                 hash = (hash * 397) ^ IsVisible.GetHashCode();
@@ -464,6 +470,7 @@ namespace Game.Feature.Gameplay.Host
                 var requiresEnemyPresentationApply = false;
                 if (isEnemy &&
                     TryBuildEnemyApplySignature(
+                        view,
                         entityId,
                         entityType,
                         unitRole,
@@ -1245,6 +1252,7 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private bool TryBuildEnemyApplySignature(
+            GameplayEntityView view,
             int entityId,
             EntityType entityType,
             UnitRole unitRole,
@@ -1302,7 +1310,8 @@ namespace Game.Feature.Gameplay.Host
                 facts.IsOnVisualFrontFace,
                 localPose.Position,
                 localPose.Rotation,
-                semanticState);
+                semanticState,
+                view);
             return true;
         }
 

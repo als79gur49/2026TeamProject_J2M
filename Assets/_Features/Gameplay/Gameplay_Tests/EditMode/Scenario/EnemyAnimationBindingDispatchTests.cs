@@ -405,6 +405,425 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(fixture.Driver.LastCrossFadedStateName, Is.Empty);
         }
 
+        [TestCase(EnemyAnimationCue.UtilityWindup)]
+        [TestCase(EnemyAnimationCue.UtilityRecovery)]
+        [TestCase(EnemyAnimationCue.Death)]
+        [Category("Full")]
+        public void ReplacementMetadata_RestoresCustomStateWithoutSignals_AndNeverExpandsGeneralResync(EnemyAnimationCue cue)
+        {
+            using var fixture = Fixture.Create(EnemyAnimationCueBinding.CreateForTests(
+                cue, EnemyAnimationDispatchMode.Trigger, "Fire", replacementStateName: "StateC"));
+            fixture.Driver.RestorePresentationState(ReplacementState(cue == EnemyAnimationCue.Death));
+            Assert.That(fixture.Driver.RestorePresentationCue(cue, 0.65f), Is.EqualTo(EnemyAnimationDispatchResult.Applied));
+            AssertState(fixture.Animator, "StateC");
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime,
+                Is.EqualTo(cue == EnemyAnimationCue.Death ? 0f : 0.65f).Within(0.0001f));
+            Assert.That(fixture.Driver.UtilityWindupSignalCount, Is.Zero);
+            Assert.That(fixture.Driver.WindupSignalCount, Is.Zero);
+            Assert.That(fixture.Driver.RecoverySignalCount, Is.Zero);
+            Assert.That(fixture.Driver.DeathSignalCount, Is.Zero);
+            fixture.Animator.Play("Move", 0, 0f);
+            fixture.Animator.Update(0f);
+            Assert.That(fixture.Driver.TryRestoreCueState(cue), Is.False);
+            Assert.That(fixture.Driver.ResyncAnimatorStateFromLastPresentation(), Is.False);
+            fixture.Animator.Update(0.02f);
+            AssertState(fixture.Animator, "Move");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementMissingMetadataOrCue_IsUnsupportedWithoutLegacyFallback()
+        {
+            using var fixture = Fixture.Create(EnemyAnimationCueBinding.CreateForTests(
+                EnemyAnimationCue.UtilityWindup, EnemyAnimationDispatchMode.Trigger, "Fire"));
+            Assert.That(fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityWindup),
+                Is.EqualTo(EnemyAnimationDispatchResult.Unsupported));
+            Assert.That(fixture.Driver.RestorePresentationCue(EnemyAnimationCue.Death),
+                Is.EqualTo(EnemyAnimationDispatchResult.Unsupported));
+            AssertState(fixture.Animator, "Move");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementPending_TracksUtilityCueAndProgress_ThenExpiresWithoutReplay()
+        {
+            using var fixture = CreateReplacementFixture();
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Animator.enabled = false;
+            Assert.That(fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityWindup, 0.2f),
+                Is.EqualTo(EnemyAnimationDispatchResult.Queued));
+            fixture.Driver.UpdatePendingUtilityPresentationCue(EnemyAnimationCue.UtilityRecovery, 0.7f);
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            Assert.That(fixture.Driver.ResyncAnimatorStateFromLastPresentation(), Is.True);
+            AssertState(fixture.Animator, "StateB");
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.EqualTo(0.7f).Within(0.0001f));
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityWindup, 0.3f);
+            fixture.Driver.RestorePresentationTiming();
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.SyncRuntimeState(true, false);
+            AssertState(fixture.Animator, "Move");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementPending_PausedUtilityDeathSupersedesAirborneAndSurvivesUtilityExpiry()
+        {
+            using var fixture = CreateReplacementFixture();
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Driver.SetPresentationPaused(true);
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityWindup, 0.4f);
+            fixture.Driver.Apply(JumpAirborneState(false).WithDidDie(true));
+            fixture.Driver.UpdatePendingUtilityPresentationCue(EnemyAnimationCue.None, 1f);
+            fixture.Driver.RestorePresentationTiming();
+            fixture.Driver.SetPresentationPaused(false);
+            fixture.Driver.SyncRuntimeState(false, false);
+            fixture.Driver.ResyncAnimatorStateFromLastPresentation();
+            AssertState(fixture.Animator, "StateD");
+            Assert.That(fixture.Driver.IsPlaybackSuppressed, Is.False);
+            Assert.That(fixture.Driver.DeathSignalCount, Is.Zero);
+            Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementAndOrdinaryPendingCommands_SupersedeEachOtherWithoutLateReplay()
+        {
+            using var fixture = CreateReplacementFixture();
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Animator.enabled = false;
+            fixture.Driver.DispatchCue(EnemyAnimationCue.ActionWindup);
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.6f);
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.ResyncAnimatorStateFromLastPresentation();
+            AssertState(fixture.Animator, "StateB");
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.EqualTo(0.6f).Within(0.0001f));
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.8f);
+            fixture.Driver.DispatchCue(EnemyAnimationCue.ActionWindup);
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.SyncRuntimeState(true, false);
+            fixture.Animator.Update(0f);
+            AssertState(fixture.Animator, "StateC");
+            fixture.Animator.Play("Move", 0, 0f);
+            fixture.Animator.Update(0f);
+            fixture.Driver.SyncRuntimeState(true, false);
+            AssertState(fixture.Animator, "Move");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementStateCue_ConsumesPendingWithoutGeneralResyncResettingProgress()
+        {
+            using var fixture = Fixture.Create(0f, EnemyAnimationCueBinding.CreateForTests(
+                EnemyAnimationCue.ActionWindup, EnemyAnimationDispatchMode.State, "StateA"));
+            fixture.Driver.SetPresentationPaused(true);
+            fixture.Driver.RestorePresentationState(new EnemyViewPresentationState(
+                1, 1, EnemyAiMode.Attack, EnemyActionKind.None, false, false, false, false, false, false));
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.ActionWindup, 0.75f);
+            fixture.Driver.SetPresentationPaused(false);
+            Assert.That(fixture.Driver.ResyncAnimatorStateFromLastPresentation(), Is.True);
+            AssertState(fixture.Animator, "StateA");
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.EqualTo(0.75f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementJumpPending_SyncRuntimePreservesUnclampedProgressWithoutReentry()
+        {
+            using var fixture = Fixture.Create(EnemyAnimationCueBinding.CreateForTests(
+                EnemyAnimationCue.JumpAirborne, EnemyAnimationDispatchMode.Trigger,
+                "JumpStart", sustainedStateName: "JumpLoop"));
+            fixture.Driver.SetPresentationPaused(true);
+            fixture.Driver.RestorePresentationState(JumpAirborneState(false));
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.JumpAirborne, 1.4f);
+            fixture.Driver.SetPresentationPaused(false);
+            fixture.Driver.SyncRuntimeState(true, false);
+            AssertState(fixture.Animator, "JumpLoop");
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.EqualTo(1.4f).Within(0.0001f));
+            fixture.Driver.SyncRuntimeState(true, false);
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.EqualTo(1.4f).Within(0.0001f));
+            Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementUtility_ClampsProgressAndSuccessfulTriggerCancelsOlderPending()
+        {
+            using var fixture = CreateReplacementFixture();
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityWindup, 1.4f);
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.EqualTo(1f).Within(0.0001f));
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.6f);
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            Assert.That(fixture.Driver.DispatchCue(EnemyAnimationCue.Death), Is.EqualTo(EnemyAnimationDispatchResult.Applied));
+            fixture.Animator.Update(0f);
+            fixture.Driver.SyncRuntimeState(true, false);
+            AssertState(fixture.Animator, "FireTrap");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementCustomState_InvalidDestinationFailsFast()
+        {
+            using var fixture = Fixture.Create(EnemyAnimationCueBinding.CreateForTests(
+                EnemyAnimationCue.Death, EnemyAnimationDispatchMode.Trigger, "Fire", replacementStateName: "Missing"));
+            Assert.Throws<InvalidOperationException>(() => fixture.Driver.RestorePresentationCue(EnemyAnimationCue.Death));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ReplacementJumpPending_HiddenInactiveTopologySnapshotCannotOverwritePreparedProgress()
+        {
+            using var fixture = Fixture.Create(EnemyAnimationCueBinding.CreateForTests(
+                EnemyAnimationCue.JumpAirborne, EnemyAnimationDispatchMode.Trigger,
+                "JumpStart", sustainedStateName: "JumpLoop"));
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationState(JumpAirborneState(false));
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.JumpAirborne, 1.4f);
+            fixture.Driver.SyncHiddenRuntimeState(false);
+            Assert.That(fixture.Driver.HasJumpAirborneTopologySuspendSnapshot, Is.True);
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.SyncRuntimeState(true, false);
+            AssertState(fixture.Animator, "JumpLoop");
+            Assert.That(fixture.Driver.HasJumpAirborneTopologySuspendSnapshot, Is.False);
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.EqualTo(1.4f).Within(0.0001f));
+            Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void UnavailableNewTrigger_CancelsOlderUtilityReplacementWithoutQueueingTrigger()
+        {
+            using var fixture = CreateReplacementFixture();
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.6f);
+            Assert.That(fixture.Driver.DispatchCue(EnemyAnimationCue.UtilityWindup),
+                Is.EqualTo(EnemyAnimationDispatchResult.AnimatorUnavailable));
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.SyncRuntimeState(true, false);
+            fixture.Animator.Update(0f);
+            AssertState(fixture.Animator, "Move");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void UnavailableDeathTrigger_PreservesPromotedTerminalReplacement()
+        {
+            using var fixture = CreateReplacementFixture();
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.6f);
+            fixture.Driver.PlayDeathCue(1);
+            Assert.That(fixture.Driver.DeathSignalCount, Is.EqualTo(1));
+            fixture.Driver.RestorePresentationTiming();
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.SyncRuntimeState(true, false);
+            AssertState(fixture.Animator, "StateD");
+            Assert.That(fixture.Driver.DeathSignalCount, Is.EqualTo(1), "Replacement does not reissue the incoming signal.");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Full")]
+        public void InactiveFatalHit_PreservesPromotedDeathReplacementWithoutReissuingSignals(
+            bool suppressDeathTrigger)
+        {
+            using var fixture = CreateReplacementFixture();
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.6f);
+
+            fixture.Driver.Apply(
+                FatalState(),
+                suppressDeathTrigger
+                    ? EnemyPresentationOneShotBlockMask.DeathTrigger
+                    : EnemyPresentationOneShotBlockMask.None);
+
+            Assert.That(fixture.Driver.HitSignalCount, Is.EqualTo(1));
+            Assert.That(fixture.Driver.DeathSignalCount, Is.EqualTo(suppressDeathTrigger ? 0 : 1));
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false);
+            fixture.Animator.Update(0f);
+            AssertState(fixture.Animator, "StateD");
+
+            var hitCount = fixture.Driver.HitSignalCount;
+            var deathCount = fixture.Driver.DeathSignalCount;
+            fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false);
+            fixture.Driver.ResyncAnimatorStateFromLastPresentation();
+            fixture.Animator.Update(0f);
+            AssertState(fixture.Animator, "StateD", "A stale ordinary command must not replace restored Death.");
+            Assert.That(fixture.Driver.HitSignalCount, Is.EqualTo(hitCount));
+            Assert.That(fixture.Driver.DeathSignalCount, Is.EqualTo(deathCount));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void InactiveFatalStateCue_CannotQueueOverPromotedDeathReplacement()
+        {
+            using var fixture = CreateReplacementFixture(
+                EnemyAnimationCueBinding.CreateForTests(
+                    EnemyAnimationCue.JumpAirborne,
+                    EnemyAnimationDispatchMode.State,
+                    "StateC"));
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.6f);
+
+            fixture.Driver.Apply(FatalState(startedJumpAirborne: true));
+
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false);
+            fixture.Animator.Update(0f);
+            AssertState(fixture.Animator, "StateD");
+            fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false);
+            fixture.Driver.ResyncAnimatorStateFromLastPresentation();
+            fixture.Animator.Update(0f);
+            AssertState(fixture.Animator, "StateD", "The fatal State cue must not survive as an ordinary pending command.");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PausedUtility_ResumeIntoSuppressedFatalStateCue_PreservesConsumedDeathReplacement()
+        {
+            using var fixture = CreateReplacementFixture(
+                EnemyAnimationCueBinding.CreateForTests(
+                    EnemyAnimationCue.JumpAirborne,
+                    EnemyAnimationDispatchMode.State,
+                    "StateC"));
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Driver.SetPresentationPaused(true);
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.6f);
+            fixture.Driver.SetPresentationPaused(false);
+
+            fixture.Driver.Apply(
+                FatalState(startedJumpAirborne: true),
+                EnemyPresentationOneShotBlockMask.DeathTrigger);
+            fixture.Animator.Update(0f);
+
+            AssertState(fixture.Animator, "StateD");
+            Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.EqualTo(1));
+            Assert.That(fixture.Driver.DeathSignalCount, Is.Zero);
+            fixture.Driver.ResyncAnimatorStateFromLastPresentation();
+            fixture.Animator.Update(0f);
+            AssertState(fixture.Animator, "StateD", "The resumed fatal Apply must not retain a lower-priority State cue.");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PausedUtility_UnsupportedDeathReplacement_DoesNotSuppressLowerStateCue()
+        {
+            using var fixture = Fixture.Create(0f,
+                EnemyAnimationCueBinding.CreateForTests(
+                    EnemyAnimationCue.UtilityRecovery,
+                    EnemyAnimationDispatchMode.Trigger,
+                    "Fire",
+                    replacementStateName: "StateB"),
+                EnemyAnimationCueBinding.CreateForTests(
+                    EnemyAnimationCue.JumpAirborne,
+                    EnemyAnimationDispatchMode.State,
+                    "StateC"));
+            fixture.Driver.RestorePresentationState(ReplacementState());
+            fixture.Driver.SetPresentationPaused(true);
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.UtilityRecovery, 0.6f);
+            fixture.Driver.SetPresentationPaused(false);
+
+            fixture.Driver.Apply(
+                FatalState(startedJumpAirborne: true),
+                EnemyPresentationOneShotBlockMask.DeathTrigger);
+            fixture.Animator.Update(0f);
+
+            AssertState(fixture.Animator, "StateC");
+            Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.EqualTo(1));
+            Assert.That(fixture.Driver.DeathSignalCount, Is.Zero);
+        }
+
+        [TestCase(EnemyAnimationDispatchMode.Trigger)]
+        [TestCase(EnemyAnimationDispatchMode.State)]
+        [Category("Full")]
+        public void ReplacementJumpPending_RepeatedInactiveGeneralResyncCannotReplacePreparedProgress(
+            EnemyAnimationDispatchMode mode)
+        {
+            using var fixture = Fixture.Create(mode == EnemyAnimationDispatchMode.State ? 0f : -1f,
+                EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.JumpAirborne, mode,
+                    mode == EnemyAnimationDispatchMode.State ? "JumpLoop" : "JumpStart",
+                    sustainedStateName: mode == EnemyAnimationDispatchMode.Trigger ? "JumpLoop" : ""));
+            fixture.Animator.enabled = false;
+            fixture.Driver.RestorePresentationState(JumpAirborneState(false));
+            fixture.Driver.RestorePresentationCue(EnemyAnimationCue.JumpAirborne, 1.4f);
+            for (var index = 0; index < 3; index++)
+            {
+                Assert.That(fixture.Driver.ResyncAnimatorStateFromLastPresentation(), Is.False);
+            }
+            fixture.Animator.enabled = true;
+            fixture.Rebind();
+            Assert.That(fixture.Driver.ResyncAnimatorStateFromLastPresentation(), Is.True);
+            AssertState(fixture.Animator, "JumpLoop");
+            Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.EqualTo(1.4f).Within(0.0001f));
+            Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.Zero);
+        }
+
+        private static EnemyViewPresentationState ReplacementState(bool death = false)
+        {
+            return new EnemyViewPresentationState(1, 1, EnemyAiMode.Patrol, EnemyActionKind.None,
+                false, false, false, false, false, death);
+        }
+
+        private static Fixture CreateReplacementFixture(params EnemyAnimationCueBinding[] additionalBindings)
+        {
+            var bindings = new List<EnemyAnimationCueBinding>
+            {
+                EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.UtilityWindup,
+                    EnemyAnimationDispatchMode.Trigger, "Fire", replacementStateName: "StateA"),
+                EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.UtilityRecovery,
+                    EnemyAnimationDispatchMode.Trigger, "Fire", replacementStateName: "StateB"),
+                EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.Death,
+                    EnemyAnimationDispatchMode.Trigger, "Fire", replacementStateName: "StateD"),
+                EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.Hit,
+                    EnemyAnimationDispatchMode.Trigger, "Fire"),
+                EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.ActionWindup,
+                    EnemyAnimationDispatchMode.State, "StateC"),
+            };
+            bindings.AddRange(additionalBindings);
+            return Fixture.Create(0f, bindings.ToArray());
+        }
+
+        private static EnemyViewPresentationState FatalState(bool startedJumpAirborne = false)
+        {
+            return new EnemyViewPresentationState(
+                entityId: 1,
+                tickIndex: 2,
+                EnemyAiMode.Patrol,
+                EnemyActionKind.None,
+                startedJumpAirborne ? EnemyJumpPhase.Airborne : EnemyJumpPhase.None,
+                EnemyChargePhase.None,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: startedJumpAirborne,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage: true,
+                didDie: true);
+        }
+
         private static IEnumerable<EnemyAnimationCue> NonNoneCues()
         {
             return Enum.GetValues(typeof(EnemyAnimationCue))
@@ -640,7 +1059,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         binding.TargetName,
                         binding.SustainedStateName,
                         binding.AnimatorDurationSeconds,
-                        ReferenceClip);
+                        ReferenceClip,
+                        binding.ReplacementStateName);
                 }
 
                 Authoring.ConfigureForTests(_sourceBindings, _crossFade);

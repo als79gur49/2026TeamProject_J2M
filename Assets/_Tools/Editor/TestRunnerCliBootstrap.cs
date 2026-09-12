@@ -16,6 +16,7 @@ public static class TestRunnerCliBootstrap
     private const string SelectionArg = "-codexSelection";
     private const string ResultPathArg = "-codexResultPath";
     private const string TestFilterArg = "-codexTestFilter";
+    private const string TestTimeoutArg = "-codexTestTimeoutSeconds";
 
     private const string CoreSelection = "core";
     private const string CoreFeatureGateSelection = "core-feature-gate";
@@ -34,7 +35,8 @@ public static class TestRunnerCliBootstrap
     private const string IntegrationReplayAssemblyName = "Game.Integration.Replay.Tests";
     private const string IntegrationFuzzAssemblyName = "Game.Integration.Fuzz.Tests";
     private const string UiEditModeAssemblyName = "Game.Feature.UI.Tests";
-    private const int WatchdogTimeoutSeconds = 285;
+    private const int DefaultWatchdogTimeoutSeconds = 285;
+    private const int MaximumWatchdogTimeoutSeconds = int.MaxValue - 15;
 
     private const string SessionPrefix = "Codex.TestRunnerCliBootstrap.";
     private const string ActiveKey = SessionPrefix + "Active";
@@ -44,6 +46,7 @@ public static class TestRunnerCliBootstrap
     private const string OutputPathKey = SessionPrefix + "OutputPath";
     private const string TestFilterKey = SessionPrefix + "TestFilter";
     private const string WatchdogDeadlineKey = SessionPrefix + "WatchdogDeadlineUtcTicks";
+    private const string WatchdogTimeoutKey = SessionPrefix + "WatchdogTimeoutSeconds";
 
     private static bool _hasRun;
     private static bool _scheduled;
@@ -55,6 +58,7 @@ public static class TestRunnerCliBootstrap
     private static string _outputPath = string.Empty;
     private static string _testFilter = string.Empty;
     private static DateTime _watchdogDeadlineUtc = DateTime.MinValue;
+    private static int _watchdogTimeoutSeconds = DefaultWatchdogTimeoutSeconds;
 
     private static TestRunnerApi _api;
     private static BatchCallbacks _callbackInstance;
@@ -263,7 +267,7 @@ public static class TestRunnerCliBootstrap
 
     private static void StartWatchdog()
     {
-        _watchdogDeadlineUtc = DateTime.UtcNow.AddSeconds(WatchdogTimeoutSeconds);
+        _watchdogDeadlineUtc = DateTime.UtcNow.AddSeconds(_watchdogTimeoutSeconds);
         SessionState.SetString(
             WatchdogDeadlineKey,
             _watchdogDeadlineUtc.Ticks.ToString(CultureInfo.InvariantCulture));
@@ -284,7 +288,7 @@ public static class TestRunnerCliBootstrap
             var rawDeadline = SessionState.GetString(WatchdogDeadlineKey, string.Empty);
             if (!long.TryParse(rawDeadline, NumberStyles.Integer, CultureInfo.InvariantCulture, out var deadlineTicks))
             {
-                _watchdogDeadlineUtc = DateTime.UtcNow.AddSeconds(WatchdogTimeoutSeconds);
+                _watchdogDeadlineUtc = DateTime.UtcNow.AddSeconds(_watchdogTimeoutSeconds);
                 SessionState.SetString(
                     WatchdogDeadlineKey,
                     _watchdogDeadlineUtc.Ticks.ToString(CultureInfo.InvariantCulture));
@@ -591,9 +595,26 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
             return false;
         }
 
+        var rawTimeout = GetSingleArgumentValue(TestTimeoutArg);
+        _watchdogTimeoutSeconds = DefaultWatchdogTimeoutSeconds;
+        if (rawTimeout.Length > 0 && !TryParseWatchdogTimeout(rawTimeout, out _watchdogTimeoutSeconds))
+        {
+            error = $"Invalid {TestTimeoutArg}: expected an integer from 1 through {MaximumWatchdogTimeoutSeconds} without whitespace or leading zeros.";
+            return false;
+        }
+
         _testFilter = GetSingleArgumentValue(TestFilterArg).Trim();
         error = string.Empty;
         return true;
+    }
+
+    private static bool TryParseWatchdogTimeout(string value, out int seconds)
+    {
+        seconds = 0;
+        return !string.IsNullOrEmpty(value) &&
+            value[0] >= '1' && value[0] <= '9' &&
+            int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out seconds) &&
+            seconds <= MaximumWatchdogTimeoutSeconds;
     }
 
     private static bool TryRestoreSessionState(out string error)
@@ -609,6 +630,12 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         _selection = SessionState.GetString(SelectionKey, string.Empty);
         _outputPath = SessionState.GetString(OutputPathKey, GetFallbackOutputPath(_testMode));
         _testFilter = SessionState.GetString(TestFilterKey, string.Empty);
+        _watchdogTimeoutSeconds = SessionState.GetInt(WatchdogTimeoutKey, DefaultWatchdogTimeoutSeconds);
+        if (_watchdogTimeoutSeconds <= 0 || _watchdogTimeoutSeconds > MaximumWatchdogTimeoutSeconds)
+        {
+            error = "Failed to restore test watchdog timeout from SessionState.";
+            return false;
+        }
 
         if (_selection != CoreSelection &&
             _selection != CoreFeatureGateSelection &&
@@ -635,6 +662,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         SessionState.SetString(SelectionKey, _selection);
         SessionState.SetString(OutputPathKey, _outputPath);
         SessionState.SetString(TestFilterKey, _testFilter);
+        SessionState.SetInt(WatchdogTimeoutKey, _watchdogTimeoutSeconds);
     }
 
     private static void ClearSessionState()
@@ -646,6 +674,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         SessionState.EraseString(OutputPathKey);
         SessionState.EraseString(TestFilterKey);
         SessionState.EraseString(WatchdogDeadlineKey);
+        SessionState.EraseInt(WatchdogTimeoutKey);
     }
 
     private static string[] ParseTestFilters(string rawFilter)

@@ -54,6 +54,14 @@
   - current supporting truth for presentation-only Gameplay VFX lane boundaries, family-specific planners, lifecycle vocabulary, persistent desired state, and existing presenter migration guardrails
 - [Enemy-FrontFaceInactive-Visual-Policy.md](./Enemy-FrontFaceInactive-Visual-Policy.md)
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
+- [Gameplay-Presentation-Driver-Cache-Optimization-Plan.md](./Gameplay-Presentation-Driver-Cache-Optimization-Plan.md)
+  - three-driver lookup cache implementation and validation record with campaign 10-prefab inventory, fixed View configuration, Player preservation, replacement lifecycle, and bounded CPU/GC evidence
+- [Gameplay-Main-Conflict-Resolution-Direction-2026-09-12.md](./Gameplay-Main-Conflict-Resolution-Direction-2026-09-12.md)
+  - main integration contract and execution record for replacement-only Cue restoration, explicit binding metadata, failure recovery and per-lane validation
+- [Gameplay-Optimization-Integration-Plan-2026-09-11.md](./Gameplay-Optimization-Integration-Plan-2026-09-11.md)
+  - reviewed C/D branch integration proposal with pinned revisions, implementation inventory, behavior changes, dirty-work preservation, merge conflicts, and validation criteria; integration and merged-revision validation remain unexecuted
+- [Gameplay-Optimization-Integration-Execution-Prompt-2026-09-11.md](./Gameplay-Optimization-Integration-Execution-Prompt-2026-09-11.md)
+  - executable local-integration prompt covering input preservation, ancestry-preserving merge, contract reconciliation, validation, fresh performance evidence, and closeout; runs only when explicitly requested
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
 - [UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md](./UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md)
@@ -136,6 +144,36 @@ For current Summon production ownership, read the final umbrella closeout first.
   - historical decision record superseded by ADR-007; occupancy lane ownership remains active
 - [ADR/ADR-007-Runtime-Terrain-Truth-Removal.md](./ADR/ADR-007-Runtime-Terrain-Truth-Removal.md)
   - active decision record for runtime terrain truth removal, terrain-free in-bounds cells, and remaining blocker vocabulary
+- [Gameplay-Wall-Tick-Cost-Optimization-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Plan.md)
+  - audited bounded implementation plan for reducing Wall-related Factory, Cleanup, final-result, and live diagnostics cost without changing authoritative Solid occupancy or canonical replay/hash contracts; Slice 3 production entry is conditional on its dedicated Goal gates
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Goal-Plan.md)
+  - completed Slice 1 tests-first execution record for workload diagnostics, trusted owned FinalEntities sharing, conservative per-EntityType Factory prefiltering, corrected focused/core/replay evidence, and fixed-cohort performance acceptance
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Post-Closeout-Audit-2026-08-27.md)
+  - current audit and recovery truth preserving the invalid historical C2 evidence while recording admission hardening, focused proof closure, the completed fixed 5-state/15-run cohort, and restored Goal-complete status
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Recovery-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Recovery-Goal-Prompt.md)
+  - sub-agent-reviewed execution prompt for admission hardening, focused contract closure, fixed 5-state/15-run recovery measurement, and final retain/reject decisions
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md)
+  - current tests-first Slice 3 execution gate separating Cleanup attribution, candidate maintenance/snapshot-carriage tax, indexed-executor benefit, semantic/replay parity, and retain/reject rollback decisions; official S3-A capture remains blocked pending the separately approved S3-EV-016 exact full-scan oracle/frozen amendment and all remaining measurement prerequisites
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-Reaudit-Remediation-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-Reaudit-Remediation-Plan.md)
+  - sub-agent closure-reviewed, proposal-level-GO S3-A remediation design for measured reference cardinality, membership/processing vocabulary, clean/same-revision finalization, strict standalone identity, an Evidence Contract v5 exact full-scan oracle, allocation characterization, tests-first evidence, and explicit approval pauses; it does not authorize implementation or official capture
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Goal-Prompt.md)
+  - historical pre-I1 docs-only execution prompt; its terminal closure records that I1 was subsequently approved and bounded A/B/C implementation/validation completed while repository Slice 3 stayed on Hold
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md)
+  - I1-approved bounded B-Raw and v4-compatible A/B/C remediation contract with completed implementation/validation closure; v5, official capture, S3-B/S3-C, commit, and push remain unauthorized and repository Slice 3 remains on Hold
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-D1-E0-I3-Amendment.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-D1-E0-I3-Amendment.md)
+  - P2-approved design-authority record with proposed D1/E0-D exact candidates, separating allocation liveness from timing-noise stabilization and adding I3/K1/D3 pauses; it authorizes neither source implementation nor Player/official capture
+- [Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v5.md](../../Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v5.md)
+  - proposed, non-active D1 evidence contract candidate for independent workload/oracle binding, signed authorization, finite campaign terminal ownership and fail-closed lifecycle; awaiting exact D1 approval
+- [Tools/contracts/gameplay_cleanup_slice3_e0_characterization_protocol_v1.json](../../Tools/contracts/gameplay_cleanup_slice3_e0_characterization_protocol_v1.json)
+  - proposed, diagnostic-only E0-D protocol candidate for allocation liveness and timing falsification; awaiting separate exact approval and incapable of official success transport
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md)
+  - current Slice 3 execution prompt enforcing the S3-EV-016 oracle amendment gate before official S3-A capture, followed by S3-B pre-C and S3-C pre-campaign hard gates, same-revision evidence, terminal status, storage, and rollback rules
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md)
+  - historical 2026-08-28 post-amendment audit and v4 closure/open-blocker register: its then-known P0/P1 paths were closed, while the 2026-08-29 S3-A re-audit plan records additional unimplemented gaps; S3-EV-016 keeps the repository on Hold and S3-B/S3-C forbidden
+- [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md)
+  - completed bounded execution Goal for Evidence Contract v4 approval, formal tests-first P0/P1 harness remediation, green validation, and independent re-audit; no official S3-A capture or S3-B/S3-C production implementation was performed
+- [Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v4.md](../../Tools/contracts/gameplay_cleanup_slice3_evidence_contract_v4.md)
+  - approved normative S3-A remediation evidence contract for exact identity/cohort binding, canonical verdict recomputation, strict schema, artifact lifecycle, compatibility rejection, terminal transport, and the S3-EV-016 fail-closed oracle gate; it does not approve the oracle amendment or authorize a new official capture
 - [ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md](./ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md)
   - active decision record for SurfaceCell-based TileFeature overlay ownership, terrain-free boundary, lazy TileEffect snapshot rules, and presentation-only VFX boundaries
 - [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)

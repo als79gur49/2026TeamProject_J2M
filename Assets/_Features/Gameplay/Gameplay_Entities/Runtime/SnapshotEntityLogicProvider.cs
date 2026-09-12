@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Entities
@@ -8,6 +9,10 @@ namespace Game.Feature.Gameplay.Entities
     internal sealed class SnapshotEntityLogicProvider : ISnapshotEntityLogicProvider, IEnemyGlidePresentationSettingsResolver
     {
         private readonly IReadOnlyList<IEntityLogicFactory> _entityLogicFactories;
+        private readonly IEntityLogicFactory[] _allEntityLogicFactories;
+        private readonly IEntityLogicFactory[] _noneEntityLogicFactories;
+        private readonly IEntityLogicFactory[] _unitEntityLogicFactories;
+        private readonly IEntityLogicFactory[] _boxEntityLogicFactories;
 
         public SnapshotEntityLogicProvider(IEnumerable<IEntityLogicFactory> entityLogicFactories)
         {
@@ -28,7 +33,12 @@ namespace Game.Feature.Gameplay.Entities
                 factories.Add(factory);
             }
 
-            _entityLogicFactories = factories.AsReadOnly();
+            _allEntityLogicFactories = factories.ToArray();
+            _entityLogicFactories = Array.AsReadOnly(_allEntityLogicFactories);
+            _noneEntityLogicFactories = BuildCandidateFactoriesForKnownType(EntityType.None);
+            _unitEntityLogicFactories = BuildCandidateFactoriesForKnownType(EntityType.Unit);
+            _boxEntityLogicFactories = BuildCandidateFactoriesForKnownType(EntityType.Box);
+            GameplayTickWorkloadDiagnostics.RecordEntityLogicCandidateCacheConstructed();
         }
 
         public EntityLogicSet Build(
@@ -48,6 +58,11 @@ namespace Game.Feature.Gameplay.Entities
             var orderedEntities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
+            var diagnosticsEnabled = GameplayTickWorkloadDiagnostics.IsEnabled;
+            var workloadMetrics = diagnosticsEnabled
+                ? new EntityLogicBuildMetricsAccumulator(_allEntityLogicFactories.Length)
+                : default;
+
             var entityLogics = new List<IEntityLogic>(staticEntityLogics.Count + orderedEntities.Count);
             var phaseOwnerIndex = new PhaseOwnerIndex();
 
@@ -59,11 +74,53 @@ namespace Game.Feature.Gameplay.Entities
             for (var entityIndex = 0; entityIndex < orderedEntities.Count; entityIndex++)
             {
                 var entity = orderedEntities[entityIndex];
+
+                if (diagnosticsEnabled)
+                {
+                    workloadMetrics.RecordEntityVisited(entity.type);
+                }
+
+                IEntityLogicFactory[] candidateFactories;
+                switch (entity.type)
+                {
+                    case EntityType.None:
+                        candidateFactories = _noneEntityLogicFactories;
+                        break;
+                    case EntityType.Unit:
+                        candidateFactories = _unitEntityLogicFactories;
+                        break;
+                    case EntityType.Box:
+                        candidateFactories = _boxEntityLogicFactories;
+                        break;
+                    default:
+                        candidateFactories = _allEntityLogicFactories;
+                        break;
+                }
+
+                if (diagnosticsEnabled)
+                {
+                    var skipCount = _allEntityLogicFactories.Length - candidateFactories.Length;
+                    for (var skipIndex = 0; skipIndex < skipCount; skipIndex++)
+                    {
+                        workloadMetrics.RecordPrefilterSkip(entity.type);
+                    }
+                }
+
+                if (candidateFactories.Length == 0)
+                {
+                    continue;
+                }
+
                 var creationContext = new EntityLogicCreationContext(snapshot, entity);
 
-                for (var factoryIndex = 0; factoryIndex < _entityLogicFactories.Count; factoryIndex++)
+                for (var factoryIndex = 0; factoryIndex < candidateFactories.Length; factoryIndex++)
                 {
-                    var factory = _entityLogicFactories[factoryIndex];
+                    var factory = candidateFactories[factoryIndex];
+                    if (diagnosticsEnabled)
+                    {
+                        workloadMetrics.RecordCanCreateProbe(entity.type);
+                    }
+
                     if (!factory.CanCreate(creationContext))
                     {
                         continue;
@@ -75,14 +132,73 @@ namespace Game.Feature.Gameplay.Entities
                         throw new InvalidOperationException("Entity logic factories must not return null.");
                     }
 
+                    if (diagnosticsEnabled)
+                    {
+                        workloadMetrics.RecordCreated(entity.type);
+                    }
+
                     if (!TryAddDynamicEntityLogic(candidate, entityLogics, phaseOwnerIndex))
                     {
+                        if (diagnosticsEnabled)
+                        {
+                            workloadMetrics.RecordConflictRejected(entity.type);
+                        }
+
                         continue;
+                    }
+
+                    if (diagnosticsEnabled)
+                    {
+                        workloadMetrics.RecordAccepted(entity.type);
                     }
                 }
             }
 
+            if (diagnosticsEnabled)
+            {
+                var metrics = workloadMetrics.Build();
+                GameplayTickWorkloadDiagnostics.RecordEntityLogicBuild(metrics);
+            }
+
             return BuildEntityLogicSet(entityLogics);
+        }
+
+        private IEntityLogicFactory[] ResolveCandidateFactories(EntityType entityType)
+        {
+            if (entityType == EntityType.None)
+            {
+                return _noneEntityLogicFactories;
+            }
+
+            if (entityType == EntityType.Unit)
+            {
+                return _unitEntityLogicFactories;
+            }
+
+            if (entityType == EntityType.Box)
+            {
+                return _boxEntityLogicFactories;
+            }
+
+            return _allEntityLogicFactories;
+        }
+
+        private IEntityLogicFactory[] BuildCandidateFactoriesForKnownType(EntityType entityType)
+        {
+            var candidates = new List<IEntityLogicFactory>(_allEntityLogicFactories.Length);
+            for (var i = 0; i < _allEntityLogicFactories.Length; i++)
+            {
+                var factory = _allEntityLogicFactories[i];
+                if (factory is IEntityLogicFactoryEntityTypePrefilter prefilter &&
+                    !prefilter.MayCreateForEntityType(entityType))
+                {
+                    continue;
+                }
+
+                candidates.Add(factory);
+            }
+
+            return candidates.ToArray();
         }
 
         public bool TryResolveEnemyGlidePresentationSettings(

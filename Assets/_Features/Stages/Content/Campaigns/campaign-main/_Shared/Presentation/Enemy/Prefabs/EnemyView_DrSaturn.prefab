@@ -125,12 +125,14 @@ MonoBehaviour:
     primaryDispatchMode: 1
     targetName: Windup
     sustainedStateName: 
+    replacementStateName: Windup
     animatorDurationSeconds: 0.5
     referenceClip: {fileID: 7400000, guid: 19cc367ffcf133f42b0c772ae30ed0b1, type: 2}
   - cue: 51
     primaryDispatchMode: 1
     targetName: Recover
     sustainedStateName: 
+    replacementStateName: Recover
     animatorDurationSeconds: 0.5
     referenceClip: {fileID: 7400000, guid: c0977b05374049f46a273f93a78ed85e, type: 2}
   - cue: 90
@@ -143,6 +145,7 @@ MonoBehaviour:
     primaryDispatchMode: 1
     targetName: Death
     sustainedStateName: 
+    replacementStateName: Death
     animatorDurationSeconds: -1
     referenceClip: {fileID: 0}
 --- !u!1 &1001000000000008002

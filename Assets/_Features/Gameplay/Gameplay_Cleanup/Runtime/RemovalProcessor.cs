@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Cleanup
 {
@@ -10,7 +11,9 @@ namespace Game.Feature.Gameplay.Cleanup
             IReadOnlyList<EntityState> orderedEntities,
             ICleanupCommitContext writeContext,
             List<EntityState> survivingEntities,
-            List<int> removedEntityIds)
+            List<int> removedEntityIds,
+            bool captureStructuralCounts,
+            out CleanupStructuralScanCounts structuralCounts)
         {
             if (orderedEntities == null)
             {
@@ -34,11 +37,34 @@ namespace Game.Feature.Gameplay.Cleanup
 
             survivingEntities.Clear();
             removedEntityIds.Clear();
+            var removalCandidateCount = 0;
+            var timerCandidateCount = 0;
+            var immediateTransitionCandidateCount = 0;
 
             for (var i = 0; i < orderedEntities.Count; i++)
             {
                 var entity = orderedEntities[i];
-                if (ShouldRemove(entity))
+                var shouldRemove = ShouldRemove(entity);
+                if (captureStructuralCounts)
+                {
+                    if (shouldRemove)
+                    {
+                        removalCandidateCount++;
+                    }
+
+                    if (entity.stateTimer > 0)
+                    {
+                        timerCandidateCount++;
+                    }
+
+                    if (entity.stateTimer <= 0 &&
+                        (entity.state == EntityPhaseState.Acting || entity.state == EntityPhaseState.Cooldown))
+                    {
+                        immediateTransitionCandidateCount++;
+                    }
+                }
+
+                if (shouldRemove)
                 {
                     removedEntityIds.Add(entity.entityId);
                     continue;
@@ -51,6 +77,11 @@ namespace Game.Feature.Gameplay.Cleanup
             {
                 writeContext.RemoveEntity(removedEntityIds[i]);
             }
+
+            structuralCounts = new CleanupStructuralScanCounts(
+                removalCandidateCount,
+                timerCandidateCount,
+                immediateTransitionCandidateCount);
         }
 
         private static bool ShouldRemove(EntityState entity)

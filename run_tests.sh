@@ -12,6 +12,9 @@ DRY_RUN=0
 TEST_FILTER=""
 FILTERED_TOTAL=0
 UNITY_GRAPHICS="${UNITY_GRAPHICS:-0}"
+# Test watchdog budget; the process timeout retains a 15-second exit margin.
+UNITY_TEST_TIMEOUT_SECONDS="${UNITY_TEST_TIMEOUT_SECONDS-285}"
+UNITY_TEST_PROCESS_TIMEOUT_SECONDS=300
 TERMINAL_IRIS_CAPTURE_BEFORE=0
 CODEX_VALIDATION_ROOT="${CODEX_VALIDATION_ROOT:-}"
 if [ -n "$CODEX_VALIDATION_ROOT" ]; then
@@ -224,6 +227,8 @@ GAMEPLAY_PERFORMANCE_HEIGHT="${GAMEPLAY_PERFORMANCE_HEIGHT:-1080}"
 GAMEPLAY_PERFORMANCE_WARMUP_FRAMES="${GAMEPLAY_PERFORMANCE_WARMUP_FRAMES:-120}"
 GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES="${GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES:-600}"
 GAMEPLAY_PERFORMANCE_TICK_INTERVAL="${GAMEPLAY_PERFORMANCE_TICK_INTERVAL:-6}"
+CLEANUP_S3_CAPTURE_SMOKE_EVIDENCE_ROOT="${CLEANUP_S3_CAPTURE_SMOKE_EVIDENCE_ROOT:-/mnt/d/J2M/evidence/cleanup-s3-capture-smoke}"
+CLEANUP_S3_CAPTURE_SMOKE_BUILD_ROOT="${CLEANUP_S3_CAPTURE_SMOKE_BUILD_ROOT:-/mnt/d/J2M/builds/cleanup-s3-capture-smoke}"
 
 UNITY_INTEGRATION_SIMULATION_EDITMODE_LOG="$RESULT_DIR/wsl-unity-integration-simulation-editmode.log"
 UNITY_INTEGRATION_SIMULATION_EDITMODE_XML="$RESULT_DIR/wsl-unity-integration-simulation-editmode.xml"
@@ -265,14 +270,22 @@ terminal_player_windows_pids() {
     local player_path_win="$1"
     local player_path_base64
 
+    command -v powershell.exe >/dev/null 2>&1 || return 2
     player_path_base64="$(printf '%s' "$player_path_win" | base64 -w0)"
     powershell.exe -NoProfile -Command "
+        \$ErrorActionPreference = 'Stop'
         \$target = [Text.Encoding]::UTF8.GetString(
             [Convert]::FromBase64String('$player_path_base64'))
-        Get-CimInstance Win32_Process |
-            Where-Object { \$_.ExecutablePath -ieq \$target } |
-            ForEach-Object { \$_.ProcessId }
-    " 2>/dev/null | tr -d '\r' || true
+        \$targetName = [IO.Path]::GetFileName(\$target)
+        Get-CimInstance Win32_Process -ErrorAction Stop |
+            Where-Object { \$_.Name -ieq \$targetName } |
+            ForEach-Object {
+                if ([string]::IsNullOrWhiteSpace(\$_.ExecutablePath)) {
+                    throw \"Player process ownership is indeterminate for PID \$(\$_.ProcessId).\"
+                }
+                if (\$_.ExecutablePath -ieq \$target) { \$_.ProcessId }
+            }
+    " 2>/dev/null | tr -d '\r'
 }
 
 wait_for_terminal_player_exit() {
@@ -281,14 +294,20 @@ wait_for_terminal_player_exit() {
     local pids
 
     while [ "$SECONDS" -lt "$deadline" ]; do
-        pids="$(terminal_player_windows_pids "$player_path_win")"
+        if ! pids="$(terminal_player_windows_pids "$player_path_win")"; then
+            echo "ERROR: Terminal Player process inventory query failed."
+            return 2
+        fi
         if [ -z "$pids" ]; then
             return 0
         fi
         sleep 0.1
     done
 
-    pids="$(terminal_player_windows_pids "$player_path_win")"
+    if ! pids="$(terminal_player_windows_pids "$player_path_win")"; then
+        echo "ERROR: Terminal Player process inventory query failed."
+        return 2
+    fi
     if [ -n "$pids" ]; then
         echo "ERROR: Terminal Player process did not exit: $pids"
         return 1
@@ -300,7 +319,10 @@ terminate_terminal_player_processes() {
     local pid
     local pids
 
-    pids="$(terminal_player_windows_pids "$player_path_win")"
+    if ! pids="$(terminal_player_windows_pids "$player_path_win")"; then
+        echo "ERROR: Terminal Player process inventory query failed."
+        return 2
+    fi
     while IFS= read -r pid; do
         [ -n "$pid" ] || continue
         cmd.exe /c taskkill /PID "$pid" /T /F >/dev/null 2>&1 || true
@@ -874,6 +896,16 @@ validate_project_paths() {
     require_file "$PROJECT_PATH_WSL/ProjectSettings/ProjectVersion.txt" "Unity ProjectVersion.txt"
 }
 
+validate_test_timeout_config() {
+    if ! [[ "$UNITY_TEST_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]] ||
+       [ "${#UNITY_TEST_TIMEOUT_SECONDS}" -gt 10 ] ||
+       [ "$UNITY_TEST_TIMEOUT_SECONDS" -gt 2147483632 ]; then
+        echo "ERROR: UNITY_TEST_TIMEOUT_SECONDS must be an integer from 1 through 2147483632 (no whitespace or leading zeros)." >&2
+        return 1
+    fi
+    UNITY_TEST_PROCESS_TIMEOUT_SECONDS=$((UNITY_TEST_TIMEOUT_SECONDS + 15))
+}
+
 print_environment_summary() {
     echo "Test environment:"
     echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL"
@@ -882,6 +914,7 @@ print_environment_summary() {
     echo "  DOTNET_PATH:      $DOTNET_PATH"
     echo "  UNITY_GRAPHICS:   $UNITY_GRAPHICS"
     echo "  RESULT_DIR:       $RESULT_DIR"
+    echo "  Test watchdog:    ${UNITY_TEST_TIMEOUT_SECONDS}s (process timeout ${UNITY_TEST_PROCESS_TIMEOUT_SECONDS}s)"
 }
 
 print_config() {
@@ -891,10 +924,12 @@ print_config() {
     echo "DOTNET_PATH=$DOTNET_PATH"
     echo "UNITY_GRAPHICS=$UNITY_GRAPHICS"
     echo "RESULT_DIR=$RESULT_DIR"
+    echo "UNITY_TEST_TIMEOUT_SECONDS=$UNITY_TEST_TIMEOUT_SECONDS"
+    echo "UNITY_TEST_PROCESS_TIMEOUT_SECONDS=$UNITY_TEST_PROCESS_TIMEOUT_SECONDS"
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|camera-shake-visual|camera-shake-hud-visual|kbo-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|gameplay-performance|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|camera-shake-visual|camera-shake-hud-visual|kbo-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|gameplay-performance|cleanup-s3-capture-smoke|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -2431,10 +2466,11 @@ visual_guard_iter_wsl_unity_process_records() {
 
 visual_guard_iter_windows_unity_process_records() {
     if ! command -v powershell.exe >/dev/null 2>&1; then
-        return 0
+        return 2
     fi
 
     powershell.exe -NoProfile -Command '
+        $ErrorActionPreference = "Stop"
         Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -2448,10 +2484,14 @@ public static class VisualGuardCommandLine {
 }
 "@
         function Split-NativeCommandLine([string]$commandLine) {
-            if ([string]::IsNullOrWhiteSpace($commandLine)) { return @() }
+            if ([string]::IsNullOrWhiteSpace($commandLine)) {
+                throw "Unity process command line is unavailable."
+            }
             $count = 0
             $pointer = [VisualGuardCommandLine]::CommandLineToArgvW($commandLine, [ref]$count)
-            if ($pointer -eq [IntPtr]::Zero) { return @() }
+            if ($pointer -eq [IntPtr]::Zero) {
+                throw "Unity process command line parsing failed."
+            }
             try {
                 $arguments = @()
                 for ($index = 0; $index -lt $count; $index++) {
@@ -2466,9 +2506,12 @@ public static class VisualGuardCommandLine {
                 [void][VisualGuardCommandLine]::LocalFree($pointer)
             }
         }
-        Get-CimInstance Win32_Process |
+        Get-CimInstance Win32_Process -ErrorAction Stop |
             Where-Object { $_.Name -ieq "Unity.exe" } |
             ForEach-Object {
+                if ([string]::IsNullOrWhiteSpace($_.ExecutablePath)) {
+                    throw "Unity executable path is unavailable for PID $($_.ProcessId)."
+                }
                 $arguments = @(Split-NativeCommandLine $_.CommandLine)
                 $projectPath = ""
                 for ($index = 0; $index -lt $arguments.Count; $index++) {
@@ -2478,6 +2521,9 @@ public static class VisualGuardCommandLine {
                         break
                     }
                 }
+                if ([string]::IsNullOrWhiteSpace($projectPath)) {
+                    throw "Unity project path is indeterminate for PID $($_.ProcessId)."
+                }
                 $encoded = [Convert]::ToBase64String(
                     [Text.Encoding]::UTF8.GetBytes($projectPath))
                 $startIdentity = ""
@@ -2486,7 +2532,7 @@ public static class VisualGuardCommandLine {
                 }
                 "windows`t$($_.ProcessId)`t$($_.ParentProcessId)`t$startIdentity`t$encoded"
             }
-    ' 2>/dev/null | tr -d '\r' || true
+    ' 2>/dev/null | tr -d '\r'
 }
 
 visual_guard_iter_unity_process_records() {
@@ -2840,13 +2886,51 @@ find_current_project_unity_processes() {
     local start_identity
     local project_path_base64
     local project_path_raw
+    local records
 
+    records="$(visual_guard_iter_unity_process_records)" || return 2
     while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
         project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
         if visual_project_paths_match "$project_path_raw" "$PROJECT_PATH_WIN"; then
             printf '%s %s %s projectPath=%s\n' "$pid" "$ppid" "$source" "$project_path_raw"
         fi
-    done < <(visual_guard_iter_unity_process_records)
+    done <<< "$records"
+}
+
+gameplay_performance_wait_for_no_unity_processes() {
+    local started_at_ms
+    local grace_deadline_ms
+    local hard_deadline_ms
+    local quiet_started_at_ms=""
+    local now_ms
+    local records
+
+    started_at_ms="$(visual_guard_monotonic_ms)"
+    grace_deadline_ms=$((10#$started_at_ms + 2000))
+    hard_deadline_ms=$((10#$started_at_ms + 5000))
+    while :; do
+        if ! records="$(find_current_project_unity_processes)"; then
+            echo "ERROR: Gameplay performance Unity process inventory query failed." >&2
+            return 2
+        fi
+        if [ -n "$records" ]; then
+            printf '%s\n' "$records"
+            return 1
+        fi
+        now_ms="$(visual_guard_monotonic_ms)"
+        if [ "$now_ms" -ge "$grace_deadline_ms" ]; then
+            if [ -z "$quiet_started_at_ms" ]; then
+                quiet_started_at_ms="$now_ms"
+            elif [ $((10#$now_ms - 10#$quiet_started_at_ms)) -ge 1000 ]; then
+                return 0
+            fi
+        fi
+        if [ "$now_ms" -ge "$hard_deadline_ms" ]; then
+            echo "ERROR: Gameplay performance Unity process inventory did not reach a verified quiet period." >&2
+            return 2
+        fi
+        sleep 0.1
+    done
 }
 
 find_current_project_windows_unity_processes() {
@@ -3353,7 +3437,7 @@ run_unity_stage_unguarded() {
     fi
 
     unity_command=(
-        timeout --kill-after=10 300
+        timeout --kill-after=10 "$UNITY_TEST_PROCESS_TIMEOUT_SECONDS"
         "$UNITY_PATH"
         -batchmode
     )
@@ -3366,6 +3450,7 @@ run_unity_stage_unguarded() {
         -executeMethod "$execute_method"
         -codexSelection "$selection"
         -codexResultPath "$xml_path_win"
+        -codexTestTimeoutSeconds "$UNITY_TEST_TIMEOUT_SECONDS"
     )
 
     if [ -n "$TEST_FILTER" ]; then
@@ -4516,6 +4601,24 @@ run_terminal_player_build_smoke_legacy() {
     local runtime_log_gameclear_keyboard_win
     local shader_dependency_hits
     local worktree_diff_hash
+    local post_restore_worktree_hash
+    local post_restore_head_sha
+    local runtime_tree_hash
+    local post_restore_runtime_tree_hash
+    local campaign_id
+    local attempt_id
+    local capture_nonce
+    local runner_hash
+    local performance_validator_hash
+    local cleanup_validator_hash
+    local aggregator_hash
+    local manifest_tool_hash
+    local workload_contract_hash
+    local harness_hash
+    local payload_file
+    local payload_relative
+    local payload_size
+    local payload_sha
     local untracked_file
     local gameplay_ui_root_hash
     local stage_result_prefab_hash
@@ -5629,6 +5732,496 @@ run_player_capture_save_safety() {
     echo "  persistent root:  $persistent_root_wsl"
 }
 
+restore_gameplay_performance_guard_state() {
+    local guard_root="$1"
+    local link_file_existed="$2"
+    local link_meta_existed="$3"
+    local relative_path
+    local -a required_paths=(
+        "ProjectSettings/ProjectSettings.asset"
+        "Assets/Settings/PC_RPAsset.asset"
+        "Assets/AddressableAssetsData/AddressableAssetSettings.asset"
+    )
+    local -a optional_paths=(
+        "ProjectSettings/ScriptableBuildPipeline.json"
+        "Assets/AddressableAssetsData/Windows.meta"
+    )
+
+    [ -d "$guard_root" ] || return 1
+    for relative_path in "${required_paths[@]}"; do
+        [ -f "$guard_root/$relative_path" ] || return 1
+        cp -- "$guard_root/$relative_path" "$PROJECT_PATH_WSL/$relative_path" || return 1
+    done
+    for relative_path in "${optional_paths[@]}"; do
+        if [ -f "$guard_root/$relative_path" ]; then
+            cp -- "$guard_root/$relative_path" "$PROJECT_PATH_WSL/$relative_path" || return 1
+        else
+            rm -f -- "$PROJECT_PATH_WSL/$relative_path" || return 1
+        fi
+    done
+    if [ "$link_file_existed" -eq 1 ]; then
+        cp -- "$guard_root/Assets/AddressableAssetsData/link.xml" \
+            "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" || return 1
+    else
+        rm -f -- "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" || return 1
+    fi
+    if [ "$link_meta_existed" -eq 1 ]; then
+        cp -- "$guard_root/Assets/AddressableAssetsData/link.xml.meta" \
+            "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" || return 1
+    else
+        rm -f -- "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" || return 1
+    fi
+}
+
+gameplay_performance_attempt_return_guard() {
+    local manifest_path="$1"
+    local guard_root="$2"
+    local restore_completed="$3"
+    local link_file_existed="$4"
+    local link_meta_existed="$5"
+    local player_path_win="$6"
+    local restore_status=0
+    local process_status=0
+    local unity_processes
+
+    if [ -n "$player_path_win" ] &&
+       ! wait_for_terminal_player_exit "$player_path_win"; then
+        terminate_terminal_player_processes "$player_path_win" || process_status=1
+        process_status=1
+    fi
+    if unity_processes="$(gameplay_performance_wait_for_no_unity_processes)"; then
+        :
+    elif [ "$?" -eq 2 ]; then
+        process_status=1
+        unity_processes=""
+    else
+        echo "ERROR: Gameplay performance attempt left a Unity process alive."
+        echo "$unity_processes"
+        terminate_current_project_unity_processes
+        if unity_processes="$(gameplay_performance_wait_for_no_unity_processes)"; then
+            :
+        else
+            process_status=1
+        fi
+        process_status=1
+    fi
+    if [ "$restore_completed" -ne 1 ]; then
+        restore_gameplay_performance_guard_state \
+            "$guard_root" "$link_file_existed" "$link_meta_existed" || restore_status=1
+    fi
+    [ -f "$manifest_path" ] || return 2
+    if python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --print-terminal-status --manifest "$manifest_path" >/dev/null 2>&1; then
+        [ "$restore_status" -eq 0 ] && [ "$process_status" -eq 0 ] && return 0
+        return 2
+    fi
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --finalize-infrastructure-failure --manifest "$manifest_path" \
+        --output "$manifest_path" >/dev/null 2>&1 || return 2
+    require_gameplay_performance_hold_manifest "$manifest_path" || return 2
+    [ "$restore_status" -eq 0 ] || return 2
+    [ "$process_status" -eq 0 ] || return 2
+    return 1
+}
+
+gameplay_performance_signal_return_guard() {
+    local manifest_path="$1"
+    local guard_root="$2"
+    local restore_completed="$3"
+    local link_file_existed="$4"
+    local link_meta_existed="$5"
+    local player_path_win="$6"
+
+    trap - RETURN ERR
+    trap '' INT TERM
+    gameplay_performance_attempt_return_guard \
+        "$manifest_path" "$guard_root" "$restore_completed" \
+        "$link_file_existed" "$link_meta_existed" "$player_path_win" || true
+}
+
+require_gameplay_performance_hold_manifest() {
+    local manifest_path="$1"
+    local observed_status
+    observed_status="$(
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --print-terminal-status --manifest "$manifest_path"
+    )" || return 1
+    [ "$observed_status" = "HOLD" ]
+}
+
+gameplay_performance_terminal_exit_from_manifest() {
+    local manifest_path="$1"
+    local terminal_status
+    local terminal_message
+
+    if [ "${RUN_MODE:-}" = "cleanup-s3-capture-smoke" ]; then
+        validate_cleanup_s3_capture_smoke_terminal \
+            "$manifest_path" \
+            "$(dirname "$manifest_path")/performance-metrics.json" \
+            "$(dirname "$manifest_path")/performance-admission-report.json" \
+            "$(dirname "$manifest_path")/cleanup-s3a-admission-summary.json" \
+            "$(dirname "$manifest_path")/cleanup-s3a-calibration-report.json" \
+            "$(dirname "$manifest_path")/cleanup-s3a-allocation-diagnostic.json"
+        return
+    fi
+
+    terminal_status="$(
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --print-terminal-status --manifest "$manifest_path"
+    )" || return 2
+    case "$terminal_status" in
+        PASS) return 0 ;;
+        DEFERRED|HOLD) return 1 ;;
+        *) return 2 ;;
+    esac
+}
+
+validate_gameplay_performance_runtime_marker() {
+    local runtime_log_path="$1"
+    python3 - "$PROJECT_PATH_WSL" "$runtime_log_path" <<'PY'
+import pathlib
+import sys
+
+sys.path.insert(0, sys.argv[1])
+from Tools.gameplay_evidence_v4 import validate_runtime_marker
+
+raise SystemExit(1 if validate_runtime_marker(pathlib.Path(sys.argv[2])) else 0)
+PY
+}
+
+finalize_gameplay_performance_infrastructure_stage() {
+    local manifest_path="$1"
+    local stage="$2"
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --transition-manifest --manifest "$manifest_path" \
+        --stage "$stage" --stage-status HOLD --reason-code FINAL_MANIFEST_UNAVAILABLE \
+        --output "$manifest_path" || return 1
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --finalize-infrastructure-failure --manifest "$manifest_path" \
+        --output "$manifest_path" || return 1
+    require_gameplay_performance_hold_manifest "$manifest_path"
+}
+
+validate_cleanup_s3_capture_smoke_terminal() {
+    local manifest_path="$1"
+    local metrics_path="$2"
+    local performance_admission_path="$3"
+    local cleanup_admission_path="$4"
+    local cleanup_calibration_path="$5"
+    local allocation_diagnostic_path="$6"
+
+    python3 - \
+        "$PROJECT_PATH_WSL" \
+        "$manifest_path" \
+        "$metrics_path" \
+        "$performance_admission_path" \
+        "$cleanup_admission_path" \
+        "$cleanup_calibration_path" \
+        "$allocation_diagnostic_path" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+repository_root = pathlib.Path(sys.argv[1])
+sys.path.insert(0, str(repository_root))
+from Tools.gameplay_cleanup_slice3_evidence_manifest import (
+    EvidenceError,
+    validate_allocation_diagnostic_contract,
+    validate_final_manifest_transport,
+)
+from Tools.gameplay_cleanup_slice3_admission import build_admission_report
+from Tools.gameplay_cleanup_slice3_calibration import build_calibration_report
+from Tools.gameplay_evidence_v4 import (
+    capture_input_snapshots,
+    live_source_identity,
+    load_json_object,
+    load_strict_kv,
+    validate_input_snapshots,
+    validate_v4_context_pair,
+)
+from Tools.gameplay_performance_admission import build_metrics_report
+
+(
+    manifest_path,
+    metrics_path,
+    performance_path,
+    cleanup_path,
+    cleanup_calibration_path,
+    allocation_diagnostic_path,
+) = map(pathlib.Path, sys.argv[2:])
+base_paths = (manifest_path, metrics_path, performance_path, cleanup_path)
+if any(not path.is_file() for path in base_paths):
+    raise SystemExit(1)
+
+try:
+    manifest_snapshot = capture_input_snapshots((manifest_path,))
+    manifest = load_json_object(manifest_path, "finalManifest")
+    artifact_input_paths = tuple(
+        pathlib.Path(value["path"])
+        for value in manifest.get("artifacts", {}).values()
+        if isinstance(value, dict) and isinstance(value.get("path"), str)
+    )
+    input_snapshots = (
+        *manifest_snapshot,
+        *capture_input_snapshots((
+            *artifact_input_paths,
+            cleanup_calibration_path,
+            allocation_diagnostic_path,
+        )),
+    )
+    validate_final_manifest_transport(manifest)
+    metrics, performance, cleanup = (
+        load_json_object(path, label)
+        for path, label in zip(
+            (metrics_path, performance_path, cleanup_path),
+            ("metrics", "performanceAdmission", "cleanupAdmission"),
+        )
+    )
+except (EvidenceError, OSError, UnicodeError):
+    raise SystemExit(1)
+if manifest.get("manifestState") != "FINAL" or manifest.get("terminalStatus") != "HOLD":
+    raise SystemExit(1)
+reason_codes = {reason.get("code") for reason in manifest.get("reasons", [])}
+if performance.get("verdict") != "ADMITTED" or performance.get("reasons"):
+    raise SystemExit(1)
+
+artifacts = manifest.get("artifacts", {})
+for name, supplied in (
+    ("metrics", metrics_path),
+    ("performanceAdmission", performance_path),
+    ("cleanupAdmission", cleanup_path),
+):
+    recorded = artifacts.get(name, {}).get("path")
+    if not isinstance(recorded, str) or pathlib.Path(recorded).resolve() != supplied.resolve():
+        raise SystemExit(1)
+try:
+    preflight_path = pathlib.Path(artifacts["preflightManifest"]["path"])
+    captured_path = pathlib.Path(artifacts["artifactManifest"]["path"])
+    preflight = load_strict_kv(preflight_path, "preflightManifest")
+    load_strict_kv(captured_path, "artifactManifest")
+    metrics_sha256 = hashlib.sha256(metrics_path.read_bytes()).hexdigest()
+    if validate_v4_context_pair(
+        preflight_path,
+        captured_path,
+        metrics.get("captureIdentity"),
+        metrics_sha256=metrics_sha256,
+    ):
+        raise SystemExit(1)
+    canonical_performance = build_metrics_report(
+        metrics,
+        metrics_sha256=metrics_sha256,
+        validator_path=repository_root / "Tools/gameplay_performance_admission.py",
+        planned_revision=preflight["PreBuildHeadSha"],
+        expected_width=int(preflight["ExpectedWidth"]),
+        expected_height=int(preflight["ExpectedHeight"]),
+        expected_warmup_frames=int(preflight["ExpectedWarmupFrames"]),
+        expected_sample_frames=int(preflight["ExpectedSampleFrames"]),
+        expected_tick_interval=int(preflight["ExpectedTickInterval"]),
+    )
+    canonical_cleanup = build_admission_report(
+        metrics,
+        metrics_sha256=metrics_sha256,
+        active_strategies=("A",),
+        validator_path=repository_root / "Tools/gameplay_cleanup_slice3_admission.py",
+        workload_contract_path=(
+            repository_root
+            / "Tools/contracts/gameplay_cleanup_slice3_workloads_v2.json"
+        ),
+    )
+except (EvidenceError, OSError, UnicodeError, KeyError, TypeError, ValueError):
+    raise SystemExit(1)
+if performance != canonical_performance or cleanup != canonical_cleanup:
+    raise SystemExit(1)
+
+allocation_candidate = (
+    manifest.get("authoritativeVerdict") == "HOLD_CLEANUP_ADMISSION"
+    and reason_codes == {"CLEANUP_REJECTED"}
+)
+if allocation_candidate:
+    try:
+        calibration = validate_allocation_diagnostic_contract(
+            metrics=metrics_path,
+            allocation_diagnostic=allocation_diagnostic_path,
+            cleanup_calibration=cleanup_calibration_path,
+            validator=repository_root / "Tools/gameplay_cleanup_slice3_admission.py",
+            aggregator=repository_root / "Tools/gameplay_cleanup_slice3_calibration.py",
+            workload_contract=(
+                repository_root
+                / "Tools/contracts/gameplay_cleanup_slice3_workloads_v2.json"
+            ),
+        )
+    except (EvidenceError, OSError, ValueError):
+        raise SystemExit(1)
+else:
+    if (
+        not cleanup_calibration_path.is_file()
+        or allocation_diagnostic_path.exists()
+        or allocation_diagnostic_path.is_symlink()
+    ):
+        raise SystemExit(1)
+    recorded = artifacts.get("cleanupCalibration", {}).get("path")
+    if (
+        not isinstance(recorded, str)
+        or pathlib.Path(recorded).resolve() != cleanup_calibration_path.resolve()
+    ):
+        raise SystemExit(1)
+    try:
+        calibration = load_json_object(
+            cleanup_calibration_path, "cleanupCalibration"
+        )
+        canonical_calibration = build_calibration_report(
+            metrics,
+            metrics_sha256=metrics_sha256,
+            validator_path=repository_root / "Tools/gameplay_cleanup_slice3_admission.py",
+            aggregator_path=repository_root / "Tools/gameplay_cleanup_slice3_calibration.py",
+            workload_contract_path=(
+                repository_root
+                / "Tools/contracts/gameplay_cleanup_slice3_workloads_v2.json"
+            ),
+        )
+    except (EvidenceError, OSError, UnicodeError, KeyError, TypeError, ValueError):
+        raise SystemExit(1)
+    if calibration != canonical_calibration:
+        raise SystemExit(1)
+
+normal_hold = (
+    manifest.get("authoritativeVerdict") == "HOLD_INVALID_EVIDENCE"
+    and reason_codes == {"FULL_SCAN_EXPECTATION_UNAPPROVED"}
+    and cleanup.get("verdict") == "ADMITTED"
+    and not cleanup.get("reasons")
+    and calibration.get("status") in {"READY", "DEFERRED_NOT_MATERIAL"}
+)
+cleanup_reasons = cleanup.get("reasons", [])
+calibration_reasons = calibration.get("reasons", [])
+allocation_hold = (
+    manifest.get("authoritativeVerdict") == "HOLD_CLEANUP_ADMISSION"
+    and reason_codes == {"CLEANUP_REJECTED"}
+    and cleanup.get("verdict") == "REJECTED"
+    and len(cleanup_reasons) == 1
+    and cleanup_reasons[0].get("code") == "SEMANTIC_INVARIANT_INVALID"
+    and cleanup_reasons[0].get("path") == "cleanupSlice3Calibration"
+    and cleanup_reasons[0].get("observed")
+        == "ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0"
+    and calibration.get("status") == "HOLD_INVALID_EVIDENCE"
+    and len(calibration_reasons) == 1
+    and calibration_reasons[0].get("code") == "SEMANTIC_INVARIANT_INVALID"
+    and calibration_reasons[0].get("path") == "cleanupSlice3Calibration"
+    and calibration_reasons[0].get("observed")
+        == "S3-A calibration was not admitted: ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0"
+)
+if not normal_hold and not allocation_hold:
+    raise SystemExit(1)
+
+identity = manifest.get("identity", {})
+if (
+    identity.get("metricsRevision") != identity.get("preBuildHeadSha")
+    or not identity.get("workloadIds")
+    or not identity.get("orderedRunKeys")
+    or identity.get("metricsSha256") != hashlib.sha256(metrics_path.read_bytes()).hexdigest()
+):
+    raise SystemExit(1)
+
+stages = manifest.get("stages", {})
+if allocation_hold:
+    expected_stage_statuses = {
+        "preflight": "PASS",
+        "build": "PASS",
+        "guardRestore": "PASS",
+        "player": "PASS",
+        "markerValidation": "PASS",
+        "performanceAdmission": "PASS",
+        "cleanupAdmission": "HOLD",
+        "calibration": "NOT_RUN",
+        "consistencyFinalization": "NOT_RUN",
+    }
+    if (
+        {name: value.get("status") for name, value in stages.items()}
+        != expected_stage_statuses
+        or manifest.get("exitStatus")
+        != {"performanceAdmission": 0, "cleanupAdmission": 1}
+        or artifacts.get("cleanupCalibration", {}).get("state")
+        != "NOT_APPLICABLE"
+    ):
+        raise SystemExit(1)
+else:
+    if artifacts.get("cleanupCalibration", {}).get("state") != "PRESENT":
+        raise SystemExit(1)
+
+calibration_capture = metrics.get("cleanupSlice3Calibration", {})
+for capture in calibration_capture.get("captures", []):
+    strategy = capture.get("strategy")
+    for workload in capture.get("workloads", []):
+        workload_id = workload.get("workloadId")
+        if workload.get("oracleParityVerified") is not True:
+            raise SystemExit(1)
+        for run in workload.get("runs", []):
+            ticks = run.get("executedTicks")
+            repetition = run.get("repetition")
+            if (
+                not isinstance(ticks, int)
+                or run.get("referenceOracleInvocationCount") != ticks
+                or run.get("invariantMismatchCount") != 0
+                or run.get("runKey") != f"{strategy}/{workload_id}/{repetition}"
+            ):
+                raise SystemExit(1)
+try:
+    for _ in range(2):
+        validate_input_snapshots(input_snapshots)
+        live_identity = live_source_identity(repository_root)
+        if (
+            live_identity["headSha"] != identity.get("preBuildHeadSha")
+            or live_identity["worktreeSha256"] != identity.get("preBuildWorktreeSha256")
+            or live_identity["runtimeTreeSha256"] != identity.get("runtimeTreeSha256")
+        ):
+            raise SystemExit(1)
+except (EvidenceError, OSError, UnicodeError):
+    raise SystemExit(1)
+PY
+}
+
+is_cleanup_s3_capture_smoke_allocation_only_report() {
+    local report_path="$1"
+    local report_kind="$2"
+    python3 - "$report_path" "$report_kind" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+kind = sys.argv[2]
+if not path.is_file():
+    raise SystemExit(1)
+report = json.loads(path.read_text(encoding="utf-8"))
+reasons = report.get("reasons", [])
+if len(reasons) != 1:
+    raise SystemExit(1)
+value = reasons[0]
+expected = {
+    "cleanup": (
+        "REJECTED",
+        "verdict",
+        "ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0",
+    ),
+    "calibration": (
+        "HOLD_INVALID_EVIDENCE",
+        "status",
+        "S3-A calibration was not admitted: ALLOCATION_COUNTER_PROBE_INVALID: expectedAtLeast=4096 observed=0",
+    ),
+}.get(kind)
+if expected is None:
+    raise SystemExit(1)
+status, field, observed = expected
+if (
+    report.get(field) != status
+    or value.get("code") != "SEMANTIC_INVARIANT_INVALID"
+    or value.get("path") != "cleanupSlice3Calibration"
+    or value.get("observed") != observed
+):
+    raise SystemExit(1)
+PY
+}
+
 run_gameplay_performance() {
     local timestamp
     local product_name
@@ -5642,15 +6235,66 @@ run_gameplay_performance() {
     local runtime_log
     local runtime_log_win
     local metrics_path
+    local performance_admission_report_path
+    local preflight_manifest_path
+    local artifact_manifest_path
+    local cleanup_calibration_report_path
+    local cleanup_allocation_diagnostic_path
+    local calibration_validation_path
+    local cleanup_admission_summary_path
+    local cleanup_evidence_manifest_path
     local worktree_diff_hash
     local artifact_hash
     local build_payload_hash
     local revision_sha
+    local post_restore_worktree_hash
+    local post_restore_head_sha
+    local runtime_tree_hash
+    local post_restore_runtime_tree_hash
+    local campaign_id
+    local attempt_id
+    local capture_nonce
+    local attempt_uuid
+    local runner_hash
+    local performance_validator_hash
+    local cleanup_validator_hash
+    local aggregator_hash
+    local manifest_tool_hash
+    local workload_contract_hash
+    local harness_hash
+    local payload_file
+    local payload_relative
+    local payload_size
+    local payload_sha
     local build_status
+    local performance_admission_status=0
+    local cleanup_admission_status=0
+    local cleanup_calibration_status=0
+    local cleanup_allocation_only=0
     local guard_root
     local guarded_relative_path
     local optional_guarded_relative_path
-    local generated_link_existed=0
+    local generated_link_file_existed=0
+    local generated_link_meta_existed=0
+    local guard_restore_completed=0
+    local terminal_status
+    local calibration_status
+    local lifecycle_identity_json
+    local guard_restore_mismatch=0
+    local attempt_manifest_ready=0
+    local failure_reason
+    local failure_verdict
+    local guard_status=0
+    local final_signal_status=0
+    local capture_smoke=0
+    local capture_evidence_root="$GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT"
+    local capture_build_root="$GAMEPLAY_PERFORMANCE_BUILD_ROOT"
+    local -a manifest_calibration_arguments
+    local capture_width="$GAMEPLAY_PERFORMANCE_WIDTH"
+    local capture_height="$GAMEPLAY_PERFORMANCE_HEIGHT"
+    local capture_warmup_frames="$GAMEPLAY_PERFORMANCE_WARMUP_FRAMES"
+    local capture_sample_frames="$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES"
+    local capture_tick_interval="$GAMEPLAY_PERFORMANCE_TICK_INTERVAL"
     local -a build_command
     local -a guarded_relative_paths=(
         "ProjectSettings/ProjectSettings.asset"
@@ -5662,15 +6306,68 @@ run_gameplay_performance() {
         "Assets/AddressableAssetsData/Windows.meta"
     )
 
+    trap 'trap - RETURN ERR INT TERM; return 2' ERR
+    trap 'trap - RETURN ERR INT TERM; return 130' INT
+    trap 'trap - RETURN ERR INT TERM; return 143' TERM
+
+    if [ "${RUN_MODE:-}" = "cleanup-s3-capture-smoke" ]; then
+        capture_smoke=1
+        capture_evidence_root="$CLEANUP_S3_CAPTURE_SMOKE_EVIDENCE_ROOT"
+        capture_build_root="$CLEANUP_S3_CAPTURE_SMOKE_BUILD_ROOT"
+        capture_width=1280
+        capture_height=720
+        capture_warmup_frames=12
+        capture_sample_frames=24
+        capture_tick_interval=2
+    fi
+
     timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    attempt_uuid="$(tr -d '\r\n' < /proc/sys/kernel/random/uuid)"
     revision_sha="$(git rev-parse HEAD)"
-    product_name="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX}-GameplayPerformance-${timestamp}"
-    evidence_dir="$GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT/$timestamp"
-    build_dir="$GAMEPLAY_PERFORMANCE_BUILD_ROOT/$timestamp"
+    if [ "$capture_smoke" -eq 1 ]; then
+        campaign_id="cleanup-s3-capture-smoke-$attempt_uuid"
+    else
+        campaign_id="cleanup-s3a-$timestamp-$attempt_uuid"
+    fi
+    attempt_id="$campaign_id-calibration-1"
+    capture_nonce="$(tr -d '\r\n' < /proc/sys/kernel/random/uuid)"
+    runner_hash="$(sha256sum "$PROJECT_PATH_WSL/run_tests.sh" | awk '{print $1}')"
+    performance_validator_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_performance_admission.py" | awk '{print $1}')"
+    cleanup_validator_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_admission.py" | awk '{print $1}')"
+    aggregator_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_calibration.py" | awk '{print $1}')"
+    manifest_tool_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" | awk '{print $1}')"
+    workload_contract_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/contracts/gameplay_cleanup_slice3_workloads_v2.json" | awk '{print $1}')"
+    harness_hash="$(
+        printf '%s\n' \
+            "runnerSha256=$runner_hash" \
+            "performanceValidatorSha256=$performance_validator_hash" \
+            "cleanupValidatorSha256=$cleanup_validator_hash" \
+            "aggregatorSha256=$aggregator_hash" \
+            "manifestToolSha256=$manifest_tool_hash" \
+            "workloadContractSha256=$workload_contract_hash" |
+            sha256sum | awk '{print $1}'
+    )"
+    product_name="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX}-GameplayPerformance-${timestamp}-${attempt_uuid}"
+    if [ "$capture_smoke" -eq 1 ]; then
+        product_name="VectorQuake-P0Phase4Smoke-CleanupS3CaptureSmoke-${attempt_uuid}"
+        evidence_dir="$capture_evidence_root/$attempt_uuid"
+        build_dir="$capture_build_root/$attempt_uuid"
+    else
+        evidence_dir="$capture_evidence_root/$campaign_id"
+        build_dir="$capture_build_root/$campaign_id"
+    fi
     player_path="$build_dir/VectorQuake-GameplayPerformance.exe"
     build_log="$evidence_dir/player-build.log"
     runtime_log="$evidence_dir/player-runtime.log"
     metrics_path="$evidence_dir/performance-metrics.json"
+    performance_admission_report_path="$evidence_dir/performance-admission-report.json"
+    preflight_manifest_path="$evidence_dir/preflight-manifest.txt"
+    artifact_manifest_path="$evidence_dir/artifact-manifest.txt"
+    cleanup_calibration_report_path="$evidence_dir/cleanup-s3a-calibration-report.json"
+    cleanup_allocation_diagnostic_path="$evidence_dir/cleanup-s3a-allocation-diagnostic.json"
+    calibration_validation_path="$cleanup_calibration_report_path"
+    cleanup_admission_summary_path="$evidence_dir/cleanup-s3a-admission-summary.json"
+    cleanup_evidence_manifest_path="$evidence_dir/cleanup-s3a-evidence-manifest.json"
     evidence_dir_win="$(wslpath -w "$evidence_dir")"
     player_path_win="$(wslpath -w "$player_path")"
     build_log_win="$(wslpath -w "$build_log")"
@@ -5693,16 +6390,29 @@ run_gameplay_performance() {
     )
 
     if [ "$DRY_RUN" -eq 1 ]; then
+        trap - ERR INT TERM
         echo "Would build and run a release-like Windows gameplay performance Player:"
         print_shell_command "${build_command[@]}"
-        echo "Would sample render-idle and gameplay-neutral-tick phases at ${GAMEPLAY_PERFORMANCE_WIDTH}x${GAMEPLAY_PERFORMANCE_HEIGHT}."
-        echo "Would store evidence under $GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT and builds under $GAMEPLAY_PERFORMANCE_BUILD_ROOT."
+        echo "Would sample render-idle and gameplay-neutral-tick phases at ${capture_width}x${capture_height}."
+        echo "Would store evidence under $capture_evidence_root and builds under $capture_build_root."
         return 0
     fi
 
+    trap 'trap - RETURN ERR; trap "" INT TERM; if [ "$attempt_manifest_ready" -eq 1 ]; then gameplay_performance_attempt_return_guard "$cleanup_evidence_manifest_path" "$guard_root" "$guard_restore_completed" "$generated_link_file_existed" "$generated_link_meta_existed" "$player_path_win" || true; fi; return 2' ERR
+    trap 'if [ "$attempt_manifest_ready" -ne 1 ]; then trap - RETURN ERR INT TERM; return 130; fi; gameplay_performance_signal_return_guard "$cleanup_evidence_manifest_path" "$guard_root" "$guard_restore_completed" "$generated_link_file_existed" "$generated_link_meta_existed" "$player_path_win"; trap - RETURN ERR INT TERM; return 130' INT
+    trap 'if [ "$attempt_manifest_ready" -ne 1 ]; then trap - RETURN ERR INT TERM; return 143; fi; gameplay_performance_signal_return_guard "$cleanup_evidence_manifest_path" "$guard_root" "$guard_restore_completed" "$generated_link_file_existed" "$generated_link_meta_existed" "$player_path_win"; trap - RETURN ERR INT TERM; return 143' TERM
+
     ensure_no_current_project_unity_process
     ensure_no_current_project_unity_lock
-    mkdir -p "$evidence_dir" "$build_dir"
+    mkdir -p "$capture_evidence_root" "$capture_build_root"
+    if ! mkdir -- "$evidence_dir"; then
+        echo "ERROR: exclusive gameplay performance evidence directory already exists: $evidence_dir"
+        return 2
+    fi
+    if ! mkdir -- "$build_dir"; then
+        echo "ERROR: exclusive gameplay performance build directory already exists: $build_dir"
+        return 2
+    fi
     guard_root="$evidence_dir/pre-build-project-state"
     for guarded_relative_path in "${guarded_relative_paths[@]}"; do
         mkdir -p "$guard_root/$(dirname "$guarded_relative_path")"
@@ -5718,119 +6428,543 @@ run_gameplay_performance() {
                 "$guard_root/$optional_guarded_relative_path"
         fi
     done
-    if [ -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" ] ||
-       [ -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" ]; then
-        generated_link_existed=1
+    if [ -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" ]; then
+        generated_link_file_existed=1
         mkdir -p "$guard_root/Assets/AddressableAssetsData"
-        [ ! -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" ] ||
-            cp -- \
-                "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" \
-                "$guard_root/Assets/AddressableAssetsData/link.xml"
-        [ ! -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" ] ||
-            cp -- \
-                "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" \
-                "$guard_root/Assets/AddressableAssetsData/link.xml.meta"
+        cp -- \
+            "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" \
+            "$guard_root/Assets/AddressableAssetsData/link.xml"
+    fi
+    if [ -f "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" ]; then
+        generated_link_meta_existed=1
+        mkdir -p "$guard_root/Assets/AddressableAssetsData"
+        cp -- \
+            "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta" \
+            "$guard_root/Assets/AddressableAssetsData/link.xml.meta"
     fi
     worktree_diff_hash="$(
         {
+            printf 'TRACKED\0'
             git diff --binary HEAD -- .
+            printf '\0UNTRACKED\0'
             while IFS= read -r -d '' untracked_file; do
-                printf 'UNTRACKED %s\n' "$untracked_file"
-                sha256sum -- "$untracked_file"
+                printf '%s\0' "$untracked_file"
+                sha256sum -- "$untracked_file" | awk '{printf "%s", $1}'
+                printf '\0'
             done < <(git ls-files --others --exclude-standard -z | sort -z)
         } | sha256sum | awk '{print $1}'
     )"
+    runtime_tree_hash="$(
+        printf 'HEAD\0%s\0WORKTREE\0%s' "$revision_sha" "$worktree_diff_hash" |
+            sha256sum | awk '{print $1}'
+    )"
+    {
+        echo "SchemaVersion=2"
+        echo "EvidenceContractVersion=4"
+        echo "EvidencePhase=preflight"
+        echo "CampaignId=$campaign_id"
+        echo "AttemptId=$attempt_id"
+        echo "AttemptOrdinal=1"
+        echo "AttemptKind=calibration"
+        echo "CaptureNonce=$capture_nonce"
+        echo "Stage=S3-A"
+        echo "ActiveStrategies=A"
+        echo "PreBuildHeadSha=$revision_sha"
+        echo "PreBuildWorktreeSha256=$worktree_diff_hash"
+        echo "RuntimeTreeSha256=$runtime_tree_hash"
+        echo "RunnerSha256=$runner_hash"
+        echo "PerformanceValidatorSha256=$performance_validator_hash"
+        echo "CleanupValidatorSha256=$cleanup_validator_hash"
+        echo "AggregatorSha256=$aggregator_hash"
+        echo "ManifestToolSha256=$manifest_tool_hash"
+        echo "WorkloadContractSha256=$workload_contract_hash"
+        echo "HarnessSha256=$harness_hash"
+        echo "ExpectedWidth=$capture_width"
+        echo "ExpectedHeight=$capture_height"
+        echo "ExpectedWarmupFrames=$capture_warmup_frames"
+        echo "ExpectedSampleFrames=$capture_sample_frames"
+        echo "ExpectedTickInterval=$capture_tick_interval"
+        echo "GitStatusShort:"
+        git status --short
+    } > "$preflight_manifest_path.tmp"
+    sync -f "$preflight_manifest_path.tmp"
+    mv -f -- "$preflight_manifest_path.tmp" "$preflight_manifest_path"
+
+    if ! python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --initialize-provisional \
+            --identity-json "{\"campaignId\":\"$campaign_id\",\"attemptId\":\"$attempt_id\",\"attemptOrdinal\":1,\"attemptKind\":\"calibration\",\"captureNonce\":\"$capture_nonce\",\"stage\":\"S3-A\",\"activeStrategies\":[\"A\"],\"workloadContractSha256\":\"$workload_contract_hash\",\"preBuildHeadSha\":\"$revision_sha\",\"preBuildWorktreeSha256\":\"$worktree_diff_hash\",\"postRestoreHeadSha\":null,\"postRestoreWorktreeSha256\":null,\"runtimeTreeSha256\":\"$runtime_tree_hash\",\"playerArtifactSha256\":null,\"buildPayloadSha256\":null,\"metricsRevision\":null,\"metricsSha256\":null,\"runnerSha256\":\"$runner_hash\",\"performanceValidatorSha256\":\"$performance_validator_hash\",\"cleanupValidatorSha256\":\"$cleanup_validator_hash\",\"aggregatorSha256\":\"$aggregator_hash\",\"manifestToolSha256\":\"$manifest_tool_hash\",\"harnessSha256\":\"$harness_hash\",\"workloadIds\":[],\"orderedRunKeys\":[]}" \
+            --artifact-path "preflightManifest=$preflight_manifest_path" \
+            --artifact-path "buildLog=$build_log" \
+            --artifact-path "playerArtifact=$player_path" \
+            --artifact-path "artifactManifest=$artifact_manifest_path" \
+            --artifact-path "runtimeLog=$runtime_log" \
+            --artifact-path "metrics=$metrics_path" \
+            --artifact-path "performanceAdmission=$performance_admission_report_path" \
+            --artifact-path "cleanupAdmission=$cleanup_admission_summary_path" \
+            --artifact-path "cleanupCalibration=$cleanup_calibration_report_path" \
+            --artifact-path "performanceValidator=$PROJECT_PATH_WSL/Tools/gameplay_performance_admission.py" \
+            --artifact-path "cleanupValidator=$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_admission.py" \
+            --artifact-path "aggregator=$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_calibration.py" \
+            --artifact-path "manifestTool=$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --artifact-path "workloadContract=$PROJECT_PATH_WSL/Tools/contracts/gameplay_cleanup_slice3_workloads_v2.json" \
+            --artifact-path "runner=$PROJECT_PATH_WSL/run_tests.sh" \
+            --output "$cleanup_evidence_manifest_path"; then
+        echo "ERROR: Gameplay performance provisional evidence manifest could not be preserved."
+        return 2
+    fi
+    attempt_manifest_ready=1
+    trap 'trap - RETURN ERR; trap "" INT TERM; if gameplay_performance_attempt_return_guard "$cleanup_evidence_manifest_path" "$guard_root" "$guard_restore_completed" "$generated_link_file_existed" "$generated_link_meta_existed" "$player_path_win"; then guard_status=0; else guard_status=$?; fi; if [ "$guard_status" -eq 1 ]; then echo "Gameplay performance measurement: HOLD"; return 1; elif [ "$guard_status" -eq 2 ]; then return 2; elif gameplay_performance_terminal_exit_from_manifest "$cleanup_evidence_manifest_path"; then return 0; else return $?; fi' RETURN
+    if ! python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage preflight --stage-status PASS \
+            --output "$cleanup_evidence_manifest_path"; then
+        return 2
+    fi
 
     echo "Building release-like Windows gameplay performance Player..."
     build_status=0
     "${build_command[@]}" || build_status=$?
-    for guarded_relative_path in "${guarded_relative_paths[@]}"; do
-        cp -- \
-            "$guard_root/$guarded_relative_path" \
-            "$PROJECT_PATH_WSL/$guarded_relative_path"
-    done
-    for optional_guarded_relative_path in "${optional_guarded_relative_paths[@]}"; do
-        if [ -f "$guard_root/$optional_guarded_relative_path" ]; then
-            cp -- \
-                "$guard_root/$optional_guarded_relative_path" \
-                "$PROJECT_PATH_WSL/$optional_guarded_relative_path"
-        else
-            rm -f -- "$PROJECT_PATH_WSL/$optional_guarded_relative_path"
-        fi
-    done
-    if [ "$generated_link_existed" -eq 1 ]; then
-        [ ! -f "$guard_root/Assets/AddressableAssetsData/link.xml" ] ||
-            cp -- \
-                "$guard_root/Assets/AddressableAssetsData/link.xml" \
-                "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml"
-        [ ! -f "$guard_root/Assets/AddressableAssetsData/link.xml.meta" ] ||
-            cp -- \
-                "$guard_root/Assets/AddressableAssetsData/link.xml.meta" \
-                "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta"
+    if restore_gameplay_performance_guard_state \
+            "$guard_root" "$generated_link_file_existed" "$generated_link_meta_existed"; then
+        guard_restore_completed=1
     else
-        rm -f -- \
-            "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml" \
-            "$PROJECT_PATH_WSL/Assets/AddressableAssetsData/link.xml.meta"
+        guard_restore_mismatch=1
+    fi
+    post_restore_head_sha="$(git rev-parse HEAD)"
+    post_restore_worktree_hash="$(
+        {
+            printf 'TRACKED\0'
+            git diff --binary HEAD -- .
+            printf '\0UNTRACKED\0'
+            while IFS= read -r -d '' untracked_file; do
+                printf '%s\0' "$untracked_file"
+                sha256sum -- "$untracked_file" | awk '{printf "%s", $1}'
+                printf '\0'
+            done < <(git ls-files --others --exclude-standard -z | sort -z)
+        } | sha256sum | awk '{print $1}'
+    )"
+    post_restore_runtime_tree_hash="$(
+        printf 'HEAD\0%s\0WORKTREE\0%s' "$post_restore_head_sha" "$post_restore_worktree_hash" |
+            sha256sum | awk '{print $1}'
+    )"
+    lifecycle_identity_json="{\"postRestoreHeadSha\":\"$post_restore_head_sha\",\"postRestoreWorktreeSha256\":\"$post_restore_worktree_hash\"}"
+    if [ "$post_restore_head_sha" != "$revision_sha" ] ||
+       [ "$post_restore_worktree_hash" != "$worktree_diff_hash" ] ||
+       [ "$post_restore_runtime_tree_hash" != "$runtime_tree_hash" ]; then
+        guard_restore_mismatch=1
     fi
     if [ "$build_status" -ne 0 ]; then
+        failure_reason="BUILD_FAILED"
+        failure_verdict="HOLD_BUILD_FAILURE"
+        if [ "$guard_restore_mismatch" -eq 1 ]; then
+            failure_reason="GUARD_RESTORE_FAILED"
+            failure_verdict="HOLD_INVALID_EVIDENCE"
+        fi
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage build --stage-status HOLD --reason-code "$failure_reason" \
+            --identity-json "$lifecycle_identity_json" \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+            --terminal-status HOLD --authoritative-verdict "$failure_verdict" \
+            --identity-json "$lifecycle_identity_json" \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
         echo "ERROR: Gameplay performance Player build failed with status $build_status."
-        return "$build_status"
+        echo "Gameplay performance measurement: HOLD"
+        return 1
     fi
-    require_file "$player_path" "gameplay performance Player"
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+        --stage build --stage-status PASS --identity-json "$lifecycle_identity_json" \
+        --output "$cleanup_evidence_manifest_path" || return 2
+    if [ "$guard_restore_mismatch" -eq 1 ]; then
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage guardRestore --stage-status HOLD --reason-code GUARD_RESTORE_FAILED \
+            --identity-json "$lifecycle_identity_json" \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+            --terminal-status HOLD --authoritative-verdict HOLD_INVALID_EVIDENCE \
+            --identity-json "$lifecycle_identity_json" \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
+        echo "Gameplay performance measurement: HOLD"
+        return 1
+    fi
+    if [ ! -f "$player_path" ]; then
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage guardRestore --stage-status PASS --identity-json "$lifecycle_identity_json" \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage player --stage-status HOLD --reason-code ARTIFACT_MISSING \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+            --terminal-status HOLD --authoritative-verdict HOLD_INVALID_EVIDENCE \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
+        echo "Gameplay performance measurement: HOLD"
+        return 1
+    fi
+    artifact_hash="$(sha256sum "$player_path" | awk '{print $1}')"
+    build_payload_hash="$(
+        (
+            cd "$build_dir"
+            while IFS= read -r -d '' payload_file; do
+                payload_relative="${payload_file#./}"
+                payload_size="$(stat -c %s -- "$payload_file")"
+                payload_sha="$(sha256sum -- "$payload_file" | awk '{print $1}')"
+                printf '%s\0%s\0%s\n' "$payload_relative" "$payload_size" "$payload_sha"
+            done < <(find . -type f -print0 | sort -z)
+        ) | sha256sum | awk '{print $1}'
+    )"
+    lifecycle_identity_json="{\"postRestoreHeadSha\":\"$post_restore_head_sha\",\"postRestoreWorktreeSha256\":\"$post_restore_worktree_hash\",\"playerArtifactSha256\":\"$artifact_hash\",\"buildPayloadSha256\":\"$build_payload_hash\"}"
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+        --stage guardRestore --stage-status PASS --identity-json "$lifecycle_identity_json" \
+        --output "$cleanup_evidence_manifest_path" || return 2
 
     echo "Running gameplay performance measurement..."
     if ! timeout --kill-after=10 180 \
             "$player_path" \
             -force-d3d11 \
             -screen-fullscreen 0 \
-            -screen-width "$GAMEPLAY_PERFORMANCE_WIDTH" \
-            -screen-height "$GAMEPLAY_PERFORMANCE_HEIGHT" \
+            -screen-width "$capture_width" \
+            -screen-height "$capture_height" \
             -logFile "$runtime_log_win" \
             --capture-stage stage-1-1 \
             --capture-campaign-temp-slot \
             --gameplay-performance \
             --gameplay-performance-output "$evidence_dir_win" \
-            --gameplay-performance-width "$GAMEPLAY_PERFORMANCE_WIDTH" \
-            --gameplay-performance-height "$GAMEPLAY_PERFORMANCE_HEIGHT" \
-            --gameplay-performance-warmup-frames "$GAMEPLAY_PERFORMANCE_WARMUP_FRAMES" \
-            --gameplay-performance-sample-frames "$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" \
-            --gameplay-performance-tick-interval "$GAMEPLAY_PERFORMANCE_TICK_INTERVAL" \
-            --gameplay-performance-revision "$revision_sha"; then
+            --gameplay-performance-width "$capture_width" \
+            --gameplay-performance-height "$capture_height" \
+            --gameplay-performance-warmup-frames "$capture_warmup_frames" \
+            --gameplay-performance-sample-frames "$capture_sample_frames" \
+            --gameplay-performance-tick-interval "$capture_tick_interval" \
+            --gameplay-cleanup-strategy A \
+            --gameplay-performance-revision "$revision_sha" \
+            --gameplay-evidence-campaign-id "$campaign_id" \
+            --gameplay-evidence-attempt-id "$attempt_id" \
+            --gameplay-evidence-attempt-ordinal 1 \
+            --gameplay-evidence-attempt-kind calibration \
+            --gameplay-evidence-capture-nonce "$capture_nonce" \
+            --gameplay-evidence-stage S3-A \
+            --gameplay-evidence-active-strategies A \
+            --gameplay-evidence-pre-build-head "$revision_sha" \
+            --gameplay-evidence-pre-build-worktree-sha256 "$worktree_diff_hash" \
+            --gameplay-evidence-post-restore-head "$post_restore_head_sha" \
+            --gameplay-evidence-post-restore-worktree-sha256 "$post_restore_worktree_hash" \
+            --gameplay-evidence-runtime-tree-sha256 "$runtime_tree_hash" \
+            --gameplay-evidence-player-artifact-sha256 "$artifact_hash" \
+            --gameplay-evidence-build-payload-sha256 "$build_payload_hash" \
+            --gameplay-evidence-runner-sha256 "$runner_hash" \
+            --gameplay-evidence-performance-validator-sha256 "$performance_validator_hash" \
+            --gameplay-evidence-cleanup-validator-sha256 "$cleanup_validator_hash" \
+            --gameplay-evidence-aggregator-sha256 "$aggregator_hash" \
+            --gameplay-evidence-manifest-tool-sha256 "$manifest_tool_hash" \
+            --gameplay-evidence-workload-contract-sha256 "$workload_contract_hash" \
+            --gameplay-evidence-harness-sha256 "$harness_hash"; then
         terminate_terminal_player_processes "$player_path_win" || true
         echo "ERROR: Gameplay performance Player failed."
         tail -n 160 "$runtime_log" || true
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage player --stage-status HOLD --reason-code PLAYER_FAILED \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+            --terminal-status HOLD --authoritative-verdict HOLD_PLAYER_FAILURE \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
+        echo "Gameplay performance measurement: HOLD"
         return 1
     fi
 
-    require_file "$runtime_log" "gameplay performance runtime log"
-    require_file "$metrics_path" "gameplay performance metrics"
-    if ! rg -qF "GAMEPLAY_PERFORMANCE:PASS" "$runtime_log" ||
-       rg -qF "GAMEPLAY_PERFORMANCE:FAIL" "$runtime_log"; then
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+        --stage player --stage-status PASS --output "$cleanup_evidence_manifest_path" || return 2
+    if [ ! -f "$runtime_log" ] || [ ! -f "$metrics_path" ] ||
+       ! validate_gameplay_performance_runtime_marker "$runtime_log"; then
         echo "ERROR: Gameplay performance marker validation failed."
         tail -n 160 "$runtime_log" || true
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage markerValidation --stage-status HOLD --reason-code MARKER_VALIDATION_FAILED \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+            --terminal-status HOLD --authoritative-verdict HOLD_MARKER_FAILURE \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
+        echo "Gameplay performance measurement: HOLD"
         return 1
     fi
-    if ! python3 -m json.tool "$metrics_path" >/dev/null; then
-        echo "ERROR: Gameplay performance metrics are not valid JSON."
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+        --stage markerValidation --stage-status PASS --output "$cleanup_evidence_manifest_path" || return 2
+    {
+        echo "SchemaVersion=2"
+        echo "EvidenceContractVersion=4"
+        echo "EvidencePhase=artifact-captured"
+        echo "CampaignId=$campaign_id"
+        echo "AttemptId=$attempt_id"
+        echo "AttemptOrdinal=1"
+        echo "AttemptKind=calibration"
+        echo "CaptureNonce=$capture_nonce"
+        echo "Stage=S3-A"
+        echo "ActiveStrategies=A"
+        echo "PreBuildHeadSha=$revision_sha"
+        echo "PreBuildWorktreeSha256=$worktree_diff_hash"
+        echo "PostRestoreHeadSha=$post_restore_head_sha"
+        echo "PostRestoreWorktreeSha256=$post_restore_worktree_hash"
+        echo "RuntimeTreeSha256=$post_restore_runtime_tree_hash"
+        echo "PlayerArtifactSha256=$artifact_hash"
+        echo "BuildPayloadSHA256=$build_payload_hash"
+        echo "MetricsSHA256=$(sha256sum "$metrics_path" | awk '{print $1}')"
+        echo "RuntimeLogSHA256=$(sha256sum "$runtime_log" | awk '{print $1}')"
+        echo "RunnerSha256=$runner_hash"
+        echo "PerformanceValidatorSha256=$performance_validator_hash"
+        echo "CleanupValidatorSha256=$cleanup_validator_hash"
+        echo "AggregatorSha256=$aggregator_hash"
+        echo "ManifestToolSha256=$manifest_tool_hash"
+        echo "WorkloadContractSha256=$workload_contract_hash"
+        echo "HarnessSha256=$harness_hash"
+        echo "ExpectedWidth=$capture_width"
+        echo "ExpectedHeight=$capture_height"
+        echo "ExpectedWarmupFrames=$capture_warmup_frames"
+        echo "ExpectedSampleFrames=$capture_sample_frames"
+        echo "ExpectedTickInterval=$capture_tick_interval"
+        echo "GitStatusShort:"
+        git status --short
+    } > "$artifact_manifest_path.tmp"
+    sync -f "$artifact_manifest_path.tmp"
+    mv -f -- "$artifact_manifest_path.tmp" "$artifact_manifest_path"
+    if python3 "$PROJECT_PATH_WSL/Tools/gameplay_performance_admission.py" metrics \
+            --metrics "$metrics_path" \
+            --planned-revision "$revision_sha" \
+            --expected-width "$capture_width" \
+            --expected-height "$capture_height" \
+            --expected-warmup-frames "$capture_warmup_frames" \
+            --expected-sample-frames "$capture_sample_frames" \
+            --expected-tick-interval "$capture_tick_interval" \
+            --preflight-manifest "$preflight_manifest_path" \
+            --artifact-manifest "$artifact_manifest_path" \
+            --output "$performance_admission_report_path"; then
+        performance_admission_status=0
+    else
+        performance_admission_status=$?
+        echo "ERROR: Gameplay performance metrics admission failed."
+    fi
+    if [ "$performance_admission_status" -ne 0 ] && [ "$performance_admission_status" -ne 1 ]; then
+        finalize_gameplay_performance_infrastructure_stage \
+            "$cleanup_evidence_manifest_path" performanceAdmission || return 2
+        echo "Gameplay performance measurement: HOLD"
         return 1
     fi
-    if ! rg -qF '"developmentBuild": false' "$metrics_path" ||
-       ! rg -qF '"phase":"render-idle"' "$metrics_path" ||
-       ! rg -qF '"phase":"gameplay-neutral-tick"' "$metrics_path" ||
-       ! rg -qF "\"validCpuMainSamples\":$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" "$metrics_path" ||
-       ! rg -qF "\"validGpuSamples\":$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES" "$metrics_path"; then
-        echo "ERROR: Gameplay performance metrics identity is incomplete."
+    if [ "$performance_admission_status" -ne 0 ]; then
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage performanceAdmission --stage-status HOLD --reason-code PERFORMANCE_REJECTED \
+            --record-exit-status "performanceAdmission=$performance_admission_status" \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+            --terminal-status HOLD --authoritative-verdict HOLD_PERFORMANCE_ADMISSION \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
+        echo "Gameplay performance measurement: HOLD"
         return 1
     fi
-
-    artifact_hash="$(sha256sum "$player_path" | awk '{print $1}')"
-    build_payload_hash="$(
-        cd "$build_dir"
-        while IFS= read -r -d '' payload_file; do
-            sha256sum -- "$payload_file"
-        done < <(find . -type f -print0 | sort -z)
-    )"
-    build_payload_hash="$(printf '%s\n' "$build_payload_hash" | sha256sum | awk '{print $1}')"
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+        --stage performanceAdmission --stage-status PASS \
+        --record-exit-status "performanceAdmission=$performance_admission_status" \
+        --output "$cleanup_evidence_manifest_path" || return 2
+    if python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_admission.py" \
+            "$metrics_path" \
+            --active-strategies A \
+            --preflight-manifest "$preflight_manifest_path" \
+            --artifact-manifest "$artifact_manifest_path" \
+            --output "$cleanup_admission_summary_path"; then
+        cleanup_admission_status=0
+    else
+        cleanup_admission_status=$?
+        if [ "$capture_smoke" -eq 0 ] || [ "$cleanup_admission_status" -ne 1 ]; then
+            echo "ERROR: Cleanup Slice 3 S3-A calibration admission failed."
+        fi
+    fi
+    if [ "$cleanup_admission_status" -ne 0 ] && [ "$cleanup_admission_status" -ne 1 ]; then
+        finalize_gameplay_performance_infrastructure_stage \
+            "$cleanup_evidence_manifest_path" cleanupAdmission || return 2
+        echo "Gameplay performance measurement: HOLD"
+        return 1
+    fi
+    if [ "$cleanup_admission_status" -ne 0 ]; then
+        if [ "$capture_smoke" -eq 1 ] &&
+           is_cleanup_s3_capture_smoke_allocation_only_report \
+                "$cleanup_admission_summary_path" cleanup; then
+            cleanup_allocation_only=1
+        else
+            python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+                --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+                --stage cleanupAdmission --stage-status HOLD --reason-code CLEANUP_REJECTED \
+                --record-exit-status "cleanupAdmission=$cleanup_admission_status" \
+                --output "$cleanup_evidence_manifest_path" || return 2
+            python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+                --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+                --terminal-status HOLD --authoritative-verdict HOLD_CLEANUP_ADMISSION \
+                --output "$cleanup_evidence_manifest_path" || return 2
+            require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
+            echo "Gameplay performance measurement: HOLD"
+            return 1
+        fi
+    fi
+    if [ "$cleanup_allocation_only" -eq 0 ]; then
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage cleanupAdmission --stage-status PASS \
+            --record-exit-status "cleanupAdmission=$cleanup_admission_status" \
+            --output "$cleanup_evidence_manifest_path" || return 2
+    fi
+    if [ "$cleanup_allocation_only" -eq 1 ]; then
+        calibration_validation_path="$cleanup_allocation_diagnostic_path"
+    fi
+    if python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_calibration.py" \
+            "$metrics_path" \
+            --preflight-manifest "$preflight_manifest_path" \
+            --artifact-manifest "$artifact_manifest_path" \
+            --output "$calibration_validation_path"; then
+        cleanup_calibration_status=0
+    else
+        cleanup_calibration_status=$?
+        if [ "$capture_smoke" -eq 0 ] || [ "$cleanup_calibration_status" -ne 1 ]; then
+            echo "ERROR: Cleanup Slice 3 S3-A calibration aggregation failed."
+        fi
+    fi
+    if [ "$cleanup_calibration_status" -ne 0 ] && [ "$cleanup_calibration_status" -ne 1 ]; then
+        finalize_gameplay_performance_infrastructure_stage \
+            "$cleanup_evidence_manifest_path" calibration || return 2
+        echo "Gameplay performance measurement: HOLD"
+        return 1
+    fi
+    if [ "$cleanup_calibration_status" -ne 0 ]; then
+        if [ "$cleanup_allocation_only" -eq 1 ] &&
+           is_cleanup_s3_capture_smoke_allocation_only_report \
+                "$cleanup_allocation_diagnostic_path" calibration; then
+            python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+                --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+                --stage cleanupAdmission --stage-status HOLD --reason-code CLEANUP_REJECTED \
+                --record-exit-status "cleanupAdmission=$cleanup_admission_status" \
+                --output "$cleanup_evidence_manifest_path" || return 2
+            # The diagnostic was executed to validate the bounded smoke envelope,
+            # but it is not an authoritative calibration lifecycle stage.
+        elif [ "$cleanup_allocation_only" -eq 1 ]; then
+            echo "ERROR: Cleanup S3 capture smoke allocation diagnostic is invalid."
+            return 1
+        fi
+        if [ "$cleanup_allocation_only" -eq 0 ]; then
+            python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+                --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+                --stage calibration --stage-status HOLD --reason-code SIGNAL_INVALID \
+                --record-exit-status "cleanupCalibration=$cleanup_calibration_status" \
+                --output "$cleanup_evidence_manifest_path" || return 2
+            python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+                --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+                --terminal-status HOLD --authoritative-verdict HOLD_INVALID_SIGNAL \
+                --output "$cleanup_evidence_manifest_path" || return 2
+            require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
+            echo "Gameplay performance measurement: HOLD"
+            return 1
+        fi
+    fi
+    if [ "$cleanup_allocation_only" -eq 0 ]; then
+        calibration_status="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["status"])' "$cleanup_calibration_report_path")" || return 2
+        if [ "$calibration_status" = "DEFERRED_NOT_MATERIAL" ]; then
+            python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+                --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+                --stage calibration --stage-status DEFERRED \
+                --record-exit-status "cleanupCalibration=$cleanup_calibration_status" \
+                --output "$cleanup_evidence_manifest_path" || return 2
+        else
+            python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+                --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+                --stage calibration --stage-status PASS \
+                --record-exit-status "cleanupCalibration=$cleanup_calibration_status" \
+                --output "$cleanup_evidence_manifest_path" || return 2
+        fi
+    fi
+    manifest_calibration_arguments=(
+        --cleanup-calibration "$cleanup_calibration_report_path"
+    )
+    if [ "$cleanup_allocation_only" -eq 1 ]; then
+        manifest_calibration_arguments+=(
+            --allocation-diagnostic "$cleanup_allocation_diagnostic_path"
+        )
+    fi
+    if ! python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --manifest "$cleanup_evidence_manifest_path" \
+            --metrics "$metrics_path" \
+            --runtime-log "$runtime_log" \
+            --preflight-manifest "$preflight_manifest_path" \
+            --artifact-manifest "$artifact_manifest_path" \
+            --performance-admission "$performance_admission_report_path" \
+            --cleanup-admission "$cleanup_admission_summary_path" \
+            "${manifest_calibration_arguments[@]}" \
+            --performance-validator "$PROJECT_PATH_WSL/Tools/gameplay_performance_admission.py" \
+            --validator "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_admission.py" \
+            --aggregator "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_calibration.py" \
+            --workload-contract \
+                "$PROJECT_PATH_WSL/Tools/contracts/gameplay_cleanup_slice3_workloads_v2.json" \
+            --runner "$PROJECT_PATH_WSL/run_tests.sh" \
+            --player-artifact "$player_path" \
+            --build-log "$build_log" \
+            --build-root "$build_dir" \
+            --performance-admission-status "$performance_admission_status" \
+            --cleanup-admission-status "$cleanup_admission_status" \
+            --cleanup-calibration-status "$cleanup_calibration_status" \
+            --output "$cleanup_evidence_manifest_path"; then
+        echo "ERROR: Cleanup Slice 3 evidence manifest generation failed."
+        return 2
+    fi
+    require_file "$cleanup_evidence_manifest_path" "Cleanup Slice 3 evidence manifest"
+    terminal_status="$(
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --print-terminal-status --manifest "$cleanup_evidence_manifest_path"
+    )" || return 2
+    if [ "$capture_smoke" -eq 1 ]; then
+        if ! validate_cleanup_s3_capture_smoke_terminal \
+                "$cleanup_evidence_manifest_path" \
+                "$metrics_path" \
+                "$performance_admission_report_path" \
+                "$cleanup_admission_summary_path" \
+                "$cleanup_calibration_report_path" \
+                "$cleanup_allocation_diagnostic_path"; then
+            echo "ERROR: Cleanup S3 capture smoke terminal envelope is invalid."
+            return 1
+        fi
+        terminal_message="Cleanup S3 capture smoke: PASS (non-official; authoritative manifest remains HOLD)"
+    else
+        case "$terminal_status" in
+            PASS)
+                terminal_message="Gameplay performance measurement: PASS"
+                ;;
+            DEFERRED)
+                terminal_message="Gameplay performance measurement: DEFERRED"
+                ;;
+            HOLD)
+                terminal_message="Gameplay performance measurement: HOLD"
+                ;;
+            *)
+                echo "ERROR: final evidence manifest has invalid terminalStatus=$terminal_status"
+                return 2
+                ;;
+        esac
+    fi
     {
         echo "UTC=$timestamp"
         echo "HEAD=$revision_sha"
@@ -5850,19 +6984,62 @@ run_gameplay_performance() {
         echo "BuildMutationRestore=PASS"
         echo "PersistentDataIsolation=unique-product-name"
         echo "GraphicsApi=Direct3D11"
-        echo "RequestedResolution=${GAMEPLAY_PERFORMANCE_WIDTH}x${GAMEPLAY_PERFORMANCE_HEIGHT}"
-        echo "WarmupFrames=$GAMEPLAY_PERFORMANCE_WARMUP_FRAMES"
-        echo "SampleFramesPerPhase=$GAMEPLAY_PERFORMANCE_SAMPLE_FRAMES"
-        echo "GameplayTickIntervalFrames=$GAMEPLAY_PERFORMANCE_TICK_INTERVAL"
+        echo "RequestedResolution=${capture_width}x${capture_height}"
+        echo "WarmupFrames=$capture_warmup_frames"
+        echo "SampleFramesPerPhase=$capture_sample_frames"
+        echo "GameplayTickIntervalFrames=$capture_tick_interval"
+        echo "CleanupSlice3Stage=S3-A"
+        echo "CleanupSlice3Strategy=A"
+        echo "CleanupSlice3CalibrationWarmupTicks=200"
+        echo "CleanupSlice3CalibrationSampleTicks=200"
+        echo "CleanupSlice3CalibrationRepetitions=3"
         echo "Metrics=$metrics_path"
+        if [ "$cleanup_allocation_only" -eq 1 ]; then
+            echo "CleanupSlice3CalibrationReport=NOT_APPLICABLE"
+            echo "CleanupSlice3AllocationDiagnostic=$cleanup_allocation_diagnostic_path"
+        else
+            echo "CleanupSlice3CalibrationReport=$cleanup_calibration_report_path"
+        fi
+        echo "CleanupSlice3AdmissionSummary=$cleanup_admission_summary_path"
+        echo "CleanupSlice3EvidenceManifest=$cleanup_evidence_manifest_path"
+        echo "PreflightManifest=$evidence_dir/preflight-manifest.txt"
+        echo "ArtifactManifest=$evidence_dir/artifact-manifest.txt"
         echo "GitStatusShort:"
         git status --short
     } > "$evidence_dir/manifest.txt"
 
-    echo "Gameplay performance measurement: PASS"
+    trap - RETURN ERR
+    trap 'if [ "$final_signal_status" -eq 0 ]; then final_signal_status=130; fi; trap "" INT TERM' INT
+    trap 'if [ "$final_signal_status" -eq 0 ]; then final_signal_status=143; fi; trap "" INT TERM' TERM
+    if gameplay_performance_attempt_return_guard \
+            "$cleanup_evidence_manifest_path" \
+            "$guard_root" \
+            "$guard_restore_completed" \
+            "$generated_link_file_existed" \
+            "$generated_link_meta_existed" \
+            "$player_path_win"; then
+        guard_status=0
+    else
+        guard_status=$?
+    fi
+    trap - INT TERM
+    if [ "$final_signal_status" -ne 0 ]; then
+        return "$final_signal_status"
+    fi
+    if [ "$guard_status" -eq 1 ]; then
+        echo "Gameplay performance measurement: HOLD"
+        return 1
+    fi
+    [ "$guard_status" -eq 0 ] || return 2
+
+    echo "$terminal_message"
     echo "  evidence: $evidence_dir"
     echo "  metrics:  $metrics_path"
     echo "  build:    $build_dir"
+    if [ "$capture_smoke" -eq 1 ]; then
+        return 0
+    fi
+    [ "$terminal_status" = "PASS" ]
 }
 
 run_typography_visual() {
@@ -7218,6 +8395,7 @@ parse_arguments() {
          [ "$RUN_MODE" = "typography-result-visual" ] ||
          [ "$RUN_MODE" = "terminal-player-build-smoke" ] ||
          [ "$RUN_MODE" = "gameplay-performance" ] ||
+         [ "$RUN_MODE" = "cleanup-s3-capture-smoke" ] ||
          [ "$RUN_MODE" = "player-capture-save-safety" ]; } &&
        [ -n "$TEST_FILTER" ]; then
         echo "ERROR: asset generation and visual evidence lanes do not accept test filters."
@@ -7321,6 +8499,7 @@ main() {
 
     parse_arguments "$@"
     mode="$RUN_MODE"
+    validate_test_timeout_config || return 1
 
     reject_direct_terminal_iris_temporal_capture_filter || return 1
 
@@ -7563,6 +8742,9 @@ main() {
             run_dotnet_ui
             run_gameplay_performance
             ;;
+        cleanup-s3-capture-smoke)
+            run_gameplay_performance
+            ;;
         player-capture-save-safety)
             run_player_capture_save_safety
             ;;
@@ -7599,6 +8781,7 @@ main() {
        [ "$mode" != "typography-result-visual" ] &&
        [ "$mode" != "terminal-player-build-smoke" ] &&
        [ "$mode" != "gameplay-performance" ] &&
+       [ "$mode" != "cleanup-s3-capture-smoke" ] &&
        [ "$mode" != "player-capture-save-safety" ]; then
         echo "ALL TESTS PASSED"
     fi

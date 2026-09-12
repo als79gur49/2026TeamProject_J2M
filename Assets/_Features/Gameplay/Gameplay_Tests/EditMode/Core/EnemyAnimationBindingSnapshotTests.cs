@@ -253,6 +253,39 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(snapshot.TryGetBinding(EnemyAnimationCue.Death, out _), Is.False);
         }
 
+        [TestCase(EnemyAnimationCue.UtilityWindup)]
+        [TestCase(EnemyAnimationCue.UtilityRecovery)]
+        [TestCase(EnemyAnimationCue.Death)]
+        [Category("Core")]
+        public void ReplacementState_SerializationAndSnapshotPreserveExplicitCustomDestination(EnemyAnimationCue cue)
+        {
+            var source = EnemyAnimationCueBinding.CreateForTests(
+                cue, EnemyAnimationDispatchMode.Trigger, "DispatchTrigger", replacementStateName: "CustomRestore");
+            var roundTrip = JsonUtility.FromJson<EnemyAnimationCueBinding>(JsonUtility.ToJson(source));
+            var snapshot = CreateSnapshot(roundTrip);
+            Assert.That(snapshot.TryGetBinding(cue, out var runtime), Is.True);
+            Assert.That(runtime.TargetName, Is.EqualTo("DispatchTrigger"));
+            Assert.That(runtime.ReplacementStateName, Is.EqualTo("CustomRestore"));
+            Assert.That(runtime.PrimaryDispatchMode, Is.EqualTo(EnemyAnimationDispatchMode.Trigger));
+            Assert.That(snapshot.DefaultStateCrossFadeDurationSeconds, Is.EqualTo(-1f));
+        }
+
+        [TestCase(EnemyAnimationCue.Hit, EnemyAnimationDispatchMode.Trigger)]
+        [TestCase(EnemyAnimationCue.ActionWindup, EnemyAnimationDispatchMode.Trigger)]
+        [TestCase(EnemyAnimationCue.UtilityWindup, EnemyAnimationDispatchMode.State)]
+        [TestCase(EnemyAnimationCue.UtilityRecovery, EnemyAnimationDispatchMode.State)]
+        [TestCase(EnemyAnimationCue.JumpAirborne, EnemyAnimationDispatchMode.Trigger)]
+        [Category("Core")]
+        public void ReplacementState_RejectsUnsupportedCueOrDispatchMode(
+            EnemyAnimationCue cue, EnemyAnimationDispatchMode mode)
+        {
+            var source = EnemyAnimationCueBinding.CreateForTests(
+                cue, mode, "Target",
+                sustainedStateName: cue == EnemyAnimationCue.JumpAirborne ? "JumpLoop" : "",
+                replacementStateName: "CustomRestore");
+            Assert.Throws<InvalidOperationException>(() => CreateSnapshot(source, mode == EnemyAnimationDispatchMode.State ? 0f : -1f));
+        }
+
         private static EnemyAnimationBindingSnapshot CreateSnapshot(
             EnemyAnimationCueBinding binding,
             float crossFadeSeconds = -1f)

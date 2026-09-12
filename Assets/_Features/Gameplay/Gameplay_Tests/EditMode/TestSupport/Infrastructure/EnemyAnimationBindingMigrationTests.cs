@@ -65,6 +65,22 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
 
         [Test]
         [Category("Full")]
+        public void ManifestReplacementMetadata_IsScopedToThreeDrSaturnTriggerDestinations()
+        {
+            var entries = EnemyAnimationBindingMigrationManifest.Rows
+                .SelectMany(row => row.Bindings.Where(binding => !string.IsNullOrEmpty(binding.ReplacementStateName))
+                    .Select(binding => $"{row.Name}/{binding.Cue}/{binding.ReplacementStateName}"))
+                .ToArray();
+            CollectionAssert.AreEquivalent(new[]
+            {
+                "DrSaturn/UtilityWindup/Windup",
+                "DrSaturn/UtilityRecovery/Recover",
+                "DrSaturn/Death/Death",
+            }, entries);
+        }
+
+        [Test]
+        [Category("Full")]
         public void DispositionLedger_PinsTenLiveAndFourDeletedViewsWithoutLegacyBlockers()
         {
             var rows = EnemyAnimationViewDispositionLedger.Rows;
@@ -542,6 +558,8 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                     Assert.That(actual.PrimaryDispatchMode, Is.EqualTo(expected.Mode), $"{row.Name}/{expected.Cue}");
                     Assert.That(actual.TargetName, Is.EqualTo(expected.TargetName), $"{row.Name}/{expected.Cue}");
                     Assert.That(actual.SustainedStateName, Is.EqualTo(expected.SustainedStateName),
+                        $"{row.Name}/{expected.Cue}");
+                    Assert.That(actual.ReplacementStateName, Is.EqualTo(expected.ReplacementStateName),
                         $"{row.Name}/{expected.Cue}");
                     Assert.That(actual.AnimatorDurationSeconds,
                         Is.EqualTo(expected.DurationSeconds).Within(0.000001f), $"{row.Name}/{expected.Cue}");

@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "evidenceContractVersion": 5,
+  "oracleId": "cleanup-s3-full-scan-exact-v1",
+  "normativeOwner": "gameplay_cleanup_slice3_workloads_v3.json",
+  "workloadContractSha256": "b6c143188566c5a7a68a4775ecc4c753dabd0f54792a9bb11e82a1b21dadce2e",
+  "seriesEncoding": "constant-inclusive-range-v1",
+  "expectationSource": "literal constants independently reviewed from the workload semantic artifact; observed arithmetic identities are never expectation generators",
+  "orderedExpectations": [
+    {
+      "workloadId": "cleanup-s3-target-generic-inert-v3",
+      "seed": 31001,
+      "scheduleHash": "672ce82fe95f40bb5077fa7014ab501a849dc35072a997328bd06108fb1e6385",
+      "initialWorldFingerprint": "6d3a0d63249ca1bf4517ccbc39c808fa4db0efee2f61e80fd14757fa18da39bc",
+      "repetitionRange": {
+        "first": 1,
+        "last": 3
+      },
+      "measuredTickOrdinalRange": {
+        "first": 1,
+        "last": 200
+      },
+      "measuredEngineTickIndexRange": {
+        "first": 3000,
+        "last": 3199
+      },
+      "expectedPerTick": {
+        "fullScanInvocationCount": 1,
+        "fullScanEntityVisitCount": 256,
+        "survivorCopyCount": 256,
+        "removalProcessedCount": 0
+      },
+      "independentDerivation": {
+        "warmupEngineTickIndexRange": {
+          "first": 2000,
+          "last": 2199
+        },
+        "requiredWarmupTicksOnSameFreshPhaseInstance": 200,
+        "liveBeforeSchedule": 256,
+        "respawnedBeforeCleanup": 0,
+        "liveBeforeCleanup": 256,
+        "removalPredicateMatches": 0,
+        "liveAfterCleanup": 256,
+        "reviewRelationOnly": "visits=liveBeforeCleanup; survivors=liveBeforeCleanup-removalPredicateMatches; this relation is not used to generate or repair literal expectedPerTick values"
+      }
+    },
+    {
+      "workloadId": "cleanup-s3-stress-generic-inert-v3",
+      "seed": 31002,
+      "scheduleHash": "ac786715ea3dd77f89423fb30db33d209c2529da97e7c53d140760522a517b24",
+      "initialWorldFingerprint": "2282b3ceaea055d8d382f7c2c20d4d915d11d54ed37c6cc0231784753e2dc924",
+      "repetitionRange": {
+        "first": 1,
+        "last": 3
+      },
+      "measuredTickOrdinalRange": {
+        "first": 1,
+        "last": 200
+      },
+      "measuredEngineTickIndexRange": {
+        "first": 3000,
+        "last": 3199
+      },
+      "expectedPerTick": {
+        "fullScanInvocationCount": 1,
+        "fullScanEntityVisitCount": 256,
+        "survivorCopyCount": 240,
+        "removalProcessedCount": 16
+      },
+      "independentDerivation": {
+        "warmupEngineTickIndexRange": {
+          "first": 2000,
+          "last": 2199
+        },
+        "requiredWarmupTicksOnSameFreshPhaseInstance": 200,
+        "coldFirstTickMutationCount": 80,
+        "steadyMeasuredTickMutationCount": 96,
+        "liveBeforeSchedule": 240,
+        "respawnedBeforeCleanup": 16,
+        "liveBeforeCleanup": 256,
+        "removalPredicateMatches": 16,
+        "liveAfterCleanup": 240,
+        "reviewRelationOnly": "visits=liveBeforeCleanup; survivors=liveBeforeCleanup-removalPredicateMatches; this relation is not used to generate or repair literal expectedPerTick values"
+      }
+    }
+  ]
+}

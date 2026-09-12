@@ -1017,6 +1017,19 @@ namespace Game.Feature.UI.Tests
 
         private static GameplaySceneHost CreateHost(GameObject root)
         {
+            var playerPrefabObject = new GameObject("DestinationIrisTestPlayerPrefab");
+            playerPrefabObject.transform.SetParent(root.transform, false);
+            var playerPrefab = playerPrefabObject.AddComponent<GameplayEntityView>();
+            playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
+            playerPrefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
+            // Entry Iris readiness projects the Player renderer bounds before setup.
+            var visualProfile = GameplayEntityVisualProfile.Create(EntityType.Unit, 1f);
+            playerPrefab.ConfigureModelRoot(visualProfile.ModelLocalPosition, visualProfile.ModelLocalRotation);
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.name = "DestinationIrisTestPlayerVisual";
+            visual.transform.SetParent(playerPrefab.ModelRoot, false);
+            visual.transform.localScale = visualProfile.ModelLocalScale;
+            UnityEngine.Object.DestroyImmediate(visual.GetComponent<Collider>());
             var host = root.AddComponent<GameplaySceneHost>();
             host.Initialize(new GameplaySceneHostConfiguration
             {
@@ -1045,7 +1058,11 @@ namespace Game.Feature.UI.Tests
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
                 ObjectiveRuntimeDefinition = StageObjectiveRuntimeDefinition.Disabled,
                 PlayerEntityId = 10,
+                PlayerViewPrefab = playerPrefab,
             });
+            Assert.That(host.ViewRegistry.TryGetView(10, out var playerView), Is.True);
+            Assert.That(playerView.GetComponentInChildren<Renderer>(), Is.Not.Null,
+                "The Entry Iris fixture needs rendered Player bounds to reach the setup operation under test.");
             return host;
         }
 

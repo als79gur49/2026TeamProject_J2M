@@ -1580,7 +1580,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
                     port,
                     topology,
-                    viewFactory: new DefaultGameplayEntityViewFactory(executorRoot.transform, 1f, playerEntityId: 10));
+                    viewFactory: new PrimitivePresentationTestViewFactory(executorRoot.transform, 1f, playerEntityId: 10, syntheticEntityIds: new[] { 10, 20 }));
                 var cases = new[]
                 {
                     new PlayerActionAnimationSemanticCase(
@@ -2679,7 +2679,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology);
+                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology, syntheticEntityIds: new[] { 30 });
                 var wall = CreateWall(30, new SurfaceCell(FaceId.Floor, 0, 0));
 
                 presenter.PresentInitial(new[] { wall }, topology);
@@ -8835,11 +8835,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
                         playerEntityId: 10,
-                        playerViewPrefab));
+                        playerViewPrefab, syntheticEntityIds: new[] { 20 }));
 
                 presenter.Initialize(
                     binder,
@@ -8945,10 +8945,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 20 }));
 
                 presenter.Initialize(
                     binder,
@@ -9507,10 +9507,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var impactCell = new SurfaceCell(FaceId.Floor, 1, 0);
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 20 }));
 
                 presenter.Initialize(
                     binder,
@@ -9676,10 +9676,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 20 }));
 
                 presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
                 presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
@@ -9859,11 +9859,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
                         playerEntityId: 10,
-                        playerViewPrefab));
+                        playerViewPrefab, syntheticEntityIds: new[] { 20 }));
 
                 presenter.Initialize(
                     binder,
@@ -10768,10 +10768,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 10, 20 }));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var stackedCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -10820,10 +10820,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var timingProfile = CreateTimingProfile();
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 10, 20 }));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -10883,10 +10883,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 10, 20 }));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(FaceId.Front);
                 var stackedCell = new SurfaceCell(FaceId.Ceiling, 0, 0);
@@ -11194,10 +11194,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 20 }));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(bottomFace);
                 var enemyCell = new SurfaceCell(enemyFace, 0, 0);
@@ -11311,10 +11311,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 20 }));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var bottomCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -11362,10 +11362,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 20 }));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(FaceId.Front);
                 var frontCell = new SurfaceCell(FaceId.Front, 0, 0);
@@ -11415,10 +11415,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 20 }));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var frontCell = new SurfaceCell(FaceId.Front, 0, 0);
@@ -11464,10 +11464,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
-                    new DefaultGameplayEntityViewFactory(
+                    new PrimitivePresentationTestViewFactory(
                         registry.transform,
                         1f,
-                        playerEntityId: 10));
+                        playerEntityId: 10, syntheticEntityIds: new[] { 20 }));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var bottomCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -11508,7 +11508,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology);
+                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology, syntheticEntityIds: new[] { 20 });
                 var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
 
                 presenter.PresentInitial(new[] { enemy }, topology);
@@ -11536,7 +11536,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology);
+                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology, syntheticEntityIds: new[] { 20 });
                 presenter.PresentInitial(
                     new[] { CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0)) },
                     topology);
@@ -11571,7 +11571,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     rootObject,
                     out var registry,
                     out var topology,
-                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)));
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)), syntheticEntityIds: new[] { 20 });
                 presenter.PresentInitial(
                     new[] { CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0)) },
                     topology);
@@ -11611,7 +11611,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     rootObject,
                     out _,
                     out var topology,
-                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)));
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)), syntheticEntityIds: new[] { 20 });
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
                 var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
                 presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
@@ -11642,7 +11642,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology, syntheticEntityIds: new[] { 20 });
                 var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
 
                 presenter.Present(CreateTickResult(1, new[] { enemy }, topology, TickPresentationData.Empty));
@@ -11666,7 +11666,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology, syntheticEntityIds: new[] { 20 });
                 var cell = new SurfaceCell(FaceId.Floor, 0, 0);
                 presenter.PresentInitial(new[] { CreateEnemyUnit(20, cell) }, topology);
                 presenter.UpdatePresentation(0f);
@@ -11700,7 +11700,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology, syntheticEntityIds: new[] { 20 });
                 var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
                 presenter.PresentInitial(new[] { enemy }, topology);
                 presenter.UpdatePresentation(0f);
@@ -11731,7 +11731,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology, syntheticEntityIds: new[] { 10 });
                 var player = CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 0));
                 presenter.PresentInitial(new[] { player }, topology);
 
@@ -11757,7 +11757,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology, syntheticEntityIds: new[] { 10, 20 });
                 var entities = new[]
                 {
                     CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
@@ -12603,9 +12603,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsGenericExpansionOwned()
+        public void EnemyInactiveVisualController_ExplicitTestView_AppliesInactiveVisualSettings()
         {
-            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsGenericExpansionOwned));
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_ExplicitTestView_AppliesInactiveVisualSettings));
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.18f, 0.28f, 0.38f, 1f),
                 desaturateStrength: 0.22f,
@@ -12613,11 +12613,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var factory = new DefaultGameplayEntityViewFactory(
+                var factory = new PrimitivePresentationTestViewFactory(
                     rootObject.transform,
                     cellSize: 1f,
                     playerEntityId: 10,
-                    enemyInactiveVisualSettings: settings);
+                    enemyInactiveVisualSettings: settings, syntheticEntityIds: new[] { 20 });
 
                 var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
                 var view = factory.CreateView(enemy);
@@ -12680,57 +12680,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(settings);
                 UnityEngine.Object.DestroyImmediate(prefabObject);
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void DefaultGameplayEntityViewFactory_PrimitiveEnemy_EnablesLegacyColorFallback()
-        {
-            var rootObject = new GameObject("DefaultGameplayEntityViewFactory_PrimitiveEnemy_EnablesLegacyColorFallback");
-
-            try
-            {
-                var factory = new DefaultGameplayEntityViewFactory(
-                    rootObject.transform,
-                    cellSize: 1f,
-                    playerEntityId: 10);
-
-                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
-                var view = factory.CreateView(enemy);
-
-                Assert.That(view.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
-                Assert.That(controller, Is.Not.Null);
-                Assert.That(controller.AllowLegacyColorFallback, Is.True);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void DefaultGameplayEntityViewFactory_PrimitiveRoleEnemyWithNoneAiMode_AddsEnemyPresentationComponents()
-        {
-            var rootObject = new GameObject("DefaultGameplayEntityViewFactory_PrimitiveRoleEnemyWithNoneAiMode_AddsEnemyPresentationComponents");
-
-            try
-            {
-                var factory = new DefaultGameplayEntityViewFactory(
-                    rootObject.transform,
-                    cellSize: 1f,
-                    playerEntityId: 10);
-
-                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.None);
-                var view = factory.CreateView(enemy);
-
-                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
-                Assert.That(view.GetComponent<EnemyInactiveVisualController>(), Is.Not.Null);
-            }
-            finally
-            {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -14722,17 +14671,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameObject rootObject,
             out GameplayEntityViewRegistry registry,
             out CubeTopologyState topology,
-            BoardBounds? boardBounds = null)
+            BoardBounds? boardBounds = null,
+            IReadOnlyCollection<int> syntheticEntityIds = null)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
             GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,
-                new DefaultGameplayEntityViewFactory(
+                new PrimitivePresentationTestViewFactory(
                     registry.transform,
                     1f,
-                    playerEntityId: 10));
+                    playerEntityId: 10, syntheticEntityIds: syntheticEntityIds));
             topology = new CubeTopologyState(FaceId.Floor);
             presenter.Initialize(
                 binder,

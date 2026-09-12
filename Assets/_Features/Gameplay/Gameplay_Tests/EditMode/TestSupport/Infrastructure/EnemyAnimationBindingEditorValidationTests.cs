@@ -30,6 +30,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
                 Is.EqualTo((int)EnemyAnimationDispatchMode.None));
             Assert.That(row.FindPropertyRelative("targetName").stringValue, Is.Empty);
             Assert.That(row.FindPropertyRelative("sustainedStateName").stringValue, Is.Empty);
+            Assert.That(row.FindPropertyRelative("replacementStateName").stringValue, Is.Empty);
             Assert.That(row.FindPropertyRelative("referenceClip").objectReferenceValue, Is.Null);
             Assert.That(row.FindPropertyRelative("animatorDurationSeconds").floatValue, Is.EqualTo(-1f));
         }
@@ -68,6 +69,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             row.FindPropertyRelative("primaryDispatchMode").intValue =
                 (int)EnemyAnimationDispatchMode.Trigger;
             row.FindPropertyRelative("sustainedStateName").stringValue = "StaleState";
+            row.FindPropertyRelative("replacementStateName").stringValue = "StaleReplacement";
             row.FindPropertyRelative("animatorDurationSeconds").floatValue = 2f;
             row.FindPropertyRelative("referenceClip").objectReferenceValue = fixture.CreateClip("StaleClip");
             crossFade.floatValue = 0.5f;
@@ -75,6 +77,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             EnemyAnimationBindingAuthoringEditor.NormalizeBindings(bindings, crossFade);
 
             Assert.That(row.FindPropertyRelative("sustainedStateName").stringValue, Is.Empty);
+            Assert.That(row.FindPropertyRelative("replacementStateName").stringValue, Is.Empty);
             Assert.That(row.FindPropertyRelative("animatorDurationSeconds").floatValue, Is.EqualTo(-1f));
             Assert.That(row.FindPropertyRelative("referenceClip").objectReferenceValue, Is.Null);
             Assert.That(crossFade.floatValue, Is.EqualTo(-1f));
@@ -420,6 +423,63 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             finally
             {
                 UnityEngine.Object.DestroyImmediate(controller);
+            }
+        }
+
+        [TestCase(EnemyAnimationCue.UtilityWindup, EnemyAnimationDispatchMode.Trigger, true)]
+        [TestCase(EnemyAnimationCue.UtilityRecovery, EnemyAnimationDispatchMode.Trigger, true)]
+        [TestCase(EnemyAnimationCue.Death, EnemyAnimationDispatchMode.Trigger, true)]
+        [TestCase(EnemyAnimationCue.Hit, EnemyAnimationDispatchMode.Trigger, false)]
+        [TestCase(EnemyAnimationCue.JumpAirborne, EnemyAnimationDispatchMode.Trigger, false)]
+        [TestCase(EnemyAnimationCue.UtilityWindup, EnemyAnimationDispatchMode.State, false)]
+        [Category("Full")]
+        public void InspectorReplacementPolicy_ShowsOnlyOptionalReplacementCues(
+            EnemyAnimationCue cue, EnemyAnimationDispatchMode mode, bool expected)
+        {
+            Assert.That(EnemyAnimationBindingAuthoringEditor.ShouldShowReplacementState(cue, mode), Is.EqualTo(expected));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void InspectorNormalization_PreservesSupportedReplacementMetadata()
+        {
+            using var fixture = Fixture.Create();
+            fixture.Configure(EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.Death,
+                EnemyAnimationDispatchMode.Trigger, "Fire", replacementStateName: "CustomDeath"));
+            var serialized = new SerializedObject(fixture.Authoring);
+            EnemyAnimationBindingAuthoringEditor.NormalizeBindings(serialized.FindProperty("bindings"),
+                serialized.FindProperty("defaultStateCrossFadeDurationSeconds"));
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            var snapshot = fixture.Authoring.CreateSnapshot();
+            Assert.That(snapshot.TryGetBinding(EnemyAnimationCue.Death, out var binding), Is.True);
+            Assert.That(binding.ReplacementStateName, Is.EqualTo("CustomDeath"));
+        }
+
+        [TestCase("CustomRestore", null)]
+        [TestCase("Missing", "state.missing")]
+        [TestCase("HigherLayer", "state.layer1-only")]
+        [TestCase("Duplicate", "state.ambiguous")]
+        [Category("Full")]
+        public void ReplacementMetadata_ValidatesActualLayerZeroDestination(string destination, string expectedError)
+        {
+            using var fixture = Fixture.Create();
+            var trap = fixture.AddLayerZeroState("Trap");
+            fixture.AddLayerZeroState("CustomRestore");
+            fixture.AddLayerZeroState("Duplicate");
+            fixture.LayerZero.AddStateMachine("Nested").AddState("Duplicate").motion = fixture.CreateClip("Duplicate");
+            fixture.AddLayerOneState("HigherLayer");
+            fixture.Controller.AddParameter("Fire", AnimatorControllerParameterType.Trigger);
+            fixture.LayerZero.AddAnyStateTransition(trap).AddCondition(AnimatorConditionMode.If, 0f, "Fire");
+            fixture.Configure(EnemyAnimationCueBinding.CreateForTests(EnemyAnimationCue.Death,
+                EnemyAnimationDispatchMode.Trigger, "Fire", replacementStateName: destination));
+            fixture.Rebind();
+            if (expectedError == null)
+            {
+                Assert.That(Validate(fixture), Is.Empty);
+            }
+            else
+            {
+                Assert.That(Validate(fixture), Does.Contain(expectedError));
             }
         }
 

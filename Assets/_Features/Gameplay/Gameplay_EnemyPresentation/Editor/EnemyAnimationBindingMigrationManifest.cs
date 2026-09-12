@@ -33,12 +33,14 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             string sustainedStateName,
             float durationSeconds,
             EnemyAnimationMigrationClipIdentity clip,
-            EnemyAnimationMigrationClipIdentity effectiveMotion)
+            EnemyAnimationMigrationClipIdentity effectiveMotion,
+            string replacementStateName = "")
         {
             Cue = cue;
             Mode = mode;
             TargetName = targetName ?? string.Empty;
             SustainedStateName = sustainedStateName ?? string.Empty;
+            ReplacementStateName = replacementStateName ?? string.Empty;
             DurationSeconds = durationSeconds;
             Clip = clip;
             EffectiveMotion = effectiveMotion;
@@ -48,6 +50,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         internal EnemyAnimationDispatchMode Mode { get; }
         internal string TargetName { get; }
         internal string SustainedStateName { get; }
+        internal string ReplacementStateName { get; }
         internal float DurationSeconds { get; }
         internal EnemyAnimationMigrationClipIdentity Clip { get; }
         internal EnemyAnimationMigrationClipIdentity EffectiveMotion { get; }
@@ -179,11 +182,11 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                     "a0d4ea646ac84336b7ba46d45aac2875", 9100000L,
                     -1f,
                     Trigger(EnemyAnimationCue.UtilityWindup, "Windup", 0.5f,
-                        Clip("19cc367ffcf133f42b0c772ae30ed0b1", 7400000L)),
+                        Clip("19cc367ffcf133f42b0c772ae30ed0b1", 7400000L), replacementStateName: "Windup"),
                     Trigger(EnemyAnimationCue.UtilityRecovery, "Recover", 0.5f,
-                        Clip("c0977b05374049f46a273f93a78ed85e", 7400000L)),
+                        Clip("c0977b05374049f46a273f93a78ed85e", 7400000L), replacementStateName: "Recover"),
                     Trigger(EnemyAnimationCue.Hit, "Hit"),
-                    Trigger(EnemyAnimationCue.Death, "Death")),
+                    Trigger(EnemyAnimationCue.Death, "Death", replacementStateName: "Death")),
 
                 Row("JPeter", "EnemyView_JPeter.prefab", "7fa07cb2cf222ca4194569602c56204a",
                     EnemyAnimationMigrationDisposition.MigratedBinding,
@@ -281,10 +284,11 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             EnemyAnimationCue cue,
             string target,
             float duration = -1f,
-            EnemyAnimationMigrationClipIdentity clip = default)
+            EnemyAnimationMigrationClipIdentity clip = default,
+            string replacementStateName = "")
         {
             return new EnemyAnimationMigrationBinding(
-                cue, EnemyAnimationDispatchMode.Trigger, target, string.Empty, duration, clip, default);
+                cue, EnemyAnimationDispatchMode.Trigger, target, string.Empty, duration, clip, default, replacementStateName);
         }
 
         private static EnemyAnimationMigrationClipIdentity Clip(string guid, long localFileId)

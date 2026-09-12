@@ -112,6 +112,16 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                         diagnostics);
                 }
 
+                if (!string.IsNullOrWhiteSpace(binding.ReplacementStateName))
+                {
+                    ValidateState(
+                        binding.ReplacementStateName,
+                        animator,
+                        layerZeroStateNames,
+                        otherLayerStateNames,
+                        diagnostics);
+                }
+
                 if (binding.ReferenceClip != null && !effectiveClips.Contains(binding.ReferenceClip))
                 {
                     AddWarning(

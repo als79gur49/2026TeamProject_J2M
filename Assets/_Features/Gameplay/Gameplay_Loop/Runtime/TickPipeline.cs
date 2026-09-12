@@ -22,11 +22,13 @@ using Game.Feature.Gameplay.Movement.Sorting;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
+using Unity.Profiling;
 
 namespace Game.Feature.Gameplay.Loop
 {
     public sealed partial class TickPipeline
     {
+        private static readonly ProfilerMarker RunCleanupPhaseMarker = new("Gameplay.RunCleanupPhase");
         private readonly IdAllocator _idAllocator = new();
         private readonly EntityIdAllocator _entityIdAllocator;
         private readonly ISnapshotEntityLogicProvider _entityLogicProvider;
@@ -331,19 +333,16 @@ namespace Game.Feature.Gameplay.Loop
                     determinismHash)
                 : TickTrace.Empty;
 
-            return new TickResult(
+            return TickResult.CreateFromOwnedData(
                 input.TickIndex,
                 completedPhases,
                 phaseTrace,
                 movementPhaseResult,
                 attackPhaseResult,
-                tickResultData.FinalEntities,
-                tickResultData.EventLog,
+                tickResultData,
                 finalAuthoritativeSnapshot.Topology,
-                tickResultData.PresentationData,
                 determinismHash,
-                tickTrace,
-                objectiveResult);
+                tickTrace);
         }
 
         private void BindTileFeatureDefinitionContext(EntityLogicSet entityLogicsForTick)
@@ -1464,15 +1463,24 @@ namespace Game.Feature.Gameplay.Loop
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
-            phaseTrace.Add("Cleanup:Enter");
-            var cleanupPhaseResult = _cleanupProcessor.Process(snapshot, writeContext, tickIndex);
-            cleanupPhaseResult = ExpireBoxInteractionLocks(snapshot, writeContext, tickIndex, cleanupPhaseResult);
-            cleanupPhaseResult = ExpireEnemyGravityFieldAuraFields(snapshot, writeContext, tickIndex, cleanupPhaseResult);
-            cleanupPhaseResult = ExpirePendingEnemyBlockedReactions(snapshot, writeContext, tickIndex, cleanupPhaseResult);
-            phaseTrace.Add("Cleanup:Exit");
-            completedPhases.Add(TickPhase.Cleanup);
+            var timingStartedAt = CleanupSlice3Diagnostics.BeginTiming();
+            using var markerScope = RunCleanupPhaseMarker.Auto();
+            try
+            {
+                phaseTrace.Add("Cleanup:Enter");
+                var cleanupPhaseResult = _cleanupProcessor.Process(snapshot, writeContext, tickIndex);
+                cleanupPhaseResult = ExpireBoxInteractionLocks(snapshot, writeContext, tickIndex, cleanupPhaseResult);
+                cleanupPhaseResult = ExpireEnemyGravityFieldAuraFields(snapshot, writeContext, tickIndex, cleanupPhaseResult);
+                cleanupPhaseResult = ExpirePendingEnemyBlockedReactions(snapshot, writeContext, tickIndex, cleanupPhaseResult);
+                phaseTrace.Add("Cleanup:Exit");
+                completedPhases.Add(TickPhase.Cleanup);
 
-            return cleanupPhaseResult;
+                return cleanupPhaseResult;
+            }
+            finally
+            {
+                CleanupSlice3Diagnostics.RecordRunCleanupPhaseTiming(timingStartedAt);
+            }
         }
 
         private static CleanupPhaseResult ExpireBoxInteractionLocks(

@@ -113,6 +113,17 @@ namespace Game.Feature.Gameplay.Host
             animationTimingAuthoring = GetComponent<PlayerAnimationTimingAuthoring>();
         }
 
+        // The coordinator retains hold/death timing and performs runtime sync.
+        // Do not consume historical action, execute, hit, or attempt signals here.
+        internal void RestorePresentationState(in PlayerViewPresentationState state)
+        {
+            _pendingRestart = false;
+            _pendingHitTrigger = false;
+            _pendingExecuteActionKind = PlayerActionKind.None;
+            _hasDrivenResolvedState = false;
+            LastPresentationState = state;
+        }
+
         public void Apply(in PlayerViewPresentationState state)
         {
             LastPresentationState = state;
