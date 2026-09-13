@@ -117,6 +117,8 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class GameplayPresentationPauseRegistry
     {
+        private const string SetPresentationPausedMethodName = "SetPresentationPaused";
+        private readonly Dictionary<System.Type, MethodInfo> pauseMethodsByType = new();
         private readonly List<IGameplayPresentationPausable> pausableTargets = new();
         private readonly List<ReflectedPausableTarget> reflectedPausableTargets = new();
         private readonly Dictionary<Animator, AnimatorPauseState> animatorStates = new();
@@ -185,7 +187,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (behaviourBuffer[i] is IGameplayPresentationPausable pausable)
                     Register(pausable);
-                else if (ReflectedPausableTarget.TryCreate(behaviourBuffer[i], out var reflectedTarget))
+                else if (ReflectedPausableTarget.TryCreate(behaviourBuffer[i], this, out var reflectedTarget))
                     Register(reflectedTarget);
             }
         }
@@ -209,7 +211,7 @@ namespace Game.Feature.Gameplay.Host
                 {
                     Register(pausable);
                 }
-                else if (ReflectedPausableTarget.TryCreate(behaviours[i], out var reflectedTarget))
+                else if (ReflectedPausableTarget.TryCreate(behaviours[i], this, out var reflectedTarget))
                 {
                     Register(reflectedTarget);
                 }
@@ -230,12 +232,32 @@ namespace Game.Feature.Gameplay.Host
 
         public void Clear()
         {
+            pauseMethodsByType.Clear();
             // Active registration owns its buffers until its finally block completes.
             pausableTargets.Clear();
             reflectedPausableTargets.Clear();
             animatorStates.Clear();
             particleStates.Clear();
             IsPaused = false;
+        }
+
+        private MethodInfo ResolvePauseMethod(System.Type type)
+        {
+            if (pauseMethodsByType.TryGetValue(type, out var method))
+            {
+                return method;
+            }
+
+            method = type.GetMethod(
+                SetPresentationPausedMethodName,
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(bool) },
+                modifiers: null);
+            // Cache unsupported types too. Store before registration can invoke a
+            // callback that re-enters registration or clears the registry.
+            pauseMethodsByType[type] = method;
+            return method;
         }
 
         private void Register(IGameplayPresentationPausable target)
@@ -466,7 +488,6 @@ namespace Game.Feature.Gameplay.Host
 
         private readonly struct ReflectedPausableTarget
         {
-            private const string SetPresentationPausedMethodName = "SetPresentationPaused";
             private readonly MethodInfo method;
 
             private ReflectedPausableTarget(MonoBehaviour behaviour, MethodInfo method)
@@ -477,7 +498,10 @@ namespace Game.Feature.Gameplay.Host
 
             public MonoBehaviour Behaviour { get; }
 
-            public static bool TryCreate(MonoBehaviour behaviour, out ReflectedPausableTarget target)
+            public static bool TryCreate(
+                MonoBehaviour behaviour,
+                GameplayPresentationPauseRegistry registry,
+                out ReflectedPausableTarget target)
             {
                 target = default;
                 if (behaviour == null)
@@ -485,12 +509,7 @@ namespace Game.Feature.Gameplay.Host
                     return false;
                 }
 
-                var method = behaviour.GetType().GetMethod(
-                    SetPresentationPausedMethodName,
-                    BindingFlags.Instance | BindingFlags.Public,
-                    binder: null,
-                    types: new[] { typeof(bool) },
-                    modifiers: null);
+                var method = registry.ResolvePauseMethod(behaviour.GetType());
                 if (method == null)
                 {
                     return false;

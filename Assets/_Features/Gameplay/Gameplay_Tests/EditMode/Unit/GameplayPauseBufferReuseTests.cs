@@ -39,7 +39,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public readonly List<bool> Calls = new();
             public Action<bool> Callback;
             public Action OnEquals;
-            public void SetPresentationPaused(bool paused) { Calls.Add(paused); Callback?.Invoke(paused); }
+            public int FallbackCalls;
+            void IGameplayPresentationPausable.SetPresentationPaused(bool paused)
+            {
+                Calls.Add(paused);
+                Callback?.Invoke(paused);
+            }
+            public void SetPresentationPaused(bool paused) => FallbackCalls++;
             public override bool Equals(object other)
             {
                 var callback = OnEquals;
@@ -48,6 +54,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 return ReferenceEquals(this, other);
             }
             public override int GetHashCode() => base.GetHashCode();
+        }
+        public sealed class PauseCacheMissing : PauseCacheRecorder { }
+        public sealed class PauseCacheOtherMissing : PauseCacheRecorder { }
+
+        private static System.Collections.IDictionary GetPauseMethodsByType(
+            GameplayPresentationPauseRegistry registry)
+        {
+            var field = typeof(GameplayPresentationPauseRegistry).GetField(
+                "pauseMethodsByType",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.That(field, Is.Not.Null);
+            return (System.Collections.IDictionary)field.GetValue(registry);
+        }
+
+        [Test]
+        [Category("Integration")]
+        public void PauseMetadataCache_PrioritizesInterfaceAndSharesPositiveLookupAcrossInstances()
+        {
+            using var objects = new PauseCacheObjects();
+            var root = objects.Root();
+            var first = root.AddComponent<PauseCacheFallback>();
+            var second = root.AddComponent<PauseCacheFallback>();
+            var direct = root.AddComponent<PauseComparisonInterface>();
+            var registry = new GameplayPresentationPauseRegistry();
+
+            registry.RegisterRoot(root);
+            registry.RegisterRoot(root);
+
+            var methods = GetPauseMethodsByType(registry);
+            Assert.That(methods.Count, Is.EqualTo(1));
+            Assert.That(methods.Contains(typeof(PauseCacheFallback)), Is.True);
+            Assert.That(methods.Contains(typeof(PauseComparisonInterface)), Is.False,
+                "The interface path must win without probing the reflection fallback.");
+
+            registry.SetPresentationPaused(true);
+            registry.SetPresentationPaused(false);
+            Assert.That(first.Calls, Is.EqualTo(new[] { true, false }));
+            Assert.That(second.Calls, Is.EqualTo(new[] { true, false }));
+            Assert.That(direct.Calls, Is.EqualTo(new[] { true, false }));
+            Assert.That(direct.FallbackCalls, Is.Zero);
+        }
+
+        [Test]
+        [Category("Integration")]
+        public void PauseMetadataCache_CachesNegativeLookupPerTypeAndClearStartsNewEpoch()
+        {
+            using var objects = new PauseCacheObjects();
+            var root = objects.Root();
+            root.AddComponent<PauseCacheMissing>();
+            root.AddComponent<PauseCacheMissing>();
+            root.AddComponent<PauseCacheOtherMissing>();
+            var registry = new GameplayPresentationPauseRegistry();
+
+            registry.RegisterRoot(root);
+            registry.RegisterRoot(root);
+
+            var methods = GetPauseMethodsByType(registry);
+            Assert.That(methods.Count, Is.EqualTo(2));
+            Assert.That(methods.Contains(typeof(PauseCacheMissing)), Is.True);
+            Assert.That(methods[typeof(PauseCacheMissing)], Is.Null);
+            Assert.That(methods.Contains(typeof(PauseCacheOtherMissing)), Is.True);
+            Assert.That(methods[typeof(PauseCacheOtherMissing)], Is.Null);
+
+            registry.Clear();
+            Assert.That(methods.Count, Is.Zero);
+            registry.RegisterRoot(root);
+            Assert.That(methods.Count, Is.EqualTo(2));
         }
 
         [Test]
@@ -91,7 +164,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 if (!paused) return;
                 registry.Clear();
+                Assert.That(GetPauseMethodsByType(registry).Count, Is.Zero);
                 registry.RegisterRoot(nested);
+                Assert.That(GetPauseMethodsByType(registry).Count, Is.EqualTo(1));
                 if (throws) throw sentinel;
             };
             PauseComparisonInterface direct = null;
