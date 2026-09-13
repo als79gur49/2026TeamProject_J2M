@@ -1188,7 +1188,7 @@ namespace Game.Feature.UI.Tests
             {
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
+                UiTestPrefabAssetUtility.AssignMainMenuUiInstallDefaults(installer);
                 SetPrivateField(installer, "_installOnStart", false);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
                 SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);

@@ -5,8 +5,10 @@ using Game.Feature.UI.Composition;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
@@ -116,17 +118,43 @@ namespace Game.Feature.UI.Tests
                 AssertUiSpriteImport(panel.Sprite);
             }
 
-            var projectRoot = System.IO.Path.GetFullPath(
-                System.IO.Path.Combine(UnityEngine.Application.dataPath, ".."));
-            var sceneText = System.IO.File.ReadAllText(
-                System.IO.Path.Combine(projectRoot, GameplayScenePath));
+            Scene scene = default;
+            try
+            {
+                scene = EditorSceneManager.OpenScene(
+                    GameplayScenePath,
+                    OpenSceneMode.Additive);
+                GameplayUiFlowInstaller gameplayInstaller = null;
+                var gameplayInstallerCount = 0;
+                foreach (var root in scene.GetRootGameObjects())
+                {
+                    foreach (var candidate in
+                             root.GetComponentsInChildren<GameplayUiFlowInstaller>(true))
+                    {
+                        gameplayInstaller = candidate;
+                        gameplayInstallerCount++;
+                    }
+                }
 
-            Assert.That(
-                sceneText,
-                Does.Contain(
-                    "_outroComicSequence: {fileID: 11400000, " +
-                    "guid: a4c8e2f1d7634b55a3f0e6c91b72d001, type: 2}"));
-
+                Assert.That(
+                    gameplayInstallerCount,
+                    Is.EqualTo(1),
+                    "The production Gameplay scene must contain exactly one GameplayUiFlowInstaller.");
+                var serializedInstaller = new SerializedObject(gameplayInstaller);
+                var outroProperty = serializedInstaller.FindProperty(
+                    "_outroComicSequence");
+                Assert.That(outroProperty, Is.Not.Null);
+                Assert.That(
+                    outroProperty.objectReferenceValue,
+                    Is.SameAs(definition));
+            }
+            finally
+            {
+                if (scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, removeScene: true);
+                }
+            }
         }
 
         [Test]

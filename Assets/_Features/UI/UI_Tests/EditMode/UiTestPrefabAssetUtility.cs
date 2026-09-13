@@ -2,6 +2,7 @@ using Game.Feature.Flow.Audio;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using NUnit.Framework;
@@ -181,11 +182,71 @@ namespace Game.Feature.UI.Tests
                 installer.gameObject.AddComponent<DisplayRuntimeInstaller>();
             }
 
+            AssignGameplayInstallAssetDefaults(installer);
+        }
+
+        internal static void AssignGameplayInstallAssetDefaults(
+            GameplayUiFlowInstaller installer,
+            bool assignUiAudioCueMap = true)
+        {
             AssignHudPrefab(installer);
             AssignScreenPrefabCatalog(installer);
             AssignPopupPrefabCatalog(installer);
-            AssignUiAudioCueMap(installer);
+            if (assignUiAudioCueMap)
+            {
+                AssignUiAudioCueMap(installer);
+            }
+
             AssignComicSequenceOverlayPrefab(installer);
+        }
+
+        internal static void AssignMainMenuUiInstallDefaults(
+            MainMenuUiFlowInstaller installer)
+        {
+            Assert.That(installer, Is.Not.Null);
+
+            if (installer.GetComponent<AudioRuntimeInstaller>() == null)
+            {
+                installer.gameObject.AddComponent<AudioRuntimeInstaller>();
+            }
+
+            if (installer.GetComponent<DisplayRuntimeInstaller>() == null)
+            {
+                installer.gameObject.AddComponent<DisplayRuntimeInstaller>();
+            }
+
+            var serializedInstaller = new SerializedObject(installer);
+            AssignObjectReference(
+                serializedInstaller,
+                "_mainMenuScreenPrefab",
+                LoadScreenPrefab<MainMenuScreenView>(MainMenuScreenPrefabPath));
+            AssignObjectReference(
+                serializedInstaller,
+                "_screenPrefabCatalog",
+                LoadScreenCatalog());
+            AssignObjectReference(
+                serializedInstaller,
+                "_popupPrefabCatalog",
+                LoadPopupCatalog());
+            AssignObjectReference(
+                serializedInstaller,
+                "_uiAudioCueMap",
+                LoadUiAudioCueMap());
+            AssignObjectReference(
+                serializedInstaller,
+                "_comicSequenceOverlayPrefab",
+                LoadComicSequenceOverlayPrefab());
+            serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssignObjectReference(
+            SerializedObject serializedObject,
+            string propertyName,
+            Object value)
+        {
+            var property = serializedObject.FindProperty(propertyName);
+            Assert.That(property, Is.Not.Null, propertyName);
+            property.objectReferenceValue = value;
         }
 
         internal static void AssertOverlayCanvasScaling(GameObject root)

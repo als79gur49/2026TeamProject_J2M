@@ -57,10 +57,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
-                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
-                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignGameplayInstallAssetDefaults(installer);
 
                 var exception = Assert.Throws<System.InvalidOperationException>(() => installer.Install(UiTestPortFactory.CreatePorts()));
                 Assert.That(
@@ -82,10 +79,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
-                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
-                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignGameplayInstallAssetDefaults(installer);
                 rootObject.AddComponent<AudioRuntimeInstaller>();
 
                 var exception = Assert.Throws<System.InvalidOperationException>(() => installer.Install(UiTestPortFactory.CreatePorts()));
@@ -109,10 +103,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = canonicalRoot.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
-                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
-                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignGameplayInstallAssetDefaults(installer);
                 strayRoot.AddComponent<AudioRuntimeInstaller>();
 
                 var exception = Assert.Throws<System.InvalidOperationException>(() => installer.Install(UiTestPortFactory.CreatePorts()));
@@ -137,10 +128,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = canonicalRoot.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
-                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
-                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignGameplayInstallAssetDefaults(installer);
                 canonicalRoot.AddComponent<AudioRuntimeInstaller>();
                 strayRoot.AddComponent<DisplayRuntimeInstaller>();
 
@@ -165,10 +153,9 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
-                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
-                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignGameplayInstallAssetDefaults(
+                    installer,
+                    assignUiAudioCueMap: false);
                 rootObject.AddComponent<AudioRuntimeInstaller>();
                 rootObject.AddComponent<DisplayRuntimeInstaller>();
 
