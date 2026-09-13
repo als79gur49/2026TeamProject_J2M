@@ -1194,6 +1194,16 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             buffer.Clear();
+            AddRange(buffer, GetOrBuildOrderedEntitiesCache());
+        }
+
+        internal ReadOnlySpan<EntityState> GetOrderedEntitiesForRead()
+        {
+            return GetOrBuildOrderedEntitiesCache();
+        }
+
+        private EntityState[] GetOrBuildOrderedEntitiesCache()
+        {
             var orderedEntities = _orderedEntitiesCache;
             if (orderedEntities == null)
             {
@@ -1206,7 +1216,7 @@ namespace Game.Feature.Gameplay.BoardState
                 SnapshotMaterializationDiagnostics.RecordOrderedEntitiesCacheHit(orderedEntities.Length);
             }
 
-            AddRange(buffer, orderedEntities);
+            return orderedEntities;
         }
 
         internal bool TryGetUnitBlocker(SurfaceCell cell, out SlideStopper blocker)

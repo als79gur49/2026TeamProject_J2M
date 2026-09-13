@@ -915,6 +915,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void WorldSnapshot_OrderedRead_SharesCacheWithLegacyBufferAndRetainedSnapshot()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEntity(30, EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), Direction.Right),
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 1, 0), Direction.Right),
+            });
+            var firstSnapshot = worldState.CreateSnapshot();
+            var firstView = firstSnapshot.GetOrderedEntitiesForRead();
+            var buffer = new List<EntityState>();
+            firstSnapshot.EnumerateEntitiesOrdered(buffer);
+
+            Assert.That(firstView.Length, Is.EqualTo(2));
+            Assert.That(firstView[0], Is.EqualTo(buffer[0]));
+            Assert.That(firstView[1], Is.EqualTo(buffer[1]));
+
+            CreateWriteContext(worldState).SpawnEntity(
+                CreateEntity(20, EntityType.Unit, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right));
+            var secondView = worldState.CreateSnapshot().GetOrderedEntitiesForRead();
+
+            Assert.That(firstView.Length, Is.EqualTo(2));
+            Assert.That(secondView.Length, Is.EqualTo(3));
+            Assert.That(firstView[0].entityId, Is.EqualTo(10));
+            Assert.That(secondView[1].entityId, Is.EqualTo(20));
+        }
+
+        [Test]
         [Category("Extended")]
         public void WorldSnapshot_EnumerateTileFeaturesOrdered_SecondCallUsesCache()
         {

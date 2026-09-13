@@ -2765,6 +2765,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void CrossLineOfSight_OrderedRead_UsesEachSnapshotsTargetsAfterWorldMutation()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, 1, new Vector2Int(3, 0), EnemyAiMode.None),
+                CreateUnit(40, 2, Vector2Int.zero, EnemyAiMode.Chase),
+            });
+            var first = worldState.CreateSnapshot();
+            Assert.That(first.TryGetEntity(40, out var source), Is.True);
+            var settings = new DetectionSettings(4, false, false);
+
+            Assert.That(CrossLineOfSightOpponentDetectionStrategy.Instance.TryFindTarget(
+                first, source, settings, out var initial), Is.True);
+            Assert.That(initial.entityId, Is.EqualTo(10));
+
+            worldState.CreateWriteContext().SpawnEntity(
+                CreateUnit(20, 1, new Vector2Int(0, 1), EnemyAiMode.None));
+            var second = worldState.CreateSnapshot();
+
+            Assert.That(CrossLineOfSightOpponentDetectionStrategy.Instance.TryFindTarget(
+                second, source, settings, out var latest), Is.True);
+            Assert.That(latest.entityId, Is.EqualTo(20));
+            Assert.That(CrossLineOfSightOpponentDetectionStrategy.Instance.TryFindTarget(
+                first, source, settings, out var retained), Is.True);
+            Assert.That(retained.entityId, Is.EqualTo(10));
+        }
+
+        [Test]
         [Category("Extended")]
         public void CrossLineOfSight_rejects_different_face_target()
         {
