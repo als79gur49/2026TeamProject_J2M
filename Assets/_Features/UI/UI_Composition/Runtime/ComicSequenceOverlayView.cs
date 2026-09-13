@@ -63,6 +63,7 @@ namespace Game.Feature.UI.Composition
 
         [SerializeField] private InputActionAsset _inputActions;
         [SerializeField] private CanvasGroup _canvasGroup;
+        [SerializeField] private Image _backgroundImage;
         [SerializeField] private RectTransform _pageViewport;
         [SerializeField] private AspectRatioFitter _pageFitter;
         [SerializeField] private RectTransform _panelRoot;
@@ -74,7 +75,6 @@ namespace Game.Feature.UI.Composition
 
         private readonly ComicSequenceAlphaFadeRunner _fadeRunner = new();
         private readonly List<Image> _panelImages = new();
-        private Image _backgroundImage;
         private Action<ComicSequenceResult> _completion;
         private ComicSequenceAudioFocusController _audioFocusController;
         private ComicSequenceDefinition _definition;
@@ -133,33 +133,101 @@ namespace Game.Feature.UI.Composition
             var rootRect = transform as RectTransform;
             if (rootRect == null)
             {
-                rootRect = gameObject.AddComponent<RectTransform>();
+                throw CreateInvalidHierarchyException(
+                    "the root must use RectTransform");
             }
 
-            UiCanvasElementFactory.Stretch(rootRect);
+            RequireComponentOn(_canvasGroup, gameObject, nameof(_canvasGroup));
+            RequireComponentOn(
+                _comicSequenceAudioSource,
+                gameObject,
+                nameof(_comicSequenceAudioSource));
+            RequireDirectChild(
+                _backgroundImage != null ? _backgroundImage.rectTransform : null,
+                rootRect,
+                nameof(_backgroundImage));
+            RequireDirectChild(_pageViewport, rootRect, nameof(_pageViewport));
+            RequireComponentOn(
+                _pageFitter,
+                _pageViewport != null ? _pageViewport.gameObject : null,
+                nameof(_pageFitter));
+            RequireDirectChild(_panelRoot, _pageViewport, nameof(_panelRoot));
+            RequireDirectChild(_finalTransitionViewport, rootRect,
+                nameof(_finalTransitionViewport));
+            RequireComponentOn(
+                _finalTransitionFitter,
+                _finalTransitionViewport != null ? _finalTransitionViewport.gameObject : null,
+                nameof(_finalTransitionFitter));
+            RequireDirectChild(
+                _finalTransitionImage != null ? _finalTransitionImage.rectTransform : null,
+                _finalTransitionViewport,
+                nameof(_finalTransitionImage));
+            RequireDirectChild(
+                _blackFadeImage != null ? _blackFadeImage.rectTransform : null,
+                rootRect,
+                nameof(_blackFadeImage));
+            RequireStretch(rootRect, "the overlay root");
+            RequireStretch(_backgroundImage.rectTransform, nameof(_backgroundImage));
+            RequireStretch(_panelRoot, nameof(_panelRoot));
+            RequireStretch(
+                _finalTransitionImage.rectTransform,
+                nameof(_finalTransitionImage));
+            RequireStretch(_blackFadeImage.rectTransform, nameof(_blackFadeImage));
 
-            _canvasGroup = _canvasGroup != null ? _canvasGroup : GetComponent<CanvasGroup>();
-            if (_canvasGroup == null)
+            if (!_backgroundImage.raycastTarget)
             {
-                _canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                throw CreateInvalidHierarchyException(
+                    "the Background Image must receive pointer raycasts");
             }
 
-            EnsureBackground();
-            EnsurePageViewport();
-            EnsureFinalViewport();
-            EnsureBlackFadeLayer();
-
-            _comicSequenceAudioSource = _comicSequenceAudioSource != null
-                ? _comicSequenceAudioSource
-                : GetComponent<AudioSource>();
-            if (_comicSequenceAudioSource == null)
+            if (_finalTransitionImage.raycastTarget || _blackFadeImage.raycastTarget)
             {
-                _comicSequenceAudioSource = gameObject.AddComponent<AudioSource>();
+                throw CreateInvalidHierarchyException(
+                    "FinalTransition and BlackFade Images must not receive pointer raycasts");
             }
 
-            _comicSequenceAudioSource.playOnAwake = false;
-            _comicSequenceAudioSource.loop = false;
-            _comicSequenceAudioSource.spatialBlend = 0f;
+            if (!IsRgb(_backgroundImage.color, Color.black) ||
+                !IsRgb(_finalTransitionImage.color, Color.white) ||
+                !_finalTransitionImage.preserveAspect)
+            {
+                throw CreateInvalidHierarchyException(
+                    "Background and FinalTransition must preserve their canonical color and aspect settings");
+            }
+
+            if (_pageFitter.aspectMode != AspectRatioFitter.AspectMode.FitInParent ||
+                !Mathf.Approximately(_pageFitter.aspectRatio, 16f / 9f) ||
+                _finalTransitionFitter.aspectMode != AspectRatioFitter.AspectMode.FitInParent ||
+                !Mathf.Approximately(
+                    _finalTransitionFitter.aspectRatio,
+                    ComicSequenceDefinition.FinalTransitionAspectRatio))
+            {
+                throw CreateInvalidHierarchyException(
+                    "the authored comic viewports must use FitInParent with the canonical aspect ratios");
+            }
+
+            if (_blackFadeImage.transform.GetSiblingIndex() != rootRect.childCount - 1)
+            {
+                throw CreateInvalidHierarchyException(
+                    "BlackFade must be the last fixed-shell sibling");
+            }
+
+            if (_comicSequenceAudioSource.playOnAwake ||
+                _comicSequenceAudioSource.loop ||
+                !Mathf.Approximately(_comicSequenceAudioSource.spatialBlend, 0f))
+            {
+                throw CreateInvalidHierarchyException(
+                    "the Comic AudioSource must be 2D, non-looping, and disabled for play-on-awake");
+            }
+
+            if (_panelImages.Count == 0 && !IsPresenting &&
+                (_panelRoot.childCount != 0 ||
+                 !Mathf.Approximately(_canvasGroup.alpha, 0f) ||
+                 _canvasGroup.interactable ||
+                 _canvasGroup.blocksRaycasts))
+            {
+                throw CreateInvalidHierarchyException(
+                    "a fresh authored shell must have an empty Panels mount and an inactive CanvasGroup");
+            }
         }
 
         internal void Present(
@@ -677,106 +745,6 @@ namespace Game.Feature.UI.Composition
             callback?.Invoke(completion);
         }
 
-        private void EnsureBackground()
-        {
-            var background = transform.Find("Background") as RectTransform;
-            if (background == null)
-            {
-                var backgroundObject = new GameObject(
-                    "Background",
-                    typeof(RectTransform),
-                    typeof(Image));
-                backgroundObject.transform.SetParent(transform, false);
-                background = (RectTransform)backgroundObject.transform;
-                UiCanvasElementFactory.Stretch(background);
-            }
-
-            _backgroundImage = background.GetComponent<Image>();
-            _backgroundImage.color = Color.black;
-            _backgroundImage.raycastTarget = true;
-        }
-
-        private void EnsurePageViewport()
-        {
-            _pageViewport = transform.Find("PageViewport") as RectTransform;
-            if (_pageViewport == null)
-            {
-                var pageObject = new GameObject(
-                    "PageViewport",
-                    typeof(RectTransform),
-                    typeof(AspectRatioFitter));
-                pageObject.transform.SetParent(transform, false);
-                _pageViewport = (RectTransform)pageObject.transform;
-                UiCanvasElementFactory.Stretch(_pageViewport);
-            }
-
-            _pageFitter = _pageViewport.GetComponent<AspectRatioFitter>();
-            _pageFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            _pageFitter.aspectRatio = 16f / 9f;
-
-            _panelRoot = _pageViewport.Find("Panels") as RectTransform;
-            if (_panelRoot == null)
-            {
-                _panelRoot = UiCanvasElementFactory.CreateStretchRect(
-                    "Panels",
-                    _pageViewport);
-            }
-        }
-
-        private void EnsureFinalViewport()
-        {
-            _finalTransitionViewport = transform.Find("FinalTransitionViewport") as RectTransform;
-            if (_finalTransitionViewport == null)
-            {
-                var finalObject = new GameObject(
-                    "FinalTransitionViewport",
-                    typeof(RectTransform),
-                    typeof(AspectRatioFitter));
-                finalObject.transform.SetParent(transform, false);
-                _finalTransitionViewport = (RectTransform)finalObject.transform;
-                UiCanvasElementFactory.Stretch(_finalTransitionViewport);
-            }
-
-            _finalTransitionFitter = _finalTransitionViewport.GetComponent<AspectRatioFitter>();
-            _finalTransitionFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            _finalTransitionFitter.aspectRatio = ComicSequenceDefinition.FinalTransitionAspectRatio;
-
-            var finalImageRect = _finalTransitionViewport.Find("FinalTransition") as RectTransform;
-            if (finalImageRect == null)
-            {
-                var finalImageObject = new GameObject(
-                    "FinalTransition",
-                    typeof(RectTransform),
-                    typeof(Image));
-                finalImageObject.transform.SetParent(_finalTransitionViewport, false);
-                finalImageRect = (RectTransform)finalImageObject.transform;
-                UiCanvasElementFactory.Stretch(finalImageRect);
-            }
-
-            _finalTransitionImage = finalImageRect.GetComponent<Image>();
-            _finalTransitionImage.color = Color.white;
-            _finalTransitionImage.raycastTarget = false;
-        }
-
-        private void EnsureBlackFadeLayer()
-        {
-            var fadeRect = transform.Find("BlackFade") as RectTransform;
-            if (fadeRect == null)
-            {
-                var fadeObject = new GameObject(
-                    "BlackFade",
-                    typeof(RectTransform),
-                    typeof(Image));
-                fadeObject.transform.SetParent(transform, false);
-                fadeRect = (RectTransform)fadeObject.transform;
-                UiCanvasElementFactory.Stretch(fadeRect);
-            }
-
-            _blackFadeImage = fadeRect.GetComponent<Image>();
-            _blackFadeImage.raycastTarget = false;
-            _blackFadeImage.transform.SetAsLastSibling();
-        }
-
         private void EnsurePanelPool(int count)
         {
             while (_panelImages.Count < count)
@@ -877,10 +845,63 @@ namespace Game.Feature.UI.Composition
 
         private void ApplyBlackFadeAlpha(float alpha)
         {
-            EnsureBlackFadeLayer();
             var color = _timing.FadeColor;
             color.a = Mathf.Clamp01(alpha);
             _blackFadeImage.color = color;
+        }
+
+        private static void RequireComponentOn(
+            Component component,
+            GameObject expectedOwner,
+            string fieldName)
+        {
+            if (component == null ||
+                expectedOwner == null ||
+                component.gameObject != expectedOwner)
+            {
+                throw CreateInvalidHierarchyException(
+                    $"{fieldName} must reference its authored component on " +
+                    $"{expectedOwner?.name ?? "the required owner"}");
+            }
+        }
+
+        private static void RequireDirectChild(
+            RectTransform child,
+            RectTransform expectedParent,
+            string fieldName)
+        {
+            if (child == null || expectedParent == null || child.parent != expectedParent)
+            {
+                throw CreateInvalidHierarchyException(
+                    $"{fieldName} must reference an authored direct child of " +
+                    $"{expectedParent?.name ?? "the required parent"}");
+            }
+        }
+
+        private static InvalidOperationException CreateInvalidHierarchyException(string reason)
+        {
+            return new InvalidOperationException(
+                $"ComicSequenceOverlayView authored hierarchy is invalid: {reason}.");
+        }
+
+        private static void RequireStretch(RectTransform rect, string fieldName)
+        {
+            if (rect == null ||
+                rect.anchorMin != Vector2.zero ||
+                rect.anchorMax != Vector2.one ||
+                rect.anchoredPosition != Vector2.zero ||
+                rect.sizeDelta != Vector2.zero)
+            {
+                throw CreateInvalidHierarchyException(
+                    $"{fieldName} must use stretch anchors with zero position and size delta");
+            }
+        }
+
+        private static bool IsRgb(Color actual, Color expected)
+        {
+            return Mathf.Approximately(actual.r, expected.r) &&
+                   Mathf.Approximately(actual.g, expected.g) &&
+                   Mathf.Approximately(actual.b, expected.b);
         }
 
         private static void SetImageAlpha(Image image, float alpha)

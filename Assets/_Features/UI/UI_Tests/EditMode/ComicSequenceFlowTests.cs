@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Shared.Audio;
 using NUnit.Framework;
@@ -125,24 +126,159 @@ namespace Game.Feature.UI.Tests
                 Does.Contain(
                     "_outroComicSequence: {fileID: 11400000, " +
                     "guid: a4c8e2f1d7634b55a3f0e6c91b72d001, type: 2}"));
+
+        }
+
+        [Test]
+        public void OverlayPrefab_AuthorsFixedShell_AndLeavesPanelsMountEmpty()
+        {
+            var view = CreateOverlayInstance();
+            try
+            {
+                Assert.DoesNotThrow(view.EnsureHierarchy);
+                Assert.That(view.gameObject.activeSelf, Is.False);
+                Assert.That(view.GetComponent<CanvasGroup>(), Is.Not.Null);
+                Assert.That(view.GetComponent<AudioSource>(), Is.Not.Null);
+                Assert.That(view.PanelImages, Is.Empty);
+                FindSinglePointerTargetImage(view);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
+        }
+
+        [Test]
+        public void Overlay_InvalidAuthoredReference_FailsWithoutRepairingHierarchy()
+        {
+            var view = CreateOverlayInstance();
+            try
+            {
+                var authoredTransforms =
+                    view.GetComponentsInChildren<Transform>(includeInactive: true);
+                var serializedView = new SerializedObject(view);
+                var blackFadeProperty = serializedView.FindProperty("_blackFadeImage");
+                Assert.That(blackFadeProperty, Is.Not.Null);
+                var authoredBlackFade = blackFadeProperty.objectReferenceValue;
+                Assert.That(authoredBlackFade, Is.Not.Null);
+                blackFadeProperty.objectReferenceValue = null;
+                serializedView.ApplyModifiedPropertiesWithoutUndo();
+
+                Assert.That(
+                    () => view.EnsureHierarchy(),
+                    Throws.InvalidOperationException);
+                Assert.That(
+                    view.GetComponentsInChildren<Transform>(includeInactive: true),
+                    Is.EqualTo(authoredTransforms));
+                Assert.That(authoredBlackFade, Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
+        }
+
+        [TestCase(typeof(MainMenuUiFlowInstaller))]
+        [TestCase(typeof(GameplayUiFlowInstaller))]
+        public void ProductionInstaller_MissingOverlayPrefab_FailsBeforeCreatingRuntimeShell(
+            Type installerType)
+        {
+            var root = new GameObject(
+                nameof(ProductionInstaller_MissingOverlayPrefab_FailsBeforeCreatingRuntimeShell));
+            try
+            {
+                var installer = root.AddComponent(installerType);
+                InvokePublicInstallExpectingFailure(installer);
+                Assert.That(
+                    root.GetComponentsInChildren<ComicSequenceOverlayView>(true),
+                    Is.Empty);
+                Assert.That(root.transform.childCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase(typeof(MainMenuUiFlowInstaller))]
+        [TestCase(typeof(GameplayUiFlowInstaller))]
+        public void ProductionInstaller_MalformedOverlayPrefab_FailsBeforePartialInstall(
+            Type installerType)
+        {
+            var root = new GameObject(
+                nameof(ProductionInstaller_MalformedOverlayPrefab_FailsBeforePartialInstall));
+            var malformedPrefab = CreateOverlayInstance();
+            try
+            {
+                FindSinglePointerTargetImage(malformedPrefab).color = Color.red;
+                var installer = root.AddComponent(installerType);
+                var serializedInstaller = new SerializedObject(installer);
+                serializedInstaller.FindProperty("_comicSequenceOverlayPrefab")
+                    .objectReferenceValue = malformedPrefab;
+                serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
+
+                InvokePublicInstallExpectingFailure(installer);
+                Assert.That(root.transform.childCount, Is.Zero);
+                Assert.That(
+                    root.GetComponentsInChildren<ComicSequenceOverlayView>(true),
+                    Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(malformedPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void Overlay_PointerAdvance_IsExactlyOnceAndTransitionInputIsIgnored()
+        {
+            var definition = CreateDefinitionWithoutAudio();
+            var view = CreateOverlayInstance();
+            try
+            {
+                view.Present(definition, default, _ => { });
+                SettleFade(view);
+                SettleFade(view);
+                var initialVisiblePanelCount = view.VisiblePanelCount;
+
+                view.OnPointerClick(new PointerEventData(null)
+                {
+                    button = PointerEventData.InputButton.Right,
+                });
+                Assert.That(view.VisiblePanelCount, Is.EqualTo(initialVisiblePanelCount));
+
+                var leftClick = new PointerEventData(null)
+                {
+                    button = PointerEventData.InputButton.Left,
+                };
+                view.OnPointerClick(leftClick);
+                view.OnPointerClick(leftClick);
+
+                Assert.That(
+                    view.VisiblePanelCount,
+                    Is.EqualTo(initialVisiblePanelCount + 1));
+                Assert.That(
+                    view.CurrentPresentationState,
+                    Is.EqualTo(ComicSequencePresentationState.Revealing));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
         }
 
         [Test]
         public void Overlay_EnterFade_TransitionsFromSourceSceneToOpaqueBlack()
         {
             var definition = CreateDefinitionWithoutAudio();
-            var root = new GameObject(
-                nameof(Overlay_EnterFade_TransitionsFromSourceSceneToOpaqueBlack),
-                typeof(RectTransform));
+            var view = CreateOverlayInstance();
             try
             {
-                var view = root.AddComponent<ComicSequenceOverlayView>();
-
                 view.Present(definition, default, _ => { });
 
-                var backgroundImage = root.transform
-                    .Find("Background")
-                    .GetComponent<Image>();
+                var backgroundImage = FindSinglePointerTargetImage(view);
                 var enterFadeDuration = definition.Timing.EnterFadeDuration;
                 Assert.That(enterFadeDuration, Is.GreaterThan(0f));
                 Assert.That(backgroundImage.color.a, Is.Zero);
@@ -163,7 +299,7 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
                 UnityEngine.Object.DestroyImmediate(definition);
             }
         }
@@ -172,12 +308,9 @@ namespace Game.Feature.UI.Tests
         public void Overlay_ReplacesSecondPagePanel_ThenCompletesAfterFourteenAdvances()
         {
             var definition = CreateDefinitionWithoutAudio();
-            var root = new GameObject(
-                nameof(Overlay_ReplacesSecondPagePanel_ThenCompletesAfterFourteenAdvances),
-                typeof(RectTransform));
+            var view = CreateOverlayInstance();
             try
             {
-                var view = root.AddComponent<ComicSequenceOverlayView>();
                 ComicSequenceResult? completion = null;
 
                 view.Present(definition, default, result => completion = result);
@@ -188,6 +321,7 @@ namespace Game.Feature.UI.Tests
                     Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
                 Assert.That(view.CurrentPageIndex, Is.EqualTo(0));
                 Assert.That(view.VisiblePanelCount, Is.EqualTo(1));
+                var firstPooledPanel = view.PanelImages[0];
 
                 var advanceCount = 0;
                 for (var panel = 1; panel < 5; panel++)
@@ -286,10 +420,16 @@ namespace Game.Feature.UI.Tests
                 Assert.That(completion.HasValue, Is.True);
                 Assert.That(completion.Value.Kind,
                     Is.EqualTo(ComicSequenceResultKind.Completed));
+
+                view.Present(definition, default, _ => { });
+                Assert.That(view.PanelImages[0], Is.SameAs(firstPooledPanel));
+                Assert.That(view.PanelImages, Has.Count.EqualTo(6));
+                Assert.That(view.PanelImages, Has.All.Matches<Image>(image =>
+                    !image.raycastTarget && image.preserveAspect));
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
                 UnityEngine.Object.DestroyImmediate(definition);
             }
         }
@@ -309,12 +449,9 @@ namespace Game.Feature.UI.Tests
                 .objectReferenceValue = largeSprite;
             serializedDefinition.ApplyModifiedPropertiesWithoutUndo();
 
-            var root = new GameObject(
-                nameof(PanelLayout_IsResolutionIndependent_AndDoesNotUseNativeSpriteSize),
-                typeof(RectTransform));
+            var view = CreateOverlayInstance();
             try
             {
-                var view = root.AddComponent<ComicSequenceOverlayView>();
                 view.Present(definition, default, _ => { });
                 SettleFade(view);
                 SettleFade(view);
@@ -334,7 +471,7 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
                 UnityEngine.Object.DestroyImmediate(definition);
                 UnityEngine.Object.DestroyImmediate(largeSprite);
                 UnityEngine.Object.DestroyImmediate(largeTexture);
@@ -573,12 +710,9 @@ namespace Game.Feature.UI.Tests
         public void Overlay_DisabledMidPresentation_CancelsAndReleasesOpaqueOwner()
         {
             var definition = CreateDefinitionWithoutAudio();
-            var root = new GameObject(
-                nameof(Overlay_DisabledMidPresentation_CancelsAndReleasesOpaqueOwner),
-                typeof(RectTransform));
+            var view = CreateOverlayInstance();
             try
             {
-                var view = root.AddComponent<ComicSequenceOverlayView>();
                 ComicSequenceOpaqueHandoffToken token = default;
                 Assert.That(
                     ComicSequenceOpaqueHandoffRegistry.TryClaim(
@@ -591,7 +725,7 @@ namespace Game.Feature.UI.Tests
                 ComicSequenceResult? completion = null;
                 view.Present(definition, token, result => completion = result);
 
-                root.SetActive(false);
+                view.gameObject.SetActive(false);
                 typeof(ComicSequenceOverlayView)
                     .GetMethod(
                         "OnDisable",
@@ -611,7 +745,7 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
                 UnityEngine.Object.DestroyImmediate(definition);
             }
         }
@@ -619,24 +753,63 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void Overlay_BackgroundUsesPointerClickWithoutSubmitButton()
         {
-            var root = new GameObject(
-                nameof(Overlay_BackgroundUsesPointerClickWithoutSubmitButton),
-                typeof(RectTransform));
+            var view = CreateOverlayInstance();
             try
             {
-                var view = root.AddComponent<ComicSequenceOverlayView>();
                 view.EnsureHierarchy();
 
                 Assert.That(view, Is.InstanceOf<IPointerClickHandler>());
-                Assert.That(root.transform.Find("Background"), Is.Not.Null);
                 Assert.That(
-                    root.transform.Find("Background").GetComponent<Button>(),
+                    FindSinglePointerTargetImage(view).GetComponent<Button>(),
                     Is.Null);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
             }
+        }
+
+        private static ComicSequenceOverlayView CreateOverlayInstance()
+        {
+            return UnityEngine.Object.Instantiate(
+                UiTestPrefabAssetUtility.LoadComicSequenceOverlayPrefab());
+        }
+
+        private static Image FindSinglePointerTargetImage(
+            ComicSequenceOverlayView view)
+        {
+            var images = view.GetComponentsInChildren<Image>(includeInactive: true);
+            Image pointerTarget = null;
+            var pointerTargetCount = 0;
+            foreach (var image in images)
+            {
+                if (!image.raycastTarget)
+                {
+                    continue;
+                }
+
+                pointerTarget = image;
+                pointerTargetCount++;
+            }
+
+            Assert.That(
+                pointerTargetCount,
+                Is.EqualTo(1),
+                "The authored overlay must expose exactly one pointer raycast target.");
+            return pointerTarget;
+        }
+
+        private static InvalidOperationException InvokePublicInstallExpectingFailure(
+            Component installer)
+        {
+            if (installer is MainMenuUiFlowInstaller mainMenuInstaller)
+            {
+                return Assert.Throws<InvalidOperationException>(mainMenuInstaller.Install);
+            }
+
+            var gameplayInstaller = (GameplayUiFlowInstaller)installer;
+            return Assert.Throws<InvalidOperationException>(
+                () => gameplayInstaller.Install(default(GameplayUiFlowPorts)));
         }
 
         private static ComicSequenceDefinition LoadProductionDefinition()

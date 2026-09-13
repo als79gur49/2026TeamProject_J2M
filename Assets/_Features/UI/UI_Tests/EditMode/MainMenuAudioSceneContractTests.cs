@@ -124,6 +124,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 var relay = root.AddComponent<AudioSettingsLifecycleRelay>();
                 var audioPort = new RecordingAudioSettingsPort();
                 relay.Initialize(audioPort);

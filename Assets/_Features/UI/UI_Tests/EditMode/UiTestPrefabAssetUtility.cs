@@ -23,6 +23,8 @@ namespace Game.Feature.UI.Tests
         internal const string GameClearScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameClearScreen.prefab";
         internal const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
         internal const string UiAudioCueMapAssetPath = "Assets/_Features/UI/UI_Composition/Authoring/UiAudioCueMap_V1.asset";
+        internal const string ComicSequenceOverlayPrefabPath =
+            "Assets/_Features/UI/UI_Composition/Authoring/ComicSequences/ComicSequenceOverlay.prefab";
         internal const string KboDiaGothicMediumFontAssetPath =
             "Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset";
         internal const string KboDiaGothicLightFontAssetPath =
@@ -54,6 +56,26 @@ namespace Game.Feature.UI.Tests
             var hudPrefabProperty = serializedInstaller.FindProperty("_hudPrefab");
             Assert.That(hudPrefabProperty, Is.Not.Null);
             hudPrefabProperty.objectReferenceValue = LoadHudPrefab();
+            serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        internal static ComicSequenceOverlayView LoadComicSequenceOverlayPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<ComicSequenceOverlayView>(
+                ComicSequenceOverlayPrefabPath);
+            Assert.That(prefab, Is.Not.Null, ComicSequenceOverlayPrefabPath);
+            return prefab;
+        }
+
+        internal static void AssignComicSequenceOverlayPrefab(Component installer)
+        {
+            Assert.That(installer, Is.Not.Null);
+
+            var serializedInstaller = new SerializedObject(installer);
+            var prefabProperty = serializedInstaller.FindProperty(
+                "_comicSequenceOverlayPrefab");
+            Assert.That(prefabProperty, Is.Not.Null);
+            prefabProperty.objectReferenceValue = LoadComicSequenceOverlayPrefab();
             serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -163,6 +185,7 @@ namespace Game.Feature.UI.Tests
             AssignScreenPrefabCatalog(installer);
             AssignPopupPrefabCatalog(installer);
             AssignUiAudioCueMap(installer);
+            AssignComicSequenceOverlayPrefab(installer);
         }
 
         internal static void AssertOverlayCanvasScaling(GameObject root)

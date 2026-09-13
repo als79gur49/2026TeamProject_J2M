@@ -31,6 +31,8 @@ namespace Game.Feature.UI.Composition
             "GameplayUiFlowInstaller requires a co-located DisplayRuntimeInstaller on the canonical bootstrap root for SettingsScreen display controls.";
         private const string MissingUiAudioCueMapMessage =
             "GameplayUiFlowInstaller requires a serialized UiAudioCueMap on the canonical bootstrap root for UI SFX v1.";
+        private const string MissingComicSequenceOverlayPrefabMessage =
+            "GameplayUiFlowInstaller requires the canonical ComicSequenceOverlayView prefab reference.";
         private const string RootShellObjectName = "GameplayUiCanvasRoot";
         private const string RootShellPrefabResourcePath = "UI/GameplayUiCanvasRootShell";
         private static readonly FieldInfo TmpDropdownLiveListField =
@@ -55,6 +57,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private ComicSequenceDefinition _outroComicSequence;
+        [SerializeField] private ComicSequenceOverlayView _comicSequenceOverlayPrefab;
         [SerializeField] private DemoStageControlSettings _demoStageControlSettings = DemoStageControlSettings.EnabledByDefault();
         [SerializeField] private bool _installOnStart = true;
 
@@ -475,6 +478,8 @@ namespace Game.Feature.UI.Composition
                 throw new ArgumentNullException(nameof(sceneHost));
             }
 
+            ValidateComicSequenceOverlayPrefab();
+
             if (sceneHost.UiAccess == null)
             {
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
@@ -604,6 +609,8 @@ namespace Game.Feature.UI.Composition
             {
                 return;
             }
+
+            ValidateComicSequenceOverlayPrefab();
 
             Ports = ports;
             EnsureRootView();
@@ -971,19 +978,21 @@ namespace Game.Feature.UI.Composition
                 return _comicSequenceFlowCoordinator;
             }
 
-            var overlay = _rootView != null
-                ? _rootView.GetComponentInChildren<ComicSequenceOverlayView>(includeInactive: true)
-                : null;
-            if (overlay == null)
+            ValidateComicSequenceOverlayPrefab();
+            var parent = _rootView != null ? _rootView.transform : transform;
+            var overlay = Instantiate(_comicSequenceOverlayPrefab, parent, false);
+            try
             {
-                var parent = _rootView != null ? _rootView.transform : transform;
-                var overlayObject = new GameObject("ComicSequenceOverlay", typeof(RectTransform));
-                overlayObject.transform.SetParent(parent, false);
-                overlay = overlayObject.AddComponent<ComicSequenceOverlayView>();
-                overlayObject.SetActive(false);
+                overlay.gameObject.SetActive(false);
+                overlay.EnsureHierarchy();
+                overlay.Initialize(ResolveUiInputActions());
+            }
+            catch
+            {
+                DestroyFailedComicSequenceOverlay(overlay);
+                throw;
             }
 
-            overlay.Initialize(ResolveUiInputActions());
             var audioFocus = GetComponent<ComicSequenceAudioFocusController>();
             if (audioFocus == null)
             {
@@ -996,6 +1005,34 @@ namespace Game.Feature.UI.Composition
                 overlay,
                 audioFocus);
             return _comicSequenceFlowCoordinator;
+        }
+
+        private void ValidateComicSequenceOverlayPrefab()
+        {
+            if (_comicSequenceOverlayPrefab == null)
+            {
+                throw new InvalidOperationException(MissingComicSequenceOverlayPrefabMessage);
+            }
+
+            _comicSequenceOverlayPrefab.EnsureHierarchy();
+        }
+
+        private static void DestroyFailedComicSequenceOverlay(
+            ComicSequenceOverlayView overlay)
+        {
+            if (overlay == null)
+            {
+                return;
+            }
+
+            if (UnityEngine.Application.isPlaying)
+            {
+                Destroy(overlay.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(overlay.gameObject);
+            }
         }
 
         private void EnsureDisplayPreviewTimeoutRelay()

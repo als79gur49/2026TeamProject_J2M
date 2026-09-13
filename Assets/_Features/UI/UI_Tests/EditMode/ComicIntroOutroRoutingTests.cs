@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
@@ -253,24 +252,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 harness.ComicFlow.CommitAudioFocusToTransitionCount,
                 Is.Zero);
-        }
-
-        [Test]
-        public void RuntimeComposition_ProvidesComicSequenceComponents()
-        {
-            var projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            var requiredComicSequencePaths = new[]
-            {
-                "Assets/_Features/UI/UI_Composition/Runtime/ComicSequenceDefinition.cs",
-                "Assets/_Features/UI/UI_Composition/Runtime/ComicSequenceOverlayView.cs",
-                "Assets/_Features/UI/UI_Composition/Runtime/ComicSequenceFlowCoordinator.cs",
-                "Assets/_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
-                "Assets/_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
-            };
-            foreach (var path in requiredComicSequencePaths)
-            {
-                Assert.That(File.Exists(Path.Combine(projectRoot, path)), Is.True, path);
-            }
         }
 
         private static CampaignSlotSeedImportRequest CreateSlot(

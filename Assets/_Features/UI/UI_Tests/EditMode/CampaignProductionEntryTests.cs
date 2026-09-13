@@ -77,6 +77,7 @@ namespace Game.Feature.UI.Tests
                 TerminalSessionRegistry.ResetForTests();
                 SceneEntryPresentationRegistry.ResetForTests();
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 root.AddComponent<AudioRuntimeInstaller>();
                 root.AddComponent<DisplayRuntimeInstaller>();
                 SetPrivateField(installer, "_installOnStart", false);
@@ -150,6 +151,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 root.AddComponent<AudioRuntimeInstaller>();
                 root.AddComponent<DisplayRuntimeInstaller>();
                 SetPrivateField(installer, "_installOnStart", false);
@@ -214,6 +216,7 @@ namespace Game.Feature.UI.Tests
                     saveHarness.RecoveryPort,
                     saveHarness.ActiveSlotStorage);
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 root.AddComponent<AudioRuntimeInstaller>();
                 root.AddComponent<DisplayRuntimeInstaller>();
                 SetPrivateField(installer, "_installOnStart", false);
@@ -1185,6 +1188,7 @@ namespace Game.Feature.UI.Tests
             {
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 SetPrivateField(installer, "_installOnStart", false);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
                 SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);

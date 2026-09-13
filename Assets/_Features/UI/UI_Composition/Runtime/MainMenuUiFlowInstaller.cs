@@ -41,6 +41,8 @@ namespace Game.Feature.UI.Composition
             "MainMenuUiFlowInstaller requires a same-root DisplayRuntimeInstaller with a DisplaySettingsService.";
         private const string MissingUiAudioCueMapMessage =
             "MainMenuUiFlowInstaller requires a serialized UiAudioCueMap for MainMenu UI SFX.";
+        private const string MissingComicSequenceOverlayPrefabMessage =
+            "MainMenuUiFlowInstaller requires the canonical ComicSequenceOverlayView prefab reference.";
         [SerializeField] private MainMenuScreenView _mainMenuScreenView;
         [SerializeField] private MainMenuScreenView _mainMenuScreenPrefab;
         [SerializeField] private ScreenPrefabCatalog _screenPrefabCatalog;
@@ -53,6 +55,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private ScriptableObjectStageCatalogProvider _stageCatalogProvider;
         [SerializeField] private CampaignStageSequenceDefinition _campaignStageSequenceDefinition;
         [SerializeField] private ComicSequenceDefinition _introComicSequence;
+        [SerializeField] private ComicSequenceOverlayView _comicSequenceOverlayPrefab;
         [SerializeField] private double _settingsPreviewTimeoutSeconds = 15d;
         [SerializeField] private bool _installOnStart = true;
 
@@ -300,6 +303,8 @@ namespace Game.Feature.UI.Composition
             {
                 return;
             }
+
+            ValidateComicSequenceOverlayPrefab();
 
             if (_routeConfig == null)
             {
@@ -1330,16 +1335,20 @@ namespace Game.Feature.UI.Composition
                 return _comicSequenceFlowCoordinator;
             }
 
-            var overlay = GetComponentInChildren<ComicSequenceOverlayView>(includeInactive: true);
-            if (overlay == null)
+            ValidateComicSequenceOverlayPrefab();
+            var overlay = Instantiate(_comicSequenceOverlayPrefab, transform, false);
+            try
             {
-                var overlayObject = new GameObject("ComicSequenceOverlay", typeof(RectTransform));
-                overlayObject.transform.SetParent(transform, false);
-                overlay = overlayObject.AddComponent<ComicSequenceOverlayView>();
-                overlayObject.SetActive(false);
+                overlay.gameObject.SetActive(false);
+                overlay.EnsureHierarchy();
+                overlay.Initialize(_inputActions);
+            }
+            catch
+            {
+                DestroyFailedComicSequenceOverlay(overlay);
+                throw;
             }
 
-            overlay.Initialize(_inputActions);
             var audioFocus = GetComponent<ComicSequenceAudioFocusController>();
             if (audioFocus == null)
             {
@@ -1352,6 +1361,34 @@ namespace Game.Feature.UI.Composition
                 overlay,
                 audioFocus);
             return _comicSequenceFlowCoordinator;
+        }
+
+        private void ValidateComicSequenceOverlayPrefab()
+        {
+            if (_comicSequenceOverlayPrefab == null)
+            {
+                throw new InvalidOperationException(MissingComicSequenceOverlayPrefabMessage);
+            }
+
+            _comicSequenceOverlayPrefab.EnsureHierarchy();
+        }
+
+        private static void DestroyFailedComicSequenceOverlay(
+            ComicSequenceOverlayView overlay)
+        {
+            if (overlay == null)
+            {
+                return;
+            }
+
+            if (UnityEngine.Application.isPlaying)
+            {
+                Destroy(overlay.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(overlay.gameObject);
+            }
         }
 
         private void EnsureDisplayPreviewTimeoutRelay()

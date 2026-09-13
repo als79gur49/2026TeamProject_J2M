@@ -73,6 +73,7 @@ namespace Game.Feature.UI.Tests
             {
                 var host = CreateHost(root);
                 var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 var invalidRoot = new GameObject("InvalidGameplayUiCanvasRoot")
                     .AddComponent<GameplayUiCanvasRootView>();
                 invalidRoot.transform.SetParent(root.transform, false);
@@ -178,6 +179,7 @@ namespace Game.Feature.UI.Tests
             {
                 var host = CreateHost(root);
                 var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 var invalidRoot = new GameObject("InvalidGameplayUiCanvasRoot")
                     .AddComponent<GameplayUiCanvasRootView>();
                 invalidRoot.transform.SetParent(root.transform, false);
@@ -577,6 +579,7 @@ namespace Game.Feature.UI.Tests
                 root.AddComponent<CanvasScaler>();
                 root.AddComponent<GraphicRaycaster>();
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 root.AddComponent<AudioRuntimeInstaller>();
                 root.AddComponent<DisplayRuntimeInstaller>();
                 SetPrivateField(installer, "_installOnStart", false);

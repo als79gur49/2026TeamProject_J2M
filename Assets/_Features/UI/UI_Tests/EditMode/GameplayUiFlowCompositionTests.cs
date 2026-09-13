@@ -57,6 +57,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
                 UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
@@ -81,6 +82,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
                 UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
@@ -107,6 +109,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = canonicalRoot.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
                 UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
@@ -134,6 +137,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = canonicalRoot.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
                 UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
@@ -161,6 +165,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
                 UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
                 UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
