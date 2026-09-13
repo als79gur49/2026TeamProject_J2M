@@ -679,6 +679,8 @@ namespace Game.Feature.UI.Tests
                 var viewModel = new ObjectiveHudViewModel();
                 viewModel.SetState(
                     true,
+                    string.Empty,
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
@@ -717,6 +719,8 @@ namespace Game.Feature.UI.Tests
                 var viewModel = new ObjectiveHudViewModel();
                 viewModel.SetState(
                     true,
+                    string.Empty,
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
@@ -750,6 +754,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -796,6 +801,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -831,6 +837,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -868,6 +875,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -910,6 +918,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -922,6 +931,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -958,6 +968,8 @@ namespace Game.Feature.UI.Tests
                 var viewModel = new ObjectiveHudViewModel();
                 viewModel.SetState(
                     true,
+                    string.Empty,
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -996,6 +1008,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1007,6 +1020,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", true, true),
@@ -1049,6 +1063,8 @@ namespace Game.Feature.UI.Tests
                 var viewModel = new ObjectiveHudViewModel();
                 viewModel.SetState(
                     true,
+                    string.Empty,
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1087,6 +1103,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1124,6 +1141,8 @@ namespace Game.Feature.UI.Tests
                 var viewModel = new ObjectiveHudViewModel();
                 viewModel.SetState(
                     true,
+                    string.Empty,
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
@@ -1135,6 +1154,8 @@ namespace Game.Feature.UI.Tests
                     FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "reach-exit"));
                 viewModel.SetState(
                     true,
+                    string.Empty,
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", true, true),
@@ -1166,6 +1187,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 2, 4, isSatisfied: false, justSatisfied: false),
@@ -1200,6 +1222,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
@@ -1212,6 +1235,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 2, 4, isSatisfied: false, justSatisfied: false),
@@ -1246,6 +1270,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 3, 4, isSatisfied: false, justSatisfied: false),
@@ -1258,6 +1283,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 4, 4, isSatisfied: true, justSatisfied: true),
@@ -1289,6 +1315,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1300,6 +1327,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1333,6 +1361,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
@@ -1379,6 +1408,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
@@ -1422,6 +1452,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
@@ -1459,6 +1490,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 3, 4, isSatisfied: false, justSatisfied: false),
@@ -1498,6 +1530,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1509,6 +1542,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1540,6 +1574,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 3, 4, isSatisfied: false, justSatisfied: false),
@@ -1550,6 +1585,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 4, 4, isSatisfied: true, justSatisfied: true),
@@ -1583,6 +1619,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
@@ -1596,6 +1633,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-b",
+                    string.Empty,
                     new[]
                     {
                         CreateGroupedObjectiveRow("buttons", 2, 4, isSatisfied: false, justSatisfied: false),
@@ -1626,6 +1664,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1640,6 +1679,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1676,6 +1716,8 @@ namespace Game.Feature.UI.Tests
                 var viewModel = new ObjectiveHudViewModel();
                 viewModel.SetState(
                     true,
+                    string.Empty,
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
@@ -1714,6 +1756,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1731,6 +1774,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1762,6 +1806,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1783,6 +1828,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1835,6 +1881,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1849,6 +1896,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1886,6 +1934,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1899,6 +1948,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1940,6 +1990,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
@@ -1952,6 +2003,7 @@ namespace Game.Feature.UI.Tests
                 viewModel.SetState(
                     true,
                     "objective-a",
+                    string.Empty,
                     new[]
                     {
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
