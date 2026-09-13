@@ -21,6 +21,12 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayAnimationSyncCoordinator _animationSync;
         private readonly GameplayPoseResolver _poseResolver;
         private readonly GameplayPresentationStateStore _stateStore;
+        private readonly List<PresentableEntityTarget> _presentableTargetsBuffer = new();
+        private readonly List<EntityState> _orderedEntitiesBuffer = new();
+        private readonly HashSet<int> _duplicateEntityIdsBuffer = new();
+        private readonly HashSet<int> _inputEntityIdsBuffer = new();
+        private readonly HashSet<int> _removedOrExitedEntityIdsBuffer = new();
+        private readonly HashSet<int> _spawnedEntityIdsBuffer = new();
         private readonly Dictionary<int, StaticWallCommittedTarget> _staticWallCommittedTargets = new();
         private readonly Dictionary<int, StaticWallCandidate> _staticWallCandidates = new();
         private readonly List<int> _missingCandidateIdsBuffer = new();
@@ -72,6 +78,12 @@ namespace Game.Feature.Gameplay.Host
             _staticWallCommittedTargets.Clear();
             _staticWallCommittedTargetHighWaterMark = 0;
             _staticWallCandidates.Clear();
+            _presentableTargetsBuffer.Clear();
+            _orderedEntitiesBuffer.Clear();
+            _duplicateEntityIdsBuffer.Clear();
+            _inputEntityIdsBuffer.Clear();
+            _removedOrExitedEntityIdsBuffer.Clear();
+            _spawnedEntityIdsBuffer.Clear();
             foreach (var entityId in _provenance.EntityIds)
             {
                 if (_provenance.TryGetEntry(entityId, out var entry))
@@ -158,11 +170,13 @@ namespace Game.Feature.Gameplay.Host
             ObserveTopology(topology);
             ObserveLifecycle(presentationData);
             _stateStore.BeginCommittedFrame(topology);
-            var presentableTargets = new List<PresentableEntityTarget>(entities.Count);
-            var duplicateEntityIds = new HashSet<int>();
-            var orderedEntities = BuildOrderedEntities(entities, duplicateEntityIds);
+            _presentableTargetsBuffer.Clear();
+            _inputEntityIdsBuffer.Clear();
+            BuildOrderedEntities(entities, _orderedEntitiesBuffer, _duplicateEntityIdsBuffer);
+            var presentableTargets = _presentableTargetsBuffer;
+            var orderedEntities = _orderedEntitiesBuffer;
             _missingCandidateIdsBuffer.Clear();
-            _missingCandidateIdsBuffer.AddRange(duplicateEntityIds);
+            _missingCandidateIdsBuffer.AddRange(_duplicateEntityIdsBuffer);
             _missingCandidateIdsBuffer.Sort();
             for (var duplicateIndex = 0; duplicateIndex < _missingCandidateIdsBuffer.Count; duplicateIndex++)
             {
@@ -175,14 +189,13 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            var inputIds = new HashSet<int>();
             var diagnosticsEnabled = GameplayCommittedFrameDiagnostics.IsEnabled;
             var diagnostics = diagnosticsEnabled ? new FrameDiagnosticsAccumulator() : null;
 
             for (var i = 0; i < orderedEntities.Count; i++)
             {
                 var entity = orderedEntities[i];
-                inputIds.Add(entity.entityId);
+                _inputEntityIdsBuffer.Add(entity.entityId);
                 var candidate = ResolveCandidate(entity.entityId);
                 var isProvenanceCandidate = candidate != null;
                 var retireReason = StaticWallTargetRetireReason.None;
@@ -300,7 +313,7 @@ namespace Game.Feature.Gameplay.Host
                     row));
             }
 
-            RecordMissingCandidates(inputIds, diagnostics);
+            RecordMissingCandidates(_inputEntityIdsBuffer, diagnostics);
 
             Dictionary<int, Vector2> unitPresentationPlaneOffsetsByEntityId = null;
             if (EnableUnitPresentationPlaneOffsets)
@@ -407,6 +420,10 @@ namespace Game.Feature.Gameplay.Host
                     reason,
                     diagnostics);
             }
+
+            // Presentable targets can hold candidate and diagnostics references; release them after the
+            // synchronous frame build while retaining the list capacity for the next committed frame.
+            _presentableTargetsBuffer.Clear();
         }
 
         private void ObserveTopology(CubeTopologyState topology)
@@ -446,13 +463,15 @@ namespace Game.Feature.Gameplay.Host
 
         private void ObserveLifecycle(TickPresentationData presentationData)
         {
+            _removedOrExitedEntityIdsBuffer.Clear();
+            _spawnedEntityIdsBuffer.Clear();
             if (presentationData == null)
             {
                 return;
             }
 
-            var removedOrExitedIds = new HashSet<int>();
-            var spawnedIds = new HashSet<int>();
+            var removedOrExitedIds = _removedOrExitedEntityIdsBuffer;
+            var spawnedIds = _spawnedEntityIdsBuffer;
             for (var i = 0; i < presentationData.VisibilityChanges.Count; i++)
             {
                 var change = presentationData.VisibilityChanges[i];
@@ -792,11 +811,13 @@ namespace Game.Feature.Gameplay.Host
             return builder.ToString();
         }
 
-        private static List<EntityState> BuildOrderedEntities(
+        private static void BuildOrderedEntities(
             IReadOnlyList<EntityState> entities,
+            List<EntityState> ordered,
             ISet<int> duplicateEntityIds)
         {
-            var ordered = new List<EntityState>(entities.Count);
+            ordered.Clear();
+            duplicateEntityIds.Clear();
             for (var i = 0; i < entities.Count; i++)
             {
                 ordered.Add(entities[i]);
@@ -816,7 +837,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (readIndex > 0 && ordered[readIndex - 1].entityId == ordered[readIndex].entityId)
                 {
-                    duplicateEntityIds?.Add(ordered[readIndex].entityId);
+                    duplicateEntityIds.Add(ordered[readIndex].entityId);
                     continue;
                 }
 
@@ -827,8 +848,6 @@ namespace Game.Feature.Gameplay.Host
             {
                 ordered.RemoveRange(writeIndex, ordered.Count - writeIndex);
             }
-
-            return ordered;
         }
 
         private static bool ShouldPresent(EntityState entity, CubeTopologyState topology)

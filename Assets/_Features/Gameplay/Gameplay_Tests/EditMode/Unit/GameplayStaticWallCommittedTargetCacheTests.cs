@@ -336,6 +336,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void StaticWallTargetCache_DiagnosticsOff_ReusesAndClearsFrameScratchCollections()
+        {
+            using var harness = CreateHarness();
+            Assert.That(GameplayCommittedFrameDiagnostics.IsEnabled, Is.False);
+
+            var scratchFieldNames = new[]
+            {
+                "_presentableTargetsBuffer",
+                "_orderedEntitiesBuffer",
+                "_duplicateEntityIdsBuffer",
+                "_inputEntityIdsBuffer",
+                "_removedOrExitedEntityIdsBuffer",
+                "_spawnedEntityIdsBuffer",
+            };
+            var scratchFields = scratchFieldNames.ToDictionary(
+                name => name,
+                name => GetReadonlyScratchField(harness.Builder, name));
+            var scratchIdentities = scratchFields.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.GetValue(harness.Builder));
+
+            const int removedRuntimeEntityId = 9001;
+            const int spawnedRuntimeEntityId = 9002;
+            harness.Store(
+                harness.Entities,
+                tickIndex: 1,
+                presentationData: new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    new[]
+                    {
+                        CreateVisibilityChange(removedRuntimeEntityId, TickVisibilityChangeKind.Remove, harness),
+                        CreateVisibilityChange(spawnedRuntimeEntityId, TickVisibilityChangeKind.Spawn, harness),
+                    }));
+
+            AssertScratchIdentitiesAreStable(harness.Builder, scratchFields, scratchIdentities);
+            var orderedEntities = (List<EntityState>)scratchIdentities["_orderedEntitiesBuffer"];
+            var duplicateEntityIds = (HashSet<int>)scratchIdentities["_duplicateEntityIdsBuffer"];
+            var inputEntityIds = (HashSet<int>)scratchIdentities["_inputEntityIdsBuffer"];
+            var removedOrExitedEntityIds = (HashSet<int>)scratchIdentities["_removedOrExitedEntityIdsBuffer"];
+            var spawnedEntityIds = (HashSet<int>)scratchIdentities["_spawnedEntityIdsBuffer"];
+            var presentableTargets = scratchIdentities["_presentableTargetsBuffer"];
+            var expectedEntityIds = harness.Entities.Select(entity => entity.entityId).OrderBy(entityId => entityId).ToArray();
+
+            Assert.That(orderedEntities.Select(entity => entity.entityId), Is.EqualTo(expectedEntityIds));
+            Assert.That(duplicateEntityIds, Is.Empty);
+            Assert.That(inputEntityIds.SetEquals(expectedEntityIds), Is.True);
+            Assert.That(removedOrExitedEntityIds.SetEquals(new[] { removedRuntimeEntityId, spawnedRuntimeEntityId }), Is.True);
+            Assert.That(spawnedEntityIds.SetEquals(new[] { spawnedRuntimeEntityId }), Is.True);
+            Assert.That(ReadCollectionIntProperty(presentableTargets, "Count"), Is.Zero);
+            Assert.That(
+                ReadCollectionIntProperty(presentableTargets, "Capacity"),
+                Is.GreaterThanOrEqualTo(harness.StateStore.CommittedLocalTargetPoses.Count));
+            var firstCommittedDump = BuildCommittedValueDump(harness.StateStore);
+
+            var duplicateEntity = harness.Entities.First(entity => entity.type == EntityType.Unit);
+            var duplicateInput = harness.Entities
+                .Reverse()
+                .Concat(new[] { duplicateEntity })
+                .ToArray();
+            harness.Store(duplicateInput, tickIndex: 2, presentationData: null);
+
+            AssertScratchIdentitiesAreStable(harness.Builder, scratchFields, scratchIdentities);
+            Assert.That(
+                orderedEntities.Select(entity => entity.entityId),
+                Is.EqualTo(expectedEntityIds),
+                "ordered scratch contents must remain sorted and normalized after reuse");
+            Assert.That(duplicateEntityIds.SetEquals(new[] { duplicateEntity.entityId }), Is.True);
+            Assert.That(inputEntityIds.SetEquals(expectedEntityIds), Is.True);
+            Assert.That(removedOrExitedEntityIds, Is.Empty);
+            Assert.That(spawnedEntityIds, Is.Empty);
+            Assert.That(ReadCollectionIntProperty(presentableTargets, "Count"), Is.Zero);
+            Assert.That(BuildCommittedValueDump(harness.StateStore), Is.EqualTo(firstCommittedDump));
+
+            harness.ResetSession();
+
+            AssertScratchIdentitiesAreStable(harness.Builder, scratchFields, scratchIdentities);
+            Assert.That(orderedEntities, Is.Empty);
+            Assert.That(duplicateEntityIds, Is.Empty);
+            Assert.That(inputEntityIds, Is.Empty);
+            Assert.That(removedOrExitedEntityIds, Is.Empty);
+            Assert.That(spawnedEntityIds, Is.Empty);
+            Assert.That(ReadCollectionIntProperty(presentableTargets, "Count"), Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void StaticWallTargetDiagnostics_LifecycleReasonsAdvanceGenerationExactlyOnce()
         {
             using (var harness = CreateHarness())
@@ -1214,6 +1301,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxTicksPerFrame: 8);
         }
 
+        private static FieldInfo GetReadonlyScratchField(GameplayCommittedFrameBuilder builder, string fieldName)
+        {
+            var field = builder.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            Assert.That(field.IsInitOnly, Is.True, fieldName);
+            return field;
+        }
+
+        private static void AssertScratchIdentitiesAreStable(
+            GameplayCommittedFrameBuilder builder,
+            IReadOnlyDictionary<string, FieldInfo> fields,
+            IReadOnlyDictionary<string, object> expectedIdentities)
+        {
+            foreach (var pair in fields)
+            {
+                Assert.That(pair.Value.GetValue(builder), Is.SameAs(expectedIdentities[pair.Key]), pair.Key);
+            }
+        }
+
+        private static int ReadCollectionIntProperty(object collection, string propertyName)
+        {
+            var property = collection.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(property, Is.Not.Null, $"{collection.GetType().Name}.{propertyName}");
+            return (int)property.GetValue(collection);
+        }
+
         private static StringBuilder AppendInvariant(StringBuilder builder, long value)
         {
             return builder.Append(value.ToString(CultureInfo.InvariantCulture));
@@ -1547,6 +1660,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             internal CubeTopologyState Topology { get; }
             internal GameplayCubeProjector Projector { get; }
             internal GameplayPresentationStateStore StateStore { get; }
+            internal GameplayCommittedFrameBuilder Builder => _builder;
             internal int ViewCreateCount => _viewFactory.CreateCount;
 
             internal void ResetSession(StageStaticWallPresentationProvenance provenance = null)
