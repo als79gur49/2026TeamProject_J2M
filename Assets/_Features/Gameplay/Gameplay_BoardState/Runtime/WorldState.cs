@@ -154,6 +154,7 @@ namespace Game.Feature.Gameplay.BoardState
             SnapshotMaterializationDiagnostics.RecordWorldStateCreateSnapshot();
             if (_cachedWorldSnapshot != null && !_worldSnapshotDirty)
             {
+                SnapshotMaterializationDiagnostics.RecordWorldStateSnapshotCacheHit();
                 return _cachedWorldSnapshot;
             }
 
@@ -189,6 +190,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _topology,
                 _topologyRevision,
                 _boardBounds);
+            SnapshotMaterializationDiagnostics.RecordWorldStateSnapshotMaterialization();
             _worldSnapshotDirty = false;
             return _cachedWorldSnapshot;
         }

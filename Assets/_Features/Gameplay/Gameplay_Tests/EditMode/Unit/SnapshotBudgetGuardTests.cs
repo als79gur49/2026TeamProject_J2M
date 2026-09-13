@@ -47,6 +47,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void SnapshotDiagnosticsCapture_DisabledCachedRequestsAllocateZeroBytes()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>());
+            worldState.CreateSnapshot();
+
+            const int iterations = 10000;
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            for (var index = 0; index < iterations; index++)
+            {
+                worldState.CreateSnapshot();
+            }
+
+            var allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+
+            Assert.That(SnapshotMaterializationDiagnostics.IsEnabled, Is.False);
+            Assert.That(allocatedBytes, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TickPipeline_RunPlanPhase_PlayerControlSameState_ReducesMaterialization()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
@@ -139,6 +159,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 counts.WorldStateCreateSnapshotCount,
                 Is.EqualTo(5),
                 "idle budget sentinel: empty idle RunTick authoritative snapshot requests should remain pinned");
+            Assert.That(
+                counts.WorldStateSnapshotCacheHitCount,
+                Is.EqualTo(4),
+                "idle budget sentinel: all authoritative requests after the first materialization should hit the cache");
+            Assert.That(
+                counts.WorldStateSnapshotMaterializationCount,
+                Is.EqualTo(1),
+                "idle budget sentinel: the authoritative snapshot should materialize once per clean idle tick");
+            Assert.That(
+                counts.WorldStateSnapshotRequestAccountingIsBalanced,
+                Is.True,
+                "idle budget sentinel: every successful authoritative request must be a cache hit or materialization");
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotTileFeatureCellIndexCellCount, Is.Zero);
+            Assert.That(counts.SnapshotStackedUnitCellIndexCellCount, Is.Zero);
             Assert.That(
                 counts.ProjectedWorldMaterializedSnapshotCount,
                 Is.EqualTo(1),

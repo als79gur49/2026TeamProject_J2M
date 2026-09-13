@@ -165,6 +165,13 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(counts.SlowBaseSnapshotImportCount, Is.EqualTo(0));
             Assert.That(counts.FastImportedEntityCount, Is.EqualTo(baseSnapshot.EntityCount));
             Assert.That(counts.FastImportedTileFeatureCount, Is.EqualTo(baseSnapshot.TileFeatureCount));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(1));
+            Assert.That(counts.WorldStateSnapshotCacheHitCount, Is.Zero);
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(1));
+            Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
         }
 
         [Test]
