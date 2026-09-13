@@ -32,19 +32,22 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
-                    playerStatusPresenter);
+                    chancePanelPresenter,
+                    surfaceBeltIndicatorPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    chancePanelPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot());
@@ -52,7 +55,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hudView.ViewModel, Is.SameAs(controller.RootViewModel));
                 Assert.That(hudView.StageInfoViewModel, Is.SameAs(controller.StageInfoViewModel));
                 Assert.That(hudView.ObjectiveHudView.ViewModel, Is.SameAs(controller.ObjectiveHudViewModel));
-                Assert.That(hudView.PlayerStatusView.ViewModel, Is.SameAs(controller.PlayerStatusViewModel));
+                Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(controller.ChancePanelViewModel));
+                Assert.That(hudView.SurfaceBeltIndicatorView.ViewModel, Is.SameAs(controller.SurfaceBeltViewModel));
             }
             finally
             {
@@ -70,7 +74,6 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
@@ -80,15 +83,13 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter);
+                    surfaceBeltIndicatorPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 2, maxChances: 3));
@@ -152,7 +153,6 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
@@ -162,15 +162,13 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter);
+                    surfaceBeltIndicatorPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(
@@ -224,7 +222,6 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
@@ -234,15 +231,13 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter);
+                    surfaceBeltIndicatorPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(
@@ -289,7 +284,6 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
@@ -299,15 +293,13 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter);
+                    surfaceBeltIndicatorPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(
@@ -608,7 +600,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hudView.GetComponentsInChildren<ChancePanelView>(true).Length, Is.GreaterThanOrEqualTo(2));
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
@@ -618,15 +609,13 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter);
+                    surfaceBeltIndicatorPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 Assert.Throws<InvalidOperationException>(() => controller.AttachView(hudView));
                 Assert.That(hudView.GetComponentsInChildren<ChancePanelView>(true).Length, Is.EqualTo(2));
@@ -647,7 +636,6 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
@@ -657,15 +645,13 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter);
+                    surfaceBeltIndicatorPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 controller.AttachView(hudView);
 
@@ -1991,19 +1977,22 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
-                    playerStatusPresenter);
+                    chancePanelPresenter,
+                    surfaceBeltIndicatorPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    chancePanelPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(stageDisplayNameKey: "stage.stage-1-1.display_name"));
@@ -2238,19 +2227,22 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 var source = new ManualGameplayUiPresentationSource();
-                var playerStatusPresenter = new PlayerStatusPresenter();
+                var chancePanelPresenter = new ChancePanelPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
-                    playerStatusPresenter);
+                    chancePanelPresenter,
+                    surfaceBeltIndicatorPresenter);
                 var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    chancePanelPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 controller.Dispose();
@@ -2258,7 +2250,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hudView.ViewModel, Is.Null);
                 Assert.That(hudView.StageInfoViewModel, Is.Null);
                 Assert.That(hudView.ObjectiveHudView.ViewModel, Is.Null);
-                Assert.That(hudView.PlayerStatusView.ViewModel, Is.Null);
+                Assert.That(hudView.ChancePanelView.ViewModel, Is.Null);
+                Assert.That(hudView.SurfaceBeltIndicatorView.ViewModel, Is.Null);
             }
             finally
             {

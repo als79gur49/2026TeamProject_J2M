@@ -422,21 +422,18 @@ namespace Game.Feature.UI.Tests
                 var objectivePresenter = new ObjectiveHudPresenter(resolver);
                 var chancePresenter = new ChancePanelPresenter();
                 var surfaceBeltPresenter = new SurfaceBeltIndicatorPresenter();
-                var playerStatusPresenter = new PlayerStatusPresenter();
                 rootPresenter = new HUDRootPresenter(
                     source,
                     stagePresenter,
                     objectivePresenter,
                     chancePresenter,
-                    surfaceBeltPresenter,
-                    playerStatusPresenter);
+                    surfaceBeltPresenter);
                 hudController = new HUDController(
                     rootPresenter.ViewModel,
                     stagePresenter.ViewModel,
                     objectivePresenter.ViewModel,
                     chancePresenter.ViewModel,
-                    surfaceBeltPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    surfaceBeltPresenter.ViewModel);
                 hudController.AttachView(hud);
                 ForceLayoutAndText(root);
 
@@ -636,21 +633,18 @@ namespace Game.Feature.UI.Tests
                 var objectivePresenter = new ObjectiveHudPresenter(resolver);
                 var chancePresenter = new ChancePanelPresenter();
                 var surfaceBeltPresenter = new SurfaceBeltIndicatorPresenter();
-                var playerStatusPresenter = new PlayerStatusPresenter();
                 rootPresenter = new HUDRootPresenter(
                     source,
                     stagePresenter,
                     objectivePresenter,
                     chancePresenter,
-                    surfaceBeltPresenter,
-                    playerStatusPresenter);
+                    surfaceBeltPresenter);
                 hudController = new HUDController(
                     rootPresenter.ViewModel,
                     stagePresenter.ViewModel,
                     objectivePresenter.ViewModel,
                     chancePresenter.ViewModel,
-                    surfaceBeltPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel);
+                    surfaceBeltPresenter.ViewModel);
                 hudController.AttachView(hud);
                 SettleObjectiveRows(objectiveView);
 

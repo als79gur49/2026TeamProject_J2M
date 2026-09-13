@@ -30,7 +30,6 @@ namespace Game.Feature.UI.HUD
         [FormerlySerializedAs("_surfaceIndicatorView")]
         [FormerlySerializedAs("_topologyBeltView")]
         [SerializeField] private SurfaceBeltIndicatorView _surfaceBeltIndicatorView;
-        [SerializeField] private PlayerStatusView _playerStatusView;
 
         private HUDRootViewModel _viewModel;
         private StageInfoViewModel _stageInfoViewModel;
@@ -50,7 +49,6 @@ namespace Game.Feature.UI.HUD
             _viewModel != null &&
             _viewModel.IsPauseButtonEnabled;
 
-        public PlayerStatusView PlayerStatusView => _playerStatusView;
 
         public ObjectiveHudView ObjectiveHudView => _objectiveHudView;
 
@@ -170,7 +168,6 @@ namespace Game.Feature.UI.HUD
             RequireReference(_objectiveHudView, nameof(_objectiveHudView));
             RequireReference(_chancePanelView, nameof(_chancePanelView));
             RequireReference(_surfaceBeltIndicatorView, nameof(_surfaceBeltIndicatorView));
-            RequireReference(_playerStatusView, nameof(_playerStatusView));
             RequireSingleChildView<ChancePanelView>(nameof(ChancePanelView));
             RequireSingleChildView<SurfaceBeltIndicatorView>(nameof(SurfaceBeltIndicatorView));
 
@@ -189,7 +186,6 @@ namespace Game.Feature.UI.HUD
             _objectiveHudView.ValidateAuthoredStructureOrThrow();
             _chancePanelView.ValidateAuthoredStructureOrThrow();
             _surfaceBeltIndicatorView.ValidateAuthoredStructureOrThrow();
-            _playerStatusView.ValidateAuthoredStructureOrThrow();
         }
 
         private void OnEnable()
@@ -223,7 +219,6 @@ namespace Game.Feature.UI.HUD
             ValidateSerializedReference(_objectiveHudView, nameof(_objectiveHudView));
             ValidateSerializedReference(_chancePanelView, nameof(_chancePanelView));
             ValidateSerializedReference(_surfaceBeltIndicatorView, nameof(_surfaceBeltIndicatorView));
-            ValidateSerializedReference(_playerStatusView, nameof(_playerStatusView));
         }
 #endif
 

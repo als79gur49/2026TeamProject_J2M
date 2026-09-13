@@ -18,7 +18,8 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_IsTheOnlyHudSubscriberToMappedPresentationSource()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
 
@@ -26,12 +27,14 @@ namespace Game.Feature.UI.Tests
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
             using var controller = new HUDController(
                 rootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
                 objectiveHudPresenter.ViewModel,
-                playerStatusPresenter.ViewModel);
+                chancePanelPresenter.ViewModel,
+                surfaceBeltIndicatorPresenter.ViewModel);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
             Assert.That(source.TickEventSubscriberCount, Is.EqualTo(0));
@@ -41,14 +44,16 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_Dispose_RemovesItsMappedSnapshotSubscription()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
             Assert.That(source.TickEventSubscriberCount, Is.EqualTo(0));
@@ -63,7 +68,6 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_FansOutMappedSnapshotToShellAndChildViewModels()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
@@ -73,8 +77,7 @@ namespace Game.Feature.UI.Tests
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
-                surfaceBeltIndicatorPresenter,
-                playerStatusPresenter);
+                surfaceBeltIndicatorPresenter);
 
             source.PublishSnapshot(CreateSnapshot(
                 isPaused: false,
@@ -90,46 +93,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
             Assert.That(stageInfoPresenter.ViewModel.StageName, Is.EqualTo("Stage 1-1"));
             Assert.That(stageInfoPresenter.ViewModel.HasStageName, Is.True);
-            Assert.That(playerStatusPresenter.ViewModel.FacingText, Is.EqualTo("Right"));
-            Assert.That(playerStatusPresenter.ViewModel.TopologyText, Is.Empty);
-            Assert.That(playerStatusPresenter.ViewModel.HasRemainingChances, Is.False);
-            Assert.That(playerStatusPresenter.ViewModel.MaxChances, Is.EqualTo(0));
             Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.False);
             Assert.That(surfaceBeltIndicatorPresenter.ViewModel.CenterSlotIndex, Is.EqualTo(1));
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.False);
-        }
-
-        [Test]
-        public void PlayerStatusPresenter_DoesNotOwnChanceOrTopologyHudState()
-        {
-            var presenter = new PlayerStatusPresenter();
-
-            presenter.Apply(
-                new UITickSlice(4, new GameplayUiTopology(GameplayUiFace.Front), false, false),
-                new UIInteractionSlice(false, true, false, false),
-                new UIPlayerActionSlice(
-                    playerEntityId: 10,
-                    currentHp: 2,
-                    maxHp: 4,
-                    facing: GameplayUiDirection.Right,
-                    activeActionKind: GameplayUiActionKind.None,
-                    isRecoveryPhase: false,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: true,
-                    lastResolvedOutcome: GameplayUiActionResolutionKind.None,
-                    lastResolvedTickIndex: 0,
-                    tookDamageThisTick: false,
-                    lastDamageAmount: 0,
-                    lastDamageTickIndex: 0,
-                    hasRemainingChances: true,
-                    remainingChances: 2,
-                    maxChances: 3));
-
-            Assert.That(presenter.ViewModel.HasRemainingChances, Is.False);
-            Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(0));
-            Assert.That(presenter.ViewModel.MaxChances, Is.EqualTo(0));
-            Assert.That(presenter.ViewModel.FacingText, Is.EqualTo("Right"));
-            Assert.That(presenter.ViewModel.TopologyText, Is.Empty);
         }
 
         [Test]
@@ -654,14 +620,16 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_FansOutObjectiveSliceToObjectivePresenter()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
 
             source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice()));
 
@@ -674,14 +642,16 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellReadOnlyState_ThroughMappedSourceOnly()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
 
             source.PublishSnapshot(CreateSnapshot(isPaused: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
@@ -711,14 +681,16 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_NonBlockingMoonBlockLocalPresentation_DoesNotDimShell()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
 
             source.PublishSnapshot(CreateSnapshot(
                 hasBlockingPresentation: false,

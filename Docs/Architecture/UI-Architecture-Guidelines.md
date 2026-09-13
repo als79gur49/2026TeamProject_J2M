@@ -377,7 +377,8 @@ Popup classification notes:
 
 HUD classification notes:
 
-- Current canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`.
+- Current canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, and `SurfaceBeltIndicator`.
+- PlayerStatus was retired on 2026-09-07: its Presenter/VM/View and invisible prefab subtree are removed. HUD construction explicitly shares the remaining five dependencies; gameplay player queries and snapshot fields retain their existing contracts.
 - ActionBar was removed as retired HUD proof residue after product option B selected deletion instead of wiring recovery.
 - `ActionBarView` and `ActionBarPresenter` are not current display components.
 - HUD is a display consumer of mapped UI presentation state. It is not a gameplay command owner.

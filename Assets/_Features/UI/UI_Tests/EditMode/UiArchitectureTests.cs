@@ -213,7 +213,6 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootPresenter).Assembly,
                 typeof(StageInfoPresenter).Assembly,
                 typeof(ObjectiveHudPresenter).Assembly,
-                typeof(PlayerStatusPresenter).Assembly,
                 typeof(SettingsScreenPresenter).Assembly,
                 typeof(StageResultScreenPresenter).Assembly,
                 typeof(PausePopupPresenter).Assembly,
@@ -308,7 +307,6 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootPresenter),
                 typeof(StageInfoPresenter),
                 typeof(ObjectiveHudPresenter),
-                typeof(PlayerStatusPresenter),
                 typeof(SettingsScreenPresenter),
             };
 
@@ -439,9 +437,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(publicMethodNames, Is.EqualTo(new[] { "Dispose" }));
 
             var constructors = typeof(HUDRootPresenter).GetConstructors(BindingFlags.Instance | BindingFlags.Public);
-            Assert.That(constructors, Has.Length.EqualTo(2));
+            Assert.That(constructors, Has.Length.EqualTo(1));
             var fullConstructor = constructors
-                .First(constructor => constructor.GetParameters().Length == 6);
+                .Single(constructor => constructor.GetParameters().Length == 5);
             Assert.That(
                 fullConstructor.GetParameters().Select(parameter => parameter.ParameterType).ToArray(),
                 Is.EqualTo(new[]
@@ -451,7 +449,6 @@ namespace Game.Feature.UI.Tests
                     typeof(ObjectiveHudPresenter),
                     typeof(ChancePanelPresenter),
                     typeof(SurfaceBeltIndicatorPresenter),
-                    typeof(PlayerStatusPresenter),
                 }));
 
             var forbiddenTypes = new[]
@@ -462,7 +459,6 @@ namespace Game.Feature.UI.Tests
                 typeof(PopupController),
                 typeof(UIFlowCoordinator),
                 typeof(ObjectiveHudViewModel),
-                typeof(PlayerStatusViewModel),
             };
 
             foreach (var forbiddenType in forbiddenTypes)
@@ -556,7 +552,6 @@ namespace Game.Feature.UI.Tests
                     "ChancePanelViewModel",
                     "IsGameplayReadOnly",
                     "ObjectiveHudViewModel",
-                    "PlayerStatusViewModel",
                     "RootViewModel",
                     "StageInfoViewModel",
                     "SurfaceBeltViewModel",
@@ -581,7 +576,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveHudPresenter),
                 typeof(ChancePanelPresenter),
                 typeof(SurfaceBeltIndicatorPresenter),
-                typeof(PlayerStatusPresenter),
             };
             var forbiddenTypes = new[]
             {
@@ -610,7 +604,6 @@ namespace Game.Feature.UI.Tests
             AssertViewBindSignature(typeof(ObjectiveHudView), typeof(ObjectiveHudViewModel));
             AssertViewBindSignature(typeof(ChancePanelView), typeof(ChancePanelViewModel));
             AssertViewBindSignature(typeof(SurfaceBeltIndicatorView), typeof(SurfaceBeltViewModel));
-            AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
         }
 
         [Test]
@@ -650,7 +643,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveHudView),
                 typeof(ChancePanelView),
                 typeof(SurfaceBeltIndicatorView),
-                typeof(PlayerStatusView),
             };
 
             foreach (var hudViewType in hudViewTypes)
@@ -672,7 +664,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveHudView),
                 typeof(ChancePanelView),
                 typeof(SurfaceBeltIndicatorView),
-                typeof(PlayerStatusView),
             };
             var forbiddenTypes = new[]
             {

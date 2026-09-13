@@ -99,7 +99,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("separate product/build configuration decision"));
             Assert.That(guidelines, Does.Contain("not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(guidelines);
-            Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
+            Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, and `SurfaceBeltIndicator`"));
             Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
             Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
             Assert.That(guidelines, Does.Contain("Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`."));
@@ -190,7 +190,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("`Pause` and `Confirm` remain protected canonical popup paths; Reward popup is absent from current popup vocabulary and is not the canonical stage-clear result path"));
             Assert.That(baseline, Does.Contain("`TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller."));
             Assert.That(baseline, Does.Contain("Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`."));
-            Assert.That(baseline, Does.Contain("canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
+            Assert.That(baseline, Does.Contain("canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, and `SurfaceBeltIndicator`"));
             Assert.That(baseline, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path"));
             Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, Pause/Confirm popup paths, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`"));
             Assert.That(baseline, Does.Not.Contain("diagnostics overlay pending a separate production/dev-only policy decision"));
@@ -294,6 +294,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("build-included tester/demo/showcase assist feature"));
             Assert.That(source, Does.Contain("not a deletion candidate and is not a dev-only compile exclusion target"));
             Assert.That(source, Does.Contain("`ActionBar` is removed retired HUD proof residue."));
+            Assert.That(source, Does.Not.Contain("  - `PlayerStatus`"));
+            Assert.That(source, Does.Contain("`PlayerStatus` was retired because its authored labels were permanently hidden and cleared"));
             Assert.That(source, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
             Assert.That(source, Does.Contain("no `UiArchitectureDiagnostics`"));
             Assert.That(source, Does.Contain("no `DiagnosticsOverlay`"));

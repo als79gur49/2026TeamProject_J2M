@@ -1130,7 +1130,8 @@ namespace Game.Feature.UI.Tests
             {
                 instance.ValidateAuthoredStructureOrThrow();
 
-                Assert.That(instance.PlayerStatusView, Is.Not.Null);
+                Assert.That(instance.GetComponentsInChildren<MonoBehaviour>(true).All(component => component != null), Is.True, "Canonical HUD must not contain missing scripts.");
+                Assert.That(instance.transform.Find("PlayerStatus"), Is.Null);
                 Assert.That(instance.ObjectiveHudView, Is.Not.Null);
                 Assert.That(instance.ChancePanelView, Is.Not.Null);
                 Assert.That(instance.SurfaceBeltIndicatorView, Is.Not.Null);

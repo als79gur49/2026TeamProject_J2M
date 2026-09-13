@@ -673,7 +673,6 @@ namespace Game.Feature.UI.Composition
                 PopupController,
                 _displayPreviewTimeoutRelay);
 
-            var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter(_localizedTextResolver);
             var objectiveHudPresenter = new ObjectiveHudPresenter(_localizedTextResolver);
             var objectiveTypographyBinding =
@@ -693,8 +692,7 @@ namespace Game.Feature.UI.Composition
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
-                surfaceBeltIndicatorPresenter,
-                playerStatusPresenter);
+                surfaceBeltIndicatorPresenter);
 
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
                 screenLayerView: _rootView.ScreenLayerView,
@@ -713,8 +711,7 @@ namespace Game.Feature.UI.Composition
                 stageInfoPresenter.ViewModel,
                 objectiveHudPresenter.ViewModel,
                 chancePanelPresenter.ViewModel,
-                surfaceBeltIndicatorPresenter.ViewModel,
-                playerStatusPresenter.ViewModel);
+                surfaceBeltIndicatorPresenter.ViewModel);
             _hudUiAudioFeedbackController = new HudUiAudioFeedbackController(
                 uiAudioPort,
                 chancePanelPresenter.ViewModel,

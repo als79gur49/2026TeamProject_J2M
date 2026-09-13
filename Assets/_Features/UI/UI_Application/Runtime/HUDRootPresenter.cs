@@ -6,7 +6,6 @@ namespace Game.Feature.UI.Application
 {
     public sealed class HUDRootPresenter : IDisposable
     {
-        private readonly PlayerStatusPresenter _playerStatusPresenter;
         private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly StageInfoPresenter _stageInfoPresenter;
         private readonly ObjectiveHudPresenter _objectiveHudPresenter;
@@ -18,35 +17,18 @@ namespace Game.Feature.UI.Application
             StageInfoPresenter stageInfoPresenter,
             ObjectiveHudPresenter objectiveHudPresenter,
             ChancePanelPresenter chancePanelPresenter,
-            SurfaceBeltIndicatorPresenter surfaceBeltIndicatorPresenter,
-            PlayerStatusPresenter playerStatusPresenter)
+            SurfaceBeltIndicatorPresenter surfaceBeltIndicatorPresenter)
         {
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             _stageInfoPresenter = stageInfoPresenter ?? throw new ArgumentNullException(nameof(stageInfoPresenter));
             _objectiveHudPresenter = objectiveHudPresenter ?? throw new ArgumentNullException(nameof(objectiveHudPresenter));
             _chancePanelPresenter = chancePanelPresenter ?? throw new ArgumentNullException(nameof(chancePanelPresenter));
             _surfaceBeltIndicatorPresenter = surfaceBeltIndicatorPresenter ?? throw new ArgumentNullException(nameof(surfaceBeltIndicatorPresenter));
-            _playerStatusPresenter = playerStatusPresenter ?? throw new ArgumentNullException(nameof(playerStatusPresenter));
 
             ViewModel = new HUDRootViewModel();
             _presentationSource.SnapshotChanged += HandleSnapshotChanged;
 
             ApplySnapshot(_presentationSource.CurrentSnapshot);
-        }
-
-        public HUDRootPresenter(
-            IGameplayUiPresentationSource presentationSource,
-            StageInfoPresenter stageInfoPresenter,
-            ObjectiveHudPresenter objectiveHudPresenter,
-            PlayerStatusPresenter playerStatusPresenter)
-            : this(
-                presentationSource,
-                stageInfoPresenter,
-                objectiveHudPresenter,
-                new ChancePanelPresenter(),
-                new SurfaceBeltIndicatorPresenter(),
-                playerStatusPresenter)
-        {
         }
 
         public HUDRootViewModel ViewModel { get; }
@@ -81,7 +63,6 @@ namespace Game.Feature.UI.Application
             _objectiveHudPresenter.Apply(snapshot.Objective);
             _chancePanelPresenter.Apply(snapshot.Chance);
             _surfaceBeltIndicatorPresenter.Apply(snapshot.SurfaceBelt);
-            _playerStatusPresenter.Apply(snapshot.Tick, snapshot.Interaction, snapshot.Player);
         }
     }
 
