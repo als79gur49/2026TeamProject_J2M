@@ -10,6 +10,13 @@ The implemented typography baseline includes `LocalizedTextDescriptor`, `Localiz
 
 Typography is not globally applied to every future UI surface. The current production wiring is scoped to established governed surfaces and the terminal result family. Save slot/inventory/audio/voice localization remains outside this migration.
 
+The proposed residency optimization and the readiness sequence for possible
+`ja-JP` and Simplified Chinese `zh-CN` expansion are documented separately in
+[Localization-Typography-CJK-Expansion-and-Residency-Plan.md](./Localization-Typography-CJK-Expansion-and-Residency-Plan.md).
+That plan records shadow-mode catalog and read-only string-governance work, but
+does not authorize production locale selection, font residency changes, or new
+locale/font asset import by itself.
+
 ### 2026-09-05 KBO Dia Gothic current-state override
 
 [KBO-Dia-Gothic-Typography-Migration-Closeout.md](./KBO-Dia-Gothic-Typography-Migration-Closeout.md)
