@@ -229,8 +229,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(SurfaceBeltSnapshot.Empty.ButtonRemainders.All(remainder => remainder.TotalRemaining == 0), Is.True);
         }
 
-        [Test]
-        public void UIStateMapper_ReduceRefresh_MapsChancesCapacitySlice()
+        [TestCase(3, 3)]
+        [TestCase(0, 2)]
+        [TestCase(-1, 2)]
+        public void UIStateMapper_ReduceRefresh_MapsChancesCapacitySlice(int rawMaximum, int expectedMaximum)
         {
             var mapper = new UIStateMapper();
 
@@ -239,13 +241,41 @@ namespace Game.Feature.UI.Tests
                 CreateRefreshInput(
                     hasRemainingChances: true,
                     remainingChances: 2,
-                    maxChances: 3,
+                    maxChances: rawMaximum,
                     chanceAudioPolicy: GameplayChanceAudioPolicy.SuppressChanceChangeCue));
 
-            Assert.That(result.Snapshot.Player.HasRemainingChances, Is.True);
-            Assert.That(result.Snapshot.Player.RemainingChances, Is.EqualTo(2));
-            Assert.That(result.Snapshot.Player.MaxChances, Is.EqualTo(3));
+            Assert.That(result.Snapshot.Chance.HasChances, Is.True);
+            Assert.That(result.Snapshot.Chance.RemainingChances, Is.EqualTo(2));
+            Assert.That(result.Snapshot.Chance.MaxChances, Is.EqualTo(expectedMaximum));
             Assert.That(result.Snapshot.Chance.AudioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+        }
+
+        [Test]
+        public void UIStateMapper_ReduceTick_PreservesChanceWhileApplyingActionAndDamage()
+        {
+            var mapper = new UIStateMapper();
+            var result = mapper.ReduceTick(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(
+                    tickIndex: 5,
+                    shouldUpdateTickIndex: true,
+                    hasRemainingChances: true,
+                    remainingChances: 2,
+                    maxChances: 3,
+                    chanceAudioPolicy: GameplayChanceAudioPolicy.SuppressChanceChangeCue),
+                new[]
+                {
+                    CreateEvent(5, UITickEventKind.PlayerActionResolved, 10,
+                        GameplayUiActionKind.Flip, 9, GameplayUiActionResolutionKind.Impact),
+                    CreateEvent(5, UITickEventKind.PlayerDamaged, 10, damageAmount: 1),
+                });
+
+            Assert.That(result.Snapshot.Player.LastResolvedOutcome, Is.EqualTo(GameplayUiActionResolutionKind.Impact));
+            Assert.That(result.Snapshot.Player.TookDamageThisTick, Is.True);
+            Assert.That(result.Snapshot.Player.LastDamageAmount, Is.EqualTo(1));
+            Assert.That(result.AppliedEvents.Count, Is.EqualTo(2));
+            Assert.That(result.Snapshot.Chance, Is.EqualTo(new UIChanceSlice(
+                true, 2, 3, GameplayChanceAudioPolicy.SuppressChanceChangeCue)));
         }
 
         [Test]

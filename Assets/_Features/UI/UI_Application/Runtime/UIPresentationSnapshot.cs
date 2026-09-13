@@ -699,28 +699,14 @@ namespace Game.Feature.UI.Application
             int lastResolvedTickIndex,
             bool tookDamageThisTick,
             int lastDamageAmount,
-            int lastDamageTickIndex,
-            bool hasRemainingChances = false,
-            int remainingChances = 0,
-            int maxChances = 0)
+            int lastDamageTickIndex)
         {
-            HasRemainingChances = hasRemainingChances;
-            RemainingChances = remainingChances;
-            MaxChances = maxChances > 0
-                ? maxChances
-                : (hasRemainingChances ? remainingChances : 0);
             LastResolvedOutcome = lastResolvedOutcome;
             LastResolvedTickIndex = lastResolvedTickIndex;
             TookDamageThisTick = tookDamageThisTick;
             LastDamageAmount = lastDamageAmount;
             LastDamageTickIndex = lastDamageTickIndex;
         }
-
-        public bool HasRemainingChances { get; }
-
-        public int RemainingChances { get; }
-
-        public int MaxChances { get; }
 
         public GameplayUiActionResolutionKind LastResolvedOutcome { get; }
 
@@ -734,10 +720,7 @@ namespace Game.Feature.UI.Application
 
         public bool Equals(UIPlayerActionSlice other)
         {
-            return HasRemainingChances == other.HasRemainingChances &&
-                   RemainingChances == other.RemainingChances &&
-                   MaxChances == other.MaxChances &&
-                   LastResolvedOutcome == other.LastResolvedOutcome &&
+            return LastResolvedOutcome == other.LastResolvedOutcome &&
                    LastResolvedTickIndex == other.LastResolvedTickIndex &&
                    TookDamageThisTick == other.TookDamageThisTick &&
                    LastDamageAmount == other.LastDamageAmount &&
@@ -751,10 +734,12 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            var hash = HashCode.Combine(LastResolvedOutcome);
-            hash = HashCode.Combine(hash, HasRemainingChances, RemainingChances, MaxChances);
-            hash = HashCode.Combine(hash, LastResolvedTickIndex, TookDamageThisTick, LastDamageAmount, LastDamageTickIndex);
-            return hash;
+            return HashCode.Combine(
+                LastResolvedOutcome,
+                LastResolvedTickIndex,
+                TookDamageThisTick,
+                LastDamageAmount,
+                LastDamageTickIndex);
         }
     }
 
@@ -883,63 +868,6 @@ namespace Game.Feature.UI.Application
                 0,
                 0),
             UINotificationLedgerSlice.Empty);
-
-        public UIPresentationSnapshot(
-            UITickSlice tick,
-            UIInteractionSlice interaction,
-            UIPlayerActionSlice player,
-            UINotificationLedgerSlice notifications)
-            : this(
-                tick,
-                interaction,
-                UIStageSlice.Empty,
-                UIObjectiveSlice.Empty,
-                new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
-                UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
-                SurfaceBeltSnapshot.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive, 0),
-                player,
-                notifications)
-        {
-        }
-
-        public UIPresentationSnapshot(
-            UITickSlice tick,
-            UIInteractionSlice interaction,
-            UIStageSlice stage,
-            UIPlayerActionSlice player,
-            UINotificationLedgerSlice notifications)
-            : this(
-                tick,
-                interaction,
-                stage,
-                UIObjectiveSlice.Empty,
-                new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
-                UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
-                SurfaceBeltSnapshot.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive, 0),
-                player,
-                notifications)
-        {
-        }
-
-        public UIPresentationSnapshot(
-            UITickSlice tick,
-            UIInteractionSlice interaction,
-            UIStageSlice stage,
-            UIObjectiveSlice objective,
-            UIPlayerActionSlice player,
-            UINotificationLedgerSlice notifications)
-            : this(
-                tick,
-                interaction,
-                stage,
-                objective,
-                new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
-                UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
-                SurfaceBeltSnapshot.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive, 0),
-                player,
-                notifications)
-        {
-        }
 
         public UIPresentationSnapshot(
             UITickSlice tick,

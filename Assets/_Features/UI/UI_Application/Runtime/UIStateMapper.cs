@@ -245,10 +245,7 @@ namespace Game.Feature.UI.Application
                 previous.Player.LastResolvedTickIndex,
                 preserveTickScopedDamage && previous.Player.TookDamageThisTick,
                 previous.Player.LastDamageAmount,
-                previous.Player.LastDamageTickIndex,
-                refreshInput.HasRemainingChances,
-                refreshInput.RemainingChances,
-                refreshInput.MaxChances);
+                previous.Player.LastDamageTickIndex);
 
             return new UIPresentationSnapshot(
                 tick,
@@ -286,10 +283,7 @@ namespace Game.Feature.UI.Application
                             tickEvent.TickIndex,
                             snapshot.Player.TookDamageThisTick,
                             snapshot.Player.LastDamageAmount,
-                            snapshot.Player.LastDamageTickIndex,
-                            snapshot.Player.HasRemainingChances,
-                            snapshot.Player.RemainingChances,
-                            snapshot.Player.MaxChances),
+                            snapshot.Player.LastDamageTickIndex),
                         snapshot.Notifications);
 
                 case UITickEventKind.PlayerDamaged:
@@ -306,10 +300,7 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.LastResolvedTickIndex,
                             true,
                             tickEvent.DamageAmount,
-                            tickEvent.TickIndex,
-                            snapshot.Player.HasRemainingChances,
-                            snapshot.Player.RemainingChances,
-                            snapshot.Player.MaxChances),
+                            tickEvent.TickIndex),
                         snapshot.Notifications);
 
                 case UITickEventKind.StageCleared:

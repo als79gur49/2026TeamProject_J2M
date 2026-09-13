@@ -2,6 +2,9 @@ using System.IO;
 using System.Linq;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Presentation;
+using Game.Feature.UI.Application;
 using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
@@ -37,6 +40,80 @@ namespace Game.Feature.UI.Tests
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
+
+        [Test]
+        public void ChanceContract_SourceNormalizationAndPolicyChangesDoNotReplayAudio()
+        {
+            var feed = new FakeGameplayPresentationFeed();
+            var query = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                new GameplayPlayerHudReadModel(true, 2, 3), default);
+            using var source = new GameplayUiPresentationSource(query, feed, new FakeGameplayPauseService());
+            feed.PublishFrame(new GameplayPresentationFrame(1, new GameplayUiTopology(GameplayUiFace.Floor)));
+            var chance = new ChancePanelPresenter();
+            var objective = new ObjectiveHudPresenter();
+            using var hud = new HUDRootPresenter(source, new StageInfoPresenter(), objective,
+                chance, new SurfaceBeltIndicatorPresenter());
+            var port = new RecordingUiAudioPort();
+            using var audio = new HudUiAudioFeedbackController(port, chance.ViewModel, objective.ViewModel);
+            var snapshots = 0;
+            var changes = 0;
+            source.SnapshotChanged += _ => snapshots++;
+            chance.ViewModel.Changed += () => changes++;
+
+            void Refresh(int remaining, GameplayChanceAudioPolicy policy = GameplayChanceAudioPolicy.Default)
+            {
+                query.SetPlayerHud(new GameplayPlayerHudReadModel(true, remaining, 3, policy));
+                feed.PublishState(new GameplayPresentationState(new GameplayUiTopology(GameplayUiFace.Floor),
+                    isPresentationActive: false, hasBlockingPresentation: false, isTopologyTransitionActive: false));
+            }
+
+            Refresh(4);
+            Assert.That(snapshots, Is.EqualTo(1));
+            Assert.That(chance.ViewModel.RemainingChances, Is.EqualTo(3));
+            Assert.That(chance.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Gained));
+            var gainHint = chance.ViewModel.AnimationHint;
+            Assert.That(port.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.ChanceGain }));
+            var changesAfterGain = changes;
+
+            Refresh(5);
+            Refresh(4);
+            Assert.That(snapshots, Is.EqualTo(1));
+            Assert.That(changes, Is.EqualTo(changesAfterGain));
+            Assert.That(chance.ViewModel.AnimationHint, Is.EqualTo(gainHint));
+            Assert.That(port.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.ChanceGain }));
+
+            Refresh(5, GameplayChanceAudioPolicy.SuppressChanceChangeCue);
+            Assert.That(snapshots, Is.EqualTo(2), "Audio policy participates in snapshot equality.");
+            Assert.That(source.CurrentSnapshot.Chance.AudioPolicy,
+                Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+            Assert.That(chance.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.None));
+            Assert.That(port.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.ChanceGain }));
+            Refresh(4, GameplayChanceAudioPolicy.SuppressChanceChangeCue);
+            Assert.That(snapshots, Is.EqualTo(2));
+
+            Refresh(2, GameplayChanceAudioPolicy.SuppressChanceChangeCue);
+            Assert.That(chance.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Lost));
+            Assert.That(chance.ViewModel.AnimationHint.SequenceId, Is.EqualTo(gainHint.SequenceId + 1));
+            Assert.That(chance.ViewModel.AnimationHint.AudioCuePolicy, Is.EqualTo(ChanceChangeAudioCuePolicy.Suppress));
+            Refresh(3, GameplayChanceAudioPolicy.SuppressChanceChangeCue);
+            Assert.That(chance.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Gained));
+            Assert.That(chance.ViewModel.AnimationHint.SequenceId, Is.EqualTo(gainHint.SequenceId + 2));
+            Assert.That(chance.ViewModel.AnimationHint.AudioCuePolicy, Is.EqualTo(ChanceChangeAudioCuePolicy.Suppress));
+            Refresh(3);
+            Assert.That(snapshots, Is.EqualTo(5));
+            Assert.That(port.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.ChanceGain }),
+                "Returning to default policy must not replay suppressed gain or loss.");
+
+            Refresh(1);
+            Assert.That(chance.ViewModel.AnimationHint.SequenceId, Is.EqualTo(gainHint.SequenceId + 3));
+            Assert.That(port.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.ChanceGain, UiAudioCueId.LastChance }));
+            Refresh(0);
+            Refresh(0);
+            Assert.That(snapshots, Is.EqualTo(7));
+            Assert.That(port.PlayedCueIds,
+                Is.EqualTo(new[] { UiAudioCueId.ChanceGain, UiAudioCueId.LastChance, UiAudioCueId.ChanceLoss }));
+        }
 
         [Test]
         [Category("Extended")]

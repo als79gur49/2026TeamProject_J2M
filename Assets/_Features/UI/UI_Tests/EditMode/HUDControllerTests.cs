@@ -126,6 +126,43 @@ namespace Game.Feature.UI.Tests
             else fixture.AssertVisibleState();
         }
 
+        [TestCase(true, 4, 5, 3, 3, true)]
+        [TestCase(true, -1, -2, 3, 3, true)]
+        [TestCase(false, 4, 5, 3, 9, true)]
+        [TestCase(true, -1, -2, 0, 0, true)]
+        [TestCase(true, 4, 5, 3, 3, false)]
+        public void ChanceContract_NormalizedEqualRefreshPreservesCompletionUntilNextTick(
+            bool hasChances, int before, int after, int maxBefore, int maxAfter, bool queryRefresh)
+        {
+            using var fixture = new PlayerHudContractFixture();
+            fixture.Query.SetPlayerHud(new GameplayPlayerHudReadModel(hasChances, before, maxBefore));
+            fixture.Publish(2, true);
+            var snapshot = fixture.Source.CurrentSnapshot;
+            var hint = fixture.Chance.ViewModel.AnimationHint;
+            fixture.ResetCounts();
+
+            fixture.Query.SetPlayerHud(new GameplayPlayerHudReadModel(hasChances, after, maxAfter));
+            if (queryRefresh) fixture.RefreshState();
+            else fixture.Publish(2, true);
+
+            Assert.That(fixture.Source.CurrentSnapshot, Is.EqualTo(snapshot));
+            Assert.That(fixture.SnapshotChanges, Is.Zero);
+            Assert.That(fixture.ObjectiveChanges, Is.Zero);
+            Assert.That(fixture.EventCount, Is.Zero);
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.True);
+            Assert.That(fixture.Chance.ViewModel.AnimationHint, Is.EqualTo(hint));
+            fixture.FinishDismiss();
+            fixture.RefreshState();
+            fixture.Publish(2, true);
+            Assert.That(fixture.ActiveRows, Is.Empty);
+            Assert.That(fixture.SnapshotChanges, Is.Zero);
+
+            fixture.Publish(3, true);
+            Assert.That(fixture.SnapshotChanges, Is.EqualTo(1));
+            Assert.That(fixture.ObjectiveChanges, Is.EqualTo(1));
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.False);
+            Assert.That(fixture.ActiveRows, Is.Empty);
+        }
 
         private static GameplayPlayerPresentationSlice MakeEventlessPlayer(
             int playerEntityId, GameplayUiActionKind actionKind, bool isRecoveryPhase)
@@ -140,12 +177,22 @@ namespace Game.Feature.UI.Tests
                 waitingForNextMoveCadence: false, tookDamageThisTick: false, damageAmount: 0);
         }
 
-        [TestCase(false)]
-        [TestCase(true)]
-        public void PlayerHudContract_LocaleOrReplacementAfterSatisfactionKeepsView(bool replace)
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        public void PlayerHudContract_LocaleOrReplacementAfterSatisfactionKeepsView(bool replace, bool normalizedRefresh)
         {
             using var fixture = new PlayerHudContractFixture();
+            if (normalizedRefresh) fixture.Query.SetPlayerHud(new GameplayPlayerHudReadModel(true, 4, 3));
             fixture.Publish(2, true);
+            if (normalizedRefresh)
+            {
+                fixture.ResetCounts();
+                fixture.Query.SetPlayerHud(new GameplayPlayerHudReadModel(true, 5, 3));
+                fixture.RefreshState();
+                Assert.That(fixture.SnapshotChanges, Is.Zero);
+            }
             Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.True);
             if (replace)
             {
@@ -156,7 +203,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(fixture.Objective.ViewModel.Rows[0].IsSatisfied, Is.False);
                 Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.False);
                 fixture.FinishEnter();
-                fixture.AssertVisibleState();
+                fixture.AssertVisibleState(normalizedRefresh ? 3 : 2);
             }
             else
             {
