@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using System;
 using System.Reflection;
 using Game.Feature.DemoStageControl;
@@ -437,6 +438,12 @@ namespace Game.Feature.UI.Composition
         private void OnDisable()
         {
             UnsubscribeTerminalSession();
+        }
+
+        private void LateUpdate()
+        {
+            if (_isInstalled && !_isDisposed)
+                (PresentationSource as IGameplayHudPendingRefresh)?.FlushPendingChanceChanges();
         }
 
         private void Update()

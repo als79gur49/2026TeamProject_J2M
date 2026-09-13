@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.UIAccess.Models;
@@ -6,7 +7,7 @@ using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
-    internal sealed class GameplayHostPlayerHudQuery : IGameplayPlayerHudQuery
+    internal sealed class GameplayHostPlayerHudQuery : IGameplayPlayerHudQuery, IGameplayHudChanceChanges
     {
         private readonly GameplayHostCommandAdmissionPolicy _admissionPolicy;
         private readonly ICampaignChancesReadSource _campaignChancesReadSource;
@@ -28,6 +29,24 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                     ? CampaignChanceReadFailureReason.SourceMissing
                     : CampaignChanceReadFailureReason.None,
             });
+        }
+
+        public bool IsChanceDisplayUpdating => (_campaignChancesReadSource as SaveSlotCampaignChancesReadSource)?.IsUpdating == true;
+        public bool TryGetChanceRevision(out long revision)
+        {
+            revision = 0;
+            return _campaignChancesReadSource is SaveSlotCampaignChancesReadSource source && source.TryGetRevision(out revision);
+        }
+        public GameplayPlayerHudReadModel ReadChance(out long revision)
+        {
+            var source = _campaignChancesReadSource as SaveSlotCampaignChancesReadSource;
+            var readVersion = source?.ReadVersion ?? 0;
+            TryGetChanceRevision(out revision);
+            try { return Read(); }
+            finally
+            {
+                if (source != null && source.ReadVersion != readVersion) revision = source.LastReadRevision;
+            }
         }
 
         public GameplayPlayerHudReadModel Read()

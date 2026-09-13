@@ -268,6 +268,7 @@ namespace Game.Feature.Gameplay.Host
         private void HandlePlayerDeath(TickResult result, TerminalClaimResult claim)
         {
             _handledDeath = true;
+            using var chanceUpdate = _chanceDisplayOverride?.BeginUpdate();
 
             var runningSlotNumber = _runningSlotContext.SlotNumber;
             var entry = _saveSlotStore.LoadSlot(runningSlotNumber);
@@ -278,6 +279,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var slot = entry.State;
+            chanceUpdate?.ObserveBeforeMutation(slot);
             var plan = _progressionPlanner.PlanDeath(slot);
             var route = plan.Route;
             var previousRemainingChances = plan.ExpectedRemainingChances;
@@ -291,6 +293,7 @@ namespace Game.Feature.Gameplay.Host
                     : route.RemainingChances,
                 CampaignSaveSlotPolicy.DefaultRemainingChances,
                 GameplayChanceAudioPolicy.SuppressChanceChangeCue);
+            chanceUpdate?.Complete();
             if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
             {
                 _host.Presenter?.ApplyStageTerminalPresentation(
@@ -465,6 +468,7 @@ namespace Game.Feature.Gameplay.Host
             StageAttemptMetricsSnapshot attemptMetrics)
         {
             _handledClear = true;
+            using var chanceUpdate = _chanceDisplayOverride?.BeginUpdate();
             _host.InputHost.EnterTerminalHold(claim.Token);
 
             var completedStageId = readModel != null && readModel.StageId.IsValid
@@ -510,6 +514,7 @@ namespace Game.Feature.Gameplay.Host
                         transitionPlan,
                         normalCompletion,
                         normalStageClear));
+                chanceUpdate?.Complete();
                 if (normalStageClear.HasValue)
                 {
                     TryEarnCampaignStageAchievements(commit.Slot, normalStageClear.Value);
@@ -539,6 +544,7 @@ namespace Game.Feature.Gameplay.Host
                         GameplayChanceAudioPolicy.SuppressChanceChangeCue);
                 }
 
+                chanceUpdate?.Complete();
                 if (normalStageClear.HasValue)
                 {
                     TryEarnCampaignStageAchievements(commit.Slot, normalStageClear.Value);
