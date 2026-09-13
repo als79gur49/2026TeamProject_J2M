@@ -1433,7 +1433,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp = 1,
                         maxHp = 1,
                         teamId = 0,
-                        type = EntityType.None,
+                        type = EntityType.Wall,
                     },
                     new EntityState
                     {
@@ -1442,7 +1442,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp = 1,
                         maxHp = 1,
                         teamId = 0,
-                        type = EntityType.None,
+                        type = EntityType.Wall,
                     },
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)));
@@ -1505,7 +1505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp = 1,
                         maxHp = 1,
                         teamId = 0,
-                        type = EntityType.None,
+                        type = EntityType.Wall,
                     },
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(3, 1)));

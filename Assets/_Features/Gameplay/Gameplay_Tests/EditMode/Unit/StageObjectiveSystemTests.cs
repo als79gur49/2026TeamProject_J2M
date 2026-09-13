@@ -3587,7 +3587,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Left,

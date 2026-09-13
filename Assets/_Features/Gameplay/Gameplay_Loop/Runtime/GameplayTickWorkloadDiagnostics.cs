@@ -191,6 +191,7 @@ namespace Game.Feature.Gameplay.Loop
             in EntityLogicTypeMetrics none,
             in EntityLogicTypeMetrics unit,
             in EntityLogicTypeMetrics box,
+            in EntityLogicTypeMetrics wall,
             in EntityLogicTypeMetrics unknown)
         {
             EntityVisitedCount = entityVisitedCount;
@@ -204,6 +205,7 @@ namespace Game.Feature.Gameplay.Loop
             None = none;
             Unit = unit;
             Box = box;
+            Wall = wall;
             Unknown = unknown;
         }
 
@@ -218,6 +220,7 @@ namespace Game.Feature.Gameplay.Loop
         public EntityLogicTypeMetrics None { get; }
         public EntityLogicTypeMetrics Unit { get; }
         public EntityLogicTypeMetrics Box { get; }
+        public EntityLogicTypeMetrics Wall { get; }
         public EntityLogicTypeMetrics Unknown { get; }
 
         internal static EntityLogicBuildMetrics Add(
@@ -236,6 +239,7 @@ namespace Game.Feature.Gameplay.Loop
                 EntityLogicTypeMetrics.Add(left.None, right.None),
                 EntityLogicTypeMetrics.Add(left.Unit, right.Unit),
                 EntityLogicTypeMetrics.Add(left.Box, right.Box),
+                EntityLogicTypeMetrics.Add(left.Wall, right.Wall),
                 EntityLogicTypeMetrics.Add(left.Unknown, right.Unknown));
         }
     }
@@ -296,6 +300,7 @@ namespace Game.Feature.Gameplay.Loop
         private EntityLogicTypeMetricsAccumulator _none;
         private EntityLogicTypeMetricsAccumulator _unit;
         private EntityLogicTypeMetricsAccumulator _box;
+        private EntityLogicTypeMetricsAccumulator _wall;
         private EntityLogicTypeMetricsAccumulator _unknown;
 
         public EntityLogicBuildMetricsAccumulator(int registeredFactoryCount)
@@ -311,6 +316,7 @@ namespace Game.Feature.Gameplay.Loop
             _none = default;
             _unit = default;
             _box = default;
+            _wall = default;
             _unknown = default;
         }
 
@@ -365,6 +371,7 @@ namespace Game.Feature.Gameplay.Loop
                 _none.Build(),
                 _unit.Build(),
                 _box.Build(),
+                _wall.Build(),
                 _unknown.Build());
         }
 
@@ -388,6 +395,12 @@ namespace Game.Feature.Gameplay.Loop
             if (entityType == EntityType.Box)
             {
                 Record(ref _box, metricEvent, registeredFactoryCount);
+                return;
+            }
+
+            if (entityType == EntityType.Wall)
+            {
+                Record(ref _wall, metricEvent, registeredFactoryCount);
                 return;
             }
 

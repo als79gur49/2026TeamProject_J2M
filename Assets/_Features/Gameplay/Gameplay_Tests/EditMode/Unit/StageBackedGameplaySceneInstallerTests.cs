@@ -2291,7 +2291,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             for (var i = 0; i < entities.Count; i++)
             {
                 var entity = entities[i];
-                if (entity.type == EntityType.None && entity.position.Equals(cell))
+                if (entity.type == EntityType.Wall && entity.position.Equals(cell))
                 {
                     return true;
                 }

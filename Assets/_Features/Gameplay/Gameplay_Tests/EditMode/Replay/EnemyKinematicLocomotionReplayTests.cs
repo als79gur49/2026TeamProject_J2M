@@ -1611,7 +1611,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.Box,
+                type = EntityType.Wall,
                 boardPresence = EntityBoardPresence.Occupying,
                 boxCapabilities = BoxCapabilities.None,
             };

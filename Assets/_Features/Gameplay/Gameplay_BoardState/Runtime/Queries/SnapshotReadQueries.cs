@@ -836,7 +836,15 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal static SolidKind ResolveSolidKind(EntityState entity)
         {
-            return entity.type == EntityType.Box ? SolidKind.Box : SolidKind.Wall;
+            switch (entity.type)
+            {
+                case EntityType.Box:
+                    return SolidKind.Box;
+                case EntityType.None:
+                case EntityType.Wall:
+                default:
+                    return SolidKind.Wall;
+            }
         }
 
         private static ResolvedSpatialState ResolveSpatialState(

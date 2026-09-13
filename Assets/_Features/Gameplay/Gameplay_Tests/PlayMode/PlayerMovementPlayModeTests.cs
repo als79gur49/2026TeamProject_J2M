@@ -2826,7 +2826,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 if (!_syntheticEntityTypes.TryGetValue(entity.entityId, out var expectedType) ||
                     expectedType != entity.type ||
-                    (entity.type != EntityType.Unit && entity.type != EntityType.Box && entity.type != EntityType.None))
+                    (entity.type != EntityType.Unit &&
+                     entity.type != EntityType.Box &&
+                     entity.type != EntityType.None &&
+                     entity.type != EntityType.Wall))
                 {
                     throw new InvalidOperationException($"Unconfigured test View: entity {entity.entityId}, type {entity.type}.");
                 }
@@ -2978,7 +2981,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
             };

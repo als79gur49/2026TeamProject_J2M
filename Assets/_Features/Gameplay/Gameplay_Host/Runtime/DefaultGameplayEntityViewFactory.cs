@@ -170,7 +170,8 @@ namespace Game.Feature.Gameplay.Host
         private static bool IsStaticPresentationCandidate(in EntityState entity)
         {
             return entity.type == EntityType.Box ||
-                   entity.type == EntityType.None;
+                   entity.type == EntityType.None ||
+                   entity.type == EntityType.Wall;
         }
 
         private static void SanitizePrefabPhysics(GameplayEntityView view)

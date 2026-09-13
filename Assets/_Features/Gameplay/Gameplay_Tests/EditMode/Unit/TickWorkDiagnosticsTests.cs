@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -12,6 +13,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class TickWorkDiagnosticsTests
     {
+        [Test]
+        [Category("Core")]
+        public void GameplayTickWorkloadDiagnostics_ProposedWall_DoesNotUseUnknownBucket()
+        {
+            var accumulator = new EntityLogicBuildMetricsAccumulator(registeredFactoryCount: 3);
+            accumulator.RecordEntityVisited((EntityType)4);
+            accumulator.RecordPrefilterSkip((EntityType)4);
+            accumulator.RecordCanCreateProbe((EntityType)4);
+            var metrics = accumulator.Build();
+
+            Assert.That(metrics.EntityVisitedCount, Is.EqualTo(1));
+            Assert.That(metrics.FactoryOpportunityCount, Is.EqualTo(3));
+            Assert.That(metrics.PrefilterSkipCount, Is.EqualTo(1));
+            Assert.That(metrics.CanCreateProbeCount, Is.EqualTo(1));
+            Assert.That(
+                metrics.Unknown.EntityVisitedCount,
+                Is.Zero,
+                "Proposed Wall diagnostics must not be attributed to the Unknown bucket.");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickWorkloadDiagnostics_WallBucketBalancesAggregate()
+        {
+            var accumulator = new EntityLogicBuildMetricsAccumulator(registeredFactoryCount: 3);
+            var entityTypes = new[]
+            {
+                EntityType.None,
+                EntityType.Unit,
+                EntityType.Box,
+                (EntityType)4,
+                (EntityType)99,
+            };
+            for (var i = 0; i < entityTypes.Length; i++)
+            {
+                accumulator.RecordEntityVisited(entityTypes[i]);
+                accumulator.RecordPrefilterSkip(entityTypes[i]);
+                accumulator.RecordCanCreateProbe(entityTypes[i]);
+                accumulator.RecordCreated(entityTypes[i]);
+                accumulator.RecordAccepted(entityTypes[i]);
+                accumulator.RecordConflictRejected(entityTypes[i]);
+            }
+
+            var metrics = accumulator.Build();
+            var wallProperty = typeof(EntityLogicBuildMetrics).GetProperty("Wall");
+
+            Assert.That(wallProperty, Is.Not.Null, "Wall diagnostics must expose an explicit bucket.");
+            var wall = (EntityLogicTypeMetrics)wallProperty.GetValue(metrics);
+            var buckets = new[] { metrics.None, metrics.Unit, metrics.Box, wall, metrics.Unknown };
+            Assert.That(wall.EntityVisitedCount, Is.EqualTo(1));
+            Assert.That(wall.FactoryOpportunityCount, Is.EqualTo(3));
+            Assert.That(wall.PrefilterSkipCount, Is.EqualTo(1));
+            Assert.That(wall.CanCreateProbeCount, Is.EqualTo(1));
+            Assert.That(wall.CreatedLogicCount, Is.EqualTo(1));
+            Assert.That(wall.AcceptedLogicCount, Is.EqualTo(1));
+            Assert.That(wall.ConflictRejectedLogicCount, Is.EqualTo(1));
+            Assert.That(metrics.Unknown.EntityVisitedCount, Is.EqualTo(1));
+            Assert.That(metrics.RegisteredFactoryCount, Is.EqualTo(3));
+            Assert.That(metrics.EntityVisitedCount, Is.EqualTo(buckets.Sum(bucket => bucket.EntityVisitedCount)));
+            Assert.That(metrics.FactoryOpportunityCount, Is.EqualTo(buckets.Sum(bucket => bucket.FactoryOpportunityCount)));
+            Assert.That(metrics.PrefilterSkipCount, Is.EqualTo(buckets.Sum(bucket => bucket.PrefilterSkipCount)));
+            Assert.That(metrics.CanCreateProbeCount, Is.EqualTo(buckets.Sum(bucket => bucket.CanCreateProbeCount)));
+            Assert.That(metrics.CreatedLogicCount, Is.EqualTo(buckets.Sum(bucket => bucket.CreatedLogicCount)));
+            Assert.That(metrics.AcceptedLogicCount, Is.EqualTo(buckets.Sum(bucket => bucket.AcceptedLogicCount)));
+            Assert.That(metrics.ConflictRejectedLogicCount, Is.EqualTo(buckets.Sum(bucket => bucket.ConflictRejectedLogicCount)));
+        }
+
         [Test]
         [Category("Extended")]
         public void ProviderBuild_BaselineMetricsMatchActualFullScanCallsByEntityType()

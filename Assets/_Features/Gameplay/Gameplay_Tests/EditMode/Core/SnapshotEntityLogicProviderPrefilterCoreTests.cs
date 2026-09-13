@@ -15,6 +15,34 @@ namespace Game.Feature.Gameplay.Tests.Core
     {
         [Test]
         [Category("Core")]
+        public void SnapshotEntityLogicProvider_ProposedWall_UsesKnownWallCandidateSet()
+        {
+            var calls = new List<string>();
+            var proposedWallType = (EntityType)4;
+            var proposedWallTypeLabel = proposedWallType.ToString();
+            var wall = new MovementPrefilterFactory("wall", calls, proposedWallType);
+            var custom = new RecordingFactory("custom", calls);
+            var unit = new MovementPrefilterFactory("unit", calls, EntityType.Unit);
+            var provider = new SnapshotEntityLogicProvider(new IEntityLogicFactory[] { wall, custom, unit });
+
+            provider.Build(
+                CreateRawSnapshot(CreateEntity(40, 0, proposedWallType)),
+                Array.Empty<IEntityLogic>());
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    $"wall.Can:40:{proposedWallTypeLabel}",
+                    $"wall.Create:40:{proposedWallTypeLabel}",
+                    $"custom.Can:40:{proposedWallTypeLabel}",
+                    $"custom.Create:40:{proposedWallTypeLabel}",
+                },
+                calls,
+                "Proposed Wall must use its conservative known-type candidate set while preserving unscoped factory order.");
+        }
+
+        [Test]
+        [Category("Core")]
         public void CandidateArrays_PreserveUnscopedFallbackEntityMajorOrderAndPhasePrecedence()
         {
             var calls = new List<string>();
@@ -62,6 +90,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     EntityType.None, EntityType.None,
                     EntityType.Unit, EntityType.Unit,
                     EntityType.Box, EntityType.Box,
+                    (EntityType)4, (EntityType)4,
                 },
                 duplicated.AuditedTypes);
             Assert.That(calls.Count(call => call.Contains(".Can:")), Is.EqualTo(4));

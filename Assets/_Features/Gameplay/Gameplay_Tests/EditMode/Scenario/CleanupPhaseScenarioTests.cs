@@ -17,6 +17,52 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Core")]
+        public void WorldState_ExplicitWallAndLegacyNone_PreserveGenericLifecycle()
+        {
+            var explicitWall = CreateWall(10, new SurfaceCell(FaceId.Floor, 0, 0));
+            explicitWall.type = EntityType.Wall;
+            explicitWall.hp = 3;
+            explicitWall.maxHp = 3;
+            var legacyNone = CreateWall(20, new SurfaceCell(FaceId.Floor, 1, 0));
+            legacyNone.hp = 3;
+            legacyNone.maxHp = 3;
+            var worldState = GameplayCompositionRoot.CreateWorldState(
+                Array.Empty<EntityState>(),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new CubeTopologyState(FaceId.Floor));
+            var writeContext = worldState.CreateWriteContext();
+
+            writeContext.SpawnEntity(explicitWall);
+            writeContext.SpawnEntity(legacyNone);
+            ((IAttackCommitContext)writeContext).ApplyDamage(10, 1);
+            ((IAttackCommitContext)writeContext).ApplyDamage(20, 1);
+            ((ICleanupCommitContext)writeContext).ApplyStateChange(10, EntityPhaseState.Cooldown, 2);
+            ((ICleanupCommitContext)writeContext).ApplyStateChange(20, EntityPhaseState.Cooldown, 2);
+            ((IAttackCommitContext)writeContext).MarkDestroy(10);
+            ((IAttackCommitContext)writeContext).MarkDestroy(20);
+            var mutated = worldState.CreateSnapshot();
+
+            Assert.That(mutated.TryGetEntity(10, out var explicitMutated), Is.True);
+            Assert.That(mutated.TryGetEntity(20, out var legacyMutated), Is.True);
+            Assert.That(explicitMutated.type, Is.EqualTo(EntityType.Wall));
+            Assert.That(legacyMutated.type, Is.EqualTo(EntityType.None));
+            Assert.That(explicitMutated.hp, Is.EqualTo(2));
+            Assert.That(legacyMutated.hp, Is.EqualTo(2));
+            Assert.That(explicitMutated.state, Is.EqualTo(EntityPhaseState.Cooldown));
+            Assert.That(legacyMutated.state, Is.EqualTo(EntityPhaseState.Cooldown));
+            Assert.That(explicitMutated.stateTimer, Is.EqualTo(2));
+            Assert.That(legacyMutated.stateTimer, Is.EqualTo(2));
+            Assert.That(explicitMutated.markedForDeath, Is.True);
+            Assert.That(legacyMutated.markedForDeath, Is.True);
+
+            ((ICleanupCommitContext)writeContext).RemoveEntity(10);
+            ((ICleanupCommitContext)writeContext).RemoveEntity(20);
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out _), Is.False);
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void Cleanup_MarkedForDeathOccupyingEntity_RemainsPresentUntilCleanupThenIsRemoved()
         {
             var worldState = CreateWorldState(new[]

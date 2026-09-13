@@ -14,6 +14,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class DebugSpawnValidityPolicyWiringTests
     {
         [Test]
+        [Category("Core")]
+        public void DebugSpawnValidityPolicy_ProposedWall_PreservesLegacyWallSolidRules()
+        {
+            var proposedWall = CreateWall(
+                entityId: 40,
+                position: new SurfaceCell(FaceId.Floor, 1, 0));
+            proposedWall.type = (EntityType)4;
+            var accepted = true;
+
+            try
+            {
+                DebugSpawnValidityPolicy.EnsureRepresentable(
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new[] { proposedWall });
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                accepted = false;
+            }
+            catch (InvalidOperationException)
+            {
+                accepted = false;
+            }
+
+            Assert.That(
+                accepted,
+                Is.True,
+                "Proposed Wall must be admitted as a known representable Solid debug-spawn type.");
+        }
+
+        [Test]
         [Category("Extended")]
         public void DebugSpawnValidityPolicy_IsDirectlyWired_AtExactlyTwoNonTestEntrypoints()
         {
@@ -274,7 +306,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
                 boardPresence = EntityBoardPresence.Occupying,

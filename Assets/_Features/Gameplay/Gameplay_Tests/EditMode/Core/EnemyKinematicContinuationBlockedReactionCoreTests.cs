@@ -239,7 +239,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(reaction.ModeAtBlock, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(reaction.BlockerKind, Is.EqualTo(LegalityBlockerKind.Solid));
             Assert.That(reaction.BlockerSolidKind, Is.EqualTo(SolidKind.Wall));
-            Assert.That(reaction.BlockerEntityType, Is.EqualTo(EntityType.None));
+            Assert.That(reaction.BlockerEntityType, Is.EqualTo(EntityType.Wall));
             Assert.That(reaction.BlockerEntityId, Is.EqualTo(301));
         }
 
@@ -471,7 +471,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 boardPresence = EntityBoardPresence.Occupying,
             };
         }

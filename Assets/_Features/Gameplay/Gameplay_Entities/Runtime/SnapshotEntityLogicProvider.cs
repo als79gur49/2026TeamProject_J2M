@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly IEntityLogicFactory[] _noneEntityLogicFactories;
         private readonly IEntityLogicFactory[] _unitEntityLogicFactories;
         private readonly IEntityLogicFactory[] _boxEntityLogicFactories;
+        private readonly IEntityLogicFactory[] _wallEntityLogicFactories;
 
         public SnapshotEntityLogicProvider(IEnumerable<IEntityLogicFactory> entityLogicFactories)
         {
@@ -38,6 +39,7 @@ namespace Game.Feature.Gameplay.Entities
             _noneEntityLogicFactories = BuildCandidateFactoriesForKnownType(EntityType.None);
             _unitEntityLogicFactories = BuildCandidateFactoriesForKnownType(EntityType.Unit);
             _boxEntityLogicFactories = BuildCandidateFactoriesForKnownType(EntityType.Box);
+            _wallEntityLogicFactories = BuildCandidateFactoriesForKnownType(EntityType.Wall);
             GameplayTickWorkloadDiagnostics.RecordEntityLogicCandidateCacheConstructed();
         }
 
@@ -91,6 +93,9 @@ namespace Game.Feature.Gameplay.Entities
                         break;
                     case EntityType.Box:
                         candidateFactories = _boxEntityLogicFactories;
+                        break;
+                    case EntityType.Wall:
+                        candidateFactories = _wallEntityLogicFactories;
                         break;
                     default:
                         candidateFactories = _allEntityLogicFactories;
@@ -178,6 +183,11 @@ namespace Game.Feature.Gameplay.Entities
             if (entityType == EntityType.Box)
             {
                 return _boxEntityLogicFactories;
+            }
+
+            if (entityType == EntityType.Wall)
+            {
+                return _wallEntityLogicFactories;
             }
 
             return _allEntityLogicFactories;

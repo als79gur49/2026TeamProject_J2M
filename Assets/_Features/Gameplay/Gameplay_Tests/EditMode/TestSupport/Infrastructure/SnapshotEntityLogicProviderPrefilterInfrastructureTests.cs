@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
     {
         [Test]
         [Category("Extended")]
-        public void CandidateArrays_UseConcreteConstructorCacheAndUnknownTypesFallBackToFullRegistrationOrder()
+        public void CandidateArrays_UseKnownTypeCachesAndUnknownTypesFallBackToFullRegistrationOrder()
         {
             var first = new SelectiveFactory(EntityType.Unit);
             var second = new UnscopedFactory();
@@ -28,12 +28,16 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             Assert.That(unknown[0], Is.SameAs(first));
             Assert.That(unknown[1], Is.SameAs(second));
             Assert.That(unknown[2], Is.SameAs(first));
+            var wall = (IEntityLogicFactory[])resolver.Invoke(provider, new object[] { EntityType.Wall });
+            Assert.That(wall, Has.Length.EqualTo(1));
+            Assert.That(wall[0], Is.SameAs(second));
             CollectionAssert.AreEqual(
                 new[]
                 {
                     EntityType.None, EntityType.None,
                     EntityType.Unit, EntityType.Unit,
                     EntityType.Box, EntityType.Box,
+                    EntityType.Wall, EntityType.Wall,
                 },
                 first.AuditedTypes);
 
@@ -41,12 +45,13 @@ namespace Game.Feature.Gameplay.Tests.Infrastructure
             var source = File.ReadAllText(Path.Combine(
                 projectRoot,
                 "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/SnapshotEntityLogicProvider.cs"));
-            Assert.That(CountOccurrences(source, "BuildCandidateFactoriesForKnownType("), Is.EqualTo(4));
+            Assert.That(CountOccurrences(source, "BuildCandidateFactoriesForKnownType("), Is.EqualTo(5));
             var buildStart = source.IndexOf("public EntityLogicSet Build(", StringComparison.Ordinal);
             var resolverStart = source.IndexOf("private IEntityLogicFactory[] ResolveCandidateFactories(", StringComparison.Ordinal);
             var buildSource = source.Substring(buildStart, resolverStart - buildStart);
             Assert.That(buildSource, Does.Contain("switch (entity.type)"));
             Assert.That(buildSource, Does.Contain("candidateFactories = _noneEntityLogicFactories"));
+            Assert.That(buildSource, Does.Contain("candidateFactories = _wallEntityLogicFactories"));
             Assert.That(buildSource, Does.Contain("candidateFactories.Length == 0"));
             Assert.That(buildSource, Does.Not.Contain("ResolveCandidateFactories(entity.type)"));
             Assert.That(buildSource, Does.Not.Contain("new List<IEntityLogicFactory>"));
