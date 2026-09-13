@@ -386,7 +386,7 @@ HUD classification notes:
 - Push/Flip physical gameplay commands flow through the gameplay input route, not UI HUD command injection.
 - `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
 - Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore.
-- This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership.
+- The original ActionBar deletion retained readiness mapping. The later H03 retirement below removes that UI mapping; gameplay command ownership remains with InputHost/Tick.
 - The current HUD-side mapping is display semantics only.
 
 Objective HUD localization contract:

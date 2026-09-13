@@ -235,7 +235,9 @@
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review
 - canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, and `SurfaceBeltIndicator`
-- ActionBar retired proof residue was removed from runtime types, tests, and `GameplayHudRoot.prefab`; no HUD responsibility was moved into PlayerStatus, notification, screen stack, or gameplay command ownership
+- `PlayerStatus` Presenter/VM/View and its permanently hidden prefab subtree are retired; HUD construction retains only the five visible child slices
+- the unused legacy `ObjectiveConditionRowView` is retired while `ObjectiveHudRowView` remains the canonical authored objective-row view
+- ActionBar retired proof residue was removed from runtime types, tests, and `GameplayHudRoot.prefab`; no HUD responsibility was moved into notification, screen stack, or gameplay command ownership
 - HUD remains a display consumer of mapped UI presentation state. It may raise bounded UI-owned requests such as pause flow, but `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current gameplay command paths.
 - Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore.
 - popup legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored popup creation path beneath `PopupLayer` via a fixed-shape popup-only catalog

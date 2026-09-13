@@ -37,7 +37,8 @@ This file is the external current-structure source for the completed UI cleanup 
   - HUD may raise bounded UI-owned requests such as pause flow, but it must not dispatch gameplay Push/Flip commands.
   - `SurfaceBeltIndicator` authors one number-free 32x32 `NormalBadge` only to the left of the centered `Cell_0` visual. Its frame and fill share the Objective completion gold, and the current sector's `HasAnyRemaining` value selects fully lit or dim inactive alpha. Initial binding is immediate; later state changes use local DOTween color/scale transitions, while entry into a new active sector plays one runtime-isolated All In 1 Shine and identical binds do not replay it. Neighboring sector cells author no badge.
   - The in-game Stage Name resolves `HeaderLarge` through `GameplayUiTypographyTheme` in both locales: en-US uses Orbitron ExtraBold and ko-KR uses KBO Dia Gothic Medium, prefab-authored sizing remains unchanged, and the target adds TMP `UpperCase` presentation without mutating localized source strings. World Guide and transition-label default-locale restoration remain separate contracts.
-- `PlayerStatus` was retired because its authored labels were permanently hidden and cleared; HUD construction retains only visible child slices.
+- `PlayerStatus` was retired because its authored labels were permanently hidden and cleared; HUD construction retains only the five visible child slices.
+- The unused legacy `ObjectiveConditionRowView` is retired; `ObjectiveHudRowView` remains the canonical authored objective-row view.
 
 ## Preserved Classification Decisions
 
