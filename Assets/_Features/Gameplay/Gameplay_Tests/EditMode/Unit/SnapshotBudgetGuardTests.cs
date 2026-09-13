@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
+using Unity.Profiling;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -47,22 +48,68 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SnapshotDiagnosticsCapture_DisabledCachedRequestsAllocateZeroBytes()
+        public void SnapshotDiagnosticsCapture_DisabledCachedRequestsProduceNoGcAllocEvents()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>());
             worldState.CreateSnapshot();
 
             const int iterations = 10000;
-            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
-            for (var index = 0; index < iterations; index++)
+            Assert.That(SnapshotMaterializationDiagnostics.IsEnabled, Is.False);
+
+            using (var positiveRecorder = StartGcAllocationRecorder())
             {
-                worldState.CreateSnapshot();
+                GC.KeepAlive(new byte[4096]);
+                positiveRecorder.Stop();
+                AssertRecorderIsUsable(positiveRecorder);
+                Assert.That(
+                    positiveRecorder.Count,
+                    Is.GreaterThan(0),
+                    "GC.Alloc positive control must prove that allocation events are observable.");
             }
 
-            var allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+            using (var emptyRecorder = StartGcAllocationRecorder())
+            {
+                for (var index = 0; index < iterations; index++)
+                {
+                }
 
-            Assert.That(SnapshotMaterializationDiagnostics.IsEnabled, Is.False);
-            Assert.That(allocatedBytes, Is.Zero);
+                emptyRecorder.Stop();
+                AssertRecorderIsUsable(emptyRecorder);
+                Assert.That(
+                    emptyRecorder.Count,
+                    Is.Zero,
+                    "The empty loop control must not introduce GC allocation events.");
+            }
+
+            using (var cachedRequestRecorder = StartGcAllocationRecorder())
+            {
+                for (var index = 0; index < iterations; index++)
+                {
+                    worldState.CreateSnapshot();
+                }
+
+                cachedRequestRecorder.Stop();
+                AssertRecorderIsUsable(cachedRequestRecorder);
+                Assert.That(
+                    cachedRequestRecorder.Count,
+                    Is.Zero,
+                    "Capture-off cached snapshot requests must not produce GC allocation events.");
+            }
+        }
+
+        private static ProfilerRecorder StartGcAllocationRecorder()
+        {
+            return ProfilerRecorder.StartNew(
+                ProfilerCategory.Internal,
+                "GC.Alloc",
+                65536,
+                ProfilerRecorderOptions.CollectOnlyOnCurrentThread);
+        }
+
+        private static void AssertRecorderIsUsable(ProfilerRecorder recorder)
+        {
+            Assert.That(recorder.Valid, Is.True, "GC.Alloc recorder must be available.");
+            Assert.That(recorder.Count, Is.LessThan(recorder.Capacity), "Reject truncated allocation samples.");
         }
 
         [Test]
