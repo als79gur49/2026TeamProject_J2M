@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
@@ -7,6 +8,7 @@ using Game.Feature.UI.HUD;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using TMPro;
@@ -21,6 +23,320 @@ namespace Game.Feature.UI.Tests
     public sealed class HUDControllerTests
     {
         private const string AllIn1UiMaskShaderName = "AllIn1SpriteShader/AllIn1SpriteShaderUiMask";
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PlayerHudContract_RepeatedFrameDoesNotNotifyOrResurrectCompletedRow(bool satisfied)
+        {
+            using var fixture = new PlayerHudContractFixture();
+            fixture.Publish(2, satisfied);
+            fixture.ResetCounts();
+            fixture.Publish(2, satisfied);
+            Assert.That(fixture.SnapshotChanges, Is.Zero);
+            Assert.That(fixture.ObjectiveChanges, Is.Zero);
+            Assert.That(fixture.EventCount, Is.Zero);
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.EqualTo(satisfied));
+            fixture.AssertVisibleState();
+            fixture.Publish(2, satisfied);
+            Assert.That(fixture.SnapshotChanges, Is.Zero);
+            Assert.That(fixture.ObjectiveChanges, Is.Zero);
+            if (satisfied) fixture.FinishDismiss();
+            fixture.Publish(3, satisfied);
+            Assert.That(fixture.Source.CurrentSnapshot.Tick.LastReducedTickIndex, Is.EqualTo(3));
+            Assert.That(fixture.SnapshotChanges, Is.EqualTo(1));
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.False);
+            if (satisfied) Assert.That(fixture.ActiveRows, Is.Empty);
+            else fixture.AssertVisibleState();
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PlayerHudContract_RepeatedQueryRefreshDoesNotNotifyOrResurrectCompletedRow(bool satisfied)
+        {
+            using var fixture = new PlayerHudContractFixture();
+            fixture.Publish(2, satisfied);
+            fixture.ResetCounts();
+            for (var i = 0; i < 3; i++)
+                fixture.RefreshPlayer();
+
+            Assert.That(fixture.SnapshotChanges, Is.Zero);
+            Assert.That(fixture.ObjectiveChanges, Is.Zero);
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.EqualTo(satisfied));
+            Assert.That(fixture.Source.CurrentSnapshot.Tick.LastReducedTickIndex, Is.EqualTo(2));
+            Assert.That(fixture.Source.CurrentSnapshot.Chance.RemainingChances, Is.EqualTo(2));
+            Assert.That(fixture.EventCount, Is.Zero);
+            fixture.AssertVisibleState();
+            if (satisfied) fixture.FinishDismiss();
+            fixture.RefreshPlayer();
+            Assert.That(fixture.SnapshotChanges, Is.Zero);
+            fixture.Publish(3, satisfied);
+            Assert.That(fixture.SnapshotChanges, Is.EqualTo(1));
+            Assert.That(fixture.ObjectiveChanges, Is.EqualTo(satisfied ? 1 : 0));
+            Assert.That(fixture.EventCount, Is.Zero);
+            Assert.That(fixture.Source.CurrentSnapshot.Tick.LastReducedTickIndex, Is.EqualTo(3));
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.False);
+            if (satisfied) Assert.That(fixture.ActiveRows, Is.Empty);
+            else fixture.AssertVisibleState();
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PlayerHudContract_SameTickFramePlayerChangesWithoutEventsPreserveCompletionUntilNextTick(bool satisfied)
+        {
+            using var fixture = new PlayerHudContractFixture();
+            fixture.Publish(2, satisfied, MakeEventlessPlayer(10, GameplayUiActionKind.None, false));
+            fixture.ResetCounts();
+            var variants = new[]
+            {
+                MakeEventlessPlayer(11, GameplayUiActionKind.None, false),
+                MakeEventlessPlayer(11, GameplayUiActionKind.Push, false),
+                MakeEventlessPlayer(11, GameplayUiActionKind.Push, true),
+            };
+            foreach (var player in variants)
+            {
+                fixture.Publish(2, satisfied, player);
+                Assert.That(fixture.SnapshotChanges, Is.Zero);
+                Assert.That(fixture.ObjectiveChanges, Is.Zero);
+                Assert.That(fixture.EventCount, Is.Zero);
+                Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.EqualTo(satisfied));
+                fixture.AssertVisibleState();
+            }
+
+            // A frame in recovery followed by a query-only state refresh used to clear the pulse.
+            fixture.RefreshPlayer();
+            Assert.That(fixture.SnapshotChanges, Is.Zero);
+            Assert.That(fixture.ObjectiveChanges, Is.Zero);
+            Assert.That(fixture.EventCount, Is.Zero);
+            Assert.That(fixture.Source.CurrentSnapshot.Tick.LastReducedTickIndex, Is.EqualTo(2));
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.EqualTo(satisfied));
+            if (satisfied) fixture.FinishDismiss();
+            fixture.Publish(2, satisfied, variants[2]);
+            fixture.RefreshPlayer();
+            Assert.That(fixture.SnapshotChanges, Is.Zero);
+            if (satisfied) Assert.That(fixture.ActiveRows, Is.Empty);
+            else fixture.AssertVisibleState();
+
+            fixture.Publish(3, satisfied, variants[2]);
+            Assert.That(fixture.SnapshotChanges, Is.EqualTo(1));
+            Assert.That(fixture.ObjectiveChanges, Is.EqualTo(satisfied ? 1 : 0));
+            Assert.That(fixture.Source.CurrentSnapshot.Tick.LastReducedTickIndex, Is.EqualTo(3));
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.False);
+            Assert.That(fixture.EventCount, Is.Zero);
+            if (satisfied) Assert.That(fixture.ActiveRows, Is.Empty);
+            else fixture.AssertVisibleState();
+        }
+
+
+        private static GameplayPlayerPresentationSlice MakeEventlessPlayer(
+            int playerEntityId, GameplayUiActionKind actionKind, bool isRecoveryPhase)
+        {
+            return new GameplayPlayerPresentationSlice(
+                playerEntityId, actionKind, activeActionSequence: 7,
+                actionDirection: GameplayUiDirection.Right, targetEntityId: 22,
+                startedThisTick: false, executedThisTick: false, completedThisTick: false,
+                canceledThisTick: false, isRecoveryPhase: isRecoveryPhase,
+                resolutionKind: GameplayUiActionResolutionKind.None,
+                shouldPlayWalkLoop: false, moveMotionGeneratedThisTick: false,
+                waitingForNextMoveCadence: false, tookDamageThisTick: false, damageAmount: 0);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PlayerHudContract_LocaleOrReplacementAfterSatisfactionKeepsView(bool replace)
+        {
+            using var fixture = new PlayerHudContractFixture();
+            fixture.Publish(2, true);
+            Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.True);
+            if (replace)
+            {
+                var previousObjectiveId = fixture.Objective.ViewModel.ObjectiveStableId;
+                fixture.Query.SetStage(new GameplayStageReadModel(StageId.CreateOrThrow("stage-1-2"), "stage.stage-1-2.display_name"));
+                fixture.Publish(2, false);
+                Assert.That(fixture.Objective.ViewModel.ObjectiveStableId, Is.Not.EqualTo(previousObjectiveId));
+                Assert.That(fixture.Objective.ViewModel.Rows[0].IsSatisfied, Is.False);
+                Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.False);
+                fixture.FinishEnter();
+                fixture.AssertVisibleState();
+            }
+            else
+            {
+                var dismissingRow = fixture.ActiveRows.Single();
+                var previousRowText = dismissingRow.GetComponentInChildren<TMP_Text>(true).text;
+                fixture.Locale.ChangeLocale("ko-KR");
+                Assert.That(fixture.Objective.ViewModel.HeaderText, Does.StartWith("ko-KR:"));
+                Assert.That(fixture.Objective.ViewModel.Rows[0].Text, Does.StartWith("ko-KR:"));
+                Assert.That(fixture.Objective.ViewModel.Rows[0].JustSatisfied, Is.False);
+                Assert.That(fixture.View.HeaderLabel.text, Is.EqualTo(fixture.Objective.ViewModel.HeaderText));
+                Assert.That(new[] { ObjectiveRowVisualState.Completing, ObjectiveRowVisualState.WaitingForOut,
+                    ObjectiveRowVisualState.Collapsing }, Does.Contain(dismissingRow.VisualState));
+                Assert.That(dismissingRow.GetComponentInChildren<TMP_Text>(true).text, Is.EqualTo(previousRowText),
+                    "Existing View behavior freezes outgoing row text during its transition.");
+                fixture.FinishDismiss();
+                fixture.Locale.ChangeLocale("en-US");
+                Assert.That(fixture.ActiveRows, Is.Empty);
+            }
+        }
+
+        [Test]
+        public void PlayerHudContract_DamageAndActionReplayKeepEventOrder()
+        {
+            using var fixture = new PlayerHudContractFixture();
+            var player = new GameplayPlayerPresentationSlice(
+                playerEntityId: 10, activeActionKind: GameplayUiActionKind.Push, activeActionSequence: 7,
+                actionDirection: GameplayUiDirection.Right, targetEntityId: 22,
+                startedThisTick: true, executedThisTick: true, completedThisTick: false,
+                canceledThisTick: false, isRecoveryPhase: false,
+                resolutionKind: GameplayUiActionResolutionKind.Success,
+                shouldPlayWalkLoop: false, moveMotionGeneratedThisTick: false,
+                waitingForNextMoveCadence: false, tookDamageThisTick: true, damageAmount: 1);
+            var frame = new GameplayPresentationFrame(2, new GameplayUiTopology(GameplayUiFace.Floor), player: player);
+            var expectedEvents = new UITickEventRouter().Route(frame);
+            Assert.That(expectedEvents.Count, Is.GreaterThan(0));
+            fixture.ResetCounts();
+            fixture.Publish(2, false, player);
+            Assert.That(fixture.Order, Is.EqualTo(new[] { "snapshot", "events" }));
+            Assert.That(fixture.Events, Is.EqualTo(expectedEvents));
+            Assert.That(fixture.Source.CurrentSnapshot.Player.TookDamageThisTick, Is.True);
+            Assert.That(fixture.Source.CurrentSnapshot.Player.LastDamageAmount, Is.EqualTo(1));
+            var events = fixture.EventCount;
+            fixture.Publish(2, false, player);
+            Assert.That(fixture.EventCount, Is.EqualTo(events));
+            fixture.Publish(3, false);
+            Assert.That(fixture.Source.CurrentSnapshot.Player.TookDamageThisTick, Is.False);
+            fixture.AssertVisibleState();
+        }
+
+        private sealed class PlayerHudContractFixture : IDisposable
+        {
+            private readonly GameObject _root = new GameObject("PlayerHudContractFixture");
+            private readonly FakeGameplayPresentationFeed _feed = new FakeGameplayPresentationFeed();
+            private readonly HUDRootPresenter _presenter;
+            private readonly HUDController _controller;
+            private readonly RectTransform _list;
+            private readonly RectTransform _template;
+            public readonly FakeGameplayQueryFacade Query;
+            public readonly GameplayUiPresentationSource Source;
+            public readonly ProbeLocaleResolver Locale = new ProbeLocaleResolver();
+            public readonly ObjectiveHudPresenter Objective;
+            public readonly ChancePanelPresenter Chance = new ChancePanelPresenter();
+            public readonly ObjectiveHudView View;
+            public int SnapshotChanges;
+            public int ObjectiveChanges;
+            public int EventCount;
+            public readonly List<string> Order = new List<string>();
+            public readonly List<UITickEvent> Events = new List<UITickEvent>();
+            public ObjectiveHudRowView[] ActiveRows => _list.Cast<Transform>()
+                .Where(child => child != _template && child.gameObject.activeSelf)
+                .Select(child => child.GetComponent<ObjectiveHudRowView>()).Where(row => row != null).ToArray();
+
+            public PlayerHudContractFixture()
+            {
+                Query = new FakeGameplayQueryFacade(new GameplaySessionReadModel(1, false, true, false),
+                    MakePlayer(), MakeObjective(false),
+                    new GameplayStageReadModel(StageId.CreateOrThrow("stage-1-1"), "stage.stage-1-1.display_name"));
+                Source = new GameplayUiPresentationSource(Query, _feed, new FakeGameplayPauseService());
+                Objective = new ObjectiveHudPresenter(Locale);
+                var stage = new StageInfoPresenter(Locale);
+                var belt = new SurfaceBeltIndicatorPresenter();
+                _presenter = new HUDRootPresenter(Source, stage, Objective, Chance, belt);
+                _controller = new HUDController(_presenter.ViewModel, stage.ViewModel, Objective.ViewModel, Chance.ViewModel, belt.ViewModel);
+                CreateCanonicalRootView(_root, out var hud);
+                View = hud.ObjectiveHudView;
+                _list = GetSerializedReference<RectTransform>(View, "_objectiveListRoot");
+                _template = GetSerializedReference<RectTransform>(View, "_objectiveItemTemplate");
+                _controller.AttachView(hud);
+                Publish(1, false);
+                FinishEnter();
+                Source.SnapshotChanged += _ => { SnapshotChanges++; Order.Add("snapshot"); };
+                Objective.ViewModel.Changed += () => ObjectiveChanges++;
+                Source.TickEventsApplied += batch =>
+                {
+                    Order.Add("events");
+                    EventCount += batch.Events.Count;
+                    Events.AddRange(batch.Events);
+                };
+                ResetCounts();
+            }
+
+            public void ResetCounts()
+            {
+                SnapshotChanges = ObjectiveChanges = EventCount = 0;
+                Order.Clear();
+                Events.Clear();
+            }
+
+            public void Publish(int tick, bool satisfied, GameplayPlayerPresentationSlice? player = null)
+            {
+                Query.SetObjective(MakeObjective(satisfied));
+                _feed.PublishFrame(new GameplayPresentationFrame(tick, new GameplayUiTopology(GameplayUiFace.Floor), player: player));
+            }
+
+            public void RefreshPlayer()
+            {
+                Query.SetPlayerHud(new GameplayPlayerHudReadModel(
+                    hasRemainingChances: true, remainingChances: 2, maxChances: 3));
+                RefreshState();
+            }
+
+            public void RefreshState()
+            {
+                _feed.PublishState(new GameplayPresentationState(new GameplayUiTopology(GameplayUiFace.Floor),
+                    isPresentationActive: false, hasBlockingPresentation: false, isTopologyTransitionActive: false));
+            }
+
+            private static GameplayPlayerHudReadModel MakePlayer() => new GameplayPlayerHudReadModel(
+                hasRemainingChances: true, remainingChances: 2, maxChances: 3);
+
+            private static GameplayObjectiveReadModel MakeObjective(bool satisfied) => new GameplayObjectiveReadModel(
+                true, satisfied, satisfied, false, new[]
+                {
+                    new GameplayObjectiveConditionReadModel("goal", GameplayObjectivePresentationKind.ReachExit,
+                        "goal", GameplayObjectiveConditionRole.PrimaryGoal, true, satisfied, satisfied ? 1 : 0, 1, 0),
+                });
+
+            public void FinishEnter()
+            {
+                ForceObjectiveSchedulerDue(View);
+                foreach (var row in ActiveRows) CompleteObjectiveEnter(View, row);
+                Assert.That(ActiveRows.Length, Is.EqualTo(1));
+            }
+
+            public void FinishDismiss()
+            {
+                ForceObjectiveSchedulerDue(View);
+                foreach (var row in ActiveRows) CompleteObjectiveDismiss(View, row);
+                Assert.That(ActiveRows.Length, Is.Zero);
+            }
+
+            public void AssertVisibleState(int expectedRemainingChances = 2)
+            {
+                Assert.That(View.HeaderLabel.text, Is.EqualTo(Objective.ViewModel.HeaderText));
+                Assert.That(Chance.ViewModel.RemainingChances, Is.EqualTo(expectedRemainingChances));
+                Assert.That(ActiveRows.Length, Is.EqualTo(1));
+                Assert.That(ActiveRows[0].GetComponentInChildren<TMP_Text>(true).text,
+                    Is.EqualTo(Objective.ViewModel.Rows[0].Text));
+            }
+
+            public void Dispose()
+            {
+                _controller.Dispose();
+                _presenter.Dispose();
+                Source.Dispose();
+                UnityEngine.Object.DestroyImmediate(_root);
+            }
+        }
+
+        private sealed class ProbeLocaleResolver : ILocalizedTextResolver
+        {
+            public string CurrentLocaleCode { get; private set; } = "en-US";
+            public event Action LocaleChanged;
+            public string Resolve(LocalizedTextDescriptor descriptor) => CurrentLocaleCode + ":" + descriptor.Key;
+            public void ChangeLocale(string locale)
+            {
+                CurrentLocaleCode = locale;
+                LocaleChanged?.Invoke();
+            }
+        }
 
         [Test]
         public void HUDController_AttachView_BindsChildViewModels()
@@ -2341,10 +2657,6 @@ namespace Game.Feature.UI.Tests
             bool isPaused = false,
             bool isUiBlocked = false,
             bool hasBlockingPresentation = false,
-            GameplayUiActionKind activeActionKind = GameplayUiActionKind.None,
-            bool isRecoveryPhase = false,
-            bool canMoveThisTick = true,
-            bool canStartActionThisTick = true,
             GameplayUiActionResolutionKind lastOutcome = GameplayUiActionResolutionKind.None,
             bool hasRemainingChances = false,
             int remainingChances = 0,
@@ -2367,22 +2679,17 @@ namespace Game.Feature.UI.Tests
                         ? StageId.None
                         : StageId.CreateOrThrow("stage-1-1"),
                     stageDisplayNameKey),
+                UIObjectiveSlice.Empty,
+                new UIChanceSlice(hasRemainingChances, remainingChances,
+                    maxChances > 0 ? maxChances : (hasRemainingChances ? remainingChances : 0)),
+                UITopologySlice.FromTopology(new GameplayUiTopology(GameplayUiFace.Front), false),
+                SurfaceBeltSnapshot.FromTopology(new GameplayUiTopology(GameplayUiFace.Front), false, 0),
                 new UIPlayerActionSlice(
-                    playerEntityId: 10,
-                    currentHp: 3,
-                    facing: GameplayUiDirection.Up,
-                    activeActionKind: activeActionKind,
-                    isRecoveryPhase: isRecoveryPhase,
-                    canMoveThisTick: canMoveThisTick,
-                    canStartActionThisTick: canStartActionThisTick,
                     lastResolvedOutcome: lastOutcome,
                     lastResolvedTickIndex: lastOutcome == GameplayUiActionResolutionKind.None ? 0 : 4,
                     tookDamageThisTick: false,
                     lastDamageAmount: 0,
-                    lastDamageTickIndex: 0,
-                    hasRemainingChances: hasRemainingChances,
-                    remainingChances: remainingChances,
-                    maxChances: maxChances),
+                    lastDamageTickIndex: 0),
                 new UINotificationLedgerSlice(new[]
                 {
                     new UINotificationRecord(

@@ -32,9 +32,6 @@ namespace Game.Feature.UI.Flow
 
         public SurfaceBeltViewModel SurfaceBeltViewModel { get; }
 
-
-        public bool IsGameplayReadOnly => RootViewModel.IsGameplayReadOnly;
-
         public void AttachView(HUDRootView view)
         {
             if (ReferenceEquals(_view, view))

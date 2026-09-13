@@ -27,18 +27,21 @@ namespace Game.Feature.UI.Application
                 chance.MaxChances,
                 isInitialBind,
                 hint);
-            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.HudViewModel)
+            if (CampaignChanceHudDiagnostics.IsEnabled)
             {
-                TryReadResult = chance.HasChances,
-                RemainingChances = chance.RemainingChances,
-                MaxChances = chance.MaxChances,
-                FinalHasChances = ViewModel.HasChances,
-                FailureReason = ViewModel.HasChances
-                    ? CampaignChanceReadFailureReason.None
-                    : chance.MaxChances <= 0
-                        ? CampaignChanceReadFailureReason.MaxChancesZero
-                        : CampaignChanceReadFailureReason.Unknown,
-            });
+                CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.HudViewModel)
+                {
+                    TryReadResult = chance.HasChances,
+                    RemainingChances = chance.RemainingChances,
+                    MaxChances = chance.MaxChances,
+                    FinalHasChances = ViewModel.HasChances,
+                    FailureReason = ViewModel.HasChances
+                        ? CampaignChanceReadFailureReason.None
+                        : chance.MaxChances <= 0
+                            ? CampaignChanceReadFailureReason.MaxChancesZero
+                            : CampaignChanceReadFailureReason.Unknown,
+                });
+            }
 
             _previous = chance;
             _hasPrevious = true;

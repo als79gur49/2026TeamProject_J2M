@@ -51,11 +51,6 @@ namespace Game.Feature.UI.Application
                 isDimmed: snapshot.Interaction.IsPaused ||
                           snapshot.Interaction.IsUiGameplayInputBlocked ||
                           snapshot.Interaction.HasBlockingGameplayPresentation,
-                isGameplayReadOnly: snapshot.Tick.IsStageCleared ||
-                                    snapshot.Interaction.IsPaused ||
-                                    snapshot.Interaction.IsUiGameplayInputBlocked ||
-                                    snapshot.Interaction.HasBlockingGameplayPresentation ||
-                                    !snapshot.Interaction.CanAcceptGameplayCommands,
                 isPauseButtonEnabled: !snapshot.Interaction.IsPaused &&
                                       !snapshot.Interaction.IsUiGameplayInputBlocked);
 

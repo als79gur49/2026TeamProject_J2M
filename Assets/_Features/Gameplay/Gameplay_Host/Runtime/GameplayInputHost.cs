@@ -352,27 +352,6 @@ namespace Game.Feature.Gameplay.Host
             _uiHeldMoveDirection = Direction.None;
         }
 
-        internal Direction PreviewPushDirection()
-        {
-            EnsureInitialized();
-
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
-            {
-                return Direction.None;
-            }
-
-            var now = ResolveCurrentInputTime();
-            var sampledDirection = ResolveSampledMoveDirection();
-            _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
-
-            if (_uiHeldMoveDirection != Direction.None)
-            {
-                return _uiHeldMoveDirection;
-            }
-
-            return _moveIntentBuffer.ResolveDirection(now, out _);
-        }
-
         private void Update()
         {
             if (_isInitialized && _autoAdvanceTicks)
@@ -860,9 +839,12 @@ namespace Game.Feature.Gameplay.Host
             ClearPendingUiInput();
         }
 
-        private static float ResolveCurrentInputTime()
+        // Input sampling owns buffer time; UI queries must never sample or extend it.
+        internal Func<float> InputTimeProvider { get; set; }
+
+        private float ResolveCurrentInputTime()
         {
-            return Time.unscaledTime;
+            return InputTimeProvider != null ? InputTimeProvider() : Time.unscaledTime;
         }
 
         private Direction ResolveSampledMoveDirection()

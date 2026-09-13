@@ -424,42 +424,6 @@ namespace Game.Feature.UI.Application
         }
     }
 
-    public readonly struct UIRecoveryCooldownSlice : IEquatable<UIRecoveryCooldownSlice>
-    {
-        public UIRecoveryCooldownSlice(
-            GameplayUiActionKind actionKind,
-            int remainingRecoveryTicks,
-            int totalRecoveryTicks)
-        {
-            ActionKind = actionKind;
-            RemainingRecoveryTicks = remainingRecoveryTicks;
-            TotalRecoveryTicks = totalRecoveryTicks;
-        }
-
-        public GameplayUiActionKind ActionKind { get; }
-
-        public int RemainingRecoveryTicks { get; }
-
-        public int TotalRecoveryTicks { get; }
-
-        public bool Equals(UIRecoveryCooldownSlice other)
-        {
-            return ActionKind == other.ActionKind &&
-                   RemainingRecoveryTicks == other.RemainingRecoveryTicks &&
-                   TotalRecoveryTicks == other.TotalRecoveryTicks;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is UIRecoveryCooldownSlice other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(ActionKind, RemainingRecoveryTicks, TotalRecoveryTicks);
-        }
-    }
-
     public readonly struct UIStageSlice : IEquatable<UIStageSlice>
     {
         public static readonly UIStageSlice Empty = new(StageId.None, string.Empty);
@@ -731,78 +695,15 @@ namespace Game.Feature.UI.Application
     public readonly struct UIPlayerActionSlice : IEquatable<UIPlayerActionSlice>
     {
         public UIPlayerActionSlice(
-            int playerEntityId,
-            int currentHp,
-            GameplayUiDirection facing,
-            GameplayUiActionKind activeActionKind,
-            bool isRecoveryPhase,
-            bool canMoveThisTick,
-            bool canStartActionThisTick,
             GameplayUiActionResolutionKind lastResolvedOutcome,
             int lastResolvedTickIndex,
             bool tookDamageThisTick,
             int lastDamageAmount,
             int lastDamageTickIndex,
-            UIRecoveryCooldownSlice? recoveryCooldown = null,
-            bool canStartAnyActionThisTick = false,
-            bool hasExplicitPushCandidateInCurrentDirection = false,
-            bool hasRemainingChances = false,
-            int remainingChances = 0,
-            int maxChances = 0)
-            : this(
-                playerEntityId,
-                currentHp,
-                currentHp,
-                facing,
-                activeActionKind,
-                isRecoveryPhase,
-                canMoveThisTick,
-                canStartActionThisTick,
-                lastResolvedOutcome,
-                lastResolvedTickIndex,
-                tookDamageThisTick,
-                lastDamageAmount,
-                lastDamageTickIndex,
-                recoveryCooldown,
-                canStartAnyActionThisTick,
-                hasExplicitPushCandidateInCurrentDirection,
-                hasRemainingChances,
-                remainingChances,
-                maxChances)
-        {
-        }
-
-        public UIPlayerActionSlice(
-            int playerEntityId,
-            int currentHp,
-            int maxHp,
-            GameplayUiDirection facing,
-            GameplayUiActionKind activeActionKind,
-            bool isRecoveryPhase,
-            bool canMoveThisTick,
-            bool canStartActionThisTick,
-            GameplayUiActionResolutionKind lastResolvedOutcome,
-            int lastResolvedTickIndex,
-            bool tookDamageThisTick,
-            int lastDamageAmount,
-            int lastDamageTickIndex,
-            UIRecoveryCooldownSlice? recoveryCooldown = null,
-            bool canStartAnyActionThisTick = false,
-            bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
             int remainingChances = 0,
             int maxChances = 0)
         {
-            PlayerEntityId = playerEntityId;
-            CurrentHp = currentHp;
-            MaxHp = maxHp > 0 ? maxHp : currentHp;
-            Facing = facing;
-            ActiveActionKind = activeActionKind;
-            IsRecoveryPhase = isRecoveryPhase;
-            CanMoveThisTick = canMoveThisTick;
-            CanStartActionThisTick = canStartActionThisTick;
-            CanStartAnyActionThisTick = canStartAnyActionThisTick || canStartActionThisTick;
-            HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             HasRemainingChances = hasRemainingChances;
             RemainingChances = remainingChances;
             MaxChances = maxChances > 0
@@ -813,28 +714,7 @@ namespace Game.Feature.UI.Application
             TookDamageThisTick = tookDamageThisTick;
             LastDamageAmount = lastDamageAmount;
             LastDamageTickIndex = lastDamageTickIndex;
-            RecoveryCooldown = recoveryCooldown;
         }
-
-        public int PlayerEntityId { get; }
-
-        public int CurrentHp { get; }
-
-        public int MaxHp { get; }
-
-        public GameplayUiDirection Facing { get; }
-
-        public GameplayUiActionKind ActiveActionKind { get; }
-
-        public bool IsRecoveryPhase { get; }
-
-        public bool CanMoveThisTick { get; }
-
-        public bool CanStartActionThisTick { get; }
-
-        public bool CanStartAnyActionThisTick { get; }
-
-        public bool HasExplicitPushCandidateInCurrentDirection { get; }
 
         public bool HasRemainingChances { get; }
 
@@ -852,29 +732,16 @@ namespace Game.Feature.UI.Application
 
         public int LastDamageTickIndex { get; }
 
-        public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
-
         public bool Equals(UIPlayerActionSlice other)
         {
-            return PlayerEntityId == other.PlayerEntityId &&
-                   CurrentHp == other.CurrentHp &&
-                   MaxHp == other.MaxHp &&
-                   Facing == other.Facing &&
-                   ActiveActionKind == other.ActiveActionKind &&
-                   IsRecoveryPhase == other.IsRecoveryPhase &&
-                   CanMoveThisTick == other.CanMoveThisTick &&
-                   CanStartActionThisTick == other.CanStartActionThisTick &&
-                   CanStartAnyActionThisTick == other.CanStartAnyActionThisTick &&
-                   HasExplicitPushCandidateInCurrentDirection == other.HasExplicitPushCandidateInCurrentDirection &&
-                   HasRemainingChances == other.HasRemainingChances &&
+            return HasRemainingChances == other.HasRemainingChances &&
                    RemainingChances == other.RemainingChances &&
                    MaxChances == other.MaxChances &&
                    LastResolvedOutcome == other.LastResolvedOutcome &&
                    LastResolvedTickIndex == other.LastResolvedTickIndex &&
                    TookDamageThisTick == other.TookDamageThisTick &&
                    LastDamageAmount == other.LastDamageAmount &&
-                   LastDamageTickIndex == other.LastDamageTickIndex &&
-                   RecoveryCooldown.Equals(other.RecoveryCooldown);
+                   LastDamageTickIndex == other.LastDamageTickIndex;
         }
 
         public override bool Equals(object obj)
@@ -884,20 +751,9 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            var hash = HashCode.Combine(
-                PlayerEntityId,
-                CurrentHp,
-                MaxHp,
-                Facing,
-                ActiveActionKind,
-                IsRecoveryPhase,
-                CanMoveThisTick,
-                CanStartActionThisTick);
-            hash = HashCode.Combine(hash, CanStartAnyActionThisTick);
-            hash = HashCode.Combine(hash, HasExplicitPushCandidateInCurrentDirection, LastResolvedOutcome);
+            var hash = HashCode.Combine(LastResolvedOutcome);
             hash = HashCode.Combine(hash, HasRemainingChances, RemainingChances, MaxChances);
             hash = HashCode.Combine(hash, LastResolvedTickIndex, TookDamageThisTick, LastDamageAmount, LastDamageTickIndex);
-            hash = HashCode.Combine(hash, RecoveryCooldown);
             return hash;
         }
     }
@@ -1021,13 +877,6 @@ namespace Game.Feature.UI.Application
             UITopologySlice.Empty,
             SurfaceBeltSnapshot.Empty,
             new UIPlayerActionSlice(
-                0,
-                0,
-                GameplayUiDirection.None,
-                GameplayUiActionKind.None,
-                false,
-                false,
-                false,
                 GameplayUiActionResolutionKind.None,
                 0,
                 false,

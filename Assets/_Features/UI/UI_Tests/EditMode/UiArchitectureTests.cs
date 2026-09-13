@@ -492,24 +492,7 @@ namespace Game.Feature.UI.Tests
                 .OrderBy(name => name)
                 .ToArray();
 
-            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsGameplayReadOnly", "IsPauseButtonEnabled" }));
-        }
-
-        [Test]
-        public void UIRecoveryCooldownSlice_PublicSurface_RemainsMinimal()
-        {
-            var propertyNames = typeof(UIRecoveryCooldownSlice)
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
-                .Select(property => property.Name)
-                .OrderBy(name => name)
-                .ToArray();
-
-            Assert.That(propertyNames, Is.EqualTo(new[]
-            {
-                "ActionKind",
-                "RemainingRecoveryTicks",
-                "TotalRecoveryTicks",
-            }));
+            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsPauseButtonEnabled" }));
         }
 
         [Test]
@@ -550,7 +533,6 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "ChancePanelViewModel",
-                    "IsGameplayReadOnly",
                     "ObjectiveHudViewModel",
                     "RootViewModel",
                     "StageInfoViewModel",

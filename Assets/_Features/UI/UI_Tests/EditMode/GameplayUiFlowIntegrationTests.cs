@@ -857,9 +857,9 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_PreservesHudReadOnlySeam_ThroughScreenAndPausePopup()
+        public void GameplayUiFlowInstaller_PreservesHudShellState_ThroughScreenAndPausePopup()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_PreservesHudReadOnlySeam_ThroughScreenAndPausePopup");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_PreservesHudShellState_ThroughScreenAndPausePopup");
 
             try
             {
@@ -875,7 +875,8 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.True);
 
                 installer.HudView.ClickPause();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
@@ -914,14 +915,16 @@ namespace Game.Feature.UI.Tests
                 var originalPausePopup = installer.PausePopupView;
 
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.False);
 
                 originalPausePopup.ClickSettings();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
                 Assert.That(installer.HudView.IsVisible, Is.False);
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.False);
 
                 installer.SettingsScreenView.ClickBack();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -929,12 +932,14 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.PausePopupView, Is.Not.Null);
                 Assert.That(installer.PausePopupView, Is.Not.SameAs(originalPausePopup));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.False);
 
                 installer.PausePopupView.ClickResume();
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.True);
             }
             finally
             {

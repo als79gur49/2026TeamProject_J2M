@@ -83,9 +83,6 @@ namespace Game.Feature.UI.Tests
                 isPaused: false,
                 isUiBlocked: true,
                 hasBlockingPresentation: false,
-                currentHp: 2,
-                activeActionKind: GameplayUiActionKind.Flip,
-                isRecoveryPhase: true,
                 lastOutcome: GameplayUiActionResolutionKind.Blocked,
                 stageDisplayNameKey: "stage.stage-1-1.display_name"));
 
@@ -96,6 +93,51 @@ namespace Game.Feature.UI.Tests
             Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.False);
             Assert.That(surfaceBeltIndicatorPresenter.ViewModel.CenterSlotIndex, Is.EqualTo(1));
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.False);
+        }
+
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void ChancePanelPresenter_DiagnosticsTogglePreservesChanceTransition(
+            bool diagnosticsEnabled, bool consoleEnabled)
+        {
+            var previousEnabled = CampaignChanceHudDiagnostics.IsEnabled;
+            var previousConsole = CampaignChanceHudDiagnostics.LogToUnityConsole;
+            try
+            {
+                CampaignChanceHudDiagnostics.IsEnabled = diagnosticsEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = consoleEnabled;
+                CampaignChanceHudDiagnostics.Clear();
+                var presenter = new ChancePanelPresenter();
+                presenter.Apply(new UIChanceSlice(true, 3, 3));
+                presenter.Apply(new UIChanceSlice(true, 2, 3));
+                Assert.That(presenter.ViewModel.HasChances, Is.True);
+                Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(2));
+                Assert.That(presenter.ViewModel.Slots.Count, Is.EqualTo(3));
+                Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Lost));
+                Assert.That(presenter.ViewModel.AnimationHint.PrimarySlotIndex, Is.EqualTo(2));
+                Assert.That(presenter.ViewModel.AnimationHint.AudioCuePolicy, Is.EqualTo(ChanceChangeAudioCuePolicy.Default));
+                var records = CampaignChanceHudDiagnostics.Snapshot();
+                Assert.That(records.Count, Is.EqualTo(diagnosticsEnabled ? 2 : 0));
+                if (diagnosticsEnabled)
+                {
+                    Assert.That(records.Select(record => record.RemainingChances), Is.EqualTo(new[] { 3, 2 }));
+                    foreach (var record in records)
+                    {
+                        Assert.That(record.Kind, Is.EqualTo(CampaignChanceHudDiagnosticKind.HudViewModel));
+                        Assert.That(record.MaxChances, Is.EqualTo(3));
+                        Assert.That(record.FinalHasChances, Is.True);
+                        Assert.That(record.FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.None));
+                    }
+                }
+            }
+            finally
+            {
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = previousEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = previousConsole;
+            }
         }
 
         [Test]
@@ -639,7 +681,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellReadOnlyState_ThroughMappedSourceOnly()
+        public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellDisplayState_ThroughMappedSourceOnly()
         {
             var source = new ManualGameplayUiPresentationSource();
             var chancePanelPresenter = new ChancePanelPresenter();
@@ -656,25 +698,22 @@ namespace Game.Feature.UI.Tests
             source.PublishSnapshot(CreateSnapshot(isPaused: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
 
             source.PublishSnapshot(CreateSnapshot(hasBlockingPresentation: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
 
             source.PublishSnapshot(CreateSnapshot(isUiBlocked: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
+            Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
 
             source.PublishSnapshot(CreateSnapshot(canAcceptGameplayCommands: false));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
+            Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
 
             source.PublishSnapshot(CreateSnapshot());
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.False);
         }
 
         [Test]
@@ -697,7 +736,7 @@ namespace Game.Feature.UI.Tests
                 canAcceptGameplayCommands: true));
 
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.False);
+            Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
         }
 
         private static UIPresentationSnapshot CreateSnapshot(
@@ -705,17 +744,10 @@ namespace Game.Feature.UI.Tests
             bool isUiBlocked = false,
             bool hasBlockingPresentation = false,
             bool? canAcceptGameplayCommands = null,
-            int currentHp = 3,
-            GameplayUiActionKind activeActionKind = GameplayUiActionKind.None,
-            bool isRecoveryPhase = false,
-            bool canStartActionThisTick = true,
-            bool canStartAnyActionThisTick = true,
-            bool hasExplicitPushCandidateInCurrentDirection = false,
             GameplayUiActionResolutionKind lastOutcome = GameplayUiActionResolutionKind.None,
             UITickEventKind notificationEventKind = UITickEventKind.PlayerActionResolved,
             GameplayUiActionKind notificationActionKind = GameplayUiActionKind.Flip,
             GameplayUiActionResolutionKind notificationResolutionKind = GameplayUiActionResolutionKind.Success,
-            UIRecoveryCooldownSlice? recoveryCooldown = null,
             string stageDisplayNameKey = "",
             UIObjectiveSlice? objective = null)
         {
@@ -738,22 +770,14 @@ namespace Game.Feature.UI.Tests
                         : StageId.CreateOrThrow("stage-1-1"),
                     stageDisplayNameKey),
                 objective ?? UIObjectiveSlice.Empty,
+                UIChanceSlice.Empty,
+                UITopologySlice.FromTopology(new GameplayUiTopology(GameplayUiFace.Front), false),
                 new UIPlayerActionSlice(
-                    playerEntityId: 10,
-                    currentHp: currentHp,
-                    facing: GameplayUiDirection.Right,
-                    activeActionKind: activeActionKind,
-                    isRecoveryPhase: isRecoveryPhase,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: canStartActionThisTick,
                     lastResolvedOutcome: lastOutcome,
                     lastResolvedTickIndex: lastOutcome == GameplayUiActionResolutionKind.None ? 0 : 4,
                     tookDamageThisTick: true,
                     lastDamageAmount: 1,
-                    lastDamageTickIndex: 4,
-                    recoveryCooldown: recoveryCooldown,
-                    canStartAnyActionThisTick: canStartAnyActionThisTick,
-                    hasExplicitPushCandidateInCurrentDirection: hasExplicitPushCandidateInCurrentDirection),
+                    lastDamageTickIndex: 4),
                 new UINotificationLedgerSlice(new[]
                 {
                     new UINotificationRecord(

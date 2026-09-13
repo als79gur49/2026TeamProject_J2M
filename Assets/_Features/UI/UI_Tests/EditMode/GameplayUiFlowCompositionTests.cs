@@ -215,7 +215,8 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(installer.RootView.gameObject);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.True);
 
                 installer.HudView.ClickPause();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);

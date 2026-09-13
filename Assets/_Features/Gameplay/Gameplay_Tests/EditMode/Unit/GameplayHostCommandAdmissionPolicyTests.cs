@@ -103,7 +103,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(host.InputHost.AdvanceTime(10f), Is.Zero);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Null);
                 Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(nextTickBeforeReveal));
-                Assert.That(host.InputHost.PreviewPushDirection(), Is.EqualTo(Direction.None));
+                Assert.That(typeof(GameplayInputHost).GetField("_sampledMoveInput", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(host.InputHost), Is.EqualTo(Vector2.zero));
+                Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedPush", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(host.InputHost), Is.False);
+                Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedFlip", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(host.InputHost), Is.False);
                 var publicResult =
                     host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
                 Assert.That(publicResult.Accepted, Is.False);
@@ -162,7 +167,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(host.InputHost.RunSingleTick(), Is.Null);
                 host.InputHost.BufferPush();
                 host.InputHost.BufferFlip();
-                Assert.That(host.InputHost.PreviewPushDirection(), Is.EqualTo(Direction.None));
+                Assert.That(typeof(GameplayInputHost).GetField("_sampledMoveInput", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(host.InputHost), Is.EqualTo(Vector2.zero));
+                Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedPush", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(host.InputHost), Is.False);
+                Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedFlip", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(host.InputHost), Is.False);
 
                 Assert.That(
                     SceneEntryPresentationRegistry.TryBindTransition(token, 71),

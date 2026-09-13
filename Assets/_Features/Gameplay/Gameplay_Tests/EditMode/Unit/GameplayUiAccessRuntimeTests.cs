@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
@@ -16,6 +18,322 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayUiAccessRuntimeTests
     {
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        [Category("Core")]
+        public void PlayerHudRead_DiagnosticsTogglePreservesResult(bool diagnosticsEnabled, bool hasPlayer)
+        {
+            var previousEnabled = CampaignChanceHudDiagnostics.IsEnabled;
+            var previousConsole = CampaignChanceHudDiagnostics.LogToUnityConsole;
+            var hostObject = new GameObject("PlayerHudRead_DiagnosticsToggle");
+            try
+            {
+                CampaignChanceHudDiagnostics.IsEnabled = diagnosticsEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = false;
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(hasPlayer
+                    ? new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) }
+                    : Array.Empty<EntityState>()));
+                // Initialization may record query construction; inspect Read independently.
+                CampaignChanceHudDiagnostics.Clear();
+                var result = host.UiAccess.QueryFacade.PlayerHud.Read();
+                Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(10, out _), Is.EqualTo(hasPlayer));
+                Assert.That(result.HasRemainingChances, Is.False);
+                Assert.That(result.RemainingChances, Is.Zero);
+                var records = CampaignChanceHudDiagnostics.Snapshot();
+                Assert.That(records.Count, Is.EqualTo(diagnosticsEnabled ? 1 : 0));
+                if (diagnosticsEnabled)
+                {
+                    Assert.That(records[0].Kind, Is.EqualTo(CampaignChanceHudDiagnosticKind.HudQueryRead));
+                    Assert.That(records[0].PlayerFound, Is.EqualTo(hasPlayer));
+                    Assert.That(records[0].SourceIsNull, Is.True);
+                    Assert.That(records[0].FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.SourceMissing));
+                    Assert.That(records[0].FinalHasChances, Is.False);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = previousEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = previousConsole;
+            }
+        }
+
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        [Category("Core")]
+        public void PlayerHudDetail_EarlyReturnKeepsOneCompositionIdentity(bool detailEnabled, bool missingInput)
+        {
+            ResetPlayerHudCaptureRegistry();
+            var inputObject = new GameObject("PlayerHudDetail_EarlyReturn");
+            try
+            {
+                var input = inputObject.AddComponent<GameplayInputHost>();
+                using var admission = new GameplayHostCommandAdmissionPolicy(null, null, input, null, null);
+                var source = new FixedChancesReadSource();
+                var query = new GameplayHostPlayerHudQuery(missingInput ? null : input, admission, source);
+                using var capture = new PlayerHudTestCapture(detailEnabled);
+                Assert.That(query.Read(), Is.EqualTo(default(GameplayPlayerHudReadModel)));
+                Assert.That(source.ReadCount, Is.Zero, "Missing host snapshot/input must return before reading campaign chances.");
+                capture.AssertHealthy();
+                capture.AssertIdentityAndSnapshot(!missingInput, sourcePresent: true);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(inputObject); }
+        }
+
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        [Category("Core")]
+        public void PlayerHudDetail_NullSourcePreservesPresentAndAbsentPlayer(bool detailEnabled, bool hasPlayer)
+        {
+            ResetPlayerHudCaptureRegistry();
+            var hostObject = new GameObject("PlayerHudDetail_NullSource");
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(hasPlayer
+                    ? new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) }
+                    : Array.Empty<EntityState>()));
+                using var capture = new PlayerHudTestCapture(detailEnabled);
+                var result = host.UiAccess.QueryFacade.PlayerHud.Read();
+                Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(10, out _), Is.EqualTo(hasPlayer));
+                Assert.That(result.HasRemainingChances, Is.False);
+                Assert.That(result.RemainingChances, Is.Zero);
+                capture.AssertHealthy();
+                capture.AssertIdentityAndSnapshot(true);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(hostObject); }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Core")]
+        public void PlayerHudDetail_SourceExceptionPropagatesAndClosesScope(bool detailEnabled)
+        {
+            ResetPlayerHudCaptureRegistry();
+            var hostObject = new GameObject("PlayerHudDetail_SourceException");
+            var source = new ThrowingChancesReadSource();
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(Array.Empty<EntityState>(), campaignChancesReadSource: source));
+                using var capture = new PlayerHudTestCapture(detailEnabled);
+                var actual = Assert.Throws<InvalidOperationException>(() => host.UiAccess.QueryFacade.PlayerHud.Read());
+                Assert.That(actual, Is.SameAs(source.Failure));
+                Assert.That(source.ReadCount, Is.EqualTo(1));
+                capture.AssertFailedIfEnabled();
+            }
+            finally { UnityEngine.Object.DestroyImmediate(hostObject); }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Core")]
+        public void PlayerHudDetail_PauseAndResumeReadsDoNotSampleInput(bool detailEnabled)
+        {
+            ResetPlayerHudCaptureRegistry();
+            var hostObject = new GameObject(nameof(PlayerHudDetail_PauseAndResumeReadsDoNotSampleInput));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) }));
+                host.InputHost.InputTimeProvider = () => 0.05f;
+                host.UiAccess.PauseService.Pause();
+                typeof(GameplayInputHost).GetField("_sampledMoveInput", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(host.InputHost, Vector2.right);
+                var before = ReadInputBuffer(host.InputHost);
+                using var capture = new PlayerHudTestCapture(detailEnabled);
+                for (var i = 0; i < 3; i++) host.UiAccess.QueryFacade.PlayerHud.Read();
+                Assert.That(ReadInputBuffer(host.InputHost), Is.EqualTo(before));
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                host.UiAccess.PauseService.Resume();
+                for (var i = 0; i < 3; i++) host.UiAccess.QueryFacade.PlayerHud.Read();
+                Assert.That(ReadInputBuffer(host.InputHost), Is.EqualTo(before));
+                Assert.That(BuildInputCommand(host.InputHost).MoveDirection, Is.EqualTo(Direction.Right));
+                capture.AssertHealthy();
+                capture.AssertRetiredQueryScopesAbsent();
+            }
+            finally { UnityEngine.Object.DestroyImmediate(hostObject); }
+        }
+
+        [TestCase(false, false, false)]
+        [TestCase(true, false, false)]
+        [TestCase(false, true, false)]
+        [TestCase(true, true, false)]
+        [TestCase(false, true, true)]
+        [TestCase(true, true, true)]
+        [TestCase(false, false, true)]
+        [TestCase(true, false, true)]
+        [Category("Core")]
+        public void PlayerHudDetail_ChancesLoadPreservesDiagnosticAndSlotReadCount(
+            bool detailEnabled, bool diagnosticsEnabled, bool consoleEnabled)
+        {
+            ResetPlayerHudCaptureRegistry();
+            var inner = new TransientCampaignSaveSlotStore(CreateTransientNamespace("PlayerHudDetail_ChancesLoad"));
+            inner.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                1, StageId.CreateOrThrow("stage-1-1"), "level-1", 2, string.Empty));
+            var store = new TrackingChanceQuery(inner);
+            var source = new SaveSlotCampaignChancesReadSource(store, new CampaignRunningSlotContext(1));
+            var previousEnabled = CampaignChanceHudDiagnostics.IsEnabled;
+            var previousConsole = CampaignChanceHudDiagnostics.LogToUnityConsole;
+            CampaignChanceHudDiagnostics.IsEnabled = diagnosticsEnabled;
+            CampaignChanceHudDiagnostics.LogToUnityConsole = consoleEnabled;
+            CampaignChanceHudDiagnostics.Clear();
+            try
+            {
+                using var capture = new PlayerHudTestCapture(detailEnabled);
+                Assert.That(source.TryReadChances(out var remaining, out var maximum, out var audioPolicy), Is.True);
+                Assert.That(remaining, Is.EqualTo(2));
+                Assert.That(maximum, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
+                Assert.That(store.Calls, Is.EqualTo(diagnosticsEnabled
+                    ? new[] { "LoadSlot:1", "DiagnosticsKey" }
+                    : new[] { "LoadSlot:1" }));
+                Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.Default));
+                Assert.That(CampaignChanceHudDiagnostics.Snapshot().Count, Is.EqualTo(diagnosticsEnabled ? 1 : 0));
+                if (diagnosticsEnabled)
+                {
+                    var record = CampaignChanceHudDiagnostics.Snapshot().Single();
+                    Assert.That(record.Kind, Is.EqualTo(CampaignChanceHudDiagnosticKind.SourceRead));
+                    Assert.That(record.TryReadResult, Is.True);
+                    Assert.That(record.RemainingChances, Is.EqualTo(remaining));
+                    Assert.That(record.MaxChances, Is.EqualTo(maximum));
+                    Assert.That(record.SaveStoreDiagnosticsKey, Is.EqualTo("fixture"));
+                }
+                capture.AssertHealthy();
+            }
+            finally
+            {
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = previousEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = previousConsole;
+                inner.ClearAll();
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Core")]
+        public void PlayerHudDetail_ProductionChancesSourceClampsOverrideWithoutChangingSavedChances(bool detailEnabled)
+        {
+            ResetPlayerHudCaptureRegistry();
+            var inner = new TransientCampaignSaveSlotStore(CreateTransientNamespace(
+                nameof(PlayerHudDetail_ProductionChancesSourceClampsOverrideWithoutChangingSavedChances)));
+            var previousEnabled = CampaignChanceHudDiagnostics.IsEnabled;
+            var previousConsole = CampaignChanceHudDiagnostics.LogToUnityConsole;
+            try
+            {
+                inner.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                    1, StageId.CreateOrThrow("stage-1-1"), "level-1", 2, string.Empty));
+                var store = new TrackingChanceQuery(inner);
+                var display = new CampaignChanceDisplayOverride();
+                var source = new SaveSlotCampaignChancesReadSource(store, new CampaignRunningSlotContext(1), display);
+                // Composition identities must be registered before recording, even with detail disabled.
+                var nextSource = new SaveSlotCampaignChancesReadSource(
+                    store, new CampaignRunningSlotContext(1), new CampaignChanceDisplayOverride());
+                CampaignChanceHudDiagnostics.IsEnabled = false;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = false;
+                using var capture = new PlayerHudTestCapture(detailEnabled);
+
+                foreach (var rawRemaining in new[] { 4, 5 })
+                {
+                    display.Set(rawRemaining, 3, GameplayChanceAudioPolicy.SuppressChanceChangeCue);
+                    Assert.That(display.TryRead(out var raw, out _, out _), Is.True);
+                    Assert.That(raw, Is.EqualTo(rawRemaining), "The production source must receive the out-of-range override.");
+                    Assert.That(source.TryReadChances(out var remaining, out var maximum, out var audioPolicy), Is.True);
+                    Assert.That(remaining, Is.EqualTo(3));
+                    Assert.That(maximum, Is.EqualTo(3));
+                    Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+                    Assert.That(store.Calls, Is.Empty, "An active display override must not load the saved slot.");
+                    Assert.That(inner.LoadSlot(1).RemainingChances, Is.EqualTo(2), "Display changes must not write campaign chances.");
+                }
+
+                // The separately composed scene has an unset override and reads the saved owner again.
+                Assert.That(nextSource.TryReadChances(out var savedRemaining, out var savedMaximum, out var savedAudioPolicy), Is.True);
+                Assert.That(savedRemaining, Is.EqualTo(2));
+                Assert.That(savedMaximum, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
+                Assert.That(savedAudioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.Default));
+                Assert.That(store.Calls, Is.EqualTo(new[] { "LoadSlot:1" }));
+                capture.AssertHealthy();
+            }
+            finally
+            {
+                inner.ClearAll();
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = previousEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = previousConsole;
+            }
+        }
+
+        [TestCase(false, false, false, false)]
+        [TestCase(true, false, false, false)]
+        [TestCase(false, true, true, false)]
+        [TestCase(true, true, true, false)]
+        [TestCase(false, true, false, true)]
+        [TestCase(true, true, false, true)]
+        [TestCase(false, true, true, true)]
+        [TestCase(true, true, true, true)]
+        [Category("Core")]
+        public void PlayerHudDetail_ChancesOverrideSkipsDisabledDiagnosticArguments(
+            bool detailEnabled, bool hasOverride, bool overrideHit, bool diagnosticsEnabled)
+        {
+            ResetPlayerHudCaptureRegistry();
+            var store = new TrackingChanceQuery();
+            var display = hasOverride ? new CampaignChanceDisplayOverride() : null;
+            if (overrideHit) display.Set(2, 3);
+            var source = new SaveSlotCampaignChancesReadSource(store, new CampaignRunningSlotContext(1), display);
+            var previousEnabled = CampaignChanceHudDiagnostics.IsEnabled;
+            var previousConsole = CampaignChanceHudDiagnostics.LogToUnityConsole;
+            CampaignChanceHudDiagnostics.IsEnabled = diagnosticsEnabled;
+            CampaignChanceHudDiagnostics.LogToUnityConsole = false;
+            CampaignChanceHudDiagnostics.Clear();
+            try
+            {
+                using var capture = new PlayerHudTestCapture(detailEnabled);
+                if (overrideHit)
+                {
+                    Assert.That(source.TryReadChances(out var remaining, out var maximum, out var audioPolicy), Is.True);
+                    Assert.That(remaining, Is.EqualTo(2));
+                    Assert.That(maximum, Is.EqualTo(3));
+                    Assert.That(store.Calls, Is.EqualTo(diagnosticsEnabled
+                        ? new[] { "DiagnosticsKey" }
+                        : Array.Empty<string>()));
+                    Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.Default));
+                    Assert.That(CampaignChanceHudDiagnostics.Snapshot().Count, Is.EqualTo(diagnosticsEnabled ? 1 : 0));
+                    if (diagnosticsEnabled)
+                    {
+                        var record = CampaignChanceHudDiagnostics.Snapshot().Single();
+                        Assert.That(record.Kind, Is.EqualTo(CampaignChanceHudDiagnosticKind.SourceRead));
+                        Assert.That(record.TryReadResult, Is.True);
+                        Assert.That(record.RemainingChances, Is.EqualTo(remaining));
+                        Assert.That(record.MaxChances, Is.EqualTo(maximum));
+                        Assert.That(record.SaveStoreDiagnosticsKey, Is.EqualTo("fixture"));
+                    }
+                    capture.AssertHealthy();
+                }
+                else
+                {
+                    var thrown = Assert.Throws<InvalidOperationException>(() => source.TryReadChances(out _, out _, out _));
+                    Assert.That(thrown, Is.SameAs(store.LoadFailure));
+                    Assert.That(store.Calls, Is.EqualTo(new[] { "LoadSlot:1" }));
+                    Assert.That(CampaignChanceHudDiagnostics.Snapshot(), Is.Empty);
+                    capture.AssertFailedIfEnabled();
+                }
+            }
+            finally
+            {
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = previousEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = previousConsole;
+            }
+        }
+
         [Test]
         [Category("Extended")]
         public void GameplaySceneHost_Initialize_ExposesUiAccessQueriesWithCommittedHudState()
@@ -39,15 +357,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(session.CanAcceptGameplayCommands, Is.True);
                 Assert.That(session.IsStageCleared, Is.False);
 
-                Assert.That(playerHud.IsAvailable, Is.True);
-                Assert.That(playerHud.PlayerEntityId, Is.EqualTo(10));
-                Assert.That(playerHud.CurrentHp, Is.EqualTo(3));
-                Assert.That(playerHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
-                Assert.That(playerHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.None));
-                Assert.That(playerHud.IsActionInRecoveryPhase, Is.False);
-                Assert.That(playerHud.CanMoveThisTick, Is.True);
-                Assert.That(playerHud.CanStartActionThisTick, Is.True);
-                Assert.That(playerHud.RecoveryCooldown.HasValue, Is.False);
+                Assert.That(playerHud.HasRemainingChances, Is.False);
+                Assert.That(playerHud.MaxChances, Is.Zero);
 
                 Assert.That(objectives.HasObjective, Is.False);
                 Assert.That(objectives.IsCleared, Is.False);
@@ -89,7 +400,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
 
-                Assert.That(playerHud.IsAvailable, Is.False);
+                Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(10, out _), Is.False);
                 Assert.That(playerHud.HasRemainingChances, Is.True);
                 Assert.That(playerHud.RemainingChances, Is.EqualTo(2));
                 Assert.That(playerHud.MaxChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
@@ -133,7 +444,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
 
-                Assert.That(playerHud.IsAvailable, Is.True);
+                Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(10, out _), Is.True);
                 Assert.That(playerHud.HasRemainingChances, Is.True);
                 Assert.That(playerHud.RemainingChances, Is.EqualTo(2));
                 Assert.That(playerHud.MaxChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
@@ -148,9 +459,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayPlayerHudQuery_PlayerMissing_WithoutCampaignChances_RemainsUnavailable()
+        public void GameplayPlayerHudQuery_PlayerMissing_WithoutCampaignChances_ReturnsEmptyPlayerAndChanceData()
         {
-            var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerMissing_WithoutCampaignChances_RemainsUnavailable");
+            var hostObject = new GameObject("GameplayPlayerHudQuery_PlayerMissing_WithoutCampaignChances_ReturnsEmptyPlayerAndChanceData");
 
             try
             {
@@ -159,7 +470,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
 
-                Assert.That(playerHud.IsAvailable, Is.False);
+                Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(10, out _), Is.False);
                 Assert.That(playerHud.HasRemainingChances, Is.False);
                 Assert.That(playerHud.RemainingChances, Is.EqualTo(0));
                 Assert.That(playerHud.MaxChances, Is.EqualTo(0));
@@ -167,6 +478,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayPlayerHudQuery_SameHostPlayerRemovalPreservesChancesAndUpdatesDiagnostics()
+        {
+            var previousEnabled = CampaignChanceHudDiagnostics.IsEnabled;
+            var previousConsole = CampaignChanceHudDiagnostics.LogToUnityConsole;
+            var hostObject = new GameObject(nameof(GameplayPlayerHudQuery_SameHostPlayerRemovalPreservesChancesAndUpdatesDiagnostics));
+            try
+            {
+                CampaignChanceHudDiagnostics.IsEnabled = true;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = false;
+                var source = new FixedChancesReadSource();
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                var configuration = CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
+                    campaignChancesReadSource: source);
+                // Keep the actor absent through the real Respawn stage using the existing campaign option.
+                configuration.DisablePlayerRespawn = true;
+                host.Initialize(configuration);
+                CampaignChanceHudDiagnostics.Clear();
+                AssertNondefaultChances(host.UiAccess.QueryFacade.PlayerHud.Read());
+                Assert.That(CampaignChanceHudDiagnostics.Snapshot().Single().PlayerFound, Is.True);
+                Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(10, out _), Is.True);
+
+                // Test fixture commits removal through the existing write context, then advances
+                // the same Host so its committed query window observes the absent actor.
+                host.WorldState.CreateWriteContext().RemoveEntity(10);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(10, out _), Is.False);
+                CampaignChanceHudDiagnostics.Clear();
+                var readsBefore = source.ReadCount;
+                AssertNondefaultChances(host.UiAccess.QueryFacade.PlayerHud.Read());
+                Assert.That(source.ReadCount, Is.EqualTo(readsBefore + 1));
+                var record = CampaignChanceHudDiagnostics.Snapshot().Single();
+                Assert.That(record.PlayerFound, Is.False);
+                Assert.That(record.FinalHasChances, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = previousEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = previousConsole;
             }
         }
 
@@ -325,9 +682,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiAccess_SameWindowQueriesReuseCommittedPlayerFact_WhilePauseRemainsLiveGate()
+        public void GameplayUiAccess_SameWindowChancesRemainStable_WhilePauseRemainsLiveGate()
         {
-            var hostObject = new GameObject("GameplayUiAccess_SameWindowQueriesReuseCommittedPlayerFact_WhilePauseRemainsLiveGate");
+            var hostObject = new GameObject("GameplayUiAccess_SameWindowChancesRemainStable_WhilePauseRemainsLiveGate");
 
             try
             {
@@ -335,10 +692,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 host.Initialize(CreateConfiguration(new[]
                 {
                     CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
-                }));
+                }, campaignChancesReadSource: new FixedChancesReadSource()));
 
                 var freshSnapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
-                Assert.That(freshSnapshot.TryGetEntity(10, out var freshPlayer), Is.True);
+                Assert.That(freshSnapshot.TryGetEntity(10, out _), Is.True);
 
                 var session = host.UiAccess.QueryFacade.Session.Read();
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
@@ -351,21 +708,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var pausedMove = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up);
 
                 Assert.That(session.CanAcceptGameplayCommands, Is.True);
-                Assert.That(playerHud.IsAvailable, Is.True);
-                Assert.That(playerHud.PlayerEntityId, Is.EqualTo(freshPlayer.entityId));
-                Assert.That(playerHud.CurrentHp, Is.EqualTo(freshPlayer.hp));
-                Assert.That(playerHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
+                AssertNondefaultChances(playerHud);
                 Assert.That(moveAcceptance.Accepted, Is.True);
 
                 Assert.That(pausedSession.IsPaused, Is.True);
                 Assert.That(pausedSession.CanAcceptGameplayCommands, Is.False);
-                Assert.That(pausedHud.IsAvailable, Is.True);
-                Assert.That(pausedHud.PlayerEntityId, Is.EqualTo(freshPlayer.entityId));
-                Assert.That(pausedHud.CurrentHp, Is.EqualTo(freshPlayer.hp));
-                Assert.That(pausedHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
-                Assert.That(pausedHud.CanMoveThisTick, Is.False);
-                Assert.That(pausedHud.CanStartActionThisTick, Is.False);
-                Assert.That(pausedHud.CanStartAnyActionThisTick, Is.False);
+                AssertNondefaultChances(pausedHud);
                 Assert.That(pausedMove.Accepted, Is.False);
                 Assert.That(pausedMove.RejectionReason, Is.EqualTo(GameplayCommandRejectionReason.Paused));
             }
@@ -377,9 +725,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh()
+        public void GameplayUiAccess_PreRefreshTransientQueries_PreserveChancesDuringTopologyPresentation()
         {
-            var hostObject = new GameObject("GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh");
+            var hostObject = new GameObject("GameplayUiAccess_PreRefreshTransientQueries_PreserveChancesDuringTopologyPresentation");
 
             try
             {
@@ -388,7 +736,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[]
                     {
                         CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Right),
-                    }));
+                    }, campaignChancesReadSource: new FixedChancesReadSource()));
                 SetPlayerContinuousLocalOffset(
                     host.WorldState,
                     localX: 0,
@@ -396,6 +744,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     speedUnitsPerTick: DefaultFree2DSpeedUnitsPerTick());
 
                 var beforeTickHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                AssertNondefaultChances(beforeTickHud);
                 var observedPresentWindow = false;
                 var transientSession = default(GameplaySessionReadModel);
                 var transientHud = default(GameplayPlayerHudReadModel);
@@ -416,17 +765,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var tickResult = host.InputHost.RunSingleTick();
 
                 var refreshedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                AssertNondefaultChances(refreshedHud);
 
                 Assert.That(tickResult, Is.Not.Null);
                 Assert.That(tickResult.PresentationData.TopologyMotion.HasValue, Is.True);
                 Assert.That(observedPresentWindow, Is.True);
                 Assert.That(transientSession.NextTickIndex, Is.EqualTo(2));
-                Assert.That(transientHud.IsAvailable, Is.True);
-                Assert.That(transientHud.PlayerEntityId, Is.EqualTo(beforeTickHud.PlayerEntityId));
-                Assert.That(transientHud.CurrentHp, Is.EqualTo(beforeTickHud.CurrentHp));
-                Assert.That(transientHud.Facing, Is.EqualTo(beforeTickHud.Facing));
-                Assert.That(refreshedHud.Facing, Is.EqualTo(GameplayUiDirection.Up));
-                Assert.That(refreshedHud.Facing, Is.Not.EqualTo(transientHud.Facing));
+                AssertNondefaultChances(transientHud);
             }
             finally
             {
@@ -703,9 +1048,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiAccess_PlayerHud_ExposesRecoveryCooldown_AsRecoveryOnlySemantic()
+        public void GameplayUiAccess_PlayerHudReads_PreserveAuthoritativeActionRecoveryLifecycle()
         {
-            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_ExposesRecoveryCooldown_AsRecoveryOnlySemantic");
+            var hostObject = new GameObject("GameplayUiAccess_PlayerHudReads_PreserveAuthoritativeActionRecoveryLifecycle");
 
             try
             {
@@ -719,47 +1064,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
                     playerControlTiming: CreateRecoveryTimingSettings(
                         pushExecuteDelayTicks: 1,
-                        pushInputLockDurationTicks: 3)));
+                        pushInputLockDurationTicks: 3),
+                    campaignChancesReadSource: new FixedChancesReadSource()));
 
                 host.InputHost.SetRawMoveInput(Vector2.right);
                 host.InputHost.BufferPush();
 
                 var startTick = host.InputHost.RunSingleTick();
-                var startHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                AssertHudReadPreservesControl(host, PlayerActionKind.Push, false);
                 var executeTick = host.InputHost.RunSingleTick();
-                var fullRecoveryHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                AssertHudReadPreservesControl(host, PlayerActionKind.Push, true);
                 var lastRecoveryTick = host.InputHost.RunSingleTick();
-                var lastRecoveryHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                AssertHudReadPreservesControl(host, PlayerActionKind.Push, true);
                 var postFinalRecoveryTick = host.InputHost.RunSingleTick();
-                var postFinalRecoveryHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                AssertHudReadPreservesControl(host, PlayerActionKind.Push, true);
                 var clearTick = host.InputHost.RunSingleTick();
-                var clearedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                AssertHudReadPreservesControl(host, PlayerActionKind.None, false);
 
                 Assert.That(startTick, Is.Not.Null);
-                Assert.That(startHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.Push));
-                Assert.That(startHud.IsActionInRecoveryPhase, Is.False);
-                Assert.That(startHud.RecoveryCooldown.HasValue, Is.False);
 
                 Assert.That(executeTick, Is.Not.Null);
-                Assert.That(fullRecoveryHud.IsActionInRecoveryPhase, Is.True);
-                Assert.That(fullRecoveryHud.RecoveryCooldown.HasValue, Is.True);
-                Assert.That(fullRecoveryHud.RecoveryCooldown.Value.ActionKind, Is.EqualTo(GameplayUiActionKind.Push));
-                Assert.That(fullRecoveryHud.RecoveryCooldown.Value.TotalRecoveryTicks, Is.EqualTo(2));
-                Assert.That(fullRecoveryHud.RecoveryCooldown.Value.RemainingRecoveryTicks, Is.EqualTo(2));
 
                 Assert.That(lastRecoveryTick, Is.Not.Null);
-                Assert.That(lastRecoveryHud.IsActionInRecoveryPhase, Is.True);
-                Assert.That(lastRecoveryHud.RecoveryCooldown.HasValue, Is.True);
-                Assert.That(lastRecoveryHud.RecoveryCooldown.Value.RemainingRecoveryTicks, Is.EqualTo(1));
 
                 Assert.That(postFinalRecoveryTick, Is.Not.Null);
-                Assert.That(postFinalRecoveryHud.IsActionInRecoveryPhase, Is.True);
-                Assert.That(postFinalRecoveryHud.RecoveryCooldown.HasValue, Is.False);
 
                 Assert.That(clearTick, Is.Not.Null);
-                Assert.That(clearedHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.None));
-                Assert.That(clearedHud.IsActionInRecoveryPhase, Is.False);
-                Assert.That(clearedHud.RecoveryCooldown.HasValue, Is.False);
             }
             finally
             {
@@ -769,109 +1099,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiAccess_PlayerHud_PushReadiness_NoCandidate_IsReadyButNotArmed()
+        public void GameplayUiAccess_PlayerHud_RecoveryRetainsAuthoritativeActionLock()
         {
-            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PushReadiness_NoCandidate_IsReadyButNotArmed");
-
-            try
-            {
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-                host.Initialize(CreateConfiguration(
-                    new[]
-                    {
-                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
-                    },
-                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
-
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
-
-                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
-                var snapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
-                snapshot.TryGetPlayerControlState(10, out var playerControlState);
-
-                Assert.That(playerHud.IsAvailable, Is.True);
-                Assert.That(
-                    PlayerControlQueries.CanStartExplicitAction(
-                        playerControlState,
-                        host.TickRunner.NextTickIndex),
-                    Is.True);
-                Assert.That(playerHud.CanStartAnyActionThisTick, Is.True);
-                Assert.That(playerHud.CanStartActionThisTick, Is.True);
-                Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.False);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(hostObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void GameplayUiAccess_PlayerHud_PushReadiness_WithCandidate_IsArmed()
-        {
-            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PushReadiness_WithCandidate_IsArmed");
-
-            try
-            {
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-                host.Initialize(CreateConfiguration(
-                    new[]
-                    {
-                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
-                        CreateBoxEntity(new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push),
-                    },
-                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
-
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
-
-                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
-
-                Assert.That(playerHud.IsAvailable, Is.True);
-                Assert.That(playerHud.CanStartAnyActionThisTick, Is.True);
-                Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.True);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(hostObject);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void GameplayUiAccess_PlayerHud_PushReadiness_CrossFaceCandidate_IsNotArmed()
-        {
-            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PushReadiness_CrossFaceCandidate_IsNotArmed");
-
-            try
-            {
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-                host.Initialize(CreateConfiguration(
-                    new[]
-                    {
-                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Up),
-                        CreateBoxEntity(new SurfaceCell(FaceId.Front, 0, 0), BoxCapabilities.Push),
-                    },
-                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 1))));
-
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up).Accepted, Is.True);
-
-                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
-
-                Assert.That(playerHud.IsAvailable, Is.True);
-                Assert.That(playerHud.CanStartAnyActionThisTick, Is.True);
-                Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.False);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(hostObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush()
-        {
-            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush");
+            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_RecoveryRetainsAuthoritativeActionLock");
 
             try
             {
@@ -892,7 +1122,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var startTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();
-                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                host.UiAccess.QueryFacade.PlayerHud.Read();
                 var snapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
 
                 Assert.That(startTick, Is.Not.Null);
@@ -903,10 +1133,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         playerControlState,
                         host.TickRunner.NextTickIndex),
                     Is.False);
-                Assert.That(playerHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.Push));
-                Assert.That(playerHud.IsActionInRecoveryPhase, Is.True);
-                Assert.That(playerHud.CanStartAnyActionThisTick, Is.False);
-                Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.False);
+                Assert.That(playerControlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+                Assert.That(playerControlState.activeAction.executionAttempted, Is.True);
             }
             finally
             {
@@ -1204,6 +1432,299 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return PlayerContinuousLocomotionSettings.CreateDefault()
                 .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
                 .SpeedUnitsPerTick;
+        }
+
+        private static void ResetPlayerHudCaptureRegistry()
+        {
+#if VECTORQUAKE_CAPTURE_BUILD
+            UiCallbackCapture.ResetPlayerHudCompositions();
+#endif
+        }
+
+        private static void AssertNondefaultChances(GameplayPlayerHudReadModel model)
+        {
+            Assert.That(model.HasRemainingChances, Is.True);
+            Assert.That(model.RemainingChances, Is.EqualTo(2));
+            Assert.That(model.MaxChances, Is.EqualTo(5));
+            Assert.That(model.ChanceAudioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+        }
+
+        private static void AssertHudReadPreservesControl(GameplaySceneHost host, PlayerActionKind expectedKind, bool executionAttempted)
+        {
+            var before = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+            Assert.That(before.TryGetPlayerControlState(10, out var control), Is.True);
+            Assert.That(control.activeAction.kind, Is.EqualTo(expectedKind));
+            Assert.That(control.activeAction.executionAttempted, Is.EqualTo(executionAttempted));
+            var canStart = PlayerControlQueries.CanStartExplicitAction(control, host.TickRunner.NextTickIndex);
+            for (var i = 0; i < 3; i++) AssertNondefaultChances(host.UiAccess.QueryFacade.PlayerHud.Read());
+            var after = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+            Assert.That(after.TryGetPlayerControlState(10, out var afterControl), Is.True);
+            Assert.That(afterControl, Is.EqualTo(control), "HUD reads must not mutate authoritative action state.");
+            Assert.That(PlayerControlQueries.CanStartExplicitAction(afterControl, host.TickRunner.NextTickIndex), Is.EqualTo(canStart));
+        }
+
+        private sealed class FixedChancesReadSource : ICampaignChancesReadSource
+        {
+            public int ReadCount;
+            public bool TryReadChances(out int remaining, out int maximum, out GameplayChanceAudioPolicy policy)
+            {
+                ReadCount++;
+                remaining = 2;
+                maximum = 5;
+                policy = GameplayChanceAudioPolicy.SuppressChanceChangeCue;
+                return true;
+            }
+        }
+
+        private sealed class ThrowingChancesReadSource : ICampaignChancesReadSource
+        {
+            public int ReadCount;
+            public readonly InvalidOperationException Failure = new InvalidOperationException("fixture source failure");
+            public bool TryReadChances(out int remaining, out int maximum, out GameplayChanceAudioPolicy policy)
+            {
+                ReadCount++;
+                throw Failure;
+            }
+        }
+
+        private sealed class TrackingChanceQuery : ICampaignSaveQuery
+        {
+            private readonly ICampaignSaveQuery _inner;
+            public TrackingChanceQuery(ICampaignSaveQuery inner = null) { _inner = inner; }
+            public readonly List<string> Calls = new List<string>();
+            public readonly InvalidOperationException LoadFailure = new InvalidOperationException("fixture load failure");
+            public string DiagnosticsKey { get { Calls.Add("DiagnosticsKey"); return "fixture"; } }
+            public CampaignSaveLoadReport LastCampaignLoadReport => default;
+            public CampaignSlotEntry[] LoadAll() => throw new NotSupportedException();
+            public CampaignSaveLoadResult LoadAllWithReport() => throw new NotSupportedException();
+            public CampaignSlotEntry LoadSlot(int slotNumber)
+            {
+                Calls.Add("LoadSlot:" + slotNumber);
+                if (_inner != null) return _inner.LoadSlot(slotNumber);
+                throw LoadFailure;
+            }
+        }
+
+        private sealed class PlayerHudTestCapture : IDisposable
+        {
+#if VECTORQUAKE_CAPTURE_BUILD
+            private readonly UiCallbackSession _session;
+            private readonly bool _enabled;
+#endif
+            public PlayerHudTestCapture(bool enabled)
+            {
+#if VECTORQUAKE_CAPTURE_BUILD
+                _enabled = enabled;
+                UiCallbackCapture.ConfigurePlayerHud(enabled);
+                _session = new UiCallbackSession(false, capacity: 256);
+                UiCallbackCapture.Attach(_session);
+                _session.Start();
+#endif
+            }
+            public void AssertHealthy()
+            {
+#if VECTORQUAKE_CAPTURE_BUILD
+                Assert.That(_session.InvalidCount, Is.Zero);
+                Assert.That(_session.OverflowCount, Is.Zero);
+#endif
+            }
+            public void AssertFailedIfEnabled()
+            {
+#if VECTORQUAKE_CAPTURE_BUILD
+                Assert.That(_session.CurrentSpanId, Is.Zero, "Exceptional scopes must close before propagating.");
+                if (_enabled) Assert.That(_session.InvalidCount, Is.GreaterThan(0));
+                else Assert.That(_session.InvalidCount, Is.Zero);
+#endif
+            }
+            public void AssertIdentityAndSnapshot(bool snapshotCalled, bool sourcePresent = false)
+            {
+#if VECTORQUAKE_CAPTURE_BUILD
+                if (!_enabled) return;
+                var identity = Enumerable.Range(0, _session.CounterCount).Select(i => _session.GetCounter(i))
+                    .Where(c => c.Counter == UiCallbackCounter.PlayerHudCompositionId).ToArray();
+                Assert.That(identity.Length, Is.EqualTo(1));
+                if (sourcePresent) Assert.That(identity[0].Value, Is.GreaterThan(0));
+                else Assert.That(identity[0].Value, Is.Zero);
+                var snapshotCount = Enumerable.Range(0, _session.SpanCount).Select(i => _session.GetSpan(i))
+                    .Count(span => span.Section == UiCallbackSection.QueryPlayerHudSnapshot);
+                Assert.That(snapshotCount, Is.EqualTo(snapshotCalled ? 1 : 0));
+#endif
+            }
+            public void AssertRetiredQueryScopesAbsent()
+            {
+#if VECTORQUAKE_CAPTURE_BUILD
+                var retired = new[]
+                {
+                    UiCallbackSection.QueryPlayerHudControlState,
+                    UiCallbackSection.QueryPlayerHudAdmission,
+                    UiCallbackSection.QueryPlayerHudSettled,
+                    UiCallbackSection.QueryPlayerHudActionGate,
+                    UiCallbackSection.QueryPlayerHudRecovery,
+                    UiCallbackSection.QueryPlayerHudPushPreview,
+                    UiCallbackSection.QueryPlayerHudPushDirection,
+                    UiCallbackSection.QueryPlayerHudPushContact,
+                    UiCallbackSection.QueryPlayerHudMovementGate,
+                };
+                var sections = Enumerable.Range(0, _session.SpanCount).Select(i => _session.GetSpan(i).Section);
+                Assert.That(sections.Intersect(retired), Is.Empty);
+                var retiredCounters = new[]
+                {
+                    UiCallbackCounter.PlayerHudActionPass, UiCallbackCounter.PlayerHudActionFail,
+                    UiCallbackCounter.PlayerHudPushSkipped, UiCallbackCounter.PlayerHudPushExecuted,
+                    UiCallbackCounter.PlayerHudDirectionNone, UiCallbackCounter.PlayerHudDirectionCardinal,
+                    UiCallbackCounter.PlayerHudMovementGate,
+                };
+                Assert.That(Enumerable.Range(0, _session.CounterCount).Select(i => _session.GetCounter(i).Counter)
+                    .Intersect(retiredCounters), Is.Empty);
+#endif
+            }
+            public void Dispose()
+            {
+#if VECTORQUAKE_CAPTURE_BUILD
+                UiCallbackCapture.Detach(_session);
+                UiCallbackCapture.ConfigurePlayerHud(false);
+#endif
+            }
+        }
+
+        [TestCase(0.124f, false)]
+        [TestCase(0.125f, false)]
+        [TestCase(0.126f, false)]
+        [TestCase(0.150f, false)]
+        [TestCase(0.150f, true)]
+        [Category("Core")]
+        public void PlayerHudRead_CountDoesNotChangeReleasedInputCommand(float commandTime, bool uiHeld)
+        {
+            PlayerTickCommand? baseline = null;
+            foreach (var queryCount in new[] { 0, 1, 5 })
+            {
+                var hostObject = new GameObject(nameof(PlayerHudRead_CountDoesNotChangeReleasedInputCommand));
+                try
+                {
+                    var host = hostObject.AddComponent<GameplaySceneHost>();
+                    host.Initialize(CreateConfiguration(new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) }));
+                    var now = 0f;
+                    host.InputHost.InputTimeProvider = () => now;
+                    host.InputHost.SetRawMoveInput(Vector2.right);
+                    if (uiHeld)
+                        Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up).Accepted, Is.True);
+                    now = 0.05f;
+                    AssertReadsPreserveInput(host, queryCount);
+                    now = 0.06f;
+                    host.InputHost.SetRawMoveInput(Vector2.zero);
+                    now = commandTime;
+                    AssertReadsPreserveInput(host, queryCount);
+                    var command = BuildInputCommand(host.InputHost);
+                    var expected = uiHeld ? Direction.Up : commandTime <= 0.125f ? Direction.Right : Direction.None;
+                    Assert.That(command.MoveDirection, Is.EqualTo(expected));
+                    Assert.That(command.IsMoveBuffered, Is.EqualTo(!uiHeld && expected != Direction.None));
+                    Assert.That(command.HeldMoveDirection, Is.EqualTo(uiHeld ? Direction.Up : Direction.None));
+                    if (baseline.HasValue) Assert.That(command, Is.EqualTo(baseline.Value));
+                    else baseline = command;
+                }
+                finally { UnityEngine.Object.DestroyImmediate(hostObject); }
+            }
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(5)]
+        [Category("Core")]
+        public void PlayerHudRead_AcceptedActionSignalClearsBufferedInput(int queryCount)
+        {
+            var hostObject = new GameObject(nameof(PlayerHudRead_AcceptedActionSignalClearsBufferedInput));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                    CreateBoxEntity(new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push),
+                }, boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                    playerControlTiming: CreateRecoveryTimingSettings(
+                        pushExecuteDelayTicks: 1, pushInputLockDurationTicks: 3)));
+                var now = 0f;
+                host.InputHost.InputTimeProvider = () => now;
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
+                now = 0.05f;
+                AssertReadsPreserveInput(host, queryCount);
+                var result = host.InputHost.RunSingleTick();
+                Assert.That(result, Is.Not.Null);
+                // ApplyAcceptedBufferedInput clears on an accepted action signal;
+                // Free2D displacement alone does not emit a discrete EntityMotion.
+                Assert.That(result.PresentationData.PlayerActionSignals.Any(
+                    signal => signal.EntityId == 10 && signal.StartedThisTick), Is.True);
+                Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState)
+                    .TryGetPlayerControlState(10, out var control), Is.True);
+                Assert.That(control.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+                Assert.That(ReadInputBuffer(host.InputHost), Is.EqualTo((Direction.Right, Direction.None, 0f)));
+                now = 0.06f;
+                host.InputHost.SetRawMoveInput(Vector2.zero);
+                Assert.That(ReadInputBuffer(host.InputHost), Is.EqualTo((Direction.None, Direction.None, 0f)));
+                AssertReadsPreserveInput(host, queryCount);
+                Assert.That(BuildInputCommand(host.InputHost), Is.EqualTo(PlayerTickCommand.None));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(hostObject); }
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(5)]
+        [Category("Core")]
+        public void PlayerHudRead_PresentationUnlockKeepsInputOwnedExpiry(int queryCount)
+        {
+            var hostObject = new GameObject(nameof(PlayerHudRead_PresentationUnlockKeepsInputOwnedExpiry));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Up) }));
+                SetPlayerContinuousLocalOffset(host.WorldState, localX: 0,
+                    localY: SimulationFixed.MaxPositiveLocalOffset, speedUnitsPerTick: DefaultFree2DSpeedUnitsPerTick());
+                var now = 0f;
+                host.InputHost.InputTimeProvider = () => now;
+                host.InputHost.SetRawMoveInput(Vector2.up);
+                var rotation = host.InputHost.RunSingleTick();
+                Assert.That(rotation.PresentationData.TopologyMotion.HasValue, Is.True);
+                Assert.That(host.Presenter.HasBlockingPresentation, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                now = 0.05f;
+                AssertReadsPreserveInput(host, queryCount);
+                now = 0.06f;
+                host.InputHost.SetRawMoveInput(Vector2.zero);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+                Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+                now = 0.15f;
+                AssertReadsPreserveInput(host, queryCount);
+                Assert.That(BuildInputCommand(host.InputHost), Is.EqualTo(PlayerTickCommand.None));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(hostObject); }
+        }
+
+        private static void AssertReadsPreserveInput(GameplaySceneHost host, int count)
+        {
+            var before = ReadInputBuffer(host.InputHost);
+            for (var i = 0; i < count; i++)
+            {
+                host.UiAccess.QueryFacade.PlayerHud.Read();
+                Assert.That(ReadInputBuffer(host.InputHost), Is.EqualTo(before), "HUD reads must not sample, expire, or extend movement input.");
+            }
+        }
+
+        private static (Direction held, Direction buffered, float until) ReadInputBuffer(GameplayInputHost input)
+        {
+            var buffer = (PlayerMoveIntentBuffer)typeof(GameplayInputHost)
+                .GetField("_moveIntentBuffer", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(input);
+            return (buffer.HeldDirection,
+                (Direction)typeof(PlayerMoveIntentBuffer).GetField("_bufferedDirection", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(buffer),
+                (float)typeof(PlayerMoveIntentBuffer).GetField("_bufferedUntilTime", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(buffer));
+        }
+
+        private static PlayerTickCommand BuildInputCommand(GameplayInputHost input)
+        {
+            return (PlayerTickCommand)typeof(GameplayInputHost)
+                .GetMethod("BuildPlayerCommand", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(input, null);
         }
 
         private static string CreateTransientNamespace(string suffix)

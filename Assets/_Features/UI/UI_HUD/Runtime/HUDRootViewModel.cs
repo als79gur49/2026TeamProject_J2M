@@ -8,17 +8,13 @@ namespace Game.Feature.UI.HUD
 
         public bool IsDimmed { get; private set; }
 
-        public bool IsGameplayReadOnly { get; private set; } = true;
-
         public bool IsPauseButtonEnabled { get; private set; } = true;
 
         public void SetShellState(
             bool isDimmed,
-            bool isGameplayReadOnly,
             bool isPauseButtonEnabled)
         {
             IsDimmed = isDimmed;
-            IsGameplayReadOnly = isGameplayReadOnly;
             IsPauseButtonEnabled = isPauseButtonEnabled;
             Changed?.Invoke();
         }

@@ -696,7 +696,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     destinationHost.TimingProfile.SimulationTickIntervalSeconds * 10f),
                 Is.Zero);
             Assert.That(destinationHost.InputHost.RunSingleTick(), Is.Null);
-            Assert.That(destinationHost.InputHost.PreviewPushDirection(), Is.EqualTo(Direction.None));
+            Assert.That(typeof(GameplayInputHost).GetField("_sampledMoveInput", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(destinationHost.InputHost), Is.EqualTo(Vector2.zero));
+            Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedPush", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(destinationHost.InputHost), Is.False);
+            Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedFlip", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(destinationHost.InputHost), Is.False);
             var uiAccess = (object)destinationHost.UiAccess;
             var commandGateway = uiAccess
                 .GetType()

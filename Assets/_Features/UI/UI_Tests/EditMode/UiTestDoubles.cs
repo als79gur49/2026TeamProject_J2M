@@ -414,19 +414,7 @@ namespace Game.Feature.UI.Tests
 
         public static GameplayPlayerHudReadModel CreateDefaultPlayerHud()
         {
-            return new GameplayPlayerHudReadModel(
-                isAvailable: true,
-                playerEntityId: 10,
-                currentHp: 3,
-                maxHp: 3,
-                facing: GameplayUiDirection.Up,
-                activeActionKind: GameplayUiActionKind.None,
-                activeActionDirection: GameplayUiDirection.None,
-                activeTargetEntityId: 0,
-                isActionInProgress: false,
-                isActionInRecoveryPhase: false,
-                canMoveThisTick: true,
-                canStartActionThisTick: true);
+            return new GameplayPlayerHudReadModel();
         }
 
         private sealed class MutableSessionQuery : IGameplaySessionQuery

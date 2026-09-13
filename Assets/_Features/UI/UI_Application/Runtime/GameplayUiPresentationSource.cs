@@ -166,10 +166,6 @@ namespace Game.Feature.UI.Application
             var objective = _queryFacade.Objectives.Read();
             var playerHud = _queryFacade.PlayerHud.Read();
             var surfaceButtonRemainders = _queryFacade.SurfaceButtonRemainders.Read();
-            var player = frame.HasValue && frame.Value.Player.HasValue
-                ? frame.Value.Player.Value
-                : default;
-            var hasFramePlayer = frame.HasValue && frame.Value.Player.HasValue;
             var hasStageClearFrame =
                 frame.HasValue &&
                 frame.Value.StageEvent.HasValue &&
@@ -191,17 +187,6 @@ namespace Game.Feature.UI.Application
                 _pauseService.IsPaused,
                 session.CanAcceptGameplayCommands,
                 _isUiGameplayInputBlocked,
-                playerHud.PlayerEntityId,
-                playerHud.CurrentHp,
-                playerHud.MaxHp,
-                playerHud.Facing,
-                playerHud.ActiveActionKind,
-                hasFramePlayer ? player.IsRecoveryPhase : playerHud.IsActionInRecoveryPhase,
-                playerHud.CanMoveThisTick,
-                playerHud.CanStartActionThisTick,
-                MapRecoveryCooldown(playerHud.RecoveryCooldown),
-                playerHud.CanStartAnyActionThisTick,
-                playerHud.HasExplicitPushCandidateInCurrentDirection,
                 playerHud.HasRemainingChances,
                 playerHud.RemainingChances,
                 playerHud.MaxChances,
@@ -232,20 +217,6 @@ namespace Game.Feature.UI.Application
             }
 
             return result;
-        }
-
-        private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)
-        {
-            if (!recoveryCooldown.HasValue)
-            {
-                return null;
-            }
-
-            var value = recoveryCooldown.Value;
-            return new UIRecoveryCooldownSlice(
-                value.ActionKind,
-                value.RemainingRecoveryTicks,
-                value.TotalRecoveryTicks);
         }
 
         private void PublishSnapshot(UIPresentationSnapshot nextSnapshot)

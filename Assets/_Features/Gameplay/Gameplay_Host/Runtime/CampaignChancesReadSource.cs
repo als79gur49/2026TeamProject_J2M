@@ -86,18 +86,21 @@ namespace Game.Feature.Gameplay.Host
                 maxChances = overrideMaxChances;
                 remainingChances = Clamp(remainingChances, 0, maxChances);
                 audioPolicy = overrideAudioPolicy;
-                CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.SourceRead)
+                if (CampaignChanceHudDiagnostics.IsEnabled)
                 {
-                    SourceType = GetType().Name,
-                    TryReadResult = true,
-                    RemainingChances = remainingChances,
-                    MaxChances = maxChances,
-                    FailureReason = maxChances > 0
-                        ? CampaignChanceReadFailureReason.None
-                        : CampaignChanceReadFailureReason.MaxChancesZero,
-                    SaveStoreDiagnosticsKey = _saveSlotStore.DiagnosticsKey,
-                    ActiveSlotNumber = _runningSlotContext.SlotNumber,
-                });
+                    CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.SourceRead)
+                    {
+                        SourceType = GetType().Name,
+                        TryReadResult = true,
+                        RemainingChances = remainingChances,
+                        MaxChances = maxChances,
+                        FailureReason = maxChances > 0
+                            ? CampaignChanceReadFailureReason.None
+                            : CampaignChanceReadFailureReason.MaxChancesZero,
+                        SaveStoreDiagnosticsKey = _saveSlotStore.DiagnosticsKey,
+                        ActiveSlotNumber = _runningSlotContext.SlotNumber,
+                    });
+                }
                 return true;
             }
 
@@ -114,25 +117,28 @@ namespace Game.Feature.Gameplay.Host
             var validatedRemainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
                 slot.RemainingChances);
             remainingChances = Clamp(validatedRemainingChances, 0, maxChances);
-            CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.SourceRead)
+            if (CampaignChanceHudDiagnostics.IsEnabled)
             {
-                SourceType = GetType().Name,
-                TryReadResult = true,
-                FailureReason = !slot.CurrentStageId.IsValid
-                    ? CampaignChanceReadFailureReason.StageIdMissing
-                    : launchStageId.IsValid && !slot.CurrentStageId.Equals(launchStageId)
-                        ? CampaignChanceReadFailureReason.StageIdMismatch
-                        : maxChances > 0
-                            ? CampaignChanceReadFailureReason.None
-                            : CampaignChanceReadFailureReason.MaxChancesZero,
-                LaunchStageId = launchStageId.IsValid ? launchStageId.Value : string.Empty,
-                SourceStageId = slot.CurrentStageId.IsValid ? slot.CurrentStageId.Value : string.Empty,
-                HasActiveSlot = true,
-                ActiveSlotNumber = runningSlotNumber,
-                RemainingChances = remainingChances,
-                MaxChances = maxChances,
-                SaveStoreDiagnosticsKey = _saveSlotStore.DiagnosticsKey,
-            });
+                CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.SourceRead)
+                {
+                    SourceType = GetType().Name,
+                    TryReadResult = true,
+                    FailureReason = !slot.CurrentStageId.IsValid
+                        ? CampaignChanceReadFailureReason.StageIdMissing
+                        : launchStageId.IsValid && !slot.CurrentStageId.Equals(launchStageId)
+                            ? CampaignChanceReadFailureReason.StageIdMismatch
+                            : maxChances > 0
+                                ? CampaignChanceReadFailureReason.None
+                                : CampaignChanceReadFailureReason.MaxChancesZero,
+                    LaunchStageId = launchStageId.IsValid ? launchStageId.Value : string.Empty,
+                    SourceStageId = slot.CurrentStageId.IsValid ? slot.CurrentStageId.Value : string.Empty,
+                    HasActiveSlot = true,
+                    ActiveSlotNumber = runningSlotNumber,
+                    RemainingChances = remainingChances,
+                    MaxChances = maxChances,
+                    SaveStoreDiagnosticsKey = _saveSlotStore.DiagnosticsKey,
+                });
+            }
             return true;
         }
 
