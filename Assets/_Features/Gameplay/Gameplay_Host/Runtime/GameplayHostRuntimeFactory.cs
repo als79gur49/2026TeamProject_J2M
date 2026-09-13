@@ -186,6 +186,8 @@ namespace Game.Feature.Gameplay.Host
                 initialSnapshot,
                 initialObjectiveResult);
 
+            presenter.ConfigureStaticWallPresentationProvenance(
+                configuration.StaticWallPresentationProvenance);
             presenter.Initialize(
                 viewBinder,
                 configuration.InitialBoardBounds,

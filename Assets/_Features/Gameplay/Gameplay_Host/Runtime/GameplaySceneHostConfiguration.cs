@@ -195,6 +195,8 @@ namespace Game.Feature.Gameplay.Host
         public GameplayEntityView PlayerViewPrefab;
         public Camera ViewCamera;
         public IGameplayEntityViewFactory ViewFactory;
+        internal StageStaticWallPresentationProvenance StaticWallPresentationProvenance =
+            StageStaticWallPresentationProvenance.Empty;
 
         public GameplayTimingProfile CreateTimingProfile()
         {

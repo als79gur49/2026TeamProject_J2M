@@ -47,6 +47,8 @@ namespace Game.Feature.Gameplay.Host
         private BgmRequestLease _stageBgmRequestLease;
         private BackgroundWallSurfaceTintPresenterAdapter _backgroundWallSurfaceTintPresenterAdapter;
         private BackgroundSpaceOrbitPresenterAdapter _backgroundSpaceOrbitPresenterAdapter;
+        private StageStaticWallPresentationProvenance _staticWallPresentationProvenance =
+            StageStaticWallPresentationProvenance.Empty;
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
 
@@ -104,7 +106,12 @@ namespace Game.Feature.Gameplay.Host
                 var resolvedAudio = StageAudioAssembler.Resolve(resolved.Entry.AudioDefinition);
                 _resolvedPresentationDefinition = resolved.Entry.PresentationDefinition;
                 _resolvedAudioData = resolvedAudio;
-                var compositionData = StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation, resolvedAudio);
+                var compositionData = StageSceneCompositionAssembler.ComposeStageBacked(
+                    resolved.Entry.GameplayDefinition,
+                    buildResult,
+                    resolvedPresentation,
+                    resolvedAudio);
+                _staticWallPresentationProvenance = compositionData.StaticWallPresentationProvenance;
 
                 return new InitialGameplayState(
                     compositionData.GameplayBuildResult.BoardBounds,
@@ -143,6 +150,8 @@ namespace Game.Feature.Gameplay.Host
             GameplaySceneHostConfiguration configuration,
             in InitialGameplayState initialState)
         {
+            configuration.StaticWallPresentationProvenance =
+                _staticWallPresentationProvenance ?? StageStaticWallPresentationProvenance.Empty;
             configuration.CampaignStageSequenceResolver = RequireCampaignStageSequenceResolver();
             CampaignLaunchHandoff capturedHandoff = null;
             StageLaunchContext capturedContext = null;

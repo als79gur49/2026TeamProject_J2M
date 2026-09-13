@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
+using Game.Feature.Stages;
 using Unity.Cinemachine;
 using UnityEngine;
 
@@ -103,6 +104,12 @@ namespace Game.Feature.Gameplay.Host
         private GameplayTickPresentationCoordinator PresentationCoordinator =>
             _presentationCoordinator ?? throw new System.InvalidOperationException(
                 "GameplayTickViewPresenter requires a bound presentation coordinator before use.");
+
+        internal void ConfigureStaticWallPresentationProvenance(
+            StageStaticWallPresentationProvenance provenance)
+        {
+            PresentationCoordinator.ConfigureStaticWallPresentationProvenance(provenance);
+        }
 
         public void Initialize(
             GameplayEntityViewBinder viewBinder,
