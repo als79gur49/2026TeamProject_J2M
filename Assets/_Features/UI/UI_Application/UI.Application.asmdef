@@ -7,6 +7,7 @@
     "Game.Feature.UI.HUD",
     "Game.Feature.UI.Screens",
     "Game.Feature.UI.Popups",
-    "Game.Feature.UI.ViewShared"
+    "Game.Feature.UI.ViewShared",
+    "Game.Shared.Diagnostics"
   ]
 }

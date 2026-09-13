@@ -1,3 +1,6 @@
+#if VECTORQUAKE_CAPTURE_BUILD
+using Game.Shared.Diagnostics;
+#endif
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Contracts;
