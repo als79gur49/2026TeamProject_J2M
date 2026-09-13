@@ -688,6 +688,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiNavigationInputRouter_ComicPresentation_BlocksAllLowerNavigationAndBack()
+        {
+            var target = new TrackingNavigationTarget();
+            var backCount = 0;
+            var routerObject = new GameObject(
+                nameof(UiNavigationInputRouter_ComicPresentation_BlocksAllLowerNavigationAndBack));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(target),
+                    () =>
+                    {
+                        backCount++;
+                        return true;
+                    },
+                    () => true);
+
+                Assert.That(router.DispatchNavigate(UiNavigationCommand.Down), Is.False);
+                Assert.That(router.DispatchSubmit(), Is.False);
+                Assert.That(router.DispatchCancel(), Is.False);
+                Assert.That(target.NavigateCount, Is.Zero);
+                Assert.That(target.SubmitCount, Is.Zero);
+                Assert.That(target.CancelCount, Is.Zero);
+                Assert.That(backCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
         public void UiNavigationInputRouter_NonBlockingPopup_FallthroughPolicyIsExplicit()
         {
             var target = new TrackingNavigationTarget();
@@ -2911,6 +2945,8 @@ namespace Game.Feature.UI.Tests
 
             public int SubmitCount { get; private set; }
 
+            public int CancelCount { get; private set; }
+
             public UiNavigationCommand LastNavigateCommand { get; private set; }
 
             public bool CanHandleUiNavigation => true;
@@ -2930,6 +2966,7 @@ namespace Game.Feature.UI.Tests
 
             public bool HandleCancel()
             {
+                CancelCount++;
                 return false;
             }
 

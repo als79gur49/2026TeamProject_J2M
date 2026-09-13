@@ -62,7 +62,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             _usesSyntheticInput =
                 testName.Contains("TerminalProductionStageResultInput") ||
                 testName.Contains("TerminalStageEntryOpening") ||
-                testName.Contains("TerminalGameClearPlayerE2E");
+                testName.Contains("TerminalGameClearPlayerE2E") ||
+                testName.Contains("M4IntroBackInput") ||
+                testName.Contains("M5IntroNormal") ||
+                testName.Contains("M4ProductionOutroContent");
             if (!_usesSyntheticInput)
             {
                 return;
@@ -1061,6 +1064,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var hadActiveSlot =
                 activeSlotProvider.TryGetActiveSlotNumber(
                     out var originalActiveSlot);
+            Keyboard keyboard = null;
             try
             {
                 saveStore.ClearAll();
@@ -1071,10 +1075,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var mainMenu =
                     Object.FindFirstObjectByType<MainMenuUiFlowInstaller>();
                 mainMenu.Controller.Continue(1);
-                var overlay =
-                    Object.FindFirstObjectByType<ComicSequenceOverlayView>(
-                        FindObjectsInactive.Include);
-                Assert.That(overlay, Is.Not.Null);
+                var overlay = FindSingleComicSequenceOverlay();
                 Assert.That(overlay.IsPresenting, Is.True);
                 Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
                 Assert.That(
@@ -1086,14 +1087,39 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(
                     overlay.CurrentPresentationState,
                     Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                InputSystem.EnableDevice(keyboard);
                 if (requestBackDuringPlayback)
                 {
-                    Assert.That(mainMenu.TryHandleBackRequested(), Is.True);
+                    var activeSection = mainMenu.MainMenuScreenView.ActiveSection;
+                    var popupCount = mainMenu.PopupController.PopupCount;
+                    QueueKeyboardState(keyboard, Key.Escape, pressed: true);
+                    yield return null;
+                    QueueKeyboardState(keyboard, Key.Escape, pressed: false);
+                    yield return null;
                     Assert.That(overlay.IsPresenting, Is.True);
                     Assert.That(
                         overlay.CurrentPresentationState,
                         Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
+                    Assert.That(mainMenu.MainMenuScreenView.ActiveSection,
+                        Is.EqualTo(activeSection));
+                    Assert.That(mainMenu.PopupController.PopupCount,
+                        Is.EqualTo(popupCount));
                 }
+
+                var visibleBeforeSubmit = overlay.VisiblePanelCount;
+                QueueKeyboardEnterState(keyboard, pressed: true);
+                yield return null;
+                QueueKeyboardEnterState(keyboard, pressed: false);
+                yield return null;
+                Assert.That(
+                    overlay.CurrentPresentationState,
+                    Is.EqualTo(ComicSequencePresentationState.Revealing));
+                overlay.AdvanceForTesting(10f);
+                Assert.That(
+                    overlay.VisiblePanelCount,
+                    Is.EqualTo(visibleBeforeSubmit + 1),
+                    "One actual Submit must reveal exactly one comic panel.");
 
                 var advanceGuard = 0;
                 while (overlay.CurrentPresentationState !=
@@ -1171,6 +1197,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
             finally
             {
+                if (keyboard != null && keyboard.added)
+                {
+                    InputSystem.RemoveDevice(keyboard);
+                }
+
                 saveStore.ClearAll();
                 RestoreProductionProfile(originalSlots);
 
@@ -1202,6 +1233,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 activeSlotProvider.TryGetActiveSlotNumber(
                     out var originalActiveSlot);
             var stageId = StageId.CreateOrThrow("stage-1-1");
+            Mouse mouse = null;
             try
             {
                 saveStore.ClearAll();
@@ -1237,10 +1269,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     "m4-production-outro-content"));
                 source.GameClearScreenView.ClickMain();
 
-                var overlay =
-                    Object.FindFirstObjectByType<ComicSequenceOverlayView>(
-                        FindObjectsInactive.Include);
-                Assert.That(overlay, Is.Not.Null);
+                var overlay = FindSingleComicSequenceOverlay();
                 Assert.That(overlay.IsPresenting, Is.True);
                 Assert.That(MainMenuEntryPresentationRegistry.IsActive, Is.True);
                 Assert.That(
@@ -1255,6 +1284,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
                 Assert.That(overlay.CurrentPageIndex, Is.Zero);
                 Assert.That(overlay.VisiblePanelCount, Is.EqualTo(1));
+                mouse = InputSystem.AddDevice<Mouse>();
+                InputSystem.EnableDevice(mouse);
+                Canvas.ForceUpdateCanvases();
+                yield return null;
 
                 var advanceCount = 0;
                 while (overlay.CurrentPresentationState !=
@@ -1264,7 +1297,48 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Assert.That(
                         overlay.CurrentPresentationState,
                         Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
-                    overlay.RequestAdvance();
+                    var pointerTarget = FindSingleComicPointerTarget(overlay);
+                    var pointerTargetRect = pointerTarget.rectTransform;
+                    var canvas = pointerTarget.GetComponentInParent<Canvas>();
+                    var screenPoint = RectTransformUtility.WorldToScreenPoint(
+                        canvas.worldCamera,
+                        pointerTargetRect.TransformPoint(pointerTargetRect.rect.center));
+                    var pointerData = new PointerEventData(EventSystem.current)
+                    {
+                        position = screenPoint,
+                    };
+                    var raycasts = new List<RaycastResult>();
+                    EventSystem.current.RaycastAll(pointerData, raycasts);
+                    Assert.That(
+                        raycasts.Any(result =>
+                            result.gameObject == pointerTarget.gameObject),
+                        Is.True,
+                        "Actual EventSystem raycast must reach the comic pointer target. " +
+                        $"point={screenPoint}, hits=" +
+                        string.Join(",", raycasts.Select(result => result.gameObject.name)));
+
+                    var visibleBeforePointer = overlay.VisiblePanelCount;
+                    QueueMouseState(mouse, screenPoint, leftPressed: false);
+                    yield return null;
+                    QueueMouseState(mouse, screenPoint, leftPressed: true);
+                    yield return null;
+                    QueueMouseState(mouse, screenPoint, leftPressed: false);
+                    yield return null;
+                    if (advanceCount < 5)
+                    {
+                        Assert.That(
+                            overlay.VisiblePanelCount,
+                            Is.EqualTo(visibleBeforePointer + 1),
+                            "One actual pointer click must reveal exactly one comic panel.");
+                    }
+                    else
+                    {
+                        Assert.That(
+                            overlay.CurrentPresentationState,
+                            Is.Not.EqualTo(ComicSequencePresentationState.AwaitingAdvance),
+                            "The sixth actual pointer click must begin the exit transition.");
+                    }
+
                     advanceCount++;
                     overlay.AdvanceForTesting(10f);
                     if (advanceCount < 6)
@@ -1341,6 +1415,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
             finally
             {
+                if (mouse != null && mouse.added)
+                {
+                    InputSystem.RemoveDevice(mouse);
+                }
+
                 saveStore.ClearAll();
                 RestoreProductionProfile(originalSlots);
 
@@ -4366,6 +4445,32 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return (minimum + maximum) * 0.5f;
         }
 
+        private static ComicSequenceOverlayView FindSingleComicSequenceOverlay()
+        {
+            var overlays = Object.FindObjectsByType<ComicSequenceOverlayView>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            Assert.That(
+                overlays,
+                Has.Length.EqualTo(1),
+                "The production scene must contain exactly one comic overlay.");
+            return overlays[0];
+        }
+
+        private static Graphic FindSingleComicPointerTarget(
+            ComicSequenceOverlayView overlay)
+        {
+            var pointerTargets = overlay
+                .GetComponentsInChildren<Graphic>(includeInactive: true)
+                .Where(graphic => graphic.raycastTarget)
+                .ToArray();
+            Assert.That(
+                pointerTargets,
+                Has.Length.EqualTo(1),
+                "The comic overlay must expose exactly one pointer raycast target.");
+            return pointerTargets[0];
+        }
+
         private static void QueueMouseState(
             Mouse mouse,
             Vector2 position,
@@ -4382,10 +4487,18 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static void QueueKeyboardEnterState(Keyboard keyboard, bool pressed)
         {
+            QueueKeyboardState(keyboard, Key.Enter, pressed);
+        }
+
+        private static void QueueKeyboardState(
+            Keyboard keyboard,
+            Key key,
+            bool pressed)
+        {
             InputSystem.QueueStateEvent(
                 keyboard,
                 pressed
-                    ? new KeyboardState(Key.Enter)
+                    ? new KeyboardState(key)
                     : new KeyboardState());
         }
 
