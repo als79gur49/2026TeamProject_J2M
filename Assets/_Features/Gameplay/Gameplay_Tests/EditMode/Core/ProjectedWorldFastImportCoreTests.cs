@@ -30,6 +30,42 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void ProjectedWorld_FastImport_PreservesNonEmptyCleanupCandidateIndexes()
+        {
+            var timerEntity = CreateUnit(
+                10,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                UnitRole.Enemy,
+                teamId: 2,
+                boardPresence: EntityBoardPresence.Detached);
+            timerEntity.state = EntityPhaseState.Cooldown;
+            timerEntity.stateTimer = 2;
+            var removalAndTransitionEntity = CreateUnit(
+                20,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                UnitRole.Enemy,
+                teamId: 2,
+                boardPresence: EntityBoardPresence.Detached);
+            removalAndTransitionEntity.hp = 0;
+            removalAndTransitionEntity.state = EntityPhaseState.Acting;
+
+            var baseWorld = GameplayCompositionRoot.CreateWorldState(
+                new[] { removalAndTransitionEntity, timerEntity },
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor));
+            var baseSnapshot = baseWorld.CreateSnapshot();
+
+            var slowSnapshot = SnapshotBuilder.Create(ProjectedWorld.MaterializeWorldStateSlowForTest(baseSnapshot));
+            var fastSnapshot = SnapshotBuilder.Create(WorldState.CreateFromSnapshotFast(baseSnapshot));
+
+            AssertSnapshotsEquivalent(slowSnapshot, fastSnapshot);
+            CollectionAssert.AreEqual(new[] { 20 }, fastSnapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 10 }, fastSnapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 20 }, fastSnapshot.CleanupImmediateTransitionCandidateIds.ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
         public void WorldState_FastImport_PreservesOccupancyAndPlacementQueries()
         {
             var baseSnapshot = CreateRichSnapshot();
@@ -115,6 +151,47 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(projectedSnapshot.TryGetEntity(91, out var entity), Is.True);
             Assert.That(entity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 4)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectedWorld_OverlayEntityOperations_UpdateCleanupCandidateIndexes()
+        {
+            var immediateEntity = CreateUnit(30, new SurfaceCell(FaceId.Floor, 3, 1), UnitRole.Enemy, teamId: 2);
+            immediateEntity.state = EntityPhaseState.Acting;
+            var timerEntity = CreateUnit(20, new SurfaceCell(FaceId.Floor, 2, 1), UnitRole.Enemy, teamId: 2);
+            timerEntity.state = EntityPhaseState.Cooldown;
+            timerEntity.stateTimer = 2;
+            var baseWorld = GameplayCompositionRoot.CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 1, 1), UnitRole.Enemy, teamId: 2),
+                    timerEntity,
+                    immediateEntity,
+                },
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor));
+            var projectedWorld = new ProjectedWorld(baseWorld.CreateSnapshot());
+            var spawnedTimerEntity = CreateUnit(
+                40,
+                new SurfaceCell(FaceId.Floor, 4, 1),
+                UnitRole.Enemy,
+                teamId: 2);
+            spawnedTimerEntity.state = EntityPhaseState.Sliding;
+            spawnedTimerEntity.stateTimer = 3;
+            var batch = new FinalizationBatch();
+            batch.ApplyDamage(10, amount: 3);
+            batch.ApplyStateChange(20, EntityPhaseState.Cooldown, stateTimer: 0);
+            batch.MarkDestroy(30);
+            batch.SpawnEntity(spawnedTimerEntity);
+            projectedWorld.ApplyBatch(batch);
+
+            var projectedSnapshot = projectedWorld.CreateSnapshot();
+
+            CollectionAssert.AreEqual(new[] { 10, 30 }, projectedSnapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 40 }, projectedSnapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 20, 30 }, projectedSnapshot.CleanupImmediateTransitionCandidateIds.ToArray());
+            AssertCleanupCandidateIndexesMatchEntities(projectedSnapshot);
         }
 
         [Test]
@@ -304,6 +381,37 @@ namespace Game.Feature.Gameplay.Tests.Core
             CollectionAssert.AreEqual(Collect<UnitKinematicSnapshotEntry>(expected.EnumerateUnitKinematicStatesOrdered), Collect<UnitKinematicSnapshotEntry>(actual.EnumerateUnitKinematicStatesOrdered));
             CollectionAssert.AreEqual(Collect<UnitContinuousLocomotionSnapshotEntry>(expected.EnumerateUnitContinuousLocomotionStatesOrdered), Collect<UnitContinuousLocomotionSnapshotEntry>(actual.EnumerateUnitContinuousLocomotionStatesOrdered));
             CollectionAssert.AreEqual(Collect<PhasedSnapshotEntry>(expected.EnumeratePhasedStatesOrdered), Collect<PhasedSnapshotEntry>(actual.EnumeratePhasedStatesOrdered));
+            CollectionAssert.AreEqual(
+                expected.CleanupRemovalCandidateIds.ToArray(),
+                actual.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                expected.CleanupTimerCandidateIds.ToArray(),
+                actual.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                expected.CleanupImmediateTransitionCandidateIds.ToArray(),
+                actual.CleanupImmediateTransitionCandidateIds.ToArray());
+        }
+
+        private static void AssertCleanupCandidateIndexesMatchEntities(WorldSnapshot snapshot)
+        {
+            var entities = Collect<EntityState>(snapshot.EnumerateEntitiesOrdered);
+            CollectionAssert.AreEqual(
+                entities.Where(entity => entity.hp <= 0 || entity.markedForDeath)
+                    .Select(entity => entity.entityId)
+                    .ToArray(),
+                snapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                entities.Where(entity => entity.stateTimer > 0)
+                    .Select(entity => entity.entityId)
+                    .ToArray(),
+                snapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                entities.Where(entity =>
+                        entity.stateTimer <= 0 &&
+                        (entity.state == EntityPhaseState.Acting || entity.state == EntityPhaseState.Cooldown))
+                    .Select(entity => entity.entityId)
+                    .ToArray(),
+                snapshot.CleanupImmediateTransitionCandidateIds.ToArray());
         }
 
         private static List<T> Collect<T>(Action<List<T>> enumerate)

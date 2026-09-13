@@ -207,6 +207,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
         private readonly IReadOnlyDictionary<int, TileFeatureState> _tileFeaturesById;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
+        private readonly CleanupCandidateSnapshot _cleanupCandidates;
         private readonly CubeTopologyState _topology;
         private readonly int _topologyRevision;
         private EntityState[] _orderedEntitiesCache;
@@ -265,6 +266,7 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyDefinitionBindingsByEntityId,
                 unitKinematicStatesByEntityId,
                 unitContinuousLocomotionStatesByEntityId,
+                CleanupCandidateSnapshot.CreateFromEntities(entitiesById),
                 topology,
                 topologyRevision,
                 boardBounds)
@@ -296,6 +298,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            CleanupCandidateSnapshot cleanupCandidates,
             CubeTopologyState topology,
             int topologyRevision,
             BoardBounds boardBounds)
@@ -325,6 +328,7 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyDefinitionBindingsByEntityId,
                 unitKinematicStatesByEntityId,
                 unitContinuousLocomotionStatesByEntityId,
+                cleanupCandidates,
                 topology,
                 topologyRevision,
                 boardBounds);
@@ -355,6 +359,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            CleanupCandidateSnapshot cleanupCandidates,
             CubeTopologyState topology,
             int topologyRevision,
             BoardBounds boardBounds)
@@ -383,6 +388,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyDefinitionBindingsByEntityId = new ReadOnlyDictionary<int, EnemyDefinitionBindingState>(enemyDefinitionBindingsByEntityId ?? throw new ArgumentNullException(nameof(enemyDefinitionBindingsByEntityId)));
             _unitKinematicStatesByEntityId = new ReadOnlyDictionary<int, UnitKinematicRuntimeState>(unitKinematicStatesByEntityId ?? throw new ArgumentNullException(nameof(unitKinematicStatesByEntityId)));
             _unitContinuousLocomotionStatesByEntityId = new ReadOnlyDictionary<int, UnitContinuousLocomotionState>(unitContinuousLocomotionStatesByEntityId ?? throw new ArgumentNullException(nameof(unitContinuousLocomotionStatesByEntityId)));
+            _cleanupCandidates = cleanupCandidates ?? throw new ArgumentNullException(nameof(cleanupCandidates));
             _topology = topology;
             _topologyRevision = topologyRevision;
             _boardBounds = boardBounds;
@@ -399,6 +405,13 @@ namespace Game.Feature.Gameplay.BoardState
         internal int EntityCount => _entitiesById.Count;
 
         internal int TileFeatureCount => _tileFeaturesById.Count;
+
+        internal ReadOnlyMemory<int> CleanupRemovalCandidateIds => _cleanupCandidates.RemovalCandidateIds;
+
+        internal ReadOnlyMemory<int> CleanupTimerCandidateIds => _cleanupCandidates.TimerCandidateIds;
+
+        internal ReadOnlyMemory<int> CleanupImmediateTransitionCandidateIds =>
+            _cleanupCandidates.ImmediateTransitionCandidateIds;
 
         internal void CopyEntitiesByIdTo(Dictionary<int, EntityState> target)
         {
@@ -518,6 +531,17 @@ namespace Game.Feature.Gameplay.BoardState
         internal void CopyUnitContinuousLocomotionStatesByEntityIdTo(Dictionary<int, UnitContinuousLocomotionState> target)
         {
             CopyDictionaryTo(_unitContinuousLocomotionStatesByEntityId, target);
+        }
+
+        internal void CopyCleanupCandidateIdsTo(
+            SortedSet<int> removalCandidateIds,
+            SortedSet<int> timerCandidateIds,
+            SortedSet<int> immediateTransitionCandidateIds)
+        {
+            _cleanupCandidates.CopyTo(
+                removalCandidateIds,
+                timerCandidateIds,
+                immediateTransitionCandidateIds);
         }
 
         public bool TryGetEntity(int entityId, out EntityState entity)

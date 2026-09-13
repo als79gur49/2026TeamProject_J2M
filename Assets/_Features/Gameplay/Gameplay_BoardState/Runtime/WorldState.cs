@@ -33,6 +33,9 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId = new();
         private readonly Dictionary<int, UnitContinuousLocomotionState> _unitContinuousLocomotionStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
+        private readonly SortedSet<int> _cleanupRemovalCandidateIds = new();
+        private readonly SortedSet<int> _cleanupTimerCandidateIds = new();
+        private readonly SortedSet<int> _cleanupImmediateTransitionCandidateIds = new();
         private CubeTopologyState _topology;
         private int _topologyRevision;
 
@@ -170,6 +173,10 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EnemyDefinitionBindingState>(_enemyDefinitionBindingsByEntityId),
                 new Dictionary<int, UnitKinematicRuntimeState>(_unitKinematicStatesByEntityId),
                 new Dictionary<int, UnitContinuousLocomotionState>(_unitContinuousLocomotionStatesByEntityId),
+                CleanupCandidateSnapshot.Create(
+                    _cleanupRemovalCandidateIds,
+                    _cleanupTimerCandidateIds,
+                    _cleanupImmediateTransitionCandidateIds),
                 _topology,
                 _topologyRevision,
                 _boardBounds);
@@ -202,6 +209,10 @@ namespace Game.Feature.Gameplay.BoardState
             snapshot.CopyEnemyDefinitionBindingsByEntityIdTo(_enemyDefinitionBindingsByEntityId);
             snapshot.CopyUnitKinematicStatesByEntityIdTo(_unitKinematicStatesByEntityId);
             snapshot.CopyUnitContinuousLocomotionStatesByEntityIdTo(_unitContinuousLocomotionStatesByEntityId);
+            snapshot.CopyCleanupCandidateIdsTo(
+                _cleanupRemovalCandidateIds,
+                _cleanupTimerCandidateIds,
+                _cleanupImmediateTransitionCandidateIds);
         }
 
         internal IWorldWriteContext CreateWriteContext()
@@ -227,6 +238,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _entitiesById.Add(entity.entityId, entity);
+            UpdateCleanupCandidateMembership(entity);
             if (EntityRolePolicy.IsPlayerUnit(entity))
             {
                 _playerDamageStatesByEntityId[entity.entityId] = default;
@@ -262,6 +274,9 @@ namespace Game.Feature.Gameplay.BoardState
 
             ClearOccupancyForEntity(entity);
             _entitiesById.Remove(entityId);
+            _cleanupRemovalCandidateIds.Remove(entityId);
+            _cleanupTimerCandidateIds.Remove(entityId);
+            _cleanupImmediateTransitionCandidateIds.Remove(entityId);
             _enemyActionStatesByEntityId.Remove(entityId);
             _pendingEnemyBlockedReactionsByEntityId.Remove(entityId);
             _enemyPatrolStatesByEntityId.Remove(entityId);
@@ -639,7 +654,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity.gravityFieldPhase = phase;
             entity.gravityFieldTimerTicks = timerTicks;
-            _entitiesById[entityId] = entity;
+            UpdateStoredEntity(entity);
         }
 
         internal void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
@@ -945,7 +960,28 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void UpdateStoredEntity(EntityState entity)
         {
+            if (!_entitiesById.TryGetValue(entity.entityId, out var previousEntity))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot update missing entity {entity.entityId} through the authoritative stored-entity seam.");
+            }
+
             _entitiesById[entity.entityId] = entity;
+            CleanupCandidateSnapshot.UpdateMembership(
+                previousEntity,
+                entity,
+                _cleanupRemovalCandidateIds,
+                _cleanupTimerCandidateIds,
+                _cleanupImmediateTransitionCandidateIds);
+        }
+
+        private void UpdateCleanupCandidateMembership(in EntityState entity)
+        {
+            CleanupCandidateSnapshot.UpdateMembership(
+                entity,
+                _cleanupRemovalCandidateIds,
+                _cleanupTimerCandidateIds,
+                _cleanupImmediateTransitionCandidateIds);
         }
 
         internal bool TryGetEnemyUtilityState(int entityId, out EnemyUtilityRuntimeState state)
