@@ -1068,6 +1068,70 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TileCellIndex_NoMutationAndSameCellUpdate_ShareImmutableQueryView()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var original = CreateTileFeature(10, cell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var updated = new TileFeatureState(
+                original.TileId,
+                original.Cell,
+                original.Kind,
+                TileFeatureFlags.Activated,
+                original.SourceEntityId,
+                original.OwnerEntityId,
+                original.TeamId,
+                lifetimeTicks: 3,
+                charges: 1);
+            var worldState = CreateWorldState(
+                Array.Empty<EntityState>(),
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { original });
+
+            var beforeSnapshot = worldState.CreateSnapshot();
+            var beforeView = GetCellIndex(beforeSnapshot, "_tileFeatureIdsByCell");
+            var repeatedView = GetCellIndex(worldState.CreateSnapshot(), "_tileFeatureIdsByCell");
+            CreateWriteContext(worldState).UpdateTileFeature(updated);
+            var afterSnapshot = worldState.CreateSnapshot();
+            var afterView = GetCellIndex(afterSnapshot, "_tileFeatureIdsByCell");
+
+            Assert.That(ReferenceEquals(repeatedView, beforeView), Is.True);
+            Assert.That(ReferenceEquals(afterView, beforeView), Is.True);
+            Assert.That(beforeSnapshot.TryGetTileFeature(10, out var beforeState), Is.True);
+            Assert.That(afterSnapshot.TryGetTileFeature(10, out var afterState), Is.True);
+            Assert.That(beforeState, Is.EqualTo(original));
+            Assert.That(afterState, Is.EqualTo(updated));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileCellIndex_MembershipMutation_RebuildsWithoutChangingRetainedSnapshot()
+        {
+            var originalCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var movedCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var original = CreateTileFeature(10, originalCell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var moved = CreateTileFeature(10, movedCell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var worldState = CreateWorldState(
+                Array.Empty<EntityState>(),
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { original });
+            var beforeSnapshot = worldState.CreateSnapshot();
+            var beforeView = GetCellIndex(beforeSnapshot, "_tileFeatureIdsByCell");
+
+            CreateWriteContext(worldState).UpdateTileFeature(moved);
+            var afterSnapshot = worldState.CreateSnapshot();
+            var afterView = GetCellIndex(afterSnapshot, "_tileFeatureIdsByCell");
+
+            Assert.That(ReferenceEquals(afterView, beforeView), Is.False);
+            CollectionAssert.AreEqual(new[] { 10 }, CollectTileFeatureIdsAt(beforeSnapshot, originalCell));
+            CollectionAssert.IsEmpty(CollectTileFeatureIdsAt(beforeSnapshot, movedCell));
+            CollectionAssert.IsEmpty(CollectTileFeatureIdsAt(afterSnapshot, originalCell));
+            CollectionAssert.AreEqual(new[] { 10 }, CollectTileFeatureIdsAt(afterSnapshot, movedCell));
+        }
+
+        [Test]
+        [Category("Core")]
         public void SnapshotBuilder_Create_ProducesEquivalentSnapshotBeforeAfterOptimization()
         {
             var sharedCell = new SurfaceCell(FaceId.Floor, 1, 1);

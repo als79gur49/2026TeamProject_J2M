@@ -11,10 +11,11 @@ namespace Game.Feature.Gameplay.BoardState
     {
         internal SnapshotOwnedCellIndex(Dictionary<TKey, IReadOnlyCollection<int>> values)
         {
-            Values = values ?? throw new ArgumentNullException(nameof(values));
+            QueryView = new ReadOnlyDictionary<TKey, IReadOnlyCollection<int>>(
+                values ?? throw new ArgumentNullException(nameof(values)));
         }
 
-        internal Dictionary<TKey, IReadOnlyCollection<int>> Values { get; }
+        internal IReadOnlyDictionary<TKey, IReadOnlyCollection<int>> QueryView { get; }
     }
 
     public enum BoxInteractionLockSourceReason
@@ -1886,10 +1887,10 @@ namespace Game.Feature.Gameplay.BoardState
             return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(buffer);
         }
 
-        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlySnapshotOwnedCellIndex(
+        private static IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlySnapshotOwnedCellIndex(
             SnapshotOwnedCellIndex<SurfaceCell> cellIndex)
         {
-            var values = cellIndex.Values;
+            var values = cellIndex.QueryView;
             foreach (var pair in values)
             {
                 if (pair.Value == null)
@@ -1899,7 +1900,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             SnapshotMaterializationDiagnostics.RecordSnapshotReadonlyCellIndexSecondCopySkipped(values.Count);
-            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(values);
+            return values;
         }
 
         private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlyStackedUnitsByCell(

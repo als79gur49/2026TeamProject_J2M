@@ -12,6 +12,8 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly Dictionary<int, TileFeatureState> _tileFeaturesById = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _tileFeatureIdsByCell = new();
+        private SnapshotOwnedCellIndex<SurfaceCell> _snapshotOwnedTileFeatureIdsByCell;
+        private bool _snapshotOwnedTileFeatureIdsByCellDirty = true;
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, PendingCellImpact> _pendingCellImpactsById = new();
@@ -184,6 +186,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void RestoreFromSnapshotFast(WorldSnapshot snapshot)
         {
+            _snapshotOwnedTileFeatureIdsByCell = null;
+            _snapshotOwnedTileFeatureIdsByCellDirty = true;
             _topologyRevision = snapshot.TopologyRevision;
             snapshot.CopyEntitiesByIdTo(_entitiesById);
             snapshot.CopyStackedUnitsByCellTo(_stackedUnitsByCell);
@@ -880,6 +884,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             _tileFeaturesById.Add(state.TileId, state);
             AddTileFeatureCellIndex(state.TileId, state.Cell);
+            InvalidateSnapshotOwnedTileFeatureCellIndex();
         }
 
         private void UpdateTileFeature(TileFeatureState state)
@@ -897,6 +902,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 RemoveTileFeatureCellIndex(state.TileId, previous.Cell);
                 AddTileFeatureCellIndex(state.TileId, state.Cell);
+                InvalidateSnapshotOwnedTileFeatureCellIndex();
             }
         }
 
@@ -916,6 +922,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             _tileFeaturesById.Remove(tileId);
             RemoveTileFeatureCellIndex(tileId, previous.Cell);
+            InvalidateSnapshotOwnedTileFeatureCellIndex();
         }
 
         private void ValidateTileFeatureState(TileFeatureState state)
@@ -1196,8 +1203,19 @@ namespace Game.Feature.Gameplay.BoardState
 
         private SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedTileFeatureIdsByCell()
         {
-            SnapshotMaterializationDiagnostics.RecordSnapshotOwnedTileFeatureCellIndexBuild(_tileFeatureIdsByCell.Count);
-            return CreateSnapshotOwnedCellIndex(_tileFeatureIdsByCell);
+            if (_snapshotOwnedTileFeatureIdsByCell == null || _snapshotOwnedTileFeatureIdsByCellDirty)
+            {
+                SnapshotMaterializationDiagnostics.RecordSnapshotOwnedTileFeatureCellIndexBuild(_tileFeatureIdsByCell.Count);
+                _snapshotOwnedTileFeatureIdsByCell = CreateSnapshotOwnedCellIndex(_tileFeatureIdsByCell);
+                _snapshotOwnedTileFeatureIdsByCellDirty = false;
+            }
+
+            return _snapshotOwnedTileFeatureIdsByCell;
+        }
+
+        private void InvalidateSnapshotOwnedTileFeatureCellIndex()
+        {
+            _snapshotOwnedTileFeatureIdsByCellDirty = true;
         }
 
         private static SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedCellIndex(
