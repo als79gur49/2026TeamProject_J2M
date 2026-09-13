@@ -2,7 +2,7 @@ using System;
 
 namespace Game.Feature.Stages
 {
-    public sealed class CampaignSaveSlotStoreAdapter : ICampaignSaveRuntime
+    public sealed class CampaignSaveSlotStoreAdapter : ICampaignSaveRuntime, ICampaignHudReadProvider
     {
         private readonly CampaignSaveService _campaignSaveService;
         private readonly ICampaignSaveRecoveryPort _recoveryPort;
@@ -16,12 +16,18 @@ namespace Game.Feature.Stages
             LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Load has not run.");
         }
 
+        CampaignHudReadStore ICampaignHudReadProvider.HudReadStore => _campaignSaveService.HudReadStore;
+
+        ICampaignHudReadSession ICampaignHudReadProvider.OpenHudReadSession(int slotNumber) =>
+            _campaignSaveService.HudReadStore.Open(slotNumber, LoadAllWithReport);
+
         public string DiagnosticsKey => CampaignSaveServiceResultStatusToken;
 
         public CampaignSaveLoadReport LastCampaignLoadReport { get; private set; }
 
         public CampaignSlotEntry[] LoadAll()
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             return LoadAllEntries();
         }
 
@@ -33,6 +39,22 @@ namespace Game.Feature.Stages
         }
 
         public CampaignSaveLoadResult LoadAllWithReport()
+        {
+            using var operation = _campaignSaveService.HudReadStore.BeginOperation();
+            try
+            {
+                var result = LoadAllWithReportCore();
+                _campaignSaveService.HudReadStore.Observe(result);
+                return result;
+            }
+            catch (Exception exception)
+            {
+                _campaignSaveService.HudReadStore.ObserveFailure(exception);
+                throw;
+            }
+        }
+
+        private CampaignSaveLoadResult LoadAllWithReportCore()
         {
             if (IsRecoveryPending())
             {
@@ -59,6 +81,7 @@ namespace Game.Feature.Stages
 
         public CampaignSlotEntry LoadSlot(int slotNumber)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             return LoadEntry(slotNumber);
         }
 
@@ -71,6 +94,7 @@ namespace Game.Feature.Stages
         public CampaignContinuePreparationResult PrepareContinue(
             CampaignContinuePreparationCommand command)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             ThrowIfRecoveryPending();
             if (command == null)
             {
@@ -103,6 +127,7 @@ namespace Game.Feature.Stages
             CampaignStageSequenceResolver sequenceResolver,
             string lastPlayedAt)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             return InitializeNewGameState(slotNumber, sequenceResolver, lastPlayedAt);
         }
 
@@ -132,6 +157,7 @@ namespace Game.Feature.Stages
 
         public void MarkIntroComicCompleted(int slotNumber)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             ThrowIfRecoveryPending();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             ThrowIfFailed(_campaignSaveService.SetIntroComicCompleted(slotNumber));
@@ -139,6 +165,7 @@ namespace Game.Feature.Stages
 
         public void MarkOutroComicCompleted(int slotNumber)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             ThrowIfRecoveryPending();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             ThrowIfFailed(_campaignSaveService.SetOutroComicCompleted(slotNumber));
@@ -149,6 +176,7 @@ namespace Game.Feature.Stages
             StageId stageId,
             string levelGroupId)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             return SetActiveStageForDiagnosticsState(slotNumber, stageId, levelGroupId);
         }
 
@@ -174,6 +202,7 @@ namespace Game.Feature.Stages
 
         public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             ThrowIfRecoveryPending();
             if (request == null)
             {
@@ -188,6 +217,7 @@ namespace Game.Feature.Stages
             int slotNumber,
             CampaignDeathTransitionPlan plan)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             ThrowIfRecoveryPending();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             var result = _campaignSaveService.CommitDeath(slotNumber, plan);
@@ -199,6 +229,7 @@ namespace Game.Feature.Stages
             int slotNumber,
             CampaignStageClearCommitRequest request)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             ThrowIfRecoveryPending();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             if (request == null)
@@ -221,6 +252,7 @@ namespace Game.Feature.Stages
 
         public void DeleteSlot(int slotNumber)
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             ThrowIfRecoveryPending();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             var result = _campaignSaveService.DeleteSlot(slotNumber);
@@ -234,6 +266,7 @@ namespace Game.Feature.Stages
 
         public void ClearAll()
         {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
             ThrowIfRecoveryPending();
             ThrowIfFailed(_campaignSaveService.ClearAll());
             LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Campaign profile was cleared.");
@@ -243,7 +276,9 @@ namespace Game.Feature.Stages
 
         private bool IsRecoveryPending()
         {
-            return _recoveryPort?.HasPendingReset == true;
+            var pending = _recoveryPort?.HasPendingReset == true;
+            _campaignSaveService.HudReadStore.ObserveGate(pending);
+            return pending;
         }
 
         private void ThrowIfRecoveryPending()
@@ -263,7 +298,7 @@ namespace Game.Feature.Stages
                 CampaignSaveServiceResultStatusToken);
         }
 
-        private static void ThrowIfCampaignAccessBlocked(CampaignSaveLoadReport report)
+        internal static void ThrowIfCampaignAccessBlocked(CampaignSaveLoadReport report)
         {
             if (!report.BlocksCampaignAccess)
             {
@@ -274,7 +309,7 @@ namespace Game.Feature.Stages
                 $"Campaign save access is blocked ({report.Status}): {report.Reason}");
         }
 
-        private static CampaignSaveLoadReport ToCampaignLoadReport(CampaignSaveServiceResult result)
+        internal static CampaignSaveLoadReport ToCampaignLoadReport(CampaignSaveServiceResult result)
         {
             if (result == null)
             {
@@ -339,7 +374,7 @@ namespace Game.Feature.Stages
             return entries;
         }
 
-        private static CampaignSlotEntry[] CreateEntries(CampaignSlotDocument[] documents)
+        internal static CampaignSlotEntry[] CreateEntries(CampaignSlotDocument[] documents)
         {
             var entries = CreateEmptyEntries();
             var source = documents ?? Array.Empty<CampaignSlotDocument>();

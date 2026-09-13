@@ -9,6 +9,8 @@ namespace Game.Feature.Stages
 
         internal IAtomicTextFileStore TextFileStore { get; set; }
 
+        internal object HudBackingIdentity { get; set; }
+
         public string ProductVersion { get; set; } = string.Empty;
 
         public string ProfileId { get; set; } = "campaign-profile";
@@ -48,6 +50,7 @@ namespace Game.Feature.Stages
                 {
                     PathProvider = options.PathProvider,
                     TextFileStore = options.TextFileStore,
+                    HudBackingIdentity = options.HudBackingIdentity,
                     ProductVersion = options.ProductVersion,
                     ProfileId = options.ProfileId,
                     UtcNow = options.UtcNow,
@@ -65,6 +68,8 @@ namespace Game.Feature.Stages
         public ISavePathProvider PathProvider { get; set; }
 
         internal IAtomicTextFileStore TextFileStore { get; set; }
+
+        internal object HudBackingIdentity { get; set; }
 
         public string ProductVersion { get; set; } = string.Empty;
 
@@ -127,7 +132,11 @@ namespace Game.Feature.Stages
 
             var textFileStore = options.TextFileStore ??
                                 new AtomicTextFileStore(pathProvider.SaveRootPath);
-            var repository = new FileCampaignProfileRepository(textFileStore);
+            var repository = new FileCampaignProfileRepository(options.HudBackingIdentity == null
+                ? textFileStore
+                : new CampaignHudObservedFileStore(textFileStore, CampaignHudReadRegistry.Acquire(
+                    CampaignHudReadRegistry.MemoryKey(options.HudBackingIdentity))));
+            var observedFiles = new CampaignHudObservedFileStore(textFileStore, repository.HudReadStore);
             var service = new CampaignSaveService(
                 repository,
                 UtcNowString,
@@ -135,7 +144,7 @@ namespace Game.Feature.Stages
                 options.ProductVersion);
             var recovery = new CampaignSaveRecoveryService(
                 repository,
-                textFileStore,
+                observedFiles,
                 utcNow,
                 options.ProfileId,
                 options.ProductVersion);

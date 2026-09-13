@@ -10,13 +10,29 @@ namespace Game.Feature.Stages
         public const string ProfileFileName = "profile.json";
 
         private readonly IAtomicTextFileStore _textFileStore;
+        internal CampaignHudReadStore HudReadStore { get; }
 
         public FileCampaignProfileRepository(IAtomicTextFileStore textFileStore)
         {
-            _textFileStore = textFileStore ?? throw new ArgumentNullException(nameof(textFileStore));
+            if (textFileStore == null) throw new ArgumentNullException(nameof(textFileStore));
+            HudReadStore = textFileStore is CampaignHudObservedFileStore observed ? observed.Reads :
+                CampaignHudReadRegistry.Acquire(textFileStore is AtomicTextFileStore file
+                    ? CampaignHudReadRegistry.FileKey(file.RootDirectory)
+                    : CampaignHudReadRegistry.MemoryKey(textFileStore));
+            _textFileStore = textFileStore is CampaignHudObservedFileStore ? textFileStore :
+                new CampaignHudObservedFileStore(textFileStore, HudReadStore);
         }
 
         public CampaignProfileLoadResult Load()
+        {
+            using var operation = HudReadStore.BeginOperation();
+            HudReadStore.InvalidateForValidation();
+            var result = LoadCore();
+            HudReadStore.ObserveProfile(result);
+            return result;
+        }
+
+        private CampaignProfileLoadResult LoadCore()
         {
             try
             {
@@ -100,6 +116,15 @@ namespace Game.Feature.Stages
         }
 
         private void Save(CampaignProfileDocument document, bool destructive)
+        {
+            using var operation = HudReadStore.BeginOperation();
+            HudReadStore.InvalidateForValidation();
+            SaveCore(document, destructive);
+            HudReadStore.ObserveProfile(new CampaignProfileLoadResult(
+                CampaignProfileLoadStatus.Loaded, document, "Campaign profile committed."));
+        }
+
+        private void SaveCore(CampaignProfileDocument document, bool destructive)
         {
             if (ValidateAndMaterialize(document) != CampaignProfileLoadStatus.Loaded)
             {

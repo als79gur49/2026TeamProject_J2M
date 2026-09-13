@@ -7,7 +7,7 @@ namespace Game.Feature.Stages
     /// Non-persistent campaign slot storage for tests and short-lived diagnostic compositions.
     /// Production and DirectPlay campaign flows use the JSON-backed composition provider.
     /// </summary>
-    public sealed class TransientCampaignSaveSlotStore : ICampaignSaveRuntime
+    public sealed class TransientCampaignSaveSlotStore : ICampaignSaveRuntime, ICampaignHudReadProvider
     {
         public const string DefaultDiagnosticsKey = "transient-campaign-state";
 
@@ -16,6 +16,7 @@ namespace Game.Feature.Stages
 
         private readonly string _diagnosticsKey;
         private readonly Func<string> _utcNowProvider;
+        private readonly CampaignHudReadStore _hudReads;
 
         public TransientCampaignSaveSlotStore(string diagnosticsKey = DefaultDiagnosticsKey)
             : this(diagnosticsKey, DefaultUtcNow)
@@ -29,10 +30,16 @@ namespace Game.Feature.Stages
             _diagnosticsKey = string.IsNullOrWhiteSpace(diagnosticsKey)
                 ? throw new ArgumentException("A transient campaign namespace is required.", nameof(diagnosticsKey))
                 : diagnosticsKey;
+            _hudReads = CampaignHudReadRegistry.Acquire("transient:" + _diagnosticsKey);
             _utcNowProvider = utcNowProvider ??
                 throw new ArgumentNullException(nameof(utcNowProvider));
             LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Transient campaign state has not been read.");
         }
+
+        CampaignHudReadStore ICampaignHudReadProvider.HudReadStore => _hudReads;
+
+        ICampaignHudReadSession ICampaignHudReadProvider.OpenHudReadSession(int slotNumber) =>
+            _hudReads.Open(slotNumber, LoadAllWithReport);
 
         public string DiagnosticsKey => _diagnosticsKey;
 
@@ -49,6 +56,17 @@ namespace Game.Feature.Stages
         }
 
         public CampaignSaveLoadResult LoadAllWithReport()
+        {
+            lock (Gate)
+            {
+                var result = LoadAllWithReportCore();
+                _hudReads.ObserveGate(false);
+                _hudReads.Observe(result);
+                return result;
+            }
+        }
+
+        private CampaignSaveLoadResult LoadAllWithReportCore()
         {
             lock (Gate)
             {
@@ -243,8 +261,10 @@ namespace Game.Feature.Stages
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             lock (Gate)
             {
+                var before = GetOccupiedState(slotNumber);
+                _hudReads.ObserveBeforeMutation(before);
                 var transition = CampaignSlotTransitionEngine.ApplyStageClear(
-                    GetOccupiedState(slotNumber),
+                    before,
                     request,
                     Now());
                 if (!transition.Succeeded)
@@ -332,6 +352,7 @@ namespace Game.Feature.Stages
             {
                 var entries = GetOrCreateEntries();
                 entries[slotNumber - 1] = CampaignSlotEntry.Empty(slotNumber);
+                LoadAllWithReport();
             }
         }
 
@@ -340,6 +361,8 @@ namespace Game.Feature.Stages
             lock (Gate)
             {
                 EntriesByNamespace.Remove(_diagnosticsKey);
+                _hudReads.Reset();
+                LoadAllWithReport();
             }
 
             LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Transient campaign state cleared.");
@@ -376,6 +399,7 @@ namespace Game.Feature.Stages
 
             var entries = GetOrCreateEntries();
             entries[state.SlotNumber - 1] = CampaignSlotEntry.Occupied(state);
+            LoadAllWithReport();
         }
 
         private string Now()

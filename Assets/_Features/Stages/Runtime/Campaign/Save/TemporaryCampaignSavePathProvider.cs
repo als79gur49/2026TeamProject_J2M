@@ -100,6 +100,7 @@ namespace Game.Feature.Stages
 
             if (Directory.Exists(runDirectory.FullName))
             {
+                CampaignHudReadRegistry.Reset(CampaignHudReadRegistry.FileKey(saveRootPath));
                 Directory.Delete(runDirectory.FullName, recursive: true);
             }
 

@@ -287,6 +287,16 @@ namespace Game.Feature.Stages
             SaveRootPath = saveRootPath ?? string.Empty;
         }
 
+        internal static string NormalizeRoot(string root)
+        {
+            if (string.IsNullOrWhiteSpace(root)) return string.Empty;
+            var path = Path.GetFullPath(root.Replace('\\', Path.DirectorySeparatorChar)
+                .Replace('/', Path.DirectorySeparatorChar));
+            path = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (path.Length == 0) path = Path.GetPathRoot(Path.GetFullPath(root));
+            return Path.DirectorySeparatorChar == '\\' ? path.ToUpperInvariant() : path;
+        }
+
         public string SaveRootPath { get; }
 
         public string GetSaveFilePath(string fileName)

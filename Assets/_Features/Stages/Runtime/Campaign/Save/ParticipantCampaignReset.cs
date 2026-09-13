@@ -9,6 +9,7 @@ namespace Game.Feature.Stages
         public static void Clear(ISavePathProvider paths)
         {
             if (paths == null) throw new ArgumentNullException(nameof(paths));
+            CampaignHudReadRegistry.Reset(CampaignHudReadRegistry.FileKey(paths.SaveRootPath));
             var store = new AtomicTextFileStore(paths.SaveRootPath);
             foreach (var name in new[] { FileCampaignProfileRepository.ProfileFileName,
                 CampaignLocalLaunchStateRepository.FileName, CampaignSaveRecoveryService.PendingResetFileName })
