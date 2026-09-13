@@ -1132,6 +1132,96 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void WorldSnapshotReuse_CleanAndNormalizedNoOpReuse_ActualEntityMutationInvalidates()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right),
+            });
+            var writeContext = CreateWriteContext(worldState);
+            var before = worldState.CreateSnapshot();
+
+            Assert.That(ReferenceEquals(worldState.CreateSnapshot(), before), Is.True);
+            ((IMovementCommitContext)writeContext).SetFacing(10, Direction.Right);
+            Assert.That(ReferenceEquals(worldState.CreateSnapshot(), before), Is.True);
+
+            ((IMovementCommitContext)writeContext).SetFacing(10, Direction.Left);
+            var after = worldState.CreateSnapshot();
+
+            Assert.That(ReferenceEquals(after, before), Is.False);
+            Assert.That(before.TryGetEntity(10, out var retainedEntity), Is.True);
+            Assert.That(after.TryGetEntity(10, out var currentEntity), Is.True);
+            Assert.That(retainedEntity.facing, Is.EqualTo(Direction.Right));
+            Assert.That(currentEntity.facing, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldSnapshotReuse_TopologyTileAndAuxiliaryMutations_EachInvalidate()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var tile = CreateTileFeature(20, cell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var worldState = CreateWorldState(
+                new[] { CreateEntity(10, EntityType.Unit, cell, Direction.Right) },
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { tile });
+            var writeContext = CreateWriteContext(worldState);
+            var initial = worldState.CreateSnapshot();
+
+            writeContext.SetTopology(new CubeTopologyState(FaceId.Front));
+            var afterTopology = worldState.CreateSnapshot();
+            writeContext.UpdateTileFeature(new TileFeatureState(
+                tile.TileId,
+                tile.Cell,
+                tile.Kind,
+                TileFeatureFlags.Activated,
+                tile.SourceEntityId,
+                tile.OwnerEntityId,
+                tile.TeamId,
+                lifetimeTicks: 1,
+                charges: 0));
+            var afterTile = worldState.CreateSnapshot();
+            writeContext.SetEnemyActionState(
+                10,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Left,
+                    startTick = 1,
+                    executeTick = 2,
+                });
+            var afterAuxiliary = worldState.CreateSnapshot();
+
+            Assert.That(ReferenceEquals(afterTopology, initial), Is.False);
+            Assert.That(ReferenceEquals(afterTile, afterTopology), Is.False);
+            Assert.That(ReferenceEquals(afterAuxiliary, afterTile), Is.False);
+            Assert.That(ReferenceEquals(worldState.CreateSnapshot(), afterAuxiliary), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldSnapshotReuse_FastImportKeepsCacheIdentityWorldLocal()
+        {
+            var sourceWorld = CreateWorldState(new[]
+            {
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right),
+            });
+            var sourceSnapshot = sourceWorld.CreateSnapshot();
+            var importedWorld = WorldState.CreateFromSnapshotFast(sourceSnapshot);
+            var importedSnapshot = importedWorld.CreateSnapshot();
+
+            Assert.That(ReferenceEquals(importedSnapshot, sourceSnapshot), Is.False);
+            Assert.That(ReferenceEquals(importedWorld.CreateSnapshot(), importedSnapshot), Is.True);
+            Assert.That(importedSnapshot.TryGetEntity(10, out var imported), Is.True);
+            Assert.That(sourceSnapshot.TryGetEntity(10, out var source), Is.True);
+            Assert.That(imported, Is.EqualTo(source));
+        }
+
+        [Test]
+        [Category("Core")]
         public void SnapshotBuilder_Create_ProducesEquivalentSnapshotBeforeAfterOptimization()
         {
             var sharedCell = new SurfaceCell(FaceId.Floor, 1, 1);
