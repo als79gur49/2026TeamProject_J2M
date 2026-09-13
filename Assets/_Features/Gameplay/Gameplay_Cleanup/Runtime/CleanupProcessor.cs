@@ -43,18 +43,8 @@ namespace Game.Feature.Gameplay.Cleanup
             using var markerScope = ProcessMarker.Auto();
             try
             {
-                var orderedEntities = new List<EntityState>();
-                snapshot.EnumerateEntitiesOrdered(orderedEntities);
-
-                var survivingEntities = new List<EntityState>(orderedEntities.Count);
                 var removedEntityIds = new List<int>();
-                _removalProcessor.Process(
-                    orderedEntities,
-                    writeContext,
-                    survivingEntities,
-                    removedEntityIds,
-                    CleanupSlice3Diagnostics.ShouldCaptureStructural,
-                    out var structuralCounts);
+                _removalProcessor.Process(snapshot.CleanupRemovalCandidateIds.Span, writeContext, removedEntityIds);
 
                 var removedUnitKinematicPoses = new List<RemovedUnitKinematicPoseRecord>();
                 var removedUnitContinuousLocomotionPoses = new List<RemovedUnitContinuousLocomotionPoseRecord>();
@@ -81,10 +71,22 @@ namespace Game.Feature.Gameplay.Cleanup
                 }
 
                 var timerChanges = new List<string>();
-                _stateTimerProcessor.Process(survivingEntities, writeContext, tickIndex, timerChanges);
+                var timerExpiredTransitionCandidateIds = new List<int>();
+                _stateTimerProcessor.Process(
+                    snapshot,
+                    removedEntityIds,
+                    writeContext,
+                    tickIndex,
+                    timerChanges,
+                    timerExpiredTransitionCandidateIds);
 
                 var stateTransitions = new List<string>();
-                _stateTransitionProcessor.Process(survivingEntities, writeContext, stateTransitions);
+                _stateTransitionProcessor.Process(
+                    snapshot,
+                    removedEntityIds,
+                    timerExpiredTransitionCandidateIds,
+                    writeContext,
+                    stateTransitions);
 
                 var result = new CleanupPhaseResult(
                     removedEntityIds,
@@ -94,12 +96,10 @@ namespace Game.Feature.Gameplay.Cleanup
                     removedUnitKinematicPoses,
                     removedUnitContinuousLocomotionPoses);
 
-                CleanupSlice3Diagnostics.RecordFullScan(
-                    orderedEntities.Count,
-                    survivingEntities.Count,
-                    structuralCounts.RemovalCandidateCount,
-                    structuralCounts.TimerCandidateCount,
-                    structuralCounts.ImmediateTransitionCandidateCount,
+                CleanupSlice3Diagnostics.RecordIndexed(
+                    snapshot.CleanupRemovalCandidateIds.Length,
+                    snapshot.CleanupTimerCandidateIds.Length,
+                    snapshot.CleanupImmediateTransitionCandidateIds.Length,
                     removedEntityIds.Count,
                     timerChanges.Count,
                     stateTransitions.Count);

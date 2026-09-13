@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Extended")]
-        public void S3A_FullScanDiagnostics_RecordCandidatesProcessingAndTiming()
+        public void IndexedCleanupDiagnostics_RecordCandidatesProcessingAndTiming()
         {
             var world = CreateWorld(
                 CreateWall(1, hp: 1, EntityPhaseState.Idle, stateTimer: 0),
@@ -28,9 +28,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 counts = capture.Counts;
             }
 
-            Assert.That(counts.FullScanInvocationCount, Is.EqualTo(1));
-            Assert.That(counts.FullScanEntityVisitCount, Is.EqualTo(4));
-            Assert.That(counts.SurvivorCopyCount, Is.EqualTo(3));
+            Assert.That(counts.FullScanInvocationCount, Is.Zero);
+            Assert.That(counts.FullScanEntityVisitCount, Is.Zero);
+            Assert.That(counts.SurvivorCopyCount, Is.Zero);
             Assert.That(counts.RemovalCandidateCount, Is.EqualTo(1));
             Assert.That(counts.TimerCandidateCount, Is.EqualTo(1));
             Assert.That(counts.ImmediateTransitionCandidateCount, Is.EqualTo(1));
@@ -39,7 +39,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(counts.TransitionProcessedCount, Is.EqualTo(1));
             Assert.That(counts.ReferenceOracleInvocationCount, Is.EqualTo(1));
             Assert.That(counts.InvariantMismatchCount, Is.Zero);
-            Assert.That(counts.IndexedInvocationCount, Is.Zero);
+            Assert.That(counts.IndexedInvocationCount, Is.EqualTo(1));
             Assert.That(counts.HiddenFallbackCount, Is.Zero);
             Assert.That(counts.CleanupProcessorTimingSampleCount, Is.EqualTo(1));
             Assert.That(counts.RunCleanupPhaseTimingSampleCount, Is.EqualTo(1));

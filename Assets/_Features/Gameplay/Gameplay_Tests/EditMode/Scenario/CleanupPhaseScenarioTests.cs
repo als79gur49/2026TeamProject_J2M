@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Cleanup;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
@@ -967,7 +968,243 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 SemanticEventAssertions.FilterEvents(firstRun.Result.EventLog, "StateTransitioned"),
                 SemanticEventAssertions.FilterEvents(secondRun.Result.EventLog, "StateTransitioned"));
+            Assert.That(firstRun.Result.DeterminismHash, Is.EqualTo(secondRun.Result.DeterminismHash));
             Assert.That(firstRun.StateDumpAfter, Is.EqualTo(secondRun.StateDumpAfter));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CleanupCandidateIndex_SnapshotClassifiesAndOrdersOverlappingMembership()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(50, new SurfaceCell(FaceId.Floor, 4, 0), hp: 3),
+                CreateUnit(30, new SurfaceCell(FaceId.Floor, 2, 0), hp: 3, state: EntityPhaseState.Acting),
+                CreateUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), hp: 0, state: EntityPhaseState.Cooldown, stateTimer: 5),
+                CreateUnit(40, new SurfaceCell(FaceId.Floor, 3, 0), hp: 3, markedForDeath: true),
+                CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, state: EntityPhaseState.Sliding, stateTimer: 2),
+            });
+
+            var snapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 20, 40 }, snapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 10, 20 }, snapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 30 }, snapshot.CleanupImmediateTransitionCandidateIds.ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CleanupCandidateIndex_AppliesPredicatesToWallAndDetachedNoneEntities()
+        {
+            var removedWall = CreateWall(10, new SurfaceCell(FaceId.Floor, 0, 0));
+            removedWall.hp = 0;
+            var detachedNone = CreateWall(20, new SurfaceCell(FaceId.Floor, 1, 0));
+            detachedNone.boardPresence = EntityBoardPresence.Detached;
+            detachedNone.state = EntityPhaseState.Cooldown;
+            detachedNone.stateTimer = 2;
+            var immediateWall = CreateWall(30, new SurfaceCell(FaceId.Floor, 2, 0));
+            immediateWall.state = EntityPhaseState.Acting;
+
+            var snapshot = CreateSnapshot(new WorldState(new[]
+            {
+                immediateWall,
+                detachedNone,
+                removedWall,
+            }));
+
+            CollectionAssert.AreEqual(new[] { 10 }, snapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 20 }, snapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 30 }, snapshot.CleanupImmediateTransitionCandidateIds.ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CleanupCandidateIndex_OldSnapshotIsImmutableAcrossSameIdReuse()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), hp: 0, state: EntityPhaseState.Cooldown),
+            });
+            var oldSnapshot = CreateSnapshot(worldState);
+            var writeContext = worldState.CreateWriteContext();
+
+            writeContext.RemoveEntity(10);
+            writeContext.SpawnEntity(CreateUnit(10, new SurfaceCell(FaceId.Floor, 1, 0), hp: 3));
+            var currentSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 10 }, oldSnapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 10 }, oldSnapshot.CleanupImmediateTransitionCandidateIds.ToArray());
+            Assert.That(currentSnapshot.CleanupRemovalCandidateIds.IsEmpty, Is.True);
+            Assert.That(currentSnapshot.CleanupTimerCandidateIds.IsEmpty, Is.True);
+            Assert.That(currentSnapshot.CleanupImmediateTransitionCandidateIds.IsEmpty, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CleanupCandidateIndex_MutationsAndFastImportPreserveMembership()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+            });
+            var writeContext = worldState.CreateWriteContext();
+
+            ((ICleanupCommitContext)writeContext).ApplyStateChange(10, EntityPhaseState.Cooldown, stateTimer: 2);
+            ((IAttackCommitContext)writeContext).MarkDestroy(10);
+
+            var indexedSnapshot = CreateSnapshot(worldState);
+            CollectionAssert.AreEqual(new[] { 10 }, indexedSnapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 10 }, indexedSnapshot.CleanupTimerCandidateIds.ToArray());
+            Assert.That(indexedSnapshot.CleanupImmediateTransitionCandidateIds.IsEmpty, Is.True);
+
+            var restoredWorld = WorldState.CreateFromSnapshotFast(indexedSnapshot);
+            var restoredWriteContext = restoredWorld.CreateWriteContext();
+            ((ICleanupCommitContext)restoredWriteContext).ApplyStateChange(10, EntityPhaseState.Cooldown, stateTimer: 0);
+
+            var restoredSnapshot = CreateSnapshot(restoredWorld);
+            CollectionAssert.AreEqual(new[] { 10 }, restoredSnapshot.CleanupRemovalCandidateIds.ToArray());
+            Assert.That(restoredSnapshot.CleanupTimerCandidateIds.IsEmpty, Is.True);
+            CollectionAssert.AreEqual(new[] { 10 }, restoredSnapshot.CleanupImmediateTransitionCandidateIds.ToArray());
+
+            ((ICleanupCommitContext)restoredWriteContext).RemoveEntity(10);
+            var removedSnapshot = CreateSnapshot(restoredWorld);
+            Assert.That(removedSnapshot.CleanupRemovalCandidateIds.IsEmpty, Is.True);
+            Assert.That(removedSnapshot.CleanupTimerCandidateIds.IsEmpty, Is.True);
+            Assert.That(removedSnapshot.CleanupImmediateTransitionCandidateIds.IsEmpty, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CleanupCandidateIndex_MatchesIndependentFullScanAcrossAuthoritativeMutations()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(50, new SurfaceCell(FaceId.Floor, 4, 0), hp: 3),
+                CreateUnit(30, new SurfaceCell(FaceId.Floor, 2, 0), hp: 3, state: EntityPhaseState.Acting),
+                CreateUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), hp: 0, state: EntityPhaseState.Cooldown, stateTimer: 5),
+                CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, state: EntityPhaseState.Sliding, stateTimer: 2),
+            });
+            var writeContext = worldState.CreateWriteContext();
+
+            AssertCleanupCandidateIndexMatchesIndependentFullScan(CreateSnapshot(worldState));
+
+            ((IAttackCommitContext)writeContext).ApplyDamage(50, amount: 3);
+            ((ICleanupCommitContext)writeContext).ApplyStateChange(10, EntityPhaseState.Idle, stateTimer: 0);
+            ((IAttackCommitContext)writeContext).SpawnEntity(
+                CreateUnit(60, new SurfaceCell(FaceId.Floor, 5, 0), hp: 3, state: EntityPhaseState.Cooldown));
+            ((ICleanupCommitContext)writeContext).RemoveEntity(20);
+
+            AssertCleanupCandidateIndexMatchesIndependentFullScan(CreateSnapshot(worldState));
+            AssertCleanupCandidateIndexMatchesIndependentFullScan(
+                CreateSnapshot(WorldState.CreateFromSnapshotFast(CreateSnapshot(worldState))));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Cleanup_OverlappingCandidates_PreservesFullScanPhaseAndEntityOrdering()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(30, new SurfaceCell(FaceId.Floor, 2, 0), hp: 3, state: EntityPhaseState.Acting),
+                CreateUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), hp: 0, state: EntityPhaseState.Cooldown, stateTimer: 4),
+                CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, state: EntityPhaseState.Cooldown, stateTimer: 1),
+            });
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(15));
+
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            CollectionAssert.AreEqual(
+                new[] { "TimerTicked|E=10|State=Cooldown|From=1|To=0" },
+                SemanticEventAssertions.FilterEvents(result.EventLog, "TimerTicked"));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "StateTransitioned|E=10|From=Cooldown|To=Idle|Timer=0",
+                    "StateTransitioned|E=30|From=Acting|To=Idle|Timer=0",
+                },
+                SemanticEventAssertions.FilterEvents(result.EventLog, "StateTransitioned"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Cleanup_TimerExpiryTransitionsOnceAndDoesNotRepeatOnNextTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(
+                    10,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    hp: 3,
+                    state: EntityPhaseState.Cooldown,
+                    stateTimer: 1),
+            });
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
+
+            var first = pipeline.RunTick(new TickInput(15));
+            var second = pipeline.RunTick(new TickInput(16));
+
+            CollectionAssert.AreEqual(
+                new[] { "StateTransitioned|E=10|From=Cooldown|To=Idle|Timer=0" },
+                SemanticEventAssertions.FilterEvents(first.EventLog, "StateTransitioned"));
+            Assert.That(SemanticEventAssertions.FilterEvents(second.EventLog, "TimerTicked"), Is.Empty);
+            Assert.That(SemanticEventAssertions.FilterEvents(second.EventLog, "StateTransitioned"), Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CleanupCandidateIndex_GeneratedMatrix_MatchesIndependentFullScanReference()
+        {
+            const int tickIndex = 25;
+            var states = new[]
+            {
+                EntityPhaseState.Idle,
+                EntityPhaseState.Acting,
+                EntityPhaseState.Cooldown,
+                EntityPhaseState.Sliding,
+            };
+            var timers = new[] { -1, 0, 1, 2 };
+            var hitPoints = new[] { -1, 0, 1 };
+            var entities = new List<EntityState>();
+            var entityId = 1;
+            for (var hpIndex = 0; hpIndex < hitPoints.Length; hpIndex++)
+            {
+                for (var markedIndex = 0; markedIndex < 2; markedIndex++)
+                {
+                    for (var stateIndex = 0; stateIndex < states.Length; stateIndex++)
+                    {
+                        for (var timerIndex = 0; timerIndex < timers.Length; timerIndex++)
+                        {
+                            for (var spawnedThisTickIndex = 0; spawnedThisTickIndex < 2; spawnedThisTickIndex++)
+                            {
+                                entities.Add(
+                                    CreateUnit(
+                                        entityId++,
+                                        new SurfaceCell(FaceId.Floor, 0, 0),
+                                        hp: hitPoints[hpIndex],
+                                        markedForDeath: markedIndex == 1,
+                                        boardPresence: EntityBoardPresence.Detached,
+                                        state: states[stateIndex],
+                                        stateTimer: timers[timerIndex],
+                                        spawnTick: spawnedThisTickIndex == 1 ? tickIndex : tickIndex - 1));
+                            }
+                        }
+                    }
+                }
+            }
+
+            var expected = BuildIndependentFullScanCleanupReference(entities, tickIndex);
+            var worldState = new WorldState(entities);
+            var snapshot = CreateSnapshot(worldState);
+            var actual = new CleanupProcessor().Process(snapshot, worldState.CreateWriteContext(), tickIndex);
+            var finalSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(expected.RemovedEntityIds, actual.RemovedEntityIds);
+            CollectionAssert.AreEqual(expected.TimerChanges, actual.TimerChanges);
+            CollectionAssert.AreEqual(expected.StateTransitions, actual.StateTransitions);
+            Assert.That(actual.EventLogEntries, Is.Empty);
+            Assert.That(DumpEntityStates(finalSnapshot), Is.EqualTo(expected.FinalEntityDump));
+            AssertCleanupCandidateIndexMatchesIndependentFullScan(snapshot);
         }
 
         private static (TickResult Result, string StateDumpAfter) RunDeterministicCleanupTick()
@@ -1113,6 +1350,128 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
             return entity;
+        }
+
+        private static void AssertCleanupCandidateIndexMatchesIndependentFullScan(WorldSnapshot snapshot)
+        {
+            var orderedEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(orderedEntities);
+
+            var expectedRemovalIds = new List<int>();
+            var expectedTimerIds = new List<int>();
+            var expectedImmediateTransitionIds = new List<int>();
+            for (var i = 0; i < orderedEntities.Count; i++)
+            {
+                var entity = orderedEntities[i];
+                if (entity.hp <= 0 || entity.markedForDeath)
+                {
+                    expectedRemovalIds.Add(entity.entityId);
+                }
+
+                if (entity.stateTimer > 0)
+                {
+                    expectedTimerIds.Add(entity.entityId);
+                }
+
+                if (entity.stateTimer <= 0 &&
+                    (entity.state == EntityPhaseState.Acting || entity.state == EntityPhaseState.Cooldown))
+                {
+                    expectedImmediateTransitionIds.Add(entity.entityId);
+                }
+            }
+
+            CollectionAssert.AreEqual(expectedRemovalIds, snapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(expectedTimerIds, snapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                expectedImmediateTransitionIds,
+                snapshot.CleanupImmediateTransitionCandidateIds.ToArray());
+        }
+
+        private static CleanupReferenceOutcome BuildIndependentFullScanCleanupReference(
+            IReadOnlyList<EntityState> sourceEntities,
+            int tickIndex)
+        {
+            var orderedEntities = sourceEntities.OrderBy(entity => entity.entityId).ToList();
+            var removedEntityIds = new List<int>();
+            var survivingEntities = new List<EntityState>();
+            for (var i = 0; i < orderedEntities.Count; i++)
+            {
+                var entity = orderedEntities[i];
+                if (entity.hp <= 0 || entity.markedForDeath)
+                {
+                    removedEntityIds.Add(entity.entityId);
+                }
+                else
+                {
+                    survivingEntities.Add(entity);
+                }
+            }
+
+            var timerChanges = new List<string>();
+            for (var i = 0; i < survivingEntities.Count; i++)
+            {
+                var entity = survivingEntities[i];
+                if (entity.spawnTick == tickIndex || entity.stateTimer <= 0)
+                {
+                    continue;
+                }
+
+                var previousTimer = entity.stateTimer;
+                entity.stateTimer--;
+                survivingEntities[i] = entity;
+                timerChanges.Add(
+                    $"TimerTicked|E={entity.entityId}|State={entity.state}|From={previousTimer}|To={entity.stateTimer}");
+            }
+
+            var stateTransitions = new List<string>();
+            for (var i = 0; i < survivingEntities.Count; i++)
+            {
+                var entity = survivingEntities[i];
+                if (entity.stateTimer > 0 ||
+                    (entity.state != EntityPhaseState.Acting && entity.state != EntityPhaseState.Cooldown))
+                {
+                    continue;
+                }
+
+                var previousState = entity.state;
+                entity.state = EntityPhaseState.Idle;
+                survivingEntities[i] = entity;
+                stateTransitions.Add(
+                    $"StateTransitioned|E={entity.entityId}|From={previousState}|To={entity.state}|Timer={entity.stateTimer}");
+            }
+
+            var finalEntityDump = string.Join(
+                ",",
+                survivingEntities.Select(entity =>
+                    $"{entity.entityId}:{entity.state}:{entity.stateTimer}:{entity.position.x}:{entity.position.y}:{entity.hp}:{entity.markedForDeath}"));
+            return new CleanupReferenceOutcome(
+                removedEntityIds,
+                timerChanges,
+                stateTransitions,
+                finalEntityDump);
+        }
+
+        private readonly struct CleanupReferenceOutcome
+        {
+            public CleanupReferenceOutcome(
+                IReadOnlyList<int> removedEntityIds,
+                IReadOnlyList<string> timerChanges,
+                IReadOnlyList<string> stateTransitions,
+                string finalEntityDump)
+            {
+                RemovedEntityIds = removedEntityIds;
+                TimerChanges = timerChanges;
+                StateTransitions = stateTransitions;
+                FinalEntityDump = finalEntityDump;
+            }
+
+            public IReadOnlyList<int> RemovedEntityIds { get; }
+
+            public IReadOnlyList<string> TimerChanges { get; }
+
+            public IReadOnlyList<string> StateTransitions { get; }
+
+            public string FinalEntityDump { get; }
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
