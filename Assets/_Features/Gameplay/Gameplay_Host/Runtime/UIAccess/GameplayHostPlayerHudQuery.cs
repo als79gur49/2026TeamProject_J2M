@@ -7,7 +7,7 @@ using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
-    internal sealed class GameplayHostPlayerHudQuery : IGameplayPlayerHudQuery, IGameplayHudChanceChanges
+    internal sealed class GameplayHostPlayerHudQuery : IGameplayPlayerHudQuery, IGameplayHudChanceChanges, IGameplayHudRevisionedQuery<GameplayPlayerHudReadModel>
     {
         private readonly GameplayHostCommandAdmissionPolicy _admissionPolicy;
         private readonly ICampaignChancesReadSource _campaignChancesReadSource;
@@ -47,6 +47,25 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             {
                 if (source != null && source.ReadVersion != readVersion) revision = source.LastReadRevision;
             }
+        }
+
+        public bool TryGetRevision(out GameplayHudQueryStamp stamp)
+        {
+            var window = _admissionPolicy?.ProbeWindowGeneration() ?? 0;
+            // Actor lookup stays on the committed window, including cache-hit probes.
+            _admissionPolicy?.TryGetCommittedControllableActor(out _);
+            var supported = TryGetChanceRevision(out var chance);
+            stamp = new GameplayHudQueryStamp(this, generation: window, chanceRevision: chance);
+            // Detailed diagnostics retain their existing observation records and live launch identity.
+            return (_campaignChancesReadSource == null || supported) && !CampaignChanceHudDiagnostics.IsEnabled;
+        }
+        public GameplayHudQueryRead<GameplayPlayerHudReadModel> ReadWithRevision()
+        {
+            var window = _admissionPolicy?.ProbeWindowGeneration() ?? 0;
+            var value = ReadChance(out var chance);
+            var supported = TryGetRevision(out var after);
+            var stable = window == (_admissionPolicy?.ProbeWindowGeneration() ?? 0) && chance == after.ChanceRevision;
+            return new GameplayHudQueryRead<GameplayPlayerHudReadModel>(value, after, supported && stable);
         }
 
         public GameplayPlayerHudReadModel Read()

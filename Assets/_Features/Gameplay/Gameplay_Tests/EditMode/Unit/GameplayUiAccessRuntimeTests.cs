@@ -10,6 +10,8 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Contracts;
+using UnityEngine.TestTools;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
@@ -18,6 +20,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayUiAccessRuntimeTests
     {
+        [TestCase(false, false, 1)]
+        [TestCase(false, false, 2)]
+        [TestCase(false, false, 3)]
+        [TestCase(false, true, 3)]
+        [TestCase(true, false, 1)]
+        [TestCase(true, false, 2)]
+        [TestCase(true, false, 3)]
+        [TestCase(true, true, 3)]
+        [Category("Extended")]
+        public void HudRevisionProbe_PreservesLiveLagInvariantAcrossPauseAndTerminal(bool surface, bool terminal, int lag)
+        {
+            var go = new GameObject("hud-revision-lag");
+            try
+            {
+                var host = go.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                }, campaignChancesReadSource: new FixedChancesReadSource()));
+                if (terminal) host.InputHost.EnterTerminalHold();
+                else host.UiAccess.PauseService.Pause();
+                var query = surface ? (IGameplayHudRevisionProbe)host.UiAccess.QueryFacade.SurfaceButtonRemainders :
+                    (IGameplayHudRevisionProbe)host.UiAccess.QueryFacade.PlayerHud;
+                query.TryGetRevision(out var before);
+                typeof(TickRunner).GetProperty(nameof(TickRunner.NextTickIndex)).SetValue(host.TickRunner, lag);
+                Assert.That(host.UiAccess.QueryFacade.Session.Read().CanAcceptGameplayCommands, Is.False);
+                if (lag > 2)
+                {
+                    for (var i = 0; i < (surface ? 1 : 2); i++)
+                        LogAssert.Expect(LogType.Assert, new System.Text.RegularExpressions.Regex("lag exceeded the current host pre-refresh allowance"));
+                }
+                query.TryGetRevision(out var after);
+                Assert.That(after, Is.EqualTo(before), "Live lag is checked even when the committed window did not change.");
+                typeof(TickRunner).GetProperty(nameof(TickRunner.NextTickIndex)).SetValue(host.TickRunner, 1);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); }
+        }
+
         [TestCase(false, false)]
         [TestCase(false, true)]
         [TestCase(true, false)]

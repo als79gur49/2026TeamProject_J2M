@@ -41,6 +41,13 @@ namespace Game.Feature.UI.Application
         private long _preparedChanceRevision = -1;
         private GameplayPlayerHudReadModel _preparedPlayerHud;
         private bool _isFlushingChance, _isDisposed;
+        private HudQueryCache<GameplayStageReadModel> _stageReads;
+        private HudQueryCache<GameplayObjectiveReadModel> _objectiveReads;
+        private HudQueryCache<GameplayPlayerHudReadModel> _playerReads;
+        private HudQueryCache<IReadOnlyList<GameplaySurfaceButtonRemainderReadModel>> _surfaceReads;
+        private long _uncachedChanceRevision = -1;
+        private GameplayHudQueryStamp _preparedHudStamp;
+        private bool _hasPreparedHudStamp;
 
         public GameplayUiPresentationSource(
             IGameplayQueryFacade queryFacade,
@@ -87,6 +94,7 @@ namespace Game.Feature.UI.Application
         public void Dispose()
         {
             _isDisposed = true;
+            InvalidateHudQueries();
             _preparedChanceRevision = -1;
             _presentationFeed.FramePublished -= HandleFramePublished;
             _presentationFeed.StateChanged -= HandlePresentationStateChanged;
@@ -109,6 +117,9 @@ namespace Game.Feature.UI.Application
             try
             {
                 var player = ReadPlayerHudForRefresh(out attempted, force: true);
+                _hasPreparedHudStamp = _playerReads?.Query is IGameplayHudRevisionProbe;
+                if (_playerReads?.Query is IGameplayHudRevisionProbe preparedProbe)
+                    preparedProbe.TryGetRevision(out _preparedHudStamp);
                 if (_chanceChanges.IsChanceDisplayUpdating) return;
                 var chance = new UIChanceSlice(player.HasRemainingChances, player.RemainingChances,
                     player.MaxChances, player.ChanceAudioPolicy);
@@ -131,44 +142,97 @@ namespace Game.Feature.UI.Application
             }
         }
 
+        public void InvalidateHudQueries()
+        {
+            _stageReads?.Invalidate();
+            _objectiveReads?.Invalidate();
+            _playerReads?.Invalidate();
+            _surfaceReads?.Invalidate();
+        }
+
         private GameplayStageReadModel ReadStageForRefresh()
         {
+            var query = _queryFacade.Stage;
+            if (_stageReads == null || !ReferenceEquals(_stageReads.Query, query))
+            {
+                _stageReads = new HudQueryCache<GameplayStageReadModel>(query, query.Read);
 #if VECTORQUAKE_CAPTURE_BUILD
-            using var capture = UiCallbackCapture.Measure(UiCallbackSection.QueryStage);
+                _stageReads.CaptureSection = UiCallbackSection.QueryStage;
 #endif
-            return _queryFacade.Stage.Read();
+            }
+            return _stageReads.Read().Value;
         }
         private GameplayObjectiveReadModel ReadObjectiveForRefresh()
         {
+            var query = _queryFacade.Objectives;
+            if (_objectiveReads == null || !ReferenceEquals(_objectiveReads.Query, query))
+            {
+                _objectiveReads = new HudQueryCache<GameplayObjectiveReadModel>(query, query.Read);
 #if VECTORQUAKE_CAPTURE_BUILD
-            using var capture = UiCallbackCapture.Measure(UiCallbackSection.QueryObjectives);
+                _objectiveReads.CaptureSection = UiCallbackSection.QueryObjectives;
 #endif
-            return _queryFacade.Objectives.Read();
+            }
+            return _objectiveReads.Read().Value;
         }
         private IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> ReadSurfaceForRefresh()
         {
+            var query = _queryFacade.SurfaceButtonRemainders;
+            if (_surfaceReads == null || !ReferenceEquals(_surfaceReads.Query, query))
+            {
+                _surfaceReads = new HudQueryCache<IReadOnlyList<GameplaySurfaceButtonRemainderReadModel>>(query, query.Read);
 #if VECTORQUAKE_CAPTURE_BUILD
-            using var capture = UiCallbackCapture.Measure(UiCallbackSection.QuerySurfaceButtonRemainders);
+                _surfaceReads.CaptureSection = UiCallbackSection.QuerySurfaceButtonRemainders;
 #endif
-            return _queryFacade.SurfaceButtonRemainders.Read();
+            }
+            return _surfaceReads.Read().Value;
+        }
+        private GameplayPlayerHudReadModel ReadUncachedPlayerHud(IGameplayPlayerHudQuery query)
+        {
+            if (query is IGameplayHudChanceChanges changes && changes.TryGetChanceRevision(out _))
+            {
+                var attempted = -1L;
+                try { return changes.ReadChance(out attempted); }
+                finally { _uncachedChanceRevision = attempted; }
+            }
+            return query.Read();
         }
         private GameplayPlayerHudReadModel ReadPlayerHudForRefresh(out long revision, bool force = false)
         {
             revision = -1;
-            var query = _queryFacade.PlayerHud;
-            _chanceChanges = query as IGameplayHudChanceChanges;
-            if (!force && _preparedChanceRevision >= 0 && _chanceChanges != null &&
-                _chanceChanges.TryGetChanceRevision(out var current) && current == _preparedChanceRevision)
+            var playerQuery = _queryFacade.PlayerHud;
+            _chanceChanges = playerQuery as IGameplayHudChanceChanges;
+            if (_playerReads == null || !ReferenceEquals(_playerReads.Query, playerQuery))
             {
-                revision = current;
-                return _preparedPlayerHud;
-            }
+                _playerReads = new HudQueryCache<GameplayPlayerHudReadModel>(playerQuery, () => ReadUncachedPlayerHud(playerQuery));
 #if VECTORQUAKE_CAPTURE_BUILD
-            using var capture = UiCallbackCapture.Measure(UiCallbackSection.QueryPlayerHud);
+                _playerReads.CaptureSection = UiCallbackSection.QueryPlayerHud;
 #endif
-            if (_chanceChanges != null && _chanceChanges.TryGetChanceRevision(out revision))
-                return _chanceChanges.ReadChance(out revision);
-            return query.Read();
+            }
+            if (!force && _preparedChanceRevision >= 0 && _chanceChanges != null &&
+                _chanceChanges.TryGetChanceRevision(out var current) && _preparedChanceRevision == current)
+            {
+                var sameWindow = true;
+                if (_hasPreparedHudStamp && playerQuery is IGameplayHudRevisionProbe probe)
+                {
+                    probe.TryGetRevision(out var now);
+                    sameWindow = now.Equals(_preparedHudStamp);
+                }
+                if (sameWindow) { revision = current; return _preparedPlayerHud; }
+            }
+            _uncachedChanceRevision = -1;
+            try
+            {
+                var read = _playerReads.Read(force);
+                revision = read.CanReuse ? read.Stamp.ChanceRevision : _uncachedChanceRevision;
+                return read.Value;
+            }
+            catch
+            {
+                if (_uncachedChanceRevision < 0 && playerQuery is IGameplayHudRevisionedQuery<GameplayPlayerHudReadModel>)
+                    _chanceChanges?.TryGetChanceRevision(out _uncachedChanceRevision);
+                throw;
+            }
+            finally { if (revision < 0) revision = _uncachedChanceRevision; }
         }
 
         public void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked)
