@@ -65,6 +65,42 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ProductionScenes_ReferenceCanonicalComicSequenceOverlayPrefab()
+        {
+            var expectedPrefab =
+                UiTestPrefabAssetUtility.LoadComicSequenceOverlayPrefab();
+
+            try
+            {
+                foreach (var scenePath in ProductionScenePaths)
+                {
+                    var scene = EditorSceneManager.OpenScene(
+                        scenePath,
+                        OpenSceneMode.Single);
+                    var installer = FindSceneComponents(scene)
+                        .Single(component =>
+                            component is MainMenuUiFlowInstaller ||
+                            component is GameplayUiFlowInstaller);
+                    var serializedInstaller = new SerializedObject(installer);
+                    var prefabProperty = serializedInstaller.FindProperty(
+                        "_comicSequenceOverlayPrefab");
+
+                    Assert.That(prefabProperty, Is.Not.Null, scenePath);
+                    Assert.That(
+                        prefabProperty.objectReferenceValue,
+                        Is.SameAs(expectedPrefab),
+                        scenePath);
+                }
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(
+                    NewSceneSetup.EmptyScene,
+                    NewSceneMode.Single);
+            }
+        }
+
+        [Test]
         public void AuthoredUiTree_IsAbsentFromProductionScenes()
         {
             foreach (var scenePath in ProductionScenePaths)

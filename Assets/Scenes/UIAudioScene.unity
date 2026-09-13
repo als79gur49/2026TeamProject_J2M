@@ -866,6 +866,7 @@ MonoBehaviour:
   _uiAudioCueMap: {fileID: 11400000, guid: f22f968bc51249c19c72dc545d349f23, type: 2}
   _routeConfig: {fileID: 11400000, guid: 610a3d54d20a4aad80ceecaee720675b, type: 2}
   _outroComicSequence: {fileID: 11400000, guid: a4c8e2f1d7634b55a3f0e6c91b72d001, type: 2}
+  _comicSequenceOverlayPrefab: {fileID: 1140000000000000002, guid: 9d3f1c6a7b8e4f52a0c1d2e3f4a5b607, type: 3}
   _demoStageControlSettings:
     Enabled: 1
     OpenKey: 0
