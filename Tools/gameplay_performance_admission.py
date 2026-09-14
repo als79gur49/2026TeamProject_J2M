@@ -31,6 +31,9 @@ REJECTED_RUNTIME = "REJECTED_RUNTIME"
 EXPECTED_PHASES = ("render-idle", "gameplay-neutral-tick")
 
 
+ADMISSION_POLICIES = ("strict-v1", "cpu-tick-v1")
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -122,6 +125,7 @@ def build_metrics_report(
     expected_warmup_frames: int,
     expected_sample_frames: int,
     expected_tick_interval: int,
+    admission_policy: str = "strict-v1",
 ) -> dict[str, Any]:
     verdict, issues = validate_metrics(
         metrics,
@@ -131,6 +135,7 @@ def build_metrics_report(
         expected_warmup_frames=expected_warmup_frames,
         expected_sample_frames=expected_sample_frames,
         expected_tick_interval=expected_tick_interval,
+        admission_policy=admission_policy,
     )
     if metrics.get("schemaVersion") != 2 or metrics.get("evidenceContractVersion") != 4:
         verdict = REJECTED_IDENTITY
@@ -150,7 +155,7 @@ def build_metrics_report(
         )
         for issue in issues
     ]
-    return {
+    report = {
         "schemaVersion": 2,
         "evidenceContractVersion": 4,
         "verdict": verdict,
@@ -163,6 +168,22 @@ def build_metrics_report(
         "inputHashes": {"metricsSha256": metrics_sha256},
     }
 
+    if admission_policy == "cpu-tick-v1":
+        coverage = {}
+        phases = metrics.get("phases")
+        for phase in phases if isinstance(phases, list) else []:
+            if not isinstance(phase, dict):
+                continue
+            count = phase.get("validGpuSamples")
+            state = "invalid"
+            if type(count) is int and 0 <= count <= expected_sample_frames:
+                state = "complete" if count == expected_sample_frames else "unavailable" if count == 0 else "partial"
+            name = phase.get("phase")
+            if isinstance(name, str):
+                coverage[name] = {"status": state, "validSamples": count, "expectedSamples": expected_sample_frames}
+        report.update(admissionPolicy=admission_policy, primaryVerdict=verdict, gpuCoverage=coverage)
+    return report
+
 
 def validate_metrics(
     metrics: dict[str, Any],
@@ -173,8 +194,12 @@ def validate_metrics(
     expected_warmup_frames: int,
     expected_sample_frames: int,
     expected_tick_interval: int,
+    admission_policy: str = "strict-v1",
 ) -> tuple[str, list[Any]]:
     """Validate the phase-local metrics contract in deterministic verdict order."""
+
+    if admission_policy not in ADMISSION_POLICIES:
+        raise ValueError(f"Unknown admission policy: {admission_policy}")
 
     runtime_issues: list[str] = []
     revision_issues: list[str] = []
@@ -334,13 +359,20 @@ def validate_metrics(
     if isinstance(phases_value, list) and set(phase_by_name) == set(EXPECTED_PHASES) and len(phases_value) == 2:
         for phase_name in EXPECTED_PHASES:
             phase_value = phase_by_name[phase_name]
-            for key in ("sampleCount", "validCpuMainSamples", "validGpuSamples"):
+            required_counts = ("sampleCount", "validCpuMainSamples")
+            if admission_policy == "strict-v1":
+                required_counts += ("validGpuSamples",)
+            for key in required_counts:
                 actual_count = phase_value.get(key)
                 if (type(actual_count) is not int if is_v4 else False) or actual_count != expected_sample_frames:
                     sample_issues.append(
                         f"{phase_name}.{key} expected {expected_sample_frames}, "
                         f"observed {actual_count!r}"
                     )
+            if admission_policy == "cpu-tick-v1":
+                gpu_count = phase_value.get("validGpuSamples")
+                if type(gpu_count) is not int or not 0 <= gpu_count <= expected_sample_frames:
+                    sample_issues.append(f"NUMERIC_DOMAIN_INVALID: {phase_name}.validGpuSamples={gpu_count!r}")
             if is_v4:
                 for key in ("validCpuRenderSamples",):
                     count = phase_value.get(key)
@@ -380,7 +412,12 @@ def validate_metrics(
                     issue = _summary_issue(
                         phase_value.get(summary_name),
                         expected_count=summary_count if type(summary_count) is int else -1,
+                        allow_zero_metric=admission_policy == "cpu-tick-v1" and summary_name == "gpuMilliseconds" and summary_count == 0,
                     )
+                    if admission_policy == "cpu-tick-v1" and summary_name == "gpuMilliseconds" and summary_count == 0 and not issue:
+                        summary = phase_value[summary_name]
+                        if any(summary[key] != 0 for key in ("median", "p95", "p99", "maximum")):
+                            issue = "unavailable GPU summary must contain zero values"
                     if issue:
                         sample_issues.append(f"{phase_name}.{summary_name}: {issue}")
 
@@ -714,6 +751,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     metrics_parser = subparsers.add_parser("metrics", help="validate one metrics JSON")
+    metrics_parser.add_argument("--admission-policy", choices=ADMISSION_POLICIES, default="strict-v1")
     metrics_parser.add_argument("--metrics", required=True, type=Path)
     metrics_parser.add_argument("--planned-revision", required=True)
     metrics_parser.add_argument("--expected-width", required=True, type=int)
@@ -768,6 +806,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_warmup_frames=arguments.expected_warmup_frames,
                 expected_sample_frames=arguments.expected_sample_frames,
                 expected_tick_interval=arguments.expected_tick_interval,
+                admission_policy=arguments.admission_policy,
             )
             verdict = report["verdict"]
         except EvidenceError as error:
@@ -792,11 +831,14 @@ def main(argv: list[str] | None = None) -> int:
             arguments.artifact_manifest,
             metrics.get("captureIdentity") if "metrics" in locals() else None,
             metrics_sha256=metrics_hash,
+            admission_policy=arguments.admission_policy,
         )
         if context_reasons:
             report["verdict"] = REJECTED_IDENTITY
             report["reasons"] = list(report.get("reasons", [])) + context_reasons
             verdict = REJECTED_IDENTITY
+            if "primaryVerdict" in report:
+                report["primaryVerdict"] = verdict
         if arguments.output is not None:
             try:
                 atomic_json(

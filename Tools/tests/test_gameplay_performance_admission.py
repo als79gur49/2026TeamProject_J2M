@@ -292,6 +292,58 @@ class GameplayPerformanceAdmissionTests(unittest.TestCase):
 
         self.assertEqual(original, self.metrics_path.read_bytes())
 
+    def policy_report(self, metrics, policy="cpu-tick-v1"):
+        return ADMISSION.build_metrics_report(
+            metrics, metrics_sha256="a" * 64, validator_path=VALIDATOR_PATH,
+            planned_revision=REVISION, expected_width=1920, expected_height=1080,
+            expected_warmup_frames=120, expected_sample_frames=1200,
+            expected_tick_interval=1, admission_policy=policy,
+        )
+
+    def test_cpu_policy_gpu_coverage_does_not_discard_primary_samples(self):
+        for index in (0, 1):
+            for count, status in ((1200, "complete"), (1199, "partial"), (1197, "partial"), (0, "unavailable")):
+                with self.subTest(phase=index, count=count):
+                    metrics = v4_metrics()
+                    phase_value = metrics["phases"][index]
+                    phase_value["validGpuSamples"] = count
+                    phase_value["gpuMilliseconds"] = distribution(count, 3.5 if count else 0)
+                    before = copy.deepcopy(metrics)
+                    report = self.policy_report(metrics)
+                    self.assertEqual("ADMITTED", report["primaryVerdict"], report["reasons"])
+                    self.assertEqual(status, report["gpuCoverage"][phase_value["phase"]]["status"])
+                    self.assertEqual(before, metrics)
+                    if count != 1200:
+                        self.assertEqual("REJECTED_SAMPLE_COUNT", self.policy_report(metrics, "strict-v1")["verdict"])
+
+    def test_cpu_policy_preserves_mandatory_counts_and_identity(self):
+        for field in ("validCpuMainSamples", "sampleCount", "attemptedTicks", "executedTicks"):
+            metrics = v4_metrics()
+            metrics["phases"][1]["validGpuSamples"] = 1199
+            metrics["phases"][1]["gpuMilliseconds"]["count"] = 1199
+            metrics["phases"][1][field] -= 1
+            self.assertNotEqual("ADMITTED", self.policy_report(metrics)["verdict"], field)
+        for field, value in (("revision", "0" * 40), ("actualResolution", [1, 1])):
+            metrics = v4_metrics(); metrics[field] = value
+            self.assertNotEqual("ADMITTED", self.policy_report(metrics)["verdict"])
+
+    def test_cpu_policy_rejects_malformed_gpu_not_only_missing_coverage(self):
+        for count in (-1, 1201, True, 599.0, "599"):
+            metrics = v4_metrics(); metrics["phases"][1]["validGpuSamples"] = count
+            self.assertNotEqual("ADMITTED", self.policy_report(metrics)["verdict"], count)
+        for key, value in (("count", 1199), ("p95", float("nan")), ("p99", float("inf")), ("maximum", 0)):
+            metrics = v4_metrics(); metrics["phases"][1]["gpuMilliseconds"][key] = value
+            self.assertNotEqual("ADMITTED", self.policy_report(metrics)["verdict"], key)
+        metrics = v4_metrics(); metrics["phases"][1]["validGpuSamples"] = 0
+        metrics["phases"][1]["gpuMilliseconds"] = distribution(0, 3.5)
+        self.assertNotEqual("ADMITTED", self.policy_report(metrics)["verdict"])
+
+    def test_unknown_policy_and_malformed_phases_fail_closed(self):
+        with self.assertRaises(ValueError):
+            self.policy_report(v4_metrics(), "unknown")
+        metrics = v4_metrics(); metrics["phases"] = None
+        self.assertNotEqual("ADMITTED", self.policy_report(metrics)["verdict"])
+
     def test_valid_v4_metrics_are_admitted(self) -> None:
         verdict, reasons = ADMISSION.validate_metrics(
             v4_metrics(),

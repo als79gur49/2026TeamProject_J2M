@@ -244,6 +244,50 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
                 collision_manifest["artifacts"]["cleanupCalibration"]["state"],
             )
 
+    def test_cpu_policy_cli_matches_context_and_preserves_metrics(self):
+        repository_root, script = self._repository_paths()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = self._create_paths(root, "ADMITTED", "READY", policy="cpu-tick-v1")
+            original = paths["metrics"].read_bytes()
+            metrics = json.loads(original)
+            for policy, expected_exit in (("cpu-tick-v1", 0), ("strict-v1", 1)):
+                output = root / (policy + ".json")
+                completed = subprocess.run([
+                    sys.executable, str(paths["performance_validator"]), "metrics",
+                    "--admission-policy", policy, "--metrics", str(paths["metrics"]),
+                    "--planned-revision", metrics["revision"], "--expected-width", "1920",
+                    "--expected-height", "1080", "--expected-warmup-frames", "120",
+                    "--expected-sample-frames", "1200", "--expected-tick-interval", "1",
+                    "--preflight-manifest", str(paths["preflight_manifest"]),
+                    "--artifact-manifest", str(paths["artifact_manifest"]), "--output", str(output),
+                ], cwd=repository_root, capture_output=True, text=True)
+                self.assertEqual(expected_exit, completed.returncode, completed.stderr)
+                report = json.loads(output.read_text())
+                if policy == "cpu-tick-v1":
+                    self.assertEqual("ADMITTED", report["primaryVerdict"])
+                    self.assertEqual("partial", report["gpuCoverage"]["gameplay-neutral-tick"]["status"])
+                else:
+                    self.assertEqual("REJECTED_IDENTITY", report["verdict"])
+                self.assertEqual(original, paths["metrics"].read_bytes())
+
+    def test_cpu_policy_is_bound_and_canonically_revalidated(self):
+        repository_root, script = self._repository_paths()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = self._create_paths(root, "ADMITTED", "READY", policy="cpu-tick-v1")
+            output = root / "cpu-policy.json"
+            completed = self._run_manifest(repository_root, script, paths, output, 0, 0, 0)
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            result = json.loads(output.read_text())
+            self.assertEqual({"FULL_SCAN_EXPECTATION_UNAPPROVED"}, {r["code"] for r in result["reasons"]})
+            context = paths["artifact_manifest"]
+            context.write_text(context.read_text().replace("PerformanceAdmissionPolicy=cpu-tick-v1", "PerformanceAdmissionPolicy=strict-v1"))
+            output = root / "mixed-policy.json"
+            self._run_manifest(repository_root, script, paths, output, 0, 0, 0)
+            result = json.loads(output.read_text())
+            self.assertIn("IDENTITY_MISMATCH", {r["code"] for r in result["reasons"]})
+
     def test_ready_evidence_is_held_until_full_scan_oracle_is_approved(self) -> None:
         repository_root, script = self._repository_paths()
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -591,7 +635,7 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
 
     @staticmethod
     def _create_paths(
-        root: Path, admission_verdict: str, calibration_status: str
+        root: Path, admission_verdict: str, calibration_status: str, policy: str = "strict-v1"
     ) -> dict[str, Path]:
         paths = {
             "metrics": root / "performance-metrics.json",
@@ -681,6 +725,9 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
             for run in cleanup["captures"][0]["workloads"][0]["runs"]:
                 for key in ("median", "p95", "p99", "maximum"):
                     run["cleanupProcessorMilliseconds"][key] = 0.001
+        if policy == "cpu-tick-v1":
+            metrics["phases"][1]["validGpuSamples"] -= 1
+            metrics["phases"][1]["gpuMilliseconds"]["count"] -= 1
         metrics["cleanupSlice3Calibration"] = cleanup
         paths["metrics"].write_text(json.dumps(metrics) + "\n", encoding="utf-8")
         paths["runtime_log"].write_text("GAMEPLAY_PERFORMANCE:PASS\n", encoding="utf-8")
@@ -707,6 +754,8 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
             "ExpectedWarmupFrames": "120", "ExpectedSampleFrames": "1200",
             "ExpectedTickInterval": "1",
         }
+        if policy == "cpu-tick-v1":
+            kv_identity["PerformanceAdmissionPolicy"] = policy
         paths["preflight_manifest"].write_text(
             "SchemaVersion=2\nEvidenceContractVersion=4\nEvidencePhase=preflight\n" +
             "\n".join(f"{key}={value}" for key, value in kv_identity.items()) +
@@ -717,6 +766,9 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
         captured_identity["PostRestoreHeadSha"] = identity["postRestoreHeadSha"]
         captured_identity["PostRestoreWorktreeSha256"] = identity["postRestoreWorktreeSha256"]
         captured_identity["PlayerArtifactSha256"] = identity["playerArtifactSha256"]
+        if policy == "cpu-tick-v1":
+            kv_identity["PerformanceAdmissionPolicy"] = policy
+            captured_identity["PerformanceAdmissionPolicy"] = policy
         captured_identity["BuildPayloadSHA256"] = identity["buildPayloadSha256"]
         paths["artifact_manifest"].write_text(
             "SchemaVersion=2\nEvidenceContractVersion=4\nEvidencePhase=artifact-captured\n" +
@@ -740,6 +792,7 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
             expected_warmup_frames=120,
             expected_sample_frames=1200,
             expected_tick_interval=1,
+            admission_policy=policy,
         )
         paths["performance_admission"].write_text(json.dumps(performance_report) + "\n", encoding="utf-8")
         cleanup_report = build_admission_report(

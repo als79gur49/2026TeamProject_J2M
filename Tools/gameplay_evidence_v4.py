@@ -421,6 +421,7 @@ def validate_v4_context_pair(
     capture_identity: Any,
     *,
     metrics_sha256: str | None,
+    admission_policy: str | None = None,
 ) -> list[dict[str, Any]]:
     """Validate supplied v4 context as an internal-consistency boundary only."""
 
@@ -459,9 +460,17 @@ def validate_v4_context_pair(
         if values.get("EvidencePhase") != phase:
             issues.append(reason("SEMANTIC_INVARIANT_INVALID", f"{label}.EvidencePhase", phase, values.get("EvidencePhase")))
 
+    policy_keys = {"PerformanceAdmissionPolicy"} if any("PerformanceAdmissionPolicy" in v for v in (preflight, captured)) else set()
+    for label, values in (("preflight", preflight), ("captured", captured)):
+        policy = values.get("PerformanceAdmissionPolicy", "strict-v1")
+        if policy not in ("strict-v1", "cpu-tick-v1") or (admission_policy is not None and policy != admission_policy):
+            issues.append(reason("IDENTITY_MISMATCH", f"{label}.PerformanceAdmissionPolicy", admission_policy or "known policy", policy))
+    if preflight.get("PerformanceAdmissionPolicy") != captured.get("PerformanceAdmissionPolicy"):
+        issues.append(reason("IDENTITY_MISMATCH", "PerformanceAdmissionPolicy", preflight.get("PerformanceAdmissionPolicy"), captured.get("PerformanceAdmissionPolicy")))
+
     for label, values, expected_keys in (
-        ("preflight", preflight, _V4_CONTEXT_PREFLIGHT_KEYS),
-        ("captured", captured, _V4_CONTEXT_CAPTURED_KEYS),
+        ("preflight", preflight, _V4_CONTEXT_PREFLIGHT_KEYS | policy_keys),
+        ("captured", captured, _V4_CONTEXT_CAPTURED_KEYS | policy_keys),
     ):
         for key in sorted(expected_keys - set(values)):
             issues.append(reason("FIELD_MISSING", f"{label}.{key}", "present", None))

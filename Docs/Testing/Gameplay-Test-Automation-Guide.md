@@ -1272,3 +1272,7 @@ WSL CLI
 ### Participant reset Editor session validation
 
 Use `UNITY_EDITMODE_ASYNC=1 UNITY_GRAPHICS=1 ./run_tests.sh full --filter ParticipantEditorSessionTests` for the participant reset `EnterPlayMode`/`ExitPlayMode` lifecycle test. The opt-in switches the EditMode runner to asynchronous execution; the default synchronous lanes exclude yielding Editor tests. Check the XML includes the named test rather than treating zero selected tests as evidence. This test disables Domain Reload, uses fake Steam native callbacks and an in-memory production-cache sentinel, and restores Editor play settings afterwards.
+
+### CPU/Tick-primary performance admission
+
+`GAMEPLAY_PERFORMANCE_ADMISSION_POLICY=cpu-tick-v1 ./run_tests.sh gameplay-performance` selects the explicit CPU/Tick-primary policy. Default `strict-v1` retains exact GPU coverage requirements. CPU-primary records incomplete GPU coverage separately without relaxing CPU/Tick, identity or malformed-data checks. See [CPU/Tick admission policy](./Gameplay-CPU-Tick-Admission-Policy.md) for campaign and evidence rules.

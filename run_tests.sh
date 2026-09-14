@@ -222,6 +222,7 @@ PLAYER_CAPTURE_SAVE_SAFETY_EVIDENCE_ROOT="${PLAYER_CAPTURE_SAVE_SAFETY_EVIDENCE_
 PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT="${PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT:-/mnt/d/J2M/builds/P24/player-capture-save-safety}"
 GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT="${GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT:-/mnt/d/J2M/evidence/gameplay-performance}"
 GAMEPLAY_PERFORMANCE_BUILD_ROOT="${GAMEPLAY_PERFORMANCE_BUILD_ROOT:-/mnt/d/J2M/builds/gameplay-performance}"
+GAMEPLAY_PERFORMANCE_ADMISSION_POLICY="${GAMEPLAY_PERFORMANCE_ADMISSION_POLICY:-strict-v1}"
 GAMEPLAY_PERFORMANCE_WIDTH="${GAMEPLAY_PERFORMANCE_WIDTH:-1920}"
 GAMEPLAY_PERFORMANCE_HEIGHT="${GAMEPLAY_PERFORMANCE_HEIGHT:-1080}"
 GAMEPLAY_PERFORMANCE_WARMUP_FRAMES="${GAMEPLAY_PERFORMANCE_WARMUP_FRAMES:-120}"
@@ -6021,6 +6022,7 @@ try:
         expected_warmup_frames=int(preflight["ExpectedWarmupFrames"]),
         expected_sample_frames=int(preflight["ExpectedSampleFrames"]),
         expected_tick_interval=int(preflight["ExpectedTickInterval"]),
+        admission_policy=preflight.get("PerformanceAdmissionPolicy", "strict-v1"),
     )
     canonical_cleanup = build_admission_report(
         metrics,
@@ -6289,6 +6291,10 @@ run_gameplay_performance() {
     local failure_verdict
     local guard_status=0
     local final_signal_status=0
+    case "$GAMEPLAY_PERFORMANCE_ADMISSION_POLICY" in
+        strict-v1|cpu-tick-v1) ;;
+        *) echo "ERROR: Unknown gameplay performance admission policy."; return 2 ;;
+    esac
     local capture_smoke=0
     local capture_evidence_root="$GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT"
     local capture_build_root="$GAMEPLAY_PERFORMANCE_BUILD_ROOT"
@@ -6487,6 +6493,7 @@ run_gameplay_performance() {
         echo "ExpectedWarmupFrames=$capture_warmup_frames"
         echo "ExpectedSampleFrames=$capture_sample_frames"
         echo "ExpectedTickInterval=$capture_tick_interval"
+        echo "PerformanceAdmissionPolicy=$GAMEPLAY_PERFORMANCE_ADMISSION_POLICY"
         echo "GitStatusShort:"
         git status --short
     } > "$preflight_manifest_path.tmp"
@@ -6742,6 +6749,7 @@ run_gameplay_performance() {
         echo "ExpectedWarmupFrames=$capture_warmup_frames"
         echo "ExpectedSampleFrames=$capture_sample_frames"
         echo "ExpectedTickInterval=$capture_tick_interval"
+        echo "PerformanceAdmissionPolicy=$GAMEPLAY_PERFORMANCE_ADMISSION_POLICY"
         echo "GitStatusShort:"
         git status --short
     } > "$artifact_manifest_path.tmp"
@@ -6755,6 +6763,7 @@ run_gameplay_performance() {
             --expected-warmup-frames "$capture_warmup_frames" \
             --expected-sample-frames "$capture_sample_frames" \
             --expected-tick-interval "$capture_tick_interval" \
+            --admission-policy "$GAMEPLAY_PERFORMANCE_ADMISSION_POLICY" \
             --preflight-manifest "$preflight_manifest_path" \
             --artifact-manifest "$artifact_manifest_path" \
             --output "$performance_admission_report_path"; then
