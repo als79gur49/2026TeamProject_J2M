@@ -14,17 +14,35 @@ namespace Game.Feature.UI.Tests
     public sealed class LocalizationStringGovernanceUnityIntegrationTests
     {
         [Test]
-        public void ProductionShadow_ActualUnityState_PassesGenericValidator()
+        public void ProductionCatalog_ActualUnityRegistrationIsExactlyCataloguedShipReadySet()
         {
-            var catalog = UiLocaleCatalog.CreateProductionShadow();
+            var catalog = UiLocaleCatalog.CreateProduction();
             var snapshot = LocalizationStringGovernanceUnityAdapter.Capture(catalog);
             var report = new LocalizationStringGovernanceValidator().Validate(snapshot);
 
+            Assert.That(snapshot.RegisteredLocaleCodes, Does.Contain("en-US"));
+            Assert.That(snapshot.RegisteredLocaleCodes, Does.Contain("ko-KR"));
+            Assert.That(
+                snapshot.RegisteredLocaleCodes.Where(code =>
+                    !catalog.TryGetEntry(code, out var entry) ||
+                    !string.Equals(entry.CanonicalCode, code, StringComparison.Ordinal) ||
+                    entry.Lifecycle != LocaleLifecycle.ShipReady),
+                Is.Empty,
+                "Every registered Unity Locale must resolve to an exact production ShipReady catalog row.");
             Assert.That(
                 snapshot.RegisteredLocaleCodes.Intersect(
-                    catalog.ShipReadyLocales.Select(locale => locale.CanonicalCode),
+                    catalog.AuthoringKnownLocales
+                        .Where(locale => locale.Lifecycle == LocaleLifecycle.Draft)
+                        .Select(locale => locale.CanonicalCode),
                     StringComparer.Ordinal),
-                Is.EquivalentTo(catalog.ShipReadyLocales.Select(locale => locale.CanonicalCode)));
+                Is.Empty,
+                "Production Unity registration must not contain catalog Draft locales.");
+            Assert.That(
+                snapshot.RegisteredLocaleCodes.Where(code =>
+                    !catalog.TryGetEntry(code, out var entry) ||
+                    !string.Equals(entry.CanonicalCode, code, StringComparison.Ordinal)),
+                Is.Empty,
+                "Production Unity registration must not contain uncatalogued locales.");
             Assert.That(
                 report.Diagnostics,
                 Is.Empty,
@@ -60,7 +78,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void StageProjection_UsesActivePresentationKeysAndExplicitLegacyCompatibilityRequirement()
         {
-            var snapshot = LocalizationStringGovernanceUnityAdapter.Capture(UiLocaleCatalog.CreateProductionShadow());
+            var snapshot = LocalizationStringGovernanceUnityAdapter.Capture(UiLocaleCatalog.CreateProduction());
             var stageRequirements = snapshot.Requirements
                 .Where(requirement => requirement.Table == StageDisplayNameKeys.Table)
                 .ToArray();

@@ -27,7 +27,26 @@ namespace Game.Feature.UI.Composition.Editor
 
             var requirements = UiLocalizationRequirementProjection.Create().ToList();
             requirements.AddRange(CollectStageRequirements());
-            var registeredCodes = LocalizationEditorSettings.GetLocales()
+            var initialization = LocalizationSettings.InitializationOperation;
+            if (!initialization.IsDone)
+            {
+                initialization.WaitForCompletion();
+            }
+
+            if (initialization.Result == null)
+            {
+                throw new InvalidOperationException(
+                    "Unity Localization initialization did not complete for the production registration audit.");
+            }
+
+            var availableLocales = LocalizationSettings.AvailableLocales?.Locales;
+            if (availableLocales == null)
+            {
+                throw new InvalidOperationException(
+                    "Unity Localization AvailableLocales is unavailable for the production registration audit.");
+            }
+
+            var registeredCodes = availableLocales
                 .Where(locale => locale != null)
                 .Select(locale => locale.Identifier.Code)
                 .ToArray();

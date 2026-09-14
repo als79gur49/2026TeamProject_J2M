@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using UnityEngine.Localization;
@@ -14,14 +15,21 @@ namespace Game.Feature.UI.Composition
         public const string KoreanLocaleCode = "ko-KR";
 
         private readonly IUiLocalePreferenceStore _localePreferenceStore;
+        private readonly UiLocaleCatalog _localeCatalog;
         private IReadOnlyList<string> _availableLocaleCodes = Array.Empty<string>();
+        private IReadOnlyDictionary<string, Locale> _registeredLocaleByCode =
+            new Dictionary<string, Locale>(StringComparer.Ordinal);
+        private LocaleSelectionPolicy _selectionPolicy;
         private bool _isDisposed;
         private bool _suppressSelectedLocaleEvent;
         private string _currentLocaleCode = DefaultLocaleCode;
 
-        private UnityStringTableTextResolver(IUiLocalePreferenceStore localePreferenceStore)
+        private UnityStringTableTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore,
+            UiLocaleCatalog localeCatalog)
         {
             _localePreferenceStore = localePreferenceStore;
+            _localeCatalog = localeCatalog ?? throw new ArgumentNullException(nameof(localeCatalog));
         }
 
         public string CurrentLocaleCode => _currentLocaleCode;
@@ -35,6 +43,19 @@ namespace Game.Feature.UI.Composition
             out UnityStringTableTextResolver resolver,
             out string failureReason)
         {
+            return TryCreateSettingsDefault(
+                localePreferenceStore,
+                UiLocaleCatalog.CreateProduction(),
+                out resolver,
+                out failureReason);
+        }
+
+        internal static bool TryCreateSettingsDefault(
+            IUiLocalePreferenceStore localePreferenceStore,
+            UiLocaleCatalog localeCatalog,
+            out UnityStringTableTextResolver resolver,
+            out string failureReason)
+        {
             resolver = null;
             failureReason = string.Empty;
             if (!LocalizationSettings.HasSettings)
@@ -43,7 +64,13 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            var candidate = new UnityStringTableTextResolver(localePreferenceStore);
+            if (localeCatalog == null)
+            {
+                failureReason = "A UI locale catalog is required.";
+                return false;
+            }
+
+            var candidate = new UnityStringTableTextResolver(localePreferenceStore, localeCatalog);
             if (!candidate.TryInitialize(out failureReason))
             {
                 candidate.Dispose();
@@ -67,22 +94,20 @@ namespace Game.Feature.UI.Composition
 
         public bool TrySetLocale(string localeCode)
         {
-            var normalizedLocaleCode = NormalizeLocaleCode(localeCode);
-            if (!TryResolveAvailableLocale(
-                    normalizedLocaleCode,
-                    out var locale,
-                    out var resolvedLocaleCode))
+            var result = _selectionPolicy.EvaluateRequest(localeCode, _currentLocaleCode);
+            if (result.Status == LocaleSelectionStatus.Rejected)
             {
                 return false;
             }
 
-            if (string.Equals(_currentLocaleCode, resolvedLocaleCode, StringComparison.Ordinal))
+            if (result.Status == LocaleSelectionStatus.NoOp)
             {
                 return true;
             }
 
-            SetSelectedLocale(locale, resolvedLocaleCode);
-            _localePreferenceStore?.Save(resolvedLocaleCode);
+            var locale = GetRegisteredLocaleOrThrow(result.CanonicalCode);
+            SetSelectedLocale(locale, result.CanonicalCode, preload: true);
+            _localePreferenceStore?.Save(result.CanonicalCode);
             LocaleChanged?.Invoke();
             return true;
         }
@@ -119,20 +144,45 @@ namespace Game.Feature.UI.Composition
                     return false;
                 }
 
-                if (!TryGetLocale(DefaultLocaleCode, out var defaultLocale) ||
+                if (!TryGetLocale(DefaultLocaleCode, out _) ||
                     !TryGetLocale(KoreanLocaleCode, out _))
                 {
                     failureReason = "Required en-US and ko-KR Locale assets are not available.";
                     return false;
                 }
 
-                _availableLocaleCodes = ResolveAvailableLocaleCodes();
-                var initialLocale = ResolveInitialLocale(
-                    _localePreferenceStore,
-                    defaultLocale,
-                    out var initialLocaleCode);
+                _registeredLocaleByCode = ResolveRegisteredLocales();
+                _selectionPolicy = new LocaleSelectionPolicy(
+                    _localeCatalog,
+                    _registeredLocaleByCode.Keys);
+                if (!_registeredLocaleByCode.ContainsKey(_localeCatalog.DefaultLocaleCode))
+                {
+                    failureReason =
+                        $"The default ShipReady locale '{_localeCatalog.DefaultLocaleCode}' is not registered " +
+                        "in Unity Localization AvailableLocales.";
+                    return false;
+                }
 
-                SetSelectedLocale(initialLocale, initialLocaleCode);
+                _availableLocaleCodes = Array.AsReadOnly(
+                    _selectionPolicy.SelectableLocales
+                        .Select(entry => entry.CanonicalCode)
+                        .ToArray());
+
+                string persistedLocaleCode = null;
+                if (_localePreferenceStore != null &&
+                    _localePreferenceStore.TryLoad(out var loadedLocaleCode))
+                {
+                    persistedLocaleCode = loadedLocaleCode;
+                }
+
+                var selectedLocaleCode = GetCanonicalUnitySelectionCandidate(
+                    LocalizationSettings.SelectedLocale?.Identifier.Code);
+                var initialLocaleCode = _selectionPolicy.ResolveInitialLocale(
+                    persistedLocaleCode,
+                    selectedLocaleCode);
+                var initialLocale = GetRegisteredLocaleOrThrow(initialLocaleCode);
+
+                SetSelectedLocale(initialLocale, initialLocaleCode, preload: true);
                 LocalizationSettings.SelectedLocaleChanged += HandleSelectedLocaleChanged;
 
                 if (!TryResolveFromUnity(
@@ -180,30 +230,26 @@ namespace Game.Feature.UI.Composition
             }
         }
 
-        private void SetSelectedLocale(Locale locale, string localeCode)
+        private void SetSelectedLocale(Locale locale, string localeCode, bool preload)
         {
             _currentLocaleCode = localeCode;
             var selectedLocale = LocalizationSettings.SelectedLocale;
-            if (selectedLocale != null &&
-                (ReferenceEquals(selectedLocale, locale) ||
-                 string.Equals(
-                     selectedLocale.Identifier.Code,
-                     localeCode,
-                     StringComparison.Ordinal)))
+            if (!ReferenceEquals(selectedLocale, locale))
             {
-                PreloadTable(selectedLocale);
-                return;
+                _suppressSelectedLocaleEvent = true;
+                try
+                {
+                    LocalizationSettings.SelectedLocale = locale;
+                }
+                finally
+                {
+                    _suppressSelectedLocaleEvent = false;
+                }
             }
 
-            _suppressSelectedLocaleEvent = true;
-            try
+            if (preload)
             {
-                LocalizationSettings.SelectedLocale = locale;
                 PreloadTable(locale);
-            }
-            finally
-            {
-                _suppressSelectedLocaleEvent = false;
             }
         }
 
@@ -265,109 +311,93 @@ namespace Game.Feature.UI.Composition
 
         private void HandleSelectedLocaleChanged(Locale locale)
         {
-            if (_suppressSelectedLocaleEvent || locale == null)
+            if (_suppressSelectedLocaleEvent)
             {
                 return;
             }
 
-            var localeCode = locale.Identifier.Code;
-            if (!TryResolveAvailableLocale(
-                    localeCode,
-                    out _,
-                    out var resolvedLocaleCode) ||
-                string.Equals(
-                    _currentLocaleCode,
-                    resolvedLocaleCode,
-                    StringComparison.Ordinal))
+            var localeCode = GetCanonicalUnitySelectionCandidate(locale?.Identifier.Code);
+            var result = _selectionPolicy.EvaluateRequest(localeCode, _currentLocaleCode);
+            if (result.Status == LocaleSelectionStatus.Rejected)
+            {
+                RestoreLastApprovedSelectedLocale();
+                return;
+            }
+
+            if (result.Status == LocaleSelectionStatus.NoOp)
             {
                 return;
             }
 
-            _currentLocaleCode = resolvedLocaleCode;
-            PreloadTable(locale);
+            var approvedLocale = GetRegisteredLocaleOrThrow(result.CanonicalCode);
+            SetSelectedLocale(approvedLocale, result.CanonicalCode, preload: true);
             LocaleChanged?.Invoke();
         }
 
-        private static Locale ResolveInitialLocale(
-            IUiLocalePreferenceStore localePreferenceStore,
-            Locale defaultLocale,
-            out string localeCode)
+        private void RestoreLastApprovedSelectedLocale()
         {
-            if (localePreferenceStore != null &&
-                localePreferenceStore.TryLoad(out var persistedLocaleCode) &&
-                !string.IsNullOrWhiteSpace(persistedLocaleCode) &&
-                TryResolveAvailableLocale(
-                    NormalizeLocaleCode(persistedLocaleCode),
-                    out var persistedLocale,
-                    out localeCode))
+            var approvedLocale = GetRegisteredLocaleOrThrow(_currentLocaleCode);
+            if (ReferenceEquals(LocalizationSettings.SelectedLocale, approvedLocale))
             {
-                return persistedLocale;
+                return;
             }
 
-            var selectedLocale = LocalizationSettings.SelectedLocale;
-            if (selectedLocale != null &&
-                TryResolveAvailableLocale(
-                    selectedLocale.Identifier.Code,
-                    out _,
-                    out localeCode))
+            _suppressSelectedLocaleEvent = true;
+            try
             {
-                return selectedLocale;
+                LocalizationSettings.SelectedLocale = approvedLocale;
+            }
+            finally
+            {
+                _suppressSelectedLocaleEvent = false;
+            }
+        }
+
+        private Locale GetRegisteredLocaleOrThrow(string canonicalCode)
+        {
+            if (_registeredLocaleByCode.TryGetValue(canonicalCode, out var locale))
+            {
+                return locale;
             }
 
-            localeCode = DefaultLocaleCode;
-            return defaultLocale;
+            throw new InvalidOperationException(
+                $"Approved locale '{canonicalCode}' does not resolve to a registered Unity Locale.");
         }
 
-        private static string NormalizeLocaleCode(string localeCode)
+        private string GetCanonicalUnitySelectionCandidate(string localeCode)
         {
-            return string.IsNullOrWhiteSpace(localeCode)
-                ? DefaultLocaleCode
-                : localeCode;
-        }
-
-        private static bool TryResolveAvailableLocale(
-            string localeCode,
-            out Locale locale,
-            out string resolvedLocaleCode)
-        {
-            locale = null;
-            resolvedLocaleCode = string.Empty;
             if (string.IsNullOrWhiteSpace(localeCode) ||
-                !TryGetLocale(localeCode, out locale))
+                !_registeredLocaleByCode.ContainsKey(localeCode) ||
+                !_localeCatalog.TryGetEntry(localeCode, out var entry) ||
+                !string.Equals(entry.CanonicalCode, localeCode, StringComparison.Ordinal))
             {
-                return false;
+                return null;
             }
 
-            resolvedLocaleCode = locale.Identifier.Code;
-            return string.Equals(
-                resolvedLocaleCode,
-                localeCode,
-                StringComparison.Ordinal);
+            return localeCode;
         }
 
-        private static IReadOnlyList<string> ResolveAvailableLocaleCodes()
+        private static IReadOnlyDictionary<string, Locale> ResolveRegisteredLocales()
         {
-            var codes = new List<string>();
+            var localesByCode = new Dictionary<string, Locale>(StringComparer.Ordinal);
             var locales = LocalizationSettings.AvailableLocales?.Locales;
             if (locales == null)
             {
-                return codes.AsReadOnly();
+                return localesByCode;
             }
 
             for (var i = 0; i < locales.Count; i++)
             {
                 var locale = locales[i];
-                if (locale != null &&
-                    TryResolveAvailableLocale(
-                        locale.Identifier.Code,
-                        out _,
-                        out var resolvedLocaleCode))
+                var localeCode = locale?.Identifier.Code;
+                if (!string.IsNullOrWhiteSpace(localeCode) &&
+                    !localesByCode.ContainsKey(localeCode))
                 {
-                    codes.Add(resolvedLocaleCode);
+                    localesByCode.Add(localeCode, locale);
                 }
             }
 
-            return codes.AsReadOnly();
+            return localesByCode;
         }
     }
 }

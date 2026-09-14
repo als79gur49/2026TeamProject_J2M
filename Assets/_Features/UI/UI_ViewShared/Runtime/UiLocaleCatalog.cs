@@ -148,7 +148,7 @@ namespace Game.Feature.UI.ViewShared
 
         public IReadOnlyList<LocaleCatalogEntry> ShipReadyLocales => _shipReadyLocales;
 
-        public static UiLocaleCatalog CreateProductionShadow()
+        public static UiLocaleCatalog CreateProduction()
         {
             return new UiLocaleCatalog(
                 new[]

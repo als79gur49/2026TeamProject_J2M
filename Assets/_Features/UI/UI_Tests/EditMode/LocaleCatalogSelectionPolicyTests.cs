@@ -26,7 +26,7 @@ namespace Game.Feature.UI.Tests
         {
             var policy = new LocaleSelectionPolicy(
                 CreateSyntheticCatalog(),
-                new[] { "loc-C", "loc-B", "external-locale", "loc-A" });
+                new[] { "loc-C", "loc-B", "external-locale", "loc-A", "loc-C" });
 
             Assert.That(
                 policy.RegisteredLocaleCodes,
@@ -77,6 +77,28 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SelectionPolicy_DraftPersistedAndSelectedCandidatesFallThroughToRegisteredDefault()
+        {
+            var policy = CreateSyntheticPolicy();
+
+            Assert.That(policy.ResolveInitialLocale("loc-B", "loc-B"), Is.EqualTo("loc-A"));
+            Assert.That(policy.ResolveInitialLocale("loc-B", "loc-C"), Is.EqualTo("loc-C"));
+        }
+
+        [Test]
+        public void SelectionPolicy_MissingRegisteredDefaultFailsDeterministically()
+        {
+            var policy = new LocaleSelectionPolicy(
+                CreateSyntheticCatalog(),
+                new[] { "loc-B", "loc-C" });
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                policy.ResolveInitialLocale("loc-B", "missing"));
+            Assert.That(exception.Message, Does.Contain("default ShipReady locale"));
+            Assert.That(exception.Message, Does.Contain("not registered"));
+        }
+
+        [Test]
         public void SelectionPolicy_CanonicalizesExplicitAliasAndReportsSameLocaleNoOp()
         {
             var policy = CreateSyntheticPolicy();
@@ -91,9 +113,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ProductionShadowCatalog_PreservesCurrentRowsWithoutChangingProductionSelection()
+        public void ProductionCatalog_PreservesCurrentShipReadyRows()
         {
-            var catalog = UiLocaleCatalog.CreateProductionShadow();
+            var catalog = UiLocaleCatalog.CreateProduction();
 
             Assert.That(catalog.DefaultLocaleCode, Is.EqualTo("en-US"));
             Assert.That(catalog.EmergencyFallbackLocaleCode, Is.EqualTo("en-US"));
