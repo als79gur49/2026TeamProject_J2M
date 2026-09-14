@@ -4,6 +4,78 @@ using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Screens
 {
+    public enum MainMenuCommandId
+    {
+        None = 0,
+        Start = 1,
+        Settings = 2,
+        Quit = 3,
+        PrepareParticipant = 4,
+    }
+
+    public enum MainMenuLogoFocusSource
+    {
+        None = 0,
+        Pointer = 1,
+        Navigation = 2,
+    }
+
+    public enum MainMenuLogoImpactKind
+    {
+        Start = 0,
+        Settings = 1,
+        Quit = 2,
+        PrepareParticipant = 3,
+        StageLaunch = 4,
+    }
+
+    public readonly struct MainMenuLogoFocus : IEquatable<MainMenuLogoFocus>
+    {
+        public static readonly MainMenuLogoFocus None = new(
+            MainMenuCommandId.None,
+            MainMenuLogoFocusSource.None);
+
+        public MainMenuLogoFocus(MainMenuCommandId commandId, MainMenuLogoFocusSource source)
+        {
+            CommandId = commandId;
+            Source = source;
+        }
+
+        public MainMenuCommandId CommandId { get; }
+
+        public MainMenuLogoFocusSource Source { get; }
+
+        public bool HasFocus => CommandId != MainMenuCommandId.None && Source != MainMenuLogoFocusSource.None;
+
+        public bool Equals(MainMenuLogoFocus other)
+        {
+            return CommandId == other.CommandId && Source == other.Source;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is MainMenuLogoFocus other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine((int)CommandId, (int)Source);
+        }
+    }
+
+    public readonly struct MainMenuCommandFocusChanged
+    {
+        public MainMenuCommandFocusChanged(MainMenuLogoFocus previous, MainMenuLogoFocus current)
+        {
+            Previous = previous;
+            Current = current;
+        }
+
+        public MainMenuLogoFocus Previous { get; }
+
+        public MainMenuLogoFocus Current { get; }
+    }
+
     public enum SaveSlotCardState
     {
         Empty = 0,

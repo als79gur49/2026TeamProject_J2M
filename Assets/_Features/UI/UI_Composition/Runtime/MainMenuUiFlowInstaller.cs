@@ -78,6 +78,7 @@ namespace Game.Feature.UI.Composition
         private IMainMenuSettingsPort _settingsPort;
         private IUiAudioPort _uiAudioPort;
         private MainMenuUiAudioFeedbackController _uiAudioFeedbackController;
+        private MainMenuLogoFeedbackController _logoFeedbackController;
         private GameplayUiCanvasRootView _gameplayEntrySourceRoot;
         private TerminalIrisMotionProfileResolver _gameplayEntryMotionResolver;
         private TerminalTransitionPlayback _gameplayEntrySourcePlayback;
@@ -202,6 +203,7 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
+            _logoFeedbackController?.NotifyGameplayLaunchAccepted(token);
             SetGameplayEntryInteractionBlocked(true);
             _gameplayEntrySourcePlayback?.Dispose();
             _gameplayEntrySourcePlayback = candidate;
@@ -289,6 +291,7 @@ namespace Game.Feature.UI.Composition
         private void Update()
         {
             TickMainMenuEntryPresentation(Time.unscaledDeltaTime);
+            _logoFeedbackController?.Tick(Time.unscaledDeltaTime);
             if (!_isInstalled)
             {
                 return;
@@ -342,6 +345,7 @@ namespace Game.Feature.UI.Composition
                 _popupPrefabCatalog.TypographyTheme);
             BuildPopupModule();
             BuildSettingsModule();
+            BuildLogoFeedbackModule();
             BuildAudioFeedbackModule();
             EnsureNavigationInputRouter();
             _mainMenuScreenView.ShowSection(MainMenuSectionId.None);
@@ -697,6 +701,24 @@ namespace Game.Feature.UI.Composition
                 _settingsOverlayController);
         }
 
+        private void BuildLogoFeedbackModule()
+        {
+            var effectView = _mainMenuScreenView.LogoEffectView;
+            if (effectView == null)
+            {
+                throw new InvalidOperationException(
+                    "MainMenuScreen.prefab requires an authored MainMenuLogoEffectView reference.");
+            }
+
+            _logoFeedbackController?.Dispose();
+            _logoFeedbackController = new MainMenuLogoFeedbackController(
+                _mainMenuScreenView,
+                effectView,
+                PopupController,
+                _settingsOverlayController,
+                UnityEngine.Application.isFocused);
+        }
+
         private void BuildCameraPresentationModule()
         {
             _cameraPresentationController?.Attach(_mainMenuScreenView, _settingsOverlayController);
@@ -757,6 +779,8 @@ namespace Game.Feature.UI.Composition
             _gameplayEntrySourcePlayback = null;
             ReportMainMenuEntryFailureIfOwned(
                 "MAIN_MENU_DESTINATION_INSTALLER_DESTROYED: Main Menu installer was destroyed before opening completed.");
+            _logoFeedbackController?.Dispose();
+            _logoFeedbackController = null;
             _uiAudioFeedbackController?.Dispose();
             _uiAudioFeedbackController = null;
             _cameraPresentationController?.Detach();
@@ -1172,6 +1196,13 @@ namespace Game.Feature.UI.Composition
             {
                 _navigationInputRouter?.ClearNavigationFocus();
             }
+
+            _logoFeedbackController?.SetTransitionBlocked(blocked);
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            _logoFeedbackController?.SetApplicationFocused(hasFocus);
         }
 
         private void HandleControllerViewModelChanged(SaveSlotPanelViewModel viewModel)
