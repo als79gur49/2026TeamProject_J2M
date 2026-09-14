@@ -8,10 +8,10 @@
 | Current production locales | `en-US`, `ko-KR` |
 | Approved Draft scope after the en/ko gate | Japanese `ja-JP`, Simplified Chinese `zh-CN` |
 | Out of scope | Traditional Chinese and an ambiguous shared `zh` locale |
-| Runtime implementation | Phase 2 package-free catalog/selection policy and Phase 3 read-only string governance implemented in shadow mode |
+| Runtime implementation | Phase 2 catalog/selection policy, Phase 3 read-only string governance, and Phase 4 production selection-policy wiring are implemented; Phase 5 option-model implementation has not started |
 | Locale/font asset import | Not authorized by this document |
-| Audit basis | Initial repository audit on 2026-09-13; Phase 1-3 source and execution review on 2026-09-14 |
-| Execution progress | Phases 0-3 complete; Phase 4 is the next gated phase |
+| Audit basis | Initial repository audit on 2026-09-13; Phase 1-4 source/execution review and Phase 5 option/autonym/font-boundary review on 2026-09-14 |
+| Execution progress | Phases 0-4 complete; Phase 5 raw-autonym direction is approved and is the next gated implementation phase |
 
 This plan supplements
 [Localization-Typography-Architecture-Direction.md](./Localization-Typography-Architecture-Direction.md)
@@ -538,7 +538,7 @@ Phase 2 execution record (2026-09-14):
 - `LocaleSelectionResult` construction remains assembly-owned so callers cannot
   manufacture impossible status/code combinations outside the policy.
 - Added `en-US` (`English`) and `ko-KR` (`한국어`) ShipReady rows through
-  `CreateProductionShadow()`. No production resolver, `AvailableLocaleCodes`,
+  the catalog factory now named `CreateProduction()`. No production resolver, `AvailableLocaleCodes`,
   Settings UI, preference behavior, Locale asset, String Table, font, or
   Addressables asset was changed.
 - Tests-first focused execution reached Unity compilation and failed as expected
@@ -653,7 +653,7 @@ Phase 3 execution record (2026-09-14):
   empty signature, locale entries, or locale-table map. The added regression
   guard and the refreshed current-structure source passed the focused lane
   `36/36`.
-- `UiLocaleCatalog.CreateProductionShadow()` drove the real adapter without a
+- `UiLocaleCatalog.CreateProduction()` drove the real adapter without a
   second required-locale array. Registered en-US/ko-KR, both real collections,
   all Shared Data keys, active Stage keys, and the retained legacy key produced
   zero diagnostics and zero blocking failures through the same validator.
@@ -695,30 +695,710 @@ a registered Locale.
 Canonical policy: do not register Draft locales in production
 `AvailableLocales` until their promotion change.
 
-Completion gate: package-free tests use a fake installed-locale provider to
+Completion gate: package-free tests supply a fake registered-code snapshot and
 prove a synthetic Draft is not selectable, restorable, or accepted. A separate
 real production-settings asset test proves that the number of registered Draft
 locales is zero; tests do not mutate the real `LocalizationSettings` asset.
 
+#### Phase 4 pre-implementation current-gap audit
+
+Phase 2 already introduced `UiLocaleCatalog`, `LocaleLifecycle`, and the pure
+`LocaleSelectionPolicy` in `UI.ViewShared`. The policy already computes the
+stable-order intersection of catalog `ShipReady` rows and registered canonical
+locale codes, rejects Draft and unknown requests, canonicalizes explicit aliases,
+applies persisted -> selected -> default startup precedence, and fails when the
+default ShipReady locale is not registered.
+
+At Phase 4 entry, the production `UnityStringTableTextResolver` did not yet
+consume that policy. Its pre-Phase-4 implementation:
+
+- exposes every exact code returned by `LocalizationSettings.AvailableLocales`;
+- accepts any exact registered code in `TrySetLocale`;
+- accepts any exact registered persisted or initial selected locale at startup;
+- accepts any exact registered locale received through
+  `SelectedLocaleChanged` after startup;
+- keeps separate hard-coded en/ko availability checks and cross-locale table
+  probes that are compatibility behavior until Phases 7-8.
+
+This meant the pure policy was shadow evidence rather than the production
+selection authority. Phase 4 closed only that wiring gap. It did not remove the
+existing table probes, redesign persistence, or introduce new locale assets.
+
+#### Phase 4 ownership and exact runtime shape
+
+Ownership remains split as follows:
+
+| Concern | Owner | Phase 4 rule |
+|---|---|---|
+| Canonical identity, lifecycle, stable order, alias policy | `UI.ViewShared` `UiLocaleCatalog` | Remains package-free and is the only lifecycle truth |
+| Selection admissibility and startup precedence | `UI.ViewShared` `LocaleSelectionPolicy` | Remains pure; no Unity object or persistence write |
+| Registered Locale enumeration and canonical `Locale` lookup | `UI.Composition` | Adapts Unity objects into canonical code inputs for the pure policy |
+| Applying `LocalizationSettings.SelectedLocale` | `UnityStringTableTextResolver` | Happens only after a policy `Change` or an approved startup result |
+| Saving an explicit successful selection | existing `IUiLocalePreferenceStore` | Saves only the canonical code after the Unity selection is applied |
+| Settings cycling | existing `IUiLocaleSelectionPort` consumer | Temporarily consumes the filtered stable-order code list; Phase 5 replaces this with option data |
+
+`UnityStringTableTextResolver` receives the production catalog from a renamed
+`UiLocaleCatalog.CreateProduction()` factory at its production boundary. Phase 4
+removes the former shadow-factory name and migrates all repository callers;
+the catalog stops being shadow-only when it becomes the runtime selection
+authority. No compatibility alias is retained because this is a repository-local
+source API and leaving both names would preserve an ambiguous ownership seam.
+After Unity Localization initialization, it snapshots exact registered locale
+codes, constructs one `LocaleSelectionPolicy`, and publishes
+`AvailableLocaleCodes` from `policy.SelectableLocales`, preserving catalog
+stable order. It must not publish the raw registration order or include unknown
+or Draft codes.
+
+The resolver keeps a private canonical-code-to-`Locale` lookup for the codes
+admitted by the policy. `Locale`, `LocalizationSettings`, and any package handle
+remain inside `UI.Composition`; neither `UiLocaleCatalog` nor
+`LocaleSelectionPolicy` gains a Unity Localization or Addressables reference.
+Aliases are request/persistence compatibility inputs only. A registered alias
+does not make a locale selectable: the canonical code itself must be registered,
+and any successful alias request is applied and persisted as its canonical code.
+
+The existing `IUiLocaleSelectionPort` shape is intentionally unchanged in this
+phase. Its `AvailableLocaleCodes` name is retained as a compatibility surface,
+but its production meaning becomes "ordered selectable ShipReady codes", not
+"all codes registered in Unity". Phase 5 owns the replacement with ordered
+`LocaleOptionModel` data and catalog-owned autonym metadata.
+
+The public production factory remains parameter-free with respect to catalog
+choice and always uses `CreateProduction()`. One `internal` factory overload may
+accept an explicit `UiLocaleCatalog` for same-assembly/test-fixture composition.
+That seam must still read the real Unity registration and use the same resolver
+implementation; it may not accept a bypass boolean or a second selection
+algorithm. Tests can therefore classify the real registered `ko-KR` Locale as
+Draft in a synthetic catalog, prove that direct/startup/event paths reject it,
+and restore the pre-test selected Locale without adding or removing anything
+from the serialized production `LocalesProvider`.
+
+#### Phase 4 decision matrix
+
+Every production entry path uses the same policy result before changing the
+resolver's current locale, Unity's selected locale, emitting `LocaleChanged`, or
+writing a preference.
+
+| Entry path | Candidate | Result | Required side effects |
+|---|---|---|---|
+| Explicit `TrySetLocale` | registered ShipReady, different from current | `Change` | apply canonical Unity Locale, save canonical code once, emit once |
+| Explicit `TrySetLocale` | registered ShipReady, same as current | `NoOp` | return success; no Unity assignment, save, preload restart, or event |
+| Explicit `TrySetLocale` | Draft, unknown, empty, case mismatch, or canonical code not registered | `Rejected` | return false; no state, save, preload, or event change |
+| Startup preference | registered ShipReady or a valid alias whose canonical code is registered | accepted | wins over Unity's initial selected locale; apply canonical code without rewriting the preference |
+| Startup preference | Draft, unknown, malformed, or unregistered | rejected candidate | try the initial Unity selection next; do not erase or rewrite the stored value in Phase 4 |
+| Initial Unity selection | registered ShipReady | accepted | use as current when no admissible preference exists |
+| Initial Unity selection | Draft, unknown, or unregistered | rejected candidate | select the catalog default instead |
+| Default fallback | registered ShipReady | accepted | establish the only startup fallback |
+| Default fallback | missing or unregistered | fatal initialization failure | resolver creation fails with a deterministic reason; do not choose another locale |
+| Post-start `SelectedLocaleChanged` | registered ShipReady, different from current | `Change` | adopt canonical code and emit once; do not write the preference because the change was externally owned |
+| Post-start `SelectedLocaleChanged` | current ShipReady | `NoOp` | no event, save, or preload restart |
+| Post-start `SelectedLocaleChanged` | Draft, unknown, or unregistered | `Rejected` | restore the last approved current Unity Locale under event suppression; no resolver event or preference write |
+
+The last row is required because filtering the Settings options alone does not
+prevent another Unity startup selector or package consumer from assigning a
+registered Draft after resolver initialization. The restore path uses the same
+event-suppression guard as an approved assignment so it cannot recurse. The
+resolver initialization gate guarantees that the last approved current/default
+Locale is resolvable; failure to restore is a fail-closed invariant violation,
+not permission to adopt the rejected locale.
+
+Locale selection and locale readiness remain different concepts. Phase 4 proves
+that a lifecycle-admissible, registered Locale may be selected. It does not
+claim that its String Tables, FontSet, glyphs, layout, or packed dependencies are
+ready; those remain protected by their own later gates. For the current
+production catalog, only en-US and ko-KR are selectable, so existing rendered
+behavior must remain unchanged.
+
+#### Phase 4 implementation slices
+
+The implementation is one bounded runtime-policy slice with tests-first
+evidence:
+
+1. Rename the shadow factory to `CreateProduction()` and migrate the
+   Phase 2/3 catalog and governance callers. Extend the pure-policy fixture only
+   where the current matrix is not already explicit: missing-default failure,
+   Draft persisted/selected precedence,
+   canonical alias target, registration deduplication, and stable selectable
+   ordering.
+2. Wire one `LocaleSelectionPolicy` into `UnityStringTableTextResolver` after
+   Unity initialization. Replace raw registered-code publication and the private
+   selection checks with policy evaluation; keep Unity object lookup and
+   assignment in Composition. Add only the catalog-injecting internal factory
+   seam needed to exercise the production adapter without serialized mutation.
+3. Add production-adapter coverage for explicit `Change`/`NoOp`/`Rejected`,
+   startup precedence, zero-write startup behavior, canonical preference writes,
+   and rejected external-event restoration.
+4. Add a read-only production-settings contract test that compares actual
+   registered codes with the production catalog and proves that no registered
+   entry resolves to `Draft`. It may read `LocalizationEditorSettings` and the
+   active `LocalesProvider`; it must not add/remove Locales, dirty assets, save,
+   refresh, or call the localization bootstrap tool.
+5. Run the focused policy/Unity-adapter tests first, then the same-revision UI
+   lane. Record focused and UI evidence separately.
+
+Expected primary touch set:
+
+- `Assets/_Features/UI/UI_ViewShared/Runtime/UiLocaleCatalog.cs`
+- `Assets/_Features/UI/UI_Composition/Runtime/UnityStringTableTextResolver.cs`
+- `Assets/_Features/UI/UI_Tests/EditMode/LocaleCatalogSelectionPolicyTests.cs`
+- `Assets/_Features/UI/UI_Tests/EditMode/UnityLocalizationStringTableIntegrationTests.cs`
+- `Assets/_Features/UI/UI_Tests/EditMode/LocalizationStringGovernanceUnityIntegrationTests.cs`
+- this plan and the UI validation baseline only after execution evidence exists
+
+The catalog's selection algorithm is not an automatic rewrite target: the
+current policy already owns the required decisions. Aside from the production
+factory rename, it changes only if a red test proves a missing pure contract. No
+asmdef reference change is expected.
+
+#### Phase 4 validation gates
+
+The focused fixture matrix must prove all of the following on the same source
+state:
+
+- `SelectableLocales` is exactly the catalog-stable-order intersection of
+  ShipReady canonical rows and exact registered canonical codes;
+- a registered Draft is not published, explicitly selectable, accepted from
+  persistence, accepted as the initial Unity selection, or adopted from a later
+  Unity selection event;
+- the catalog-injected adapter tests prove those Draft outcomes using existing
+  in-memory Unity Locale objects while the serialized `LocalesProvider` and
+  Localization Settings asset remain byte-unchanged;
+- an unknown registered Unity locale is never promoted to an application locale;
+- a valid alias resolves only when its canonical code is registered, and the
+  canonical code is the apply/save/event identity;
+- invalid stored data causes no startup write and falls through to approved
+  selected/default precedence;
+- an explicit rejected/no-op request has zero persistence and event side effects;
+- a missing registered default fails resolver initialization with an actionable
+  reason rather than choosing the first registered locale;
+- the real production Localization Settings registration contains en-US and
+  ko-KR, contains zero catalog Draft locales, and contains no uncatalogued code;
+- production code continues to have no package-free runtime fallback, while
+  `UI.ViewShared` remains free of Unity Localization and Addressables imports;
+- the retired shadow-factory name has zero remaining source references after the
+  production-authority rename;
+- existing en-US -> ko-KR -> en-US String Table and typography round trips remain
+  green.
+
+Required commands after implementation:
+
+```text
+./run_tests.sh ui --filter LocaleCatalogSelectionPolicyTests
+./run_tests.sh ui --filter UnityLocalizationStringTableIntegrationTests
+./run_tests.sh ui --filter LocalizationStringGovernanceUnityIntegrationTests
+./run_tests.sh ui
+```
+
+If the runner supports a comma-separated focused filter at execution time, the
+three focused fixtures may be run in one invocation, but the resulting XML must
+contain a non-zero match for every named fixture. `core`, broad `full`, Player,
+performance, memory, font residency, glyph, and visual QA are not Phase 4 gates.
+They must be reported as not run unless separately executed for another stated
+reason.
+
+#### Phase 4 no-touch and rollback boundary
+
+This phase does not:
+
+- add ja-JP, zh-CN, or any Draft Locale/String Table/font asset;
+- change `Localization Settings.asset`, Addressables groups, preload behavior,
+  startup selector ordering, Scene, Prefab, or ScriptableObject content;
+- remove the current en/ko cross-locale String Table probes; Phase 7 owns that
+  removal after the runtime gate is established;
+- convert the Settings language row to arbitrary option data or add third-locale
+  display copy; Phase 5 owns that UI change;
+- consolidate preference cleanup/fallback writes; Phase 6 owns persistence
+  policy unification;
+- introduce committed-locale transition state, FontSets, lease ownership,
+  Addressables loading, or residency claims.
+
+The rollback unit is the resolver-to-policy wiring plus its new tests. Reverting
+it restores the current en/ko-only production behavior but also reopens the
+Draft-selection bypass, so rollback is acceptable only while production assets
+and the production catalog still contain no Draft locale. Asset changes are not
+part of this rollback unit.
+
+Phase 4 is complete only when the runtime adapter consumes the pure policy on
+all four entry paths, the real registration audit is read-only and green, the
+focused fixtures and full UI lane pass on the same revision, and the evidence
+record states the exact non-claims above. Passing the existing Phase 2 pure
+policy tests alone is insufficient because it does not prove production wiring.
+
+Phase 4 execution record (2026-09-14):
+
+- Tests-first compilation failed as intended before production wiring: the new
+  tests reported missing `CreateProduction()` and catalog-injection factory
+  surfaces. The pure-policy fixture subsequently passed `17/17` after the
+  production-authority rename and additional precedence/default/deduplication
+  guards.
+- `UnityStringTableTextResolver` now snapshots the active Unity registered
+  Locales, creates one `LocaleSelectionPolicy`, publishes only the catalog-order
+  selectable ShipReady codes, and keeps canonical-code-to-`Locale` lookup and
+  assignment inside `UI.Composition`. The public factory always uses the
+  production catalog; the sole catalog injection seam is `internal` and uses
+  the same resolver and real Unity registration.
+- Explicit requests, persisted restore, initial Unity selection, and later
+  Unity selection events all pass through the same policy. Explicit `Change`
+  applies Unity selection, saves the canonical preference, and emits once;
+  `NoOp` and `Rejected` have zero save/event/assignment side effects. External
+  approved changes emit once and save zero times. Draft, unknown, malformed,
+  case-mismatched, Unity-origin alias, and unregistered-canonical inputs are
+  rejected; post-start rejection restores the last approved Locale under event
+  suppression. Alias compatibility remains limited to explicit/persisted input
+  and succeeds only when its canonical target is registered.
+- A missing registered catalog default now returns an actionable initialization
+  failure instead of selecting an arbitrary Locale. Invalid persisted data is
+  neither deleted nor rewritten and falls through to approved Unity selection,
+  then the registered default.
+- The read-only production audit waits only for the configured Localization
+  initialization operation, then reads the active `AvailableLocales.Locales`.
+  It proved en-US and ko-KR are registered, every registered code is an exact
+  production ShipReady canonical row, and both the registered/Draft intersection
+  and uncatalogued registered set are empty. It did not add/remove Locales,
+  dirty/save/refresh assets, run the localization bootstrap, or mutate
+  Addressables.
+- Independent read-only architecture and adversarial reviews initially found
+  Unity-origin alias acceptance, null-event bypass, Editor-inventory audit, and
+  exact-canonical audit gaps. All P1 findings were closed with exact canonical
+  Unity-origin adaptation, policy-driven null rejection/restoration, active
+  provider inspection, and regression coverage. Final re-review found no P0/P1
+  findings.
+- Final focused runs passed `LocaleCatalogSelectionPolicyTests 17/17`,
+  `UnityLocalizationStringTableIntegrationTests 50/50`, and
+  `LocalizationStringGovernanceUnityIntegrationTests 7/7`. The final official
+  `./run_tests.sh ui` run passed the Windows UI build and Unity UI EditMode
+  `1445/1445`; both KBO Dia Gothic assets reported `NO_MUTATION`.
+- `git diff --check` and the retired-factory source scan passed. Tracked diffs
+  under `Assets/Localization` and `Assets/AddressableAssetsData` were empty.
+  No Locale, String Table, Localization Settings, Addressables, font, Scene,
+  Prefab, ScriptableObject, or asmdef asset was changed.
+- `core`, broad `full`, Player, performance, memory, glyph, font residency, and
+  visual QA were not run because they are not Phase 4 gates. This evidence is
+  limited to the focused fixtures and UI lane and does not establish a
+  project-wide or full-regression result. Phase 5 was not started.
+
+Phase 4 verdict: `PASS/COMPLETE`.
+
 ### Phase 5 — Convert the Settings locale UI to ordered option data
 
-What is being done:
+#### Phase 5 decision status and user-recovery rationale
 
-- expose ordered locale option snapshots instead of only code strings;
-- migrate Presenter/View logic away from separate English/Korean descriptor
-  fields and ko-KR ternaries;
-- preserve the current en-US -> ko-KR order and English/한국어 display result;
-- remove legacy fields only after all production consumers and fakes use the
-  option model.
+The option identity and display-name direction is approved as:
 
-Trade-off: localized language names require translated option descriptors,
-whereas autonyms require less table data. The display-name policy must be fixed
-before CJK option authoring; Phase 0 selects stable-order autonyms unless UX
-later approves and funds the localized-name matrix.
+```text
+canonical locale code + raw catalog autonym
+```
 
-Completion gate: a synthetic third ShipReady fixture is displayed and cycled
-without Presenter/View source changes, while Draft fixtures remain absent. A
-separate real en/ko integration test preserves the production option result.
+An autonym is the language's name written in that language, for example
+`English`, `한국어`, `日本語`, or `简体中文`. This is a recovery-oriented UX
+decision: if a user accidentally selects a UI language they cannot read, the
+language selector still exposes a name they can recognize when that locale is
+reached. A localized exonym such as `영어` or `Korean` does not provide the same
+language-independent recovery property.
+
+This decision does not claim that the current cycle control shows every locale
+at once. Phase 5 keeps the existing single current-value cycle interaction. A
+user may have to cycle through multiple approved locale changes before reaching
+their language. A simultaneous list or popup would improve direct discovery but
+has a different multi-script font and residency cost and is not authorized by
+this phase.
+
+Phase 5 design review found no P0 issue. Implementation remains unstarted until
+the tests-first slice below is executed. The approved raw-autonym decision closes
+the display-name policy question; it does not close later CJK font, glyph,
+transaction, packing, or residency gates.
+
+#### Phase 5 current-gap audit
+
+Phase 4 now exposes `AvailableLocaleCodes` as the catalog-stable-order
+intersection of exact Unity registration and catalog `ShipReady` rows. That
+selection result is correct but carries no display metadata. The Settings
+consumer still has two-locale storage shape:
+
+- `IUiLocaleSelectionPort` exposes only `IReadOnlyList<string>` codes;
+- `SettingsScreenPayload`, `SettingsDisplayPresenter`, and
+  `SettingsDisplayView` carry separate English and Korean language-name
+  descriptors;
+- both Presenter and View contain their own `ko-KR` branch;
+- the Presenter silently chooses option index zero when its current code is not
+  found in the available list;
+- package-free and test implementations repeat the code-list surface.
+
+The existing unused `LocaleOptionModel` carries a
+`LocalizedTextDescriptor`. That shape is not the Phase 5 authority. Resolving
+that descriptor in the current UI locale produces localized exonyms in some
+cells (`영어`, `Korean`) and would require a translated language-name matrix as
+the locale set grows. It therefore conflicts with the Phase 0 autonym decision
+and must be replaced rather than populated.
+
+The current Presenter index-zero fallback is also not a locale recovery policy.
+Phase 4 guarantees that a production current locale is selectable. If a
+non-empty option snapshot does not contain the current canonical code, silently
+selecting the first option would hide an invariant violation and could cause a
+preference write, `LocaleChanged`, table/font work, and Toggle audio from one
+button press. Phase 5 fails closed instead of inventing that fallback.
+
+#### Phase 5 ownership and exact runtime shape
+
+Ownership is:
+
+| Concern | Owner | Phase 5 rule |
+|---|---|---|
+| Canonical code, autonym, lifecycle, stable order | `UI.ViewShared` `UiLocaleCatalog` | Catalog is the only option metadata truth |
+| Selection admissibility | existing `LocaleSelectionPolicy` | No second Settings filter or policy |
+| Unity registration and projection of selectable rows | `UI.Composition` | Projects existing policy results; exposes no Unity object |
+| Cycle order, current-option match, final display string | `UI.Application` Presenter/ViewModel | Uses canonical options and never interprets a locale-specific branch |
+| Text rendering and typography application | `UI.Screens` View and authored `TypographyBinding` | View renders the ViewModel autonym; style belongs to the control, not the locale option |
+| FontSet/cache/lease/commit readiness | Phases 9-16 owners | Not represented in the option DTO and not implemented here |
+
+The package-free DTO and port target shape is:
+
+```csharp
+public sealed class LocaleOptionModel
+{
+    public LocaleOptionModel(
+        string canonicalCode,
+        string displayNameAutonym);
+
+    public string CanonicalCode { get; }
+
+    public string DisplayNameAutonym { get; }
+}
+
+public interface IUiLocaleSelectionPort
+{
+    string CurrentLocaleCode { get; }
+
+    IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions { get; }
+
+    bool TrySetLocale(string localeCode);
+}
+```
+
+Blank canonical codes and blank autonyms are construction failures; the model
+does not normalize them to empty strings. A validated sealed reference type is
+used deliberately so a default value is `null` rather than an all-blank object
+that bypassed the constructor; every snapshot producer rejects null options. The
+per-option allocation occurs only while the small immutable snapshot is created,
+not while Settings renders or cycles.
+Options contain canonical identities only. Aliases remain explicit
+request/preference compatibility inputs and are never visible option identities.
+The snapshot is an owned array exposed through an immutable wrapper, contains no
+null option or duplicate canonical code, and preserves the order of
+`LocaleSelectionPolicy.SelectableLocales`.
+
+`UnityStringTableTextResolver` projects each selectable catalog entry to its
+canonical code and catalog `DisplayName`. It does not re-enumerate raw Unity
+registration, resolve a language-name String Table key, or add another lifecycle
+filter. The getter returns the precomputed field only. A source/architecture
+guard, rather than a warm-cache observation, proves that the getter and projection
+call graph contain no `Resolve`, `PreloadTable`, or Unity table API call.
+Behavioral tests separately prove zero Unity selection, preference, locale-event,
+and audio mutation. Without a dedicated table-load instrument, Phase 5 claims
+only source-proven "no additional preload call" and does not claim a measured
+preload cardinality.
+
+`AvailableLocaleCodes` and `AvailableLocaleOptions` must not remain as parallel
+production surfaces because two lists can drift in filtering or order. The
+production resolver, package-free resolver, no-op implementation, wrappers, and
+test fakes move to the option surface in one slice, after which the code-list
+member is removed without a compatibility alias.
+
+Phase 5 changes only the package-free option shape of
+`PackageFreeLocalizedTextResolver`. It keeps its existing supported-code set and
+performs an exact lookup of each of those codes in the production catalog to
+obtain autonym metadata; it does not expose every future production ShipReady row
+automatically. Its current selection, startup, and persistence algorithms are
+not redesigned. Phase 6 still owns supported/selectable policy unification and
+the result-bearing persistence contract. Future CJK strings must not be copied
+into the package-free resolver.
+
+#### Phase 5 current cycle-label font contract
+
+The current Settings control displays one value: the autonym of the
+last-approved resolver current locale. It does not render the complete option
+snapshot. Its existing locale-themed `TypographyBinding` owns the
+`SettingsAction` visual role. The normal relationship is therefore:
+
+```text
+en-US current -> English -> current en-US typography path
+ko-KR current -> 한국어 -> current ko-KR typography path
+future ja-JP current -> 日本語 -> current ja-JP typography path
+future zh-CN current -> 简体中文 -> current zh-CN typography path
+```
+
+The option DTO contains no `LocalizedTextDescriptor`, `TypographyStyleTag`,
+Unity `Locale`, TMP font/material object, FontSet identity, Addressables key or
+handle, preload hint, or residency hint. Text identity and typography remain
+separate: the catalog owns the autonym, the Prefab/control owns its style tag,
+the resolver current locale selects the applicable current typography data, and
+the View applies the style. This is not the tokenized application-locale
+`Committed` state introduced in Phase 9.
+
+The former English and Korean language-name descriptors have the same fallback
+semantic role/weight. Once their locale-specific selection branches are removed,
+any non-theme fallback styling for the language control uses one fixed control
+semantic rather than choosing a descriptor by locale identity. The existing
+`LanguageEnglish` and `LanguageKorean` String Table keys and rows are not deleted
+in this phase: their asset/governance cleanup is not required to remove runtime
+consumers and would unnecessarily expand the mutation and rollback unit.
+
+For the present en/ko implementation, the real integration gate preserves the
+font identity round trip on the single language label. A synthetic third-locale
+option proves only the N-locale data path. If no synthetic Theme/FontSet exists,
+the text may otherwise appear while an old font remains applied; that is a
+false-green for font readiness. Phase 5 therefore makes no Japanese/Chinese
+glyph, CJK font, layout, residency, atomic rollback, or mixed-frame claim from
+the synthetic option test.
+
+An approved locale request currently changes Unity locale state before all
+observers reapply typography. Failure-safe atomic locale/font commit is not
+introduced here. Phase 9 separates raw and committed locale state, and Phases
+10-16 own candidate FontSet validation, binding readiness, render barriers,
+packing, leases, rollback, and production cutover.
+
+#### Future simultaneous-option font decision
+
+If UX later requires every autonym to be visible simultaneously, the selected
+locale FontSet alone may not contain every script. That requirement reopens a
+separate decision before the list ships:
+
+| Strategy | Benefit | Cost and risk | Disposition |
+|---|---|---|---|
+| Keep one current autonym | Uses only the resolver-current typography path | Users cannot scan every option directly and may perform several real switches | Phase 5 behavior |
+| Load every locale FontSet and render each row with its target font | Native target-locale form for every autonym | Defeats selected-locale-only residency and adds multi-lease lifetime/rollback complexity | Not recommended |
+| Connect every full locale font through TMP global/general fallback | Simple multi-script lookup | Strong cross-locale references, hidden fallback, material/baseline drift, and lost unloadability | Prohibited direction |
+| Add every autonym glyph to every locale FontSet | Avoids an extra picker loader when sources contain the glyphs | Duplicated atlas data, unsupported scripts, regional-form risk, and weaker locale closure | Not recommended |
+| Localize all language names into the current UI language | One selected FontSet can render the list | Reverses the autonym recovery decision and creates N-by-N copy/review cost | Not selected |
+| Explicit compact autonym-recovery font or per-script chain | Bounded, deterministic corpus without loading every full FontSet | New font/license/subsetting, regional Han form, baseline, accessibility, packing, and measured-residency work | Conditional later candidate |
+| Sprite language names | Font-independent appearance | Scaling, DPI, contrast, accessibility, search/copy, and duplicate alt-text ownership | Not a primary representation |
+| OS/system font fallback | Avoids an authored static asset in some environments | Platform-dependent shapes/availability, dynamic-atlas stalls, and non-deterministic release evidence | Prohibited production dependency |
+
+The conditional recovery-font candidate is not a Phase 5 asset. If a future
+simultaneous picker or selected-FontSet-failure recovery requirement is approved,
+the plan must explicitly define a selector-only `AutonymRecovery` corpus and
+packing/ownership exception. It must not be placed in `UI.ViewShared` or encoded
+in `LocaleOptionModel`. It requires:
+
+- exact glyph closure for every production ShipReady autonym;
+- approved license and subsetting terms;
+- correct Japanese/Simplified-Chinese regional forms rather than assuming one
+  pan-CJK face is typographically neutral;
+- baseline, weight, scale, contrast, and visual/accessibility validation;
+- raw text retained as the authoritative text supplied to any future
+  accessibility bridge even if decorative imagery is present;
+- either an explicit base-Player bootstrap allowlist or a new dedicated picker
+  bundle with a Composition-owned lease; the recovery font, atlas, and material
+  must never enter `UI-Typography-Shared`, a locale bundle, or a locale FontSet's
+  transitive closure;
+- packed Player dependency and residency evidence before any size or memory
+  claim.
+
+If simultaneous display and font-failure recovery are not required, the
+recovery asset is omitted. Avoiding an unnecessary always-resident font remains
+the preferred residency result.
+
+#### Phase 5 behavior matrix
+
+| State or action | Display/cycle result | Required side effects |
+|---|---|---|
+| Zero options through the no-op seam | Empty current-language text; cycle disabled | `TrySetLocale` zero calls; no event, preference, preload, or audio |
+| One option matching current | Its raw autonym is displayed; cycle disabled | `TrySetLocale` zero calls; no event, preference, preload, or audio |
+| Two or more valid options and current matches exactly once | Current autonym displayed; next request follows snapshot order and wraps | Call `TrySetLocale` exactly once with the next canonical code |
+| Non-empty options but current matches zero or multiple entries | ViewModel publishes empty current-language text and disables cycle during Apply/Refresh; `SelectNextLocale` returns false | `TrySetLocale` zero calls; no selection, write, event, preload, or audio |
+| Underlying request rejects | Keep current option text and font | `TrySetLocale` one call; no preference/event/preload/audio effect and no Toggle audio |
+| Underlying request returns true but current does not equal the requested target afterward | Treat as unsuccessful and keep/refresh from the actual current option | No Toggle audio; do not report an approved UI change |
+| Approved user `Change` verified by current matching the requested target | Refresh from the port's new current option after the existing locale event | Existing Phase 4 apply/save/event cardinality; exactly one Toggle audio from the successful UI action |
+| User cycle `NoOp` | Impossible for a valid unique snapshot with two or more options and an exact current match | Tests must not use this unreachable state as ordinary cycle evidence |
+| External approved change | Match and display the new current autonym through the existing locale event | No preference write and no Toggle audio in Phase 5 |
+| External Draft/unknown/null/unregistered event | Phase 4 restores the last approved locale; displayed autonym/font stay on it | No custom locale event, preference write, or Toggle audio |
+
+Production Composition treats a non-empty snapshot/current mismatch as an
+actionable resolver-initialization failure that includes the current code and
+available canonical codes. Presenter behavior remains independently defensive:
+it publishes empty/disabled state and returns false without requiring Unity
+logging or another diagnostic dependency. Before Phase 6 changes its API, tests
+characterize the package-free resolver's public invalid-initial and unrestricted
+`SetLocale` paths as possible producers of this defensive state.
+
+Phase 5 does not add an option-changed event. The existing locale event remains
+the refresh seam. Presenter and View currently both observe localization changes,
+so tests must guard against adding a third refresh route and must count visible
+option/audio effects. Consolidating all raw/committed observers belongs to the
+Phase 9 transition boundary unless a red Phase 5 test proves a narrower defect.
+
+#### Phase 5 implementation slices
+
+1. Tests-first: replace the unused descriptor-based option assumption with
+   canonical/autonym construction and immutable snapshot contracts. Add
+   synthetic stable-order, duplicate, Draft, alias, zero/one/three-option,
+   current-missing, rejected-selection, true-without-target-change, and
+   external-change cases and confirm they fail for the current
+   code-only/en-ko-branch implementation. Duplicate registration and
+   Draft/alias/unknown filtering use synthetic catalog/policy registered-code
+   input and never mutate the real `LocalesProvider`.
+2. Replace `IUiLocaleSelectionPort.AvailableLocaleCodes` with
+   `AvailableLocaleOptions`; migrate the production resolver, package-free
+   resolver, no-op implementation, wrappers, and every fake in one slice.
+   Production projection must use the already filtered
+   `LocaleSelectionPolicy.SelectableLocales` and catalog autonyms.
+3. Migrate `SettingsDisplayPresenter` to exact canonical option matching and
+   ordered cycle/wrap. It publishes only the final current autonym and enabled
+   state to its existing ViewModel and never speculatively advances display
+   state before `TrySetLocale` succeeds. Because the port returns only `bool`, a
+   successful UI action also requires the post-call current code to equal the
+   requested canonical target before Toggle audio is allowed.
+4. Remove the English/Korean language-name fields from
+   `SettingsScreenPayload`, Presenter, and View after all callers have migrated.
+   Remove both `ko-KR` display-name branches. Keep the authored language control
+   and its existing typography binding; do not mutate the Settings Prefab.
+5. Add a real en/ko production round trip for exact option data, display text,
+   font identity, external-change behavior, and side-effect cardinality. Keep
+   synthetic N-locale structure evidence separate from real asset/font evidence.
+6. Run the fixed focused Settings/catalog/Unity/architecture fixtures below,
+   then the full UI lane. Record exact executed counts only after the XML proves
+   every named fixture ran at least once.
+
+Expected primary production touch set:
+
+- `Assets/_Features/UI/UI_ViewShared/Runtime/LocalizedTextDescriptor.cs`
+- `Assets/_Features/UI/UI_Composition/Runtime/UnityStringTableTextResolver.cs`
+- `Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs`
+- `Assets/_Features/UI/UI_Screens/Runtime/ScreenModels.cs`
+- `Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs`
+
+Expected test touch set includes the Settings localization foundation,
+production Settings runtime, Unity Localization integration, and architecture or
+governance fixtures plus every `IUiLocaleSelectionPort` fake/wrapper. No Scene,
+Prefab, ScriptableObject, asmdef, Locale, String Table, font, Localization
+Settings, or Addressables asset change is expected.
+
+#### Phase 5 validation gates
+
+The same-revision evidence must prove:
+
+- production options are exactly `en-US / English`, then
+  `ko-KR / 한국어`;
+- option autonyms are independent of the active UI language: the Korean option
+  remains `한국어` in English UI and the English option remains `English` in
+  Korean UI;
+- a source/architecture guard proves the precomputed option getter/projection has
+  no String Table resolve/preload/table-API call; behavioral counters prove its
+  Unity locale assignment, preference, locale event, and audio mutations are
+  zero without claiming measured preload cardinality;
+- catalog stable order is preserved independently of raw registration order;
+- synthetic catalog/policy registered-code input proves duplicate registration
+  produces one option while Draft, unknown, and aliases are absent, without
+  adding/removing anything from the real `LocalesProvider`;
+- a synthetic third ShipReady option displays and cycles
+  `A -> B -> C -> A` without Presenter/View source changes;
+- zero/one-option and missing-current cases call `TrySetLocale` zero times;
+  an underlying rejection calls it once; all retain current visible state and
+  produce zero write/event/additional-preload/audio effects;
+- a true result whose post-call current code does not match the requested target
+  produces no Toggle audio and is not reported as an approved UI change;
+- an approved user change has the existing Phase 4 apply/save/event cardinality
+  and exactly one UI Toggle audio; an external approved change refreshes the
+  option and real en/ko font with zero preference/audio effects;
+- a Settings harness proves an external rejected/Draft/null event preserves the
+  last-approved visible autonym and exact font object, produces zero Toggle audio
+  and preference write, and restores `LocalizationSettings.SelectedLocale` in
+  teardown without mutating the provider;
+- Presenter, View, and Settings payload contain no English/Korean descriptor
+  selection field or locale-specific language-name branch;
+- the real en-US -> ko-KR -> en-US language label restores exact text and font
+  identity through the existing `SettingsAction` binding;
+- `UI.ViewShared` remains free of Unity Localization, TMP, Addressables, font,
+  material, and handle types;
+- tracked diffs under `Assets/Localization` and `Assets/AddressableAssetsData`
+  remain empty;
+- the final tracked diff matches the Phase 5 code/test/docs allowlist captured at
+  phase entry; baseline-relative scans for `*.prefab`, `*.asset`, `*.mat`,
+  `*.ttf`, `*.otf`, and `*.meta` prove no new asset mutation, including the
+  Settings Prefab, production typography Theme, and governed font paths.
+
+Tests that wrap a real resolver must not synthesize `LocaleChanged` for an
+underlying `NoOp`; such wrappers are unsuitable for cardinality evidence. Use a
+recording option port that distinguishes `Change`, `NoOp`, and `Rejected`
+effects. Poison or source-absence guards must ensure that a synthetic third
+option cannot pass by falling through the old English descriptor branch.
+
+The minimum fixed focused fixtures are
+`LocaleCatalogSelectionPolicyTests`, `SettingsLocalizationFoundationTests`,
+`SettingsProductionLocalizationRuntimeTests`,
+`UnityLocalizationStringTableIntegrationTests`, and `UiArchitectureTests`.
+Add a governance fixture if its source is changed. Required commands are:
+
+```text
+./run_tests.sh ui --filter LocaleCatalogSelectionPolicyTests
+./run_tests.sh ui --filter SettingsLocalizationFoundationTests
+./run_tests.sh ui --filter SettingsProductionLocalizationRuntimeTests
+./run_tests.sh ui --filter UnityLocalizationStringTableIntegrationTests
+./run_tests.sh ui --filter UiArchitectureTests
+./run_tests.sh ui
+```
+
+Every focused XML must contain at least one executed test from its requested
+fixture. A full UI pass does not substitute for a missing focused fixture.
+Missing XML, zero matching tests, or timeout is failure. `core`, broad `full`,
+Player, performance, memory, glyph, font residency, and visual QA are not Phase
+5 gates unless a later scope explicitly adds them.
+
+#### Phase 5 no-touch, claim, and rollback boundary
+
+Phase 5 does not:
+
+- add or promote `ja-JP`, `zh-CN`, or another Locale;
+- add or edit Locale, String Table, font, material, Theme, Addressables, Scene,
+  Prefab, ScriptableObject, or asmdef assets;
+- add a dropdown, popup, simultaneous option list, locale-neutral recovery icon,
+  or other Settings hierarchy/layout change;
+- add a global TMP fallback, cross-locale fallback graph, per-option FontSet,
+  recovery font, glyph atlas, font lease, or residency hint;
+- change selection/persistence algorithms or the preference interface; Phase 6
+  owns that work;
+- remove the retained en/ko cross-locale table probes; Phase 7 owns that work;
+- separate raw and committed locale state, add transition tokens, guarantee
+  atomic font rollback, or consolidate distributed observers; Phase 9 owns that
+  boundary;
+- introduce the FontSet compiler/cache, binding registry/readiness, rendered
+  frame barrier, Addressables loader, lease, packing cutover, or residency
+  evidence owned by Phases 10-17.
+
+The rollback unit is the option DTO/port migration, production projection,
+Settings Presenter/View branch removal, and their tests. The retained
+English/Korean String Table rows and unchanged prefab/theme assets keep the
+current asset rollback independent. Reverting this unit restores the temporary
+Phase 4 code-list consumer but also restores the two-locale UI shape. If Phase 5
+execution updated its execution record, UI baseline, testing guide, or
+current-structure source, those evidence documents are part of the same rollback
+unit and must be returned to a truthful pre-Phase-5 status.
+
+Passing Phase 5 proves a data-driven single-current-option Settings control. It
+does not prove that multiple scripts can be rendered simultaneously, that a
+missing/corrupt selected FontSet has a visible recovery path, that Japanese or
+Chinese glyphs/fonts are ready, that locale/font transition is atomic, that old
+fonts are unloadable, that only one locale is resident, that memory/startup cost
+improved, or that a screen reader announces the autonym with correct
+accessibility focus order. Those claims require their later same-revision asset,
+accessibility, and Player gates.
+
+Phase 5 planning record (2026-09-14): the product rationale approved raw catalog
+autonyms so a user in an accidentally selected language can recognize their own
+language. Independent read-only architecture, data-model/UX, and adversarial
+reviews agreed that the choice is compatible with the current single cycle
+label when it uses the selected locale's existing typography path. They also
+agreed that simultaneous option display would reopen a font/residency decision,
+that global/full-FontSet fallback is not an acceptable shortcut, and that a
+compact selector-only recovery font is only a conditional later candidate with
+explicit packing, license, glyph, regional-form, accessibility, and Player
+evidence. A subsequent adversarial re-review found ambiguous bool-port
+cardinality, missing-current handling, default-struct validity, preload evidence,
+asset-mutation scope, package-free projection, Phase 9 terminology, recovery-font
+packing, accessibility claims, focused fixtures, and rollback evidence. The plan
+was amended to close those documentation gaps before implementation. No Phase 5
+production code, test, asset, commit, or push was performed while recording this
+decision.
 
 ### Phase 6 — Unify persistence and fallback selection policy
 

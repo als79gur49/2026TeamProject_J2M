@@ -154,8 +154,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
             var resultSection = ExtractMarkdownSection(baseline, "## Result");
-            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1435 total / 0 failed`"));
-            Assert.That(resultSection, Does.Contain("result `1435 total / 0 failed`, failed tests `none`, failure category `none`"));
+            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1445 total / 0 failed`"));
+            Assert.That(resultSection, Does.Contain("result `1445 total / 0 failed`, failed tests `none`, failure category `none`"));
             Assert.That(resultSection, Does.Contain("CommandLine-20260726-052954"));
             Assert.That(resultSection, Does.Not.Contain("706 total / 0 failed"), "Current baseline Result section must not retain stale 706 total evidence.");
             Assert.That(baseline, Does.Contain("PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary"));
@@ -311,7 +311,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("`SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths."));
             Assert.That(source, Does.Contain("resolver-only input router initialized through `IUiNavigationTargetResolver`"));
             Assert.That(source, Does.Contain("must not regain `PopupController`, `PopupLayerView`, or `MainMenuScreenView` direct legacy overloads"));
-            Assert.That(source, Does.Contain("shadow-only package-free foundation in `UI.ViewShared`"));
+            Assert.That(source, Does.Contain("package-free `UI.ViewShared` production authority"));
             Assert.That(source, Does.Contain("`UI.Application` requirement projection -> `UI.Composition.Editor` Unity snapshot adapter -> package-free `UI.ViewShared` validator"));
             Assert.That(source, Does.Contain("does not own runtime locale selection, font residency, Addressables loading, or authoritative UI presentation state"));
             Assert.That(source, Does.Contain("Settings tooltip on/off and large text on/off accessibility toggles are removed residue."));
