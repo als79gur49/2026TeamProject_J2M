@@ -1,9 +1,11 @@
 # Gameplay 최적화 통합 작업용 프롬프트
 
+> **후속 검증 안내(2026-09-14):** 아래 본문은 작성 당시 계획·판정을 보존한다. 제품 통합과 후속 측정 도구의 `40a16e613` 반영, 실제 A/B 리비전, CPU 개선 신호와 측정 한계는 [Closeout §4](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md#4-검증과-측정-결과)에 기록했다. 새 bundle 결과로 historical official Cleanup Hold를 해제하지 않는다.
+
 - 작성일: 2026-09-11 KST
-- 상태: **실행용 문서 작성 완료 / 작업 미실행**
+- 상태: **Historical execution prompt — 실행 완료**
 - 기준: [최적화 브랜치 통합 계획](./Gameplay-Optimization-Integration-Plan-2026-09-11.md)
-- 사용 방법: 사용자에게 이 문서의 실행을 요청받으면 아래 작업 지시를 수행한다. 문서 생성·열람·검토만으로 통합을 시작하지 않는다.
+- 후속 상태: 실행 결과는 [Gameplay 최적화 main 통합 Closeout](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md)에 기록됐다. 아래 내용은 당시 실행 경계와 입력 보존을 위한 기록이며 현재 상태에서 그대로 재실행하지 않는다.
 
 ## 작업 지시
 

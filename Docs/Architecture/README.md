@@ -67,9 +67,13 @@
 - [Gameplay-Main-Conflict-Resolution-Direction-2026-09-12.md](./Gameplay-Main-Conflict-Resolution-Direction-2026-09-12.md)
   - main integration contract and execution record for replacement-only Cue restoration, explicit binding metadata, failure recovery and per-lane validation
 - [Gameplay-Optimization-Integration-Plan-2026-09-11.md](./Gameplay-Optimization-Integration-Plan-2026-09-11.md)
-  - reviewed C/D branch integration proposal with pinned revisions, implementation inventory, behavior changes, dirty-work preservation, merge conflicts, and validation criteria; integration and merged-revision validation remain unexecuted
+  - historical C/D branch integration proposal with pinned revisions, implementation inventory, behavior changes, dirty-work preservation, merge conflicts, and validation criteria; current completion state is owned by the 2026-09-14 closeout
 - [Gameplay-Optimization-Integration-Execution-Prompt-2026-09-11.md](./Gameplay-Optimization-Integration-Execution-Prompt-2026-09-11.md)
-  - executable local-integration prompt covering input preservation, ancestry-preserving merge, contract reconciliation, validation, fresh performance evidence, and closeout; runs only when explicitly requested
+  - historical local-integration execution prompt retained for input-preservation and validation rationale; execution is complete and the prompt is not a current entrypoint
+- [Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md)
+  - current source of truth for the selected optimization port, dated `main`/`origin/main` revision, per-revision bounded validation, completed bundle measurements and limitations, Cleanup historical-Hold interpretation, and the 30-day omitted-branch audit
+- [Gameplay-Optimization-Bundle-AB-Plan-2026-09-14.md](./Gameplay-Optimization-Bundle-AB-Plan-2026-09-14.md)
+  - historical pre-execution low-cost `stage-4-3` A/B directional diagnostic for the full 19-commit integration bundle, using the actual-PC highest-object-load, lowest-FPS observation and later Tick evidence as the workload rationale; also documents why `stage-1-1` is continuity-only, when `stage-4-2` becomes a separate fallback, and the original strict decision/non-claim rules; completed CPU-policy campaigns and limitations are recorded in the closeout
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
 - [UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md](./UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md)
@@ -161,9 +165,9 @@ For current Summon production ownership, read the final umbrella closeout first.
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice1-Recovery-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice1-Recovery-Goal-Prompt.md)
   - sub-agent-reviewed execution prompt for admission hardening, focused contract closure, fixed 5-state/15-run recovery measurement, and final retain/reject decisions
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Plan.md)
-  - current tests-first Slice 3 execution gate separating Cleanup attribution, candidate maintenance/snapshot-carriage tax, indexed-executor benefit, semantic/replay parity, and retain/reject rollback decisions; official S3-A capture remains blocked pending the separately approved S3-EV-016 exact full-scan oracle/frozen amendment and all remaining measurement prerequisites
+  - historical tests-first Slice 3 execution gate and evidence-Hold record; candidate index and ordered executor were later ported to current main, while historical official Cleanup evidence remains on Hold; later bundle CPU directional measurements are documented separately in the closeout
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-Reaudit-Remediation-Plan.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-Reaudit-Remediation-Plan.md)
-  - sub-agent closure-reviewed, proposal-level-GO S3-A remediation design for measured reference cardinality, membership/processing vocabulary, clean/same-revision finalization, strict standalone identity, an Evidence Contract v5 exact full-scan oracle, allocation characterization, tests-first evidence, and explicit approval pauses; it does not authorize implementation or official capture
+  - historical proposal-level-GO S3-A evidence remediation design; its Hold remains an evidence verdict and no longer describes the current production Cleanup executor
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Goal-Prompt.md)
   - historical pre-I1 docs-only execution prompt; its terminal closure records that I1 was subsequently approved and bounded A/B/C implementation/validation completed while repository Slice 3 stayed on Hold
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-S3A-F1-B0-Amendment.md)
@@ -175,7 +179,7 @@ For current Summon production ownership, read the final umbrella closeout first.
 - [Tools/contracts/gameplay_cleanup_slice3_e0_characterization_protocol_v1.json](../../Tools/contracts/gameplay_cleanup_slice3_e0_characterization_protocol_v1.json)
   - proposed, diagnostic-only E0-D protocol candidate for allocation liveness and timing falsification; awaiting separate exact approval and incapable of official success transport
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Goal-Prompt.md)
-  - current Slice 3 execution prompt enforcing the S3-EV-016 oracle amendment gate before official S3-A capture, followed by S3-B pre-C and S3-C pre-campaign hard gates, same-revision evidence, terminal status, storage, and rollback rules
+  - historical Slice 3 execution prompt preserving the pre-port S3-EV-016 and official-capture gates; use the 2026-09-14 optimization closeout for current production status
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Post-Amendment-Audit-2026-08-28.md)
   - historical 2026-08-28 post-amendment audit and v4 closure/open-blocker register: its then-known P0/P1 paths were closed, while the 2026-08-29 S3-A re-audit plan records additional unimplemented gaps; S3-EV-016 keeps the repository on Hold and S3-B/S3-C forbidden
 - [Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md](./Gameplay-Wall-Tick-Cost-Optimization-Slice3-Evidence-Remediation-Goal-Prompt.md)

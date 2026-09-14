@@ -1,5 +1,9 @@
 # Gameplay Wall Tick Cost Optimization Plan
 
+> **후속 검증 안내(2026-09-14):** 아래 본문은 작성 당시 계획·판정을 보존한다. 제품 통합과 후속 측정 도구의 `40a16e613` 반영, 실제 A/B 리비전, CPU 개선 신호와 측정 한계는 [Closeout §4](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md#4-검증과-측정-결과)에 기록했다. 새 bundle 결과로 historical official Cleanup Hold를 해제하지 않는다.
+
+> **2026-09-14 후속 상태:** 이 문서의 slice verdict와 조건부 진입 규칙은 2026-08-27 기준 historical 계획이다. Cleanup candidate index/ordered executor, immutable snapshot index 공유, 동일 mutation epoch snapshot 재사용과 static Wall cache의 현재 `main` 반영 상태는 [Gameplay 최적화 main 통합 Closeout](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md)이 소유한다. 당시 official evidence 판정을 소급 변경하지 않는다.
+
 - Status: Slice 1/2 complete; Slice 3 Goal/Prompt hardened, S3-A first and B/C hard-gated; later slices unchanged
 - Audit date: 2026-08-27
 - Audited revision: `25e623a94890f803142990fbeb7c2e11615b2ed0`

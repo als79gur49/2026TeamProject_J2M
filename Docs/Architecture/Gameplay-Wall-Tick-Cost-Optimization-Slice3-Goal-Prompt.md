@@ -1,5 +1,9 @@
 # Gameplay Wall Tick Cost Optimization — Slice 3 Goal Prompt
 
+> **후속 검증 안내(2026-09-14):** 아래 본문은 작성 당시 계획·판정을 보존한다. 제품 통합과 후속 측정 도구의 `40a16e613` 반영, 실제 A/B 리비전, CPU 개선 신호와 측정 한계는 [Closeout §4](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md#4-검증과-측정-결과)에 기록했다. 새 bundle 결과로 historical official Cleanup Hold를 해제하지 않는다.
+
+> **2026-09-14 후속 상태:** 아래 hard gate와 `Hold`는 당시 official measurement workflow의 historical 계약이다. 현재 production Cleanup은 candidate index와 ordered executor를 사용하며, 현재 상태·검증·성능 비주장은 [Gameplay 최적화 main 통합 Closeout](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md)을 따른다. 이 프롬프트를 현재 production 구현 지시로 재실행하지 않는다.
+
 - 문서 역할: Slice 3 실행 순서·hard pause·evidence·terminal-state 계약
 - 현재 실행 상태: `Hold — valid evidence incomplete`
 - S3-B·S3-C: P0/P1 evidence remediation, valid S3-A `PASS`, stage별 pre-entry 조건과 사용자 continuation 승인 전까지 금지
@@ -67,7 +71,7 @@ Commit/push는 사용자가 별도로 승인한 범위에서만 수행한다. Ro
 - Slice 1 `FinalEntities` sharing과 Slice 2 Factory prefilter: recovery closeout 기준 complete;
 - Slice 3 production candidate: 미구현;
 - current Cleanup executor: ordered full scan + survivor copy;
-- current Slice 3 attribution/candidate/strategy diagnostics: 없음;
+- 작성 당시 Slice 3 attribution/candidate/strategy diagnostics: 없음;
 - current performance workload: `stage-1-1` neutral tick만 지원;
 - deterministic candidate-dense/mutation-heavy workload: 없음;
 - current admission/campaign tooling: Slice 1 phase/state shape에 고정;
