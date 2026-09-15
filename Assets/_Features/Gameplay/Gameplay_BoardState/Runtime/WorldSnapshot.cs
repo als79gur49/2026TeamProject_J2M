@@ -212,6 +212,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly CubeTopologyState _topology;
         private readonly int _topologyRevision;
         private EntityState[] _orderedEntitiesCache;
+        private EntityState[] _orderedUnitsCache;
         private TileFeatureState[] _orderedTileFeaturesCache;
 
         internal WorldSnapshot(
@@ -1202,6 +1203,11 @@ namespace Game.Feature.Gameplay.BoardState
             return GetOrBuildOrderedEntitiesCache();
         }
 
+        internal ReadOnlySpan<EntityState> GetOrderedUnitsForRead()
+        {
+            return GetOrBuildOrderedUnitsCache();
+        }
+
         private EntityState[] GetOrBuildOrderedEntitiesCache()
         {
             var orderedEntities = _orderedEntitiesCache;
@@ -1217,6 +1223,23 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return orderedEntities;
+        }
+
+        private EntityState[] GetOrBuildOrderedUnitsCache()
+        {
+            var orderedUnits = _orderedUnitsCache;
+            if (orderedUnits == null)
+            {
+                orderedUnits = BuildOrderedUnitsCache();
+                _orderedUnitsCache = orderedUnits;
+                SnapshotMaterializationDiagnostics.RecordOrderedUnitsCacheMiss(orderedUnits.Length);
+            }
+            else
+            {
+                SnapshotMaterializationDiagnostics.RecordOrderedUnitsCacheHit(orderedUnits.Length);
+            }
+
+            return orderedUnits;
         }
 
         internal bool TryGetUnitBlocker(SurfaceCell cell, out SlideStopper blocker)
@@ -1788,6 +1811,32 @@ namespace Game.Feature.Gameplay.BoardState
 
             Array.Sort(ordered, CompareEntityById);
             SnapshotMaterializationDiagnostics.RecordOrderedEntitiesSort(ordered.Length);
+            return ordered;
+        }
+
+        private EntityState[] BuildOrderedUnitsCache()
+        {
+            var unitCount = 0;
+            foreach (var entity in _entitiesById.Values)
+            {
+                if (entity.type == EntityType.Unit)
+                {
+                    unitCount++;
+                }
+            }
+
+            var ordered = new EntityState[unitCount];
+            var index = 0;
+            foreach (var entity in _entitiesById.Values)
+            {
+                if (entity.type == EntityType.Unit)
+                {
+                    ordered[index++] = entity;
+                }
+            }
+
+            Array.Sort(ordered, CompareEntityById);
+            SnapshotMaterializationDiagnostics.RecordOrderedUnitsSort(ordered.Length);
             return ordered;
         }
 

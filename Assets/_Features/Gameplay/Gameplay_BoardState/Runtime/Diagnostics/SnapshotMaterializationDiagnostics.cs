@@ -145,6 +145,21 @@ namespace Game.Feature.Gameplay.BoardState
             _current?.RecordOrderedEntitiesSort(entityCount);
         }
 
+        internal static void RecordOrderedUnitsCacheHit(int unitCount)
+        {
+            _current?.RecordOrderedUnitsCacheHit(unitCount);
+        }
+
+        internal static void RecordOrderedUnitsCacheMiss(int unitCount)
+        {
+            _current?.RecordOrderedUnitsCacheMiss(unitCount);
+        }
+
+        internal static void RecordOrderedUnitsSort(int unitCount)
+        {
+            _current?.RecordOrderedUnitsSort(unitCount);
+        }
+
         internal static void RecordOrderedTileFeaturesCacheHit(int tileFeatureCount)
         {
             _current?.RecordOrderedTileFeaturesCacheHit(tileFeatureCount);
@@ -208,6 +223,10 @@ namespace Game.Feature.Gameplay.BoardState
             private int _orderedEntitiesCacheMissCount;
             private int _orderedEntitiesSortCount;
             private int _orderedEntitiesEnumeratedCount;
+            private int _orderedUnitsCacheHitCount;
+            private int _orderedUnitsCacheMissCount;
+            private int _orderedUnitsSortCount;
+            private int _orderedUnitsEnumeratedCount;
             private int _orderedTileFeaturesCacheHitCount;
             private int _orderedTileFeaturesCacheMissCount;
             private int _orderedTileFeaturesSortCount;
@@ -257,6 +276,10 @@ namespace Game.Feature.Gameplay.BoardState
                     _orderedEntitiesCacheMissCount,
                     _orderedEntitiesSortCount,
                     _orderedEntitiesEnumeratedCount,
+                    _orderedUnitsCacheHitCount,
+                    _orderedUnitsCacheMissCount,
+                    _orderedUnitsSortCount,
+                    _orderedUnitsEnumeratedCount,
                     _orderedTileFeaturesCacheHitCount,
                     _orderedTileFeaturesCacheMissCount,
                     _orderedTileFeaturesSortCount,
@@ -392,6 +415,23 @@ namespace Game.Feature.Gameplay.BoardState
                 _orderedEntitiesSortCount++;
             }
 
+            public void RecordOrderedUnitsCacheHit(int unitCount)
+            {
+                _orderedUnitsCacheHitCount++;
+                _orderedUnitsEnumeratedCount += unitCount;
+            }
+
+            public void RecordOrderedUnitsCacheMiss(int unitCount)
+            {
+                _orderedUnitsCacheMissCount++;
+                _orderedUnitsEnumeratedCount += unitCount;
+            }
+
+            public void RecordOrderedUnitsSort(int unitCount)
+            {
+                _orderedUnitsSortCount++;
+            }
+
             public void RecordOrderedTileFeaturesCacheHit(int tileFeatureCount)
             {
                 _orderedTileFeaturesCacheHitCount++;
@@ -494,6 +534,10 @@ namespace Game.Feature.Gameplay.BoardState
                 orderedEntitiesCacheMissCount: 0,
                 orderedEntitiesSortCount: 0,
                 orderedEntitiesEnumeratedCount: 0,
+                orderedUnitsCacheHitCount: 0,
+                orderedUnitsCacheMissCount: 0,
+                orderedUnitsSortCount: 0,
+                orderedUnitsEnumeratedCount: 0,
                 orderedTileFeaturesCacheHitCount: 0,
                 orderedTileFeaturesCacheMissCount: 0,
                 orderedTileFeaturesSortCount: 0,
@@ -544,6 +588,10 @@ namespace Game.Feature.Gameplay.BoardState
             int orderedEntitiesCacheMissCount,
             int orderedEntitiesSortCount,
             int orderedEntitiesEnumeratedCount,
+            int orderedUnitsCacheHitCount,
+            int orderedUnitsCacheMissCount,
+            int orderedUnitsSortCount,
+            int orderedUnitsEnumeratedCount,
             int orderedTileFeaturesCacheHitCount,
             int orderedTileFeaturesCacheMissCount,
             int orderedTileFeaturesSortCount,
@@ -591,6 +639,10 @@ namespace Game.Feature.Gameplay.BoardState
             OrderedEntitiesCacheMissCount = orderedEntitiesCacheMissCount;
             OrderedEntitiesSortCount = orderedEntitiesSortCount;
             OrderedEntitiesEnumeratedCount = orderedEntitiesEnumeratedCount;
+            OrderedUnitsCacheHitCount = orderedUnitsCacheHitCount;
+            OrderedUnitsCacheMissCount = orderedUnitsCacheMissCount;
+            OrderedUnitsSortCount = orderedUnitsSortCount;
+            OrderedUnitsEnumeratedCount = orderedUnitsEnumeratedCount;
             OrderedTileFeaturesCacheHitCount = orderedTileFeaturesCacheHitCount;
             OrderedTileFeaturesCacheMissCount = orderedTileFeaturesCacheMissCount;
             OrderedTileFeaturesSortCount = orderedTileFeaturesSortCount;
@@ -678,6 +730,14 @@ namespace Game.Feature.Gameplay.BoardState
         public int OrderedEntitiesSortCount { get; }
 
         public int OrderedEntitiesEnumeratedCount { get; }
+
+        public int OrderedUnitsCacheHitCount { get; }
+
+        public int OrderedUnitsCacheMissCount { get; }
+
+        public int OrderedUnitsSortCount { get; }
+
+        public int OrderedUnitsEnumeratedCount { get; }
 
         public int OrderedTileFeaturesCacheHitCount { get; }
 
