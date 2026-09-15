@@ -6136,6 +6136,7 @@ if allocation_hold:
         "guardRestore": "PASS",
         "player": "PASS",
         "markerValidation": "PASS",
+        "tickAttributionAdmission": "PASS",
         "performanceAdmission": "PASS",
         "cleanupAdmission": "HOLD",
         "calibration": "NOT_RUN",
@@ -6145,7 +6146,11 @@ if allocation_hold:
         {name: value.get("status") for name, value in stages.items()}
         != expected_stage_statuses
         or manifest.get("exitStatus")
-        != {"performanceAdmission": 0, "cleanupAdmission": 1}
+        != {
+            "tickAttributionAdmission": 0,
+            "performanceAdmission": 0,
+            "cleanupAdmission": 1,
+        }
         or artifacts.get("cleanupCalibration", {}).get("state")
         != "NOT_APPLICABLE"
     ):
@@ -6276,6 +6281,7 @@ run_gameplay_performance() {
     local payload_size
     local payload_sha
     local build_status
+    local tick_attribution_admission_status=0
     local performance_admission_status=0
     local cleanup_admission_status=0
     local cleanup_calibration_status=0
@@ -6525,6 +6531,9 @@ run_gameplay_performance() {
             --artifact-path "artifactManifest=$artifact_manifest_path" \
             --artifact-path "runtimeLog=$runtime_log" \
             --artifact-path "metrics=$metrics_path" \
+            --artifact-path "tickAttribution=$tick_attribution_path" \
+            --artifact-path "tickAttributionReport=$tick_attribution_report_path" \
+            --artifact-path "tickAttributionValidator=$PROJECT_PATH_WSL/Tools/gameplay_tick_attribution.py" \
             --artifact-path "performanceAdmission=$performance_admission_report_path" \
             --artifact-path "cleanupAdmission=$cleanup_admission_summary_path" \
             --artifact-path "cleanupCalibration=$cleanup_calibration_report_path" \
@@ -6734,16 +6743,38 @@ run_gameplay_performance() {
         --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
         --stage markerValidation --stage-status PASS --output "$cleanup_evidence_manifest_path" || return 2
     expected_tick_samples=$(( (capture_sample_frames + capture_tick_interval - 1) / capture_tick_interval ))
-    if ! python3 "$PROJECT_PATH_WSL/Tools/gameplay_tick_attribution.py" \
+    if python3 "$PROJECT_PATH_WSL/Tools/gameplay_tick_attribution.py" \
             --input "$tick_attribution_path" \
             --expected-revision "$revision_sha" \
             --expected-stage "$capture_gameplay_stage" \
             --expected-samples "$expected_tick_samples" \
             --expected-identity-from "$metrics_path" \
             --output "$tick_attribution_report_path"; then
+        tick_attribution_admission_status=0
+    else
+        tick_attribution_admission_status=$?
         echo "ERROR: Gameplay Tick attribution validation failed."
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+            --stage tickAttributionAdmission --stage-status HOLD \
+            --reason-code TICK_ATTRIBUTION_REJECTED \
+            --record-exit-status \
+                "tickAttributionAdmission=$tick_attribution_admission_status" \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+            --finalize-lifecycle --manifest "$cleanup_evidence_manifest_path" \
+            --terminal-status HOLD \
+            --authoritative-verdict HOLD_TICK_ATTRIBUTION_ADMISSION \
+            --output "$cleanup_evidence_manifest_path" || return 2
+        require_gameplay_performance_hold_manifest "$cleanup_evidence_manifest_path" || return 2
+        echo "Gameplay performance measurement: HOLD"
         return 1
     fi
+    python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
+        --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
+        --stage tickAttributionAdmission --stage-status PASS \
+        --record-exit-status "tickAttributionAdmission=$tick_attribution_admission_status" \
+        --output "$cleanup_evidence_manifest_path" || return 2
     {
         echo "SchemaVersion=2"
         echo "EvidenceContractVersion=4"
@@ -6955,6 +6986,10 @@ run_gameplay_performance() {
             --preflight-manifest "$preflight_manifest_path" \
             --artifact-manifest "$artifact_manifest_path" \
             --performance-admission "$performance_admission_report_path" \
+            --tick-attribution "$tick_attribution_path" \
+            --tick-attribution-report "$tick_attribution_report_path" \
+            --tick-attribution-validator \
+                "$PROJECT_PATH_WSL/Tools/gameplay_tick_attribution.py" \
             --cleanup-admission "$cleanup_admission_summary_path" \
             "${manifest_calibration_arguments[@]}" \
             --performance-validator "$PROJECT_PATH_WSL/Tools/gameplay_performance_admission.py" \

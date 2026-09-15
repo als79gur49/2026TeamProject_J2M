@@ -486,12 +486,38 @@ exit 0
         self.assertIn("generated_link_meta_existed=1", function)
         self.assertNotIn("generated_link_existed", function)
 
+    def test_tick_attribution_rejection_finalizes_dedicated_hold_stage(self) -> None:
+        source = (REPO_ROOT / "run_tests.sh").read_text(encoding="utf-8")
+        function = source.split("run_gameplay_performance() {", 1)[1].split(
+            "\n}\n\nrun_typography_visual()", 1
+        )[0]
+        rejection_path = function.split(
+            'echo "ERROR: Gameplay Tick attribution validation failed."', 1
+        )[1].split(
+            'stage tickAttributionAdmission --stage-status PASS', 1
+        )[0]
+
+        self.assertIn(
+            "stage tickAttributionAdmission --stage-status HOLD",
+            rejection_path,
+        )
+        self.assertIn("TICK_ATTRIBUTION_REJECTED", rejection_path)
+        self.assertIn("tickAttributionAdmission=$tick_attribution_admission_status", rejection_path)
+        self.assertIn("HOLD_TICK_ATTRIBUTION_ADMISSION", rejection_path)
+        self.assertIn("require_gameplay_performance_hold_manifest", rejection_path)
+
     def test_build_player_and_marker_failures_finalize_with_downstream_not_run(self) -> None:
         script = REPO_ROOT / "Tools" / "gameplay_cleanup_slice3_evidence_manifest.py"
         cases = (
             ("build", ("preflight",), "HOLD_BUILD_FAILURE", "BUILD_FAILED"),
             ("player", ("preflight", "build", "guardRestore"), "HOLD_PLAYER_FAILURE", "PLAYER_FAILED"),
             ("markerValidation", ("preflight", "build", "guardRestore", "player"), "HOLD_MARKER_FAILURE", "MARKER_VALIDATION_FAILED"),
+            (
+                "tickAttributionAdmission",
+                ("preflight", "build", "guardRestore", "player", "markerValidation"),
+                "HOLD_TICK_ATTRIBUTION_ADMISSION",
+                "TICK_ATTRIBUTION_REJECTED",
+            ),
         )
         for failing_stage, passed_stages, verdict, code in cases:
             with self.subTest(stage=failing_stage), tempfile.TemporaryDirectory() as temporary_directory:
@@ -505,11 +531,16 @@ exit 0
                         script, "--transition-manifest", "--manifest", str(output),
                         "--stage", stage, "--stage-status", "PASS", "--output", str(output),
                     )
-                self._manifest_call(
-                    script, "--transition-manifest", "--manifest", str(output),
+                transition_arguments = [
+                    "--transition-manifest", "--manifest", str(output),
                     "--stage", failing_stage, "--stage-status", "HOLD", "--reason-code", code,
-                    "--output", str(output),
-                )
+                ]
+                if failing_stage == "tickAttributionAdmission":
+                    transition_arguments.extend(
+                        ("--record-exit-status", "tickAttributionAdmission=1")
+                    )
+                transition_arguments.extend(("--output", str(output)))
+                self._manifest_call(script, *transition_arguments)
                 self._manifest_call(
                     script, "--finalize-lifecycle", "--manifest", str(output),
                     "--terminal-status", "HOLD", "--authoritative-verdict", verdict,
@@ -520,9 +551,23 @@ exit 0
                 self.assertEqual("FINAL", document["manifestState"])
                 self.assertEqual("HOLD", document["terminalStatus"])
                 self.assertEqual(verdict, document["authoritativeVerdict"])
+                if failing_stage == "tickAttributionAdmission":
+                    self.assertEqual(
+                        {"tickAttributionAdmission": 1},
+                        document["exitStatus"],
+                    )
+                    self.assertEqual(
+                        [
+                            "tickAttribution",
+                            "tickAttributionReport",
+                            "tickAttributionValidator",
+                        ],
+                        document["stages"][failing_stage]["artifacts"],
+                    )
                 ordered_stages = (
                     "preflight", "build", "guardRestore", "player", "markerValidation",
-                    "performanceAdmission", "cleanupAdmission", "calibration", "consistencyFinalization",
+                    "tickAttributionAdmission", "performanceAdmission", "cleanupAdmission",
+                    "calibration", "consistencyFinalization",
                 )
                 failure_index = ordered_stages.index(failing_stage)
                 for downstream in ordered_stages[failure_index + 1:]:
@@ -569,7 +614,7 @@ exit 0
             name: {"status": "NOT_RUN", "reasons": [], "artifacts": []}
             for name in (
                 "preflight", "build", "guardRestore", "player", "markerValidation",
-                "performanceAdmission", "cleanupAdmission", "calibration",
+                "tickAttributionAdmission", "performanceAdmission", "cleanupAdmission", "calibration",
                 "consistencyFinalization",
             )
         }
@@ -713,6 +758,9 @@ exit 0
             "artifactManifest": root / "artifact-manifest.txt",
             "runtimeLog": root / "runtime.log",
             "metrics": root / "metrics.json",
+            "tickAttribution": root / "tick-attribution.json",
+            "tickAttributionReport": root / "tick-attribution-report.json",
+            "tickAttributionValidator": tool_root / "gameplay_tick_attribution.py",
             "performanceAdmission": root / "performance.json",
             "cleanupAdmission": root / "cleanup.json",
             "cleanupCalibration": root / "calibration.json",

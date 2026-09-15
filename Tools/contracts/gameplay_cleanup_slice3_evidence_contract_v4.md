@@ -269,10 +269,11 @@ The runner creates the attempt directory and atomically writes the provisional a
 3. `guardRestore`;
 4. `player`;
 5. `markerValidation`;
-6. `performanceAdmission`;
-7. `cleanupAdmission`;
-8. `calibration`;
-9. `consistencyFinalization`.
+6. `tickAttributionAdmission`;
+7. `performanceAdmission`;
+8. `cleanupAdmission`;
+9. `calibration`;
+10. `consistencyFinalization`.
 
 Each stage has exactly `status`, `reasons`, and `artifacts`. Status is one of `NOT_RUN`, `PASS`, `DEFERRED`, or `HOLD`. At attempt start every stage is `NOT_RUN`. A stage transitions at most once to a terminal stage status; downstream stages remain `NOT_RUN` after early failure.
 
@@ -280,7 +281,7 @@ The attempt manifest is rewritten atomically after every transition and once mor
 
 Artifact records have exactly `path`, `state`, `sha256`, and `missingReasonCode`. `state` is `PRESENT`, `MISSING`, or `NOT_APPLICABLE`. `sha256` is non-null only for `PRESENT`; `missingReasonCode` is non-null only for `MISSING`.
 
-Any future `PASS` or `DEFERRED` transport requires the exact required artifact set and every record `PRESENT`: `metrics`, `runtimeLog`, `preflightManifest`, `artifactManifest`, `performanceAdmission`, `cleanupAdmission`, `cleanupCalibration`, `performanceValidator`, `cleanupValidator`, `aggregator`, `workloadContract`, `runner`, `manifestTool`, `playerArtifact`, and `buildLog`. `manifestTool` is the stable finalization-tool input; its stage reference and capture-identity hash, like every other required input, must bind to the same artifact bytes. The final attempt manifest does not hash or list itself as an artifact because a stable self-hash is impossible.
+Any future `PASS` or `DEFERRED` transport requires the exact required artifact set and every record `PRESENT`: `metrics`, `runtimeLog`, `preflightManifest`, `artifactManifest`, `tickAttribution`, `tickAttributionReport`, `tickAttributionValidator`, `performanceAdmission`, `cleanupAdmission`, `cleanupCalibration`, `performanceValidator`, `cleanupValidator`, `aggregator`, `workloadContract`, `runner`, `manifestTool`, `playerArtifact`, and `buildLog`. `tickAttributionAdmission` owns the raw capture, admitted report, and validator artifacts. `manifestTool` is the stable finalization-tool input; its stage reference and capture-identity hash, like every other required input, must bind to the same artifact bytes. The final attempt manifest does not hash or list itself as an artifact because a stable self-hash is impossible.
 
 The attempt manifest has exactly `schemaVersion`, `evidenceContractVersion`, `manifestState`, `terminalStatus`, `authoritativeVerdict`, `identity`, `reasons`, `stages`, `artifacts`, and `exitStatus`. A provisional manifest uses `manifestState=PROVISIONAL`, `terminalStatus=NOT_RUN`, and `authoritativeVerdict=NOT_RUN`; a final manifest uses `manifestState=FINAL` and the §9 terminal mapping. Every terminal verdict is carried by this one manifest shape.
 
@@ -297,6 +298,7 @@ The final manifest has no `runnerObservedStatus`. The authoritative field is `te
 | guard restore or live pre/post identity failed | `HOLD` | `HOLD_INVALID_EVIDENCE` |
 | Player failed | `HOLD` | `HOLD_PLAYER_FAILURE` |
 | marker validation failed | `HOLD` | `HOLD_MARKER_FAILURE` |
+| Tick attribution validation rejected | `HOLD` | `HOLD_TICK_ATTRIBUTION_ADMISSION` |
 | performance rejected | `HOLD` | `HOLD_PERFORMANCE_ADMISSION` |
 | Cleanup rejected | `HOLD` | `HOLD_CLEANUP_ADMISSION` |
 | calibration `HOLD_INVALID_SIGNAL` | `HOLD` | `HOLD_INVALID_SIGNAL` |

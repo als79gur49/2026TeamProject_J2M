@@ -90,6 +90,9 @@ class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
                 "cleanupAdmission": paths["cleanup_admission"],
                 "cleanupCalibration": paths["cleanup_calibration"],
                 "performanceValidator": paths["performance_validator"],
+                "tickAttribution": paths["tick_attribution"],
+                "tickAttributionReport": paths["tick_attribution_report"],
+                "tickAttributionValidator": paths["tick_attribution_validator"],
                 "cleanupValidator": paths["validator"],
                 "aggregator": paths["aggregator"],
                 "manifestTool": Path(manifest_tool.__file__).resolve(),
@@ -103,6 +106,7 @@ class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
             )
             provisional["stages"] = lifecycle["stages"]
             provisional["exitStatus"] = {
+                "tickAttributionAdmission": 0,
                 "performanceAdmission": 0,
                 "cleanupAdmission": 0,
                 "cleanupCalibration": 0,
@@ -154,7 +158,7 @@ class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
             lifecycle = json.loads(paths["lifecycle_manifest"].read_text(encoding="utf-8"))
             for name in (
                 "preflight", "build", "guardRestore", "player", "markerValidation",
-                "performanceAdmission",
+                "tickAttributionAdmission", "performanceAdmission",
             ):
                 lifecycle["stages"][name]["status"] = "PASS"
             lifecycle["stages"]["cleanupAdmission"]["status"] = "HOLD"
@@ -689,6 +693,9 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
             "preflight_manifest": root / "preflight-manifest.txt",
             "artifact_manifest": root / "artifact-manifest.txt",
             "performance_admission": root / "performance-admission-report.json",
+            "tick_attribution": root / "tick-attribution.json",
+            "tick_attribution_report": root / "tick-attribution-report.json",
+            "tick_attribution_validator": Path(__file__).resolve().parents[1] / "gameplay_tick_attribution.py",
             "cleanup_admission": root / "cleanup-s3a-admission-summary.json",
             "cleanup_calibration": root / "cleanup-s3a-calibration-report.json",
             "validator": Path(__file__).resolve().parents[1] / "gameplay_cleanup_slice3_admission.py",
@@ -704,6 +711,8 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
         paths["build_root"].mkdir(parents=True)
         paths["player_artifact"].write_bytes(b"fixture-player-v4")
         paths["build_log"].write_text("fixture build log\n", encoding="utf-8")
+        paths["tick_attribution"].write_text("{}\n", encoding="utf-8")
+        paths["tick_attribution_report"].write_text("{}\n", encoding="utf-8")
         runner_sha256 = hashlib.sha256(paths["runner"].read_bytes()).hexdigest()
         performance_validator_sha256 = hashlib.sha256(paths["performance_validator"].read_bytes()).hexdigest()
         cleanup_validator_sha256 = hashlib.sha256(paths["validator"].read_bytes()).hexdigest()
@@ -864,7 +873,7 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
             name: {"status": "NOT_RUN", "reasons": [], "artifacts": []}
             for name in (
                 "preflight", "build", "guardRestore", "player", "markerValidation",
-                "performanceAdmission", "cleanupAdmission", "calibration",
+                "tickAttributionAdmission", "performanceAdmission", "cleanupAdmission", "calibration",
                 "consistencyFinalization",
             )
         }
@@ -970,6 +979,12 @@ validate_cleanup_s3_capture_smoke_terminal "$2" "$3" "$4" "$5" "$6" "$7"
                 str(paths["artifact_manifest"]),
                 "--performance-admission",
                 str(paths["performance_admission"]),
+                "--tick-attribution",
+                str(paths["tick_attribution"]),
+                "--tick-attribution-report",
+                str(paths["tick_attribution_report"]),
+                "--tick-attribution-validator",
+                str(paths["tick_attribution_validator"]),
                 "--cleanup-admission",
                 str(paths["cleanup_admission"]),
                 "--cleanup-calibration",

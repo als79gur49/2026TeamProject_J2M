@@ -26,18 +26,21 @@ except ModuleNotFoundError:
 
 STAGE_NAMES = (
     "preflight", "build", "guardRestore", "player", "markerValidation",
-    "performanceAdmission", "cleanupAdmission", "calibration", "consistencyFinalization",
+    "tickAttributionAdmission", "performanceAdmission", "cleanupAdmission", "calibration",
+    "consistencyFinalization",
 )
 TERMINAL_STATUSES = {"PASS", "DEFERRED", "HOLD"}
 EARLY_HOLD_VERDICTS = {
     "HOLD_BUILD_FAILURE", "HOLD_PLAYER_FAILURE",
-    "HOLD_MARKER_FAILURE", "HOLD_PERFORMANCE_ADMISSION", "HOLD_CLEANUP_ADMISSION",
+    "HOLD_MARKER_FAILURE", "HOLD_TICK_ATTRIBUTION_ADMISSION",
+    "HOLD_PERFORMANCE_ADMISSION", "HOLD_CLEANUP_ADMISSION",
     "HOLD_INVALID_SIGNAL", "HOLD_INVALID_EVIDENCE",
 }
 HOLD_VERDICT_REASON_CODES = {
     "HOLD_BUILD_FAILURE": "BUILD_FAILED",
     "HOLD_PLAYER_FAILURE": "PLAYER_FAILED",
     "HOLD_MARKER_FAILURE": "MARKER_VALIDATION_FAILED",
+    "HOLD_TICK_ATTRIBUTION_ADMISSION": "TICK_ATTRIBUTION_REJECTED",
     "HOLD_PERFORMANCE_ADMISSION": "PERFORMANCE_REJECTED",
     "HOLD_CLEANUP_ADMISSION": "CLEANUP_REJECTED",
     "HOLD_INVALID_SIGNAL": "SIGNAL_INVALID",
@@ -46,12 +49,14 @@ HOLD_VERDICT_STAGES = {
     "HOLD_BUILD_FAILURE": "build",
     "HOLD_PLAYER_FAILURE": "player",
     "HOLD_MARKER_FAILURE": "markerValidation",
+    "HOLD_TICK_ATTRIBUTION_ADMISSION": "tickAttributionAdmission",
     "HOLD_PERFORMANCE_ADMISSION": "performanceAdmission",
     "HOLD_CLEANUP_ADMISSION": "cleanupAdmission",
     "HOLD_INVALID_SIGNAL": "calibration",
 }
 CANONICAL_TOOL_PATHS = {
     "performanceValidator": Path(__file__).resolve().with_name("gameplay_performance_admission.py"),
+    "tickAttributionValidator": Path(__file__).resolve().with_name("gameplay_tick_attribution.py"),
     "cleanupValidator": Path(__file__).resolve().with_name("gameplay_cleanup_slice3_admission.py"),
     "aggregator": Path(__file__).resolve().with_name("gameplay_cleanup_slice3_calibration.py"),
     "manifestTool": Path(__file__).resolve(),
@@ -67,6 +72,7 @@ DERIVED_IDENTITY_FIELDS = {
 }
 REQUIRED_SUCCESS_ARTIFACTS = {
     "metrics", "runtimeLog", "preflightManifest", "artifactManifest",
+    "tickAttribution", "tickAttributionReport", "tickAttributionValidator",
     "performanceAdmission", "cleanupAdmission", "cleanupCalibration",
     "performanceValidator", "cleanupValidator", "aggregator",
     "workloadContract", "runner", "manifestTool", "playerArtifact", "buildLog",
@@ -77,6 +83,9 @@ STAGE_ARTIFACTS = {
     "guardRestore": ("artifactManifest",),
     "player": ("runtimeLog", "metrics"),
     "markerValidation": ("runtimeLog",),
+    "tickAttributionAdmission": (
+        "tickAttribution", "tickAttributionReport", "tickAttributionValidator",
+    ),
     "performanceAdmission": ("performanceAdmission",),
     "cleanupAdmission": ("cleanupAdmission",),
     "calibration": ("cleanupCalibration",),
@@ -90,6 +99,7 @@ TICK_ATTRIBUTION_HASH_KEYS = {
     "TickAttributionValidatorSHA256",
 }
 EXIT_STAGE_FIELDS = {
+    "tickAttributionAdmission": "tickAttributionAdmission",
     "performanceAdmission": "performanceAdmission",
     "cleanupAdmission": "cleanupAdmission",
     "calibration": "cleanupCalibration",
@@ -734,7 +744,10 @@ def validate_final_manifest_transport(document: Any) -> str:
     exit_status = document.get("exitStatus")
     if not isinstance(exit_status, dict):
         raise EvidenceError("FIELD_TYPE_INVALID", "finalManifest.exitStatus", "object", exit_status)
-    expected_exit_fields = {"performanceAdmission", "cleanupAdmission", "cleanupCalibration"}
+    expected_exit_fields = {
+        "tickAttributionAdmission", "performanceAdmission", "cleanupAdmission",
+        "cleanupCalibration",
+    }
     if set(exit_status) - expected_exit_fields or any(
         type(value) is not int or value not in {0, 1, 2} for value in exit_status.values()
     ):
@@ -803,9 +816,17 @@ def validate_final_manifest_transport(document: Any) -> str:
                 exit_status,
             )
         expected_hold_exits = {
-            "HOLD_PERFORMANCE_ADMISSION": {"performanceAdmission": 1},
-            "HOLD_CLEANUP_ADMISSION": {"performanceAdmission": 0, "cleanupAdmission": 1},
+            "HOLD_TICK_ATTRIBUTION_ADMISSION": {"tickAttributionAdmission": 1},
+            "HOLD_PERFORMANCE_ADMISSION": {
+                "tickAttributionAdmission": 0, "performanceAdmission": 1,
+            },
+            "HOLD_CLEANUP_ADMISSION": {
+                "tickAttributionAdmission": 0,
+                "performanceAdmission": 0,
+                "cleanupAdmission": 1,
+            },
             "HOLD_INVALID_SIGNAL": {
+                "tickAttributionAdmission": 0,
                 "performanceAdmission": 0,
                 "cleanupAdmission": 0,
                 "cleanupCalibration": 1,
@@ -932,7 +953,11 @@ def build_manifest(
     workload_contract: Path, performance_admission_status: int, cleanup_admission_status: int,
     cleanup_calibration_status: int, performance_admission: Path | None = None,
     allocation_diagnostic: Path | None = None,
-    performance_validator: Path | None = None, runner: Path | None = None,
+    performance_validator: Path | None = None,
+    tick_attribution: Path | None = None,
+    tick_attribution_report: Path | None = None,
+    tick_attribution_validator: Path | None = None,
+    runner: Path | None = None,
     player_artifact: Path | None = None, build_log: Path | None = None,
     build_root: Path | None = None,
     lifecycle_manifest: dict[str, Any] | None = None,
@@ -941,6 +966,9 @@ def build_manifest(
     input_paths = {
         "metrics": metrics, "runtimeLog": runtime_log, "preflightManifest": preflight_manifest,
         "artifactManifest": artifact_manifest, "performanceAdmission": performance_admission,
+        "tickAttribution": tick_attribution,
+        "tickAttributionReport": tick_attribution_report,
+        "tickAttributionValidator": tick_attribution_validator,
         "cleanupAdmission": cleanup_admission, "cleanupCalibration": cleanup_calibration,
         "performanceValidator": performance_validator, "cleanupValidator": validator,
         "aggregator": aggregator, "workloadContract": workload_contract,
@@ -1499,6 +1527,7 @@ def build_manifest(
         stages["consistencyFinalization"]["status"] = "HOLD" if terminal_status == "HOLD" else "PASS"
         stages["consistencyFinalization"]["reasons"] = reasons if terminal_status == "HOLD" else []
     final_exit_status = {
+        "tickAttributionAdmission": 0,
         "performanceAdmission": performance_admission_status,
         "cleanupAdmission": cleanup_admission_status,
         "cleanupCalibration": cleanup_calibration_status,
@@ -1547,7 +1576,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--identity-json", default="{}")
     value.add_argument("--artifact-path", action="append", default=[])
     value.add_argument("--record-exit-status", action="append", default=[])
-    for name in ("metrics", "runtime-log", "preflight-manifest", "artifact-manifest", "performance-admission", "cleanup-admission", "cleanup-calibration", "allocation-diagnostic", "performance-validator", "validator", "aggregator", "workload-contract", "runner", "player-artifact", "build-log", "build-root"):
+    for name in ("metrics", "runtime-log", "preflight-manifest", "artifact-manifest", "performance-admission", "cleanup-admission", "cleanup-calibration", "allocation-diagnostic", "performance-validator", "tick-attribution", "tick-attribution-report", "tick-attribution-validator", "validator", "aggregator", "workload-contract", "runner", "player-artifact", "build-log", "build-root"):
         value.add_argument(f"--{name}", type=Path)
     value.add_argument("--performance-admission-status", type=int, default=1)
     value.add_argument("--cleanup-admission-status", type=int, default=1)
@@ -1619,7 +1648,10 @@ def main(argv: list[str] | None = None) -> int:
                 if "=" not in specification:
                     raise EvidenceError("FIELD_TYPE_INVALID", "record-exit-status", "name=integer", specification)
                 name, raw_status = specification.split("=", 1)
-                if name not in {"performanceAdmission", "cleanupAdmission", "cleanupCalibration"}:
+                if name not in {
+                    "tickAttributionAdmission", "performanceAdmission", "cleanupAdmission",
+                    "cleanupCalibration",
+                }:
                     raise EvidenceError("FIELD_TYPE_INVALID", "record-exit-status", "known exit field", name)
                 try:
                     status = int(raw_status)
@@ -1638,7 +1670,7 @@ def main(argv: list[str] | None = None) -> int:
             mutable_input = arguments.manifest
         else:
             final_evidence_attempt = True
-            required = ("manifest", "metrics", "runtime_log", "preflight_manifest", "artifact_manifest", "cleanup_admission", "cleanup_calibration", "validator", "aggregator", "workload_contract", "performance_validator", "runner", "player_artifact", "build_log", "build_root")
+            required = ("manifest", "metrics", "runtime_log", "preflight_manifest", "artifact_manifest", "cleanup_admission", "cleanup_calibration", "validator", "aggregator", "workload_contract", "performance_validator", "tick_attribution", "tick_attribution_report", "tick_attribution_validator", "runner", "player_artifact", "build_log", "build_root")
             missing = [name for name in required if getattr(arguments, name) is None]
             if missing:
                 raise EvidenceError("FIELD_MISSING", "arguments", required, missing)
@@ -1647,7 +1679,9 @@ def main(argv: list[str] | None = None) -> int:
                 arguments.metrics, arguments.runtime_log, arguments.preflight_manifest, arguments.artifact_manifest,
                 arguments.performance_admission, arguments.cleanup_admission, arguments.cleanup_calibration,
                 arguments.allocation_diagnostic,
-                arguments.performance_validator, arguments.validator, arguments.aggregator, arguments.workload_contract,
+                arguments.performance_validator, arguments.tick_attribution,
+                arguments.tick_attribution_report, arguments.tick_attribution_validator,
+                arguments.validator, arguments.aggregator, arguments.workload_contract,
                 arguments.runner, Path(__file__).resolve(),
                 arguments.player_artifact, arguments.build_log,
             ) if path is not None)
@@ -1659,6 +1693,9 @@ def main(argv: list[str] | None = None) -> int:
                 preflight_manifest=arguments.preflight_manifest, artifact_manifest=arguments.artifact_manifest,
                 performance_admission=arguments.performance_admission, cleanup_admission=arguments.cleanup_admission,
                 cleanup_calibration=arguments.cleanup_calibration, performance_validator=arguments.performance_validator,
+                tick_attribution=arguments.tick_attribution,
+                tick_attribution_report=arguments.tick_attribution_report,
+                tick_attribution_validator=arguments.tick_attribution_validator,
                 allocation_diagnostic=arguments.allocation_diagnostic,
                 validator=arguments.validator, aggregator=arguments.aggregator,
                 workload_contract=arguments.workload_contract,
