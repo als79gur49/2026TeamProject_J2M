@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Intents;
@@ -11,6 +12,7 @@ using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
@@ -202,6 +204,35 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void RunResolvePhase_RebuildsAllProjectionsFromMaterializedPlanSnapshot_WithoutPlanPrefixReplay()
+        {
+            var source = File.ReadAllText(Path.Combine(
+                Directory.GetParent(Application.dataPath)?.FullName ?? string.Empty,
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"));
+            var resolveStart = source.IndexOf(
+                "private ResolvePhaseResult RunResolvePhase(",
+                StringComparison.Ordinal);
+            var finalizeStart = source.IndexOf(
+                "private void RunFinalizePhase(",
+                resolveStart,
+                StringComparison.Ordinal);
+
+            Assert.That(resolveStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(finalizeStart, Is.GreaterThan(resolveStart));
+            var resolveSource = source.Substring(resolveStart, finalizeStart - resolveStart);
+
+            Assert.That(
+                CountOccurrences(resolveSource, "new ProjectedWorld(planSnapshot)"),
+                Is.EqualTo(4),
+                "initial, impact rematerialization, jump landing, and Unit tile-effect rebuilds must all seed from the terminal Plan snapshot");
+            Assert.That(
+                resolveSource,
+                Does.Not.Contain("ApplyBatch(planPhaseResult.PlanFinalizationBatch)"),
+                "planSnapshot already contains the Plan prefix; Resolve must overlay only Resolve-owned batches");
+        }
+
+        [Test]
+        [Category("Core")]
         public void ProjectedWorld_EntityFinalizationBatch_DirtiesProjectedWorld()
         {
             var startCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -348,6 +379,19 @@ namespace Game.Feature.Gameplay.Tests.Core
             var actionGroup = new ActionGroup(intentId, sourceId, priority, ActionGroupKind.Move);
             actionGroup.AssignGroupId(groupId);
             return actionGroup;
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            var count = 0;
+            var index = 0;
+            while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += value.Length;
+            }
+
+            return count;
         }
 
         private static WorldSnapshot CreateSnapshot(IEnumerable<TileFeatureState> initialTileFeatures)

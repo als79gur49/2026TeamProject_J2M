@@ -60,6 +60,70 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 result.PhaseTrace);
         }
+
+        [Test]
+        [Category("Extended")]
+        public void PushWindup_NonEmptyPlanPrefix_IsProjectedOnceAndPreservesDeterminism()
+        {
+            var entities = new[]
+            {
+                new EntityState
+                {
+                    entityId = 10,
+                    position = new SurfaceCell(FaceId.Floor, 0, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                    state = EntityPhaseState.Idle,
+                    facing = Direction.Right,
+                },
+                new EntityState
+                {
+                    entityId = 30,
+                    position = new SurfaceCell(FaceId.Floor, 1, 0),
+                    hp = 1,
+                    maxHp = 1,
+                    type = EntityType.Box,
+                    state = EntityPhaseState.Idle,
+                    boxCapabilities = BoxCapabilities.Push,
+                },
+            };
+            var uncapturedWorld = GameplayWorldStateTestFactory.CreateBounded(entities);
+            var capturedWorld = GameplayWorldStateTestFactory.CreateBounded(entities);
+            var uncapturedPipeline = GameplayCompositionRoot.CreateTickPipeline(
+                uncapturedWorld,
+                new IEntityLogic[] { new PlayerLogic(10) });
+            var capturedPipeline = GameplayCompositionRoot.CreateTickPipeline(
+                capturedWorld,
+                new IEntityLogic[] { new PlayerLogic(10) });
+            var input = new TickInput(7, PlayerTickCommand.Push(Direction.Right));
+
+            var uncapturedResult = uncapturedPipeline.RunTick(input);
+            TickResult capturedResult;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                capturedResult = capturedPipeline.RunTick(input);
+                counts = capture.Counts;
+            }
+
+            var capturedSnapshot = capturedWorld.CreateSnapshot();
+            Assert.That(capturedSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(30));
+            Assert.That(counts.PlayerControlStateWrittenCount, Is.EqualTo(1));
+            Assert.That(
+                counts.GetApplyBatchCount(ProjectedWorldBatchReason.PlanPreMovementState),
+                Is.EqualTo(1));
+            Assert.That(
+                counts.GetEmptyApplyBatchCount(ProjectedWorldBatchReason.PlanPreMovementState),
+                Is.Zero,
+                "the Push state transition is the non-empty Plan prefix used by this regression guard");
+            CollectionAssert.AreEqual(uncapturedResult.PhaseTrace, capturedResult.PhaseTrace);
+            Assert.That(capturedResult.Trace.Text, Is.EqualTo(uncapturedResult.Trace.Text));
+            Assert.That(capturedResult.DeterminismHash, Is.EqualTo(uncapturedResult.DeterminismHash));
+        }
     }
 
     public sealed class TickPipelineExecutionScenarioTests
