@@ -28,6 +28,52 @@ LIVE_SOURCE_IDENTITY = live_source_identity(REPOSITORY_ROOT)
 
 
 class CleanupSlice3EvidenceManifestTests(unittest.TestCase):
+    def test_tick_attribution_bundle_is_hash_bound_and_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            raw = root / "tick-attribution.json"
+            report = root / "tick-attribution-report.json"
+            artifact_manifest = root / "artifact-manifest.txt"
+            validator = Path(manifest_tool.__file__).resolve().with_name(
+                "gameplay_tick_attribution.py"
+            )
+            raw.write_text('{"schemaVersion":6}\n', encoding="utf-8")
+            raw_hash = hashlib.sha256(raw.read_bytes()).hexdigest()
+            validator_hash = hashlib.sha256(validator.read_bytes()).hexdigest()
+            metrics_hash = "a" * 64
+            report.write_text(
+                json.dumps(
+                    {
+                        "verdict": "ADMITTED",
+                        "sourceSha256": raw_hash,
+                        "identitySourceSha256": metrics_hash,
+                        "validatorSha256": validator_hash,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            report_hash = hashlib.sha256(report.read_bytes()).hexdigest()
+            artifact_manifest.write_text(
+                "\n".join(
+                    (
+                        f"MetricsSHA256={metrics_hash}",
+                        f"TickAttributionSHA256={raw_hash}",
+                        f"TickAttributionReportSHA256={report_hash}",
+                        f"TickAttributionValidatorSHA256={validator_hash}",
+                        "GitStatusShort:",
+                    )
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            manifest_tool.validate_tick_attribution_bundle(artifact_manifest)
+            raw.write_text('{"schemaVersion":5}\n', encoding="utf-8")
+            with self.assertRaises(EvidenceError) as context:
+                manifest_tool.validate_tick_attribution_bundle(artifact_manifest)
+            self.assertEqual("METRICS_HASH_MISMATCH", context.exception.reason["code"])
+
     def test_live_identity_failure_before_replace_writes_valid_final_hold(self) -> None:
         repository_root, _ = self._repository_paths()
         with tempfile.TemporaryDirectory() as temporary_directory:

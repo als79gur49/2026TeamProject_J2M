@@ -119,6 +119,36 @@ class GameplayEvidenceV4HardeningTests(unittest.TestCase):
                 ),
             )
 
+            tick_hashes = {
+                "TickAttributionSHA256": "1" * 64,
+                "TickAttributionReportSHA256": "2" * 64,
+                "TickAttributionValidatorSHA256": "3" * 64,
+            }
+            write_context(captured, "artifact-captured", shared, extra=tick_hashes)
+            self.assertEqual(
+                [],
+                validate_v4_context_pair(
+                    preflight,
+                    captured,
+                    identity,
+                    metrics_sha256=metrics_sha256,
+                ),
+            )
+
+            write_context(
+                captured,
+                "artifact-captured",
+                shared,
+                extra={"TickAttributionSHA256": "1" * 64},
+            )
+            partial_tick_issues = validate_v4_context_pair(
+                preflight,
+                captured,
+                identity,
+                metrics_sha256=metrics_sha256,
+            )
+            self.assertIn("FIELD_MISSING", {value["code"] for value in partial_tick_issues})
+
             mixed = dict(shared)
             mixed["AttemptId"] = "different-attempt"
             write_context(captured, "artifact-captured", mixed)

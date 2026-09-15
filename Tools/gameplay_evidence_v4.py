@@ -413,6 +413,11 @@ _V4_CONTEXT_CAPTURED_KEYS = _V4_CONTEXT_PREFLIGHT_KEYS | {
     "PostRestoreHeadSha", "PostRestoreWorktreeSha256", "PlayerArtifactSha256",
     "BuildPayloadSHA256", "MetricsSHA256", "RuntimeLogSHA256",
 }
+_V4_TICK_ATTRIBUTION_CAPTURED_KEYS = {
+    "TickAttributionSHA256",
+    "TickAttributionReportSHA256",
+    "TickAttributionValidatorSHA256",
+}
 
 
 def validate_v4_context_pair(
@@ -468,9 +473,18 @@ def validate_v4_context_pair(
     if preflight.get("PerformanceAdmissionPolicy") != captured.get("PerformanceAdmissionPolicy"):
         issues.append(reason("IDENTITY_MISMATCH", "PerformanceAdmissionPolicy", preflight.get("PerformanceAdmissionPolicy"), captured.get("PerformanceAdmissionPolicy")))
 
+    tick_attribution_keys = set(captured) & _V4_TICK_ATTRIBUTION_CAPTURED_KEYS
+    if tick_attribution_keys and tick_attribution_keys != _V4_TICK_ATTRIBUTION_CAPTURED_KEYS:
+        issues.append(reason(
+            "FIELD_MISSING",
+            "captured.tickAttributionHashes",
+            sorted(_V4_TICK_ATTRIBUTION_CAPTURED_KEYS),
+            sorted(tick_attribution_keys),
+        ))
+    captured_expected_keys = _V4_CONTEXT_CAPTURED_KEYS | policy_keys | tick_attribution_keys
     for label, values, expected_keys in (
         ("preflight", preflight, _V4_CONTEXT_PREFLIGHT_KEYS | policy_keys),
-        ("captured", captured, _V4_CONTEXT_CAPTURED_KEYS | policy_keys),
+        ("captured", captured, captured_expected_keys),
     ):
         for key in sorted(expected_keys - set(values)):
             issues.append(reason("FIELD_MISSING", f"{label}.{key}", "present", None))
@@ -576,8 +590,12 @@ def validate_v4_context_pair(
     for key in (
         "PreBuildWorktreeSha256", "RuntimeTreeSha256", "PostRestoreWorktreeSha256",
         "PlayerArtifactSha256", "BuildPayloadSHA256", "MetricsSHA256", "RuntimeLogSHA256",
+        *sorted(tick_attribution_keys),
     ):
-        values = captured if key in _V4_CONTEXT_CAPTURED_KEYS - _V4_CONTEXT_PREFLIGHT_KEYS else preflight
+        captured_only_keys = (
+            _V4_CONTEXT_CAPTURED_KEYS | _V4_TICK_ATTRIBUTION_CAPTURED_KEYS
+        ) - _V4_CONTEXT_PREFLIGHT_KEYS
+        values = captured if key in captured_only_keys else preflight
         observed = values.get(key)
         if not isinstance(observed, str) or SHA256_PATTERN.fullmatch(observed) is None:
             issues.append(reason("SHA_FORMAT_INVALID", f"evidenceContext.{key}", "lowercase SHA-256", observed))

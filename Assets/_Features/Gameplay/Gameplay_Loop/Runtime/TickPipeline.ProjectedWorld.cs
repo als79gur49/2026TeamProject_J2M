@@ -133,14 +133,42 @@ namespace Game.Feature.Gameplay.Loop
             var baseEntityCount = _baseSnapshot.EntityCount;
             var overlayEntityOperationCount = _overlayBatch.Operations.Count;
             var overlayTileFeatureOperationCount = _overlayTileFeatureOperationCount;
+#if VECTORQUAKE_CAPTURE_BUILD
+            var captureResolveInitialSnapshot =
+                GameplaySimulationAttributionCapture.IsActive &&
+                reason == ProjectedWorldSnapshotReason.ResolveInitialPostMovement;
+            var baseImportStartedAt = captureResolveInitialSnapshot
+                ? System.Diagnostics.Stopwatch.GetTimestamp()
+                : 0L;
+#endif
             var projectedWorldState = WorldState.CreateFromSnapshotFast(_baseSnapshot);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var overlayApplyStartedAt = captureResolveInitialSnapshot
+                ? System.Diagnostics.Stopwatch.GetTimestamp()
+                : 0L;
+#endif
             var writeContext = projectedWorldState.CreateWriteContext();
             ApplyOverlayTileFeatureOperations(writeContext);
             _overlayBatch.ApplyTo(writeContext, delayedAttackEffectSink: null);
             SnapshotMaterializationDiagnostics.RecordFastImportOverlayApply(
                 overlayEntityOperationCount,
                 overlayTileFeatureOperationCount);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var materializationStartedAt = captureResolveInitialSnapshot
+                ? System.Diagnostics.Stopwatch.GetTimestamp()
+                : 0L;
+#endif
             _materializedSnapshot = SnapshotBuilder.Create(projectedWorldState);
+#if VECTORQUAKE_CAPTURE_BUILD
+            if (captureResolveInitialSnapshot)
+            {
+                var completedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+                GameplaySimulationAttributionCapture.RecordResolveInitialPostMovementSnapshot(
+                    overlayApplyStartedAt - baseImportStartedAt,
+                    materializationStartedAt - overlayApplyStartedAt,
+                    completedAt - materializationStartedAt);
+            }
+#endif
             SnapshotMaterializationDiagnostics.RecordProjectedWorldMaterializedSnapshot(
                 reason,
                 baseEntityCount,

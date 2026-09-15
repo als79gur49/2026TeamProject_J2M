@@ -6,6 +6,9 @@ using Game.Feature.Stages;
 using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
+#if VECTORQUAKE_CAPTURE_BUILD
+using Stopwatch = System.Diagnostics.Stopwatch;
+#endif
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -204,18 +207,48 @@ namespace Game.Feature.Gameplay.Host
 
         private TickResult RunSingleTickUnlocked()
         {
+#if VECTORQUAKE_CAPTURE_BUILD
+            var captureAttribution = GameplayTickAttributionCapture.IsActive;
+            var outerStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var tickIndex = _runner.NextTickIndex;
             var playerCommand = BuildPlayerCommand();
 
             _inputBuffer.Record(new TickInput(tickIndex, playerCommand));
 
+#if VECTORQUAKE_CAPTURE_BUILD
+            var inputPreparationCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var result = _runner.RunNextTick();
+#if VECTORQUAKE_CAPTURE_BUILD
+            var simulationCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             ApplyAcceptedBufferedInput(result);
             RefreshPlayerRespawnDelayInputBlock(result);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var hostPostProcessCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             // Presentation-state queries can run during Present before completed-snapshot caches refresh on TickCompleted.
             _presenter.Present(result);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var presentationCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             TickCompleted?.Invoke(result);
             ObjectiveResultUpdated?.Invoke(result.ObjectiveResult);
+#if VECTORQUAKE_CAPTURE_BUILD
+            if (captureAttribution)
+            {
+                var callbacksCompletedAt = Stopwatch.GetTimestamp();
+                GameplayTickAttributionCapture.Record(
+                    tickIndex,
+                    callbacksCompletedAt - outerStartedAt,
+                    inputPreparationCompletedAt - outerStartedAt,
+                    simulationCompletedAt - inputPreparationCompletedAt,
+                    hostPostProcessCompletedAt - simulationCompletedAt,
+                    presentationCompletedAt - hostPostProcessCompletedAt,
+                    callbacksCompletedAt - presentationCompletedAt);
+            }
+#endif
 
             return result;
         }

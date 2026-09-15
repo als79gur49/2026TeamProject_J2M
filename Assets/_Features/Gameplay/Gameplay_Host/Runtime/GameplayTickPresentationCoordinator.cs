@@ -20,6 +20,9 @@ using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
 using Game.Feature.Stages;
 using UnityEngine;
+#if VECTORQUAKE_CAPTURE_BUILD
+using Stopwatch = System.Diagnostics.Stopwatch;
+#endif
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -839,6 +842,10 @@ namespace Game.Feature.Gameplay.Host
 
         public void Present(TickResult result)
         {
+#if VECTORQUAKE_CAPTURE_BUILD
+            var captureAttribution = GameplayTickAttributionCapture.IsActive;
+            var preCommitPlanningStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             if (result == null)
             {
                 throw new ArgumentNullException(nameof(result));
@@ -879,6 +886,9 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldVisualPresentationController.PlayRequests(_currentGravityFieldPresentationRequests);
             _tileFeatureVisualPresentationController.RefreshContinuousStates(_currentTileFeatureVisualStates);
             _summonedEnemyPresentationResolver.Reconcile(result);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var committedFrameAndStateStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             _committedFrameBuilder.StoreCommittedFrame(
                 result.FinalEntities,
                 result.FinalTopology,
@@ -900,6 +910,9 @@ namespace Game.Feature.Gameplay.Host
                 _topologyTransitionEpoch++;
             }
 
+#if VECTORQUAKE_CAPTURE_BUILD
+            var motionAnimationVfxStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             _lastPresentedResult = result;
             TraceStep("RefreshUtilityWindupWarnings");
             _utilityWindupVfxPresenter.RefreshSummonWarnings(
@@ -949,6 +962,9 @@ namespace Game.Feature.Gameplay.Host
             _playerActionAnimationLane.PresentPrepared(result, playerActionAnimationPreparation);
             _damageDeathVfxLane.Present(result);
             PresentExtensions(result);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var audioStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             TraceStep("PlayPlannedAudio");
             _arbitratingGameplayAudioPlaybackPort?.BeginBatch(
                 result.TickIndex,
@@ -974,12 +990,28 @@ namespace Game.Feature.Gameplay.Host
                 throw;
             }
             _enemyChargeLoopAudioPresentationController.RefreshSignals(result.PresentationData.EnemyChargeSignals);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var applyCleanupUpdateStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             TraceStep("ApplyEntityExitOwnership");
             _exitPresentationController.ApplyEntityExitOwnership();
             _summonedEnemyPresentationResolver.CleanupOwnedViews(result.FinalEntities);
             UpdatePresentation(0f);
             _moonBlockEmergencePresentationController.StartReadyRequests(result.TickIndex);
             PresentDiagnosticsPipelineIfEnabled(result);
+#if VECTORQUAKE_CAPTURE_BUILD
+            if (captureAttribution)
+            {
+                var applyCleanupUpdateCompletedAt = Stopwatch.GetTimestamp();
+                GameplayTickAttributionCapture.RecordPresentationCoordinator(
+                    result.TickIndex,
+                    committedFrameAndStateStartedAt - preCommitPlanningStartedAt,
+                    motionAnimationVfxStartedAt - committedFrameAndStateStartedAt,
+                    audioStartedAt - motionAnimationVfxStartedAt,
+                    applyCleanupUpdateStartedAt - audioStartedAt,
+                    applyCleanupUpdateCompletedAt - applyCleanupUpdateStartedAt);
+            }
+#endif
         }
 
         private void RetainTopologyMoonBlockGeneratedPoses(TickPresentationData presentationData)

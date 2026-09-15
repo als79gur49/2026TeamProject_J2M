@@ -23,6 +23,9 @@ using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 using Unity.Profiling;
+#if VECTORQUAKE_CAPTURE_BUILD
+using Stopwatch = System.Diagnostics.Stopwatch;
+#endif
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -220,6 +223,10 @@ namespace Game.Feature.Gameplay.Loop
             in TickInput input,
             DemoGameplayOverrideSnapshot demoGameplayOverrideSnapshot)
         {
+#if VECTORQUAKE_CAPTURE_BUILD
+            var captureAttribution = GameplaySimulationAttributionCapture.IsActive;
+            var bootstrapStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             _idAllocator.ResetForTick(input.TickIndex);
 
             var completedPhases = new List<TickPhase>(5);
@@ -229,12 +236,18 @@ namespace Game.Feature.Gameplay.Loop
             var initialSnapshot = SnapshotBuilder.Create(_worldState);
             var entityLogicsForTick = _entityLogicProvider.Build(initialSnapshot, _staticEntityLogics);
             BindTileFeatureDefinitionContext(entityLogicsForTick);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var planStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var planPhaseResult = RunPlanPhase(
                 initialSnapshot,
                 in input,
                 entityLogicsForTick,
                 completedPhases,
                 phaseTrace);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var aiPhaseResult = planPhaseResult.EnemyAiPhaseResult;
             var snapshotAfterEnemyAi = planPhaseResult.PostEnemyAiSnapshot;
             var preMovementStateResult = planPhaseResult.PreMovementStatePhaseResult;
@@ -250,9 +263,15 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 completedPhases,
                 phaseTrace);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var finalizeAndSnapshotStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var writeContext = _worldState.CreateWriteContext();
             RunFinalizePhase(resolvePhaseResult.FinalizationBatch, writeContext, completedPhases, phaseTrace);
             var postFinalizeSnapshot = SnapshotBuilder.Create(_worldState);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var cleanupAndSnapshotStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var cleanupPhaseResult = RunCleanupPhase(
                 postFinalizeSnapshot,
                 input.TickIndex,
@@ -260,6 +279,9 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
             var postCleanupSnapshot = SnapshotBuilder.Create(_worldState);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var respawnAndFinalSnapshotStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var respawnPhaseResult = RunRespawnPhase(
                 initialSnapshot,
                 postCleanupSnapshot,
@@ -269,6 +291,9 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
             var finalAuthoritativeSnapshot = SnapshotBuilder.Create(_worldState);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resultMaterializationStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var movementPhaseResult = resolvePhaseResult.MovementPhaseResult;
             var attackPhaseResult = resolvePhaseResult.AttackPhaseResult;
             var objectiveTickFacts = new StageObjectiveTickFacts(
@@ -333,7 +358,7 @@ namespace Game.Feature.Gameplay.Loop
                     determinismHash)
                 : TickTrace.Empty;
 
-            return TickResult.CreateFromOwnedData(
+            var result = TickResult.CreateFromOwnedData(
                 input.TickIndex,
                 completedPhases,
                 phaseTrace,
@@ -343,6 +368,22 @@ namespace Game.Feature.Gameplay.Loop
                 finalAuthoritativeSnapshot.Topology,
                 determinismHash,
                 tickTrace);
+#if VECTORQUAKE_CAPTURE_BUILD
+            if (captureAttribution)
+            {
+                var resultMaterializationCompletedAt = Stopwatch.GetTimestamp();
+                GameplaySimulationAttributionCapture.RecordCompleted(
+                    input.TickIndex,
+                    planStartedAt - bootstrapStartedAt,
+                    resolveStartedAt - planStartedAt,
+                    finalizeAndSnapshotStartedAt - resolveStartedAt,
+                    cleanupAndSnapshotStartedAt - finalizeAndSnapshotStartedAt,
+                    respawnAndFinalSnapshotStartedAt - cleanupAndSnapshotStartedAt,
+                    resultMaterializationStartedAt - respawnAndFinalSnapshotStartedAt,
+                    resultMaterializationCompletedAt - resultMaterializationStartedAt);
+            }
+#endif
+            return result;
         }
 
         private void BindTileFeatureDefinitionContext(EntityLogicSet entityLogicsForTick)
@@ -546,6 +587,10 @@ namespace Game.Feature.Gameplay.Loop
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
+#if VECTORQUAKE_CAPTURE_BUILD
+            var captureAttribution = GameplaySimulationAttributionCapture.IsActive;
+            var enemyAiAndProjectionStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             phaseTrace.Add("Plan:Enter");
             var planFinalizationBatch = new FinalizationBatch();
             var projectedWorld = new ProjectedWorld(snapshot, seedBaseSnapshot: true);
@@ -566,6 +611,10 @@ namespace Game.Feature.Gameplay.Loop
                 ProjectedWorldSnapshotReason.PlanAfterEnemyAi);
             projectedWorld.ApplyBatch(beforeMovementAiBatch, ProjectedWorldBatchReason.PlanBeforeMovementAi);
             var snapshotAfterEnemyAi = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterEnemyAi);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var kinematicAndGravityProjectionStartedAt =
+                captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var kinematicClosureBatch = new FinalizationBatch();
             var kinematicClosureEvents = new List<string>();
@@ -605,6 +654,10 @@ namespace Game.Feature.Gameplay.Loop
                 projectedWorld.ApplyBatch(gravityFieldBatch, ProjectedWorldBatchReason.PlanGravityField);
                 snapshotAfterEnemyAi = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterGravityField);
             }
+#if VECTORQUAKE_CAPTURE_BUILD
+            var preMovementStateAndUtilityProjectionStartedAt =
+                captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var preMovementBatch = new FinalizationBatch();
             var utilityTriggerIntents = new List<EnemyUtilityTriggerIntent>();
@@ -615,11 +668,17 @@ namespace Game.Feature.Gameplay.Loop
                 TickPhase.Plan,
                 utilityTriggerIntents,
                 summonBehaviorTriggerIntents);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var preMovementSetupCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var preMovementStateResult = RunPreMovementStatePhase(
                 entityLogicsForTick.PreMovementStateLogics,
                 snapshotAfterEnemyAi,
                 in input,
                 preMovementContext);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var preMovementLogicCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             if (kinematicClosureEvents.Count > 0)
             {
                 preMovementStateResult.EventLogEntries.InsertRange(0, kinematicClosureEvents);
@@ -632,6 +691,9 @@ namespace Game.Feature.Gameplay.Loop
             preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);
             summonBehaviorTriggerIntents.Sort(EnemySummonBehaviorTriggerIntentComparer.Instance);
             preMovementStateResult.SummonBehaviorTriggerIntents.AddRange(summonBehaviorTriggerIntents);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var preMovementBookkeepingCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             planFinalizationBatch.MergeFrom(preMovementBatch);
             CaptureTopologyActivationPreviousSnapshot(
                 ref topologyActivationPreviousSnapshot,
@@ -639,10 +701,21 @@ namespace Game.Feature.Gameplay.Loop
                 preMovementBatch,
                 ProjectedWorldSnapshotReason.PlanPostPreMovement);
             projectedWorld.ApplyBatch(preMovementBatch, ProjectedWorldBatchReason.PlanPreMovementState);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var preMovementProjectionApplyCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
+            var preMovementUtilityInputSnapshot = projectedWorld.CreateSnapshot(
+                ProjectedWorldSnapshotReason.PlanPreMovementUtilityInput);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var preMovementUtilityInputSnapshotCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var preMovementUtilityResolveResult = EnemyUtilityResolver.ResolvePreMovementProjectedEffects(
-                projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanPreMovementUtilityInput),
+                preMovementUtilityInputSnapshot,
                 preMovementStateResult.UtilityTriggerIntents,
                 input.TickIndex);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var preMovementUtilityResolveCompletedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             planFinalizationBatch.MergeFrom(preMovementUtilityResolveResult.Batch);
             CaptureTopologyActivationPreviousSnapshot(
                 ref topologyActivationPreviousSnapshot,
@@ -651,6 +724,10 @@ namespace Game.Feature.Gameplay.Loop
                 ProjectedWorldSnapshotReason.PlanPostPreMovement);
             projectedWorld.ApplyBatch(preMovementUtilityResolveResult.Batch, ProjectedWorldBatchReason.PlanPreMovementUtility);
             AddRange(preMovementStateResult.EventLogEntries, preMovementUtilityResolveResult.EventLogEntries);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var jumpLandingAndPlayerActionAttemptsStartedAt =
+                captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var nextContestId = 1;
             var jumpLandingPlans = new List<JumpLandingPlan>();
@@ -692,6 +769,10 @@ namespace Game.Feature.Gameplay.Loop
                 projectedWorld.ApplyBatch(playerActionAttemptBatch, ProjectedWorldBatchReason.PlanPlayerActionAttempt);
                 planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterPlayerActionAttempt);
             }
+#if VECTORQUAKE_CAPTURE_BUILD
+            var movementIntentCollectionAndPartitionStartedAt =
+                captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var rawMovementIntents = new List<RawMovementIntent>();
             var movementDebugEvents = new List<string>();
@@ -709,6 +790,9 @@ namespace Game.Feature.Gameplay.Loop
                 sortedIntents,
                 consumedPlayerActionAttemptEntityIds);
             var expansionIntents = movementIntentPartitions.GenericExpansionIntents;
+#if VECTORQUAKE_CAPTURE_BUILD
+            var locomotionProjectionStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var kinematicMovementActionPlanPayloads = new Dictionary<int, MovementActionPlanPayload>();
             var playerTopologyTransitionBlockedSignals =
                 new List<TickPlayerTopologyTransitionBlockedSignal>();
@@ -756,6 +840,9 @@ namespace Game.Feature.Gameplay.Loop
                     expansionIntents,
                     rejectedReasons);
             }
+#if VECTORQUAKE_CAPTURE_BUILD
+            var movementExpansionStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogicsForTick.MovementLogics);
             var barricadeBlockFacts = new List<BarricadeBlockFact>();
@@ -777,6 +864,9 @@ namespace Game.Feature.Gameplay.Loop
             {
                 rejectedReasons.InsertRange(0, preExpansionRejectedReasons);
             }
+#if VECTORQUAKE_CAPTURE_BUILD
+            var payloadOrderingAndResultStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
@@ -796,6 +886,29 @@ namespace Game.Feature.Gameplay.Loop
                 ref nextContestId);
             phaseTrace.Add("Plan:Exit");
             completedPhases.Add(TickPhase.Plan);
+#if VECTORQUAKE_CAPTURE_BUILD
+            if (captureAttribution)
+            {
+                var payloadOrderingAndResultCompletedAt = Stopwatch.GetTimestamp();
+                GameplaySimulationAttributionCapture.RecordPlan(
+                    input.TickIndex,
+                    kinematicAndGravityProjectionStartedAt - enemyAiAndProjectionStartedAt,
+                    preMovementStateAndUtilityProjectionStartedAt - kinematicAndGravityProjectionStartedAt,
+                    jumpLandingAndPlayerActionAttemptsStartedAt - preMovementStateAndUtilityProjectionStartedAt,
+                    movementIntentCollectionAndPartitionStartedAt - jumpLandingAndPlayerActionAttemptsStartedAt,
+                    locomotionProjectionStartedAt - movementIntentCollectionAndPartitionStartedAt,
+                    movementExpansionStartedAt - locomotionProjectionStartedAt,
+                    payloadOrderingAndResultStartedAt - movementExpansionStartedAt,
+                    payloadOrderingAndResultCompletedAt - payloadOrderingAndResultStartedAt,
+                    preMovementSetupCompletedAt - preMovementStateAndUtilityProjectionStartedAt,
+                    preMovementLogicCompletedAt - preMovementSetupCompletedAt,
+                    preMovementBookkeepingCompletedAt - preMovementLogicCompletedAt,
+                    preMovementProjectionApplyCompletedAt - preMovementBookkeepingCompletedAt,
+                    preMovementUtilityInputSnapshotCompletedAt - preMovementProjectionApplyCompletedAt,
+                    preMovementUtilityResolveCompletedAt - preMovementUtilityInputSnapshotCompletedAt,
+                    jumpLandingAndPlayerActionAttemptsStartedAt - preMovementUtilityResolveCompletedAt);
+            }
+#endif
 
             return new PlanPhaseResult(
                 rawMovementIntents,
@@ -856,6 +969,10 @@ namespace Game.Feature.Gameplay.Loop
             List<string> phaseTrace)
         {
             phaseTrace.Add("Resolve:Enter");
+#if VECTORQUAKE_CAPTURE_BUILD
+            var captureResolveAttribution = GameplaySimulationAttributionCapture.IsActive;
+            var resolveMovementStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             var contests = new List<Contest>(planPhaseResult.SpaceContests.Count);
             AddRange(contests, planPhaseResult.SpaceContests);
             AddRange(contests, planPhaseResult.JumpLandingSpaceContests);
@@ -914,18 +1031,30 @@ namespace Game.Feature.Gameplay.Loop
                 impactDispositionRecords,
                 movementImpactReservations,
                 movementCommitEvents);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveInitialProjectionStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var finalizationBatch = new FinalizationBatch();
             finalizationBatch.MergeFrom(planPhaseResult.PlanFinalizationBatch);
             finalizationBatch.MergeFrom(movementStageBatch);
             var projectedWorld = new ProjectedWorld(planSnapshot);
             projectedWorld.ApplyBatch(movementStageBatch);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveInitialPostMovementSnapshotStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             // postMovementSnapshot is the movement-visible resolve surface. Accepted
             // impact follow-through writes are materialized here before jump landing.
             var postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveInitialPostMovement);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveBeforeAttackAiStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var beforeAttackAiBatch = new FinalizationBatch();
             var beforeAttackAiContext = new RecordingFinalizationContext(beforeAttackAiBatch);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveBeforeAttackAiSetupCompletedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             CommitEnemyAiTransitions(
                 postMovementSnapshot,
                 in input,
@@ -933,8 +1062,14 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyAiTransitionStage.BeforeAttack,
                 beforeAttackAiContext,
                 aiPhaseResult.BeforeAttackTransitions);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveBeforeAttackAiLogicCompletedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             finalizationBatch.MergeFrom(beforeAttackAiBatch);
             projectedWorld.ApplyBatch(beforeAttackAiBatch);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveBeforeAttackEnemyActionStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var enemyActionBeforeAttackBatch = new FinalizationBatch();
             var enemyActionBeforeAttackContext = new RecordingFinalizationContext(enemyActionBeforeAttackBatch);
@@ -947,6 +1082,9 @@ namespace Game.Feature.Gameplay.Loop
                 new EnemyActionPhaseResult(new List<EnemyActionTransition>(), new List<EnemyActionTransition>()));
             finalizationBatch.MergeFrom(enemyActionBeforeAttackBatch);
             projectedWorld.ApplyBatch(enemyActionBeforeAttackBatch);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolvePreliminaryAttackStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var attackSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveAttackSnapshot);
             var attackPlanResult = BuildAttackPlan(
@@ -1018,6 +1156,9 @@ namespace Game.Feature.Gameplay.Loop
                 movementResolutionRecords,
                 impactDispositionRecords,
                 planPhaseResult.BarricadeBlockFacts);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveRematerializationStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             if (HasImpactDispositionRematerialization(impactDispositionRecords))
             {
@@ -1106,6 +1247,9 @@ namespace Game.Feature.Gameplay.Loop
                 finalizationBatch.MergeFrom(enemyActionBeforeAttackBatch);
                 projectedWorld.ApplyBatch(enemyActionBeforeAttackBatch);
             }
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveTileEffectsStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var finalImpactReservations = MergeImpactReservations(
                 movementImpactReservations,
@@ -1219,6 +1363,9 @@ namespace Game.Feature.Gameplay.Loop
                     attackReadSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveAttackRead);
                 }
             }
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveFinalAttackStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             attackSnapshot = attackReadSnapshot;
             var duePendingCellImpacts = CollectDuePendingCellImpacts(attackSnapshot, tickIndex);
@@ -1311,6 +1458,9 @@ namespace Game.Feature.Gameplay.Loop
             finalizationBatch.MergeFrom(attackStageBatch);
             projectedWorld.ApplyBatch(attackStageBatch);
             AddRange(resolutionRecords, attackResolutionRecords);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolvePostAttackStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             var enemyActionAfterAttackBatch = new FinalizationBatch();
             var enemyActionAfterAttackContext = new RecordingFinalizationContext(enemyActionAfterAttackBatch);
@@ -1346,6 +1496,9 @@ namespace Game.Feature.Gameplay.Loop
             finalizationBatch.MergeFrom(utilityResolveResult.Batch);
             projectedWorld.ApplyBatch(utilityResolveResult.Batch);
             var postAttackSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostAttack);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var resolveResultStartedAt = captureResolveAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
 
             phaseTrace.Add("Resolve:Exit");
             completedPhases.Add(TickPhase.Resolve);
@@ -1409,7 +1562,7 @@ namespace Game.Feature.Gameplay.Loop
                 motionInterruptRecords,
                 attackPlanResult.PendingCellImpactResolutions);
 
-            return new ResolvePhaseResult(
+            var result = new ResolvePhaseResult(
                 movementPhaseResult,
                 attackPhaseResult,
                 enemyActionPhaseResult,
@@ -1422,6 +1575,30 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.GravityFieldPresentationEvents,
                 planPhaseResult.GravityFieldLockedTargetFacts,
                 planPhaseResult.EnemyGravityFieldAuraLockedTargetFacts);
+#if VECTORQUAKE_CAPTURE_BUILD
+            if (captureResolveAttribution)
+            {
+                var resolveCompletedAt = Stopwatch.GetTimestamp();
+                GameplaySimulationAttributionCapture.RecordResolve(
+                    tickIndex,
+                    resolveInitialProjectionStartedAt - resolveMovementStartedAt,
+                    resolvePreliminaryAttackStartedAt - resolveInitialProjectionStartedAt,
+                    resolveRematerializationStartedAt - resolvePreliminaryAttackStartedAt,
+                    resolveTileEffectsStartedAt - resolveRematerializationStartedAt,
+                    resolveFinalAttackStartedAt - resolveTileEffectsStartedAt,
+                    resolvePostAttackStartedAt - resolveFinalAttackStartedAt,
+                    resolveResultStartedAt - resolvePostAttackStartedAt,
+                    resolveCompletedAt - resolveResultStartedAt,
+                    resolveInitialPostMovementSnapshotStartedAt - resolveInitialProjectionStartedAt,
+                    resolveBeforeAttackAiStartedAt - resolveInitialPostMovementSnapshotStartedAt,
+                    resolveBeforeAttackEnemyActionStartedAt - resolveBeforeAttackAiStartedAt,
+                    resolvePreliminaryAttackStartedAt - resolveBeforeAttackEnemyActionStartedAt,
+                    resolveBeforeAttackAiSetupCompletedAt - resolveBeforeAttackAiStartedAt,
+                    resolveBeforeAttackAiLogicCompletedAt - resolveBeforeAttackAiSetupCompletedAt,
+                    resolveBeforeAttackEnemyActionStartedAt - resolveBeforeAttackAiLogicCompletedAt);
+            }
+#endif
+            return result;
         }
 
         private void RunFinalizePhase(

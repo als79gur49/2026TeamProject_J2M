@@ -25,6 +25,7 @@ namespace Game.Feature.UI.Composition
         internal const string WidthArgument = "--gameplay-performance-width";
         internal const string HeightArgument = "--gameplay-performance-height";
         internal const string RevisionArgument = "--gameplay-performance-revision";
+        internal const string GameplayStageArgument = "--capture-stage";
         internal const string CleanupStrategyArgument = "--gameplay-cleanup-strategy";
         internal const string CampaignIdArgument = "--gameplay-evidence-campaign-id";
         internal const string AttemptIdArgument = "--gameplay-evidence-attempt-id";
@@ -89,6 +90,7 @@ namespace Game.Feature.UI.Composition
             var width = ReadPositiveInt(WidthArgument, 1920);
             var height = ReadPositiveInt(HeightArgument, 1080);
             var revision = ReadArgumentValue(RevisionArgument);
+            var gameplayStage = ReadArgumentValue(GameplayStageArgument);
             var campaignId = ReadArgumentValue(CampaignIdArgument);
             var attemptId = ReadArgumentValue(AttemptIdArgument);
             var attemptOrdinalText = ReadArgumentValue(AttemptOrdinalArgument);
@@ -121,7 +123,8 @@ namespace Game.Feature.UI.Composition
                 string.IsNullOrWhiteSpace(buildPayload) || string.IsNullOrWhiteSpace(runnerHash) ||
                 string.IsNullOrWhiteSpace(performanceValidatorHash) || string.IsNullOrWhiteSpace(cleanupValidatorHash) ||
                 string.IsNullOrWhiteSpace(aggregatorHash) || string.IsNullOrWhiteSpace(manifestToolHash) ||
-                string.IsNullOrWhiteSpace(workloadContractHash) || string.IsNullOrWhiteSpace(harnessHash))
+                string.IsNullOrWhiteSpace(workloadContractHash) || string.IsNullOrWhiteSpace(harnessHash) ||
+                string.IsNullOrWhiteSpace(gameplayStage))
             {
                 Fail("Evidence Contract v4 capture identity is missing or invalid");
                 yield break;
@@ -220,6 +223,8 @@ namespace Game.Feature.UI.Composition
             }
 
             var records = new List<FrameRecord>(sampleFrames * 2);
+            IReadOnlyList<GameplayTickAttributionSample> attributionSamples =
+                Array.Empty<GameplayTickAttributionSample>();
             var gcAllocated = ProfilerRecorder.StartNew(
                 ProfilerCategory.Memory,
                 "GC Allocated In Frame",
@@ -238,15 +243,28 @@ namespace Game.Feature.UI.Composition
                     drawCalls,
                     gcAllocated,
                     records);
-                yield return SamplePhase(
-                    "gameplay-neutral-tick",
-                    host,
-                    sampleFrames,
-                    tickInterval,
-                    executeTicks: true,
-                    drawCalls,
-                    gcAllocated,
-                    records);
+                GameplayTickAttributionCapture.BeginSession(
+                    Math.Max(1, (sampleFrames + tickInterval - 1) / tickInterval));
+                try
+                {
+                    yield return SamplePhase(
+                        "gameplay-neutral-tick",
+                        host,
+                        sampleFrames,
+                        tickInterval,
+                        executeTicks: true,
+                        drawCalls,
+                        gcAllocated,
+                        records);
+                    attributionSamples = GameplayTickAttributionCapture.CompleteSession();
+                }
+                finally
+                {
+                    if (GameplayTickAttributionCapture.IsActive)
+                    {
+                        GameplayTickAttributionCapture.CancelSession();
+                    }
+                }
             }
             gcAllocated.Dispose();
 
@@ -258,6 +276,13 @@ namespace Game.Feature.UI.Composition
                 Fail(
                     $"insufficient admitted gameplay ticks: " +
                     $"executed={gameplaySummary.ExecutedTicks} expectedAtLeast={minimumExpectedTicks}");
+                yield break;
+            }
+            if (attributionSamples.Count != gameplaySummary.ExecutedTicks)
+            {
+                Fail(
+                    $"Tick attribution sample count mismatch: " +
+                    $"attribution={attributionSamples.Count} executed={gameplaySummary.ExecutedTicks}");
                 yield break;
             }
 
@@ -292,15 +317,16 @@ namespace Game.Feature.UI.Composition
                 "frameAllocationCalibration",
                 cleanupAllocationJson);
 
+            var captureIdentityJson = BuildCaptureIdentityJson(
+                campaignId, attemptId, attemptOrdinal, attemptKind, captureNonce,
+                evidenceStage, activeStrategies, preBuildHead, preBuildWorktree,
+                postRestoreHead, postRestoreWorktree, runtimeTree, playerArtifact,
+                buildPayload, runnerHash, performanceValidatorHash, cleanupValidatorHash,
+                aggregatorHash, manifestToolHash, workloadContractHash, harnessHash);
             WriteManifest(
                 outputDirectory,
                 revision,
-                BuildCaptureIdentityJson(
-                    campaignId, attemptId, attemptOrdinal, attemptKind, captureNonce,
-                    evidenceStage, activeStrategies, preBuildHead, preBuildWorktree,
-                    postRestoreHead, postRestoreWorktree, runtimeTree, playerArtifact,
-                    buildPayload, runnerHash, performanceValidatorHash, cleanupValidatorHash,
-                    aggregatorHash, manifestToolHash, workloadContractHash, harnessHash),
+                captureIdentityJson,
                 width,
                 height,
                 sampleFrames,
@@ -311,11 +337,18 @@ namespace Game.Feature.UI.Composition
                 idleSummary,
                 gameplaySummary,
                 cleanupCalibrationJson);
+            WriteTickAttribution(
+                outputDirectory,
+                revision,
+                gameplayStage,
+                captureIdentityJson,
+                attributionSamples);
 
             Debug.Log(
                 $"{SuccessMarker} resolution={Screen.width}x{Screen.height} " +
                 $"idleFrames={idleSummary.SampleCount} gameplayFrames={gameplaySummary.SampleCount} " +
-                $"executedTicks={gameplaySummary.ExecutedTicks}");
+                $"executedTicks={gameplaySummary.ExecutedTicks} " +
+                $"attributionSamples={attributionSamples.Count}");
             UnityEngine.Application.Quit(0);
         }
 
@@ -613,6 +646,179 @@ namespace Game.Feature.UI.Composition
                 .AppendLine(cleanupCalibrationJson);
             builder.AppendLine("}");
             var destination = Path.Combine(outputDirectory, "performance-metrics.json");
+            var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var stream = new FileStream(
+                           temporary,
+                           FileMode.CreateNew,
+                           FileAccess.Write,
+                           FileShare.None,
+                           4096,
+                           FileOptions.WriteThrough))
+                using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+                {
+                    writer.Write(builder.ToString());
+                    writer.Flush();
+                    stream.Flush(true);
+                }
+
+                if (File.Exists(destination))
+                {
+                    File.Replace(temporary, destination, null);
+                }
+                else
+                {
+                    File.Move(temporary, destination);
+                }
+            }
+            finally
+            {
+                if (File.Exists(temporary))
+                {
+                    File.Delete(temporary);
+                }
+            }
+        }
+
+        private static void WriteTickAttribution(
+            string outputDirectory,
+            string revision,
+            string gameplayStage,
+            string captureIdentityJson,
+            IReadOnlyList<GameplayTickAttributionSample> samples)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("{");
+            builder.AppendLine("  \"schemaVersion\": 7,");
+            builder.AppendLine("  \"measurementKind\": \"gameplay-tick-level7-pre-movement-before-attack-attribution\",");
+            builder.Append("  \"captureIdentity\": ").Append(captureIdentityJson).AppendLine(",");
+            builder.Append("  \"revision\": \"").Append(Escape(revision)).AppendLine("\",");
+            builder.Append("  \"gameplayStage\": \"").Append(Escape(gameplayStage)).AppendLine("\",");
+            builder.Append("  \"stopwatchFrequency\": ").Append(Stopwatch.Frequency).AppendLine(",");
+            builder.Append("  \"sampleCount\": ").Append(samples.Count).AppendLine(",");
+            builder.AppendLine("  \"samples\": [");
+            for (var index = 0; index < samples.Count; index++)
+            {
+                var sample = samples[index];
+                var simulation = sample.SimulationDetail;
+                var presentation = sample.PresentationDetail;
+                var simulationResidualTicks = sample.SimulationTicks -
+                    (simulation.BootstrapTicks + simulation.PlanTicks + simulation.ResolveTicks +
+                     simulation.FinalizeAndSnapshotTicks + simulation.CleanupAndSnapshotTicks +
+                     simulation.RespawnAndFinalSnapshotTicks + simulation.ResultMaterializationTicks);
+                var planResidualTicks = simulation.PlanTicks -
+                    (simulation.PlanEnemyAiAndProjectionTicks +
+                     simulation.PlanKinematicAndGravityProjectionTicks +
+                     simulation.PlanPreMovementStateAndUtilityProjectionTicks +
+                     simulation.PlanJumpLandingAndPlayerActionAttemptsTicks +
+                     simulation.PlanMovementIntentCollectionAndPartitionTicks +
+                     simulation.PlanLocomotionProjectionTicks +
+                     simulation.PlanMovementExpansionTicks +
+                     simulation.PlanPayloadOrderingAndResultTicks);
+                var resolveResidualTicks = simulation.ResolveTicks -
+                    (simulation.ResolveMovementPlanningAndMaterializationTicks +
+                     simulation.ResolveInitialProjectionAndBeforeAttackStateTicks +
+                     simulation.ResolvePreliminaryAttackAndImpactDispositionTicks +
+                     simulation.ResolveMovementRematerializationAndJumpLandingTicks +
+                     simulation.ResolveTileEffectsAndProjectionTicks +
+                     simulation.ResolveFinalAttackAndMaterializationTicks +
+                     simulation.ResolvePostAttackStateAndUtilityTicks +
+                     simulation.ResolveResultMaterializationTicks);
+                var resolveInitialProjectionResidualTicks = simulation.ResolveInitialProjectionAndBeforeAttackStateTicks -
+                    (simulation.ResolveInitialProjectionSetupAndBatchApplyTicks +
+                     simulation.ResolveInitialPostMovementSnapshotTicks +
+                     simulation.ResolveBeforeAttackAiTransitionTicks +
+                     simulation.ResolveBeforeAttackEnemyActionTicks);
+                var resolveInitialPostMovementSnapshotResidualTicks = simulation.ResolveInitialPostMovementSnapshotTicks -
+                    (simulation.ResolveInitialPostMovementSnapshotBaseImportTicks +
+                     simulation.ResolveInitialPostMovementSnapshotOverlayApplyTicks +
+                     simulation.ResolveInitialPostMovementSnapshotMaterializationTicks);
+                var planPreMovementResidualTicks = simulation.PlanPreMovementStateAndUtilityProjectionTicks -
+                    (simulation.PlanPreMovementSetupTicks + simulation.PlanPreMovementLogicTicks +
+                     simulation.PlanPreMovementBookkeepingTicks + simulation.PlanPreMovementProjectionApplyTicks +
+                     simulation.PlanPreMovementUtilityInputSnapshotTicks + simulation.PlanPreMovementUtilityResolveTicks +
+                     simulation.PlanPreMovementUtilityProjectionApplyTicks);
+                var resolveBeforeAttackAiResidualTicks = simulation.ResolveBeforeAttackAiTransitionTicks -
+                    (simulation.ResolveBeforeAttackAiSetupTicks + simulation.ResolveBeforeAttackAiLogicTicks +
+                     simulation.ResolveBeforeAttackAiProjectionApplyTicks);
+                var presentationResidualTicks = sample.PresentationTicks -
+                    (presentation.CoordinatorTicks + presentation.CameraAndStateNotificationTicks);
+                var coordinatorResidualTicks = presentation.CoordinatorTicks -
+                    (presentation.PreCommitPlanningTicks + presentation.CommittedFrameAndStateTicks +
+                     presentation.MotionAnimationVfxTicks + presentation.AudioTicks +
+                     presentation.ApplyCleanupUpdateTicks);
+                builder.Append("    {\"tickIndex\":").Append(sample.TickIndex)
+                    .Append(",\"threadId\":").Append(sample.ThreadId)
+                    .Append(",\"outerTicks\":").Append(sample.OuterTicks)
+                    .Append(",\"inputPreparationTicks\":").Append(sample.InputPreparationTicks)
+                    .Append(",\"simulationTicks\":").Append(sample.SimulationTicks)
+                    .Append(",\"hostPostProcessTicks\":").Append(sample.HostPostProcessTicks)
+                    .Append(",\"presentationTicks\":").Append(sample.PresentationTicks)
+                    .Append(",\"callbackTicks\":").Append(sample.CallbackTicks)
+                    .Append(",\"simulationBootstrapTicks\":").Append(simulation.BootstrapTicks)
+                    .Append(",\"simulationPlanTicks\":").Append(simulation.PlanTicks)
+                    .Append(",\"simulationResolveTicks\":").Append(simulation.ResolveTicks)
+                    .Append(",\"simulationFinalizeAndSnapshotTicks\":").Append(simulation.FinalizeAndSnapshotTicks)
+                    .Append(",\"simulationCleanupAndSnapshotTicks\":").Append(simulation.CleanupAndSnapshotTicks)
+                    .Append(",\"simulationRespawnAndFinalSnapshotTicks\":").Append(simulation.RespawnAndFinalSnapshotTicks)
+                    .Append(",\"simulationResultMaterializationTicks\":").Append(simulation.ResultMaterializationTicks)
+                    .Append(",\"simulationResidualTicks\":").Append(simulationResidualTicks)
+                    .Append(",\"simulationPlanEnemyAiAndProjectionTicks\":").Append(simulation.PlanEnemyAiAndProjectionTicks)
+                    .Append(",\"simulationPlanKinematicAndGravityProjectionTicks\":").Append(simulation.PlanKinematicAndGravityProjectionTicks)
+                    .Append(",\"simulationPlanPreMovementStateAndUtilityProjectionTicks\":").Append(simulation.PlanPreMovementStateAndUtilityProjectionTicks)
+                    .Append(",\"simulationPlanPreMovementSetupTicks\":").Append(simulation.PlanPreMovementSetupTicks)
+                    .Append(",\"simulationPlanPreMovementLogicTicks\":").Append(simulation.PlanPreMovementLogicTicks)
+                    .Append(",\"simulationPlanPreMovementBookkeepingTicks\":").Append(simulation.PlanPreMovementBookkeepingTicks)
+                    .Append(",\"simulationPlanPreMovementProjectionApplyTicks\":").Append(simulation.PlanPreMovementProjectionApplyTicks)
+                    .Append(",\"simulationPlanPreMovementUtilityInputSnapshotTicks\":").Append(simulation.PlanPreMovementUtilityInputSnapshotTicks)
+                    .Append(",\"simulationPlanPreMovementUtilityResolveTicks\":").Append(simulation.PlanPreMovementUtilityResolveTicks)
+                    .Append(",\"simulationPlanPreMovementUtilityProjectionApplyTicks\":").Append(simulation.PlanPreMovementUtilityProjectionApplyTicks)
+                    .Append(",\"simulationPlanPreMovementResidualTicks\":").Append(planPreMovementResidualTicks)
+                    .Append(",\"simulationPlanJumpLandingAndPlayerActionAttemptsTicks\":").Append(simulation.PlanJumpLandingAndPlayerActionAttemptsTicks)
+                    .Append(",\"simulationPlanMovementIntentCollectionAndPartitionTicks\":").Append(simulation.PlanMovementIntentCollectionAndPartitionTicks)
+                    .Append(",\"simulationPlanLocomotionProjectionTicks\":").Append(simulation.PlanLocomotionProjectionTicks)
+                    .Append(",\"simulationPlanMovementExpansionTicks\":").Append(simulation.PlanMovementExpansionTicks)
+                    .Append(",\"simulationPlanPayloadOrderingAndResultTicks\":").Append(simulation.PlanPayloadOrderingAndResultTicks)
+                    .Append(",\"simulationPlanResidualTicks\":").Append(planResidualTicks)
+                    .Append(",\"simulationResolveMovementPlanningAndMaterializationTicks\":").Append(simulation.ResolveMovementPlanningAndMaterializationTicks)
+                    .Append(",\"simulationResolveInitialProjectionAndBeforeAttackStateTicks\":").Append(simulation.ResolveInitialProjectionAndBeforeAttackStateTicks)
+                    .Append(",\"simulationResolvePreliminaryAttackAndImpactDispositionTicks\":").Append(simulation.ResolvePreliminaryAttackAndImpactDispositionTicks)
+                    .Append(",\"simulationResolveMovementRematerializationAndJumpLandingTicks\":").Append(simulation.ResolveMovementRematerializationAndJumpLandingTicks)
+                    .Append(",\"simulationResolveTileEffectsAndProjectionTicks\":").Append(simulation.ResolveTileEffectsAndProjectionTicks)
+                    .Append(",\"simulationResolveFinalAttackAndMaterializationTicks\":").Append(simulation.ResolveFinalAttackAndMaterializationTicks)
+                    .Append(",\"simulationResolvePostAttackStateAndUtilityTicks\":").Append(simulation.ResolvePostAttackStateAndUtilityTicks)
+                    .Append(",\"simulationResolveResultMaterializationTicks\":").Append(simulation.ResolveResultMaterializationTicks)
+                    .Append(",\"simulationResolveResidualTicks\":").Append(resolveResidualTicks)
+                    .Append(",\"simulationResolveInitialProjectionSetupAndBatchApplyTicks\":").Append(simulation.ResolveInitialProjectionSetupAndBatchApplyTicks)
+                    .Append(",\"simulationResolveInitialPostMovementSnapshotTicks\":").Append(simulation.ResolveInitialPostMovementSnapshotTicks)
+                    .Append(",\"simulationResolveBeforeAttackAiTransitionTicks\":").Append(simulation.ResolveBeforeAttackAiTransitionTicks)
+                    .Append(",\"simulationResolveBeforeAttackAiSetupTicks\":").Append(simulation.ResolveBeforeAttackAiSetupTicks)
+                    .Append(",\"simulationResolveBeforeAttackAiLogicTicks\":").Append(simulation.ResolveBeforeAttackAiLogicTicks)
+                    .Append(",\"simulationResolveBeforeAttackAiProjectionApplyTicks\":").Append(simulation.ResolveBeforeAttackAiProjectionApplyTicks)
+                    .Append(",\"simulationResolveBeforeAttackAiResidualTicks\":").Append(resolveBeforeAttackAiResidualTicks)
+                    .Append(",\"simulationResolveBeforeAttackEnemyActionTicks\":").Append(simulation.ResolveBeforeAttackEnemyActionTicks)
+                    .Append(",\"simulationResolveInitialProjectionResidualTicks\":").Append(resolveInitialProjectionResidualTicks)
+                    .Append(",\"simulationResolveInitialPostMovementSnapshotBaseImportTicks\":").Append(simulation.ResolveInitialPostMovementSnapshotBaseImportTicks)
+                    .Append(",\"simulationResolveInitialPostMovementSnapshotOverlayApplyTicks\":").Append(simulation.ResolveInitialPostMovementSnapshotOverlayApplyTicks)
+                    .Append(",\"simulationResolveInitialPostMovementSnapshotMaterializationTicks\":").Append(simulation.ResolveInitialPostMovementSnapshotMaterializationTicks)
+                    .Append(",\"simulationResolveInitialPostMovementSnapshotResidualTicks\":").Append(resolveInitialPostMovementSnapshotResidualTicks)
+                    .Append(",\"presentationCoordinatorTicks\":").Append(presentation.CoordinatorTicks)
+                    .Append(",\"presentationCameraAndStateNotificationTicks\":").Append(presentation.CameraAndStateNotificationTicks)
+                    .Append(",\"presentationResidualTicks\":").Append(presentationResidualTicks)
+                    .Append(",\"presentationPreCommitPlanningTicks\":").Append(presentation.PreCommitPlanningTicks)
+                    .Append(",\"presentationCommittedFrameAndStateTicks\":").Append(presentation.CommittedFrameAndStateTicks)
+                    .Append(",\"presentationMotionAnimationVfxTicks\":").Append(presentation.MotionAnimationVfxTicks)
+                    .Append(",\"presentationAudioTicks\":").Append(presentation.AudioTicks)
+                    .Append(",\"presentationApplyCleanupUpdateTicks\":").Append(presentation.ApplyCleanupUpdateTicks)
+                    .Append(",\"presentationCoordinatorResidualTicks\":").Append(coordinatorResidualTicks)
+                    .Append('}');
+                builder.AppendLine(index + 1 < samples.Count ? "," : string.Empty);
+            }
+
+            builder.AppendLine("  ]");
+            builder.AppendLine("}");
+            var destination = Path.Combine(outputDirectory, "tick-attribution.json");
             var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {

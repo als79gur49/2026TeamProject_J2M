@@ -84,6 +84,11 @@ STAGE_ARTIFACTS = {
     "consistencyFinalization": ("manifestTool",),
 }
 STAGE_STRATEGIES = {"S3-A": ["A"], "S3-B": ["A", "B"], "S3-C": ["A", "B", "C"]}
+TICK_ATTRIBUTION_HASH_KEYS = {
+    "TickAttributionSHA256",
+    "TickAttributionReportSHA256",
+    "TickAttributionValidatorSHA256",
+}
 EXIT_STAGE_FIELDS = {
     "performanceAdmission": "performanceAdmission",
     "cleanupAdmission": "cleanupAdmission",
@@ -112,6 +117,44 @@ def not_applicable_artifact(path: Path) -> dict[str, Any]:
 
 def path_lexically_exists(path: Path) -> bool:
     return path.exists() or path.is_symlink()
+
+
+def validate_tick_attribution_bundle(artifact_manifest: Path) -> None:
+    captured = load_strict_kv(artifact_manifest, "artifactManifest")
+    present_keys = set(captured) & TICK_ATTRIBUTION_HASH_KEYS
+    if not present_keys:
+        return
+    if present_keys != TICK_ATTRIBUTION_HASH_KEYS:
+        raise EvidenceError(
+            "FIELD_MISSING",
+            "artifactManifest.tickAttributionHashes",
+            sorted(TICK_ATTRIBUTION_HASH_KEYS),
+            sorted(present_keys),
+        )
+
+    raw_path = artifact_manifest.parent / "tick-attribution.json"
+    report_path = artifact_manifest.parent / "tick-attribution-report.json"
+    validator_path = Path(__file__).resolve().with_name("gameplay_tick_attribution.py")
+    bindings = (
+        ("TickAttributionSHA256", raw_path, "METRICS_HASH_MISMATCH"),
+        ("TickAttributionReportSHA256", report_path, "METRICS_HASH_MISMATCH"),
+        ("TickAttributionValidatorSHA256", validator_path, "TOOL_HASH_MISMATCH"),
+    )
+    for key, path, code in bindings:
+        observed = try_sha256(path)
+        if captured.get(key) != observed:
+            raise EvidenceError(code, f"artifactManifest.{key}", observed, captured.get(key))
+
+    report = load_json_object(report_path, "tickAttributionReport")
+    report_bindings = (
+        ("verdict", "ADMITTED", "PERSISTED_REPORT_MISMATCH"),
+        ("sourceSha256", captured["TickAttributionSHA256"], "METRICS_HASH_MISMATCH"),
+        ("validatorSha256", captured["TickAttributionValidatorSHA256"], "TOOL_HASH_MISMATCH"),
+        ("identitySourceSha256", captured.get("MetricsSHA256"), "METRICS_HASH_MISMATCH"),
+    )
+    for field, expected, code in report_bindings:
+        if report.get(field) != expected:
+            raise EvidenceError(code, f"tickAttributionReport.{field}", expected, report.get(field))
 
 
 _ALLOCATION_ONLY_CLEANUP_OBSERVED = (
@@ -517,6 +560,8 @@ def validate_final_manifest_transport(document: Any) -> str:
             sorted(REQUIRED_SUCCESS_ARTIFACTS),
             sorted(artifacts),
         )
+    if artifacts["artifactManifest"]["state"] == "PRESENT":
+        validate_tick_attribution_bundle(Path(artifacts["artifactManifest"]["path"]))
     for name in STAGE_NAMES:
         unknown_artifacts = set(stages[name]["artifacts"]) - set(artifacts)
         if unknown_artifacts:
@@ -1033,6 +1078,9 @@ def build_manifest(
         "PostRestoreHeadSha", "PostRestoreWorktreeSha256", "PlayerArtifactSha256",
         "BuildPayloadSHA256", "MetricsSHA256", "RuntimeLogSHA256",
     }
+    present_tick_attribution_hash_keys = set(captured) & TICK_ATTRIBUTION_HASH_KEYS
+    if present_tick_attribution_hash_keys:
+        captured_keys |= TICK_ATTRIBUTION_HASH_KEYS
     for label, values, expected_keys in (
         ("preflight", preflight, preflight_keys),
         ("captured", captured, captured_keys),
@@ -1083,6 +1131,11 @@ def build_manifest(
     runtime_hash = artifacts["runtimeLog"]["sha256"]
     _equal(reasons, "METRICS_HASH_MISMATCH", "captured.MetricsSHA256", metrics_hash, captured.get("MetricsSHA256"))
     _equal(reasons, "IDENTITY_MISMATCH", "captured.RuntimeLogSHA256", runtime_hash, captured.get("RuntimeLogSHA256"))
+    if present_tick_attribution_hash_keys:
+        try:
+            validate_tick_attribution_bundle(artifact_manifest)
+        except EvidenceError as error:
+            _append(reasons, error.reason)
 
     if metrics_document is not None:
         _equal(reasons, "SCHEMA_VERSION_INVALID", "metrics.schemaVersion", 2, metrics_document.get("schemaVersion"))

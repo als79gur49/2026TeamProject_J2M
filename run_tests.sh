@@ -223,6 +223,7 @@ PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT="${PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT:-
 GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT="${GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT:-/mnt/d/J2M/evidence/gameplay-performance}"
 GAMEPLAY_PERFORMANCE_BUILD_ROOT="${GAMEPLAY_PERFORMANCE_BUILD_ROOT:-/mnt/d/J2M/builds/gameplay-performance}"
 GAMEPLAY_PERFORMANCE_ADMISSION_POLICY="${GAMEPLAY_PERFORMANCE_ADMISSION_POLICY:-strict-v1}"
+GAMEPLAY_PERFORMANCE_STAGE_ID="${GAMEPLAY_PERFORMANCE_STAGE_ID:-stage-1-1}"
 GAMEPLAY_PERFORMANCE_WIDTH="${GAMEPLAY_PERFORMANCE_WIDTH:-1920}"
 GAMEPLAY_PERFORMANCE_HEIGHT="${GAMEPLAY_PERFORMANCE_HEIGHT:-1080}"
 GAMEPLAY_PERFORMANCE_WARMUP_FRAMES="${GAMEPLAY_PERFORMANCE_WARMUP_FRAMES:-120}"
@@ -6241,6 +6242,8 @@ run_gameplay_performance() {
     local runtime_log_win
     local metrics_path
     local performance_admission_report_path
+    local tick_attribution_path
+    local tick_attribution_report_path
     local preflight_manifest_path
     local artifact_manifest_path
     local cleanup_calibration_report_path
@@ -6262,6 +6265,7 @@ run_gameplay_performance() {
     local attempt_uuid
     local runner_hash
     local performance_validator_hash
+    local tick_attribution_validator_hash
     local cleanup_validator_hash
     local aggregator_hash
     local manifest_tool_hash
@@ -6291,9 +6295,15 @@ run_gameplay_performance() {
     local failure_verdict
     local guard_status=0
     local final_signal_status=0
+    local capture_gameplay_stage="$GAMEPLAY_PERFORMANCE_STAGE_ID"
+    local expected_tick_samples
     case "$GAMEPLAY_PERFORMANCE_ADMISSION_POLICY" in
         strict-v1|cpu-tick-v1) ;;
         *) echo "ERROR: Unknown gameplay performance admission policy."; return 2 ;;
+    esac
+    case "$capture_gameplay_stage" in
+        stage-1-1|stage-4-2|stage-4-3) ;;
+        *) echo "ERROR: Unsupported gameplay performance stage: $capture_gameplay_stage"; return 2 ;;
     esac
     local capture_smoke=0
     local capture_evidence_root="$GAMEPLAY_PERFORMANCE_EVIDENCE_ROOT"
@@ -6321,6 +6331,7 @@ run_gameplay_performance() {
 
     if [ "${RUN_MODE:-}" = "cleanup-s3-capture-smoke" ]; then
         capture_smoke=1
+        capture_gameplay_stage="stage-1-1"
         capture_evidence_root="$CLEANUP_S3_CAPTURE_SMOKE_EVIDENCE_ROOT"
         capture_build_root="$CLEANUP_S3_CAPTURE_SMOKE_BUILD_ROOT"
         capture_width=1280
@@ -6342,6 +6353,7 @@ run_gameplay_performance() {
     capture_nonce="$(tr -d '\r\n' < /proc/sys/kernel/random/uuid)"
     runner_hash="$(sha256sum "$PROJECT_PATH_WSL/run_tests.sh" | awk '{print $1}')"
     performance_validator_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_performance_admission.py" | awk '{print $1}')"
+    tick_attribution_validator_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_tick_attribution.py" | awk '{print $1}')"
     cleanup_validator_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_admission.py" | awk '{print $1}')"
     aggregator_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_calibration.py" | awk '{print $1}')"
     manifest_tool_hash="$(sha256sum "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" | awk '{print $1}')"
@@ -6356,7 +6368,9 @@ run_gameplay_performance() {
             "workloadContractSha256=$workload_contract_hash" |
             sha256sum | awk '{print $1}'
     )"
-    product_name="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX}-GameplayPerformance-${timestamp}-${attempt_uuid}"
+    # Keep the isolated product leaf short enough for the temporary campaign store's
+    # atomic .write.<guid>.tmp paths on Windows hosts without long-path support.
+    product_name="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX}-GP-${attempt_uuid}"
     if [ "$capture_smoke" -eq 1 ]; then
         product_name="VectorQuake-P0Phase4Smoke-CleanupS3CaptureSmoke-${attempt_uuid}"
         evidence_dir="$capture_evidence_root/$attempt_uuid"
@@ -6370,6 +6384,8 @@ run_gameplay_performance() {
     runtime_log="$evidence_dir/player-runtime.log"
     metrics_path="$evidence_dir/performance-metrics.json"
     performance_admission_report_path="$evidence_dir/performance-admission-report.json"
+    tick_attribution_path="$evidence_dir/tick-attribution.json"
+    tick_attribution_report_path="$evidence_dir/tick-attribution-report.json"
     preflight_manifest_path="$evidence_dir/preflight-manifest.txt"
     artifact_manifest_path="$evidence_dir/artifact-manifest.txt"
     cleanup_calibration_report_path="$evidence_dir/cleanup-s3a-calibration-report.json"
@@ -6394,7 +6410,7 @@ run_gameplay_performance() {
         -captureBuildPath "$player_path_win"
         -captureBackend Mono
         -captureProductName "$product_name"
-        --capture-stage stage-1-1
+        --capture-stage "$capture_gameplay_stage"
         --capture-campaign-temp-slot
     )
 
@@ -6647,7 +6663,7 @@ run_gameplay_performance() {
             -screen-width "$capture_width" \
             -screen-height "$capture_height" \
             -logFile "$runtime_log_win" \
-            --capture-stage stage-1-1 \
+            --capture-stage "$capture_gameplay_stage" \
             --capture-campaign-temp-slot \
             --gameplay-performance \
             --gameplay-performance-output "$evidence_dir_win" \
@@ -6698,7 +6714,7 @@ run_gameplay_performance() {
     python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
         --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
         --stage player --stage-status PASS --output "$cleanup_evidence_manifest_path" || return 2
-    if [ ! -f "$runtime_log" ] || [ ! -f "$metrics_path" ] ||
+    if [ ! -f "$runtime_log" ] || [ ! -f "$metrics_path" ] || [ ! -f "$tick_attribution_path" ] ||
        ! validate_gameplay_performance_runtime_marker "$runtime_log"; then
         echo "ERROR: Gameplay performance marker validation failed."
         tail -n 160 "$runtime_log" || true
@@ -6717,6 +6733,17 @@ run_gameplay_performance() {
     python3 "$PROJECT_PATH_WSL/Tools/gameplay_cleanup_slice3_evidence_manifest.py" \
         --transition-manifest --manifest "$cleanup_evidence_manifest_path" \
         --stage markerValidation --stage-status PASS --output "$cleanup_evidence_manifest_path" || return 2
+    expected_tick_samples=$(( (capture_sample_frames + capture_tick_interval - 1) / capture_tick_interval ))
+    if ! python3 "$PROJECT_PATH_WSL/Tools/gameplay_tick_attribution.py" \
+            --input "$tick_attribution_path" \
+            --expected-revision "$revision_sha" \
+            --expected-stage "$capture_gameplay_stage" \
+            --expected-samples "$expected_tick_samples" \
+            --expected-identity-from "$metrics_path" \
+            --output "$tick_attribution_report_path"; then
+        echo "ERROR: Gameplay Tick attribution validation failed."
+        return 1
+    fi
     {
         echo "SchemaVersion=2"
         echo "EvidenceContractVersion=4"
@@ -6737,6 +6764,9 @@ run_gameplay_performance() {
         echo "BuildPayloadSHA256=$build_payload_hash"
         echo "MetricsSHA256=$(sha256sum "$metrics_path" | awk '{print $1}')"
         echo "RuntimeLogSHA256=$(sha256sum "$runtime_log" | awk '{print $1}')"
+        echo "TickAttributionSHA256=$(sha256sum "$tick_attribution_path" | awk '{print $1}')"
+        echo "TickAttributionReportSHA256=$(sha256sum "$tick_attribution_report_path" | awk '{print $1}')"
+        echo "TickAttributionValidatorSHA256=$tick_attribution_validator_hash"
         echo "RunnerSha256=$runner_hash"
         echo "PerformanceValidatorSha256=$performance_validator_hash"
         echo "CleanupValidatorSha256=$cleanup_validator_hash"
@@ -6986,7 +7016,7 @@ run_gameplay_performance() {
         echo "ArtifactSHA256=$artifact_hash"
         echo "BuildPayloadSHA256=$build_payload_hash"
         echo "Player=$player_path"
-        echo "Stage=stage-1-1"
+        echo "Stage=$capture_gameplay_stage"
         echo "SceneRoute=canonical gameplay shell"
         echo "Backend=Mono"
         echo "Configuration=ReleaseLikeCapture"

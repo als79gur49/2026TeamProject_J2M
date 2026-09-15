@@ -12,6 +12,9 @@ using Game.Feature.Gameplay.TopologyAudio;
 using Game.Feature.Stages;
 using Unity.Cinemachine;
 using UnityEngine;
+#if VECTORQUAKE_CAPTURE_BUILD
+using Stopwatch = System.Diagnostics.Stopwatch;
+#endif
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -149,7 +152,14 @@ namespace Game.Feature.Gameplay.Host
 
         public void Present(TickResult result)
         {
+#if VECTORQUAKE_CAPTURE_BUILD
+            var captureAttribution = GameplayTickAttributionCapture.IsActive;
+            var coordinatorStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             PresentationCoordinator.Present(result);
+#if VECTORQUAKE_CAPTURE_BUILD
+            var cameraAndStateNotificationStartedAt = captureAttribution ? Stopwatch.GetTimestamp() : 0L;
+#endif
             SyncViewCameraRuntime(0f);
             var submittedCameraImpulse = CameraShakeProductionPlanner.Present(
                     result,
@@ -167,6 +177,16 @@ namespace Game.Feature.Gameplay.Host
                 ManualUpdateViewCameraBrain();
             }
             NotifyPresentationStateChangedIfNeeded();
+#if VECTORQUAKE_CAPTURE_BUILD
+            if (captureAttribution)
+            {
+                var cameraAndStateNotificationCompletedAt = Stopwatch.GetTimestamp();
+                GameplayTickAttributionCapture.RecordPresentation(
+                    result.TickIndex,
+                    cameraAndStateNotificationStartedAt - coordinatorStartedAt,
+                    cameraAndStateNotificationCompletedAt - cameraAndStateNotificationStartedAt);
+            }
+#endif
         }
 
         public void PresentInitial(
