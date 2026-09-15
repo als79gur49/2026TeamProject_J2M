@@ -166,9 +166,10 @@
   - `FreshSelectionSuppressedWithCurrentEnemyLockRetention`는 current stage-local contract 이름일 뿐이며, future lock taxonomy의 generic seed가 아니다.
 
 ### Fresh Target Acquisition Aggregation
-- status: 2026-09-15 A-stage runtime implementation complete; targeted contract/scenario/replay and core lane validated. ordered Unit cache B-stage pending.
+- status: 2026-09-15 A/B runtime implementation complete; Direct-only ordered Unit cache contract, A/B observable parity, targeted regression, and core lane validated. stage-4-2/4-3 performance remeasurement pending.
   - tests-first execution record: `EnemyTargetSelectorContractTests`는 production 변경 전에 filtered Full EditMode `23 total / 13 failed`, 낮은 ID blocker BlackEye 회귀는 `1 total / 1 failed`로 예상한 contract gap을 재현했다. 후속 filtered 실행이 공용 TestResults를 덮어써 당시 raw XML/log는 보존되지 않았다.
   - closure evidence: filtered Full EditMode에서 `EnemyTargetSelectorContractTests` `31/0`, `BlackEyeWindupProjectileRuntimeContractTests` `48/0`(combined `79/0`), `EnemyLogicTests` `183/0`, `ModifierCapabilityGeneralizationTests` `23/0`, `EnemyAiScenarioTests,TickReplayDeterminismTests` `229/0`(combined `435/0`)이 최종 구현 상태에서 통과했고 각 matching PlayMode는 `0`이었다. `./run_tests.sh core`는 EditMode `290 passed / 0 failed`, PlayMode `112 total / 108 passed / 4 skipped / 0 failed`였다.
+  - B-stage evidence: A commit `7ec6c80b1`과 B commit `d05a47761`의 selector/BlackEye filtered Full EditMode가 각각 `79/0`이었고, selected target/result 및 BlackEye mode/action/pending impact/full trace/determinism hash oracle은 byte-for-byte 동일했다. B cache fixture `5/0`, cache 포함 combined `84/0`, EnemyLogic/Modifier/BlackEye combined `254/0`, B commit hook core EditMode `290/0`, PlayMode `112 total / 108 passed / 4 skipped / 0 failed`를 확인했다. raw evidence는 `/mnt/d/J2M/evidence/ordered-unit-cache-20260915`에 보존했다.
   - broad unfiltered `full`은 실행하지 않았으므로 project-wide/full regression 상태는 주장하지 않는다.
 - fresh target acquisition의 aggregate candidate domain은 `EntityType.Unit`으로 한정한다.
   - `Box`, `Wall` 등 non-Unit entity는 fresh target으로 선택되지 않으며 aggregate rejection attribution에도 참여하지 않는다.
@@ -186,6 +187,9 @@
 - occupancy storage/query는 fresh-acquisition aggregate의 truth-source가 아니다.
   - `_stackedUnitsByCell`과 `EnumerateUnitsAt(...)`는 cell-local occupancy/spatial-query semantics를 가지므로 global ordered Unit candidate enumeration으로 승격하지 않는다.
   - snapshot-local ordered Unit cache의 표현, lazy/eager materialization, array/ID storage는 위 observable contract를 보존하는 한 implementation policy다.
+  - current policy는 ordered Unit read가 실제 요청된 snapshot에서만 build하는 lazy materialization이다. fresh acquisition이 실행되지 않는 snapshot, 특히 적이 없는 상태에서 불필요한 배열 할당과 정렬을 만들지 않는다.
+  - current builder는 `_entitiesById.Values`를 첫 순회에서 Unit count하고 두 번째 순회에서 정확한 크기의 `EntityState[]`에 모든 Unit record를 복사한 뒤 entity ID로 정렬한다. 기존 ordered entity cache나 `_stackedUnitsByCell`을 경유하지 않는 Direct-only 구조라 cache 간 결합과 중간 collection을 늘리지 않는다.
+  - 모든 Unit record 포함, non-Unit 배제, entity-ID 정렬, snapshot isolation은 StrongContract다. lazy build, two-pass direct scan, array storage, `ReadOnlySpan<EntityState>` read seam은 구조 안정성과 낮은 구현 복잡도를 우선한 CurrentPolicy이며 계측 결과에 따라 contract를 바꾸지 않고 교체할 수 있다.
 
 ## Legality Contexts
 - base legality context는 정확한 core field budget을 유지한다.

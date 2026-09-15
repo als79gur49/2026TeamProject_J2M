@@ -123,7 +123,7 @@
   - current `existing lock 유지`는 current enemy lock path에만 한정한다.
   - future `impact-only suppression`, `detection-only suppression`, broader `existing lock 유지`는 `ModifierQuery` typed-evidence hook에서만 연다.
 - fresh acquisition aggregation rule:
-  - status: 2026-09-15 A-stage runtime implementation complete; targeted contract/scenario/replay and core lane validated. ordered Unit cache B-stage pending.
+  - status: 2026-09-15 A/B runtime implementation complete; Direct-only ordered Unit cache contract, A/B observable parity, targeted regression, and core lane validated. stage-4-2/4-3 performance remeasurement pending.
   - tests-first 실행에서 `EnemyTargetSelectorContractTests` filtered Full EditMode `23/13`과 낮은 ID blocker BlackEye `1/1` red를 재현했으나 후속 실행이 공용 TestResults를 덮어써 당시 raw XML/log는 보존되지 않았다. 최종 구현 상태에서는 selector/BlackEye combined filtered Full EditMode `79/0`(`31/0` + `48/0`), EnemyLogic/Modifier/scenario/replay combined `435/0`(`183/0` + `23/0` + `229/0`) 및 core EditMode `290 passed / 0 failed`, PlayMode `112 total / 108 passed / 4 skipped / 0 failed`를 확인했다. matching filtered PlayMode는 `0`이었고 broad unfiltered `full`은 실행하지 않았다.
   - aggregate candidate domain은 모든 `EntityType.Unit` record다. non-Unit은 선택과 aggregate rejection attribution 양쪽에서 제외한다.
   - Unit-only는 occupying-only와 동의어가 아니다. source 자신, same-team, dead, `markedForDeath`, Detached/non-occupying, inactive-face, `Airborne`, `Phased` Unit도 candidate-specific eligibility가 판정하기 전에는 aggregate input에서 제거하지 않는다.
@@ -132,10 +132,14 @@
   - 성공 result는 최종 선택된 Unit의 accepted eligibility result다. 뒤쪽 reject candidate가 성공 result를 덮어쓰지 않는다.
   - 실패 result는 Unit candidate에 대해서만 current rejection capture policy를 적용하고, capture된 Unit rejection이 없을 때 target ID `0`의 `TargetMissing`을 사용한다.
   - `FreshSelectionSuppressedBySpatialState` 우선 규칙은 유지한다.
+  - B-stage closure evidence: A commit `7ec6c80b1`과 B commit `d05a47761`에서 selector/BlackEye filtered Full EditMode를 각각 `79/0`으로 실행했고, selected target/result와 BlackEye mode/action/pending impact/full trace/determinism hash oracle의 diff가 `0`이었다. B의 cache fixture는 `5/0`, cache fixture를 포함한 combined filtered Full EditMode는 `84/0`, EnemyLogic/Modifier/BlackEye 묶음은 `254/0`이었다. B commit hook의 core는 EditMode `290 passed / 0 failed`, PlayMode `112 total / 108 passed / 4 skipped / 0 failed`였다. raw XML/log는 `/mnt/d/J2M/evidence/ordered-unit-cache-20260915`에 보존했다.
 - scope boundary:
   - specific-target evaluation, current enemy locked-target retention, local engagement hold, combat action validation, passive contact validation은 이 aggregate-domain 변경 대상이 아니다.
   - `_stackedUnitsByCell`/`EnumerateUnitsAt(...)`의 cell-local occupancy query를 global fresh-acquisition candidate source로 사용하지 않는다.
   - ordered Unit cache는 snapshot read optimization일 뿐 targetability, occupancy, visibility 의미의 owner가 아니다.
+  - `WorldSnapshot`은 fresh acquisition이 실제로 ordered Unit read를 요청한 snapshot에서만 cache를 만드는 lazy policy를 사용한다. 적이 없거나 해당 query가 실행되지 않는 snapshot의 배열 할당과 정렬을 피하기 위한 선택이다.
+  - current implementation은 기존 ordered entity cache나 occupancy index를 재료로 쓰지 않고 `_entitiesById.Values`를 두 번 직접 순회해 Unit 수를 센 뒤 정확한 크기의 배열을 채우고 entity ID로 정렬하는 Direct-only 방식이다. 이는 중간 `List`, full-entity cache materialization, cache 간 의존성을 피하고 snapshot 격리와 구현 일관성을 우선한 CurrentPolicy다.
+  - 모든 Unit record 포함, non-Unit 제외, entity-ID 결정성, snapshot-local 불변성은 StrongContract이고, lazy/two-pass/array/span/Direct-only 표현은 동일 observable contract를 보존하는 한 CurrentPolicy다.
 - Deferred lock taxonomy:
   - current `existing lock 유지`는 `EnemyActionStateTargeting.TryResolveLockedTarget(...)` current enemy path 전용 stage-scoped exception이다.
   - future taxonomy 후보 이름은 `detection lock`, `impact lock`, `scripted/debug lock`, `UI/presentation selection lock`, `future AI pursuit lock`까지만 기록한다. semantics는 이번 단계에서 열지 않는다.
