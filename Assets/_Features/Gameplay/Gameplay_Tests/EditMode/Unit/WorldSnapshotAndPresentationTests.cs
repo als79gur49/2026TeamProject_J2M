@@ -1368,7 +1368,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(counts.GetMaterializedSnapshotCount(ProjectedWorldSnapshotReason.Unspecified), Is.EqualTo(0));
             Assert.That(counts.GetCacheHitCount(ProjectedWorldSnapshotReason.Unspecified), Is.EqualTo(0));
-            Assert.That(CountReasonedSnapshots(counts, ProjectedWorldSnapshotReason.ResolvePostMovement), Is.GreaterThan(0));
+            Assert.That(CountReasonedSnapshots(counts, ProjectedWorldSnapshotReason.ResolveInitialPostMovement), Is.EqualTo(1));
             Assert.That(CountReasonedSnapshots(counts, ProjectedWorldSnapshotReason.ResolvePostAttack), Is.GreaterThan(0));
         }
 

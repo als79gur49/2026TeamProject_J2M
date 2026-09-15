@@ -771,6 +771,7 @@ namespace Game.Feature.Gameplay.BoardState
         ResolveAttackSnapshot = 102,
         ResolveAttackRead = 103,
         ResolvePostAttack = 104,
+        ResolveInitialPostMovement = 105,
         DamageProjection = 200,
     }
 }

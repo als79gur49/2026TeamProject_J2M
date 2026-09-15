@@ -233,12 +233,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "idle budget sentinel: empty tick projected snapshot cache reuse should remain pinned");
             Assert.That(
                 counts.ProjectedWorldApplyBatchCount,
-                Is.EqualTo(12),
-                "idle budget sentinel: empty tick projected batch applications should remain pinned");
+                Is.EqualTo(11),
+                "idle budget sentinel: Resolve must not replay the Plan prefix already materialized in planSnapshot");
             Assert.That(
                 counts.ProjectedWorldEmptyApplyBatchCount,
-                Is.EqualTo(12),
-                "idle budget sentinel: every idle projected batch should remain empty and pinned");
+                Is.EqualTo(11),
+                "idle budget sentinel: every remaining idle projected batch should remain empty and pinned");
         }
     }
 }
