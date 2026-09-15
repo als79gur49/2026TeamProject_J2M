@@ -451,6 +451,92 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_LowerIdSolidBlocker_AttributesBlockedPlayerAndHoldsChase()
+        {
+            var solidCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(
+                targetCell,
+                extraEntities: new[] { CreateBox(1, solidCell) });
+            var before = DumpOccupancy(worldState.CreateSnapshot());
+
+            var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, EnemyId);
+
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(
+                tick.Trace.Text,
+                Does.Contain(
+                    "EnemyAiTransition|Stage=BeforeMovement|E=40|From=Attack|FromTimer=0|To=Chase|ToTimer=0|Reason=ForwardProjectilePathBlockedBySolid|Facing=Right"));
+            AssertNoForwardCellProjectileStarted(worldState);
+            Assert.That(tick.PresentationData.ForwardCellProjectileWindupSignals, Is.Empty);
+            Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_FreshAcquisition_NonUnitAddRemoveRoundTrip_PreservesTransitionTraceAndHash()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var baselineWorld = CreateCombatWorld(targetCell);
+            var roundTripWorld = CreateCombatWorld(targetCell);
+            var roundTripWrite = roundTripWorld.CreateWriteContext();
+            roundTripWrite.SpawnEntity(CreateBox(1, new SurfaceCell(FaceId.Floor, 2, 1)));
+            roundTripWrite.RemoveEntity(1);
+
+            var baselineTick = CreatePipeline(baselineWorld).RunTick(new TickInput(1));
+            var roundTripTick = CreatePipeline(roundTripWorld).RunTick(new TickInput(1));
+            var baselineAction = GetEnemyActionState(baselineWorld);
+            var roundTripAction = GetEnemyActionState(roundTripWorld);
+            var baselineEnemy = GetEntity(baselineWorld, EnemyId);
+            var baselinePendingImpactCount = baselineWorld
+                .CreateSnapshot()
+                .CountPendingCellImpactsForOwner(EnemyId);
+
+            TestContext.WriteLine(
+                $"FreshAcquireBlackEyeOracle|Target={baselineAction.lockedTargetEntityId}" +
+                $"|Mode={baselineEnemy.aiMode}|Action={baselineAction.kind}" +
+                $"|ActionActive={(baselineAction.IsActive ? 1 : 0)}" +
+                $"|Pending={baselinePendingImpactCount}|Hash={baselineTick.DeterminismHash}" +
+                $"|TraceBase64={Convert.ToBase64String(Encoding.UTF8.GetBytes(baselineTick.Trace.Text))}");
+
+            Assert.That(roundTripAction.lockedTargetEntityId, Is.EqualTo(baselineAction.lockedTargetEntityId));
+            Assert.That(GetEntity(roundTripWorld, EnemyId).aiMode, Is.EqualTo(GetEntity(baselineWorld, EnemyId).aiMode));
+            Assert.That(
+                GetEnemyBeforeAttackTransitions(roundTripTick.Trace.Text),
+                Is.EqualTo(GetEnemyBeforeAttackTransitions(baselineTick.Trace.Text)));
+            Assert.That(roundTripTick.Trace.Text, Is.EqualTo(baselineTick.Trace.Text));
+            Assert.That(roundTripTick.DeterminismHash, Is.EqualTo(baselineTick.DeterminismHash));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_FreshAcquisition_NonUnitIdOrder_PreservesAiTransitionProjection()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var blockerCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var lowerIdWorld = CreateCombatWorld(targetCell, new[] { CreateBox(1, blockerCell) });
+            var higherIdWorld = CreateCombatWorld(targetCell, new[] { CreateBox(61, blockerCell) });
+
+            var lowerIdTick = CreatePipeline(lowerIdWorld).RunTick(new TickInput(1));
+            var higherIdTick = CreatePipeline(higherIdWorld).RunTick(new TickInput(1));
+            var lowerBeforeAttack = GetEnemyBeforeAttackTransitions(lowerIdTick.Trace.Text);
+            var higherBeforeAttack = GetEnemyBeforeAttackTransitions(higherIdTick.Trace.Text);
+
+            Assert.That(GetEntity(lowerIdWorld, EnemyId).aiMode, Is.EqualTo(GetEntity(higherIdWorld, EnemyId).aiMode));
+            Assert.That(GetEnemyAiTransitions(lowerIdTick.Trace.Text), Is.EqualTo(GetEnemyAiTransitions(higherIdTick.Trace.Text)));
+            Assert.That(lowerBeforeAttack, Is.Empty, "Blocked acquisition transitions during BeforeMovement, so BeforeAttack must not replace its reason.");
+            Assert.That(higherBeforeAttack, Is.EqualTo(lowerBeforeAttack));
+            AssertNoForwardCellProjectileStarted(lowerIdWorld);
+            AssertNoForwardCellProjectileStarted(higherIdWorld);
+            Assert.That(lowerIdWorld.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+            Assert.That(higherIdWorld.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BlackEye_ForwardCellProjectile_BlockerPolicy_BoardEdge_CurrentContract()
         {
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
@@ -895,6 +981,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(EnemyId, out var action), Is.True);
             return action;
+        }
+
+        private static string GetEnemyBeforeAttackTransitions(string trace)
+        {
+            return string.Join(
+                "\n",
+                trace
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Where(line => line.Contains("EnemyAiTransition|Stage=BeforeAttack|E=40|")));
+        }
+
+        private static string GetEnemyAiTransitions(string trace)
+        {
+            return string.Join(
+                "\n",
+                trace
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Where(line => line.Contains("EnemyAiTransition|") && line.Contains("|E=40|")));
         }
 
         private static PendingCellImpact GetSinglePendingImpact(WorldState worldState)

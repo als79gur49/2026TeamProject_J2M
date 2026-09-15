@@ -165,6 +165,28 @@
   - current targetability suppression은 base spatial default다. current enemy lock retention is `EnemyActionStateTargeting` current lock path 전용 narrow hook다. future `impact-only suppression`, `detection-only suppression`, broader source-specific overrides는 `ModifierQuery` typed-evidence hook로만 연다.
   - `FreshSelectionSuppressedWithCurrentEnemyLockRetention`는 current stage-local contract 이름일 뿐이며, future lock taxonomy의 generic seed가 아니다.
 
+### Fresh Target Acquisition Aggregation
+- status: 2026-09-15 A-stage runtime implementation complete; targeted contract/scenario/replay and core lane validated. ordered Unit cache B-stage pending.
+  - tests-first execution record: `EnemyTargetSelectorContractTests`는 production 변경 전에 filtered Full EditMode `23 total / 13 failed`, 낮은 ID blocker BlackEye 회귀는 `1 total / 1 failed`로 예상한 contract gap을 재현했다. 후속 filtered 실행이 공용 TestResults를 덮어써 당시 raw XML/log는 보존되지 않았다.
+  - closure evidence: filtered Full EditMode에서 `EnemyTargetSelectorContractTests` `31/0`, `BlackEyeWindupProjectileRuntimeContractTests` `48/0`(combined `79/0`), `EnemyLogicTests` `183/0`, `ModifierCapabilityGeneralizationTests` `23/0`, `EnemyAiScenarioTests,TickReplayDeterminismTests` `229/0`(combined `435/0`)이 최종 구현 상태에서 통과했고 각 matching PlayMode는 `0`이었다. `./run_tests.sh core`는 EditMode `290 passed / 0 failed`, PlayMode `112 total / 108 passed / 4 skipped / 0 failed`였다.
+  - broad unfiltered `full`은 실행하지 않았으므로 project-wide/full regression 상태는 주장하지 않는다.
+- fresh target acquisition의 aggregate candidate domain은 `EntityType.Unit`으로 한정한다.
+  - `Box`, `Wall` 등 non-Unit entity는 fresh target으로 선택되지 않으며 aggregate rejection attribution에도 참여하지 않는다.
+  - non-Unit entity의 추가, 제거, entity ID, ordered-enumeration 위치가 fresh target ID, aggregate rejection reason, Enemy AI transition을 바꾸면 안 된다.
+- Unit-only aggregation은 occupying-only aggregation을 뜻하지 않는다.
+  - dead, `markedForDeath`, Detached/non-occupying, inactive-face, `Airborne`, `Phased`, source 자신, same-team Unit을 포함한 모든 Unit record는 candidate-specific policy가 판정할 수 있도록 aggregate input에 남긴다.
+  - 이번 계약은 이 Unit들의 기존 eligibility/rejection 의미나 `FreshSelectionSuppressedBySpatialState` 우선 규칙을 변경하지 않는다.
+- deterministic candidate order와 equal-distance tie break는 entity ID 오름차순을 유지한다.
+- acquisition이 성공하면 detailed eligibility result는 반드시 최종 선택된 Unit의 accepted result여야 한다.
+  - 선택 뒤에 열거된 reject candidate가 successful result를 덮어쓰는 형태는 허용하지 않는다.
+  - acquisition이 실패하면 aggregate rejection은 Unit candidate들만 대상으로 current rejection capture policy를 적용하며, capture 결과가 없을 때만 target ID `0`의 `TargetMissing`을 반환한다.
+- 이 aggregate contract는 `NearestOpponentDetectionStrategy`, `CrossLineOfSightOpponentDetectionStrategy`, 그리고 `EnemyTargetSelector.TryAcquireFreshTarget(...)`의 custom-strategy boundary에 동일하게 적용한다.
+  - custom strategy가 non-Unit 또는 fresh-acquire-ineligible entity를 성공 target으로 반환해도 central selector boundary가 성공으로 승인하면 안 된다.
+- 이 변경은 specific-target evaluation, current enemy locked-target retention, local engagement hold, combat action validation, passive contact validation의 candidate domain을 변경하지 않는다.
+- occupancy storage/query는 fresh-acquisition aggregate의 truth-source가 아니다.
+  - `_stackedUnitsByCell`과 `EnumerateUnitsAt(...)`는 cell-local occupancy/spatial-query semantics를 가지므로 global ordered Unit candidate enumeration으로 승격하지 않는다.
+  - snapshot-local ordered Unit cache의 표현, lazy/eager materialization, array/ID storage는 위 observable contract를 보존하는 한 implementation policy다.
+
 ## Legality Contexts
 - base legality context는 정확한 core field budget을 유지한다.
   - `TraverseContext`: 정확히 7필드

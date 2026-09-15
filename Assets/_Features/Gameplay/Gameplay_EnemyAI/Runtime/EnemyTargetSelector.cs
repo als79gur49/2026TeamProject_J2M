@@ -146,14 +146,20 @@ namespace Game.Feature.Gameplay.Entities
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
             var bestDistance = int.MaxValue;
-            result = default;
+            var rejectionResult = default(EnemyTargetEligibilityResult);
+            var selectedResult = default(EnemyTargetEligibilityResult);
             for (var i = 0; i < orderedEntities.Count; i++)
             {
                 var candidate = orderedEntities[i];
+                if (candidate.type != EntityType.Unit)
+                {
+                    continue;
+                }
+
                 var candidateResult = EnemyDetectionTargetRules.EvaluateFreshAcquire(snapshot, source, candidate, settings);
                 if (!candidateResult.Eligible)
                 {
-                    EnemyDetectionTargetRules.CaptureRejectResult(candidateResult, ref result);
+                    EnemyDetectionTargetRules.CaptureRejectResult(candidateResult, ref rejectionResult);
                     continue;
                 }
 
@@ -166,29 +172,28 @@ namespace Game.Feature.Gameplay.Entities
                             candidate.entityId,
                             EnemyTargetEligibilityPurpose.FreshAcquire,
                             EnemyTargetEligibilityRejectReason.OutOfRange),
-                        ref result);
+                        ref rejectionResult);
                     continue;
                 }
 
                 bestDistance = distance.Value;
                 target = candidate;
-                result = candidateResult;
+                selectedResult = candidateResult;
             }
 
             if (bestDistance != int.MaxValue)
             {
+                result = selectedResult;
                 return true;
             }
 
-            if (result.RejectReason == EnemyTargetEligibilityRejectReason.None)
-            {
-                result = EnemyTargetEligibilityResult.Reject(
+            result = rejectionResult.RejectReason != EnemyTargetEligibilityRejectReason.None
+                ? rejectionResult
+                : EnemyTargetEligibilityResult.Reject(
                     source.entityId,
                     0,
                     EnemyTargetEligibilityPurpose.FreshAcquire,
                     EnemyTargetEligibilityRejectReason.TargetMissing);
-            }
-
             return false;
         }
 
@@ -242,10 +247,16 @@ namespace Game.Feature.Gameplay.Entities
             var orderedEntities = snapshot.GetOrderedEntitiesForRead();
 
             var bestDistance = int.MaxValue;
-            result = default;
+            var rejectionResult = default(EnemyTargetEligibilityResult);
+            var selectedResult = default(EnemyTargetEligibilityResult);
             for (var i = 0; i < orderedEntities.Length; i++)
             {
                 var candidate = orderedEntities[i];
+                if (candidate.type != EntityType.Unit)
+                {
+                    continue;
+                }
+
                 if (!TryValidateCandidate(
                         snapshot,
                         source,
@@ -256,29 +267,28 @@ namespace Game.Feature.Gameplay.Entities
                         out var candidateResult) ||
                     distance >= bestDistance)
                 {
-                    EnemyDetectionTargetRules.CaptureRejectResult(candidateResult, ref result);
+                    EnemyDetectionTargetRules.CaptureRejectResult(candidateResult, ref rejectionResult);
                     continue;
                 }
 
                 bestDistance = distance;
                 target = candidate;
-                result = candidateResult;
+                selectedResult = candidateResult;
             }
 
             if (bestDistance != int.MaxValue)
             {
+                result = selectedResult;
                 return true;
             }
 
-            if (result.RejectReason == EnemyTargetEligibilityRejectReason.None)
-            {
-                result = EnemyTargetEligibilityResult.Reject(
+            result = rejectionResult.RejectReason != EnemyTargetEligibilityRejectReason.None
+                ? rejectionResult
+                : EnemyTargetEligibilityResult.Reject(
                     source.entityId,
                     0,
                     EnemyTargetEligibilityPurpose.FreshAcquire,
                     EnemyTargetEligibilityRejectReason.TargetMissing);
-            }
-
             return false;
         }
 
@@ -471,14 +481,38 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var found = detectionStrategy.TryFindTarget(snapshot, source, settings, out target, options);
-            result = found
-                ? EnemyTargetEligibilityPolicy.EvaluateFreshAcquire(snapshot, source, target, settings)
-                : EnemyTargetEligibilityResult.Reject(
+            if (!found || target.type != EntityType.Unit)
+            {
+                target = default;
+                result = EnemyTargetEligibilityResult.Reject(
                     source.entityId,
                     0,
                     EnemyTargetEligibilityPurpose.FreshAcquire,
                     EnemyTargetEligibilityRejectReason.TargetMissing);
-            return found;
+                return false;
+            }
+
+            if (!snapshot.TryGetEntity(target.entityId, out var canonicalTarget) ||
+                canonicalTarget.type != EntityType.Unit)
+            {
+                target = default;
+                result = EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    0,
+                    EnemyTargetEligibilityPurpose.FreshAcquire,
+                    EnemyTargetEligibilityRejectReason.TargetMissing);
+                return false;
+            }
+
+            target = canonicalTarget;
+            result = EnemyTargetEligibilityPolicy.EvaluateFreshAcquire(snapshot, source, target, settings);
+            if (!result.Eligible)
+            {
+                target = default;
+                return false;
+            }
+
+            return true;
         }
 
         public static bool TryRetainLockedTarget(

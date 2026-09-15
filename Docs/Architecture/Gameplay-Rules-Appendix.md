@@ -122,6 +122,20 @@
   - blocker enum에 targetability-only kind를 추가하지 않는다.
   - current `existing lock 유지`는 current enemy lock path에만 한정한다.
   - future `impact-only suppression`, `detection-only suppression`, broader `existing lock 유지`는 `ModifierQuery` typed-evidence hook에서만 연다.
+- fresh acquisition aggregation rule:
+  - status: 2026-09-15 A-stage runtime implementation complete; targeted contract/scenario/replay and core lane validated. ordered Unit cache B-stage pending.
+  - tests-first 실행에서 `EnemyTargetSelectorContractTests` filtered Full EditMode `23/13`과 낮은 ID blocker BlackEye `1/1` red를 재현했으나 후속 실행이 공용 TestResults를 덮어써 당시 raw XML/log는 보존되지 않았다. 최종 구현 상태에서는 selector/BlackEye combined filtered Full EditMode `79/0`(`31/0` + `48/0`), EnemyLogic/Modifier/scenario/replay combined `435/0`(`183/0` + `23/0` + `229/0`) 및 core EditMode `290 passed / 0 failed`, PlayMode `112 total / 108 passed / 4 skipped / 0 failed`를 확인했다. matching filtered PlayMode는 `0`이었고 broad unfiltered `full`은 실행하지 않았다.
+  - aggregate candidate domain은 모든 `EntityType.Unit` record다. non-Unit은 선택과 aggregate rejection attribution 양쪽에서 제외한다.
+  - Unit-only는 occupying-only와 동의어가 아니다. source 자신, same-team, dead, `markedForDeath`, Detached/non-occupying, inactive-face, `Airborne`, `Phased` Unit도 candidate-specific eligibility가 판정하기 전에는 aggregate input에서 제거하지 않는다.
+  - non-Unit entity의 존재나 entity ID ordering은 selected Unit, aggregate rejection reason, Enemy AI transition에 영향을 주면 안 된다.
+  - Unit candidate의 deterministic order와 equal-distance tie break는 entity ID 오름차순이다.
+  - 성공 result는 최종 선택된 Unit의 accepted eligibility result다. 뒤쪽 reject candidate가 성공 result를 덮어쓰지 않는다.
+  - 실패 result는 Unit candidate에 대해서만 current rejection capture policy를 적용하고, capture된 Unit rejection이 없을 때 target ID `0`의 `TargetMissing`을 사용한다.
+  - `FreshSelectionSuppressedBySpatialState` 우선 규칙은 유지한다.
+- scope boundary:
+  - specific-target evaluation, current enemy locked-target retention, local engagement hold, combat action validation, passive contact validation은 이 aggregate-domain 변경 대상이 아니다.
+  - `_stackedUnitsByCell`/`EnumerateUnitsAt(...)`의 cell-local occupancy query를 global fresh-acquisition candidate source로 사용하지 않는다.
+  - ordered Unit cache는 snapshot read optimization일 뿐 targetability, occupancy, visibility 의미의 owner가 아니다.
 - Deferred lock taxonomy:
   - current `existing lock 유지`는 `EnemyActionStateTargeting.TryResolveLockedTarget(...)` current enemy path 전용 stage-scoped exception이다.
   - future taxonomy 후보 이름은 `detection lock`, `impact lock`, `scripted/debug lock`, `UI/presentation selection lock`, `future AI pursuit lock`까지만 기록한다. semantics는 이번 단계에서 열지 않는다.
