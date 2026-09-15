@@ -149,6 +149,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(new[] { 20 }, afterIds);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GetOrderedUnitsForRead_FirstReadAfterWorldMutation_UsesSnapshotOwnedEntities()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 1, 0)) });
+            var beforeSnapshot = worldState.CreateSnapshot();
+
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.RemoveEntity(10);
+            writeContext.SpawnEntity(CreateUnit(20, new SurfaceCell(FaceId.Floor, 2, 0)));
+
+            var beforeIds = beforeSnapshot.GetOrderedUnitsForRead().ToArray().Select(unit => unit.entityId);
+            var afterIds = worldState.CreateSnapshot().GetOrderedUnitsForRead().ToArray().Select(unit => unit.entityId);
+
+            CollectionAssert.AreEqual(new[] { 10 }, beforeIds);
+            CollectionAssert.AreEqual(new[] { 20 }, afterIds);
+        }
+
         private static EntityState CreateUnit(int entityId, SurfaceCell position)
         {
             return new EntityState
