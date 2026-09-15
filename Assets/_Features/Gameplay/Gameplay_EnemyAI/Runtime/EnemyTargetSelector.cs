@@ -142,14 +142,14 @@ namespace Game.Feature.Gameplay.Entities
 
             target = default;
 
-            var orderedUnits = snapshot.GetOrderedUnitsForRead();
+            var orderedEntities = snapshot.GetOrderedEntitiesForRead();
 
             var bestDistance = int.MaxValue;
             var rejectionResult = default(EnemyTargetEligibilityResult);
             var selectedResult = default(EnemyTargetEligibilityResult);
-            for (var i = 0; i < orderedUnits.Length; i++)
+            for (var i = 0; i < orderedEntities.Length; i++)
             {
-                var candidate = orderedUnits[i];
+                var candidate = orderedEntities[i];
                 if (candidate.type != EntityType.Unit)
                 {
                     continue;
@@ -243,14 +243,14 @@ namespace Game.Feature.Gameplay.Entities
 
             target = default;
 
-            var orderedUnits = snapshot.GetOrderedUnitsForRead();
+            var orderedEntities = snapshot.GetOrderedEntitiesForRead();
 
             var bestDistance = int.MaxValue;
             var rejectionResult = default(EnemyTargetEligibilityResult);
             var selectedResult = default(EnemyTargetEligibilityResult);
-            for (var i = 0; i < orderedUnits.Length; i++)
+            for (var i = 0; i < orderedEntities.Length; i++)
             {
-                var candidate = orderedUnits[i];
+                var candidate = orderedEntities[i];
                 if (candidate.type != EntityType.Unit)
                 {
                     continue;
