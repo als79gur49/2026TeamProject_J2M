@@ -1823,6 +1823,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             target.Clear();
+            target.EnsureCapacity(source.Count);
             foreach (var pair in source)
             {
                 target.Add(pair.Key, pair.Value);
@@ -1839,6 +1840,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             target.Clear();
+            target.EnsureCapacity(source.Count);
             foreach (var pair in source)
             {
                 target.Add(pair.Key, new SortedSet<int>(pair.Value));
