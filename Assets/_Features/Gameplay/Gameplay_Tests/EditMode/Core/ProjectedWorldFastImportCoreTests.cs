@@ -170,8 +170,54 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(1));
             Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
             Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
-            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.Zero);
             Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectedWorld_FastImport_ReusesUnitCellIndexUntilOccupancyMembershipChanges()
+        {
+            var baseSnapshot = CreateRichSnapshot();
+            var projectedWorld = new ProjectedWorld(baseSnapshot);
+            var firstAuxiliaryBatch = new FinalizationBatch();
+            firstAuxiliaryBatch.ApplyDamage(10, amount: 1);
+            projectedWorld.ApplyBatch(firstAuxiliaryBatch);
+
+            WorldSnapshot movedSnapshot;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanPostPreMovement);
+
+                var secondAuxiliaryBatch = new FinalizationBatch();
+                secondAuxiliaryBatch.SetFacing(20, Direction.Left);
+                projectedWorld.ApplyBatch(secondAuxiliaryBatch);
+                projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveEnemyActionBeforeAttackInput);
+
+                var occupancyBatch = new FinalizationBatch();
+                occupancyBatch.MoveEntity(30, new SurfaceCell(FaceId.Floor, 0, 3));
+                projectedWorld.ApplyBatch(occupancyBatch);
+                movedSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostAttack);
+                counts = capture.Counts;
+            }
+
+            CollectionAssert.IsEmpty(
+                CollectUnitOccupancyIdsAt(movedSnapshot, new SurfaceCell(FaceId.Floor, 0, 2)));
+            CollectionAssert.AreEqual(
+                new[] { 30 },
+                CollectUnitOccupancyIdsAt(movedSnapshot, new SurfaceCell(FaceId.Floor, 0, 3)));
+            Assert.That(counts.FastBaseSnapshotImportCount, Is.EqualTo(3));
+            Assert.That(counts.SlowBaseSnapshotImportCount, Is.Zero);
+            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(3));
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(3));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotStackedUnitCellIndexCellCount, Is.EqualTo(2));
+            Assert.That(
+                counts.WorldStateSnapshotMaterializationCount -
+                counts.SnapshotOwnedStackedUnitCellIndexBuildCount,
+                Is.EqualTo(2),
+                "the two auxiliary-only fast imports should inherit the immutable Unit cell index");
         }
 
         [Test]

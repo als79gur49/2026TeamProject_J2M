@@ -1145,7 +1145,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
             Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
             Assert.That(counts.SnapshotTileFeatureCellIndexCellCount, Is.EqualTo(1));
-            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
             Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(4));
         }
 
@@ -1188,8 +1188,174 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
             Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(2));
             Assert.That(counts.SnapshotTileFeatureCellIndexCellCount, Is.EqualTo(2));
-            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
             Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void UnitCellIndex_AuxiliaryAndSubCellMotionMutations_ShareImmutableQueryView()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var kinematicUnit = CreateEntity(10, EntityType.Unit, cell, Direction.Right);
+            kinematicUnit.hp = 3;
+            kinematicUnit.maxHp = 3;
+            var worldState = CreateWorldState(new[]
+            {
+                kinematicUnit,
+                CreateEntity(20, EntityType.Unit, cell, Direction.Right),
+            });
+            var writeContext = CreateWriteContext(worldState);
+            var kinematicState = new UnitKinematicRuntimeState
+            {
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(1024), SimulationFixed.Zero),
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(410), SimulationFixed.Zero),
+                mode = MotionMode.Voluntary,
+                remainingDistanceUnits = SimulationFixed.UnitsPerCell,
+                remainingTicks = 10,
+                speedScalePermille = 1000,
+                sequenceId = 1,
+                elapsedTicks = 1,
+                totalTicks = 20,
+                commitTick = 10,
+                startedTick = 1,
+                stepDirectionX = 1,
+            }.NormalizedForStorage();
+            var continuousState = new UnitContinuousLocomotionState
+            {
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(-512), SimulationFixed.Zero),
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(-410), SimulationFixed.Zero),
+                facing = Direction.Left,
+                lastMoveDirection = Direction.Left,
+                speedUnitsPerTick = 410,
+                mode = ContinuousLocomotionMode.Moving,
+                sequenceId = 1,
+            }.NormalizedForStorage();
+
+            WorldSnapshot beforeSnapshot;
+            WorldSnapshot afterKinematicSnapshot;
+            WorldSnapshot afterContinuousSnapshot;
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> beforeView;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                beforeSnapshot = worldState.CreateSnapshot();
+                beforeView = GetCellIndex(beforeSnapshot, "_stackedUnitsByCell");
+
+                writeContext.ApplyDamage(10, 1);
+                Assert.That(
+                    ReferenceEquals(GetCellIndex(worldState.CreateSnapshot(), "_stackedUnitsByCell"), beforeView),
+                    Is.True);
+
+                ((IMovementCommitContext)writeContext).SetFacing(10, Direction.Left);
+                Assert.That(
+                    ReferenceEquals(GetCellIndex(worldState.CreateSnapshot(), "_stackedUnitsByCell"), beforeView),
+                    Is.True);
+
+                writeContext.SetUnitKinematicState(10, kinematicState);
+                afterKinematicSnapshot = worldState.CreateSnapshot();
+                Assert.That(
+                    ReferenceEquals(GetCellIndex(afterKinematicSnapshot, "_stackedUnitsByCell"), beforeView),
+                    Is.True);
+
+                writeContext.SetUnitContinuousLocomotionState(20, continuousState);
+                afterContinuousSnapshot = worldState.CreateSnapshot();
+                counts = capture.Counts;
+            }
+
+            Assert.That(
+                ReferenceEquals(GetCellIndex(afterContinuousSnapshot, "_stackedUnitsByCell"), beforeView),
+                Is.True);
+            Assert.That(ReferenceEquals(afterKinematicSnapshot, beforeSnapshot), Is.False);
+            Assert.That(ReferenceEquals(afterContinuousSnapshot, afterKinematicSnapshot), Is.False);
+            Assert.That(afterKinematicSnapshot.TryGetUnitKinematicPose(10, out var kinematicPose), Is.True);
+            Assert.That(kinematicPose.LocalOffset, Is.EqualTo(kinematicState.localOffset));
+            Assert.That(afterContinuousSnapshot.TryGetUnitContinuousLocomotionPose(20, out var continuousPose), Is.True);
+            Assert.That(continuousPose.LocalOffset, Is.EqualTo(continuousState.localOffset));
+            CollectionAssert.AreEqual(new[] { 10, 20 }, CollectUnitIdsAt(afterContinuousSnapshot, cell));
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(5));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotStackedUnitCellIndexCellCount, Is.EqualTo(1));
+            Assert.That(
+                counts.WorldStateSnapshotMaterializationCount -
+                counts.SnapshotOwnedStackedUnitCellIndexBuildCount,
+                Is.EqualTo(4),
+                "four non-occupancy materializations should reuse the immutable Unit cell index");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void UnitCellIndex_MembershipMutations_RebuildWithoutChangingRetainedSnapshots()
+        {
+            var originalCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var movedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEntity(10, EntityType.Unit, originalCell, Direction.Right),
+            });
+            var writeContext = CreateWriteContext(worldState);
+            WorldSnapshot beforeMove;
+            WorldSnapshot afterMove;
+            WorldSnapshot detached;
+            WorldSnapshot reoccupied;
+            WorldSnapshot spawned;
+            WorldSnapshot removed;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                beforeMove = worldState.CreateSnapshot();
+                var beforeMoveView = GetCellIndex(beforeMove, "_stackedUnitsByCell");
+
+                writeContext.MoveEntity(10, movedCell);
+                afterMove = worldState.CreateSnapshot();
+                var afterMoveView = GetCellIndex(afterMove, "_stackedUnitsByCell");
+
+                Assert.That(ReferenceEquals(afterMoveView, beforeMoveView), Is.False);
+                CollectionAssert.AreEqual(new[] { 10 }, CollectUnitIdsAt(beforeMove, originalCell));
+                CollectionAssert.IsEmpty(CollectUnitIdsAt(beforeMove, movedCell));
+                CollectionAssert.IsEmpty(CollectUnitIdsAt(afterMove, originalCell));
+                CollectionAssert.AreEqual(new[] { 10 }, CollectUnitIdsAt(afterMove, movedCell));
+
+                writeContext.SetBoardPresence(10, EntityBoardPresence.Detached);
+                detached = worldState.CreateSnapshot();
+                Assert.That(
+                    ReferenceEquals(GetCellIndex(detached, "_stackedUnitsByCell"), afterMoveView),
+                    Is.False);
+                CollectionAssert.IsEmpty(CollectUnitIdsAt(detached, movedCell));
+
+                writeContext.SetBoardPresence(10, EntityBoardPresence.Occupying);
+                reoccupied = worldState.CreateSnapshot();
+                Assert.That(
+                    ReferenceEquals(
+                        GetCellIndex(reoccupied, "_stackedUnitsByCell"),
+                        GetCellIndex(detached, "_stackedUnitsByCell")),
+                    Is.False);
+                CollectionAssert.AreEqual(new[] { 10 }, CollectUnitIdsAt(reoccupied, movedCell));
+
+                writeContext.SpawnEntity(CreateEntity(20, EntityType.Unit, movedCell, Direction.Left));
+                spawned = worldState.CreateSnapshot();
+                CollectionAssert.AreEqual(new[] { 10, 20 }, CollectUnitIdsAt(spawned, movedCell));
+
+                writeContext.RemoveEntity(20);
+                removed = worldState.CreateSnapshot();
+                Assert.That(
+                    ReferenceEquals(
+                        GetCellIndex(removed, "_stackedUnitsByCell"),
+                        GetCellIndex(spawned, "_stackedUnitsByCell")),
+                    Is.False);
+                counts = capture.Counts;
+            }
+
+            CollectionAssert.AreEqual(new[] { 10 }, CollectUnitIdsAt(removed, movedCell));
+            CollectionAssert.AreEqual(new[] { 10, 20 }, CollectUnitIdsAt(spawned, movedCell));
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(6));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(6));
+            Assert.That(counts.SnapshotStackedUnitCellIndexCellCount, Is.EqualTo(5));
+            Assert.That(
+                counts.WorldStateSnapshotMaterializationCount -
+                counts.SnapshotOwnedStackedUnitCellIndexBuildCount,
+                Is.Zero,
+                "every materialization in this fixture follows an occupancy membership mutation");
         }
 
         [Test]
@@ -1296,6 +1462,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             Assert.That(ReferenceEquals(importedSnapshot, sourceSnapshot), Is.False);
+            Assert.That(
+                ReferenceEquals(
+                    GetCellIndex(importedSnapshot, "_stackedUnitsByCell"),
+                    GetCellIndex(sourceSnapshot, "_stackedUnitsByCell")),
+                Is.True);
             Assert.That(importedSnapshot.TryGetEntity(10, out var imported), Is.True);
             Assert.That(sourceSnapshot.TryGetEntity(10, out var source), Is.True);
             Assert.That(imported, Is.EqualTo(source));
@@ -1305,8 +1476,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(1));
             Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
             Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
-            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.Zero);
             Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
+
+            CreateWriteContext(importedWorld).MoveEntity(10, new SurfaceCell(FaceId.Floor, 1, 0));
+            var mutatedImportedSnapshot = importedWorld.CreateSnapshot();
+            Assert.That(
+                ReferenceEquals(
+                    GetCellIndex(mutatedImportedSnapshot, "_stackedUnitsByCell"),
+                    GetCellIndex(sourceSnapshot, "_stackedUnitsByCell")),
+                Is.False);
+            CollectionAssert.AreEqual(
+                new[] { 10 },
+                CollectUnitIdsAt(sourceSnapshot, new SurfaceCell(FaceId.Floor, 0, 0)));
+            CollectionAssert.AreEqual(
+                new[] { 10 },
+                CollectUnitIdsAt(mutatedImportedSnapshot, new SurfaceCell(FaceId.Floor, 1, 0)));
         }
 
         [Test]
