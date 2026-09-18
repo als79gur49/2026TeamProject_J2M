@@ -1127,15 +1127,6 @@ namespace Game.Feature.Gameplay.Entities
             return false;
         }
 
-        internal static bool TryChooseWallFollowRotateOnlyFacing(
-            Direction facing,
-            WallFollowTurnPreference turnPreference,
-            out Direction direction)
-        {
-            return TryResolveWallFollowDirection(facing, turnPreference, WallFollowMovementChoice.PreferredTurn, out direction, out _) &&
-                   direction != facing;
-        }
-
         private static bool TryEvaluateWallFollowCandidate(
             WorldSnapshot snapshot,
             in EntityState source,
@@ -1152,7 +1143,9 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!TryResolveWallFollowDirection(source.facing, settings.TurnPreference, choice, out direction, out delta) ||
                 !CanTraverseStep(snapshot, source, delta, tileFeatureDefinitions) ||
-                !TryResolveAdjacentCellWithoutTopologyChange(snapshot, source.position, delta, out destinationCell))
+                !TryResolveAdjacentCellWithoutTopologyChange(snapshot, source.position, delta, out destinationCell) ||
+                TileFeatureHazardQueries.EvaluateTileApproachRisk(
+                    snapshot, tileFeatureDefinitions, source, destinationCell) == TileApproachRisk.LethalOnEnter)
             {
                 direction = Direction.None;
                 delta = Vector2Int.zero;
@@ -1610,3 +1603,4 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 }
+

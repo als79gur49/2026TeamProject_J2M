@@ -6554,7 +6554,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void WallFollowPatrolStrategy_AllDirectionsBlocked_RotatesInPlaceWithoutMovementIntent()
+        public void WallFollowPatrolStrategy_AllDirectionsBlocked_KeepsFacingWithoutMovementIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -6573,7 +6573,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
                 Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
-                Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Right));
+                Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Up));
             }
             finally
             {
@@ -8726,3 +8726,4 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
     }
 }
+

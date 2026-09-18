@@ -3687,28 +3687,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyMovementStrategyShared_WallFollowRotateOnlyFacing_UsesTurnPreferenceSymmetry()
-        {
-            Assert.That(
-                EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
-                    Direction.Up,
-                    WallFollowTurnPreference.Right,
-                    out var rightFacing),
-                Is.True);
-            Assert.That(rightFacing, Is.EqualTo(Direction.Right));
-
-            Assert.That(
-                EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
-                    Direction.Up,
-                    WallFollowTurnPreference.Left,
-                    out var leftFacing),
-                Is.True);
-            Assert.That(leftFacing, Is.EqualTo(Direction.Left));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_CommitsRotateOnlyFacing()
+        public void EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_KeepsFacing()
         {
             var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
             var worldState = CreateWorldState(new[]
@@ -3733,7 +3712,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var enemy = GetEntity(worldState, 40);
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Up));
                 Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             }
             finally
@@ -7251,3 +7230,4 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
     }
 }
+
