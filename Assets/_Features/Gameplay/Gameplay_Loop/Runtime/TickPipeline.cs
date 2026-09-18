@@ -3268,6 +3268,22 @@ namespace Game.Feature.Gameplay.Loop
                 pose.State.totalTicks,
                 pose.State.startedTick,
                 mode: MotionMode.Charge);
+            // A Flip or another solid can arrive after the step starts. Revalidate only
+            // when changing anchors; once committed, the old cell is no longer our anchor.
+            IReadOnlyList<EnemyLocomotionWritePayload> enemyLocomotionWrites =
+                Array.Empty<EnemyLocomotionWritePayload>();
+            if (outcome.AnchorChanged &&
+                !EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(
+                    snapshot,
+                    entity,
+                    new Vector2Int(stepDirectionX, stepDirectionY),
+                    _tileFeatureDefinitions))
+            {
+                outcome = CreateBlockedKinematicMotionOutcome(
+                    entityId, pose, KinematicSweepRejectionReason.TraversalBlocked);
+                enemyLocomotionWrites = new[] { new EnemyLocomotionWritePayload(entityId, 0) };
+            }
+
             var enemyChargeWrites = CreateEnemyChargeKinematicCompletionWrites(snapshot, entityId, outcome);
             payload = CreateKinematicMovementPayload(
                 _idAllocator.AllocateGroupId(),
@@ -3277,6 +3293,7 @@ namespace Game.Feature.Gameplay.Loop
                 outcome: outcome,
                 facing: facing,
                 writeFacing: true,
+                enemyLocomotionWrites: enemyLocomotionWrites,
                 enemyChargeWrites: enemyChargeWrites,
                 executionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion,
                 boundaryReason: "EnemyChargeKinematicContinuation");
@@ -4036,6 +4053,17 @@ namespace Game.Feature.Gameplay.Loop
                 chargeState.phase != EnemyChargePhase.Active)
             {
                 return Array.Empty<EnemyChargeWritePayload>();
+            }
+
+            if (outcome.Blocked)
+            {
+                // End the active budget without consuming a successful step. Keep phase
+                // ownership in the resolver: zero cooldown lets it enter Recover next tick.
+                chargeState.remainingActiveSteps = 0;
+                return new[]
+                {
+                    new EnemyChargeWritePayload(entityId, chargeState, "StopBlockedChargeKinematicStep"),
+                };
             }
 
             return new[]
