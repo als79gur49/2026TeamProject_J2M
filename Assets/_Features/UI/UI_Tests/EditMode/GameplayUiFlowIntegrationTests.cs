@@ -540,6 +540,58 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
+        public void GameplayUiFlowInstaller_TerminalCompletion_RestoresHudPauseWithoutBackInput()
+        {
+            var hostObject = new GameObject(nameof(
+                GameplayUiFlowInstaller_TerminalCompletion_RestoresHudPauseWithoutBackInput));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                }));
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                // EditMode must preserve the production OnEnable-before-Install subscription order.
+                var onEnable = typeof(GameplayUiFlowInstaller).GetMethod(
+                    "OnEnable", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(onEnable, Is.Not.Null);
+                onEnable.Invoke(installer, null);
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+
+                var pauseButtonField = installer.HudView.GetType().GetField(
+                    "_pauseButton", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(pauseButtonField, Is.Not.Null);
+                var pauseButton = (UnityEngine.UI.Button)pauseButtonField.GetValue(installer.HudView);
+                Assert.That(pauseButton, Is.Not.Null);
+                Assert.That(pauseButton.interactable, Is.True);
+
+                var terminalToken = ClaimTerminalSession(
+                    TerminalTransitionKind.Defeat,
+                    TerminalDestinationKind.ReloadedGameplay,
+                    sceneHandle: 902);
+                Assert.That(
+                    TerminalSessionRegistry.TryAdvance(terminalToken, TerminalSessionPhase.Revealing),
+                    Is.True);
+                Assert.That(installer.HudView.ViewModel.IsPauseButtonEnabled, Is.False);
+                Assert.That(TerminalSessionRegistry.TryComplete(terminalToken), Is.True);
+
+                // Do not open via Back first: doing so resynchronizes and masks the stale HUD state.
+                Assert.That(installer.HudView.ViewModel.IsPauseButtonEnabled, Is.True);
+                Assert.That(pauseButton.interactable, Is.True);
+                installer.HudView.ClickPause();
+                Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiFlowInstaller_LevelFailedTerminalCompletion_KeepsSelectionHiddenUntilInput()
         {
             var hostObject = new GameObject(nameof(
