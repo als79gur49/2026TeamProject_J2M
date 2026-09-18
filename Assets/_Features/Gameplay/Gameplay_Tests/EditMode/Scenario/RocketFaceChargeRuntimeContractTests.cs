@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement;
+using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Stages;
 using NUnit.Framework;
@@ -419,10 +420,140 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return worldState;
         }
 
+        [TestCase(0, false)]
+        [TestCase(1, false)]
+        [TestCase(0, true)]
+        [TestCase(1, true)]
+        [Category("Extended")]
+        public void EnemyCharge_LateSolidBeforeAnchorCommit_SettlesAtCurrentAnchorAndRecovers(
+            int completedSteps, bool useFlip)
+        {
+            var source = new SurfaceCell(FaceId.Floor, completedSteps, 0);
+            var destination = new SurfaceCell(FaceId.Floor, completedSteps + 1, 0);
+            var box = CreateBox(50, new SurfaceCell(FaceId.Floor, completedSteps + 3, 0), BoxArchetype.Normal);
+            box.boxCapabilities = BoxCapabilities.Flip;
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(new SurfaceCell(FaceId.Floor, completedSteps + 2, 0), hp: 10),
+                CreateEnemy(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right, EnemyAiMode.Charge),
+                box,
+            });
+            SeedActiveCharge(worldState, remainingActiveSteps: 3);
+            var pipeline = CreatePipeline(worldState, LoadRocketFaceProfile(),
+                entityLogics: new IEntityLogic[] { new ImmediateFlipLogic() });
+            var tick = 1;
+            if (completedSteps > 0)
+            {
+                RunUntilChargeStepSettles(pipeline, worldState, ref tick, source);
+            }
+
+            pipeline.RunTick(new TickInput(tick++));
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(EnemyId, out var moving), Is.True);
+            Assert.That(moving.mode, Is.EqualTo(MotionMode.Charge));
+            Assert.That(moving.elapsedTicks, Is.LessThan(moving.commitTick));
+            if (useFlip)
+            {
+                pipeline.RunTick(new TickInput(tick++, PlayerTickCommand.Flip(Direction.Right)));
+                Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(destination));
+            }
+            else
+            {
+                worldState.CreateWriteContext().MoveEntity(50, destination);
+            }
+
+            // The obstacle appeared after the step started, including after an earlier loop step.
+            for (var i = 0; i < moving.totalTicks; i++)
+            {
+                if (!worldState.CreateSnapshot().TryGetUnitKinematicState(EnemyId, out _))
+                {
+                    break;
+                }
+                Assert.DoesNotThrow(() => pipeline.RunTick(new TickInput(tick++)));
+            }
+
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(EnemyId, out _), Is.False);
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(source));
+            Assert.That(GetEntity(worldState, EnemyId).enemyLocomotionCooldownTicks, Is.Zero);
+            Assert.That(GetChargeState(worldState).phase, Is.EqualTo(EnemyChargePhase.Active));
+            Assert.That(GetChargeState(worldState).remainingActiveSteps, Is.Zero);
+            Assert.That(GetChargeState(worldState).sequence, Is.EqualTo(1));
+            AssertNoUnitSolidOverlap(worldState, destination);
+
+            pipeline.RunTick(new TickInput(tick++));
+            Assert.That(GetEntity(worldState, EnemyId).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(GetChargeState(worldState).phase, Is.EqualTo(EnemyChargePhase.Recover));
+            Assert.That(GetChargeState(worldState).recoverRemainingTicks, Is.GreaterThan(0));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Extended")]
+        public void EnemyCharge_LethalFlipDuringLoop_RemovesChargeStateAndAllowsFollowingTicks(bool afterAnchorCommit)
+        {
+            var enemy = CreateEnemy(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right, EnemyAiMode.Charge);
+            enemy.hp = 1;
+            var box = CreateBox(50, new SurfaceCell(FaceId.Floor, 5, 0), BoxArchetype.Normal);
+            box.boxCapabilities = BoxCapabilities.Flip;
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(new SurfaceCell(FaceId.Floor, 4, 0), hp: 10), enemy, box,
+            });
+            SeedActiveCharge(worldState, remainingActiveSteps: 3);
+            var pipeline = CreatePipeline(worldState, LoadRocketFaceProfile(),
+                entityLogics: new IEntityLogic[] { new ImmediateFlipLogic() });
+            var tick = 1;
+            RunUntilChargeStepSettles(pipeline, worldState, ref tick, new SurfaceCell(FaceId.Floor, 1, 0));
+            pipeline.RunTick(new TickInput(tick++));
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(EnemyId, out var moving), Is.True);
+            if (afterAnchorCommit)
+            {
+                while (moving.elapsedTicks < moving.commitTick)
+                {
+                    pipeline.RunTick(new TickInput(tick++));
+                    Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(EnemyId, out moving), Is.True);
+                }
+            }
+
+            var anchor = GetEntity(worldState, EnemyId).position;
+            worldState.CreateWriteContext().MoveEntity(PlayerId,
+                new SurfaceCell(FaceId.Floor, anchor.PlanarPosition.x + 1, 0));
+            worldState.CreateWriteContext().MoveEntity(50,
+                new SurfaceCell(FaceId.Floor, anchor.PlanarPosition.x + 2, 0));
+            pipeline.RunTick(new TickInput(tick++, PlayerTickCommand.Flip(Direction.Right)));
+
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(EnemyId, out _), Is.False);
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyChargeState(EnemyId, out _), Is.False);
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(EnemyId, out _), Is.False);
+            Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(anchor));
+            for (var i = 0; i < moving.totalTicks; i++)
+            {
+                Assert.DoesNotThrow(() => pipeline.RunTick(new TickInput(tick++)));
+            }
+            AssertNoUnitSolidOverlap(worldState, anchor);
+        }
+
+        // Skip only the input windup so Flip lands at a precise charge boundary.
+        // Expansion, impact, settlement and cleanup still run through the production pipeline.
+        private sealed class ImmediateFlipLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            public int ControlledEntityId => PlayerId;
+
+            public void CollectMovementIntents(WorldSnapshot snapshot, in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (input.PlayerCommand.FlipPressed && snapshot.TryGetEntity(PlayerId, out var player))
+                {
+                    buffer.Add(new RawMovementIntent(PlayerId, 100,
+                        player.position.PlanarPosition + Vector2Int.right, MovementCommandKind.Flip, 0));
+                }
+            }
+        }
+
         private static TickPipeline CreatePipeline(
             WorldState worldState,
             EnemyAiProfile profile,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<IEntityLogic> entityLogics = null)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
             var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
@@ -431,7 +562,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
-                Array.Empty<IEntityLogic>(),
+                entityLogics ?? Array.Empty<IEntityLogic>(),
                 timingProfile,
                 playerTiming,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
