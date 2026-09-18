@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
+using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -420,6 +422,96 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return worldState;
         }
 
+        [TestCase(EnemyAiMode.Patrol, 0)]
+        [TestCase(EnemyAiMode.Patrol, 5)]
+        [TestCase(EnemyAiMode.Chase, 0)]
+        [TestCase(EnemyAiMode.Chase, 5)]
+        [Category("Extended")]
+        public void RocketFace_PassiveContact_OrdinaryModesCollectEvenDuringMovementCooldown(
+            EnemyAiMode mode, int cooldownTicks)
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var enemy = CreateEnemy(cell, Direction.Right, mode);
+            enemy.enemyLocomotionCooldownTicks = cooldownTicks;
+            var worldState = CreateWorldState(new[] { CreatePlayer(cell), enemy });
+            var logic = new EnemyLogic(EnemyId, LoadRocketFaceProfile());
+            var intents = new List<RawAttackIntent>();
+
+            logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), intents);
+
+            Assert.That(intents.Count, Is.EqualTo(1));
+            Assert.That(intents[0].SourceId, Is.EqualTo(EnemyId));
+            Assert.That(intents[0].TargetId, Is.EqualTo(PlayerId));
+            Assert.That(intents[0].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
+        }
+
+        [TestCase(EnemyAiMode.Charge, EnemyChargePhase.Windup, false)]
+        [TestCase(EnemyAiMode.Charge, EnemyChargePhase.Active, true)]
+        [TestCase(EnemyAiMode.Recover, EnemyChargePhase.Recover, false)]
+        [TestCase(EnemyAiMode.Charge, EnemyChargePhase.None, false)]
+        [TestCase(EnemyAiMode.Recover, EnemyChargePhase.None, false)]
+        [TestCase(EnemyAiMode.Patrol, EnemyChargePhase.Windup, false)]
+        [TestCase(EnemyAiMode.Chase, EnemyChargePhase.Recover, false)]
+        [Category("Extended")]
+        public void RocketFace_PassiveContact_PreservesChargePhaseRestrictions(
+            EnemyAiMode mode, EnemyChargePhase phase, bool expected)
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(cell), CreateEnemy(cell, Direction.Right, mode),
+            });
+            worldState.CreateWriteContext().SetEnemyChargeState(EnemyId, new EnemyChargeRuntimeState
+            {
+                phase = phase, sequence = 1, lockedDirection = Direction.Right,
+                remainingActiveSteps = 2, windupEndTick = 3, recoverRemainingTicks = 2,
+            });
+            var intents = new List<RawAttackIntent>();
+
+            new EnemyLogic(EnemyId, LoadRocketFaceProfile()).CollectAttackIntents(
+                worldState.CreateSnapshot(), new TickInput(1), intents);
+
+            Assert.That(intents.Count, Is.EqualTo(expected ? 1 : 0));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RocketFace_PassiveContact_OrdinaryModeStillRequiresSameCell()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(new SurfaceCell(FaceId.Floor, 2, 1)),
+                CreateEnemy(new SurfaceCell(FaceId.Floor, 1, 1), Direction.Right, EnemyAiMode.Chase),
+            });
+            var intents = new List<RawAttackIntent>();
+            new EnemyLogic(EnemyId, LoadRocketFaceProfile()).CollectAttackIntents(
+                worldState.CreateSnapshot(), new TickInput(1), intents);
+            Assert.That(intents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RocketFace_PassiveContact_OrdinaryOverlapDealsDamageThroughPipeline()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(cell, hp: 10), CreateEnemy(cell, Direction.Right, EnemyAiMode.Chase),
+            });
+            var pipeline = CreatePipeline(worldState, LoadRocketFaceProfile());
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(GetEntity(worldState, EnemyId).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Any(record => record.Accepted &&
+                record.SourceId == EnemyId && record.TargetId == PlayerId &&
+                record.SourceKind == AttackSourceKind.PassiveContact), Is.True);
+            Assert.That(GetEntity(worldState, PlayerId).hp, Is.LessThan(10));
+            var hpAfterContact = GetEntity(worldState, PlayerId).hp;
+            pipeline.RunTick(new TickInput(2));
+            Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(hpAfterContact),
+                "Restoring contact must preserve the existing repeat-hit protection.");
+        }
+
         [TestCase(0, false)]
         [TestCase(1, false)]
         [TestCase(0, true)]
@@ -507,11 +599,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(EnemyId, out var moving), Is.True);
             if (afterAnchorCommit)
             {
-                while (moving.elapsedTicks < moving.commitTick)
+                for (var i = 0; i < moving.totalTicks && moving.elapsedTicks < moving.commitTick; i++)
                 {
                     pipeline.RunTick(new TickInput(tick++));
                     Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(EnemyId, out moving), Is.True);
                 }
+                Assert.That(moving.elapsedTicks, Is.GreaterThanOrEqualTo(moving.commitTick));
             }
 
             var anchor = GetEntity(worldState, EnemyId).position;
