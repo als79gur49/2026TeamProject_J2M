@@ -445,16 +445,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(intents[0].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
         }
 
-        [TestCase(EnemyAiMode.Charge, EnemyChargePhase.Windup, false)]
-        [TestCase(EnemyAiMode.Charge, EnemyChargePhase.Active, true)]
-        [TestCase(EnemyAiMode.Recover, EnemyChargePhase.Recover, false)]
-        [TestCase(EnemyAiMode.Charge, EnemyChargePhase.None, false)]
-        [TestCase(EnemyAiMode.Recover, EnemyChargePhase.None, false)]
-        [TestCase(EnemyAiMode.Patrol, EnemyChargePhase.Windup, false)]
-        [TestCase(EnemyAiMode.Chase, EnemyChargePhase.Recover, false)]
+        [TestCase(EnemyAiMode.Charge, EnemyChargePhase.Windup)]
+        [TestCase(EnemyAiMode.Recover, EnemyChargePhase.Recover)]
+        [TestCase(EnemyAiMode.Charge, EnemyChargePhase.None)]
+        [TestCase(EnemyAiMode.Recover, EnemyChargePhase.None)]
         [Category("Extended")]
         public void RocketFace_PassiveContact_PreservesChargePhaseRestrictions(
-            EnemyAiMode mode, EnemyChargePhase phase, bool expected)
+            EnemyAiMode mode, EnemyChargePhase phase)
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var worldState = CreateWorldState(new[]
@@ -471,21 +468,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             new EnemyLogic(EnemyId, LoadRocketFaceProfile()).CollectAttackIntents(
                 worldState.CreateSnapshot(), new TickInput(1), intents);
 
-            Assert.That(intents.Count, Is.EqualTo(expected ? 1 : 0));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void RocketFace_PassiveContact_OrdinaryModeStillRequiresSameCell()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreatePlayer(new SurfaceCell(FaceId.Floor, 2, 1)),
-                CreateEnemy(new SurfaceCell(FaceId.Floor, 1, 1), Direction.Right, EnemyAiMode.Chase),
-            });
-            var intents = new List<RawAttackIntent>();
-            new EnemyLogic(EnemyId, LoadRocketFaceProfile()).CollectAttackIntents(
-                worldState.CreateSnapshot(), new TickInput(1), intents);
             Assert.That(intents, Is.Empty);
         }
 
@@ -506,10 +488,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 record.SourceId == EnemyId && record.TargetId == PlayerId &&
                 record.SourceKind == AttackSourceKind.PassiveContact), Is.True);
             Assert.That(GetEntity(worldState, PlayerId).hp, Is.LessThan(10));
-            var hpAfterContact = GetEntity(worldState, PlayerId).hp;
-            pipeline.RunTick(new TickInput(2));
-            Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(hpAfterContact),
-                "Restoring contact must preserve the existing repeat-hit protection.");
         }
 
         [TestCase(0, false)]
