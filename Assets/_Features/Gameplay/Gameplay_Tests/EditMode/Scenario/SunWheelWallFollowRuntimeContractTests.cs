@@ -800,28 +800,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return result;
         }
 
-        private static TickResult RunUntilEnemyAtOrRemoved(
-            TickPipeline pipeline,
-            WorldState worldState,
-            int startTick,
-            SurfaceCell destination,
-            int maxTicks = 60)
-        {
-            TickResult result = null;
-            for (var tick = startTick; tick < startTick + maxTicks; tick++)
-            {
-                result = pipeline.RunTick(new TickInput(tick));
-                if (!worldState.CreateSnapshot().TryGetEntity(EnemyId, out var enemy) ||
-                    enemy.position == destination)
-                {
-                    return result;
-                }
-            }
-
-            Assert.Fail($"SunWheel WallFollow did not enter or resolve {destination} within {maxTicks} ticks. Last trace: {result?.Trace.Text}");
-            return result;
-        }
-
         private static string RunTicksAndAssertEnemyNeverReaches(
             TickPipeline pipeline,
             WorldState worldState,

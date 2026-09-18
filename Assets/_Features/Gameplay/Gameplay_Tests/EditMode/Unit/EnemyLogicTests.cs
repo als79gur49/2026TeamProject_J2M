@@ -3687,27 +3687,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyMovementStrategyShared_WallFollowRotateOnlyFacing_UsesTurnPreferenceSymmetry()
-        {
-            Assert.That(
-                EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
-                    Direction.Up,
-                    WallFollowTurnPreference.Right,
-                    out var rightFacing),
-                Is.True);
-            Assert.That(rightFacing, Is.EqualTo(Direction.Right));
-
-            Assert.That(
-                EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
-                    Direction.Up,
-                    WallFollowTurnPreference.Left,
-                    out var leftFacing),
-                Is.True);
-            Assert.That(leftFacing, Is.EqualTo(Direction.Left));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_KeepsFacing()
         {
             var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);

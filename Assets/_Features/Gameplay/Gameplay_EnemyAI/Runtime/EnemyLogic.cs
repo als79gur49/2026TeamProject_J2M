@@ -3071,29 +3071,9 @@ namespace Game.Feature.Gameplay.Entities
                 return patrolFacing;
             }
 
-            if (stage != EnemyAiTransitionStage.BeforeAttack ||
-                _patrolStrategy is not WallFollowPatrolStrategy)
-            {
-                return null;
-            }
-
-            var wallFollowOutcome = EnemyMovementStrategyShared.ChooseWallFollowDirection(
-                snapshot,
-                source,
-                _patrolSettings,
-                _tileFeatureDefinitions,
-                out _);
-            if (wallFollowOutcome == EnemyMovementStrategyShared.WallFollowHandRuleOutcome.BuiltDirection ||
-                !EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
-                    source.facing,
-                    _patrolSettings.TurnPreference,
-                    out var rotateOnlyFacing) ||
-                rotateOnlyFacing == source.facing)
-            {
-                return null;
-            }
-
-            return rotateOnlyFacing;
+            // WallFollow turns through its selected movement. With no safe candidate,
+            // keep facing and retry on a later tick instead of rotating in place.
+            return null;
         }
 
         private bool TryBuildPatrolDecisionProposal(
@@ -4369,3 +4349,4 @@ namespace Game.Feature.Gameplay.Entities
         public Direction? Facing { get; }
     }
 }
+
