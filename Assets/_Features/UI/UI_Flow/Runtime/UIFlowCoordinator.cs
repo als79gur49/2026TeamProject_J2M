@@ -84,6 +84,8 @@ namespace Game.Feature.UI.Flow
 
         public UIBlockSnapshot CurrentBlockSnapshot { get; private set; }
 
+        public event Action BlockSnapshotRefreshed;
+
         internal UiFlowAudioTrace LastFlowAudioTrace { get; private set; }
 
         public void Initialize()
@@ -192,6 +194,9 @@ namespace Game.Feature.UI.Flow
                     _popupController.TopPopup,
                     _popupController.PopupCount,
                     TerminalSessionRegistry.IsActive));
+
+            // Consumers must observe the new policy result, independent of registry subscriber order.
+            BlockSnapshotRefreshed?.Invoke();
         }
 
         private void HandleTerminalSessionChanged(TerminalSessionSnapshot snapshot)
