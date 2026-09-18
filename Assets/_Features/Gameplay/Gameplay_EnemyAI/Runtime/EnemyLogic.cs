@@ -481,7 +481,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (_passiveContactCapability != null &&
-                CanCollectPassiveContact(snapshot) &&
+                CanCollectPassiveContact(snapshot, source) &&
                 TryResolvePassiveContactTarget(snapshot, source, out var passiveContactTarget) &&
                 _passiveContactCapability.AttackDecisionStrategy.IsTargetInRange(
                     source,
@@ -871,15 +871,22 @@ namespace Game.Feature.Gameplay.Entities
             return false;
         }
 
-        private bool CanCollectPassiveContact(WorldSnapshot snapshot)
+        private bool CanCollectPassiveContact(WorldSnapshot snapshot, in EntityState source)
         {
             if (!_usesChargeStateResolver)
             {
                 return true;
             }
 
-            return TryGetChargeState(snapshot, out var chargeState) &&
-                   chargeState.phase == EnemyChargePhase.Active;
+            if (TryGetChargeState(snapshot, out var chargeState) &&
+                chargeState.phase != EnemyChargePhase.None)
+            {
+                return chargeState.phase == EnemyChargePhase.Active;
+            }
+
+            // Ordinary locomotion retains contact independently of move cooldown.
+            // Charge windup and recovery remain non-contact phases.
+            return source.aiMode == EnemyAiMode.Patrol || source.aiMode == EnemyAiMode.Chase;
         }
 
         private bool HasJumpMovementSkill()
