@@ -1099,8 +1099,7 @@ namespace Game.Feature.UI.Composition
 
         private void WireControllerEvents()
         {
-            ScreenController.StateChanged += SyncViews;
-            PopupController.StateChanged += SyncViews;
+            Coordinator.BlockSnapshotRefreshed += SyncViews;
         }
 
         private void UnwireViewEvents()
@@ -1123,14 +1122,9 @@ namespace Game.Feature.UI.Composition
 
         private void UnwireControllerEvents()
         {
-            if (ScreenController != null)
+            if (Coordinator != null)
             {
-                ScreenController.StateChanged -= SyncViews;
-            }
-
-            if (PopupController != null)
-            {
-                PopupController.StateChanged -= SyncViews;
+                Coordinator.BlockSnapshotRefreshed -= SyncViews;
             }
         }
 
@@ -1164,7 +1158,6 @@ namespace Game.Feature.UI.Composition
                 }
 
                 _navigationInputRouter?.ClearNavigationFocus();
-                SyncViews();
                 var eventSystems = FindObjectsByType<EventSystem>(
                     FindObjectsInactive.Include,
                     FindObjectsSortMode.None);
@@ -1176,7 +1169,6 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            SyncViews();
             _navigationInputRouter?.ClearNavigationFocus();
         }
 
