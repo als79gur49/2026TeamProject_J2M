@@ -458,6 +458,17 @@ namespace Game.Exhibition.RestartExperiment
         }
     }
 
+    // Only OS observations are replaceable; tests execute the production selection loop.
+    public class SteamProcessOperations
+    {
+        public virtual Process[] Enumerate() { return Process.GetProcessesByName("steam"); }
+        public virtual int Id(Process process) { return process.Id; }
+        public virtual bool HasExited(Process process) { return process.HasExited; }
+        public virtual long StartTicks(Process process) { return process.StartTime.ToUniversalTime().Ticks; }
+        public virtual int Session(int pid) { return WindowsIdentityCapture.SessionId(pid); }
+        public virtual ProcessIdentity Capture(Process process) { return WindowsIdentityCapture.Capture(process, true); }
+    }
+
     public static class WindowsIdentityCapture
     {
         [StructLayout(LayoutKind.Sequential)] private struct Luid { public uint Low; public int High; }
@@ -567,24 +578,27 @@ namespace Game.Exhibition.RestartExperiment
                 string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase);
         }
         public static ProcessIdentity Steam(ProcessIdentity owner, ProcessIdentity excluded = null)
+        { return Steam(owner, excluded, new SteamProcessOperations()); }
+
+        public static ProcessIdentity Steam(ProcessIdentity owner, ProcessIdentity excluded, SteamProcessOperations operations)
         {
             string operation = "EnumerateSteamProcesses";
             int targetPid = 0;
             try
             {
                 ProcessIdentity found = null;
-                foreach (var process in Process.GetProcessesByName("steam"))
+                foreach (var process in operations.Enumerate())
                     using (process)
                     {
-                        operation = "Process.Id"; targetPid = process.Id;
+                        operation = "Process.Id"; targetPid = operations.Id(process);
                         operation = "Process.HasExited";
-                        if (process.HasExited) continue;
+                        if (operations.HasExited(process)) continue;
                         operation = "ExcludedProcess.StartTime";
-                        if (excluded != null && targetPid == excluded.Pid && process.StartTime.ToUniversalTime().Ticks == excluded.StartTicks) continue;
+                        if (excluded != null && targetPid == excluded.Pid && operations.StartTicks(process) == excluded.StartTicks) continue;
                         operation = "ProcessIdToSessionId";
-                        if (SessionId(targetPid) != owner.Session) continue;
+                        if (operations.Session(targetPid) != owner.Session) continue;
                         operation = "CaptureSteamIdentity";
-                        var candidate = Capture(process, true);
+                        var candidate = operations.Capture(process);
                         if (!SameScope(candidate, owner)) throw new InvalidOperationException("Steam user/logon differs.");
                         if (found != null) throw new InvalidOperationException("Multiple Steam clients; inspect manually.");
                         found = candidate;
