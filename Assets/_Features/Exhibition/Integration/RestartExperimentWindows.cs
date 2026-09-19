@@ -370,9 +370,15 @@ namespace Game.Exhibition.RestartExperiment
         public virtual void CloseJob(IDisposable job) { job.Dispose(); }
     }
 
-    public sealed class OwnedShutdownCommand : IDisposable
+    public interface IShutdownCommandOwnership
+    {
+        bool OwnsProcessId(int candidatePid);
+    }
+
+    public sealed class OwnedShutdownCommand : IDisposable, IShutdownCommandOwnership
     {
         private Process process;
+        private int retainedPid;
         private bool exitRecorded;
         public string Creation { get; private set; }
         public ProcessIdentity Identity { get; private set; }
@@ -391,7 +397,15 @@ namespace Game.Exhibition.RestartExperiment
             Identity = identify(process);
             if (Identity == null || Identity.Pid != process.Id || Identity.StartTicks <= 0 ||
                 Identity.StartTicks != process.StartTime.ToUniversalTime().Ticks) throw new IOException("Shutdown command identity unavailable.");
+            // Publish ownership only after every validation succeeds. Do not use the
+            // mutable wire identity as the exclusion authority.
+            retainedPid = process.Id;
         }
+        // Cycle operations and Dispose are sequential. The retained process handle
+        // pins the Windows process object/PID even after exit, until Cleanup.
+        // Never reopen an enumerated candidate to decide this exclusion.
+        public bool OwnsProcessId(int candidatePid)
+        { return process != null && retainedPid > 0 && candidatePid == retainedPid; }
         public bool Alive(Action<int> recordExit)
         {
             if (process == null || Identity == null) throw new IOException("Shutdown command ownership unavailable.");
@@ -405,7 +419,12 @@ namespace Game.Exhibition.RestartExperiment
         public void Dispose()
         {
             // This class intentionally has no Kill method. Dispose releases only the retained handle.
-            if (process != null) { process.Dispose(); process = null; }
+            retainedPid = 0;
+            if (process != null)
+            {
+                try { process.Dispose(); }
+                finally { process = null; }
+            }
         }
     }
 
@@ -464,7 +483,6 @@ namespace Game.Exhibition.RestartExperiment
         public virtual Process[] Enumerate() { return Process.GetProcessesByName("steam"); }
         public virtual int Id(Process process) { return process.Id; }
         public virtual bool HasExited(Process process) { return process.HasExited; }
-        public virtual long StartTicks(Process process) { return process.StartTime.ToUniversalTime().Ticks; }
         public virtual int Session(int pid) { return WindowsIdentityCapture.SessionId(pid); }
         public virtual ProcessIdentity Capture(Process process) { return WindowsIdentityCapture.Capture(process, true); }
     }
@@ -577,10 +595,10 @@ namespace Game.Exhibition.RestartExperiment
             return SameScope(a, b) && a.Pid == b.Pid && a.StartTicks == b.StartTicks &&
                 string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase);
         }
-        public static ProcessIdentity Steam(ProcessIdentity owner, ProcessIdentity excluded = null)
+        public static ProcessIdentity Steam(ProcessIdentity owner, IShutdownCommandOwnership excluded = null)
         { return Steam(owner, excluded, new SteamProcessOperations()); }
 
-        public static ProcessIdentity Steam(ProcessIdentity owner, ProcessIdentity excluded, SteamProcessOperations operations)
+        public static ProcessIdentity Steam(ProcessIdentity owner, IShutdownCommandOwnership excluded, SteamProcessOperations operations)
         {
             string operation = "EnumerateSteamProcesses";
             int targetPid = 0;
@@ -591,12 +609,25 @@ namespace Game.Exhibition.RestartExperiment
                     using (process)
                     {
                         operation = "Process.Id"; targetPid = operations.Id(process);
+                        operation = "OwnedShutdownCommand.OwnsProcessId";
+                        if (excluded != null && excluded.OwnsProcessId(targetPid)) continue;
+                        operation = "ProcessIdToSessionId";
+                        int session;
+                        try { session = operations.Session(targetPid); }
+                        catch (Win32Exception e)
+                        {
+                            // A candidate can exit after enumeration but before the
+                            // session query. Confirm exit; never treat access denied
+                            // (5), or an unconfirmed invalid PID (87), as absence.
+                            if (e.NativeErrorCode != 87) throw;
+                            operation = "Process.HasExited";
+                            if (operations.HasExited(process)) continue;
+                            operation = "ProcessIdToSessionId";
+                            throw;
+                        }
+                        if (session != owner.Session) continue;
                         operation = "Process.HasExited";
                         if (operations.HasExited(process)) continue;
-                        operation = "ExcludedProcess.StartTime";
-                        if (excluded != null && targetPid == excluded.Pid && operations.StartTicks(process) == excluded.StartTicks) continue;
-                        operation = "ProcessIdToSessionId";
-                        if (operations.Session(targetPid) != owner.Session) continue;
                         operation = "CaptureSteamIdentity";
                         var candidate = operations.Capture(process);
                         if (!SameScope(candidate, owner)) throw new InvalidOperationException("Steam user/logon differs.");
@@ -718,13 +749,21 @@ namespace Game.Exhibition.RestartExperiment
             string operation = "OriginalSteamAlive";
             try
             {
-                var found = WindowsIdentityCapture.Steam(request.Parent, shutdownCommand);
+                var found = WindowsIdentityCapture.Steam(request.Parent, ownedShutdownCommand);
                 if (found == null) return false;
                 if (!WindowsIdentityCapture.SameProcess(found, request.Steam) || found.Sha256 != request.Steam.Sha256)
                     throw new InvalidOperationException("Replacement/restarted Steam detected; inspect manually.");
                 return true;
             }
-            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
+            catch (Exception e) { NoteSteamObservationFailure(e, operation); throw; }
+        }
+        private void NoteSteamObservationFailure(Exception error, string operation)
+        {
+            Cycle.Note(error, "RestartOperation", operation);
+            Cycle.Note(error, "OriginalSteamPid", request.Steam.Pid);
+            Cycle.Note(error, "ShutdownCommandPid", shutdownCommand == null ? (object)"Unknown" : shutdownCommand.Pid);
+            bool? exited = ownedShutdownCommand == null ? null : ownedShutdownCommand.ExitConfirmed;
+            Cycle.Note(error, "ShutdownCommandExitConfirmed", exited.HasValue ? (object)exited.Value : "Unknown");
         }
         public void RequestSteamExit(Deadline deadline)
         {
@@ -757,10 +796,10 @@ namespace Game.Exhibition.RestartExperiment
             string operation = "EnsureSteamExited";
             try
             {
-                if (WindowsIdentityCapture.Steam(request.Parent, shutdownCommand) != null)
+                if (WindowsIdentityCapture.Steam(request.Parent, ownedShutdownCommand) != null)
                     throw new IOException("Steam client appeared after original exit; inspect manually.");
             }
-            catch (Exception e) { Cycle.Note(e, "RestartOperation", operation); throw; }
+            catch (Exception e) { NoteSteamObservationFailure(e, operation); throw; }
         }
         private ProcessStartInfo SteamStart(string arguments)
         {
@@ -775,7 +814,7 @@ namespace Game.Exhibition.RestartExperiment
             try
             {
                 EnsureNoOtherGame(); VerifyFile(request.Steam);
-                if (WindowsIdentityCapture.Steam(request.Parent) != null) throw new InvalidOperationException("Steam already restarted.");
+                if (WindowsIdentityCapture.Steam(request.Parent, ownedShutdownCommand) != null) throw new InvalidOperationException("Steam already restarted.");
                 operation = "StartSteam.ProcessStart";
                 using (var process = Process.Start(SteamStart("")))
                 {
@@ -793,7 +832,7 @@ namespace Game.Exhibition.RestartExperiment
             string operation = "EnsureNewSteamUnchanged";
             try
             {
-                var found = WindowsIdentityCapture.Steam(request.Parent);
+                var found = WindowsIdentityCapture.Steam(request.Parent, ownedShutdownCommand);
                 if (found == null || currentSteam == null || !WindowsIdentityCapture.SameProcess(found, currentSteam) || found.Sha256 != currentSteam.Sha256)
                     throw new InvalidOperationException("New Steam exited or was replaced; no cycle retry.");
             }

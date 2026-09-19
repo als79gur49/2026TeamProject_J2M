@@ -106,10 +106,16 @@ Invoke-Case 'Failure details preserve native code and both operation contexts' {
     $primary = New-Object ComponentModel.Win32Exception(5)
     $primary.Data['RestartOperation'] = 'StartSteam.CaptureNewSteamIdentity'
     $primary.Data['NativeOperation'] = 'OpenProcessToken'
+    $primary.Data['OriginalSteamPid'] = 101
+    $primary.Data['ShutdownCommandPid'] = 202
+    $primary.Data['ShutdownCommandExitConfirmed'] = $false
     $secondary = New-Object IO.IOException('cleanup sentinel')
     $secondary.Data['RestartOperation'] = 'Cleanup'
     $aggregate = New-Object AggregateException('cycle', ([Exception[]]@($primary, $secondary)))
     $details = Get-RestartFailureDetails $aggregate
+    foreach ($text in @('OriginalSteamPid: 101', 'ShutdownCommandPid: 202', 'ShutdownCommandExitConfirmed: False')) {
+        Assert-True ($details.Contains($text)) ('Missing process ownership detail: ' + $text)
+    }
     Assert-True ($details.IndexOf('StartSteam.CaptureNewSteamIdentity') -lt $details.IndexOf('RestartOperation: Cleanup')) 'Cleanup preceded primary failure'
     foreach ($text in @('NativeErrorCode: 5', 'OpenProcessToken', 'StartSteam.CaptureNewSteamIdentity', 'Cleanup', 'cleanup sentinel')) {
         Assert-True ($details.Contains($text)) ('Missing failure detail: ' + $text)
