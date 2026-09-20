@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Stages;
+using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
@@ -47,7 +48,23 @@ namespace Game.Feature.UI.Composition
             }
 
             Current = next;
-            Changed?.Invoke(next);
+            var subscribers = Changed?.GetInvocationList();
+            if (subscribers == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < subscribers.Length; i++)
+            {
+                try
+                {
+                    ((Action<DemoStageControlPresentationSnapshot>)subscribers[i])(next);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
+            }
         }
 
         public void Dispose()

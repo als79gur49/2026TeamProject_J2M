@@ -99,6 +99,47 @@ namespace Game.Feature.DemoStageControl.UI
                 throw new InvalidOperationException(
                     "DemoStageControlPanel requires authored typography targets.");
             }
+
+            var authoredTexts = GetComponentsInChildren<TMP_Text>(true);
+            if (authoredTexts.Length != _typographyTargets.Length)
+            {
+                throw new InvalidOperationException(
+                    "DemoStageControlPanel must register every authored TMP text as a typography target.");
+            }
+
+            var typographyTargets = new HashSet<TMP_Text>();
+            for (var i = 0; i < _typographyTargets.Length; i++)
+            {
+                var target = _typographyTargets[i];
+                if (target == null ||
+                    !typographyTargets.Add(target))
+                {
+                    throw new InvalidOperationException(
+                        $"DemoStageControlPanel typography target {i} is malformed.");
+                }
+            }
+
+            for (var i = 0; i < authoredTexts.Length; i++)
+            {
+                if (!typographyTargets.Contains(authoredTexts[i]))
+                {
+                    throw new InvalidOperationException(
+                        $"DemoStageControlPanel TMP text '{authoredTexts[i].name}' is not registered for typography.");
+                }
+            }
+
+            foreach (var authoredTransform in GetComponentsInChildren<Transform>(true))
+            {
+                var components = authoredTransform.GetComponents<Component>();
+                for (var i = 0; i < components.Length; i++)
+                {
+                    if (components[i] == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"DemoStageControlPanel prefab contains a missing script on '{authoredTransform.name}'.");
+                    }
+                }
+            }
         }
 
         public void Bind(DemoStageControlPanelViewModel viewModel)
@@ -245,7 +286,8 @@ namespace Game.Feature.DemoStageControl.UI
             {
                 if (selected == StartIndex)
                     return IsEnabled(_lastSelectorIndex) ? _lastSelectorIndex : FindEnabledSelector();
-                return FindEnabledVertical(selected - 1, -1);
+                var verticalTarget = FindEnabledVertical(selected - 1, -1);
+                return verticalTarget >= 0 ? verticalTarget : FindEnabledSelector();
             }
 
             return command == UiNavigationCommand.Down
