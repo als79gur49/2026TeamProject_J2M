@@ -208,6 +208,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly SnapshotOwnedCellIndex<SurfaceCell> _snapshotOwnedStackedUnitsByCell;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
         private readonly IReadOnlyDictionary<int, TileFeatureState> _tileFeaturesById;
+        private readonly SnapshotOwnedCellIndex<SurfaceCell> _snapshotOwnedTileFeatureIdsByCell;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
         private readonly CleanupCandidateSnapshot _cleanupCandidates;
         private readonly CubeTopologyState _topology;
@@ -248,7 +249,7 @@ namespace Game.Feature.Gameplay.BoardState
                 CreateSnapshotOwnedStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
                 solidOccupancy,
                 tileFeaturesById,
-                CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
+                CreateSnapshotOwnedTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
                 enemyActionStatesByEntityId,
                 pendingCellImpactsById,
                 pendingEnemyBlockedReactionsByEntityId,
@@ -310,7 +311,7 @@ namespace Game.Feature.Gameplay.BoardState
                 stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell)),
                 solidOccupancy,
                 tileFeaturesById,
-                CreateReadonlySnapshotOwnedCellIndex(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
+                tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell)),
                 enemyActionStatesByEntityId,
                 pendingCellImpactsById,
                 pendingEnemyBlockedReactionsByEntityId,
@@ -341,7 +342,7 @@ namespace Game.Feature.Gameplay.BoardState
             SnapshotOwnedCellIndex<SurfaceCell> stackedUnitsByCell,
             Dictionary<SurfaceCell, int> solidOccupancy,
             Dictionary<int, TileFeatureState> tileFeaturesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> tileFeatureIdsByCell,
+            SnapshotOwnedCellIndex<SurfaceCell> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
             Dictionary<int, PendingCellImpact> pendingCellImpactsById,
             Dictionary<int, PendingEnemyBlockedReaction> pendingEnemyBlockedReactionsByEntityId,
@@ -371,7 +372,8 @@ namespace Game.Feature.Gameplay.BoardState
             _stackedUnitsByCell = CreateReadonlySnapshotOwnedCellIndex(_snapshotOwnedStackedUnitsByCell);
             _solidOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(solidOccupancy ?? throw new ArgumentNullException(nameof(solidOccupancy)));
             _tileFeaturesById = new ReadOnlyDictionary<int, TileFeatureState>(tileFeaturesById ?? throw new ArgumentNullException(nameof(tileFeaturesById)));
-            _tileFeatureIdsByCell = tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell));
+            _snapshotOwnedTileFeatureIdsByCell = tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell));
+            _tileFeatureIdsByCell = CreateReadonlySnapshotOwnedCellIndex(_snapshotOwnedTileFeatureIdsByCell);
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
             _pendingCellImpactsById = new ReadOnlyDictionary<int, PendingCellImpact>(pendingCellImpactsById ?? throw new ArgumentNullException(nameof(pendingCellImpactsById)));
             _pendingEnemyBlockedReactionsByEntityId = new ReadOnlyDictionary<int, PendingEnemyBlockedReaction>(pendingEnemyBlockedReactionsByEntityId ?? throw new ArgumentNullException(nameof(pendingEnemyBlockedReactionsByEntityId)));
@@ -411,6 +413,9 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal SnapshotOwnedCellIndex<SurfaceCell> SnapshotOwnedStackedUnitsByCell =>
             _snapshotOwnedStackedUnitsByCell;
+
+        internal SnapshotOwnedCellIndex<SurfaceCell> SnapshotOwnedTileFeatureIdsByCell =>
+            _snapshotOwnedTileFeatureIdsByCell;
 
         internal ReadOnlyMemory<int> CleanupRemovalCandidateIds => _cleanupCandidates.RemovalCandidateIds;
 
@@ -1880,7 +1885,7 @@ namespace Game.Feature.Gameplay.BoardState
             return left.TileId.CompareTo(right.TileId);
         }
 
-        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlyTileFeatureIdsByCell(
+        private static SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedTileFeatureIdsByCell(
             Dictionary<SurfaceCell, SortedSet<int>> tileFeatureIdsByCell)
         {
             var buffer = new Dictionary<SurfaceCell, IReadOnlyCollection<int>>(tileFeatureIdsByCell.Count);
@@ -1901,7 +1906,7 @@ namespace Game.Feature.Gameplay.BoardState
                 buffer.Add(pair.Key, orderedTileIds.AsReadOnly());
             }
 
-            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(buffer);
+            return new SnapshotOwnedCellIndex<SurfaceCell>(buffer);
         }
 
         private static IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlySnapshotOwnedCellIndex(

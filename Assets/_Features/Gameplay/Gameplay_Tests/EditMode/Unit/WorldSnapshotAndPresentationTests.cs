@@ -1467,6 +1467,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GetCellIndex(importedSnapshot, "_stackedUnitsByCell"),
                     GetCellIndex(sourceSnapshot, "_stackedUnitsByCell")),
                 Is.True);
+            Assert.That(
+                ReferenceEquals(
+                    GetCellIndex(importedSnapshot, "_tileFeatureIdsByCell"),
+                    GetCellIndex(sourceSnapshot, "_tileFeatureIdsByCell")),
+                Is.True);
             Assert.That(importedSnapshot.TryGetEntity(10, out var imported), Is.True);
             Assert.That(sourceSnapshot.TryGetEntity(10, out var source), Is.True);
             Assert.That(imported, Is.EqualTo(source));
@@ -1475,7 +1480,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.WorldStateSnapshotCacheHitCount, Is.EqualTo(1));
             Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(1));
             Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
-            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.Zero);
             Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.Zero);
             Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
 
@@ -1492,6 +1497,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[] { 10 },
                 CollectUnitIdsAt(mutatedImportedSnapshot, new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(
+                ReferenceEquals(
+                    GetCellIndex(mutatedImportedSnapshot, "_tileFeatureIdsByCell"),
+                    GetCellIndex(sourceSnapshot, "_tileFeatureIdsByCell")),
+                Is.True);
         }
 
         [Test]

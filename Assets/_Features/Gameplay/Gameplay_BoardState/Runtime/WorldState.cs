@@ -229,8 +229,6 @@ namespace Game.Feature.Gameplay.BoardState
         {
             _cachedWorldSnapshot = null;
             _worldSnapshotDirty = true;
-            _snapshotOwnedTileFeatureIdsByCell = null;
-            _snapshotOwnedTileFeatureIdsByCellDirty = true;
             _topologyRevision = snapshot.TopologyRevision;
             snapshot.CopyEntitiesByIdTo(_entitiesById);
             snapshot.CopyStackedUnitsByCellTo(_stackedUnitsByCell);
@@ -239,6 +237,8 @@ namespace Game.Feature.Gameplay.BoardState
             snapshot.CopySolidOccupancyTo(_solidOccupancy);
             snapshot.CopyTileFeaturesByIdTo(_tileFeaturesById);
             snapshot.CopyTileFeatureIdsByCellTo(_tileFeatureIdsByCell);
+            _snapshotOwnedTileFeatureIdsByCell = snapshot.SnapshotOwnedTileFeatureIdsByCell;
+            _snapshotOwnedTileFeatureIdsByCellDirty = false;
             snapshot.CopyEnemyActionStatesByEntityIdTo(_enemyActionStatesByEntityId);
             snapshot.CopyPendingCellImpactsByIdTo(_pendingCellImpactsById);
             snapshot.CopyPendingEnemyBlockedReactionsByEntityIdTo(_pendingEnemyBlockedReactionsByEntityId);

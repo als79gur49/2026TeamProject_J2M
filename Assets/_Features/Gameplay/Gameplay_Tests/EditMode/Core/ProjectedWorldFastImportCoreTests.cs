@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -169,9 +170,99 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(counts.WorldStateSnapshotCacheHitCount, Is.Zero);
             Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(1));
             Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
-            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.Zero);
             Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.Zero);
             Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectedWorld_FastImport_SameCellTileUpdateReusesCarrierAcrossRematerialization()
+        {
+            var baseSnapshot = CreateRichSnapshot();
+            Assert.That(baseSnapshot.TryGetTileFeature(20, out var original), Is.True);
+            var activated = new TileFeatureState(
+                original.TileId,
+                original.Cell,
+                original.Kind,
+                TileFeatureFlags.Activated,
+                original.SourceEntityId,
+                original.OwnerEntityId,
+                original.TeamId,
+                lifetimeTicks: 3,
+                charges: 1);
+            var projectedWorld = new ProjectedWorld(baseSnapshot);
+            projectedWorld.ApplyTileFeatureOperations(
+                new TileFeatureOperationBatch(new[] { TileFeatureOperation.Update(activated) }));
+
+            WorldSnapshot activatedSnapshot;
+            WorldSnapshot auxiliarySnapshot;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                activatedSnapshot = projectedWorld.CreateSnapshot(
+                    ProjectedWorldSnapshotReason.PlanPostPreMovement);
+
+                var auxiliaryBatch = new FinalizationBatch();
+                auxiliaryBatch.SetFacing(20, Direction.Left);
+                projectedWorld.ApplyBatch(auxiliaryBatch);
+                auxiliarySnapshot = projectedWorld.CreateSnapshot(
+                    ProjectedWorldSnapshotReason.ResolveEnemyActionBeforeAttackInput);
+                counts = capture.Counts;
+            }
+
+            Assert.That(
+                activatedSnapshot.SnapshotOwnedTileFeatureIdsByCell,
+                Is.SameAs(baseSnapshot.SnapshotOwnedTileFeatureIdsByCell));
+            Assert.That(
+                auxiliarySnapshot.SnapshotOwnedTileFeatureIdsByCell,
+                Is.SameAs(baseSnapshot.SnapshotOwnedTileFeatureIdsByCell));
+            Assert.That(auxiliarySnapshot.TryGetTileFeature(20, out var retainedUpdate), Is.True);
+            Assert.That(retainedUpdate, Is.EqualTo(activated));
+            Assert.That(counts.FastBaseSnapshotImportCount, Is.EqualTo(2));
+            Assert.That(counts.SlowBaseSnapshotImportCount, Is.Zero);
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectedWorld_FastImport_TileCellQueriesAndHashMatchSlowImport()
+        {
+            var baseSnapshot = CreateRichSnapshot();
+            var originalCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var movedCell = new SurfaceCell(FaceId.Front, 2, 2);
+            Assert.That(baseSnapshot.TryGetTileFeature(20, out var original), Is.True);
+            var moved = new TileFeatureState(
+                original.TileId,
+                movedCell,
+                original.Kind,
+                TileFeatureFlags.Activated,
+                original.SourceEntityId,
+                original.OwnerEntityId,
+                original.TeamId,
+                lifetimeTicks: 4,
+                charges: 2);
+
+            var projectedWorld = new ProjectedWorld(baseSnapshot);
+            projectedWorld.ApplyTileFeatureOperations(
+                new TileFeatureOperationBatch(new[] { TileFeatureOperation.Update(moved) }));
+            var fastSnapshot = projectedWorld.CreateSnapshot();
+
+            var slowWorld = ProjectedWorld.MaterializeWorldStateSlowForTest(baseSnapshot);
+            slowWorld.CreateWriteContext().UpdateTileFeature(moved);
+            var slowSnapshot = slowWorld.CreateSnapshot();
+
+            AssertSnapshotsEquivalent(slowSnapshot, fastSnapshot);
+            CollectionAssert.AreEqual(new[] { 10 }, CollectTileFeatureIdsAt(fastSnapshot, originalCell));
+            CollectionAssert.AreEqual(new[] { 20 }, CollectTileFeatureIdsAt(fastSnapshot, movedCell));
+            CollectionAssert.AreEqual(
+                CollectTileFeatureIdsAt(slowSnapshot, originalCell),
+                CollectTileFeatureIdsAt(fastSnapshot, originalCell));
+            CollectionAssert.AreEqual(
+                CollectTileFeatureIdsAt(slowSnapshot, movedCell),
+                CollectTileFeatureIdsAt(fastSnapshot, movedCell));
+            Assert.That(BuildDeterminismHash(fastSnapshot), Is.EqualTo(BuildDeterminismHash(slowSnapshot)));
         }
 
         [Test]
@@ -211,6 +302,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(counts.SlowBaseSnapshotImportCount, Is.Zero);
             Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(3));
             Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(3));
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.Zero);
             Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
             Assert.That(counts.SnapshotStackedUnitCellIndexCellCount, Is.EqualTo(2));
             Assert.That(
@@ -218,6 +310,117 @@ namespace Game.Feature.Gameplay.Tests.Core
                 counts.SnapshotOwnedStackedUnitCellIndexBuildCount,
                 Is.EqualTo(2),
                 "the two auxiliary-only fast imports should inherit the immutable Unit cell index");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldState_FastImport_ReusesTileCellIndexUntilMembershipChanges()
+        {
+            var originalCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var movedCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var original = CreateTileFeature(10, originalCell, TileFeatureKind.Button);
+            var activated = new TileFeatureState(
+                original.TileId,
+                original.Cell,
+                original.Kind,
+                TileFeatureFlags.Activated,
+                original.SourceEntityId,
+                original.OwnerEntityId,
+                original.TeamId,
+                lifetimeTicks: 3,
+                charges: 1);
+            var moved = new TileFeatureState(
+                activated.TileId,
+                movedCell,
+                activated.Kind,
+                activated.Flags,
+                activated.SourceEntityId,
+                activated.OwnerEntityId,
+                activated.TeamId,
+                activated.LifetimeTicks,
+                activated.Charges);
+            var sourceWorld = GameplayCompositionRoot.CreateWorldState(
+                Array.Empty<EntityState>(),
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { original });
+            var sourceSnapshot = sourceWorld.CreateSnapshot();
+            var sourceCarrier = sourceSnapshot.SnapshotOwnedTileFeatureIdsByCell;
+            var importedWorld = WorldState.CreateFromSnapshotFast(sourceSnapshot);
+            var writeContext = importedWorld.CreateWriteContext();
+
+            WorldSnapshot importedSnapshot;
+            WorldSnapshot activatedSnapshot;
+            SnapshotMaterializationCounts reuseCounts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                importedSnapshot = importedWorld.CreateSnapshot();
+                writeContext.UpdateTileFeature(activated);
+                activatedSnapshot = importedWorld.CreateSnapshot();
+                reuseCounts = capture.Counts;
+            }
+
+            Assert.That(importedSnapshot.SnapshotOwnedTileFeatureIdsByCell, Is.SameAs(sourceCarrier));
+            Assert.That(activatedSnapshot.SnapshotOwnedTileFeatureIdsByCell, Is.SameAs(sourceCarrier));
+            Assert.That(sourceSnapshot.TryGetTileFeature(10, out var retainedSource), Is.True);
+            Assert.That(activatedSnapshot.TryGetTileFeature(10, out var activatedState), Is.True);
+            Assert.That(retainedSource, Is.EqualTo(original));
+            Assert.That(activatedState, Is.EqualTo(activated));
+            Assert.That(reuseCounts.WorldStateSnapshotMaterializationCount, Is.EqualTo(2));
+            Assert.That(reuseCounts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.Zero);
+
+            WorldSnapshot movedSnapshot;
+            SnapshotMaterializationCounts moveCounts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                writeContext.UpdateTileFeature(moved);
+                movedSnapshot = importedWorld.CreateSnapshot();
+                moveCounts = capture.Counts;
+            }
+
+            Assert.That(movedSnapshot.SnapshotOwnedTileFeatureIdsByCell, Is.Not.SameAs(sourceCarrier));
+            CollectionAssert.AreEqual(new[] { 10 }, CollectTileFeatureIdsAt(sourceSnapshot, originalCell));
+            CollectionAssert.IsEmpty(CollectTileFeatureIdsAt(sourceSnapshot, movedCell));
+            CollectionAssert.IsEmpty(CollectTileFeatureIdsAt(movedSnapshot, originalCell));
+            CollectionAssert.AreEqual(new[] { 10 }, CollectTileFeatureIdsAt(movedSnapshot, movedCell));
+            Assert.That(moveCounts.WorldStateSnapshotMaterializationCount, Is.EqualTo(1));
+            Assert.That(moveCounts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+
+            WorldSnapshot addedSnapshot;
+            WorldSnapshot removedSnapshot;
+            SnapshotMaterializationCounts addRemoveCounts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                writeContext.AddTileFeature(CreateTileFeature(5, movedCell, TileFeatureKind.Slide));
+                addedSnapshot = importedWorld.CreateSnapshot();
+                writeContext.RemoveTileFeature(10);
+                removedSnapshot = importedWorld.CreateSnapshot();
+                addRemoveCounts = capture.Counts;
+            }
+
+            CollectionAssert.AreEqual(new[] { 5, 10 }, CollectTileFeatureIdsAt(addedSnapshot, movedCell));
+            CollectionAssert.AreEqual(new[] { 5 }, CollectTileFeatureIdsAt(removedSnapshot, movedCell));
+            CollectionAssert.AreEqual(new[] { 10 }, CollectTileFeatureIdsAt(sourceSnapshot, originalCell));
+            Assert.That(addRemoveCounts.WorldStateSnapshotMaterializationCount, Is.EqualTo(2));
+            Assert.That(addRemoveCounts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(2));
+
+            var retainedSourceWorldSnapshot = sourceWorld.CreateSnapshot();
+            CollectionAssert.AreEqual(
+                new[] { 10 },
+                CollectTileFeatureIdsAt(retainedSourceWorldSnapshot, originalCell));
+            CollectionAssert.IsEmpty(CollectTileFeatureIdsAt(retainedSourceWorldSnapshot, movedCell));
+
+            sourceWorld.CreateWriteContext().AddTileFeature(
+                CreateTileFeature(30, originalCell, TileFeatureKind.Destroy));
+            var mutatedSourceWorldSnapshot = sourceWorld.CreateSnapshot();
+            var retainedImportedSnapshot = importedWorld.CreateSnapshot();
+            CollectionAssert.AreEqual(
+                new[] { 10, 30 },
+                CollectTileFeatureIdsAt(mutatedSourceWorldSnapshot, originalCell));
+            CollectionAssert.IsEmpty(CollectTileFeatureIdsAt(retainedImportedSnapshot, originalCell));
+            CollectionAssert.AreEqual(
+                new[] { 5 },
+                CollectTileFeatureIdsAt(retainedImportedSnapshot, movedCell));
         }
 
         [Test]
@@ -524,6 +727,17 @@ namespace Game.Feature.Gameplay.Tests.Core
             var tileFeatures = new List<TileFeatureState>();
             snapshot.EnumerateTileFeaturesAt(cell, tileFeatures);
             return tileFeatures.Select(tile => tile.TileId).ToArray();
+        }
+
+        private static string BuildDeterminismHash(WorldSnapshot snapshot)
+        {
+            var finalEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(finalEntities);
+            var tickResultData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>());
+            return new DeterminismHashBuilder().Build(7, snapshot, tickResultData);
         }
 
         private static TileFeatureState CreateTileFeature(int tileId, SurfaceCell cell, TileFeatureKind kind)
