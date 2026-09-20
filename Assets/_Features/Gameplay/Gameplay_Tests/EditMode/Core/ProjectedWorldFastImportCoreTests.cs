@@ -314,6 +314,58 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void ProjectedWorld_FastImport_ReusesOrderedEntityIdsUntilMembershipChanges()
+        {
+            var baseSnapshot = CreateRichSnapshot();
+            var sourceCarrier = baseSnapshot.SnapshotOwnedOrderedEntityIds;
+            var projectedWorld = new ProjectedWorld(baseSnapshot);
+            var stateOnlyBatch = new FinalizationBatch();
+            stateOnlyBatch.ApplyDamage(10, amount: 1);
+            stateOnlyBatch.SetFacing(20, Direction.Left);
+            stateOnlyBatch.MoveEntity(30, new SurfaceCell(FaceId.Floor, 0, 3));
+            projectedWorld.ApplyBatch(stateOnlyBatch);
+
+            WorldSnapshot stateOnlySnapshot;
+            WorldSnapshot spawnedSnapshot;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                stateOnlySnapshot = projectedWorld.CreateSnapshot(
+                    ProjectedWorldSnapshotReason.PlanPostPreMovement);
+
+                var membershipBatch = new FinalizationBatch();
+                membershipBatch.SpawnEntity(CreateBox(90, new SurfaceCell(FaceId.Floor, 4, 4)));
+                projectedWorld.ApplyBatch(membershipBatch);
+                spawnedSnapshot = projectedWorld.CreateSnapshot(
+                    ProjectedWorldSnapshotReason.ResolvePostAttack);
+
+                stateOnlySnapshot.GetOrderedEntitiesForRead();
+                spawnedSnapshot.GetOrderedEntitiesForRead();
+                counts = capture.Counts;
+            }
+
+            Assert.That(stateOnlySnapshot.SnapshotOwnedOrderedEntityIds, Is.SameAs(sourceCarrier));
+            Assert.That(spawnedSnapshot.SnapshotOwnedOrderedEntityIds, Is.Not.SameAs(sourceCarrier));
+            Assert.That(baseSnapshot.TryGetEntity(90, out _), Is.False);
+            Assert.That(spawnedSnapshot.TryGetEntity(90, out var spawned), Is.True);
+            Assert.That(spawned.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 4)));
+            Assert.That(baseSnapshot.TryGetEntity(10, out var sourcePlayer), Is.True);
+            Assert.That(stateOnlySnapshot.TryGetEntity(10, out var damagedPlayer), Is.True);
+            Assert.That(sourcePlayer.hp, Is.EqualTo(3));
+            Assert.That(damagedPlayer.hp, Is.EqualTo(2));
+            CollectionAssert.AreEqual(
+                new[] { 10, 20, 30, 40, 60, 90 },
+                spawnedSnapshot.GetOrderedEntitiesForRead().ToArray()
+                    .Select(entity => entity.entityId)
+                    .ToArray());
+            Assert.That(counts.FastBaseSnapshotImportCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(2));
+            Assert.That(counts.OrderedEntitiesCacheMissCount, Is.EqualTo(2));
+            Assert.That(counts.OrderedEntitiesSortCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
         public void WorldState_FastImport_ReusesTileCellIndexUntilMembershipChanges()
         {
             var originalCell = new SurfaceCell(FaceId.Floor, 1, 1);
