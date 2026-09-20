@@ -918,7 +918,6 @@ namespace Game.Feature.Gameplay.Loop
             finalizationBatch.MergeFrom(planPhaseResult.PlanFinalizationBatch);
             finalizationBatch.MergeFrom(movementStageBatch);
             var projectedWorld = new ProjectedWorld(planSnapshot);
-            projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
             projectedWorld.ApplyBatch(movementStageBatch);
             // postMovementSnapshot is the movement-visible resolve surface. Accepted
             // impact follow-through writes are materialized here before jump landing.
@@ -1034,7 +1033,6 @@ namespace Game.Feature.Gameplay.Loop
                 finalizationBatch.MergeFrom(planPhaseResult.PlanFinalizationBatch);
                 finalizationBatch.MergeFrom(movementStageBatch);
                 projectedWorld = new ProjectedWorld(planSnapshot);
-                projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                 projectedWorld.ApplyBatch(movementStageBatch);
                 postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
 
@@ -1079,7 +1077,6 @@ namespace Game.Feature.Gameplay.Loop
                 finalizationBatch.MergeFrom(movementStageBatch);
                 finalizationBatch.MergeFrom(jumpLandingResolveBatch);
                 projectedWorld = new ProjectedWorld(planSnapshot);
-                projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                 projectedWorld.ApplyBatch(movementStageBatch);
                 projectedWorld.ApplyBatch(jumpLandingResolveBatch);
                 postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
@@ -1166,7 +1163,6 @@ namespace Game.Feature.Gameplay.Loop
                     }
 
                     projectedWorld = new ProjectedWorld(planSnapshot);
-                    projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                     projectedWorld.ApplyBatch(movementStageBatch);
                     projectedWorld.ApplyBatch(jumpLandingResolveBatch);
                     if (!tileEffectResult.Operations.IsEmpty)

@@ -872,17 +872,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void WorldSnapshot_EnumerateEntitiesOrdered_SecondCallUsesCache()
         {
-            var snapshot = CreateSnapshot(CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateEntity(30, EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), Direction.Right),
                 CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 1, 0), Direction.Right),
                 CreateEntity(20, EntityType.Box, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right),
-            }));
+            });
             var orderedEntities = new List<EntityState>();
 
+            WorldSnapshot snapshot;
             SnapshotMaterializationCounts counts;
             using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
             {
+                snapshot = CreateSnapshot(worldState);
                 snapshot.EnumerateEntitiesOrdered(orderedEntities);
                 snapshot.EnumerateEntitiesOrdered(orderedEntities);
                 counts = capture.Counts;
@@ -893,6 +895,78 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.OrderedEntitiesCacheHitCount, Is.EqualTo(1));
             Assert.That(counts.OrderedEntitiesSortCount, Is.EqualTo(1));
             Assert.That(counts.OrderedEntitiesEnumeratedCount, Is.EqualTo(6));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OrderedEntityIds_StateOnlyMutationsReuseCarrier_MembershipMutationsRebuild()
+        {
+            var originalCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var movedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var player = CreateEntity(10, EntityType.Unit, originalCell, Direction.Right);
+            player.unitRole = UnitRole.Player;
+            player.hp = 3;
+            player.maxHp = 3;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEntity(30, EntityType.Box, new SurfaceCell(FaceId.Floor, 3, 0), Direction.None),
+                player,
+                CreateEnemyEntity(20, new SurfaceCell(FaceId.Floor, 2, 0), EnemyAiMode.Patrol, Direction.Left),
+            });
+            var writeContext = CreateWriteContext(worldState);
+            var beforeOrdered = new List<EntityState>();
+            var updatedOrdered = new List<EntityState>();
+            var spawnedOrdered = new List<EntityState>();
+            var removedOrdered = new List<EntityState>();
+
+            WorldSnapshot before;
+            WorldSnapshot updated;
+            WorldSnapshot spawned;
+            WorldSnapshot removed;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                before = worldState.CreateSnapshot();
+                before.EnumerateEntitiesOrdered(beforeOrdered);
+
+                writeContext.ApplyDamage(10, 1);
+                ((IMovementCommitContext)writeContext).SetFacing(10, Direction.Left);
+                writeContext.MoveEntity(10, movedCell);
+                writeContext.SetBoardPresence(10, EntityBoardPresence.Detached);
+                updated = worldState.CreateSnapshot();
+                updated.EnumerateEntitiesOrdered(updatedOrdered);
+
+                writeContext.SpawnEntity(
+                    CreateEntity(15, EntityType.Unit, movedCell, Direction.Right));
+                spawned = worldState.CreateSnapshot();
+                spawned.EnumerateEntitiesOrdered(spawnedOrdered);
+
+                writeContext.RemoveEntity(15);
+                removed = worldState.CreateSnapshot();
+                removed.EnumerateEntitiesOrdered(removedOrdered);
+                counts = capture.Counts;
+            }
+
+            Assert.That(updated.SnapshotOwnedOrderedEntityIds, Is.SameAs(before.SnapshotOwnedOrderedEntityIds));
+            Assert.That(spawned.SnapshotOwnedOrderedEntityIds, Is.Not.SameAs(before.SnapshotOwnedOrderedEntityIds));
+            Assert.That(removed.SnapshotOwnedOrderedEntityIds, Is.Not.SameAs(spawned.SnapshotOwnedOrderedEntityIds));
+            CollectionAssert.AreEqual(new[] { 10, 20, 30 }, beforeOrdered.Select(entity => entity.entityId).ToArray());
+            CollectionAssert.AreEqual(new[] { 10, 20, 30 }, updatedOrdered.Select(entity => entity.entityId).ToArray());
+            CollectionAssert.AreEqual(new[] { 10, 15, 20, 30 }, spawnedOrdered.Select(entity => entity.entityId).ToArray());
+            CollectionAssert.AreEqual(new[] { 10, 20, 30 }, removedOrdered.Select(entity => entity.entityId).ToArray());
+
+            var beforePlayer = beforeOrdered.Single(entity => entity.entityId == 10);
+            var updatedPlayer = updatedOrdered.Single(entity => entity.entityId == 10);
+            Assert.That(beforePlayer.hp, Is.EqualTo(3));
+            Assert.That(beforePlayer.position, Is.EqualTo(originalCell));
+            Assert.That(beforePlayer.facing, Is.EqualTo(Direction.Right));
+            Assert.That(beforePlayer.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(updatedPlayer.hp, Is.EqualTo(2));
+            Assert.That(updatedPlayer.position, Is.EqualTo(movedCell));
+            Assert.That(updatedPlayer.facing, Is.EqualTo(Direction.Left));
+            Assert.That(updatedPlayer.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(counts.OrderedEntitiesCacheMissCount, Is.EqualTo(4));
+            Assert.That(counts.OrderedEntitiesSortCount, Is.EqualTo(3));
         }
 
         [Test]

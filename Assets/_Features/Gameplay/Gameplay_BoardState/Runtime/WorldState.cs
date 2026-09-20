@@ -9,6 +9,8 @@ namespace Game.Feature.Gameplay.BoardState
     public sealed class WorldState : IWorldStateMutationPort
     {
         private readonly Dictionary<int, EntityState> _entitiesById = new();
+        private SnapshotOwnedOrderedEntityIds _snapshotOwnedOrderedEntityIds;
+        private bool _snapshotOwnedOrderedEntityIdsDirty = true;
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly Dictionary<int, TileFeatureState> _tileFeaturesById = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _tileFeatureIdsByCell = new();
@@ -160,8 +162,9 @@ namespace Game.Feature.Gameplay.BoardState
                 return _cachedWorldSnapshot;
             }
 
-            _cachedWorldSnapshot = WorldSnapshot.CreateWithSnapshotOwnedCellIndexes(
+            _cachedWorldSnapshot = WorldSnapshot.CreateWithSnapshotOwnedIndexes(
                 new Dictionary<int, EntityState>(_entitiesById),
+                CreateSnapshotOwnedOrderedEntityIds(),
                 CreateSnapshotOwnedStackedUnitsByCell(),
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
                 new Dictionary<int, TileFeatureState>(_tileFeaturesById),
@@ -233,6 +236,8 @@ namespace Game.Feature.Gameplay.BoardState
             _snapshotOwnedTileFeatureIdsByCellDirty = true;
             _topologyRevision = snapshot.TopologyRevision;
             snapshot.CopyEntitiesByIdTo(_entitiesById);
+            _snapshotOwnedOrderedEntityIds = snapshot.SnapshotOwnedOrderedEntityIds;
+            _snapshotOwnedOrderedEntityIdsDirty = false;
             snapshot.CopyStackedUnitsByCellTo(_stackedUnitsByCell);
             _snapshotOwnedStackedUnitsByCell = snapshot.SnapshotOwnedStackedUnitsByCell;
             _snapshotOwnedStackedUnitsByCellDirty = false;
@@ -287,6 +292,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _entitiesById.Add(entity.entityId, entity);
+            InvalidateSnapshotOwnedOrderedEntityIds();
             UpdateCleanupCandidateMembership(entity);
             if (EntityRolePolicy.IsPlayerUnit(entity))
             {
@@ -323,7 +329,10 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             ClearOccupancyForEntity(entity);
-            _entitiesById.Remove(entityId);
+            if (_entitiesById.Remove(entityId))
+            {
+                InvalidateSnapshotOwnedOrderedEntityIds();
+            }
             _cleanupRemovalCandidateIds.Remove(entityId);
             _cleanupTimerCandidateIds.Remove(entityId);
             _cleanupImmediateTransitionCandidateIds.Remove(entityId);
@@ -1270,6 +1279,21 @@ namespace Game.Feature.Gameplay.BoardState
             return _snapshotOwnedStackedUnitsByCell;
         }
 
+        private SnapshotOwnedOrderedEntityIds CreateSnapshotOwnedOrderedEntityIds()
+        {
+            if (_snapshotOwnedOrderedEntityIds == null || _snapshotOwnedOrderedEntityIdsDirty)
+            {
+                var orderedIds = new int[_entitiesById.Count];
+                _entitiesById.Keys.CopyTo(orderedIds, 0);
+                Array.Sort(orderedIds);
+                SnapshotMaterializationDiagnostics.RecordOrderedEntitiesSort(orderedIds.Length);
+                _snapshotOwnedOrderedEntityIds = new SnapshotOwnedOrderedEntityIds(orderedIds);
+                _snapshotOwnedOrderedEntityIdsDirty = false;
+            }
+
+            return _snapshotOwnedOrderedEntityIds;
+        }
+
         private SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedTileFeatureIdsByCell()
         {
             if (_snapshotOwnedTileFeatureIdsByCell == null || _snapshotOwnedTileFeatureIdsByCellDirty)
@@ -1290,6 +1314,11 @@ namespace Game.Feature.Gameplay.BoardState
         private void InvalidateSnapshotOwnedStackedUnitCellIndex()
         {
             _snapshotOwnedStackedUnitsByCellDirty = true;
+        }
+
+        private void InvalidateSnapshotOwnedOrderedEntityIds()
+        {
+            _snapshotOwnedOrderedEntityIdsDirty = true;
         }
 
         private static SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedCellIndex(
