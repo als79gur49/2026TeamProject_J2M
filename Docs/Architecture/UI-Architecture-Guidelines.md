@@ -374,9 +374,10 @@ Popup classification notes:
 - `Pause` and `Confirm` are canonical gameplay popup catalog entries.
 - `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
 - Reward popup is not current popup vocabulary: it is not a `PopupId`, catalog entry, prefab, factory case, or stage-clear presentation path. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not popup UI vocabulary.
-- `DemoStageControl` is not a gameplay popup catalog entry. It is a catalog-less runtime assist popup created through the factory/runtime/hotkey path.
-- `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing. It is not a deletion candidate and is not a dev-only compile exclusion target.
-- Future public-release hiding or disabling for `DemoStageControl` must be controlled by a separate product/build configuration decision, not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate.
+- `DemoStageControl` is a catalog-authored, English operator-assist popup. `UIFlowCoordinator` owns its popup flow and lifetime routing, while feature-local sources and command ports own its presentation and commands.
+- It remains a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing; it is not a deletion candidate and is not a dev-only compile exclusion target.
+- Its authored prefab is registered in `GameplayPopupPrefabCatalog`; fixed runtime hierarchy generation and pointer-only navigation are resolved migration debt and must not return.
+- Future product/build availability is supplied through a separate access-provider decision. `DemoStageControlSettings.Enabled` remains fail-closed, and a future provider gates only new opens rather than closing an already-open popup.
 
 HUD classification notes:
 
