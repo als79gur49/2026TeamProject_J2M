@@ -320,6 +320,9 @@ Interaction rules:
 - `Non-Negotiable` Pause remains popup-owned. Gameplay-root back may open the pause popup, but pause is not a screen taxonomy example.
 - `Non-Negotiable` PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested keeps gameplay paused, opens the settings screen, and returns back to a fresh PausePopup.
 - `Non-Negotiable` `UIBlockPolicy` decides interaction blocking. Visual hierarchy alone does not.
+- `Non-Negotiable` Flow-derived HUD visibility, gameplay-input blocking, and popup-backdrop state leave `UIFlowCoordinator` through the single immutable `IUIFlowPresentationSource` snapshot seam. The coordinator updates the complete snapshot before publishing its one change notification.
+- `Non-Negotiable` `GameplayUiFlowInstaller` may assemble that source with `UIFlowShellPresenter`, but it must not subscribe to controller or terminal events to pull and remap flow state itself. Flow-to-view projection belongs to the application presenter.
+- `Non-Negotiable` `UIFlowCoordinator` implements the presentation source explicitly. Do not widen its concrete public routing surface with presentation events or individual shell-state getters.
 - `Default Guidance` Keep controllers narrow. Put cross-controller rules in the coordinator, not duplicated in each controller.
 
 Composition note:

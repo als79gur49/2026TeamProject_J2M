@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using ArgumentNullException = System.ArgumentNullException;
 using InvalidOperationException = System.InvalidOperationException;
@@ -18,6 +19,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -531,6 +533,58 @@ namespace Game.Feature.UI.Tests
                     Is.True);
                 Assert.That(TerminalSessionRegistry.TryComplete(terminalToken), Is.True);
                 Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiFlowInstaller_TerminalCompletion_RestoresHudPauseWithoutBackInput()
+        {
+            var hostObject = new GameObject(nameof(
+                GameplayUiFlowInstaller_TerminalCompletion_RestoresHudPauseWithoutBackInput));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                }));
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+
+                var pauseButton = installer.HudView
+                    .GetComponentsInChildren<Button>(includeInactive: true)
+                    .Single(button => button.name == "PauseButton");
+                var terminalToken = ClaimTerminalSession(
+                    TerminalTransitionKind.Defeat,
+                    TerminalDestinationKind.ReloadedGameplay,
+                    sceneHandle: 902);
+
+                Assert.That(
+                    TerminalSessionRegistry.TryAdvance(
+                        terminalToken,
+                        TerminalSessionPhase.Revealing),
+                    Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.False);
+                Assert.That(pauseButton.interactable, Is.False);
+
+                Assert.That(TerminalSessionRegistry.TryComplete(terminalToken), Is.True);
+
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.True);
+                Assert.That(pauseButton.interactable, Is.True);
+                Assert.That(pauseButton.enabled, Is.True);
+                Assert.That(installer.HudView.IsVisible, Is.True);
+                Assert.That(pauseButton.gameObject.activeInHierarchy, Is.True);
+                Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.False);
+
+                installer.HudView.ClickPause();
+                Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
             }
             finally
             {
