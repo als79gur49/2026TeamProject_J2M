@@ -580,6 +580,21 @@ namespace Game.Feature.UI.Tests
 
         public void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked)
         {
+            var interaction = CurrentSnapshot.Interaction;
+            PublishSnapshot(new UIPresentationSnapshot(
+                CurrentSnapshot.Tick,
+                new UIInteractionSlice(
+                    interaction.IsPaused,
+                    interaction.CanAcceptGameplayCommands,
+                    interaction.HasBlockingGameplayPresentation,
+                    isUiGameplayInputBlocked),
+                CurrentSnapshot.Stage,
+                CurrentSnapshot.Objective,
+                CurrentSnapshot.Chance,
+                CurrentSnapshot.Topology,
+                CurrentSnapshot.SurfaceBelt,
+                CurrentSnapshot.Player,
+                CurrentSnapshot.Notifications));
         }
     }
 

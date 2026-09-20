@@ -72,6 +72,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_TerminalCompletion_PublishesFinalUnblockedPresentation()
+        {
+            using var coordinator = CreateCoordinator(
+                new FakeGameplayPauseService(),
+                new FakePopupRuntimeFactory(),
+                out _,
+                out _,
+                out _);
+            coordinator.Initialize();
+            var presentationSource = (IUIFlowPresentationSource)coordinator;
+            var published = new List<UIFlowPresentationSnapshot>();
+            presentationSource.Changed += published.Add;
+
+            var authority = TerminalSessionRegistry.Authority;
+            var generation = authority.RegisterSceneBootstrap(7002, "terminal-flow-presentation-test");
+            var claim = authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Defeat,
+                generation,
+                TerminalDestinationKind.ReloadedGameplay));
+            Assert.That(claim.Accepted, Is.True);
+            Assert.That(presentationSource.Current.IsUiGameplayInputBlocked, Is.True);
+            Assert.That(
+                authority.TryAdvancePhase(claim.Token, TerminalSessionPhase.Revealing),
+                Is.True);
+
+            Assert.That(authority.TryComplete(claim.Token), Is.True);
+
+            Assert.That(presentationSource.Current.IsUiGameplayInputBlocked, Is.False);
+            Assert.That(published, Is.Not.Empty);
+            Assert.That(published[^1], Is.EqualTo(presentationSource.Current));
+            Assert.That(published[^1].IsUiGameplayInputBlocked, Is.False);
+        }
+
+        [Test]
         public void UIFlowCoordinator_ScreenTransitions_CloseCurrentPopupStack_Deterministically()
         {
             var pauseService = new FakeGameplayPauseService();

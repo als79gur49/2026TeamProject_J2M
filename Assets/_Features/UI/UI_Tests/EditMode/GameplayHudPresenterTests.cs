@@ -7,8 +7,10 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.Popups;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.UI.Tests
 {
@@ -62,6 +64,52 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(0));
             Assert.That(source.TickEventSubscriberCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void UIFlowShellPresenter_ProjectsOneFlowSnapshotToHudPopupAndMappedInteraction()
+        {
+            var hudParent = new GameObject("UIFlowShellPresenter_HudParent", typeof(RectTransform));
+            var popupObject = new GameObject("UIFlowShellPresenter_PopupLayer");
+            try
+            {
+                var hudView = UiTestPrefabAssetUtility.InstantiateHudPrefab(
+                    hudParent.GetComponent<RectTransform>());
+                var popupLayerView = popupObject.AddComponent<PopupLayerView>();
+                var flowSource = new ManualUIFlowPresentationSource();
+                var gameplaySource = new ManualGameplayUiPresentationSource();
+                using var presenter = new UIFlowShellPresenter(
+                    flowSource,
+                    gameplaySource,
+                    hudView,
+                    popupLayerView);
+
+                var snapshot = new UIFlowPresentationSnapshot(
+                    isHudVisible: false,
+                    isUiGameplayInputBlocked: true,
+                    isPopupLayerVisible: true,
+                    showsPopupDim: true,
+                    blocksLowerLayerPointer: true,
+                    PopupBackdropMode.CloseTop);
+                flowSource.Publish(snapshot);
+
+                Assert.That(hudView.IsVisible, Is.False);
+                Assert.That(
+                    gameplaySource.CurrentSnapshot.Interaction.IsUiGameplayInputBlocked,
+                    Is.True);
+                Assert.That(popupLayerView.IsDimVisible, Is.True);
+                Assert.That(popupLayerView.BlocksLowerLayerPointer, Is.True);
+                Assert.That(popupLayerView.BackdropMode, Is.EqualTo(PopupBackdropMode.CloseTop));
+                Assert.That(flowSource.SubscriberCount, Is.EqualTo(1));
+
+                presenter.Dispose();
+                Assert.That(flowSource.SubscriberCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(popupObject);
+                UnityEngine.Object.DestroyImmediate(hudParent);
+            }
         }
 
         [Test]
@@ -869,6 +917,36 @@ namespace Game.Feature.UI.Tests
             public string Resolve(LocalizedTextDescriptor descriptor)
             {
                 return _resolvedText;
+            }
+        }
+
+        private sealed class ManualUIFlowPresentationSource : IUIFlowPresentationSource
+        {
+            private Action<UIFlowPresentationSnapshot> _changed;
+
+            public UIFlowPresentationSnapshot Current { get; private set; } =
+                UIFlowPresentationSnapshot.GameplayDefault;
+
+            public int SubscriberCount { get; private set; }
+
+            public event Action<UIFlowPresentationSnapshot> Changed
+            {
+                add
+                {
+                    _changed += value;
+                    SubscriberCount++;
+                }
+                remove
+                {
+                    _changed -= value;
+                    SubscriberCount--;
+                }
+            }
+
+            public void Publish(UIFlowPresentationSnapshot snapshot)
+            {
+                Current = snapshot;
+                _changed?.Invoke(snapshot);
             }
         }
 

@@ -840,6 +840,32 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowPresentationSource_PublicSurface_RemainsSnapshotOnly()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(IUIFlowPresentationSource)),
+                Is.EqualTo(new[] { "Current" }));
+            Assert.That(
+                GetPublicEventNames(typeof(IUIFlowPresentationSource)),
+                Is.EqualTo(new[] { "Changed" }));
+            Assert.That(
+                GetPublicMethodSignatures(typeof(IUIFlowPresentationSource)),
+                Is.Empty);
+
+            Assert.That(
+                GetPublicPropertyNames(typeof(UIFlowPresentationSnapshot)),
+                Is.EqualTo(new[]
+                {
+                    "BlocksLowerLayerPointer",
+                    "IsHudVisible",
+                    "IsPopupLayerVisible",
+                    "IsUiGameplayInputBlocked",
+                    "PopupBackdropMode",
+                    "ShowsPopupDim",
+                }));
+        }
+
+        [Test]
         public void ScreenController_PublicSurface_RemainsBoundedToRuntimeOwnership()
         {
             Assert.That(
