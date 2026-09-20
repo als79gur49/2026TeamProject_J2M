@@ -69,7 +69,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(installerSource, Does.Contain("WasF10PressedThisFrame"));
             Assert.That(installerSource, Does.Contain("BackQuoteKeyProperty"));
             Assert.That(installerSource, Does.Contain("TryToggleDemoStageControlPanel"));
-            Assert.That(installerSource, Does.Contain("Coordinator.RequestDemoStageControlPopup"));
+            Assert.That(installerSource, Does.Contain("Coordinator.TryToggleDemoStageControlPopup"));
             Assert.That(Enum.GetNames(typeof(DemoStageControlOpenKey)), Does.Contain(nameof(DemoStageControlOpenKey.F10)));
             Assert.That(Enum.GetNames(typeof(DemoStageControlOpenKey)), Does.Contain(nameof(DemoStageControlOpenKey.BackQuote)));
         }

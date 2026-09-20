@@ -288,6 +288,71 @@ namespace Game.Feature.UI.Composition
         }
     }
 
+    public static class DemoStageControlProductionTypographyComposer
+    {
+        public static IDisposable Bind(
+            DemoStageControlPanelView view,
+            ILocalizedTextResolver localizedTextResolver,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            if (view == null) throw new ArgumentNullException(nameof(view));
+            if (localizedTextResolver == null) throw new ArgumentNullException(nameof(localizedTextResolver));
+            if (typographyTheme == null) throw new ArgumentNullException(nameof(typographyTheme));
+
+            var targets = view.CreateTypographyTargets();
+            if (targets == null || targets.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "DemoStageControlPanel requires authored typography targets.");
+            }
+
+            var bindings = new List<LocalizedTmpTypographyBinding>(targets.Count);
+            try
+            {
+                for (var i = 0; i < targets.Count; i++)
+                {
+                    if (targets[i] == null || TypographyBinding.FindFor(targets[i]) == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"DemoStageControlPanel typography target {i} is malformed.");
+                    }
+
+                    bindings.Add(new LocalizedTmpTypographyBinding(
+                        targets[i], localizedTextResolver, typographyTheme));
+                }
+            }
+            catch
+            {
+                Dispose(bindings);
+                throw;
+            }
+
+            return new DemoTypographyScope(bindings);
+        }
+
+        private static void Dispose(List<LocalizedTmpTypographyBinding> bindings)
+        {
+            for (var i = 0; i < bindings.Count; i++) bindings[i]?.Dispose();
+            bindings.Clear();
+        }
+
+        private sealed class DemoTypographyScope : IDisposable
+        {
+            private readonly List<LocalizedTmpTypographyBinding> _bindings;
+            private bool _disposed;
+
+            public DemoTypographyScope(List<LocalizedTmpTypographyBinding> bindings) =>
+                _bindings = bindings;
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                DemoStageControlProductionTypographyComposer.Dispose(_bindings);
+                _disposed = true;
+            }
+        }
+    }
+
     public sealed class GameplayPopupRuntimeFactory : IPopupRuntimeFactory
     {
         private readonly PopupPrefabCatalog _popupPrefabCatalog;
@@ -405,7 +470,14 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("Demo Stage Control command port is not available.");
             }
 
-            var view = DemoStageControlPanelView.CreateRuntime(_popupLayerView.ContentRoot);
+            var view = InstantiatePopupPrefab(
+                _popupPrefabCatalog.DemoStageControlPrefab,
+                PopupId.DemoStageControl);
+            view.ValidateAuthoredReferences();
+            var typographyBindings = DemoStageControlProductionTypographyComposer.Bind(
+                view,
+                _localizedTextResolver,
+                _typographyTheme);
             view.IsVisible = true;
 
             return new PopupRuntimeFactoryResult(
@@ -422,7 +494,11 @@ namespace Game.Feature.UI.Composition
                     _demoGameplayOverrideCommandPort,
                     payload,
                     _localizedTextResolver,
-                    () => DestroyObject(view.gameObject)));
+                    () =>
+                    {
+                        typographyBindings.Dispose();
+                        DestroyObject(view.gameObject);
+                    }));
         }
 
         private TView InstantiatePopupPrefab<TView>(TView prefab, PopupId popupId)

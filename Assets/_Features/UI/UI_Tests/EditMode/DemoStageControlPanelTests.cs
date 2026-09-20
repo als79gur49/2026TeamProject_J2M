@@ -4,15 +4,21 @@ using System.IO;
 using Game.Feature.DemoStageControl;
 using Game.Feature.DemoStageControl.UI;
 using Game.Feature.Stages;
+using Game.Feature.UI.Popups;
+using Game.Feature.UI.Composition;
+using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEditor;
 
 namespace Game.Feature.UI.Tests
 {
     public sealed class DemoStageControlPanelTests
     {
+        private const string PrefabPath =
+            "Assets/_Features/DemoStageControl/UI/Prefabs/DemoStageControlPanel.prefab";
         private GameObject _root;
 
         [TearDown]
@@ -22,6 +28,71 @@ namespace Game.Feature.UI.Tests
             {
                 UnityEngine.Object.DestroyImmediate(_root);
             }
+        }
+
+        [Test]
+        public void DemoStageControlPanel_RepositoryPrefab_IsAuthoredAndImplementsPopupView()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+
+            Assert.That(prefab, Is.Not.Null, PrefabPath);
+            Assert.That(prefab.GetComponent<DemoStageControlPanelView>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<IPopupView>(), Is.Not.Null);
+        }
+
+        [Test]
+        public void DemoStageControlPanel_RepositoryPrefab_HasRequiredReferencesAndTreatments()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            var view = prefab.GetComponent<DemoStageControlPanelView>();
+            Assert.That(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(prefab), Is.Zero);
+            Assert.DoesNotThrow(view.ValidateAuthoredReferences);
+
+            var buttons = prefab.GetComponentsInChildren<Button>(true);
+            Assert.That(buttons, Has.Length.EqualTo(6));
+            foreach (var button in buttons)
+            {
+                Assert.That(button.GetComponents<UiHoverScaleEffect>(), Has.Length.EqualTo(1), button.name);
+                var frame = button.transform.Find("SelectionFrame")?.GetComponent<Image>();
+                Assert.That(frame, Is.Not.Null, button.name);
+                Assert.That(frame.raycastTarget, Is.False, button.name);
+            }
+
+            var texts = prefab.GetComponentsInChildren<TMPro.TMP_Text>(true);
+            Assert.That(texts, Is.Not.Empty);
+            foreach (var text in texts)
+                Assert.That(TypographyBinding.FindFor(text), Is.Not.Null, text.name);
+        }
+
+        [Test]
+        public void DemoStageControlPanel_MalformedRoot_FailsFast()
+        {
+            var malformed = new GameObject("MalformedDemo", typeof(RectTransform));
+            malformed.SetActive(false);
+            var view = malformed.AddComponent<DemoStageControlPanelView>();
+            try
+            {
+                Assert.Throws<InvalidOperationException>(view.ValidateAuthoredReferences);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(malformed);
+            }
+        }
+
+        [Test]
+        public void DemoStageControlPanel_ProductionView_HasNoRuntimeHierarchyBuilder()
+        {
+            var source = File.ReadAllText(
+                "Assets/_Features/DemoStageControl/UI/DemoStageControlPanelView.cs");
+
+            Assert.That(source, Does.Not.Contain("CreateRuntime"));
+            Assert.That(source, Does.Not.Contain("BuildHierarchy"));
+            Assert.That(source, Does.Not.Contain("EnsureHierarchy"));
+            Assert.That(source, Does.Not.Contain("AddRow"));
+            Assert.That(source, Does.Not.Contain("AddText"));
+            Assert.That(source, Does.Not.Contain("AddButton"));
+            Assert.That(source, Does.Not.Contain("AddToggleButton"));
         }
 
         [Test]
@@ -41,6 +112,86 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(commandPort.StartStageCalls, Is.EqualTo(1));
             Assert.That(commandPort.LastStartedStageId, Is.EqualTo(commandPort.StageId));
+        }
+
+        [Test]
+        public void DemoStageControlPanel_StartPointerAndSubmit_ConvergeExactlyOnce()
+        {
+            var commandPort = new RecordingCommandPort();
+            var view = CreateView();
+            using var runtime = CreateRuntime(view, commandPort);
+
+            FindButton(view.transform, "Start Selected Stage").onClick.Invoke();
+            view.OnNavigationFocusGained();
+            Assert.That(view.HandleSubmit(), Is.True);
+
+            Assert.That(commandPort.StartStageCalls, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void DemoStageControlPanel_VerticalNavigationSkipsDisabledAction()
+        {
+            var commandPort = new RecordingCommandPort { IsCompletionInProgress = true };
+            var view = CreateView();
+            using var runtime = CreateRuntime(view, commandPort);
+
+            view.OnNavigationFocusGained();
+            Assert.That(view.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(view.HandleSubmit(), Is.True);
+
+            Assert.That(commandPort.ForceClearCalls, Is.EqualTo(0));
+            Assert.That(commandPort.SetPlayerInvincibleCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DemoStageControlPanel_LiveTransitionSnapshotRecoversStartFocus()
+        {
+            var commandPort = new RecordingCommandPort();
+            var view = CreateView();
+            using var runtime = CreateRuntime(view, commandPort);
+            view.OnNavigationFocusGained();
+
+            commandPort.IsSceneTransitionInProgress = true;
+            commandPort.Publish();
+            Assert.That(FindButton(view.transform, "Start Selected Stage").interactable, Is.False);
+            Assert.That(view.HandleSubmit(), Is.True);
+            Assert.That(commandPort.ForceClearCalls, Is.EqualTo(1));
+
+            commandPort.IsSceneTransitionInProgress = false;
+            commandPort.Publish();
+            Assert.That(FindButton(view.transform, "Start Selected Stage").interactable, Is.True);
+        }
+
+        [Test]
+        public void DemoStageControlPanel_CloseSubmitAndCancel_RequestOneCloseEach()
+        {
+            var commandPort = new RecordingCommandPort();
+            var view = CreateView();
+            using var runtime = CreateRuntime(view, commandPort);
+            var closes = 0;
+            view.CompletionRequested += _ => closes++;
+
+            view.OnNavigationFocusGained();
+            view.HandleNavigate(UiNavigationCommand.Down);
+            view.HandleNavigate(UiNavigationCommand.Down);
+            view.HandleNavigate(UiNavigationCommand.Down);
+            Assert.That(view.HandleSubmit(), Is.True);
+            Assert.That(view.HandleCancel(), Is.True);
+
+            Assert.That(closes, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void DemoStageControlPanel_Dispose_UnsubscribesPresentationSource()
+        {
+            var commandPort = new RecordingCommandPort();
+            var view = CreateView();
+            var runtime = CreateRuntime(view, commandPort);
+            Assert.That(commandPort.PresentationSubscriberCount, Is.EqualTo(1));
+
+            runtime.Dispose();
+
+            Assert.That(commandPort.PresentationSubscriberCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -249,16 +400,28 @@ namespace Game.Feature.UI.Tests
 
         private DemoStageControlPanelView CreateView()
         {
-            _root = new GameObject(nameof(DemoStageControlPanelTests), typeof(RectTransform));
-            return DemoStageControlPanelView.CreateRuntime(_root.transform);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            Assert.That(prefab, Is.Not.Null, PrefabPath);
+            _root = UnityEngine.Object.Instantiate(prefab);
+            return _root.GetComponent<DemoStageControlPanelView>();
         }
 
         private static DemoStageControlPanelPayload CreatePayload(RecordingCommandPort commandPort)
         {
-            return new DemoStageControlPanelPayload(
-                commandPort.GetStages(),
-                commandPort.GetStatus(),
-                commandPort.GetOverrideStatus());
+            return new DemoStageControlPanelPayload(commandPort);
+        }
+
+        private static DemoStageControlPanelRuntime CreateRuntime(
+            DemoStageControlPanelView view,
+            RecordingCommandPort commandPort)
+        {
+            return new DemoStageControlPanelRuntime(
+                view,
+                commandPort,
+                commandPort,
+                CreatePayload(commandPort),
+                new StageNameResolver(),
+                () => { });
         }
 
         private static Button FindButton(Transform root, string name)
@@ -321,7 +484,10 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private sealed class RecordingCommandPort : IDemoStageControlCommandPort, IDemoGameplayOverrideCommandPort
+        private sealed class RecordingCommandPort :
+            IDemoStageControlCommandPort,
+            IDemoGameplayOverrideCommandPort,
+            IDemoStageControlPresentationSource
         {
             public readonly StageId StageId = StageId.CreateOrThrow("stage-0-1");
             private string _overrideMessage = string.Empty;
@@ -337,6 +503,31 @@ namespace Game.Feature.UI.Tests
 
             public int SetPlayerInvincibleCalls { get; private set; }
 
+            public bool IsSceneTransitionInProgress { get; set; }
+
+            public bool IsCompletionInProgress { get; set; }
+
+            public int PresentationSubscriberCount { get; private set; }
+
+            public DemoStageControlPresentationSnapshot Current => new(
+                GetStages(), GetStatus(), GetOverrideStatus());
+
+            private event Action<DemoStageControlPresentationSnapshot> PresentationChanged;
+
+            public event Action<DemoStageControlPresentationSnapshot> Changed
+            {
+                add
+                {
+                    PresentationChanged += value;
+                    PresentationSubscriberCount++;
+                }
+                remove
+                {
+                    PresentationChanged -= value;
+                    PresentationSubscriberCount--;
+                }
+            }
+
             public IReadOnlyList<DemoStageControlStageItem> GetStages()
             {
                 return new[]
@@ -350,8 +541,8 @@ namespace Game.Feature.UI.Tests
                 return new DemoStageControlStatus(
                     StageId,
                     StageId,
-                    isSceneTransitionInProgress: false,
-                    isCompletionInProgress: false,
+                    isSceneTransitionInProgress: IsSceneTransitionInProgress,
+                    isCompletionInProgress: IsCompletionInProgress,
                     _message);
             }
 
@@ -360,6 +551,7 @@ namespace Game.Feature.UI.Tests
                 StartStageCalls++;
                 LastStartedStageId = stageId;
                 _message = $"started {stageId.Value}";
+                Publish();
                 return DemoStageControlResult.Ok(_message);
             }
 
@@ -367,6 +559,7 @@ namespace Game.Feature.UI.Tests
             {
                 ForceClearCalls++;
                 _message = "forced clear";
+                Publish();
                 return DemoStageControlResult.Ok(_message);
             }
 
@@ -375,6 +568,7 @@ namespace Game.Feature.UI.Tests
                 SetPlayerInvincibleCalls++;
                 PlayerInvincible = enabled;
                 _overrideMessage = enabled ? "Player Invincible ON" : "Player Invincible OFF";
+                Publish();
                 return DemoStageControlResult.Ok(_overrideMessage);
             }
 
@@ -391,6 +585,11 @@ namespace Game.Feature.UI.Tests
             public DemoGameplayOverrideStatus GetOverrideStatus()
             {
                 return new DemoGameplayOverrideStatus(PlayerInvincible, _overrideMessage);
+            }
+
+            public void Publish()
+            {
+                PresentationChanged?.Invoke(Current);
             }
         }
     }

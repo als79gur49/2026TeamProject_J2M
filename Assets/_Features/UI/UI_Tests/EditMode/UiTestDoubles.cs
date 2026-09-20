@@ -673,6 +673,16 @@ namespace Game.Feature.UI.Tests
                     showsDim: true,
                     blocksLowerLayers: true)
             },
+            {
+                PopupId.DemoStageControl,
+                new PopupPolicy(
+                    PopupPolicyClass.ModalBlocking,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Close,
+                    PopupBackdropMode.Consume,
+                    showsDim: true,
+                    blocksLowerLayers: true)
+            },
         };
 
         public List<FakePopupRuntimeRecord> CreatedRuntimes { get; } = new();
