@@ -1501,7 +1501,7 @@ namespace Game.Feature.UI.Composition.Editor
                     expectedStatus,
                     expectedText,
                     m2bState);
-                ValidateM2bFrameAnchors(capture, enabledPixels, options);
+                ValidateM2bFrameAnchors(prefabRoot, capture, camera, enabledPixels, options);
             }
             else if (IsStageSaveSlotTarget(capture.Target.FileStem) ||
                 TryGetM2aCampaignSaveStatus(capture.Target.FileStem, out _))
@@ -1685,7 +1685,9 @@ namespace Game.Feature.UI.Composition.Editor
         }
 
         private static void ValidateM2bFrameAnchors(
+            GameObject prefabRoot,
             TypographyPreviewScreenshotCaptureResult capture,
+            Camera camera,
             IReadOnlyList<Color32> pixels,
             TypographyPreviewScreenshotOptions options)
         {
@@ -1697,22 +1699,17 @@ namespace Game.Feature.UI.Composition.Editor
                 options.Height * 0.79f,
                 options.Width * 0.56f,
                 options.Height * 0.87f);
-            var pushKeyPixels = CountBrightPixels(
+            var inputView = prefabRoot.GetComponentInChildren<SettingsInputView>(true);
+            var pushKeyPixels = CountBrightPixelsInGraphicRect(
+                inputView == null ? null : ResolveSettingsGraphicProof(inputView.transform, "JKey").Graphic,
+                camera,
                 pixels,
-                options.Width,
-                options.Height,
-                options.Width * 0.35f,
-                options.Height * 0.53f,
-                options.Width * 0.39f,
-                options.Height * 0.61f);
-            var flipKeyPixels = CountBrightPixels(
+                options);
+            var flipKeyPixels = CountBrightPixelsInGraphicRect(
+                inputView == null ? null : ResolveSettingsGraphicProof(inputView.transform, "KKey").Graphic,
+                camera,
                 pixels,
-                options.Width,
-                options.Height,
-                options.Width * 0.35f,
-                options.Height * 0.46f,
-                options.Width * 0.39f,
-                options.Height * 0.54f);
+                options);
             var passed = titlePixels > 100 &&
                 pushKeyPixels > 20 &&
                 flipKeyPixels > 20;
@@ -1730,6 +1727,32 @@ namespace Game.Feature.UI.Composition.Editor
                     $"{capture.Target.Name} {capture.LocaleCode}: saved PNG frame anchors were incomplete " +
                     $"(title={titlePixels}, push={pushKeyPixels}, flip={flipKeyPixels}).");
             }
+        }
+
+        private static int CountBrightPixelsInGraphicRect(
+            Graphic graphic,
+            Camera camera,
+            IReadOnlyList<Color32> pixels,
+            TypographyPreviewScreenshotOptions options)
+        {
+            if (graphic == null)
+            {
+                return 0;
+            }
+
+            var corners = new Vector3[4];
+            graphic.rectTransform.GetWorldCorners(corners);
+            var screenCorners = corners
+                .Select(corner => RectTransformUtility.WorldToScreenPoint(camera, corner))
+                .ToArray();
+            return CountBrightPixels(
+                pixels,
+                options.Width,
+                options.Height,
+                screenCorners.Min(point => point.x),
+                screenCorners.Min(point => point.y),
+                screenCorners.Max(point => point.x),
+                screenCorners.Max(point => point.y));
         }
 
         private static void ValidateSettingsRenderedControls(
