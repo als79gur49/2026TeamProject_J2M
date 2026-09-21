@@ -77,7 +77,7 @@ namespace Game.Feature.UI.Tests
             var factory = new FakePopupRuntimeFactory();
             using var coordinator = CreateCoordinator(
                 new FakeGameplayPauseService(), factory,
-                out _, out var popupController, out _);
+                out _, out var popupController, out var uiAudioPort);
             coordinator.Initialize();
             var payloadReads = 0;
             Func<IPopupPayload> payloadFactory = () =>
@@ -90,9 +90,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(popupController.TopPopup?.PopupId, Is.EqualTo(PopupId.DemoStageControl));
             Assert.That(payloadReads, Is.EqualTo(1));
 
+            uiAudioPort.Clear();
             Assert.That(coordinator.TryToggleDemoStageControlPopup(false, payloadFactory), Is.True);
             Assert.That(popupController.PopupCount, Is.EqualTo(0));
             Assert.That(payloadReads, Is.EqualTo(1));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateBack }));
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Back));
 
             Assert.That(coordinator.RequestConfirmPopup(
                 new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);

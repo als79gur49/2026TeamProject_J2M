@@ -133,8 +133,10 @@ namespace Game.Feature.UI.Flow
                 return false;
             }
 
+            var closingDemoPopup = _popupController.TopPopup.HasValue &&
+                                   _popupController.TopPopup.Value.PopupId == PopupId.DemoStageControl;
             return ExecuteIntent(
-                UiFlowAudioIntentKind.OpenForward,
+                closingDemoPopup ? ResolveBackIntent() : UiFlowAudioIntentKind.OpenForward,
                 () => TryToggleDemoStageControlPopupCore(allowNewOpen, payloadFactory));
         }
 

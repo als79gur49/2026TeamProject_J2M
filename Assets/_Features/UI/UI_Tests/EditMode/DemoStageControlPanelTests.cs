@@ -67,6 +67,28 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void DemoStageControlPanel_Buttons_KeepAuthoredScaleAndColorWhenNavigationSelected()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            _root = UnityEngine.Object.Instantiate(prefab);
+            var instance = _root;
+            var buttons = instance.GetComponentsInChildren<Button>(true);
+
+            Assert.That(buttons, Has.Length.EqualTo(6));
+            foreach (var button in buttons)
+            {
+                var effect = button.GetComponent<UiHoverScaleEffect>();
+                var colors = button.colors;
+                Assert.That(colors.selectedColor, Is.EqualTo(colors.normalColor), button.name);
+
+                effect.OnSelect(null);
+                effect.OnPointerExit(null);
+
+                Assert.That(button.transform.localScale, Is.EqualTo(Vector3.one), button.name);
+            }
+        }
+
+        [Test]
         public void DemoStageControlPanel_MalformedRoot_FailsFast()
         {
             var malformed = new GameObject("MalformedDemo", typeof(RectTransform));
