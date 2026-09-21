@@ -774,6 +774,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(fileNames, Does.Contain("Pause_ko-KR.png"));
             Assert.That(fileNames, Does.Contain("MainMenu_en-US.png"));
             Assert.That(fileNames, Does.Contain("MainMenu_ko-KR.png"));
+            Assert.That(fileNames, Does.Contain("Settings_ja-JP.png"));
+            Assert.That(fileNames, Does.Contain("Pause_ja-JP.png"));
+            Assert.That(fileNames, Does.Contain("MainMenu_ja-JP.png"));
+            Assert.That(fileNames, Does.Contain("Settings_zh-CN.png"));
+            Assert.That(fileNames, Does.Contain("Pause_zh-CN.png"));
+            Assert.That(fileNames, Does.Contain("MainMenu_zh-CN.png"));
         }
 
         [Test]

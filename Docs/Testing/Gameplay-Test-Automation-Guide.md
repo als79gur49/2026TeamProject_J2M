@@ -559,9 +559,11 @@ WSL CLI
   - 두 runtime font를 source TTF에서 원자적으로 갱신하며 missing/fallback 0과 preserved GUID/material/atlas identity를 강제한다.
   - 테스트 lane이 아니며 filter를 받지 않는다.
 - `./run_tests.sh typography-visual`
-  - committed P2 revision에서 Settings/Pause/Main Menu의 en-US/ko-KR 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
-  - current worktree/Unity path, 동일 프로젝트 process, revision gate, guarded KBO Dia Gothic asset 복원, manifest PASS fields, Settings 35 및 localized 20/20, 6개 PNG byte size/SHA-256을 검증한다.
-  - ko-KR Settings Audio muted, Settings Display status, ConfirmPopup 진단 PNG를 `Diagnostics/`에 추가 생성한다. 이 파일들은 canonical root의 exact 6-file manifest와 분리되며, 진단 capture failure는 해당 slice를 실패시킨다.
+  - committed revision에서 Settings/Pause/Main Menu의 en-US/ko-KR/ja-JP/zh-CN 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
+  - current worktree/Unity path, 동일 프로젝트 process, revision gate, guarded KBO Dia Gothic asset 복원, manifest PASS fields, Settings 35 및 localized 20/20, 12개 canonical PNG byte size/SHA-256을 검증한다.
+  - 네 locale의 localized TMP에 대해 overflow, bounded glyph-mesh-to-authored-rect, glyph-mesh-to-capture-frame 검사를 적용한다. 1 UI unit 이하의 font side-bearing은 허용하지만 TMP overflow는 허용하지 않는다.
+  - ko-KR Settings Audio muted, Settings Display status, ConfirmPopup 진단 PNG를 `Diagnostics/`에 추가 생성한다. 이 파일들은 canonical root의 exact 12-file manifest와 분리되며, 진단 capture failure는 해당 slice를 실패시킨다.
+  - ja-JP/zh-CN은 reserved-key와 rebinding-prompt Settings 상태를 대표 동적 진단으로 추가한다. 이는 모든 동적 상태나 지원 해상도의 전수 visual QA를 뜻하지 않는다.
   - raw Unity log와 canonical `capture.log`을 분리하고, 기존 output은 overwrite하지 않으며 실패 output도 진단을 위해 보존한다.
   - `./run_tests.sh --dry-run typography-visual`은 실제 Unity path, current worktree project path, execute method, output/log/manifest path, 1920x1080, isolated slice 인자를 출력한다.
 - `./run_tests.sh gameplay-performance`
@@ -644,9 +646,11 @@ WSL CLI
   - Atomically updates both runtime fonts from their source TTFs, enforcing zero missing glyphs, zero fallback dependency, and preserved GUID/material/atlas identity.
   - This is an asset-generation lane, not a test lane, and it does not accept filters.
 - `./run_tests.sh typography-visual`
-  - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US and ko-KR from a committed P2 revision.
-  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, guarded KBO Dia Gothic asset restoration, manifest PASS fields, exact Settings 35 and localized 20/20 counts, and all six PNG byte sizes/SHA-256 hashes.
-  - It also creates ko-KR Settings Audio muted, Settings Display status, and ConfirmPopup diagnostics under `Diagnostics/`. They remain outside the exact six-file canonical root manifest, and a diagnostic capture failure fails its slice.
+  - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US, ko-KR, ja-JP, and zh-CN from a committed revision.
+  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, guarded KBO Dia Gothic asset restoration, manifest PASS fields, exact Settings 35 and localized 20/20 counts, and all 12 canonical PNG byte sizes/SHA-256 hashes.
+  - Applies localized TMP overflow, bounded glyph-mesh-to-authored-rect, and glyph-mesh-to-capture-frame checks in all four locales. Font side bearings up to one UI unit are tolerated, but TMP overflow is not.
+  - It also creates ko-KR Settings Audio muted, Settings Display status, and ConfirmPopup diagnostics under `Diagnostics/`. They remain outside the exact 12-file canonical root manifest, and a diagnostic capture failure fails its slice.
+  - ja-JP and zh-CN add reserved-key and rebinding-prompt Settings captures as representative dynamic diagnostics. This is not exhaustive visual QA across every dynamic state or supported resolution.
   - Separates raw Unity logs from canonical `capture.log`, refuses existing output directories, and retains failed output for diagnostics.
   - `./run_tests.sh --dry-run typography-visual` prints the real Unity/current-worktree paths, execute method, output/log/manifest paths, 1920x1080 resolution, and isolated slice arguments without launching Unity.
 - `./run_tests.sh gameplay-performance`

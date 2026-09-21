@@ -1827,6 +1827,12 @@ print_typography_visual_plan() {
         "ko-KR|Settings"
         "ko-KR|Pause"
         "ko-KR|MainMenu"
+        "ja-JP|Settings"
+        "ja-JP|Pause"
+        "ja-JP|MainMenu"
+        "zh-CN|Settings"
+        "zh-CN|Pause"
+        "zh-CN|MainMenu"
     )
     local -a m2b_capture_slices=(
         "en-US|M2BReserved"
@@ -1841,6 +1847,10 @@ print_typography_visual_plan() {
         "ko-KR|M2BMovementConflict"
         "ko-KR|M2BAlreadyRebinding"
         "ko-KR|M2BRebindingPrompt"
+        "ja-JP|M2BReserved"
+        "ja-JP|M2BRebindingPrompt"
+        "zh-CN|M2BReserved"
+        "zh-CN|M2BRebindingPrompt"
     )
 
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
@@ -7091,6 +7101,12 @@ run_typography_visual() {
         "ko-KR|Settings"
         "ko-KR|Pause"
         "ko-KR|MainMenu"
+        "ja-JP|Settings"
+        "ja-JP|Pause"
+        "ja-JP|MainMenu"
+        "zh-CN|Settings"
+        "zh-CN|Pause"
+        "zh-CN|MainMenu"
     )
     local -a m2b_capture_slices=(
         "en-US|M2BReserved"
@@ -7105,6 +7121,10 @@ run_typography_visual() {
         "ko-KR|M2BMovementConflict"
         "ko-KR|M2BAlreadyRebinding"
         "ko-KR|M2BRebindingPrompt"
+        "ja-JP|M2BReserved"
+        "ja-JP|M2BRebindingPrompt"
+        "zh-CN|M2BReserved"
+        "zh-CN|M2BRebindingPrompt"
     )
 
     prepare_typography_visual_paths
