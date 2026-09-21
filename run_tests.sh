@@ -2037,14 +2037,20 @@ if actual_output_directory not in {
 expected_entries = {
     "Settings/en-US": ("Settings_en-US.png", "20", "35"),
     "Settings/ko-KR": ("Settings_ko-KR.png", "20", "35"),
+    "Settings/ja-JP": ("Settings_ja-JP.png", "20", "35"),
+    "Settings/zh-CN": ("Settings_zh-CN.png", "20", "35"),
     "Pause/en-US": ("Pause_en-US.png", "5", None),
     "Pause/ko-KR": ("Pause_ko-KR.png", "5", None),
+    "Pause/ja-JP": ("Pause_ja-JP.png", "5", None),
+    "Pause/zh-CN": ("Pause_zh-CN.png", "5", None),
     "MainMenu/en-US": ("MainMenu_en-US.png", "3", None),
     "MainMenu/ko-KR": ("MainMenu_ko-KR.png", "3", None),
+    "MainMenu/ja-JP": ("MainMenu_ja-JP.png", "3", None),
+    "MainMenu/zh-CN": ("MainMenu_zh-CN.png", "3", None),
 }
 if set(entries) != set(expected_entries):
     fail(
-        "manifest sections differ from six-entry closure; "
+        "manifest sections differ from 12-entry four-locale closure; "
         f"expected={sorted(expected_entries)}, actual={sorted(entries)}"
     )
 
@@ -2093,17 +2099,16 @@ for section, (expected_file, localized_count, typography_count) in expected_entr
 actual_png_paths = {path.resolve() for path in output_dir.glob("*.png")}
 if actual_png_paths != expected_png_paths:
     fail(
-        "output PNG set differs from the required six files; "
+        "output PNG set differs from the required 12 files; "
         f"expected={sorted(path.name for path in expected_png_paths)}, "
         f"actual={sorted(path.name for path in actual_png_paths)}"
     )
 
 print("Typography visual manifest verification: PASS")
 print(f"  manifest: {manifest_path}")
-print("  entries: 6")
-print("  Settings en-US: typography_bindings=35 localized=20/20 capture_result=PASS")
-print("  Settings ko-KR: typography_bindings=35 localized=20/20 capture_result=PASS")
-print("  PNG size/SHA-256: verified for all six captures")
+print("  entries: 12")
+print("  Settings all four locales: typography_bindings=35 localized=20/20 capture_result=PASS")
+print("  PNG size/SHA-256: verified for all 12 captures")
 PY
 }
 
@@ -2140,18 +2145,22 @@ targets = (
     "M2BAlreadyRebinding",
     "M2BRebindingPrompt",
 )
-locales = ("en-US", "ko-KR")
+scenarios = tuple((locale, target) for locale in ("en-US", "ko-KR") for target in targets) + (
+    ("ja-JP", "M2BReserved"),
+    ("ja-JP", "M2BRebindingPrompt"),
+    ("zh-CN", "M2BReserved"),
+    ("zh-CN", "M2BRebindingPrompt"),
+)
 lines = [
     "schema_version=1",
     f"git_head={expected_head}",
     f"git_tree={expected_tree}",
     f"resolution={expected_width}x{expected_height}",
     "runtime_isolation=ONE_UNITY_PROCESS_PER_STATE_AND_LOCALE",
-    f"capture_count={len(targets) * len(locales)}",
+    f"capture_count={len(scenarios)}",
 ]
 
-for locale in locales:
-    for target in targets:
+for locale, target in scenarios:
         png = output_dir / "Diagnostics" / f"{target}_{locale}.png"
         log = output_dir / f"diagnostic-m2b-{locale}-{target}.log"
         if not png.is_file() or png.stat().st_size <= 0:
@@ -2241,7 +2250,7 @@ lines.extend(("", "overall_result=PASS"))
 manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print("M2B visual manifest verification: PASS")
 print(f"  manifest: {manifest}")
-print(f"  captures: {len(targets) * len(locales)}")
+print(f"  captures: {len(scenarios)}")
 PY
 }
 
