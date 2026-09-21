@@ -69,7 +69,7 @@ namespace Game.Feature.DemoStageControl.UI
                 _previousButton == null || _nextButton == null ||
                 _startButton == null || _forceClearButton == null ||
                 _playerInvincibleButton == null || _playerInvincibleButtonLabel == null ||
-                _closeButton == null)
+                _playerInvincibleButton.targetGraphic == null || _closeButton == null)
             {
                 throw new InvalidOperationException(
                     "DemoStageControlPanel prefab has missing or malformed authored references.");
@@ -263,7 +263,7 @@ namespace Game.Feature.DemoStageControl.UI
                 : $"Last result: {_viewModel.LastResultText}";
             _playerInvincibleButtonLabel.text = _viewModel.PlayerInvincibleText;
             _playerInvincibleButton.interactable = true;
-            RefreshPlayerInvincibleButtonColors();
+            RefreshPlayerInvincibleVisual();
             _startButton.interactable = _viewModel.CanStartSelectedStage;
             _forceClearButton.interactable = _viewModel.CanForceClearCurrentStage;
             _previousButton.interactable = _viewModel.Stages.Count > 1;
@@ -371,7 +371,6 @@ namespace Game.Feature.DemoStageControl.UI
         private void ClickPrevious()
         {
             if (!CanInvoke(_previousButton) || _viewModel.Stages.Count == 0) return;
-            _navigationGroup.SetSelectedIndex(PreviousIndex);
             _lastSelectorIndex = PreviousIndex;
             var index = _viewModel.SelectedStageIndex <= 0
                 ? _viewModel.Stages.Count - 1
@@ -383,7 +382,6 @@ namespace Game.Feature.DemoStageControl.UI
         private void ClickNext()
         {
             if (!CanInvoke(_nextButton) || _viewModel.Stages.Count == 0) return;
-            _navigationGroup.SetSelectedIndex(NextIndex);
             _lastSelectorIndex = NextIndex;
             var index = _viewModel.SelectedStageIndex >= _viewModel.Stages.Count - 1
                 ? 0
@@ -395,48 +393,35 @@ namespace Game.Feature.DemoStageControl.UI
         private void ClickStart()
         {
             if (!CanInvoke(_startButton) || !_viewModel.SelectedStageId.IsValid) return;
-            _navigationGroup.SetSelectedIndex(StartIndex);
             StartStageClicked?.Invoke(_viewModel.SelectedStageId);
         }
 
         private void ClickForceClear()
         {
             if (!CanInvoke(_forceClearButton)) return;
-            _navigationGroup.SetSelectedIndex(ForceClearIndex);
             ForceClearClicked?.Invoke();
         }
 
         private void ClickPlayerInvincible()
         {
             if (!CanInvoke(_playerInvincibleButton)) return;
-            _navigationGroup.SetSelectedIndex(InvincibleIndex);
             PlayerInvincibleToggled?.Invoke(!_viewModel.PlayerInvincible);
         }
 
         private void ClickClose()
         {
             if (!CanInvoke(_closeButton)) return;
-            _navigationGroup.SetSelectedIndex(CloseIndex);
             CompletionRequested?.Invoke(PopupCompletionKind.Closed);
         }
 
         private bool CanInvoke(Button button) =>
             _viewModel != null && CanHandleUiNavigation && button != null && button.interactable;
 
-        private void RefreshPlayerInvincibleButtonColors()
+        private void RefreshPlayerInvincibleVisual()
         {
-            var normal = _viewModel.PlayerInvincible
+            _playerInvincibleButton.targetGraphic.color = _viewModel.PlayerInvincible
                 ? new Color(0.18f, 0.42f, 0.34f, 1f)
                 : new Color(0.18f, 0.22f, 0.25f, 1f);
-            var colors = _playerInvincibleButton.colors;
-            colors.normalColor = normal;
-            colors.highlightedColor = _viewModel.PlayerInvincible
-                ? new Color(0.23f, 0.50f, 0.41f, 1f)
-                : new Color(0.26f, 0.31f, 0.35f, 1f);
-            colors.pressedColor = _viewModel.PlayerInvincible
-                ? new Color(0.13f, 0.30f, 0.24f, 1f)
-                : new Color(0.12f, 0.15f, 0.18f, 1f);
-            _playerInvincibleButton.colors = colors;
         }
 
         private static void Rebind(Button button, UnityEngine.Events.UnityAction action)
