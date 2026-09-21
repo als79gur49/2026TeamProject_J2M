@@ -468,6 +468,107 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PopupController_Dispose_ClearsStackWithoutDispatchingCompletion()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            var controller = new PopupController(runtimeFactory);
+            var completions = new System.Collections.Generic.List<PopupCompletion>();
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default, completions.Add),
+                out _), Is.True);
+            Assert.That(controller.Push(
+                new PopupRequest(
+                    PopupId.Confirm,
+                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
+                    completions.Add),
+                out _), Is.True);
+
+            var stateChangedCount = 0;
+            var dispatchingCount = 0;
+            var completedCount = 0;
+            var dispatchedCount = 0;
+            controller.StateChanged += () => stateChangedCount++;
+            controller.PopupCompletionDispatching += _ => dispatchingCount++;
+            controller.PopupCompleted += _ => completedCount++;
+            controller.PopupCompletionDispatched += _ => dispatchedCount++;
+
+            controller.Dispose();
+
+            Assert.That(controller.PopupCount, Is.Zero);
+            Assert.That(stateChangedCount, Is.EqualTo(1));
+            Assert.That(dispatchingCount, Is.Zero);
+            Assert.That(completedCount, Is.Zero);
+            Assert.That(completions, Is.Empty);
+            Assert.That(dispatchedCount, Is.Zero);
+            Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.DisposeCount, Is.EqualTo(1));
+            Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.DisposeCount, Is.EqualTo(1));
+
+            controller.Dispose();
+
+            Assert.That(stateChangedCount, Is.EqualTo(1));
+            Assert.That(dispatchingCount, Is.Zero);
+            Assert.That(completedCount, Is.Zero);
+            Assert.That(completions, Is.Empty);
+            Assert.That(dispatchedCount, Is.Zero);
+            Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.DisposeCount, Is.EqualTo(1));
+            Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.DisposeCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PopupController_DisposeReason_CloseVariants_ChangeStateWithoutDispatchingCompletion()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+            var completions = new System.Collections.Generic.List<PopupCompletion>();
+            var stateChangedCount = 0;
+            var dispatchingCount = 0;
+            var completedCount = 0;
+            var dispatchedCount = 0;
+            controller.StateChanged += () => stateChangedCount++;
+            controller.PopupCompletionDispatching += _ => dispatchingCount++;
+            controller.PopupCompleted += _ => completedCount++;
+            controller.PopupCompletionDispatched += _ => dispatchedCount++;
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default, completions.Add),
+                out var firstId), Is.True);
+            stateChangedCount = 0;
+            Assert.That(controller.Close(firstId, PopupCloseReason.Dispose), Is.True);
+            Assert.That(stateChangedCount, Is.EqualTo(1));
+            Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.DisposeCount, Is.EqualTo(1));
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default, completions.Add),
+                out _), Is.True);
+            stateChangedCount = 0;
+            Assert.That(controller.CloseTop(PopupCloseReason.Dispose), Is.True);
+            Assert.That(stateChangedCount, Is.EqualTo(1));
+            Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.DisposeCount, Is.EqualTo(1));
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default, completions.Add),
+                out _), Is.True);
+            Assert.That(controller.Push(
+                new PopupRequest(
+                    PopupId.Confirm,
+                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
+                    completions.Add),
+                out _), Is.True);
+            stateChangedCount = 0;
+            controller.CloseAll(PopupCloseReason.Dispose);
+
+            Assert.That(controller.PopupCount, Is.Zero);
+            Assert.That(stateChangedCount, Is.EqualTo(1));
+            Assert.That(dispatchingCount, Is.Zero);
+            Assert.That(completedCount, Is.Zero);
+            Assert.That(completions, Is.Empty);
+            Assert.That(dispatchedCount, Is.Zero);
+            Assert.That(runtimeFactory.CreatedRuntimes[2].Runtime.DisposeCount, Is.EqualTo(1));
+            Assert.That(runtimeFactory.CreatedRuntimes[3].Runtime.DisposeCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void PopupController_LifecycleSignalEvents_OnlyFireForSuccessfulUserVisibleTransitions()
         {
             var runtimeFactory = new FakePopupRuntimeFactory();
