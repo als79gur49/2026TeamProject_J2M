@@ -2294,7 +2294,7 @@ namespace Game.Feature.UI.Composition.Editor
                 // TMP glyph faces can carry a sub-unit side bearing beyond the authored box
                 // without clipping or reporting text overflow. Keep the allowance bounded so
                 // meaningful localization growth still fails.
-                const float localTolerance = 1.5f;
+                const float localTolerance = 2f;
                 if (textBounds.min.x < rect.xMin - localTolerance ||
                     textBounds.max.x > rect.xMax + localTolerance ||
                     textBounds.min.y < rect.yMin - localTolerance ||
