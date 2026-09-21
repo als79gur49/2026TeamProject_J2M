@@ -28,19 +28,32 @@ namespace Game.Feature.UI.ViewShared
 
         public IUiSelectionFeedback ResolveSelectionFeedback()
         {
-            if (SelectionFeedback is IUiSelectionFeedback explicitFeedback)
+            var explicitFeedback = GetLiveFeedback(SelectionFeedback as IUiSelectionFeedback);
+            if (explicitFeedback != null)
             {
                 return explicitFeedback;
             }
 
             if (Button != null && Button.TryGetComponent<IUiSelectionFeedback>(out var buttonFeedback))
             {
-                return buttonFeedback;
+                buttonFeedback = GetLiveFeedback(buttonFeedback);
+                if (buttonFeedback != null)
+                {
+                    return buttonFeedback;
+                }
             }
 
             return SelectionFrame != null
-                ? SelectionFrame.GetComponentInParent<IUiSelectionFeedback>(includeInactive: true)
+                ? GetLiveFeedback(
+                    SelectionFrame.GetComponentInParent<IUiSelectionFeedback>(includeInactive: true))
                 : null;
+        }
+
+        private static IUiSelectionFeedback GetLiveFeedback(IUiSelectionFeedback feedback)
+        {
+            return feedback is UnityEngine.Object unityObject && unityObject == null
+                ? null
+                : feedback;
         }
     }
 }
