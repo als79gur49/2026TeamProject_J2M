@@ -13,6 +13,7 @@ namespace Game.Feature.DemoStageControl.UI
         private readonly IDemoGameplayOverrideCommandPort _overrideCommandPort;
         private readonly Action _dispose;
         private readonly ILocalizedTextResolver _localizedTextResolver;
+        private readonly IDemoStageControlPresentationSource _presentationSource;
         private readonly DemoStageControlPanelView _view;
         private readonly DemoStageControlPanelViewModel _viewModel;
         private StageId _selectedStageId = StageId.None;
@@ -30,6 +31,12 @@ namespace Game.Feature.DemoStageControl.UI
             _overrideCommandPort = overrideCommandPort;
             _localizedTextResolver = localizedTextResolver
                 ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+            if (initialPayload == null)
+            {
+                throw new ArgumentNullException(nameof(initialPayload));
+            }
+
+            _presentationSource = initialPayload.PresentationSource;
             _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
             _viewModel = new DemoStageControlPanelViewModel(_localizedTextResolver);
             _view.Bind(_viewModel);
@@ -38,7 +45,8 @@ namespace Game.Feature.DemoStageControl.UI
             _view.ForceClearClicked += HandleForceClearClicked;
             _view.PlayerInvincibleToggled += HandlePlayerInvincibleToggled;
             _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
-            ApplyPayload(initialPayload);
+            _presentationSource.Changed += HandlePresentationChanged;
+            ApplySnapshot(_presentationSource.Current);
         }
 
         public event Action<PopupCompletionKind> CompletionRequested
@@ -54,6 +62,7 @@ namespace Game.Feature.DemoStageControl.UI
             _view.ForceClearClicked -= HandleForceClearClicked;
             _view.PlayerInvincibleToggled -= HandlePlayerInvincibleToggled;
             _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
+            _presentationSource.Changed -= HandlePresentationChanged;
             _view.Bind(null);
             _view.IsVisible = false;
             _dispose();
@@ -85,45 +94,32 @@ namespace Game.Feature.DemoStageControl.UI
         {
             _selectedStageId = stageId;
             _commandPort.StartStage(stageId);
-            Refresh();
         }
 
         private void HandleForceClearClicked()
         {
             _commandPort.ForceClearCurrentStage();
-            Refresh();
         }
 
         private void HandlePlayerInvincibleToggled(bool enabled)
         {
             if (_overrideCommandPort == null)
             {
-                Refresh();
                 return;
             }
 
             _overrideCommandPort.SetPlayerInvincible(enabled);
-            Refresh();
         }
 
-        private void ApplyPayload(DemoStageControlPanelPayload payload)
+        private void HandlePresentationChanged(DemoStageControlPresentationSnapshot snapshot)
         {
-            if (payload == null)
-            {
-                Refresh();
-                return;
-            }
+            ApplySnapshot(snapshot);
+        }
 
-            _viewModel.Apply(payload, _selectedStageId);
+        private void ApplySnapshot(DemoStageControlPresentationSnapshot snapshot)
+        {
+            _viewModel.Apply(snapshot, _selectedStageId);
             _selectedStageId = _viewModel.SelectedStageId;
-        }
-
-        private void Refresh()
-        {
-            ApplyPayload(new DemoStageControlPanelPayload(
-                _commandPort.GetStages(),
-                _commandPort.GetStatus(),
-                _overrideCommandPort?.GetOverrideStatus() ?? default));
         }
     }
 }

@@ -80,15 +80,23 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            var resolution = ResolveTarget();
-            var target = resolution.Target;
-            SetCurrentTarget(target);
+            var target = ResolveAndSetCurrentTarget();
             if (target == null || !target.CanHandleUiNavigation)
             {
                 return false;
             }
 
-            RevealCurrentTargetFocus();
+            if (!RevealCurrentTargetFocus())
+            {
+                return false;
+            }
+
+            target = GetLiveCurrentTarget();
+            if (target == null)
+            {
+                return false;
+            }
+
             var handled = target.HandleNavigate(command);
             if (handled)
             {
@@ -105,9 +113,7 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            var resolution = ResolveTarget();
-            var target = resolution.Target;
-            SetCurrentTarget(target);
+            var target = ResolveAndSetCurrentTarget();
             if (target == null || !target.CanHandleUiNavigation)
             {
                 return false;
@@ -115,11 +121,11 @@ namespace Game.Feature.UI.Composition
 
             if (!_currentTargetFocusRevealed)
             {
-                RevealCurrentTargetFocus();
-                return true;
+                return RevealCurrentTargetFocus();
             }
 
-            return target.HandleSubmit();
+            target = GetLiveCurrentTarget();
+            return target != null && target.HandleSubmit();
         }
 
         public bool DispatchCancel()
@@ -129,9 +135,7 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            var resolution = ResolveTarget();
-            var target = resolution.Target;
-            SetCurrentTarget(target);
+            var target = ResolveAndSetCurrentTarget();
             if (target != null && target.CanHandleUiNavigation && target.HandleCancel())
             {
                 return true;
@@ -251,25 +255,81 @@ namespace Game.Feature.UI.Composition
 
         private void SetCurrentTarget(IUiNavigationTarget target)
         {
-            if (ReferenceEquals(_currentTarget, target))
+            target = NormalizeTarget(target);
+            var previousTarget = _currentTarget;
+            if (ReferenceEquals(previousTarget, target))
             {
                 return;
             }
 
-            _currentTarget?.OnNavigationFocusLost();
             _currentTarget = target;
             _currentTargetFocusRevealed = false;
+            if (IsTargetAlive(previousTarget))
+            {
+                previousTarget.OnNavigationFocusLost();
+            }
         }
 
-        private void RevealCurrentTargetFocus()
+        private IUiNavigationTarget ResolveAndSetCurrentTarget()
         {
-            if (_currentTarget == null || _currentTargetFocusRevealed)
+            SetCurrentTarget(ResolveTarget().Target);
+            return GetLiveCurrentTarget();
+        }
+
+        private IUiNavigationTarget GetLiveCurrentTarget()
+        {
+            if (IsTargetAlive(_currentTarget))
             {
-                return;
+                return _currentTarget;
             }
 
-            _currentTarget.OnNavigationFocusGained();
+            _currentTarget = null;
+            _currentTargetFocusRevealed = false;
+            return null;
+        }
+
+        private bool RevealCurrentTargetFocus()
+        {
+            var target = GetLiveCurrentTarget();
+            if (target == null)
+            {
+                return false;
+            }
+
+            if (_currentTargetFocusRevealed)
+            {
+                return true;
+            }
+
+            target.OnNavigationFocusGained();
+            if (!ReferenceEquals(_currentTarget, target) || !IsTargetAlive(target))
+            {
+                if (ReferenceEquals(_currentTarget, target))
+                {
+                    _currentTarget = null;
+                    _currentTargetFocusRevealed = false;
+                }
+
+                return false;
+            }
+
             _currentTargetFocusRevealed = true;
+            return true;
+        }
+
+        private static IUiNavigationTarget NormalizeTarget(IUiNavigationTarget target)
+        {
+            return IsTargetAlive(target) ? target : null;
+        }
+
+        private static bool IsTargetAlive(IUiNavigationTarget target)
+        {
+            if (ReferenceEquals(target, null))
+            {
+                return false;
+            }
+
+            return target is not UnityEngine.Object unityTarget || unityTarget != null;
         }
 
         private bool IsBlocked()

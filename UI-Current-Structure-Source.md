@@ -44,11 +44,11 @@ This file is the external current-structure source for the completed UI cleanup 
 
 ## Preserved Classification Decisions
 
-- `DemoStageControl` is not a gameplay popup catalog entry.
-- `DemoStageControl` is a catalog-less runtime assist popup.
+- `DemoStageControl` is a catalog-authored, English operator-assist popup registered in `GameplayPopupPrefabCatalog`.
+- `UIFlowCoordinator` owns its popup flow and lifetime routing, while feature-local sources and command ports own its presentation and commands.
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing.
 - `DemoStageControl` is not a deletion candidate and is not a dev-only compile exclusion target.
-- Future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision.
+- Future product/build availability for `DemoStageControl` is supplied through a separate access-provider decision that gates new opens only.
 - `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
 - Reward popup is not current popup vocabulary. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not a UI popup route.
 - Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
@@ -119,7 +119,7 @@ This file is the external current-structure source for the completed UI cleanup 
 
 - Do not modify runtime code for this source regeneration.
 - Do not modify prefabs or catalogs for this source regeneration.
-- Do not change `DemoStageControl` runtime behavior.
+- Preserve the catalog-authored DemoStageControl popup, coordinator-owned toggle flow, and feature-local live presentation source.
 - Do not simplify or reroute StageResult, Pause/Confirm popup, settings, audio, display, or UI bridge paths.
 - Do not reintroduce a Main Menu-only Settings presenter/view composition, `_settingsScreenPrefab`, `_koreanSettingsFont`, or `PopupPrefabCatalog.TypographyTheme` as a Settings asset source.
 - Do not restore StageResult result title/summary/detail schema or title/detail labels without a new product decision.

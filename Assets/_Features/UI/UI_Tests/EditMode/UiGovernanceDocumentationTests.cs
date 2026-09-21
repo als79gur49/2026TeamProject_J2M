@@ -91,13 +91,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("`StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens."));
             Assert.That(guidelines, Does.Contain("`GameClear` is a result-only terminal screen with title and main label bindings only; retired authored restart/detail compatibility objects are not current contract."));
             Assert.That(guidelines, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
-            Assert.That(guidelines, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
-            Assert.That(guidelines, Does.Contain("catalog-less runtime assist popup created through the factory/runtime/hotkey path"));
+            Assert.That(guidelines, Does.Contain("catalog-authored, English operator-assist popup"));
+            Assert.That(guidelines, Does.Contain("`UIFlowCoordinator` owns its popup flow and lifetime routing"));
             Assert.That(guidelines, Does.Contain("build-included tester/demo/showcase assist feature"));
             Assert.That(guidelines, Does.Contain("tester assist clear, hard-section bypass, showcase navigation, and stage browsing"));
             Assert.That(guidelines, Does.Contain("not a deletion candidate and is not a dev-only compile exclusion target"));
-            Assert.That(guidelines, Does.Contain("separate product/build configuration decision"));
-            Assert.That(guidelines, Does.Contain("not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
+            Assert.That(guidelines, Does.Contain("separate access-provider decision"));
+            Assert.That(guidelines, Does.Not.Contain("DEVELOPMENT_BUILD gate candidate"));
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(guidelines);
             Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, and `SurfaceBeltIndicator`"));
             Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
@@ -154,8 +154,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
             var resultSection = ExtractMarkdownSection(baseline, "## Result");
-            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1424 total / 0 failed`"));
-            Assert.That(resultSection, Does.Contain("result `1424 total / 0 failed`, failed tests `none`, failure category `none`"));
+            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1459 total / 0 failed`"));
+            Assert.That(resultSection, Does.Contain("result `1459 total / 0 failed`, failed tests `none`, failure category `none`"));
             Assert.That(resultSection, Does.Contain("CommandLine-20260726-052954"));
             Assert.That(resultSection, Does.Not.Contain("706 total / 0 failed"), "Current baseline Result section must not retain stale 706 total evidence.");
             Assert.That(baseline, Does.Contain("PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary"));
@@ -181,12 +181,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("`StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens"));
             Assert.That(baseline, Does.Contain("`GameClearScreen` is a result-only terminal screen with title and main label bindings only; retired authored `RestartLevelButton` and `Detail` compatibility objects were removed from its runtime view and prefab"));
             Assert.That(baseline, Does.Contain("current canonical `PopupId` values are `None`, `Pause`, `Confirm`, and `DemoStageControl`"));
-            Assert.That(baseline, Does.Contain("`DemoStageControl` is a catalog-less runtime assist popup created through the factory/runtime/hotkey path and not a gameplay popup catalog entry"));
+            Assert.That(baseline, Does.Contain("`DemoStageControl` is a catalog-authored, English operator-assist popup"));
             Assert.That(baseline, Does.Contain("`DemoStageControl` is a build-included tester/demo/showcase assist feature"));
             Assert.That(baseline, Does.Contain("tester assist clear, hard-section bypass, showcase navigation, and stage browsing"));
             Assert.That(baseline, Does.Contain("it is not a deletion candidate or dev-only compile exclusion target"));
-            Assert.That(baseline, Does.Contain("future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision"));
-            Assert.That(baseline, Does.Contain("not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
+            Assert.That(baseline, Does.Contain("future product/build availability for `DemoStageControl` is supplied through a separate access-provider decision"));
+            Assert.That(baseline, Does.Not.Contain("DEVELOPMENT_BUILD gate candidate"));
             Assert.That(baseline, Does.Contain("`Pause` and `Confirm` remain protected canonical popup paths; Reward popup is absent from current popup vocabulary and is not the canonical stage-clear result path"));
             Assert.That(baseline, Does.Contain("`TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller."));
             Assert.That(baseline, Does.Contain("Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`."));
@@ -289,8 +289,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("Reward popup is not current popup vocabulary."));
             Assert.That(source, Does.Contain("Stage reward/progression vocabulary remains stage-owned content/system vocabulary"));
             Assert.That(source, Does.Contain("`GameClear` is a result-only terminal screen with title and main label bindings only; retired authored restart/detail compatibility objects are not current contract."));
-            Assert.That(source, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
-            Assert.That(source, Does.Contain("catalog-less runtime assist popup"));
+            Assert.That(source, Does.Contain("`DemoStageControl` is a catalog-authored, English operator-assist popup"));
+            Assert.That(source, Does.Contain("`UIFlowCoordinator` owns its popup flow and lifetime routing"));
             Assert.That(source, Does.Contain("build-included tester/demo/showcase assist feature"));
             Assert.That(source, Does.Contain("not a deletion candidate and is not a dev-only compile exclusion target"));
             Assert.That(source, Does.Contain("`ActionBar` is removed retired HUD proof residue."));
@@ -458,6 +458,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(content, Does.Not.Contain("production-disabled candidate"));
             Assert.That(content, Does.Not.Contain("DEVELOPMENT_BUILD gate candidate"));
             Assert.That(content, Does.Not.Contain("factory/runtime/hotkey/dev-path"));
+            Assert.That(content, Does.Not.Contain("catalog-less runtime assist popup"));
+            Assert.That(content, Does.Not.Contain("not a gameplay popup catalog entry"));
         }
     }
 }

@@ -124,11 +124,20 @@ namespace Game.Feature.UI.Flow
                 () => RequestConfirmPopupCore(payload, completionCallback));
         }
 
-        public bool RequestDemoStageControlPopup(IPopupPayload payload)
+        internal bool TryToggleDemoStageControlPopup(
+            bool allowNewOpen,
+            Func<IPopupPayload> payloadFactory)
         {
+            if (SceneEntryPresentationRegistry.IsActive)
+            {
+                return false;
+            }
+
+            var closingDemoPopup = _popupController.TopPopup.HasValue &&
+                                   _popupController.TopPopup.Value.PopupId == PopupId.DemoStageControl;
             return ExecuteIntent(
-                UiFlowAudioIntentKind.OpenForward,
-                () => TryPushPopupRequestCore(new PopupRequest(PopupId.DemoStageControl, payload)));
+                closingDemoPopup ? ResolveBackIntent() : UiFlowAudioIntentKind.OpenForward,
+                () => TryToggleDemoStageControlPopupCore(allowNewOpen, payloadFactory));
         }
 
         public bool HandleBackRequested()
@@ -433,6 +442,38 @@ namespace Game.Feature.UI.Flow
             {
                 EndTransaction(createdRoot);
             }
+        }
+
+        private bool TryToggleDemoStageControlPopupCore(
+            bool allowNewOpen,
+            Func<IPopupPayload> payloadFactory)
+        {
+            var topPopup = _popupController.TopPopup;
+            if (topPopup.HasValue)
+            {
+                if (topPopup.Value.PopupId == PopupId.DemoStageControl)
+                {
+                    return HandleBackRequestedCore();
+                }
+
+                return true;
+            }
+
+            if (!allowNewOpen)
+            {
+                return false;
+            }
+
+            if (payloadFactory == null)
+            {
+                throw new ArgumentNullException(nameof(payloadFactory));
+            }
+
+            var payload = payloadFactory()
+                ?? throw new InvalidOperationException(
+                    "Demo Stage Control payload factory returned null.");
+            return TryPushPopupRequestCore(
+                new PopupRequest(PopupId.DemoStageControl, payload));
         }
 
         private bool BeginTransaction(UiFlowAudioIntentKind intent)

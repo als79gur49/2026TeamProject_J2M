@@ -27,6 +27,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private Ease _ease = Ease.OutQuad;
         [SerializeField] private bool _useUnscaledTime = true;
         [SerializeField] private bool _restoreOnDisable = true;
+        [SerializeField] private bool _scaleWhenSelected = true;
 
         private Tween _scaleTween;
         private Tween _clickPunchTween;
@@ -273,7 +274,9 @@ namespace Game.Feature.UI.Screens
                 return Mathf.Max(0f, _pressedScale);
             }
 
-            return _isHovered || _isSelected ? Mathf.Max(0f, _hoverScale) : 1f;
+            return _isHovered || (_scaleWhenSelected && _isSelected)
+                ? Mathf.Max(0f, _hoverScale)
+                : 1f;
         }
 
         private RectTransform ResolveTarget()

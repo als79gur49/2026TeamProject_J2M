@@ -155,6 +155,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DemoStageControl_ForceClear_FailsWhenCompletionStartsBeforeExecution()
+        {
+            var first = CreateEntry("stage-0-1");
+            var completionBridge = new RecordingCompletionBridge
+            {
+                IsCompletionInProgress = true,
+            };
+            var service = CreateService(
+                new[] { first },
+                out _,
+                out _,
+                completionBridge: completionBridge);
+
+            var result = service.ForceClearCurrentStage();
+
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Message, Does.Contain("completion"));
+            Assert.That(completionBridge.ForceClearCalls, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
         public void DemoStageControl_GetStages_UsesCampaignSequenceOrder_AndExcludesCatalogExtras()
         {
             var first = CreateEntry("stage-0-1");
@@ -374,7 +396,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             out TransientCampaignSaveSlotStore saveStore,
             out RecordingStageLaunchRouter router,
             IDemoStageControlLaunchBridge launchBridge = null,
-            CampaignStageSequenceResolver sequenceResolver = null)
+            CampaignStageSequenceResolver sequenceResolver = null,
+            IDemoStageControlCompletionBridge completionBridge = null)
         {
             if (sequenceResolver == null)
             {
@@ -403,7 +426,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sequenceResolver,
                 campaignBridge,
                 launchBridge ?? new DemoStageControlLaunchBridge(router, () => false),
-                new RecordingCompletionBridge());
+                completionBridge ?? new RecordingCompletionBridge());
         }
 
         private StageContentEntry CreateEntry(
@@ -467,8 +490,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             public bool IsCompletionInProgress { get; set; }
 
+            public int ForceClearCalls { get; private set; }
+
             public DemoStageControlResult ForceClearCurrentStage()
             {
+                ForceClearCalls++;
                 return DemoStageControlResult.Ok("forced");
             }
         }

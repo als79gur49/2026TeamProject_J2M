@@ -446,6 +446,7 @@ namespace Game.Feature.UI.Flow
             switch (popupId)
             {
                 case PopupId.Pause:
+                case PopupId.DemoStageControl:
                     return completionKind == PopupCompletionKind.Closed;
 
                 default:

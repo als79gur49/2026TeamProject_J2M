@@ -1,4 +1,5 @@
 using Game.Feature.UI.Popups;
+using Game.Feature.DemoStageControl.UI;
 using UnityEngine;
 
 namespace Game.Feature.UI.Composition
@@ -10,11 +11,14 @@ namespace Game.Feature.UI.Composition
     {
         [SerializeField] private PausePopupView _pausePrefab;
         [SerializeField] private ConfirmPopupView _confirmPrefab;
+        [SerializeField] private DemoStageControlPanelView _demoStageControlPrefab;
         [SerializeField] private GameplayUiTypographyTheme _typographyTheme;
 
         public PausePopupView PausePrefab => _pausePrefab;
 
         public ConfirmPopupView ConfirmPrefab => _confirmPrefab;
+
+        public DemoStageControlPanelView DemoStageControlPrefab => _demoStageControlPrefab;
 
         internal GameplayUiTypographyTheme TypographyTheme => _typographyTheme;
     }

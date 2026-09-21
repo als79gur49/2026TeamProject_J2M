@@ -110,7 +110,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(installerSource, Does.Contain("WasDemoStageControlOpenKeyPressed() && TryToggleDemoStageControlPanel()"));
             Assert.That(installerSource, Does.Contain("KeyboardBridge.WasF10PressedThisFrame()"));
-            Assert.That(installerSource, Does.Contain("Coordinator.RequestDemoStageControlPopup"));
+            Assert.That(installerSource, Does.Contain("Coordinator.TryToggleDemoStageControlPopup"));
+            Assert.That(installerSource, Does.Not.Contain("PopupController.TopPopup"));
             Assert.That(installerSource, Does.Not.Contain(removedPopupId));
             Assert.That(installerSource, Does.Not.Contain(removedRequest));
         }
@@ -120,7 +121,7 @@ namespace Game.Feature.UI.Tests
         {
             var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
 
-            Assert.That(installerSource, Does.Contain("!_demoStageControlSettings.Enabled"));
+            Assert.That(installerSource, Does.Contain("_demoStageControlSettings.Enabled"));
             Assert.That(installerSource, Does.Contain("return false;"));
             Assert.That(installerSource, Does.Contain("return settings.OpenKey == DemoStageControlOpenKey.BackQuote"));
         }
@@ -147,6 +148,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(popupIdSource, Does.Not.Contain(removedPopupName));
             Assert.That(popupFactorySource, Does.Not.Contain(removedPopupName));
             Assert.That(popupCatalogAsset, Does.Not.Contain(removedPopupName));
+        }
+
+        [Test]
+        public void DemoStageControlFactory_UsesCanonicalCatalogPrefabWithoutRuntimeFallback()
+        {
+            var source = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
+
+            Assert.That(source, Does.Contain("_popupPrefabCatalog.DemoStageControlPrefab"));
+            Assert.That(source, Does.Contain("InstantiatePopupPrefab("));
+            Assert.That(source, Does.Not.Contain("DemoStageControlPanelView.CreateRuntime"));
+            Assert.That(source, Does.Not.Contain("new GameObject"));
         }
 
         [Test]
@@ -734,6 +747,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "ConfirmPrefab",
+                    "DemoStageControlPrefab",
                     "PausePrefab",
                 }));
             Assert.That(GetPublicEventNames(typeof(PopupPrefabCatalog)), Is.Empty);
@@ -826,7 +840,6 @@ namespace Game.Feature.UI.Tests
                     "Initialize()",
                     "OpenSettingsScreen()",
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
-                    "RequestDemoStageControlPopup(IPopupPayload)",
                     "RequestPausePopup()",
                     "TryLaunchStage(StageNavigationRequest)",
                     "TryReturnToMainMenu()",

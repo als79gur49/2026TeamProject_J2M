@@ -81,6 +81,7 @@ namespace Game.Feature.UI.Composition
         private UIFlowShellPresenter _flowShellPresenter;
         private IDemoStageControlCommandPort _demoStageControlCommandPort;
         private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
+        private DemoStageControlPresentationSource _demoStageControlPresentationSource;
         private bool _isDisposed;
         private GameplayTerminalTransitionPort _terminalTransitionPort;
         private TerminalIrisMotionProfileResolver _terminalIrisMotionResolver;
@@ -505,8 +506,25 @@ namespace Game.Feature.UI.Composition
                     sceneHost.UiAccess.CampaignStageSequenceResolver;
                 _gameplayWorldGuidePresenter = sceneHost.GetComponent<GameplayWorldGuidePresenter>();
                 RegisterSceneEntryDestinationIfApplicable();
-                _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
-                _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
+                var demoOverrideCommands = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
+                var demoStageCommands = CreateDemoStageControlCommandPort(sceneHost);
+                if (demoStageCommands != null)
+                {
+                    _demoStageControlPresentationSource =
+                        new DemoStageControlPresentationSource(
+                            demoStageCommands,
+                            demoOverrideCommands,
+                            SceneTransitionCoordinator.Instance);
+                    _demoStageControlCommandPort =
+                        new RefreshingDemoStageControlCommandPort(
+                            demoStageCommands,
+                            _demoStageControlPresentationSource);
+                    _demoGameplayOverrideCommandPort = demoOverrideCommands == null
+                        ? null
+                        : new RefreshingDemoGameplayOverrideCommandPort(
+                            demoOverrideCommands,
+                            _demoStageControlPresentationSource);
+                }
                 var presentationSource = new GameplayUiPresentationSource(
                     sceneHost.UiAccess.QueryFacade,
                     sceneHost.UiAccess.PresentationFeed,
@@ -789,6 +807,8 @@ namespace Game.Feature.UI.Composition
             _gameplayPauseAudioBridge?.Dispose();
             ScreenController?.Dispose();
             PopupController?.Dispose();
+            _demoStageControlPresentationSource?.Dispose();
+            _demoStageControlPresentationSource = null;
             HudController?.Dispose();
             _hudUiAudioFeedbackController?.Dispose();
             _terminalTransitionPort?.Dispose();
@@ -1870,30 +1890,17 @@ namespace Game.Feature.UI.Composition
 
         private bool TryToggleDemoStageControlPanel()
         {
-            if (_demoStageControlSettings == null ||
-                !_demoStageControlSettings.Enabled ||
-                _demoStageControlCommandPort == null ||
-                PopupController == null ||
+            if (_demoStageControlCommandPort == null ||
+                _demoStageControlPresentationSource == null ||
                 Coordinator == null)
             {
                 return false;
             }
 
-            if (PopupController.TopPopup.HasValue)
-            {
-                if (PopupController.TopPopup.Value.PopupId == PopupId.DemoStageControl)
-                {
-                    Coordinator.HandleBackRequested();
-                }
-
-                return true;
-            }
-
-            Coordinator.RequestDemoStageControlPopup(new DemoStageControlPanelPayload(
-                _demoStageControlCommandPort.GetStages(),
-                _demoStageControlCommandPort.GetStatus(),
-                _demoGameplayOverrideCommandPort?.GetOverrideStatus() ?? default));
-            return true;
+            return Coordinator.TryToggleDemoStageControlPopup(
+                _demoStageControlSettings != null && _demoStageControlSettings.Enabled,
+                () => new DemoStageControlPanelPayload(
+                    _demoStageControlPresentationSource));
         }
 
         private bool WasDemoStageControlOpenKeyPressed()
