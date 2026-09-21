@@ -40,6 +40,8 @@
   - current runner/governance truth for `./run_tests.sh core`, `./run_tests.sh ui`, and PlayMode escalation expectations
 - [UI-Authoring-and-Navigation-Guide.md](./UI-Authoring-and-Navigation-Guide.md)
   - supporting implementation guide for prefab-first UI authoring, bounded runtime-generation exceptions, and pointer/keyboard navigation parity
+- [MainMenu-Logo-Interaction-Effect-Implementation-Plan.md](./MainMenu-Logo-Interaction-Effect-Implementation-Plan.md)
+  - proposed MainMenu Logo hover, navigation-focus, accepted-command shine/impact/particle implementation contract
 - [Docs/Testing/Post-Stage-Content-Bounded-Lane-Operations.md](../Testing/Post-Stage-Content-Bounded-Lane-Operations.md)
   - supporting truth for post-stage-content bounded lane split, Lane A recovery streams, and cross-lane handoff codebook
 - [Topology-View-Camera-Canonical-Ownership-2026-04-24.md](./Topology-View-Camera-Canonical-Ownership-2026-04-24.md)
