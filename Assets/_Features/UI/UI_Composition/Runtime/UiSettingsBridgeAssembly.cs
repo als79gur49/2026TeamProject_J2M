@@ -75,7 +75,9 @@ namespace Game.Feature.UI.Composition
 
         internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver()
         {
-            return CreatePersistentSettingsLocalizedTextResolver(new PlayerPrefsUiLocalePreferenceStore());
+            return CreatePersistentSettingsLocalizedTextResolver(
+                new PlayerPrefsUiLocalePreferenceStore(),
+                new UnityLogUiLocalePersistenceReporter());
         }
 
         internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver(
@@ -83,14 +85,43 @@ namespace Game.Feature.UI.Composition
         {
             return CreatePersistentSettingsLocalizedTextResolver(
                 localePreferenceStore,
-                TryCreateUnityStringTableTextResolver);
+                new NoOpUiLocalePersistenceReporter());
+        }
+
+        internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore,
+            IUiLocalePersistenceReporter persistenceReporter)
+        {
+            if (localePreferenceStore == null)
+            {
+                throw new ArgumentNullException(nameof(localePreferenceStore));
+            }
+
+            if (persistenceReporter == null)
+            {
+                throw new ArgumentNullException(nameof(persistenceReporter));
+            }
+
+            return UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    localePreferenceStore,
+                    persistenceReporter,
+                    out var resolver,
+                    out var failureReason)
+                ? resolver ?? throw new InvalidOperationException(
+                    "Unity Localization production setup returned a null UI text resolver.")
+                : throw new InvalidOperationException(
+                    "Unity Localization production setup is required for UI text resolution. " +
+                    $"Fix Localization Settings, required Locales, and UI/Stage String Tables. Detail: {failureReason}");
         }
 
         internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver(
             IUiLocalePreferenceStore localePreferenceStore,
             TryCreateLocalizedTextResolver tryCreateResolver)
         {
-            localePreferenceStore ??= new PlayerPrefsUiLocalePreferenceStore();
+            if (localePreferenceStore == null)
+            {
+                throw new ArgumentNullException(nameof(localePreferenceStore));
+            }
             if (tryCreateResolver == null)
             {
                 throw new ArgumentNullException(nameof(tryCreateResolver));
@@ -171,22 +202,64 @@ namespace Game.Feature.UI.Composition
                 : key;
         }
 
-        public bool TryLoad(out string localeCode)
+        public LocalePreferenceReadResult Load()
         {
-            localeCode = string.Empty;
-            if (!PlayerPrefs.HasKey(_key))
+            try
             {
-                return false;
-            }
+                if (!PlayerPrefs.HasKey(_key))
+                {
+                    return LocalePreferenceReadResult.Missing();
+                }
 
-            localeCode = PlayerPrefs.GetString(_key, string.Empty);
-            return !string.IsNullOrWhiteSpace(localeCode);
+                return LocalePreferenceReadResult.Loaded(PlayerPrefs.GetString(_key, string.Empty));
+            }
+            catch (Exception ex)
+            {
+                return LocalePreferenceReadResult.Failed(GetFailureReason(ex));
+            }
         }
 
-        public void Save(string localeCode)
+        public LocalePreferenceWriteResult Save(string canonicalLocaleCode)
         {
-            PlayerPrefs.SetString(_key, localeCode ?? string.Empty);
-            PlayerPrefs.Save();
+            if (string.IsNullOrWhiteSpace(canonicalLocaleCode))
+            {
+                throw new ArgumentException(
+                    "Canonical locale code must be non-empty.",
+                    nameof(canonicalLocaleCode));
+            }
+
+            try
+            {
+                PlayerPrefs.SetString(_key, canonicalLocaleCode);
+                PlayerPrefs.Save();
+                return LocalePreferenceWriteResult.Completed();
+            }
+            catch (Exception ex)
+            {
+                return LocalePreferenceWriteResult.Failed(GetFailureReason(ex));
+            }
+        }
+
+        private static string GetFailureReason(Exception exception)
+        {
+            return string.IsNullOrWhiteSpace(exception.Message)
+                ? exception.GetType().FullName
+                : exception.Message;
+        }
+    }
+
+    internal sealed class UnityLogUiLocalePersistenceReporter : IUiLocalePersistenceReporter
+    {
+        public void Report(LocalePersistenceDiagnostic diagnostic)
+        {
+            if (diagnostic == null)
+            {
+                throw new ArgumentNullException(nameof(diagnostic));
+            }
+
+            Debug.LogWarning(
+                $"UI locale persistence {diagnostic.Operation} failed for " +
+                $"'{diagnostic.CanonicalLocaleCode}': {diagnostic.FailureReason}");
         }
     }
 }

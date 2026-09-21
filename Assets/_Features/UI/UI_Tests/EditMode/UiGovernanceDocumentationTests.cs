@@ -7,6 +7,122 @@ namespace Game.Feature.UI.Tests
     public sealed class UiGovernanceDocumentationTests
     {
         [Test]
+        public void LocalizationTypographyCjkPlan_LocksPhaseFiveCloseoutAndPhaseSixExecutionDecisions()
+        {
+            var plan = ReadRepoFile(
+                "Docs/Architecture/Localization-Typography-CJK-Expansion-and-Residency-Plan.md");
+
+            Assert.That(
+                plan,
+                Does.Contain("uses that set only as a membership restriction, never as an ordering source"));
+            Assert.That(plan, Does.Contain("produce assertion-red XML"));
+            Assert.That(
+                plan,
+                Does.Contain("`SelectNextLocale` calls its ViewModel refresh path exactly once after the port"));
+            Assert.That(plan, Does.Contain("whole-file restore is prohibited"));
+            Assert.That(plan, Does.Contain("Phases 0-6 complete"));
+            Assert.That(plan, Does.Contain("Phase 5 execution record (2026-09-14)"));
+            Assert.That(plan, Does.Contain("explicitly accepted this process deviation"));
+            Assert.That(plan, Does.Contain("The exception changes the Complete/Hold decision only"));
+            Assert.That(plan, Does.Contain("Phase 7 and Phases 9-17 have not started"));
+            Assert.That(plan, Does.Contain("Phase 6 is a selection-policy and preference-observability change"));
+            Assert.That(plan, Does.Contain("LocalePreferenceReadStatus"));
+            Assert.That(plan, Does.Contain("LocalePreferenceWriteStatus"));
+            Assert.That(plan, Does.Contain("public static LocalePreferenceReadResult Missing();"));
+            Assert.That(plan, Does.Contain("public static LocalePreferenceReadResult Loaded(string rawLocaleCode);"));
+            Assert.That(plan, Does.Contain("public static LocalePreferenceWriteResult Completed();"));
+            Assert.That(plan, Does.Contain("write completed"));
+            Assert.That(plan, Does.Contain("does not prove a physical fsync"));
+            Assert.That(plan, Does.Contain("Returning `false` after a write failure is prohibited"));
+            Assert.That(plan, Does.Contain("LocalePersistenceOperation"));
+            Assert.That(plan, Does.Contain("`LocalePersistenceReportGuard.SafeReport`"));
+            Assert.That(plan, Does.Contain("post-health-gate reporting point"));
+            Assert.That(plan, Does.Contain("startup read failure followed by application or health-probe"));
+            Assert.That(plan, Does.Contain("Production no-argument"));
+            Assert.That(plan, Does.Contain("ViewShared no-op store whose `Load()` returns `Missing()`"));
+            Assert.That(plan, Does.Contain("existing package-free store-only compatibility overload remains"));
+            Assert.That(plan, Does.Contain("direct production-resolver store-only test/utility factory also"));
+            Assert.That(plan, Does.Contain("full-injection resolver factory is the only"));
+            Assert.That(plan, Does.Contain("A null `Load()` result is not `Failed`"));
+            Assert.That(plan, Does.Contain("A null `Save()` result is likewise a contract"));
+            Assert.That(plan, Does.Contain("For a startup alias/invalid canonical rewrite, null `Save()`"));
+            Assert.That(plan, Does.Contain("approved production or package-free runtime Change"));
+            Assert.That(plan, Does.Contain("public ViewShared static facade"));
+            Assert.That(plan, Does.Contain("secondary log, recursive report, preference retry"));
+            Assert.That(plan, Does.Contain("One helper-level throwing-reporter test"));
+            Assert.That(plan, Does.Contain("policy EvaluateRequest"));
+            Assert.That(plan, Does.Contain("invoke resolver custom LocaleChanged exactly once"));
+            Assert.That(plan, Does.Contain("`Unity SelectedLocaleChanged`"));
+            Assert.That(plan, Does.Contain("resolver custom `LocaleChanged`"));
+            Assert.That(plan, Does.Contain("complete every existing required UI/Stage startup table/key health probe"));
+            Assert.That(plan, Does.Contain("Pre-gate failure means no cleanup write or startup diagnostic occurs"));
+            Assert.That(plan, Does.Contain("does not attempt `SetString(oldValue)`"));
+            Assert.That(plan, Does.Contain("This fake proves resolver behavior only"));
+            Assert.That(plan, Does.Contain("`initialLocaleCode` argument is the"));
+            Assert.That(plan, Does.Contain("The public unrestricted `PackageFreeLocalizedTextResolver.SetLocale` is removed"));
+            Assert.That(plan, Does.Contain("The full classification matrix is not copied into every resolver fixture"));
+            Assert.That(plan, Does.Contain("External Unity event cases are Composition-only"));
+            Assert.That(plan, Does.Contain("behavior-neutral internal startup-health validation seam"));
+            Assert.That(plan, Does.Contain("one narrow final source-order guard"));
+            Assert.That(plan, Does.Contain("post-Dispose count is insufficient"));
+            Assert.That(plan, Does.Contain("pre-gate startup failure"));
+            Assert.That(plan, Does.Contain("actual assertion red"));
+            Assert.That(plan, Does.Contain("failure-path check is a final green gate"));
+            Assert.That(plan, Does.Contain("fail independently in the behavior-red XML"));
+            Assert.That(plan, Does.Contain("`SettingsScreenPresenters.cs` is likewise outside the automatic touch set"));
+            Assert.That(plan, Does.Contain("Compiler failure,"));
+            Assert.That(plan, Does.Contain("tests, or missing XML is not red evidence"));
+            Assert.That(plan, Does.Contain("Do not introduce Phase 9 transition state"));
+            Assert.That(plan, Does.Contain("The rollback unit is the Phase 6 incremental patch"));
+            Assert.That(plan, Does.Contain("restore, or regeneration over an overlapping Phase 5/user file is prohibited"));
+            Assert.That(plan, Does.Contain("Phases 0-6 complete"));
+            Assert.That(plan, Does.Contain("Phase 6 execution record (2026-09-14)"));
+            Assert.That(plan, Does.Contain("65 total / 62 passed / 3 failed"));
+            Assert.That(plan, Does.Contain("57 total / 52 passed / 5 failed"));
+            Assert.That(plan, Does.Contain("catalog `29/29`, foundation `82/82`"));
+            Assert.That(plan, Does.Contain("Unity EditMode `1496/1496`"));
+            Assert.That(plan, Does.Contain("does not prove fsync, atomic durability"));
+            Assert.That(plan, Does.Contain("Phase 7 and Phases 9-17 remain unimplemented"));
+        }
+
+        [Test]
+        public void FourLocaleAllResidentPlan_SupersedesOnlyFutureWork_AndLocksApprovalAndResidency()
+        {
+            var legacyPlan = ReadRepoFile(
+                "Docs/Architecture/Localization-Typography-CJK-Expansion-and-Residency-Plan.md");
+            var plan = ReadRepoFile(
+                "Docs/Architecture/Localization-Typography-Four-Locale-All-Resident-Plan.md");
+            var architectureIndex = ReadRepoFile("Docs/Architecture/README.md");
+
+            Assert.That(legacyPlan, Does.Contain("Future-plan supersession notice (updated 2026-09-20)"));
+            Assert.That(
+                legacyPlan,
+                Does.Contain("Phases 0-6 and their execution"));
+            Assert.That(
+                legacyPlan,
+                Does.Contain("records in this document remain the implemented historical/current baseline"));
+            Assert.That(
+                legacyPlan,
+                Does.Contain("Localization-Typography-Four-Locale-All-Resident-Plan.md"));
+            Assert.That(
+                architectureIndex,
+                Does.Contain("all four Theme font graphs resident"));
+
+            Assert.That(plan, Does.Contain("The four canonical locales are `en-US`, `ko-KR`, `ja-JP`, and `zh-CN`"));
+            Assert.That(plan, Does.Contain("graphs remain resident"));
+            Assert.That(plan, Does.Contain("Font assets are not loaded or released per locale"));
+            Assert.That(plan, Does.Contain("explicit human approval"));
+            Assert.That(plan, Does.Contain("exact Unicode-scalar corpus"));
+            Assert.That(plan, Does.Contain("TMP's missing-glyph marker remains U+25A1 `□`"));
+            Assert.That(plan, Does.Contain("English is not admitted through a locale-font union"));
+            Assert.That(plan, Does.Contain("Player admission fails when any one font has a"));
+            Assert.That(plan, Does.Contain("missing production scalar"));
+            Assert.That(plan, Does.Contain("No font handle owner, current/candidate slot"));
+            Assert.That(plan, Does.Contain("registered as ShipReady"));
+            Assert.That(plan, Does.Contain("30,413,632 bytes"));
+        }
+
+        [Test]
         public void UiBaselineNote_RecordsStructuralEvolutionSections_AndGuardGovernance()
         {
             var baseline = ReadRepoFile("Docs/Testing/UI-EditMode-Baseline-2026-04-15.md");
@@ -52,6 +168,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("CommandLine-20260726-052954"));
             Assert.That(guide, Does.Contain("three separate `Diagnostics/` PNGs"));
             Assert.That(guide, Does.Contain("UI-Current-Structure-Source.md"));
+            Assert.That(guide, Does.Contain("Phase 5 ordered-autonym option runtime"));
+            Assert.That(guide, Does.Contain("`1464/1464`"));
+            Assert.That(guide, Does.Contain("chronology deviation"));
+            Assert.That(guide, Does.Contain("Phase 6 unified persistence/fallback runtime"));
+            Assert.That(guide, Does.Contain("`1496/1496`"));
             Assert.That(guide, Does.Contain("current UI structure or stale-token audit policy changes"));
             Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
             Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
@@ -154,8 +275,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
             var resultSection = ExtractMarkdownSection(baseline, "## Result");
-            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1445 total / 0 failed`"));
-            Assert.That(resultSection, Does.Contain("result `1445 total / 0 failed`, failed tests `none`, failure category `none`"));
+            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1528 total / 0 failed`"));
+            Assert.That(resultSection, Does.Contain("result `1528 total / 0 failed`, failed tests `none`, failure category `none`"));
+            Assert.That(resultSection, Does.Contain("Phase 5 ordered-autonym option rerun"));
+            Assert.That(resultSection, Does.Contain("Phase 6 unified persistence/fallback rerun"));
+            Assert.That(resultSection, Does.Contain("explicitly approved the recorded tests-first chronology deviation"));
             Assert.That(resultSection, Does.Contain("CommandLine-20260726-052954"));
             Assert.That(resultSection, Does.Not.Contain("706 total / 0 failed"), "Current baseline Result section must not retain stale 706 total evidence.");
             Assert.That(baseline, Does.Contain("PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary"));
@@ -312,6 +436,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("resolver-only input router initialized through `IUiNavigationTargetResolver`"));
             Assert.That(source, Does.Contain("must not regain `PopupController`, `PopupLayerView`, or `MainMenuScreenView` direct legacy overloads"));
             Assert.That(source, Does.Contain("package-free `UI.ViewShared` production authority"));
+            Assert.That(source, Does.Contain("immutable `LocaleOptionModel` projections"));
+            Assert.That(source, Does.Contain("supported codes only as membership"));
+            Assert.That(source, Does.Contain("post-request actual-current verification"));
             Assert.That(source, Does.Contain("`UI.Application` requirement projection -> `UI.Composition.Editor` Unity snapshot adapter -> package-free `UI.ViewShared` validator"));
             Assert.That(source, Does.Contain("does not own runtime locale selection, font residency, Addressables loading, or authoritative UI presentation state"));
             Assert.That(source, Does.Contain("Settings tooltip on/off and large text on/off accessibility toggles are removed residue."));

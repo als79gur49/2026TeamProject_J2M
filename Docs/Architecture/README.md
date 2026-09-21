@@ -41,7 +41,9 @@
 - [UI-Authoring-and-Navigation-Guide.md](./UI-Authoring-and-Navigation-Guide.md)
   - supporting implementation guide for prefab-first UI authoring, bounded runtime-generation exceptions, and pointer/keyboard navigation parity
 - [Localization-Typography-CJK-Expansion-and-Residency-Plan.md](./Localization-Typography-CJK-Expansion-and-Residency-Plan.md)
-  - scalability-first localization/font residency execution plan for en/ko structure generalization followed by `ja-JP` and `zh-CN` Draft addition; the heavy timing/memory baseline is deferred because current users observe no perceptible stall, while same-revision packed Player dependency, lease, transition, and rollback gates remain mandatory before CJK import
+  - historical Phase 0-6 implementation record and superseded broader future proposal; use the four-locale all-resident plan below for future execution
+- [Localization-Typography-Four-Locale-All-Resident-Plan.md](./Localization-Typography-Four-Locale-All-Resident-Plan.md)
+  - active plan for fixed `en-US`/`ko-KR`/`ja-JP`/`zh-CN` support with approved-string exact Static atlases and all four Theme font graphs resident
 - [Docs/Testing/Post-Stage-Content-Bounded-Lane-Operations.md](../Testing/Post-Stage-Content-Bounded-Lane-Operations.md)
   - supporting truth for post-stage-content bounded lane split, Lane A recovery streams, and cross-lane handoff codebook
 - [Topology-View-Camera-Canonical-Ownership-2026-04-24.md](./Topology-View-Camera-Canonical-Ownership-2026-04-24.md)

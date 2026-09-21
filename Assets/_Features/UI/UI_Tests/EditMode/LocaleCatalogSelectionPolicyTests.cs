@@ -9,6 +9,59 @@ namespace Game.Feature.UI.Tests
     public sealed class LocaleCatalogSelectionPolicyTests
     {
         [Test]
+        public void LocaleOptionModel_RejectsBlankIdentityAndAutonym()
+        {
+            Assert.Throws<ArgumentException>(() => new LocaleOptionModel(" ", "English"));
+            Assert.Throws<ArgumentException>(() => new LocaleOptionModel("en-US", " "));
+        }
+
+        [Test]
+        public void LocaleOptionSnapshot_IsOwnedReadOnlyAndRejectsNullOrDuplicateRows()
+        {
+            var source = new[]
+            {
+                new LocaleCatalogEntry("en-US", "English", 10, LocaleLifecycle.ShipReady),
+            };
+            var snapshot = LocaleOptionSnapshot.FromCatalogEntries(source);
+
+            source[0] = new LocaleCatalogEntry("ko-KR", "한국어", 20, LocaleLifecycle.ShipReady);
+
+            Assert.That(snapshot[0].CanonicalCode, Is.EqualTo("en-US"));
+            Assert.That(snapshot, Is.InstanceOf<System.Collections.IList>());
+            Assert.That(((System.Collections.IList)snapshot).IsReadOnly, Is.True);
+            Assert.Throws<ArgumentException>(() =>
+                LocaleOptionSnapshot.FromCatalogEntries(new LocaleCatalogEntry[] { null }));
+            Assert.Throws<ArgumentException>(() =>
+                LocaleOptionSnapshot.FromCatalogEntries(new[]
+                {
+                    new LocaleCatalogEntry("en-US", "English", 10, LocaleLifecycle.ShipReady),
+                    new LocaleCatalogEntry("en-US", "English duplicate", 20, LocaleLifecycle.ShipReady),
+                }));
+        }
+
+        [Test]
+        public void PackageFreeOptionProjection_UsesCatalogOrderNotMembershipOrder()
+        {
+            var catalogOrder = new[]
+            {
+                new LocaleCatalogEntry("b-BB", "B", 10, LocaleLifecycle.ShipReady),
+                new LocaleCatalogEntry("a-AA", "A", 20, LocaleLifecycle.ShipReady),
+                new LocaleCatalogEntry("c-CC", "C", 30, LocaleLifecycle.ShipReady),
+            };
+
+            var options = LocaleOptionSnapshot.FromCatalogMembership(
+                catalogOrder,
+                new[] { "a-AA", "b-BB" });
+
+            Assert.That(
+                options.Select(option => option.CanonicalCode).ToArray(),
+                Is.EqualTo(new[] { "b-BB", "a-AA" }));
+            Assert.That(
+                options.Select(option => option.DisplayNameAutonym).ToArray(),
+                Is.EqualTo(new[] { "B", "A" }));
+        }
+
+        [Test]
         public void Catalog_OrdersAuthoringKnownAndShipReadyRowsByStableOrder()
         {
             var catalog = CreateSyntheticCatalog();
@@ -35,6 +88,23 @@ namespace Game.Feature.UI.Tests
                 policy.RegisteredLocaleCodes.Except(policy.Catalog.AuthoringKnownLocales.Select(entry => entry.CanonicalCode)),
                 Is.EqualTo(new[] { "external-locale" }));
             Assert.That(policy.SelectableLocales.Select(entry => entry.CanonicalCode), Is.EqualTo(new[] { "loc-A", "loc-C" }));
+        }
+
+        [Test]
+        public void FinalOptionProjection_DeduplicatesRegistrationAndExcludesDraftUnknownAndAliasRows()
+        {
+            var policy = new LocaleSelectionPolicy(
+                CreateSyntheticCatalog(),
+                new[] { "loc-C", "loc-B", "missing", "legacy-c", "loc-A", "loc-C" });
+
+            var options = LocaleOptionSnapshot.FromCatalogEntries(policy.SelectableLocales);
+
+            Assert.That(
+                options.Select(option => option.CanonicalCode).ToArray(),
+                Is.EqualTo(new[] { "loc-A", "loc-C" }));
+            Assert.That(
+                options.Select(option => option.DisplayNameAutonym).ToArray(),
+                Is.EqualTo(new[] { "Locale A", "Locale C" }));
         }
 
         [TestCase("loc-A", 1, "loc-C")]
@@ -76,6 +146,36 @@ namespace Game.Feature.UI.Tests
             Assert.That(policy.ResolveInitialLocale(null, null), Is.EqualTo("loc-A"));
         }
 
+        [TestCase("loc-A", "loc-C", "loc-A", TestName = "PersistedCanonical")]
+        [TestCase("legacy-c", "loc-A", "loc-C", TestName = "PersistedAlias")]
+        [TestCase("", "loc-C", "loc-C", TestName = "PersistedBlankFallsThrough")]
+        [TestCase("loc-B", "loc-C", "loc-C", TestName = "PersistedDraftFallsThrough")]
+        [TestCase("unknown", "loc-C", "loc-C", TestName = "PersistedUnknownFallsThrough")]
+        [TestCase("loc-D", "loc-C", "loc-C", TestName = "PersistedUnregisteredShipReadyFallsThrough")]
+        [TestCase(null, "loc-C", "loc-C", TestName = "PersistedMissingFallsThrough")]
+        [TestCase("unknown", "loc-B", "loc-A", TestName = "InvalidSelectedFallsBackToDefault")]
+        public void SelectionPolicy_StartupClassificationTable(
+            string persistedLocaleCode,
+            string selectedLocaleCode,
+            string expectedLocaleCode)
+        {
+            var catalog = new UiLocaleCatalog(
+                new[]
+                {
+                    new LocaleCatalogEntry("loc-A", "Locale A", 10, LocaleLifecycle.ShipReady),
+                    new LocaleCatalogEntry("loc-B", "Locale B", 20, LocaleLifecycle.Draft),
+                    new LocaleCatalogEntry("loc-C", "Locale C", 30, LocaleLifecycle.ShipReady, new[] { "legacy-c" }),
+                    new LocaleCatalogEntry("loc-D", "Locale D", 40, LocaleLifecycle.ShipReady),
+                },
+                "loc-A",
+                "loc-A");
+            var policy = new LocaleSelectionPolicy(catalog, new[] { "loc-A", "loc-B", "loc-C" });
+
+            Assert.That(
+                policy.ResolveInitialLocale(persistedLocaleCode, selectedLocaleCode),
+                Is.EqualTo(expectedLocaleCode));
+        }
+
         [Test]
         public void SelectionPolicy_DraftPersistedAndSelectedCandidatesFallThroughToRegisteredDefault()
         {
@@ -113,16 +213,31 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ProductionCatalog_PreservesCurrentShipReadyRows()
+        public void ProductionCatalog_TracksFourLocales_AndExposesOnlyApprovedRows()
         {
             var catalog = UiLocaleCatalog.CreateProduction();
 
             Assert.That(catalog.DefaultLocaleCode, Is.EqualTo("en-US"));
             Assert.That(catalog.EmergencyFallbackLocaleCode, Is.EqualTo("en-US"));
-            Assert.That(catalog.AuthoringKnownLocales.Select(entry => entry.CanonicalCode), Is.EqualTo(new[] { "en-US", "ko-KR" }));
-            Assert.That(catalog.AuthoringKnownLocales.Select(entry => entry.DisplayName), Is.EqualTo(new[] { "English", "한국어" }));
+            Assert.That(
+                catalog.AuthoringKnownLocales.Select(entry => entry.CanonicalCode),
+                Is.EqualTo(new[] { "en-US", "ko-KR", "ja-JP", "zh-CN" }));
+            Assert.That(
+                catalog.AuthoringKnownLocales.Select(entry => entry.DisplayName),
+                Is.EqualTo(new[] { "English", "한국어", "日本語", "简体中文" }));
+            Assert.That(
+                catalog.AuthoringKnownLocales.All(entry => entry.Lifecycle == LocaleLifecycle.ShipReady),
+                Is.True);
             Assert.That(catalog.ShipReadyLocales.All(entry => entry.Lifecycle == LocaleLifecycle.ShipReady), Is.True);
-            Assert.That(PackageFreeLocalizedTextResolver.CreateSettingsDefault().AvailableLocaleCodes, Is.EqualTo(new[] { "en-US", "ko-KR" }));
+            Assert.That(
+                catalog.ShipReadyLocales.Select(entry => entry.CanonicalCode),
+                Is.EqualTo(new[] { "en-US", "ko-KR", "ja-JP", "zh-CN" }));
+            Assert.That(
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault()
+                    .AvailableLocaleOptions
+                    .Select(option => option.CanonicalCode)
+                    .ToArray(),
+                Is.EqualTo(new[] { "en-US", "ko-KR" }));
         }
 
         [Test]

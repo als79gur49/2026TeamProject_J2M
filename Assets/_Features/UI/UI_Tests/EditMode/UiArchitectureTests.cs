@@ -24,6 +24,236 @@ namespace Game.Feature.UI.Tests
     public sealed class UiArchitectureTests
     {
         [Test]
+        public void PhaseSixPreferenceStoreShape_UsesStructuredReadAndWriteResults()
+        {
+            var methods = typeof(IUiLocalePreferenceStore)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .OrderBy(method => method.Name, StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.That(methods.Select(method => method.Name).ToArray(), Is.EqualTo(new[] { "Load", "Save" }));
+            Assert.That(methods.Single(method => method.Name == "Load").ReturnType.Name,
+                Is.EqualTo("LocalePreferenceReadResult"));
+            Assert.That(methods.Single(method => method.Name == "Save").ReturnType.Name,
+                Is.EqualTo("LocalePreferenceWriteResult"));
+        }
+
+        [Test]
+        public void PhaseSixPreferenceResultAndReporterShapes_ExistInViewShared()
+        {
+            var assembly = typeof(IUiLocalePreferenceStore).Assembly;
+            var requiredTypes = new[]
+            {
+                "LocalePreferenceReadStatus",
+                "LocalePreferenceReadResult",
+                "LocalePreferenceWriteStatus",
+                "LocalePreferenceWriteResult",
+                "LocalePersistenceOperation",
+                "LocalePersistenceDiagnostic",
+                "IUiLocalePersistenceReporter",
+                "LocalePersistenceReportGuard",
+            };
+
+            Assert.That(
+                requiredTypes.Select(name => assembly.GetType($"Game.Feature.UI.ViewShared.{name}", false)),
+                Is.All.Not.Null);
+        }
+
+        [Test]
+        public void PhaseSixPackageFreeResolver_HasNoPublicUnrestrictedSetLocale()
+        {
+            Assert.That(
+                typeof(PackageFreeLocalizedTextResolver).GetMethod(
+                    "SetLocale",
+                    BindingFlags.Instance | BindingFlags.Public),
+                Is.Null);
+        }
+
+        [Test]
+        public void PhaseSixStartupSubscription_RemainsAfterHealthAndPersistenceHandling()
+        {
+            var source = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/UnityStringTableTextResolver.cs");
+            var initializeStart = source.IndexOf("private bool TryInitialize", StringComparison.Ordinal);
+            var initializeEnd = source.IndexOf("private bool ValidateStartupHealth", initializeStart, StringComparison.Ordinal);
+            var initialize = source.Substring(initializeStart, initializeEnd - initializeStart);
+            var healthIndex = initialize.IndexOf(
+                "_validateStartupHealth(initialLocaleCode, out failureReason)",
+                StringComparison.Ordinal);
+            var persistenceIndex = initialize.IndexOf("LocalePersistenceOperation.StartupRead", StringComparison.Ordinal);
+            var rewriteIndex = initialize.IndexOf("LocalePersistenceOperation.StartupRewrite", StringComparison.Ordinal);
+            var subscriptionIndex = initialize.IndexOf(
+                "LocalizationSettings.SelectedLocaleChanged += HandleSelectedLocaleChanged;",
+                StringComparison.Ordinal);
+
+            Assert.That(healthIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(persistenceIndex, Is.GreaterThan(healthIndex));
+            Assert.That(rewriteIndex, Is.GreaterThan(healthIndex));
+            Assert.That(subscriptionIndex, Is.GreaterThan(persistenceIndex));
+            Assert.That(subscriptionIndex, Is.GreaterThan(rewriteIndex));
+            Assert.That(initialize, Does.Not.Contain("LocaleChanged?.Invoke"),
+                "Startup must not raise the resolver's custom LocaleChanged event.");
+        }
+
+        [Test]
+        public void SliceA2Resolver_DeclaresExactLocaleLookupAndSelectedStartupHealthShape()
+        {
+            var source = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/UnityStringTableTextResolver.cs");
+
+            Assert.That(source, Does.Contain("internal delegate bool TryResolveExactLocale("),
+                "A2 requires one strongly typed exact-locale lookup injection seam.");
+            Assert.That(source, Does.Contain("string canonicalLocaleCode,"));
+            Assert.That(source, Does.Contain("LocalizedTextDescriptor descriptor,"));
+            Assert.That(source, Does.Match(
+                    @"TryValidateStartupHealth\s*\(\s*string canonicalLocaleCode\s*,"),
+                "Startup health must receive the selected canonical locale explicitly.");
+        }
+
+        [Test]
+        public void PhaseFiveLocaleOptionShape_ReplacesCodeListAndSettingsLanguageBranches()
+        {
+            var viewSharedAssembly = typeof(IUiLocaleSelectionPort).Assembly;
+            var optionType = viewSharedAssembly.GetType(
+                "Game.Feature.UI.ViewShared.LocaleOptionModel",
+                throwOnError: false);
+            var portProperties = typeof(IUiLocaleSelectionPort)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(property => property.Name)
+                .ToArray();
+            var presenterSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
+            var viewSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs");
+            var payloadSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Screens/Runtime/ScreenModels.cs");
+
+            Assert.That(optionType, Is.Not.Null, "LocaleOptionModel must exist.");
+            if (optionType != null)
+            {
+                Assert.That(optionType.IsSealed, Is.True);
+                Assert.That(optionType.IsValueType, Is.False);
+                Assert.That(
+                    optionType.GetProperty("CanonicalCode")?.PropertyType,
+                    Is.EqualTo(typeof(string)));
+                Assert.That(
+                    optionType.GetProperty("DisplayNameAutonym")?.PropertyType,
+                    Is.EqualTo(typeof(string)));
+                Assert.That(
+                    optionType
+                        .GetConstructors(BindingFlags.Instance | BindingFlags.Public)
+                        .Select(constructor => constructor.GetParameters().Select(parameter => parameter.ParameterType).ToArray())
+                        .ToArray(),
+                    Has.Length.EqualTo(1));
+                Assert.That(
+                    optionType
+                        .GetConstructors(BindingFlags.Instance | BindingFlags.Public)
+                        .Single()
+                        .GetParameters()
+                        .Select(parameter => parameter.ParameterType)
+                        .ToArray(),
+                    Is.EqualTo(new[] { typeof(string), typeof(string) }));
+                Assert.That(
+                    optionType
+                        .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                        .Select(property => property.Name)
+                        .OrderBy(name => name, StringComparer.Ordinal)
+                        .ToArray(),
+                    Is.EqualTo(new[] { "CanonicalCode", "DisplayNameAutonym" }));
+            }
+
+            Assert.That(portProperties, Does.Contain("AvailableLocaleOptions"));
+            Assert.That(portProperties, Does.Not.Contain("AvailableLocale" + "Codes"));
+            Assert.That(presenterSource, Does.Not.Contain("_englishLanguageLabelDescriptor"));
+            Assert.That(presenterSource, Does.Not.Contain("_koreanLanguageLabelDescriptor"));
+            Assert.That(viewSource, Does.Not.Contain("_englishLanguageLabelDescriptor"));
+            Assert.That(viewSource, Does.Not.Contain("_koreanLanguageLabelDescriptor"));
+            Assert.That(payloadSource, Does.Not.Contain("EnglishLanguageLabelDescriptor"));
+            Assert.That(payloadSource, Does.Not.Contain("KoreanLanguageLabelDescriptor"));
+        }
+
+        [Test]
+        public void LocaleOptionProjection_IsPrecomputedAndDoesNotResolveOrPreloadTables()
+        {
+            var viewSharedSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_ViewShared/Runtime/LocalizedTextDescriptor.cs");
+            var compositionSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/UnityStringTableTextResolver.cs");
+            var projectionStart = viewSharedSource.IndexOf(
+                "public static class LocaleOptionSnapshot",
+                StringComparison.Ordinal);
+            var projectionEnd = viewSharedSource.IndexOf(
+                "public interface IUiLocaleSelectionPort",
+                projectionStart,
+                StringComparison.Ordinal);
+            var projectionSource = viewSharedSource.Substring(
+                projectionStart,
+                projectionEnd - projectionStart);
+            var optionStart = viewSharedSource.IndexOf(
+                "public sealed class LocaleOptionModel",
+                StringComparison.Ordinal);
+            var optionEnd = viewSharedSource.IndexOf(
+                "public static class LocaleOptionSnapshot",
+                optionStart,
+                StringComparison.Ordinal);
+            var optionSource = viewSharedSource.Substring(optionStart, optionEnd - optionStart);
+            var compositionProjectionStart = compositionSource.IndexOf(
+                "_selectionPolicy = new LocaleSelectionPolicy",
+                StringComparison.Ordinal);
+            var compositionProjectionEnd = compositionSource.IndexOf(
+                "var readResult = _localePreferenceStore.Load()",
+                compositionProjectionStart,
+                StringComparison.Ordinal);
+            var compositionProjectionSource = compositionSource.Substring(
+                compositionProjectionStart,
+                compositionProjectionEnd - compositionProjectionStart);
+            var currentOptionInvariantStart = compositionSource.IndexOf(
+                "if (_availableLocaleOptions.Count > 0 &&",
+                StringComparison.Ordinal);
+            var currentOptionInvariantEnd = compositionSource.IndexOf(
+                "SetSelectedLocale(initialLocale, initialLocaleCode, preload: true);",
+                currentOptionInvariantStart,
+                StringComparison.Ordinal);
+            var currentOptionInvariantSource = compositionSource.Substring(
+                currentOptionInvariantStart,
+                currentOptionInvariantEnd - currentOptionInvariantStart);
+
+            Assert.That(
+                compositionSource,
+                Does.Contain("AvailableLocaleOptions => _availableLocaleOptions;"));
+            Assert.That(
+                compositionSource,
+                Does.Contain("LocaleOptionSnapshot.FromCatalogEntries(\n                    _selectionPolicy.SelectableLocales)"));
+            Assert.That(projectionSource, Does.Contain("LocaleCatalogEntry"));
+            Assert.That(projectionSource, Does.Contain("LocaleOptionModel"));
+            Assert.That(projectionSource, Does.Not.Contain("Resolve("));
+            Assert.That(projectionSource, Does.Not.Contain("PreloadTable"));
+            Assert.That(projectionSource, Does.Not.Contain("StringTable"));
+            Assert.That(projectionSource, Does.Not.Contain("LocalizationSettings"));
+            Assert.That(optionSource, Does.Not.Contain("UnityEngine"));
+            Assert.That(optionSource, Does.Not.Contain("TMPro"));
+            Assert.That(optionSource, Does.Not.Contain("Addressables"));
+            Assert.That(optionSource, Does.Not.Contain("Font"));
+            Assert.That(optionSource, Does.Not.Contain("Material"));
+            Assert.That(optionSource, Does.Not.Contain("Handle"));
+            Assert.That(compositionProjectionSource, Does.Contain("_selectionPolicy.SelectableLocales"));
+            Assert.That(compositionProjectionSource, Does.Not.Contain("Resolve("));
+            Assert.That(compositionProjectionSource, Does.Not.Contain("PreloadTable"));
+            Assert.That(compositionProjectionSource, Does.Not.Contain("StringDatabase"));
+            Assert.That(compositionProjectionSource, Does.Not.Contain("AvailableLocales.Locales"));
+            Assert.That(
+                currentOptionInvariantSource,
+                Does.Contain("string.Equals(option.CanonicalCode, initialLocaleCode, StringComparison.Ordinal)"));
+            Assert.That(
+                currentOptionInvariantSource,
+                Does.Contain("Resolved current locale '{initialLocaleCode}' is absent from available locale options"));
+            Assert.That(
+                currentOptionInvariantSource,
+                Does.Contain("string.Join(\", \", _availableLocaleOptions.Select(option => option.CanonicalCode))"));
+            Assert.That(currentOptionInvariantSource, Does.Contain("return false;"));
+        }
+
+        [Test]
         public void OnlyCompositionUiAssemblyReferencesGameplayHostAssembly()
         {
             var hostAssemblyName = typeof(GameplaySceneHost).Assembly.GetName().Name;
@@ -1101,7 +1331,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "Apply(Double)",
-                    "Apply(LocalizedTextDescriptor, LocalizedTextDescriptor, LocalizedTextDescriptor, Double)",
+                    "Apply(LocalizedTextDescriptor, Double)",
                     "ApplyStagedSettings(Double)",
                     "CancelPreview()",
                     "ClearPreviewCountdown()",

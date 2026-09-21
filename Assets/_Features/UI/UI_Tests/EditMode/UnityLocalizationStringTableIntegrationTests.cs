@@ -8,6 +8,7 @@ using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Composition.Editor;
+using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
@@ -298,7 +299,7 @@ namespace Game.Feature.UI.Tests
                     $"Invariant en-US drift: {contractEntry.Key}");
             }
 
-            packageFreeResolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(packageFreeResolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
             foreach (var contractEntry in SettingsLocalizationContract.Entries)
             {
                 var descriptor = new LocalizedTextDescriptor(contractEntry.Table, contractEntry.Key);
@@ -705,7 +706,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(koreanLocale));
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(store.LastSavedLocaleCode, Is.EqualTo("ko-KR"));
         }
 
         [Test]
@@ -770,10 +772,13 @@ namespace Game.Feature.UI.Tests
             var resolverEventCount = 0;
             resolver.LocaleChanged += () => resolverEventCount++;
 
-            Assert.That(resolver.AvailableLocaleCodes, Is.EqualTo(new[] { "en-US" }));
+            Assert.That(
+                resolver.AvailableLocaleOptions.Select(option => option.CanonicalCode).ToArray(),
+                Is.EqualTo(new[] { "en-US" }));
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
             Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(englishLocale));
-            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(store.LastSavedLocaleCode, Is.EqualTo("en-US"));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.False);
             Assert.That(resolver.TrySetLocale("KO-kr"), Is.False);
@@ -783,15 +788,39 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(englishLocale));
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
-            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
             Assert.That(resolverEventCount, Is.EqualTo(0));
 
             LocalizationSettings.SelectedLocale = null;
 
             Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(englishLocale));
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
-            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
             Assert.That(resolverEventCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ProductionResolver_ProjectsCanonicalOptionsAndRawAutonymsIndependentOfActiveLocale()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+
+            Assert.That(
+                resolver.AvailableLocaleOptions
+                    .Select(option => option.CanonicalCode)
+                    .ToArray(),
+                Is.EqualTo(new[] { "en-US", "ko-KR", "ja-JP", "zh-CN" }));
+            Assert.That(
+                resolver.AvailableLocaleOptions
+                    .Select(option => option.DisplayNameAutonym)
+                    .ToArray(),
+                Is.EqualTo(new[] { "English", "한국어", "日本語", "简体中文" }));
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            Assert.That(
+                resolver.AvailableLocaleOptions
+                    .Select(option => option.DisplayNameAutonym)
+                    .ToArray(),
+                Is.EqualTo(new[] { "English", "한국어", "日本語", "简体中文" }));
         }
 
         [Test]
@@ -807,11 +836,14 @@ namespace Game.Feature.UI.Tests
             var source = File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/UnityStringTableTextResolver.cs");
 
-            Assert.That(publicFactories, Has.Length.EqualTo(1));
-            Assert.That(publicFactories[0].GetParameters(),
-                Has.None.Matches<ParameterInfo>(parameter => parameter.ParameterType == typeof(UiLocaleCatalog)));
-            Assert.That(injectedFactories, Has.Length.EqualTo(1));
-            Assert.That(injectedFactories[0].IsAssembly, Is.True);
+            Assert.That(publicFactories, Has.Length.EqualTo(2));
+            Assert.That(publicFactories.All(method => method.GetParameters()
+                .All(parameter => parameter.ParameterType != typeof(UiLocaleCatalog))), Is.True);
+            Assert.That(injectedFactories, Has.Length.EqualTo(3));
+            Assert.That(injectedFactories.All(method => method.IsAssembly), Is.True);
+            Assert.That(injectedFactories.Single(method => method.GetParameters().Any(parameter =>
+                    parameter.ParameterType == typeof(UnityStringTableTextResolver.TryResolveExactLocale)))
+                .IsAssembly, Is.True);
             Assert.That(source, Does.Contain("UiLocaleCatalog.CreateProduction()"));
         }
 
@@ -864,9 +896,437 @@ namespace Game.Feature.UI.Tests
             Assert.That(store.SaveCallCount, Is.EqualTo(1));
             Assert.That(eventCount, Is.EqualTo(1));
 
-            Assert.That(resolver.TrySetLocale("legacy-ja"), Is.False);
+            Assert.That(resolver.TrySetLocale("legacy-fr"), Is.False);
             Assert.That(store.SaveCallCount, Is.EqualTo(1));
             Assert.That(eventCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PhaseSixBehaviorRed_PackageFreeInvalidLoadedPreferenceUsesSelectedAndRewritesCanonical()
+        {
+            var store = new FakeUiLocalePreferenceStore("invalid-loaded");
+            var reporter = new RecordingLocalePersistenceReporter();
+
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                "ko-KR",
+                store,
+                reporter);
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(store.LastSavedLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(reporter.Diagnostics, Is.Empty);
+        }
+
+        [Test]
+        public void PhaseSixBehaviorRed_StartupAliasRewritesCanonicalAfterHealthGate()
+        {
+            var store = new FakeUiLocalePreferenceStore("legacy-ko");
+            var reporter = new RecordingLocalePersistenceReporter();
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+
+            using var resolver = CreateUnityResolverFromCurrentSelection(
+                store,
+                reporter,
+                CreateAliasCatalog(includeUnregisteredAliasTarget: true));
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(store.LastSavedLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(reporter.Diagnostics, Is.Empty);
+        }
+
+        [Test]
+        public void PhaseSixBehaviorRed_SettingsWriteFailureKeepsAppliedChangeAndReports()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore
+            {
+                WriteResult = LocalePreferenceWriteResult.Failed("settings write failed"),
+            };
+            var reporter = new RecordingLocalePersistenceReporter();
+            using var resolver = CreateUnityResolverFromCurrentSelection(store, reporter);
+            var eventCount = 0;
+            resolver.LocaleChanged += () => eventCount++;
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(reporter.Diagnostics.Select(item => item.Operation),
+                Is.EqualTo(new[] { LocalePersistenceOperation.SettingsSelection }));
+        }
+
+        [Test]
+        public void PhaseSixBehaviorRed_ApprovedExternalChangePersistsCanonicalLocale()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore();
+            var reporter = new RecordingLocalePersistenceReporter();
+            using var resolver = CreateUnityResolverFromCurrentSelection(store, reporter);
+            var eventCount = 0;
+            resolver.LocaleChanged += () => eventCount++;
+
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("ko-KR");
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(store.LastSavedLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(reporter.Diagnostics, Is.Empty);
+        }
+
+        [Test]
+        public void PhaseSixStartupReadFailure_ReportsOnlyAfterSuccessfulHealthGate()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("ko-KR");
+            var store = new FakeUiLocalePreferenceStore
+            {
+                ReadResult = LocalePreferenceReadResult.Failed("read failed"),
+            };
+            var reporter = new RecordingLocalePersistenceReporter();
+
+            using var resolver = CreateUnityResolverFromCurrentSelection(store, reporter);
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.Zero);
+            Assert.That(reporter.Diagnostics.Single().Operation,
+                Is.EqualTo(LocalePersistenceOperation.StartupRead));
+            Assert.That(reporter.Diagnostics.Single().CanonicalLocaleCode, Is.EqualTo("ko-KR"));
+        }
+
+        [Test]
+        public void PhaseSixStartupHealthFailure_HasNoWriteReportOrTransientSubscription()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore("invalid-loaded");
+            var reporter = new RecordingLocalePersistenceReporter();
+            var healthCallCount = 0;
+            bool FailHealth(string canonicalLocaleCode, out string reason)
+            {
+                healthCallCount++;
+                Assert.That(canonicalLocaleCode, Is.EqualTo("en-US"));
+                LocalizationSettings.SelectedLocale = RequireAvailableLocale("ko-KR");
+                reason = "injected health failure";
+                return false;
+            }
+
+            Assert.That(
+                UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    store,
+                    reporter,
+                    UiLocaleCatalog.CreateProduction(),
+                    FailHealth,
+                    out var resolver,
+                    out var failureReason),
+                Is.False);
+            Assert.That(resolver, Is.Null);
+            Assert.That(failureReason, Is.EqualTo("injected health failure"));
+            Assert.That(healthCallCount, Is.EqualTo(1));
+            Assert.That(store.SaveCallCount, Is.Zero);
+            Assert.That(reporter.Diagnostics, Is.Empty);
+        }
+
+        [TestCase("en-US")]
+        [TestCase("ko-KR")]
+        public void SliceA2StartupHealth_UsesOnlySelectedLocaleAndExactBootstrapDescriptors(
+            string selectedLocaleCode)
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale(selectedLocaleCode);
+            var calls = new List<string>();
+            bool ResolveExact(
+                string canonicalLocaleCode,
+                LocalizedTextDescriptor descriptor,
+                out string value)
+            {
+                calls.Add($"{canonicalLocaleCode}|{descriptor.Table}|{descriptor.Key}");
+                value = "available";
+                return true;
+            }
+
+            Assert.That(
+                UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    new FakeUiLocalePreferenceStore(),
+                    new RecordingLocalePersistenceReporter(),
+                    UiLocaleCatalog.CreateProduction(),
+                    ResolveExact,
+                    null,
+                    out var resolver,
+                    out var failureReason),
+                Is.True,
+                failureReason);
+            using (resolver)
+            {
+                Assert.That(calls, Is.EqualTo(new[]
+                {
+                    $"{selectedLocaleCode}|{SettingsStaticTextDescriptors.Title.Table}|" +
+                    SettingsStaticTextDescriptors.Title.Key,
+                    $"{selectedLocaleCode}|Stage|stage.stage-0-1.display_name",
+                }));
+            }
+        }
+
+        [TestCase("UI", "ui.settings.title")]
+        [TestCase("Stage", "stage.stage-0-1.display_name")]
+        public void SliceA2StartupHealth_SelectedMissingNullOrEmptyFailsWithExactIdentityAndNoSideEffects(
+            string missingTable,
+            string missingKey)
+        {
+            const string SelectedLocaleCode = "en-US";
+            foreach (var unavailableValue in new[] { null, string.Empty })
+            {
+                LocalizationSettings.SelectedLocale = RequireAvailableLocale(SelectedLocaleCode);
+                var store = new FakeUiLocalePreferenceStore("invalid-loaded");
+                var reporter = new RecordingLocalePersistenceReporter();
+                var exactCallCount = 0;
+                bool ResolveExact(
+                    string canonicalLocaleCode,
+                    LocalizedTextDescriptor descriptor,
+                    out string value)
+                {
+                    exactCallCount++;
+                    if (string.Equals(descriptor.Table, missingTable, StringComparison.Ordinal) &&
+                        string.Equals(descriptor.Key, missingKey, StringComparison.Ordinal))
+                    {
+                        LocalizationSettings.SelectedLocale = RequireAvailableLocale("ko-KR");
+                        value = unavailableValue;
+                        return false;
+                    }
+
+                    value = "available";
+                    return true;
+                }
+
+                Assert.That(
+                    UnityStringTableTextResolver.TryCreateSettingsDefault(
+                        store,
+                        reporter,
+                        UiLocaleCatalog.CreateProduction(),
+                        ResolveExact,
+                        null,
+                        out var resolver,
+                        out var failureReason),
+                    Is.False,
+                    unavailableValue == null ? "null exact value" : "empty exact value");
+                Assert.That(resolver, Is.Null);
+                Assert.That(failureReason, Does.Contain(SelectedLocaleCode));
+                Assert.That(failureReason, Does.Contain(missingTable));
+                Assert.That(failureReason, Does.Contain(missingKey));
+                Assert.That(store.LoadCallCount, Is.EqualTo(1));
+                Assert.That(store.SaveCallCount, Is.Zero);
+                Assert.That(store.StoredLocaleCode, Is.EqualTo("invalid-loaded"));
+                Assert.That(reporter.Diagnostics, Is.Empty);
+                Assert.That(LocalizationSettings.SelectedLocale.Identifier.Code, Is.EqualTo("ko-KR"),
+                    "The already-applied/health-callback Unity locale is not rolled back by A2 startup failure.");
+
+                var callsAfterFailure = exactCallCount;
+                LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+                Assert.That(exactCallCount, Is.EqualTo(callsAfterFailure));
+                Assert.That(store.SaveCallCount, Is.Zero);
+                Assert.That(reporter.Diagnostics, Is.Empty);
+            }
+        }
+
+        [Test]
+        public void Resolve_SelectedMissUsesVisibleSentinelWithoutEnglishLookup_AndLookupExceptionsPropagate()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("ko-KR");
+            var startupComplete = false;
+            var calls = new List<string>();
+            var throwOnResolve = false;
+            bool ResolveExact(
+                string canonicalLocaleCode,
+                LocalizedTextDescriptor descriptor,
+                out string value)
+            {
+                if (!startupComplete)
+                {
+                    value = "startup";
+                    return true;
+                }
+
+                calls.Add(canonicalLocaleCode);
+                if (throwOnResolve)
+                {
+                    throw new InvalidOperationException("exact lookup failed");
+                }
+
+                value = null;
+                return false;
+            }
+
+            Assert.That(
+                UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    new FakeUiLocalePreferenceStore(),
+                    new RecordingLocalePersistenceReporter(),
+                    UiLocaleCatalog.CreateProduction(),
+                    ResolveExact,
+                    null,
+                    out var resolver,
+                    out var failureReason),
+                Is.True,
+                failureReason);
+            using (resolver)
+            {
+                startupComplete = true;
+                var descriptor = new LocalizedTextDescriptor("UI", "missing.selected");
+                Assert.That(
+                    resolver.Resolve(descriptor),
+                    Is.EqualTo(UnityStringTableTextResolver.MissingTranslationSentinel));
+                Assert.That(calls, Is.EqualTo(new[] { "ko-KR" }));
+
+                calls.Clear();
+                Assert.That(
+                    resolver.Resolve(descriptor),
+                    Is.EqualTo(UnityStringTableTextResolver.MissingTranslationSentinel));
+                Assert.That(calls, Is.EqualTo(new[] { "ko-KR" }));
+
+                throwOnResolve = true;
+                Assert.Throws<InvalidOperationException>(() => resolver.Resolve(descriptor));
+            }
+        }
+
+        [Test]
+        public void PhaseSixNullLoadAndStartupRewriteSave_AreCreationContractViolationsWithoutDiagnostics()
+        {
+            var nullLoadStore = new FakeUiLocalePreferenceStore { ReturnNullLoad = true };
+            var loadReporter = new RecordingLocalePersistenceReporter();
+            Assert.That(
+                UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    nullLoadStore,
+                    loadReporter,
+                    out var nullLoadResolver,
+                    out _),
+                Is.False);
+            Assert.That(nullLoadResolver, Is.Null);
+            Assert.That(nullLoadStore.SaveCallCount, Is.Zero);
+            Assert.That(loadReporter.Diagnostics, Is.Empty);
+
+            var nullSaveStore = new FakeUiLocalePreferenceStore("invalid-loaded")
+            {
+                ReturnNullSave = true,
+            };
+            var saveReporter = new RecordingLocalePersistenceReporter();
+            Assert.That(
+                UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    nullSaveStore,
+                    saveReporter,
+                    out var nullSaveResolver,
+                    out _),
+                Is.False);
+            Assert.That(nullSaveResolver, Is.Null);
+            Assert.That(nullSaveStore.SaveCallCount, Is.EqualTo(1));
+            Assert.That(saveReporter.Diagnostics, Is.Empty);
+        }
+
+        [Test]
+        public void PhaseSixRuntimeNullSave_PropagatesAfterCustomEventWithoutDiagnostic()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore { ReturnNullSave = true };
+            var reporter = new RecordingLocalePersistenceReporter();
+            using var resolver = CreateUnityResolverFromCurrentSelection(store, reporter);
+            var eventCount = 0;
+            resolver.LocaleChanged += () => eventCount++;
+
+            Assert.Throws<InvalidOperationException>(() => resolver.TrySetLocale("ko-KR"));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(reporter.Diagnostics, Is.Empty);
+        }
+
+        [Test]
+        public void PhaseSixSettingsOrdinaryWriteFailure_ReturnsNormallyAndPlaysOneToggle()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore
+            {
+                WriteResult = LocalePreferenceWriteResult.Failed("settings failed"),
+            };
+            var reporter = new RecordingLocalePersistenceReporter();
+            using var resolver = CreateUnityResolverFromCurrentSelection(store, reporter);
+            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
+            harness.ShowSettings();
+            harness.SettingsView.ClickDisplayTab();
+
+            Assert.DoesNotThrow(() => harness.SettingsView.DisplayView.ClickLanguageCycle());
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(reporter.Diagnostics.Single().Operation,
+                Is.EqualTo(LocalePersistenceOperation.SettingsSelection));
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        public void PhaseSixSettingsNullSave_PropagatesAndPlaysNoToggle()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore { ReturnNullSave = true };
+            var reporter = new RecordingLocalePersistenceReporter();
+            using var resolver = CreateUnityResolverFromCurrentSelection(store, reporter);
+            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
+            harness.ShowSettings();
+            harness.SettingsView.ClickDisplayTab();
+
+            Assert.Throws<InvalidOperationException>(() =>
+                harness.SettingsView.DisplayView.ClickLanguageCycle());
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(reporter.Diagnostics, Is.Empty);
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.Zero);
+        }
+
+        [Test]
+        public void PhaseSixThrowingSubscriber_StopsWriteReportAndSettingsToggle()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore();
+            var reporter = new RecordingLocalePersistenceReporter();
+            using var resolver = CreateUnityResolverFromCurrentSelection(store, reporter);
+            resolver.LocaleChanged += () => throw new InvalidOperationException("subscriber failed");
+            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
+            harness.ShowSettings();
+            harness.SettingsView.ClickDisplayTab();
+
+            Assert.Throws<InvalidOperationException>(() =>
+                harness.SettingsView.DisplayView.ClickLanguageCycle());
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(LocalizationSettings.SelectedLocale.Identifier.Code, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.Zero);
+            Assert.That(reporter.Diagnostics, Is.Empty);
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.Zero);
+        }
+
+        [Test]
+        public void PhaseSixExternalWriteFailure_ReportsExternalOperationAndDisposeUnsubscribes()
+        {
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore
+            {
+                WriteResult = LocalePreferenceWriteResult.Failed("external failed"),
+            };
+            var reporter = new RecordingLocalePersistenceReporter();
+            var resolver = CreateUnityResolverFromCurrentSelection(store, reporter);
+            var eventCount = 0;
+            resolver.LocaleChanged += () => eventCount++;
+
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("ko-KR");
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(reporter.Diagnostics.Single().Operation,
+                Is.EqualTo(LocalePersistenceOperation.ExternalSelection));
+
+            resolver.Dispose();
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -932,7 +1392,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void CatalogInjectedResolver_ExternalApprovedChangeEmitsOnceWithoutSavingPreference()
+        public void CatalogInjectedResolver_ExternalApprovedChangeEmitsOnceAndSavesCanonicalPreference()
         {
             var store = new FakeUiLocalePreferenceStore();
             using var resolver = CreateUnityResolver(store);
@@ -943,7 +1403,76 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(eventCount, Is.EqualTo(1));
-            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(store.LastSavedLocaleCode, Is.EqualTo("ko-KR"));
+        }
+
+        [Test]
+        public void RuntimeSettings_ExternalApprovedRoundTripRefreshesAutonymAndFontWithSaveButNoToggle()
+        {
+            var store = new FakeUiLocalePreferenceStore();
+            using var resolver = CreateUnityResolver(store);
+            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
+            harness.ShowSettings();
+            var languageLabel = GetText(harness.SettingsView.DisplayView, "_languageCycleButtonLabel");
+            var englishFont = languageLabel.font;
+
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("ko-KR");
+
+            Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+            Assert.That(languageLabel.font, Is.SameAs(UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont()));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.Zero);
+
+            LocalizationSettings.SelectedLocale = RequireAvailableLocale("en-US");
+
+            Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
+            Assert.That(languageLabel.font, Is.SameAs(englishFont));
+            Assert.That(store.SaveCallCount, Is.EqualTo(2));
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.Zero);
+        }
+
+        [Test]
+        public void RuntimeSettings_ExternalRejectedSelectionsRestoreUnityAndPreserveAutonymFontAndEffects()
+        {
+            var englishLocale = RequireAvailableLocale("en-US");
+            var koreanLocale = RequireAvailableLocale("ko-KR");
+            LocalizationSettings.SelectedLocale = englishLocale;
+            var store = new FakeUiLocalePreferenceStore();
+            using var resolver = CreateUnityResolverFromCurrentSelection(store, CreateKoreanDraftCatalog());
+            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
+            harness.ShowSettings();
+            var languageLabel = GetText(harness.SettingsView.DisplayView, "_languageCycleButtonLabel");
+            var approvedFont = languageLabel.font;
+            var resolverEventCount = 0;
+            resolver.LocaleChanged += () => resolverEventCount++;
+            var unknownLocale = Locale.CreateLocale("fr-FR");
+
+            try
+            {
+                foreach (var rejected in new Locale[] { koreanLocale, unknownLocale, null })
+                {
+                    LocalizationSettings.SelectedLocale = rejected;
+
+                    Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(englishLocale));
+                    Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+                    Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
+                    Assert.That(languageLabel.font, Is.SameAs(approvedFont));
+                    Assert.That(store.SaveCallCount, Is.Zero);
+                    Assert.That(resolverEventCount, Is.Zero);
+                    Assert.That(
+                        harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                        Is.Zero);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(unknownLocale);
+            }
         }
 
         [Test]
@@ -1005,7 +1534,9 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            Assert.That(resolver.Resolve(new LocalizedTextDescriptor("UI", "ui.settings.missing")), Is.EqualTo("[UI:ui.settings.missing]"));
+            Assert.That(
+                resolver.Resolve(new LocalizedTextDescriptor("UI", "ui.settings.missing")),
+                Is.EqualTo(PackageFreeLocalizedTextResolver.MissingTranslationSentinel));
         }
 
         [Test]
@@ -1025,7 +1556,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void PackageFreeStageFallback_MatchesCompleteLocaleTablesAndPreservesUnknownKeys()
+        public void PackageFreeStageCatalog_MatchesCompleteLocaleTablesAndUsesVisibleUnknownSentinel()
         {
             var collection = LocalizationEditorSettings.GetStringTableCollection(StageDisplayNameKeys.Table);
             var englishTable = collection?.GetTable(PackageFreeLocalizedTextResolver.DefaultLocaleCode) as StringTable;
@@ -1053,10 +1584,14 @@ namespace Game.Feature.UI.Tests
             }
 
             var unknown = StageDisplayNameTextDescriptors.Create("stage.unknown.display_name");
-            Assert.That(fallbackResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
-            Assert.That(unityResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+            Assert.That(
+                fallbackResolver.Resolve(unknown),
+                Is.EqualTo(PackageFreeLocalizedTextResolver.MissingTranslationSentinel));
+            Assert.That(
+                unityResolver.Resolve(unknown),
+                Is.EqualTo(UnityStringTableTextResolver.MissingTranslationSentinel));
 
-            fallbackResolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(fallbackResolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
             Assert.That(unityResolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
             foreach (var key in stageKeys)
             {
@@ -1071,8 +1606,12 @@ namespace Game.Feature.UI.Tests
                 }
             }
 
-            Assert.That(fallbackResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
-            Assert.That(unityResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+            Assert.That(
+                fallbackResolver.Resolve(unknown),
+                Is.EqualTo(PackageFreeLocalizedTextResolver.MissingTranslationSentinel));
+            Assert.That(
+                unityResolver.Resolve(unknown),
+                Is.EqualTo(UnityStringTableTextResolver.MissingTranslationSentinel));
         }
 
         [Test]
@@ -1229,27 +1768,91 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void RuntimeSettings_LanguageRowSwitchesThroughUnityAdapterAndKeepsKoreanFont()
+        public void RuntimeSettings_LanguageRowCyclesAllFourLocalesAndKeepsLocaleFonts()
         {
             var kboDiaGothicMedium = UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont();
-            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+            var japaneseBold = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                "Assets/_Shared/UI/Fonts/NotoSansCJK/NotoSansJP-Bold SDF.asset");
+            var chineseBold = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                "Assets/_Shared/UI/Fonts/NotoSansCJK/NotoSansSC-Bold SDF.asset");
+            Assert.That(japaneseBold, Is.Not.Null);
+            Assert.That(chineseBold, Is.Not.Null);
+            var store = new FakeUiLocalePreferenceStore();
+            using var resolver = CreateUnityResolver(store);
             using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
 
             harness.ShowSettings();
             var titleLabel = GetText(harness.SettingsView, "_titleLabel");
+            var languageLabel = GetText(harness.SettingsView.DisplayView, "_languageCycleButtonLabel");
+            var englishTitleFont = titleLabel.font;
+            var englishLanguageFont = languageLabel.font;
+            var resolverEventCount = 0;
+            var unityEventCount = 0;
+            resolver.LocaleChanged += () => resolverEventCount++;
+            void CountUnityEvent(Locale _) => unityEventCount++;
+            LocalizationSettings.SelectedLocaleChanged += CountUnityEvent;
 
-            Assert.That(titleLabel.text, Is.EqualTo("Settings"));
-            Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("Language"));
-            Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
+            try
+            {
+                Assert.That(titleLabel.text, Is.EqualTo("Settings"));
+                Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("Language"));
+                Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
 
-            harness.SettingsView.ClickDisplayTab();
-            harness.SettingsView.DisplayView.ClickLanguageCycle();
+                harness.SettingsView.ClickDisplayTab();
+                harness.SettingsView.DisplayView.ClickLanguageCycle();
 
-            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(kboDiaGothicMedium));
-            Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
-            Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+                Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+                Assert.That(titleLabel.text, Is.EqualTo("설정"));
+                Assert.That(titleLabel.font, Is.SameAs(kboDiaGothicMedium));
+                Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
+                Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+                Assert.That(store.SaveCallCount, Is.EqualTo(1));
+                Assert.That(resolverEventCount, Is.EqualTo(1));
+                Assert.That(unityEventCount, Is.EqualTo(1));
+                Assert.That(
+                    harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                    Is.EqualTo(1));
+
+                harness.SettingsView.DisplayView.ClickLanguageCycle();
+
+                Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ja-JP"));
+                Assert.That(titleLabel.text, Is.EqualTo("設定"));
+                Assert.That(titleLabel.font, Is.SameAs(japaneseBold));
+                Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("言語"));
+                Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("日本語"));
+                Assert.That(store.SaveCallCount, Is.EqualTo(2));
+                Assert.That(resolverEventCount, Is.EqualTo(2));
+                Assert.That(unityEventCount, Is.EqualTo(2));
+
+                harness.SettingsView.DisplayView.ClickLanguageCycle();
+
+                Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("zh-CN"));
+                Assert.That(titleLabel.text, Is.EqualTo("设置"));
+                Assert.That(titleLabel.font, Is.SameAs(chineseBold));
+                Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("语言"));
+                Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("简体中文"));
+                Assert.That(store.SaveCallCount, Is.EqualTo(3));
+                Assert.That(resolverEventCount, Is.EqualTo(3));
+                Assert.That(unityEventCount, Is.EqualTo(3));
+
+                harness.SettingsView.DisplayView.ClickLanguageCycle();
+
+                Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+                Assert.That(titleLabel.text, Is.EqualTo("Settings"));
+                Assert.That(titleLabel.font, Is.SameAs(englishTitleFont));
+                Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
+                Assert.That(languageLabel.font, Is.SameAs(englishLanguageFont));
+                Assert.That(store.SaveCallCount, Is.EqualTo(4));
+                Assert.That(resolverEventCount, Is.EqualTo(4));
+                Assert.That(unityEventCount, Is.EqualTo(4));
+                Assert.That(
+                    harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                    Is.EqualTo(4));
+            }
+            finally
+            {
+                LocalizationSettings.SelectedLocaleChanged -= CountUnityEvent;
+            }
         }
 
         [Test]
@@ -1536,6 +2139,39 @@ namespace Game.Feature.UI.Tests
 
         private static UnityStringTableTextResolver CreateUnityResolverFromCurrentSelection(
             FakeUiLocalePreferenceStore store,
+            IUiLocalePersistenceReporter reporter)
+        {
+            Assert.That(
+                UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    store,
+                    reporter,
+                    out var resolver,
+                    out var reason),
+                Is.True,
+                reason);
+            return resolver;
+        }
+
+        private static UnityStringTableTextResolver CreateUnityResolverFromCurrentSelection(
+            FakeUiLocalePreferenceStore store,
+            IUiLocalePersistenceReporter reporter,
+            UiLocaleCatalog catalog)
+        {
+            Assert.That(
+                UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    store,
+                    reporter,
+                    catalog,
+                    null,
+                    out var resolver,
+                    out var reason),
+                Is.True,
+                reason);
+            return resolver;
+        }
+
+        private static UnityStringTableTextResolver CreateUnityResolverFromCurrentSelection(
+            FakeUiLocalePreferenceStore store,
             UiLocaleCatalog catalog)
         {
             Assert.That(
@@ -1571,11 +2207,11 @@ namespace Game.Feature.UI.Tests
             if (includeUnregisteredAliasTarget)
             {
                 entries.Add(new LocaleCatalogEntry(
-                    "ja-JP",
-                    "Japanese",
+                    "fr-FR",
+                    "French",
                     30,
                     LocaleLifecycle.ShipReady,
-                    new[] { "legacy-ja" }));
+                    new[] { "legacy-fr" }));
             }
 
             return new UiLocaleCatalog(entries, "en-US", "en-US");
@@ -2251,19 +2887,65 @@ namespace Game.Feature.UI.Tests
 
             public int SaveCallCount { get; private set; }
 
+            public int LoadCallCount { get; private set; }
+
             public string LastSavedLocaleCode { get; private set; }
 
-            public bool TryLoad(out string localeCode)
+            public string StoredLocaleCode => _localeCode;
+
+            public LocalePreferenceReadResult ReadResult { get; set; }
+
+            public LocalePreferenceWriteResult WriteResult { get; set; } =
+                LocalePreferenceWriteResult.Completed();
+
+            public bool ReturnNullLoad { get; set; }
+
+            public bool ReturnNullSave { get; set; }
+
+            public LocalePreferenceReadResult Load()
             {
-                localeCode = _localeCode;
-                return !string.IsNullOrWhiteSpace(localeCode);
+                LoadCallCount++;
+                if (ReturnNullLoad)
+                {
+                    return null;
+                }
+
+                if (ReadResult != null)
+                {
+                    return ReadResult;
+                }
+
+                return _localeCode == null
+                    ? LocalePreferenceReadResult.Missing()
+                    : LocalePreferenceReadResult.Loaded(_localeCode);
             }
 
-            public void Save(string localeCode)
+            public LocalePreferenceWriteResult Save(string localeCode)
             {
                 SaveCallCount++;
                 LastSavedLocaleCode = localeCode;
-                _localeCode = localeCode;
+                if (ReturnNullSave)
+                {
+                    return null;
+                }
+
+                if (WriteResult.Status == LocalePreferenceWriteStatus.Completed)
+                {
+                    _localeCode = localeCode;
+                }
+
+                return WriteResult;
+            }
+        }
+
+        private sealed class RecordingLocalePersistenceReporter : IUiLocalePersistenceReporter
+        {
+            public List<LocalePersistenceDiagnostic> Diagnostics { get; } =
+                new List<LocalePersistenceDiagnostic>();
+
+            public void Report(LocalePersistenceDiagnostic diagnostic)
+            {
+                Diagnostics.Add(diagnostic);
             }
         }
     }

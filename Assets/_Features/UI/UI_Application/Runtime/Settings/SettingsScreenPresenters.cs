@@ -156,8 +156,6 @@ namespace Game.Feature.UI.Application
             DisplayWindowMode.Windowed,
             false);
         private LocalizedTextDescriptor _languageLabelDescriptor = SettingsStaticTextDescriptors.Language;
-        private LocalizedTextDescriptor _englishLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageEnglish;
-        private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
         private int _stagedDisplayModeIndex;
         private DisplayWindowMode _stagedDisplayWindowMode;
         private LocalizedTextDescriptor _displayStatusDescriptor;
@@ -188,41 +186,48 @@ namespace Game.Feature.UI.Application
         {
             Apply(
                 SettingsStaticTextDescriptors.Language,
-                SettingsStaticTextDescriptors.LanguageEnglish,
-                SettingsStaticTextDescriptors.LanguageKorean,
                 previewTimeoutSeconds);
         }
 
         public void Apply(
             LocalizedTextDescriptor languageLabelDescriptor,
-            LocalizedTextDescriptor englishLanguageLabelDescriptor,
-            LocalizedTextDescriptor koreanLanguageLabelDescriptor,
             double previewTimeoutSeconds)
         {
             _languageLabelDescriptor = languageLabelDescriptor;
-            _englishLanguageLabelDescriptor = englishLanguageLabelDescriptor;
-            _koreanLanguageLabelDescriptor = koreanLanguageLabelDescriptor;
             ClearPreviewCountdown();
             ResyncState(resetStagedToCommitted: true, previewTimeoutSeconds: previewTimeoutSeconds);
         }
 
         public bool SelectNextLocale()
         {
-            if (_localeSelectionPort.AvailableLocaleCodes.Count < 2)
+            var options = _localeSelectionPort.AvailableLocaleOptions;
+            if (options.Count < 2)
             {
                 return false;
             }
 
-            var currentIndex = FindCurrentLocaleIndex();
-            var nextIndex = currentIndex < 0
-                ? 0
-                : (currentIndex + 1) % _localeSelectionPort.AvailableLocaleCodes.Count;
-            if (!_localeSelectionPort.TrySetLocale(_localeSelectionPort.AvailableLocaleCodes[nextIndex]))
+            var currentIndex = FindUniqueCurrentLocaleIndex(options);
+            if (currentIndex < 0)
             {
                 return false;
             }
 
-            return true;
+            var targetCode = options[(currentIndex + 1) % options.Count].CanonicalCode;
+            if (!_localeSelectionPort.TrySetLocale(targetCode))
+            {
+                return false;
+            }
+
+            if (string.Equals(
+                    _localeSelectionPort.CurrentLocaleCode,
+                    targetCode,
+                    StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            RefreshViewModel();
+            return false;
         }
 
         public void RefreshLocalization()
@@ -470,8 +475,8 @@ namespace Game.Feature.UI.Application
                 displayStatusText.Length > 0,
                 _isDisplayStatusTransient,
                 Resolve(_languageLabelDescriptor),
-                Resolve(CurrentLanguageDescriptor),
-                _localeSelectionPort.AvailableLocaleCodes.Count > 1,
+                CurrentLanguageAutonym,
+                HasUniqueCurrentLocale && _localeSelectionPort.AvailableLocaleOptions.Count > 1,
                 hasSelectedMode ? selectedMode.Width : 0,
                 hasSelectedMode ? selectedMode.Height : 0);
         }
@@ -517,22 +522,41 @@ namespace Game.Feature.UI.Application
             return index;
         }
 
-        private LocalizedTextDescriptor CurrentLanguageDescriptor =>
-            string.Equals(_localeSelectionPort.CurrentLocaleCode, "ko-KR", StringComparison.Ordinal)
-                ? _koreanLanguageLabelDescriptor
-                : _englishLanguageLabelDescriptor;
+        private bool HasUniqueCurrentLocale =>
+            FindUniqueCurrentLocaleIndex(_localeSelectionPort.AvailableLocaleOptions) >= 0;
 
-        private int FindCurrentLocaleIndex()
+        private string CurrentLanguageAutonym
         {
-            for (var i = 0; i < _localeSelectionPort.AvailableLocaleCodes.Count; i++)
+            get
             {
-                if (string.Equals(_localeSelectionPort.AvailableLocaleCodes[i], _localeSelectionPort.CurrentLocaleCode, StringComparison.Ordinal))
+                var index = FindUniqueCurrentLocaleIndex(_localeSelectionPort.AvailableLocaleOptions);
+                return index >= 0
+                    ? _localeSelectionPort.AvailableLocaleOptions[index].DisplayNameAutonym
+                    : string.Empty;
+            }
+        }
+
+        private int FindUniqueCurrentLocaleIndex(IReadOnlyList<LocaleOptionModel> options)
+        {
+            var matchingIndex = -1;
+            for (var i = 0; i < options.Count; i++)
+            {
+                var option = options[i];
+                if (option == null ||
+                    !string.Equals(option.CanonicalCode, _localeSelectionPort.CurrentLocaleCode, StringComparison.Ordinal))
                 {
-                    return i;
+                    continue;
                 }
+
+                if (matchingIndex >= 0)
+                {
+                    return -1;
+                }
+
+                matchingIndex = i;
             }
 
-            return -1;
+            return matchingIndex;
         }
 
         private string Resolve(LocalizedTextDescriptor descriptor)
@@ -828,8 +852,6 @@ namespace Game.Feature.UI.Application
             AudioPresenter.Apply();
             DisplayPresenter.Apply(
                 _payload.LanguageLabelDescriptor,
-                _payload.EnglishLanguageLabelDescriptor,
-                _payload.KoreanLanguageLabelDescriptor,
                 previewTimeoutSeconds);
             InputPresenter.Apply(new SettingsInputPresenterInput(
                 _payload.MovementLabelDescriptor,
@@ -907,7 +929,7 @@ namespace Game.Feature.UI.Application
 
         public string CurrentLocaleCode => "en-US";
 
-        public IReadOnlyList<string> AvailableLocaleCodes => Array.Empty<string>();
+        public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions => Array.Empty<LocaleOptionModel>();
 
         public bool TrySetLocale(string localeCode)
         {
@@ -1038,7 +1060,7 @@ namespace Game.Feature.UI.Application
                 return FormatKnownDynamicText(descriptor, value);
             }
 
-            return $"[{descriptor.Table}:{descriptor.Key}]";
+            return "□";
         }
 
         private string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)

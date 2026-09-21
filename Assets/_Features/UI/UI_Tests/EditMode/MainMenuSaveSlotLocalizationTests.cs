@@ -74,7 +74,7 @@ namespace Game.Feature.UI.Tests
                     entry.Key);
             }
 
-            packageFree.SetLocale("ko-KR");
+            Assert.That(packageFree.TrySetLocale("ko-KR"), Is.True);
             foreach (var entry in entries)
             {
                 var descriptor = MainMenuLocalization.Descriptor(
@@ -102,7 +102,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.BodyText, Does.Contain("every campaign slot"));
             Assert.That(presenter.ViewModel.BodyText, Does.Contain("achievement ledger"));
             Assert.That(presenter.ViewModel.WarningText, Does.Contain("Settings are preserved"));
-            resolver.SetLocale("ko-KR");
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
             Assert.That(presenter.ViewModel.BodyText, Does.Contain("18가지 업적 전체"));
             Assert.That(presenter.ViewModel.BodyText, Does.Contain("모든 슬롯"));
             Assert.That(presenter.ViewModel.BodyText, Does.Contain("업적 장부"));
@@ -176,7 +176,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(descriptor.Title), Is.EqualTo(englishTitle));
             Assert.That(resolver.Resolve(descriptor.Detail), Is.EqualTo(englishDetail));
 
-            resolver.SetLocale("ko-KR");
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
             Assert.That(resolver.Resolve(descriptor.Title), Is.EqualTo(koreanTitle));
             Assert.That(resolver.Resolve(descriptor.Detail), Is.EqualTo(koreanDetail));
             Assert.That(koreanTitle, Is.Not.Empty);
@@ -657,21 +657,21 @@ namespace Game.Feature.UI.Tests
 
         public void SetLocale(string localeCode)
         {
-            _inner.SetLocale(localeCode);
+            Assert.That(_inner.TrySetLocale(localeCode), Is.True);
             _localeChanged?.Invoke();
         }
     }
 
     internal sealed class FixedEnglishLocalePreferenceStore : IUiLocalePreferenceStore
     {
-        public bool TryLoad(out string localeCode)
+        public LocalePreferenceReadResult Load()
         {
-            localeCode = "en-US";
-            return true;
+            return LocalePreferenceReadResult.Loaded("en-US");
         }
 
-        public void Save(string localeCode)
+        public LocalePreferenceWriteResult Save(string localeCode)
         {
+            return LocalePreferenceWriteResult.Completed();
         }
     }
 

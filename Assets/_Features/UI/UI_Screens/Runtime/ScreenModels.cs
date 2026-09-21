@@ -33,8 +33,6 @@ namespace Game.Feature.UI.Screens
             LocalizedTextDescriptor resetInputLabelDescriptor = default,
             LocalizedTextDescriptor backLabelDescriptor = default,
             LocalizedTextDescriptor languageLabelDescriptor = default,
-            LocalizedTextDescriptor englishLanguageLabelDescriptor = default,
-            LocalizedTextDescriptor koreanLanguageLabelDescriptor = default,
             LocalizedTextDescriptor audioMainLabelDescriptor = default,
             LocalizedTextDescriptor audioBgmLabelDescriptor = default,
             LocalizedTextDescriptor audioSfxLabelDescriptor = default,
@@ -56,8 +54,6 @@ namespace Game.Feature.UI.Screens
             ResetInputLabelDescriptor = OrDefault(resetInputLabelDescriptor, SettingsStaticTextDescriptors.ResetInput);
             BackLabelDescriptor = OrDefault(backLabelDescriptor, SettingsStaticTextDescriptors.Back);
             LanguageLabelDescriptor = OrDefault(languageLabelDescriptor, SettingsStaticTextDescriptors.Language);
-            EnglishLanguageLabelDescriptor = OrDefault(englishLanguageLabelDescriptor, SettingsStaticTextDescriptors.LanguageEnglish);
-            KoreanLanguageLabelDescriptor = OrDefault(koreanLanguageLabelDescriptor, SettingsStaticTextDescriptors.LanguageKorean);
             AudioMainLabelDescriptor = OrDefault(audioMainLabelDescriptor, SettingsStaticTextDescriptors.AudioMain);
             AudioBgmLabelDescriptor = OrDefault(audioBgmLabelDescriptor, SettingsStaticTextDescriptors.AudioBgm);
             AudioSfxLabelDescriptor = OrDefault(audioSfxLabelDescriptor, SettingsStaticTextDescriptors.AudioSfx);
@@ -89,10 +85,6 @@ namespace Game.Feature.UI.Screens
         public LocalizedTextDescriptor BackLabelDescriptor { get; }
 
         public LocalizedTextDescriptor LanguageLabelDescriptor { get; }
-
-        public LocalizedTextDescriptor EnglishLanguageLabelDescriptor { get; }
-
-        public LocalizedTextDescriptor KoreanLanguageLabelDescriptor { get; }
 
         public LocalizedTextDescriptor AudioMainLabelDescriptor { get; }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 
 namespace Game.Feature.UI.ViewShared
 {
@@ -608,62 +609,359 @@ namespace Game.Feature.UI.ViewShared
         string Resolve(LocalizedTextDescriptor descriptor);
     }
 
-    public readonly struct LocaleOptionModel
+    public sealed class LocaleOptionModel
     {
-        public LocaleOptionModel(string localeCode, LocalizedTextDescriptor displayNameDescriptor)
+        public LocaleOptionModel(string canonicalCode, string displayNameAutonym)
         {
-            LocaleCode = localeCode ?? string.Empty;
-            DisplayNameDescriptor = displayNameDescriptor;
+            if (string.IsNullOrWhiteSpace(canonicalCode))
+            {
+                throw new ArgumentException("A canonical locale code is required.", nameof(canonicalCode));
+            }
+
+            if (string.IsNullOrWhiteSpace(displayNameAutonym))
+            {
+                throw new ArgumentException("A locale autonym is required.", nameof(displayNameAutonym));
+            }
+
+            CanonicalCode = canonicalCode;
+            DisplayNameAutonym = displayNameAutonym;
         }
 
-        public string LocaleCode { get; }
+        public string CanonicalCode { get; }
 
-        public LocalizedTextDescriptor DisplayNameDescriptor { get; }
+        public string DisplayNameAutonym { get; }
+    }
+
+    public static class LocaleOptionSnapshot
+    {
+        public static IReadOnlyList<LocaleOptionModel> FromCatalogMembership(
+            IEnumerable<LocaleCatalogEntry> catalogEntries,
+            IEnumerable<string> supportedCanonicalCodes)
+        {
+            if (catalogEntries == null)
+            {
+                throw new ArgumentNullException(nameof(catalogEntries));
+            }
+
+            if (supportedCanonicalCodes == null)
+            {
+                throw new ArgumentNullException(nameof(supportedCanonicalCodes));
+            }
+
+            var supportedCodeSet = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var supportedCode in supportedCanonicalCodes)
+            {
+                if (string.IsNullOrWhiteSpace(supportedCode))
+                {
+                    throw new ArgumentException(
+                        "Supported canonical locale codes cannot be blank.",
+                        nameof(supportedCanonicalCodes));
+                }
+
+                supportedCodeSet.Add(supportedCode);
+            }
+
+            var orderedEntries = catalogEntries.ToArray();
+            if (orderedEntries.Any(entry => entry == null))
+            {
+                throw new ArgumentException("Locale option entries cannot be null.", nameof(catalogEntries));
+            }
+
+            return FromCatalogEntries(
+                orderedEntries.Where(entry => supportedCodeSet.Contains(entry.CanonicalCode)));
+        }
+
+        public static IReadOnlyList<LocaleOptionModel> FromCatalogEntries(
+            IEnumerable<LocaleCatalogEntry> entries)
+        {
+            if (entries == null)
+            {
+                throw new ArgumentNullException(nameof(entries));
+            }
+
+            var canonicalCodes = new HashSet<string>(StringComparer.Ordinal);
+            var options = new List<LocaleOptionModel>();
+            foreach (var entry in entries)
+            {
+                if (entry == null)
+                {
+                    throw new ArgumentException("Locale option entries cannot be null.", nameof(entries));
+                }
+
+                var option = new LocaleOptionModel(entry.CanonicalCode, entry.DisplayName);
+                if (!canonicalCodes.Add(option.CanonicalCode))
+                {
+                    throw new ArgumentException(
+                        $"Duplicate canonical locale option '{option.CanonicalCode}'.",
+                        nameof(entries));
+                }
+
+                options.Add(option);
+            }
+
+            return Array.AsReadOnly(options.ToArray());
+        }
     }
 
     public interface IUiLocaleSelectionPort
     {
         string CurrentLocaleCode { get; }
 
-        IReadOnlyList<string> AvailableLocaleCodes { get; }
+        IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions { get; }
 
         bool TrySetLocale(string localeCode);
     }
 
+    public enum LocalePreferenceReadStatus
+    {
+        Missing = 0,
+        Loaded = 1,
+        Failed = 2,
+    }
+
+    public sealed class LocalePreferenceReadResult
+    {
+        private LocalePreferenceReadResult(
+            LocalePreferenceReadStatus status,
+            string rawLocaleCode,
+            string failureReason)
+        {
+            Status = status;
+            RawLocaleCode = rawLocaleCode;
+            FailureReason = failureReason;
+        }
+
+        public LocalePreferenceReadStatus Status { get; }
+
+        public string RawLocaleCode { get; }
+
+        public string FailureReason { get; }
+
+        public static LocalePreferenceReadResult Missing()
+        {
+            return new LocalePreferenceReadResult(LocalePreferenceReadStatus.Missing, null, null);
+        }
+
+        public static LocalePreferenceReadResult Loaded(string rawLocaleCode)
+        {
+            return new LocalePreferenceReadResult(
+                LocalePreferenceReadStatus.Loaded,
+                rawLocaleCode ?? throw new ArgumentNullException(nameof(rawLocaleCode)),
+                null);
+        }
+
+        public static LocalePreferenceReadResult Failed(string failureReason)
+        {
+            return new LocalePreferenceReadResult(
+                LocalePreferenceReadStatus.Failed,
+                null,
+                RequireNonBlank(failureReason, nameof(failureReason)));
+        }
+
+        private static string RequireNonBlank(string value, string parameterName)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? throw new ArgumentException("Failure reason must be non-empty.", parameterName)
+                : value;
+        }
+    }
+
+    public enum LocalePreferenceWriteStatus
+    {
+        Completed = 0,
+        Failed = 1,
+    }
+
+    public sealed class LocalePreferenceWriteResult
+    {
+        private LocalePreferenceWriteResult(LocalePreferenceWriteStatus status, string failureReason)
+        {
+            Status = status;
+            FailureReason = failureReason;
+        }
+
+        public LocalePreferenceWriteStatus Status { get; }
+
+        public string FailureReason { get; }
+
+        public static LocalePreferenceWriteResult Completed()
+        {
+            return new LocalePreferenceWriteResult(LocalePreferenceWriteStatus.Completed, null);
+        }
+
+        public static LocalePreferenceWriteResult Failed(string failureReason)
+        {
+            return new LocalePreferenceWriteResult(
+                LocalePreferenceWriteStatus.Failed,
+                string.IsNullOrWhiteSpace(failureReason)
+                    ? throw new ArgumentException("Failure reason must be non-empty.", nameof(failureReason))
+                    : failureReason);
+        }
+    }
+
     public interface IUiLocalePreferenceStore
     {
-        bool TryLoad(out string localeCode);
+        LocalePreferenceReadResult Load();
 
-        void Save(string localeCode);
+        LocalePreferenceWriteResult Save(string canonicalLocaleCode);
+    }
+
+    public enum LocalePersistenceOperation
+    {
+        StartupRead = 0,
+        StartupRewrite = 1,
+        SettingsSelection = 2,
+        ExternalSelection = 3,
+    }
+
+    public sealed class LocalePersistenceDiagnostic
+    {
+        public LocalePersistenceDiagnostic(
+            LocalePersistenceOperation operation,
+            string canonicalLocaleCode,
+            string failureReason)
+        {
+            if (!Enum.IsDefined(typeof(LocalePersistenceOperation), operation))
+            {
+                throw new ArgumentOutOfRangeException(nameof(operation));
+            }
+
+            Operation = operation;
+            CanonicalLocaleCode = string.IsNullOrWhiteSpace(canonicalLocaleCode)
+                ? throw new ArgumentException("Canonical locale code must be non-empty.", nameof(canonicalLocaleCode))
+                : canonicalLocaleCode;
+            FailureReason = string.IsNullOrWhiteSpace(failureReason)
+                ? throw new ArgumentException("Failure reason must be non-empty.", nameof(failureReason))
+                : failureReason;
+        }
+
+        public LocalePersistenceOperation Operation { get; }
+
+        public string CanonicalLocaleCode { get; }
+
+        public string FailureReason { get; }
+    }
+
+    public interface IUiLocalePersistenceReporter
+    {
+        void Report(LocalePersistenceDiagnostic diagnostic);
+    }
+
+    public static class LocalePersistenceReportGuard
+    {
+        public static void SafeReport(
+            IUiLocalePersistenceReporter reporter,
+            LocalePersistenceDiagnostic diagnostic)
+        {
+            if (reporter == null)
+            {
+                throw new ArgumentNullException(nameof(reporter));
+            }
+
+            if (diagnostic == null)
+            {
+                throw new ArgumentNullException(nameof(diagnostic));
+            }
+
+            try
+            {
+                reporter.Report(diagnostic);
+            }
+            catch
+            {
+                // Diagnostics must not change the already-established application or persistence result.
+            }
+        }
+    }
+
+    public sealed class NoOpUiLocalePreferenceStore : IUiLocalePreferenceStore
+    {
+        public LocalePreferenceReadResult Load()
+        {
+            return LocalePreferenceReadResult.Missing();
+        }
+
+        public LocalePreferenceWriteResult Save(string canonicalLocaleCode)
+        {
+            return LocalePreferenceWriteResult.Completed();
+        }
+    }
+
+    public sealed class NoOpUiLocalePersistenceReporter : IUiLocalePersistenceReporter
+    {
+        public void Report(LocalePersistenceDiagnostic diagnostic)
+        {
+        }
     }
 
     public sealed class PackageFreeLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
     {
         public const string DefaultLocaleCode = "en-US";
         public const string KoreanLocaleCode = "ko-KR";
+        public const string MissingTranslationSentinel = "□";
 
         private static readonly IReadOnlyList<string> SupportedLocaleCodes =
             Array.AsReadOnly(new[] { DefaultLocaleCode, KoreanLocaleCode });
 
+        private static readonly IReadOnlyList<LocaleOptionModel> SupportedLocaleOptions =
+            CreateSupportedLocaleOptions();
+
         private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _catalog;
         private readonly IUiLocalePreferenceStore _localePreferenceStore;
+        private readonly IUiLocalePersistenceReporter _persistenceReporter;
+        private readonly LocaleSelectionPolicy _selectionPolicy;
         private string _currentLocaleCode;
 
         public PackageFreeLocalizedTextResolver(
             IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog,
-            string initialLocaleCode = DefaultLocaleCode,
-            IUiLocalePreferenceStore localePreferenceStore = null)
+            string initialLocaleCode = DefaultLocaleCode)
+            : this(
+                catalog,
+                initialLocaleCode,
+                new NoOpUiLocalePreferenceStore(),
+                new NoOpUiLocalePersistenceReporter())
+        {
+        }
+
+        public PackageFreeLocalizedTextResolver(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog,
+            string initialLocaleCode,
+            IUiLocalePreferenceStore localePreferenceStore)
+            : this(
+                catalog,
+                initialLocaleCode,
+                localePreferenceStore,
+                new NoOpUiLocalePersistenceReporter())
+        {
+        }
+
+        public PackageFreeLocalizedTextResolver(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog,
+            string initialLocaleCode,
+            IUiLocalePreferenceStore localePreferenceStore,
+            IUiLocalePersistenceReporter persistenceReporter)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-            _localePreferenceStore = localePreferenceStore;
-            _currentLocaleCode = ResolveInitialLocaleCode(initialLocaleCode, localePreferenceStore);
+            _localePreferenceStore = localePreferenceStore ??
+                throw new ArgumentNullException(nameof(localePreferenceStore));
+            _persistenceReporter = persistenceReporter ??
+                throw new ArgumentNullException(nameof(persistenceReporter));
+            _selectionPolicy = new LocaleSelectionPolicy(UiLocaleCatalog.CreateProduction(), SupportedLocaleCodes);
+            InitializeLocale(initialLocaleCode);
         }
 
         public string CurrentLocaleCode => _currentLocaleCode;
 
-        public IReadOnlyList<string> AvailableLocaleCodes => SupportedLocaleCodes;
+        public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions => SupportedLocaleOptions;
 
         public event Action LocaleChanged;
+
+        private static IReadOnlyList<LocaleOptionModel> CreateSupportedLocaleOptions()
+        {
+            return LocaleOptionSnapshot.FromCatalogMembership(
+                UiLocaleCatalog.CreateProduction().ShipReadyLocales,
+                SupportedLocaleCodes);
+        }
 
         public static PackageFreeLocalizedTextResolver CreateSettingsDefault(string initialLocaleCode = DefaultLocaleCode)
         {
@@ -679,44 +977,44 @@ namespace Game.Feature.UI.ViewShared
                 localePreferenceStore);
         }
 
+        public static PackageFreeLocalizedTextResolver CreateSettingsDefault(
+            string initialLocaleCode,
+            IUiLocalePreferenceStore localePreferenceStore,
+            IUiLocalePersistenceReporter persistenceReporter)
+        {
+            return new PackageFreeLocalizedTextResolver(
+                CreateSettingsCatalog(),
+                initialLocaleCode,
+                localePreferenceStore,
+                persistenceReporter);
+        }
+
         public string Resolve(LocalizedTextDescriptor descriptor)
         {
-            if (TryResolve(_currentLocaleCode, descriptor, out var value) ||
-                TryResolve(DefaultLocaleCode, descriptor, out value))
+            if (TryResolve(_currentLocaleCode, descriptor, out var value))
             {
                 return FormatKnownDynamicText(descriptor, value);
             }
 
-            return $"[{descriptor.Table}:{descriptor.Key}]";
-        }
-
-        public void SetLocale(string localeCode)
-        {
-            var normalizedLocaleCode = NormalizeLocaleCode(localeCode);
-            if (string.Equals(_currentLocaleCode, normalizedLocaleCode, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            _currentLocaleCode = normalizedLocaleCode;
-            LocaleChanged?.Invoke();
+            return MissingTranslationSentinel;
         }
 
         public bool TrySetLocale(string localeCode)
         {
-            var normalizedLocaleCode = NormalizeLocaleCode(localeCode);
-            if (!IsSupportedLocaleCode(normalizedLocaleCode))
+            var result = _selectionPolicy.EvaluateRequest(localeCode, _currentLocaleCode);
+            if (result.Status == LocaleSelectionStatus.Rejected)
             {
                 return false;
             }
 
-            if (string.Equals(_currentLocaleCode, normalizedLocaleCode, StringComparison.Ordinal))
+            if (result.Status == LocaleSelectionStatus.NoOp)
             {
                 return true;
             }
 
-            SetLocale(normalizedLocaleCode);
-            _localePreferenceStore?.Save(normalizedLocaleCode);
+            _currentLocaleCode = result.CanonicalCode;
+            LocaleChanged?.Invoke();
+            SaveAndReport(result.CanonicalCode, LocalePersistenceOperation.SettingsSelection);
             return true;
         }
 
@@ -847,42 +1145,45 @@ namespace Game.Feature.UI.ViewShared
             return false;
         }
 
-        private static string NormalizeLocaleCode(string localeCode)
+        private void InitializeLocale(string initialLocaleCode)
         {
-            return string.IsNullOrWhiteSpace(localeCode)
-                ? DefaultLocaleCode
-                : localeCode;
+            var readResult = _localePreferenceStore.Load() ??
+                throw new InvalidOperationException("Locale preference store returned a null read result.");
+            var persistedLocaleCode = readResult.Status == LocalePreferenceReadStatus.Loaded
+                ? readResult.RawLocaleCode
+                : null;
+            var canonicalLocaleCode = _selectionPolicy.ResolveInitialLocale(
+                persistedLocaleCode,
+                initialLocaleCode);
+            _currentLocaleCode = canonicalLocaleCode;
+
+            if (readResult.Status == LocalePreferenceReadStatus.Failed)
+            {
+                LocalePersistenceReportGuard.SafeReport(
+                    _persistenceReporter,
+                    new LocalePersistenceDiagnostic(
+                        LocalePersistenceOperation.StartupRead,
+                        canonicalLocaleCode,
+                        readResult.FailureReason));
+            }
+            else if (readResult.Status == LocalePreferenceReadStatus.Loaded &&
+                     !string.Equals(readResult.RawLocaleCode, canonicalLocaleCode, StringComparison.Ordinal))
+            {
+                SaveAndReport(canonicalLocaleCode, LocalePersistenceOperation.StartupRewrite);
+            }
+
         }
 
-        private static string ResolveInitialLocaleCode(
-            string initialLocaleCode,
-            IUiLocalePreferenceStore localePreferenceStore)
+        private void SaveAndReport(string canonicalLocaleCode, LocalePersistenceOperation operation)
         {
-            if (localePreferenceStore == null)
+            var writeResult = _localePreferenceStore.Save(canonicalLocaleCode) ??
+                throw new InvalidOperationException("Locale preference store returned a null write result.");
+            if (writeResult.Status == LocalePreferenceWriteStatus.Failed)
             {
-                return NormalizeLocaleCode(initialLocaleCode);
+                LocalePersistenceReportGuard.SafeReport(
+                    _persistenceReporter,
+                    new LocalePersistenceDiagnostic(operation, canonicalLocaleCode, writeResult.FailureReason));
             }
-
-            if (localePreferenceStore.TryLoad(out var persistedLocaleCode) &&
-                IsSupportedLocaleCode(NormalizeLocaleCode(persistedLocaleCode)))
-            {
-                return NormalizeLocaleCode(persistedLocaleCode);
-            }
-
-            return DefaultLocaleCode;
-        }
-
-        private static bool IsSupportedLocaleCode(string localeCode)
-        {
-            for (var i = 0; i < SupportedLocaleCodes.Count; i++)
-            {
-                if (string.Equals(SupportedLocaleCodes[i], localeCode, StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> CreateSettingsCatalog()

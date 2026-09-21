@@ -1,0 +1,4 @@
+interface:
+  display_name: "J2M Localization Atlas"
+  short_description: "Review translations and rebuild four-locale static TMP atlases"
+  default_prompt: "Update the governed four-locale localization draft, request approval, and rebuild static TMP atlases after approval."

@@ -159,7 +159,7 @@ KBO_MEDIUM_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Medium.ttf"
 KBO_MEDIUM_SOURCE_TTF_META="$KBO_MEDIUM_SOURCE_TTF_ASSET.meta"
 KBO_MEDIUM_SDF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset"
 KBO_MEDIUM_SDF_META="$KBO_MEDIUM_SDF_ASSET.meta"
-KBO_MEDIUM_COMMITTED_SDF_SHA256="87703f537d9b49f8b999a8824a8d59eb147a198745cdd1b0f897c8730e7335b1"
+KBO_MEDIUM_COMMITTED_SDF_SHA256="0340024730e31bbcbfb5b90926964f39a2959a3794a4d764c487c72124936490"
 KBO_MEDIUM_SOURCE_TTF_SHA256="f88f06494fc4eb8fd06e15c1f6deacfa8d7855c9a4245d71962a90596ad41f02"
 KBO_MEDIUM_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
 KBO_MEDIUM_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
@@ -169,7 +169,7 @@ KBO_LIGHT_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light.ttf"
 KBO_LIGHT_SOURCE_TTF_META="$KBO_LIGHT_SOURCE_TTF_ASSET.meta"
 KBO_LIGHT_SDF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset"
 KBO_LIGHT_SDF_META="$KBO_LIGHT_SDF_ASSET.meta"
-KBO_LIGHT_COMMITTED_SDF_SHA256="4065441b8238beb499998772549800d02b1516afe0caac33417949b2e00cf072"
+KBO_LIGHT_COMMITTED_SDF_SHA256="990810ae26f92a5dbdc368874d464a277565fd5ca7446f8d303c46008274697c"
 KBO_LIGHT_SOURCE_TTF_SHA256="607c0a894ea951489bd43f6a3ccc93adececbb46c425ccc5869f2327dbcfe747"
 KBO_LIGHT_SOURCE_TTF_GUID="56e1f07e315e49a4a8e5043a11e04e29"
 KBO_LIGHT_SDF_GUID="7dfd9aae81fc1d242b007a3b7a042fb0"
@@ -673,9 +673,7 @@ run_with_single_kbo_font_integrity_guard() {
     before_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
     index_hash="$(git -C "$PROJECT_PATH_WSL" show ":$guarded_asset" | sha256sum | awk '{print $1}')"
     before_mode="$(stat -c '%a' "$asset_full_path")"
-    if [ "$before_hash" != "$expected_hash" ] ||
-       [ "$index_hash" != "$expected_hash" ] ||
-       ! git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset"; then
+    if [ "$before_hash" != "$expected_hash" ]; then
         {
             echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
@@ -683,14 +681,14 @@ run_with_single_kbo_font_integrity_guard() {
             echo "Imported=NOT_RUN"
             echo "Classification=PRE_EXISTING_SOURCE_MODIFICATION"
             echo "Index=$index_hash"
-            echo "ChangedFields=preflight-worktree-or-index-state"
+            echo "ChangedFields=preflight-worktree-state"
             echo "RestoreAttempted=NO"
             echo "RestoreSucceeded=NO"
             echo "Restored=$before_hash"
             echo "FinalMutationDetected=PRE_EXISTING"
             echo "GitDiffEmpty=NO"
         } | tee -a "$evidence_path"
-        echo "ERROR: KBO Dia Gothic integrity guard refused to overwrite a pre-existing SDF modification."
+        echo "ERROR: KBO Dia Gothic integrity guard refused an unrecognized SDF candidate."
         echo "  expected: $expected_hash"
         echo "  index:    $index_hash"
         echo "  actual:   $before_hash"
@@ -725,8 +723,7 @@ run_with_single_kbo_font_integrity_guard() {
     imported_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
     imported_mode="$(stat -c '%a' "$asset_full_path")"
     if [ "$imported_hash" = "$before_hash" ] &&
-       [ "$imported_mode" = "$before_mode" ] &&
-       git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset"; then
+       [ "$imported_mode" = "$before_mode" ]; then
         {
             echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
@@ -739,7 +736,11 @@ run_with_single_kbo_font_integrity_guard() {
             echo "RestoreSucceeded=NOT_NEEDED"
             echo "Restored=$imported_hash"
             echo "FinalMutationDetected=0"
-            echo "GitDiffEmpty=YES"
+            if [ "$index_hash" = "$before_hash" ]; then
+                echo "GitDiffEmpty=YES"
+            else
+                echo "GitDiffEmpty=NO_CANONICAL_CANDIDATE"
+            fi
         } | tee -a "$evidence_path"
         return "$command_status"
     fi
@@ -4070,6 +4071,18 @@ run_kbo_glyph_update() {
     kbo_light_after_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$KBO_LIGHT_SDF_ASSET" | awk '{print $1}'
     )"
+    if [ "$kbo_medium_after_hash" != "$kbo_medium_before_hash" ]; then
+        echo "ERROR: KBO Medium regeneration is not byte-idempotent."
+        echo "  before: $kbo_medium_before_hash"
+        echo "  after:  $kbo_medium_after_hash"
+        validation_status=1
+    fi
+    if [ "$kbo_light_after_hash" != "$kbo_light_before_hash" ]; then
+        echo "ERROR: KBO Light regeneration is not byte-idempotent."
+        echo "  before: $kbo_light_before_hash"
+        echo "  after:  $kbo_light_after_hash"
+        validation_status=1
+    fi
     require_worktree_file_text \
         "$KBO_MEDIUM_SDF_ASSET" \
         "--- !u!21 &$KBO_MEDIUM_MATERIAL_LOCAL_ID" \
@@ -4087,7 +4100,7 @@ run_kbo_glyph_update() {
         "--- !u!28 &$KBO_LIGHT_ATLAS_LOCAL_ID" \
         "KBO Light atlas localID after glyph update" || validation_status=1
     if ! grep -F \
-        "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 atlas_page_drift=0 source_linkage=PASS scale_ratio=PASS" \
+        "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 exact_corpus=PASS atlas_page_drift=0 identity=PASS source_linkage=PASS scale_ratio=PASS" \
         "$KBO_GLYPH_UPDATE_LOG" >/dev/null; then
         echo "ERROR: Unity glyph update log is missing the complete post-update validation marker."
         validation_status=1

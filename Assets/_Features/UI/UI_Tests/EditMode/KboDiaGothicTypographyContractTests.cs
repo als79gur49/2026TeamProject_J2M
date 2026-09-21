@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Game.Feature.UI.Composition;
+using Game.Feature.UI.Composition.Editor;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
@@ -54,7 +55,6 @@ namespace Game.Feature.UI.Tests
                 KboMediumFontGuid,
                 KboMediumMaterialLocalId,
                 KboMediumAtlasLocalId,
-                306,
                 "Medium");
             AssertKboAssetContract(
                 LoadKboLightFont(),
@@ -63,8 +63,29 @@ namespace Game.Feature.UI.Tests
                 KboLightFontGuid,
                 KboLightMaterialLocalId,
                 KboLightAtlasLocalId,
-                324,
                 "Light");
+        }
+
+        [Test]
+        public void KboAssets_ExactlyMatchTheSameGovernedKoreanCorpus()
+        {
+            var expectedCorpus = KboDiaGothicGlyphUpdateUtility
+                .BuildExactKoreanCorpusOrThrow()
+                .ToHashSet();
+            var medium = LoadKboMediumFont();
+            var light = LoadKboLightFont();
+
+            Assert.That(expectedCorpus, Does.Contain(0x20));
+            Assert.That(expectedCorpus, Does.Contain(0x7e));
+            Assert.That(expectedCorpus, Does.Contain(0x25a1));
+            foreach (var codePoint in "한국어".Select(character => (uint)character))
+            {
+                Assert.That(expectedCorpus, Does.Contain(codePoint), "ko-KR autonym");
+            }
+
+            var mediumCorpus = AssertExactStaticKboCorpus(medium, expectedCorpus, "Medium");
+            var lightCorpus = AssertExactStaticKboCorpus(light, expectedCorpus, "Light");
+            Assert.That(lightCorpus, Is.EquivalentTo(mediumCorpus));
         }
 
         [Test]
@@ -286,11 +307,13 @@ namespace Game.Feature.UI.Tests
                 .ToArray();
 
             Assert.That(roles, Has.Length.EqualTo(19));
-            Assert.That(theme.RequiredLocaleCodes, Is.EqualTo(new[] { "en-US", "ko-KR" }));
+            Assert.That(
+                theme.RequiredLocaleCodes,
+                Is.EqualTo(new[] { "en-US", "ko-KR", "ja-JP", "zh-CN" }));
             Assert.That(theme.BaseRules, Has.Count.EqualTo(19));
             Assert.That(theme.BaseRules.Select(rule => rule.StyleTag), Is.EqualTo(roles));
             Assert.That(baseDuplicates, Is.Empty, "Base role duplicates");
-            Assert.That(theme.LocaleFontSets, Has.Count.EqualTo(2));
+            Assert.That(theme.LocaleFontSets, Has.Count.EqualTo(4));
             Assert.That(localeDuplicates, Is.Empty, "Locale font-set duplicates");
             foreach (var fontSet in theme.LocaleFontSets)
             {
@@ -308,7 +331,7 @@ namespace Game.Feature.UI.Tests
                 Is.SubsetOf(roles),
                 "Sparse overrides only need entries where ko-KR differs from the base rule.");
             Assert.That(koreanOverrideDuplicates, Is.Empty, "ko-KR role override duplicates");
-            Assert.That(theme.BuildCache().Count, Is.EqualTo(38));
+            Assert.That(theme.BuildCache().Count, Is.EqualTo(76));
             Assert.That(kboLightRoles, Has.Length.EqualTo(9));
             Assert.That(kboMediumRoles, Has.Length.EqualTo(10));
 
@@ -366,6 +389,57 @@ namespace Game.Feature.UI.Tests
                 -6419728470944652023,
                 "MainMenuCommand Orbitron material");
             Assert.That(mainMenuCommand.FontStyle, Is.EqualTo(FontStyles.Bold));
+        }
+
+        [Test]
+        public void ProductionTheme_EnglishFontsUseStrictDirectCorpusWithoutFallback()
+        {
+            Assert.DoesNotThrow(ApprovedLocalizationDraftApplyUtility.ValidateProductionAssetsOrThrow);
+
+            var englishFonts = LoadTheme().LocaleFontSets
+                .Single(set => string.Equals(set.LocaleCode, "en-US", StringComparison.Ordinal))
+                .Entries
+                .Select(entry => entry.FontAsset)
+                .Distinct()
+                .ToArray();
+            var requiredAscii = Enumerable.Range(32, 95)
+                .Where(value => value != '^')
+                .Select(value => (uint)value)
+                .ToHashSet();
+            requiredAscii.Add(0x2026);
+
+            Assert.That(englishFonts, Has.Length.EqualTo(5));
+            foreach (var font in englishFonts)
+            {
+                var directCodePoints = font.characterTable
+                    .Select(character => character.unicode)
+                    .ToHashSet();
+                var expectedCodePoints = new HashSet<uint>(requiredAscii);
+                if (font == TMP_Settings.defaultFontAsset)
+                {
+                    expectedCodePoints.Add(0x25a1);
+                }
+
+                Assert.That(directCodePoints, Is.EquivalentTo(expectedCodePoints), font.name);
+                Assert.That(font.atlasPopulationMode, Is.EqualTo(AtlasPopulationMode.Static), font.name);
+                Assert.That(font.atlasTextures, Has.Length.EqualTo(1), font.name);
+                Assert.That(font.atlasTextures[0].isReadable, Is.False, font.name);
+                Assert.That(font.fallbackFontAssetTable, Is.Empty, font.name);
+            }
+
+            const string sairaSourcePath =
+                "Assets/Synty/InterfaceSciFiSoldierHUD/Fonts/SairaCondensed-SemiBold.ttf";
+            Assert.That(
+                AssetDatabase.AssetPathToGUID(sairaSourcePath),
+                Is.EqualTo("8a4ee41243f3d964aa5194fd78fa32bc"));
+            Assert.That(
+                ComputeFileSha256(sairaSourcePath),
+                Is.EqualTo("30f8ed4d078211003a9715c80c51ce031bab5c9a17e8771182e4c4599205634b"));
+            Assert.That(TMP_Settings.fallbackFontAssets, Is.Empty);
+            Assert.That(
+                TMP_Settings.defaultFontAsset.characterTable.Any(character => character.unicode == 0x25a1),
+                Is.True,
+                "TMP default font must supply the visible square used after strict admission detects a gap.");
         }
 
         [Test]
@@ -556,7 +630,6 @@ namespace Game.Feature.UI.Tests
             string fontGuid,
             long materialLocalId,
             long atlasLocalId,
-            int expectedCharacterCount,
             string expectedStyleName)
         {
             var label = "KBO Dia Gothic " + expectedStyleName;
@@ -577,13 +650,37 @@ namespace Game.Feature.UI.Tests
             Assert.That(fontAsset.creationSettings.atlasHeight, Is.EqualTo(2048), label);
             Assert.That(fontAsset.creationSettings.characterSetSelectionMode, Is.EqualTo(7), label);
             Assert.That(fontAsset.creationSettings.renderMode, Is.EqualTo((int)fontAsset.atlasRenderMode), label);
-            Assert.That(fontAsset.characterTable, Has.Count.EqualTo(expectedCharacterCount), label);
+            Assert.That(
+                fontAsset.characterTable,
+                Has.Count.EqualTo(KboDiaGothicGlyphUpdateUtility.BuildExactKoreanCorpusOrThrow().Length),
+                label);
             Assert.That(fontAsset.HasCharacter(' ', false, false), Is.True, label);
+            Assert.That(fontAsset.HasCharacter('\u25a1', false, false), Is.True, label);
             Assert.That(fontAsset.atlasPopulationMode, Is.EqualTo(AtlasPopulationMode.Static), label);
             Assert.That(fontAsset.atlasTextures, Has.Length.EqualTo(1), label);
             Assert.That(fontAsset.atlasTextures[0], Is.Not.Null, label);
+            Assert.That(fontAsset.atlasTextures[0].isReadable, Is.False, label);
             AssertAssetIdentity(fontAsset.atlasTextures[0], fontGuid, atlasLocalId, $"{label} canonical atlas");
             Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty, label);
+        }
+
+        private static HashSet<uint> AssertExactStaticKboCorpus(
+            TMP_FontAsset fontAsset,
+            ISet<uint> expectedCorpus,
+            string label)
+        {
+            var actualCorpus = fontAsset.characterTable
+                .Select(character => character.unicode)
+                .ToHashSet();
+
+            Assert.That(actualCorpus, Is.EquivalentTo(expectedCorpus), label);
+            Assert.That(fontAsset.atlasPopulationMode, Is.EqualTo(AtlasPopulationMode.Static), label);
+            Assert.That(fontAsset.isMultiAtlasTexturesEnabled, Is.False, label);
+            Assert.That(fontAsset.atlasTextures, Has.Length.EqualTo(1), label);
+            Assert.That(fontAsset.atlasTextures[0], Is.Not.Null, label);
+            Assert.That(fontAsset.atlasTextures[0].isReadable, Is.False, label);
+            Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty, label);
+            return actualCorpus;
         }
 
         private static StringTable LoadStringTable(string path)
@@ -591,6 +688,13 @@ namespace Game.Feature.UI.Tests
             var table = AssetDatabase.LoadAssetAtPath<StringTable>(path);
             Assert.That(table, Is.Not.Null, path);
             return table;
+        }
+
+        private static string ComputeFileSha256(string assetPath)
+        {
+            using var sha = SHA256.Create();
+            using var stream = File.OpenRead(assetPath);
+            return string.Concat(sha.ComputeHash(stream).Select(value => value.ToString("x2")));
         }
 
         private static T GetField<T>(object target, string fieldName)

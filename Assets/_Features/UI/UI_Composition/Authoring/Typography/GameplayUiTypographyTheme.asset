@@ -15,6 +15,8 @@ MonoBehaviour:
   requiredLocaleCodes:
   - en-US
   - ko-KR
+  - ja-JP
+  - zh-CN
   baseRules:
   - StyleTag: 0
     FontCategory: 2
@@ -318,6 +320,80 @@ MonoBehaviour:
       Weight: 1
       FontAsset: {fileID: 11400000, guid: 40d61154fd6576b4d85c2d78460b16ad, type: 2}
       MaterialPreset: {fileID: 1352911973252649374, guid: 40d61154fd6576b4d85c2d78460b16ad, type: 2}
+      WeightStrategy: 0
+  - LocaleCode: ja-JP
+    Entries:
+    - FontCategory: 0
+      Weight: 2
+      FontAsset: {fileID: 11400000, guid: cdc17aa98b12216429d63773f8d6afc6, type: 2}
+      MaterialPreset: {fileID: -3154447569938309854, guid: cdc17aa98b12216429d63773f8d6afc6, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 1
+      Weight: 2
+      FontAsset: {fileID: 11400000, guid: cdc17aa98b12216429d63773f8d6afc6, type: 2}
+      MaterialPreset: {fileID: -3154447569938309854, guid: cdc17aa98b12216429d63773f8d6afc6, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 2
+      Weight: 1
+      FontAsset: {fileID: 11400000, guid: d743a484e2e66d243b8a1dcdf6aa5eed, type: 2}
+      MaterialPreset: {fileID: 398924907091165295, guid: d743a484e2e66d243b8a1dcdf6aa5eed, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 3
+      Weight: 1
+      FontAsset: {fileID: 11400000, guid: d743a484e2e66d243b8a1dcdf6aa5eed, type: 2}
+      MaterialPreset: {fileID: 398924907091165295, guid: d743a484e2e66d243b8a1dcdf6aa5eed, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 3
+      Weight: 2
+      FontAsset: {fileID: 11400000, guid: cdc17aa98b12216429d63773f8d6afc6, type: 2}
+      MaterialPreset: {fileID: -3154447569938309854, guid: cdc17aa98b12216429d63773f8d6afc6, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 4
+      Weight: 1
+      FontAsset: {fileID: 11400000, guid: d743a484e2e66d243b8a1dcdf6aa5eed, type: 2}
+      MaterialPreset: {fileID: 398924907091165295, guid: d743a484e2e66d243b8a1dcdf6aa5eed, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 5
+      Weight: 1
+      FontAsset: {fileID: 11400000, guid: d743a484e2e66d243b8a1dcdf6aa5eed, type: 2}
+      MaterialPreset: {fileID: 398924907091165295, guid: d743a484e2e66d243b8a1dcdf6aa5eed, type: 2}
+      WeightStrategy: 0
+  - LocaleCode: zh-CN
+    Entries:
+    - FontCategory: 0
+      Weight: 2
+      FontAsset: {fileID: 11400000, guid: 20f4275df5fb29747b20962c1fa951fa, type: 2}
+      MaterialPreset: {fileID: -7645796955157900247, guid: 20f4275df5fb29747b20962c1fa951fa, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 1
+      Weight: 2
+      FontAsset: {fileID: 11400000, guid: 20f4275df5fb29747b20962c1fa951fa, type: 2}
+      MaterialPreset: {fileID: -7645796955157900247, guid: 20f4275df5fb29747b20962c1fa951fa, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 2
+      Weight: 1
+      FontAsset: {fileID: 11400000, guid: a3332da40620eff41a9caede1c37bba7, type: 2}
+      MaterialPreset: {fileID: -5914141786395745512, guid: a3332da40620eff41a9caede1c37bba7, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 3
+      Weight: 1
+      FontAsset: {fileID: 11400000, guid: a3332da40620eff41a9caede1c37bba7, type: 2}
+      MaterialPreset: {fileID: -5914141786395745512, guid: a3332da40620eff41a9caede1c37bba7, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 3
+      Weight: 2
+      FontAsset: {fileID: 11400000, guid: 20f4275df5fb29747b20962c1fa951fa, type: 2}
+      MaterialPreset: {fileID: -7645796955157900247, guid: 20f4275df5fb29747b20962c1fa951fa, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 4
+      Weight: 1
+      FontAsset: {fileID: 11400000, guid: a3332da40620eff41a9caede1c37bba7, type: 2}
+      MaterialPreset: {fileID: -5914141786395745512, guid: a3332da40620eff41a9caede1c37bba7, type: 2}
+      WeightStrategy: 0
+    - FontCategory: 5
+      Weight: 1
+      FontAsset: {fileID: 11400000, guid: a3332da40620eff41a9caede1c37bba7, type: 2}
+      MaterialPreset: {fileID: -5914141786395745512, guid: a3332da40620eff41a9caede1c37bba7, type: 2}
       WeightStrategy: 0
   sparseOverrides:
   - LocaleCode: ko-KR

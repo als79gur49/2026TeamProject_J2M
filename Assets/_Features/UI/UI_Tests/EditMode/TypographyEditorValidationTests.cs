@@ -29,6 +29,7 @@ namespace Game.Feature.UI.Tests
             "TestLogs/TypographyVisualQA/CommandLine-20260722-210829";
         private const string HistoricalFiftyOneBindingEvidenceDirectory =
             "TestLogs/TypographyVisualQA/CommandLine-20260720-194045";
+        private static readonly string[] HistoricalEvidenceLocaleCodes = { "en-US", "ko-KR" };
 
         [TestCase("Medium")]
         [TestCase("Light")]
@@ -274,6 +275,8 @@ namespace Game.Feature.UI.Tests
                 {
                     CreateFontSet("en-US", LoadLiberationSans(), nullMaterialCategory: FontCategory.Body),
                     CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont()),
+                    CreateFontSet("ja-JP", LoadLiberationSans()),
+                    CreateFontSet("zh-CN", LoadLiberationSans()),
                 });
 
             try
@@ -850,7 +853,7 @@ namespace Game.Feature.UI.Tests
             TestContext.WriteLine("Typography screenshot output: " + result.OutputDirectory);
 
             Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors.Concat(result.Captures.SelectMany(capture => capture.Errors))));
-            Assert.That(result.Captures, Has.Count.EqualTo(6));
+            Assert.That(result.Captures, Has.Count.EqualTo(12));
 
             foreach (var capture in result.Captures)
             {
@@ -897,7 +900,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(manifest.GitHead, Is.EqualTo(TypographyPreviewScreenshotManifestUtility.ReadCurrentGitHead()));
             Assert.That(manifest.Width, Is.EqualTo(960));
             Assert.That(manifest.Height, Is.EqualTo(540));
-            Assert.That(manifest.Entries, Has.Count.EqualTo(6));
+            Assert.That(manifest.Entries, Has.Count.EqualTo(12));
             Assert.That(
                 manifest.Entries.Where(entry => entry.Target == "Settings"),
                 Has.All.Property("TypographyBindingCount")
@@ -1006,7 +1009,7 @@ namespace Game.Feature.UI.Tests
                 var manifest = TypographyPreviewScreenshotManifestParser.ParseFile(manifestPath);
 
                 Assert.That(manifest.OverallResult, Is.EqualTo("FAIL"));
-                Assert.That(manifest.Entries, Has.Count.EqualTo(6));
+                Assert.That(manifest.Entries, Has.Count.EqualTo(12));
                 Assert.That(manifest.Entries, Has.All.Property("CaptureResult").EqualTo("FAIL"));
             }
             finally
@@ -1065,7 +1068,7 @@ namespace Game.Feature.UI.Tests
                     : string.Equals(target.FileStem, "Settings", System.StringComparison.Ordinal)
                         ? 22
                         : TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem);
-                foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
+                foreach (var locale in HistoricalEvidenceLocaleCodes)
                 {
                     var expectedFileName =
                         TypographyPreviewScreenshotUtility.BuildFileName(target, locale);
@@ -1159,7 +1162,7 @@ namespace Game.Feature.UI.Tests
         {
             foreach (var target in TypographyPreviewScreenshotUtility.RequiredTargets)
             {
-                foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
+                foreach (var locale in HistoricalEvidenceLocaleCodes)
                 {
                     var fileName = TypographyPreviewScreenshotUtility.BuildFileName(target, locale);
                     var previousPath = Path.Combine(MainMenuCorrectedEvidenceDirectory, fileName);
@@ -1184,7 +1187,7 @@ namespace Game.Feature.UI.Tests
 
             var manifest = TypographyPreviewScreenshotManifestParser.ParseFile(manifestPath);
             Assert.That(manifest.OutputDirectory, Is.EqualTo(HistoricalFiftyOneBindingEvidenceDirectory));
-            foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
+            foreach (var locale in HistoricalEvidenceLocaleCodes)
             {
                 var settingsEntry = manifest.FindEntry("Settings", locale);
                 Assert.That(settingsEntry, Is.Not.Null, $"historical Settings/{locale}");

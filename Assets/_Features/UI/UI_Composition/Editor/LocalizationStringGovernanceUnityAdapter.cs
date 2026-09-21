@@ -6,6 +6,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.ViewShared;
 using UnityEditor;
 using UnityEditor.Localization;
+using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using UnityEngine.Localization.SmartFormat;
 using UnityEngine.Localization.SmartFormat.Core.Parsing;
@@ -159,10 +160,7 @@ namespace Game.Feature.UI.Composition.Editor
             var localeTables = new List<LocalizationLocaleTableSnapshot>();
             foreach (var locale in catalog.AuthoringKnownLocales)
             {
-                var unityLocale = LocalizationEditorSettings.GetLocale(locale.CanonicalCode);
-                var table = unityLocale == null
-                    ? null
-                    : collection.GetTable(unityLocale.Identifier) as StringTable;
+                var table = collection.GetTable(new LocaleIdentifier(locale.CanonicalCode)) as StringTable;
                 if (table == null)
                 {
                     continue;

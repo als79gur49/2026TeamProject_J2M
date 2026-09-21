@@ -35,7 +35,7 @@ namespace Game.Feature.UI.Tests
             AssertSettingsLabels(view, "Settings", "Audio", "Display", "Input", "Back");
             AssertInputLabels(view.InputView, "Movement Keys", "Push", "Flip", "Reset Input");
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             AssertSettingsLabels(view, "설정", "오디오", "화면", "조작", "뒤로");
             AssertInputLabels(view.InputView, "이동 키", "밀기", "뒤집기", "키 설정 초기화");
@@ -59,7 +59,7 @@ namespace Game.Feature.UI.Tests
                 "Cancel");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
@@ -69,7 +69,7 @@ namespace Game.Feature.UI.Tests
                 "취소");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
@@ -80,7 +80,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
             harness.CloseConfirm();
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
             harness.SettingsView.InputView.ClickReset();
 
             AssertConfirmCopy(
@@ -113,7 +113,7 @@ namespace Game.Feature.UI.Tests
                 "되돌리기");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
@@ -123,7 +123,7 @@ namespace Game.Feature.UI.Tests
                 "Revert");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
@@ -155,7 +155,7 @@ namespace Game.Feature.UI.Tests
                 "Decline");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
@@ -165,7 +165,7 @@ namespace Game.Feature.UI.Tests
                 "Decline");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
@@ -176,7 +176,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
             harness.CloseConfirm();
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
             harness.OpenConfirm(new ConfirmPopupPayload(
                 "입력 설정",
                 "화면 설정 123.",
@@ -339,6 +339,28 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("Language"));
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
             Assert.That(languageButtonLabel.font, Is.SameAs(startingLanguageFont));
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.EqualTo(2));
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_LanguageCycleTargetMismatchProducesNoToggleAudio()
+        {
+            var resolver = new TargetMismatchLocalizedTextResolver();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickDisplayTab();
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.TrySetCallCount, Is.EqualTo(1));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.Zero);
         }
 
         [Test]
@@ -388,7 +410,7 @@ namespace Game.Feature.UI.Tests
             view.ClickDisplayTab();
             view.DisplayView.SelectResolution(2);
             view.DisplayView.ClickApply();
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             var status = GetField<TMP_Text>(view.DisplayView, "_displayStatusLabel");
             var binding = TypographyBinding.FindFor(status);
@@ -501,6 +523,8 @@ namespace Game.Feature.UI.Tests
             var audioModel = GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel");
             var displayModel = GetField<SettingsDisplayViewModel>(view.DisplayView, "_viewModel");
             var inputModel = GetField<SettingsInputViewModel>(view.InputView, "_viewModel");
+            var languageButtonLabel = GetText(view.DisplayView, "_languageCycleButtonLabel");
+            var englishLanguageFont = languageButtonLabel.font;
             Assert.That(view.DisplayView.DisplayStatusText, Does.Contain("15 seconds"));
             Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("Reverting in 15s"));
             Assert.That(keyboardPort.IsRebinding, Is.True);
@@ -522,6 +546,20 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel"), Is.SameAs(audioModel));
             Assert.That(GetField<SettingsDisplayViewModel>(view.DisplayView, "_viewModel"), Is.SameAs(displayModel));
             Assert.That(GetField<SettingsInputViewModel>(view.InputView, "_viewModel"), Is.SameAs(inputModel));
+            Assert.That(languageButtonLabel.font, Is.SameAs(UiTestPrefabAssetUtility.LoadKboDiaGothicMediumFont()));
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.Zero);
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
+            Assert.That(languageButtonLabel.font, Is.SameAs(englishLanguageFont));
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds.Count(cue => cue == UiAudioCueId.Toggle),
+                Is.Zero);
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             keyboardPort.Complete();
 
@@ -583,11 +621,11 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(view.InputView.StatusText, Is.EqualTo(englishPrompt));
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             Assert.That(view.InputView.StatusText, Is.EqualTo(koreanPrompt));
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             Assert.That(view.InputView.StatusText, Is.EqualTo(englishPrompt));
         }
@@ -690,13 +728,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
             Assert.That(GetText(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("K"));
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             Assert.That(view.InputView.StatusText, Is.EqualTo(koreanStatus));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
             Assert.That(GetText(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("K"));
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             Assert.That(view.InputView.StatusText, Is.EqualTo(englishStatus));
         }
@@ -728,14 +766,14 @@ namespace Game.Feature.UI.Tests
             AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
             AssertKeyDisplayPair(flipCurrent, flipKeycap, flipDisplayName);
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             AssertInputLabels(input, "이동 키", "밀기", "뒤집기", "키 설정 초기화");
             AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
             AssertKeyDisplayPair(flipCurrent, flipKeycap, flipDisplayName);
             AssertInvariantTypography(states, "ko-KR");
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             AssertInputLabels(input, "Movement Keys", "Push", "Flip", "Reset Input");
             AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
@@ -768,11 +806,11 @@ namespace Game.Feature.UI.Tests
             AssertKeyDisplayPair(pushCurrent, pushKeycap, "Space");
             AssertInvariantTypography(states, "after rebind");
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
             AssertKeyDisplayPair(pushCurrent, pushKeycap, "Space");
             AssertInvariantTypography(states, "ko-KR after rebind");
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
             AssertKeyDisplayPair(pushCurrent, pushKeycap, "Space");
             AssertInvariantTypography(states, "restored en-US after rebind");
         }
@@ -803,7 +841,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(GetText(input, "_pushKeyDisplayLabel").enableAutoSizing, Is.True);
             Assert.That(GetText(input, "_flipKeyDisplayLabel").enableAutoSizing, Is.True);
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             foreach (var label in labels)
             {
@@ -911,7 +949,7 @@ namespace Game.Feature.UI.Tests
 
             harness.Runtime.Dispose();
 
-            Assert.DoesNotThrow(() => resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode));
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
         }
 
         [Test]
@@ -950,13 +988,21 @@ namespace Game.Feature.UI.Tests
             {
                 var store = new PlayerPrefsUiLocalePreferenceStore(key);
 
-                Assert.That(store.TryLoad(out _), Is.False);
+                Assert.That(store.Load().Status, Is.EqualTo(LocalePreferenceReadStatus.Missing));
 
-                store.Save(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+                PlayerPrefs.SetString(key, string.Empty);
+                var blank = store.Load();
+                Assert.That(blank.Status, Is.EqualTo(LocalePreferenceReadStatus.Loaded));
+                Assert.That(blank.RawLocaleCode, Is.Empty);
+
+                Assert.That(
+                    store.Save(PackageFreeLocalizedTextResolver.KoreanLocaleCode).Status,
+                    Is.EqualTo(LocalePreferenceWriteStatus.Completed));
 
                 Assert.That(PlayerPrefs.GetString(key), Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
-                Assert.That(new PlayerPrefsUiLocalePreferenceStore(key).TryLoad(out var loadedLocaleCode), Is.True);
-                Assert.That(loadedLocaleCode, Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
+                var loaded = new PlayerPrefsUiLocalePreferenceStore(key).Load();
+                Assert.That(loaded.Status, Is.EqualTo(LocalePreferenceReadStatus.Loaded));
+                Assert.That(loaded.RawLocaleCode, Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
                 Assert.That(
                     PackageFreeLocalizedTextResolver.CreateSettingsDefault(store).CurrentLocaleCode,
                     Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
@@ -1008,7 +1054,7 @@ namespace Game.Feature.UI.Tests
                     $"Expected canonical en-US value for {descriptor.Key}.");
             }
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("설정"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Language), Is.EqualTo("언어"));
@@ -1023,7 +1069,7 @@ namespace Game.Feature.UI.Tests
                     $"Expected canonical ko-KR value for {descriptor.Key}.");
             }
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             Assert.That(resolver.Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(false)), Is.EqualTo("Off"));
             Assert.That(resolver.Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(true)), Is.EqualTo("On"));
@@ -1036,12 +1082,12 @@ namespace Game.Feature.UI.Tests
                     $"Expected canonical en-US value after locale round-trip for {descriptor.Key}.");
             }
 
-            resolver.SetLocale("fr-FR");
+            Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
 
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Back), Is.EqualTo("Back"));
             Assert.That(
                 resolver.Resolve(new LocalizedTextDescriptor("UI", "ui.settings.missing")),
-                Is.EqualTo("[UI:ui.settings.missing]"));
+                Is.EqualTo(PackageFreeLocalizedTextResolver.MissingTranslationSentinel));
         }
 
         [Test]
@@ -1262,7 +1308,7 @@ namespace Game.Feature.UI.Tests
 
             AssertAudioValueLayout(view, values, sizing, englishText, "en-US");
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             AssertAudioValueLayout(view, values, sizing, koreanText, "ko-KR");
             foreach (var pair in values)
@@ -1271,7 +1317,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(pair.Value.fontStyle, Is.EqualTo(FontStyles.Normal), pair.Key);
             }
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             AssertAudioValueLayout(view, values, sizing, englishText, "restored en-US");
             foreach (var pair in values)
@@ -1835,7 +1881,7 @@ namespace Game.Feature.UI.Tests
 
             public string CurrentLocaleCode => _inner.CurrentLocaleCode;
 
-            public IReadOnlyList<string> AvailableLocaleCodes => _inner.AvailableLocaleCodes;
+            public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions => _inner.AvailableLocaleOptions;
 
             public int LocaleChangedSubscriberCount =>
                 _localeChanged != null ? _localeChanged.GetInvocationList().Length : 0;
@@ -1858,7 +1904,7 @@ namespace Game.Feature.UI.Tests
                     return;
                 }
 
-                _inner.SetLocale(localeCode);
+                Assert.That(_inner.TrySetLocale(localeCode), Is.True);
                 _localeChanged?.Invoke();
             }
 
@@ -1874,6 +1920,31 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private sealed class TargetMismatchLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
+        {
+            private readonly PackageFreeLocalizedTextResolver _text =
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+
+            public string CurrentLocaleCode => PackageFreeLocalizedTextResolver.DefaultLocaleCode;
+
+            public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions => _text.AvailableLocaleOptions;
+
+            public int TrySetCallCount { get; private set; }
+
+            public event Action LocaleChanged;
+
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                return _text.Resolve(descriptor);
+            }
+
+            public bool TrySetLocale(string localeCode)
+            {
+                TrySetCallCount++;
+                return true;
+            }
+        }
+
         private sealed class DisplayResolutionValueResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
         {
             private readonly PackageFreeLocalizedTextResolver _inner =
@@ -1881,7 +1952,7 @@ namespace Game.Feature.UI.Tests
 
             public string CurrentLocaleCode => _inner.CurrentLocaleCode;
 
-            public IReadOnlyList<string> AvailableLocaleCodes => _inner.AvailableLocaleCodes;
+            public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions => _inner.AvailableLocaleOptions;
 
             public event Action LocaleChanged;
 
@@ -1921,17 +1992,19 @@ namespace Game.Feature.UI.Tests
 
             public string LastSavedLocaleCode { get; private set; }
 
-            public bool TryLoad(out string localeCode)
+            public LocalePreferenceReadResult Load()
             {
-                localeCode = _localeCode;
-                return localeCode != null;
+                return _localeCode == null
+                    ? LocalePreferenceReadResult.Missing()
+                    : LocalePreferenceReadResult.Loaded(_localeCode);
             }
 
-            public void Save(string localeCode)
+            public LocalePreferenceWriteResult Save(string localeCode)
             {
                 SaveCallCount++;
                 LastSavedLocaleCode = localeCode;
                 _localeCode = localeCode;
+                return LocalePreferenceWriteResult.Completed();
             }
         }
     }

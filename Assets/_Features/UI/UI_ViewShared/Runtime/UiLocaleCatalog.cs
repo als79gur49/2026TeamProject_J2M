@@ -155,6 +155,8 @@ namespace Game.Feature.UI.ViewShared
                 {
                     new LocaleCatalogEntry("en-US", "English", 10, LocaleLifecycle.ShipReady),
                     new LocaleCatalogEntry("ko-KR", "한국어", 20, LocaleLifecycle.ShipReady),
+                    new LocaleCatalogEntry("ja-JP", "日本語", 30, LocaleLifecycle.ShipReady),
+                    new LocaleCatalogEntry("zh-CN", "简体中文", 40, LocaleLifecycle.ShipReady),
                 },
                 "en-US",
                 "en-US");

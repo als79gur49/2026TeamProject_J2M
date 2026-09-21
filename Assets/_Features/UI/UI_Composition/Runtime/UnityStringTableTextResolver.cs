@@ -13,10 +13,14 @@ namespace Game.Feature.UI.Composition
     {
         public const string DefaultLocaleCode = "en-US";
         public const string KoreanLocaleCode = "ko-KR";
+        public const string MissingTranslationSentinel = "□";
 
         private readonly IUiLocalePreferenceStore _localePreferenceStore;
+        private readonly IUiLocalePersistenceReporter _persistenceReporter;
         private readonly UiLocaleCatalog _localeCatalog;
-        private IReadOnlyList<string> _availableLocaleCodes = Array.Empty<string>();
+        private readonly TryResolveExactLocale _tryResolveExactLocale;
+        private readonly TryValidateStartupHealth _validateStartupHealth;
+        private IReadOnlyList<LocaleOptionModel> _availableLocaleOptions = Array.Empty<LocaleOptionModel>();
         private IReadOnlyDictionary<string, Locale> _registeredLocaleByCode =
             new Dictionary<string, Locale>(StringComparer.Ordinal);
         private LocaleSelectionPolicy _selectionPolicy;
@@ -26,15 +30,32 @@ namespace Game.Feature.UI.Composition
 
         private UnityStringTableTextResolver(
             IUiLocalePreferenceStore localePreferenceStore,
-            UiLocaleCatalog localeCatalog)
+            IUiLocalePersistenceReporter persistenceReporter,
+            UiLocaleCatalog localeCatalog,
+            TryResolveExactLocale tryResolveExactLocale,
+            TryValidateStartupHealth validateStartupHealth)
         {
-            _localePreferenceStore = localePreferenceStore;
+            _localePreferenceStore = localePreferenceStore ??
+                throw new ArgumentNullException(nameof(localePreferenceStore));
+            _persistenceReporter = persistenceReporter ??
+                throw new ArgumentNullException(nameof(persistenceReporter));
             _localeCatalog = localeCatalog ?? throw new ArgumentNullException(nameof(localeCatalog));
+            _tryResolveExactLocale = tryResolveExactLocale ?? TryResolveFromUnity;
+            _validateStartupHealth = validateStartupHealth ?? ValidateStartupHealth;
         }
+
+        internal delegate bool TryResolveExactLocale(
+            string canonicalLocaleCode,
+            LocalizedTextDescriptor descriptor,
+            out string value);
+
+        internal delegate bool TryValidateStartupHealth(
+            string canonicalLocaleCode,
+            out string failureReason);
 
         public string CurrentLocaleCode => _currentLocaleCode;
 
-        public IReadOnlyList<string> AvailableLocaleCodes => _availableLocaleCodes;
+        public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions => _availableLocaleOptions;
 
         public event Action LocaleChanged;
 
@@ -45,7 +66,26 @@ namespace Game.Feature.UI.Composition
         {
             return TryCreateSettingsDefault(
                 localePreferenceStore,
+                new NoOpUiLocalePersistenceReporter(),
                 UiLocaleCatalog.CreateProduction(),
+                null,
+                null,
+                out resolver,
+                out failureReason);
+        }
+
+        public static bool TryCreateSettingsDefault(
+            IUiLocalePreferenceStore localePreferenceStore,
+            IUiLocalePersistenceReporter persistenceReporter,
+            out UnityStringTableTextResolver resolver,
+            out string failureReason)
+        {
+            return TryCreateSettingsDefault(
+                localePreferenceStore,
+                persistenceReporter,
+                UiLocaleCatalog.CreateProduction(),
+                null,
+                null,
                 out resolver,
                 out failureReason);
         }
@@ -56,8 +96,55 @@ namespace Game.Feature.UI.Composition
             out UnityStringTableTextResolver resolver,
             out string failureReason)
         {
+            return TryCreateSettingsDefault(
+                localePreferenceStore,
+                new NoOpUiLocalePersistenceReporter(),
+                localeCatalog,
+                null,
+                null,
+                out resolver,
+                out failureReason);
+        }
+
+        internal static bool TryCreateSettingsDefault(
+            IUiLocalePreferenceStore localePreferenceStore,
+            IUiLocalePersistenceReporter persistenceReporter,
+            UiLocaleCatalog localeCatalog,
+            TryValidateStartupHealth validateStartupHealth,
+            out UnityStringTableTextResolver resolver,
+            out string failureReason)
+        {
+            return TryCreateSettingsDefault(
+                localePreferenceStore,
+                persistenceReporter,
+                localeCatalog,
+                null,
+                validateStartupHealth,
+                out resolver,
+                out failureReason);
+        }
+
+        internal static bool TryCreateSettingsDefault(
+            IUiLocalePreferenceStore localePreferenceStore,
+            IUiLocalePersistenceReporter persistenceReporter,
+            UiLocaleCatalog localeCatalog,
+            TryResolveExactLocale tryResolveExactLocale,
+            TryValidateStartupHealth validateStartupHealth,
+            out UnityStringTableTextResolver resolver,
+            out string failureReason)
+        {
             resolver = null;
             failureReason = string.Empty;
+            if (localePreferenceStore == null)
+            {
+                throw new ArgumentNullException(nameof(localePreferenceStore));
+            }
+
+            if (persistenceReporter == null)
+            {
+                throw new ArgumentNullException(nameof(persistenceReporter));
+            }
+
             if (!LocalizationSettings.HasSettings)
             {
                 failureReason = "Unity Localization settings are not configured.";
@@ -70,7 +157,12 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            var candidate = new UnityStringTableTextResolver(localePreferenceStore, localeCatalog);
+            var candidate = new UnityStringTableTextResolver(
+                localePreferenceStore,
+                persistenceReporter,
+                localeCatalog,
+                tryResolveExactLocale,
+                validateStartupHealth);
             if (!candidate.TryInitialize(out failureReason))
             {
                 candidate.Dispose();
@@ -83,13 +175,12 @@ namespace Game.Feature.UI.Composition
 
         public string Resolve(LocalizedTextDescriptor descriptor)
         {
-            if (TryResolveFromUnity(CurrentLocaleCode, descriptor, out var value) ||
-                TryResolveFromUnity(DefaultLocaleCode, descriptor, out value))
+            if (_tryResolveExactLocale(CurrentLocaleCode, descriptor, out var value))
             {
                 return value;
             }
 
-            return $"[{descriptor.Table}:{descriptor.Key}]";
+            return MissingTranslationSentinel;
         }
 
         public bool TrySetLocale(string localeCode)
@@ -105,10 +196,7 @@ namespace Game.Feature.UI.Composition
                 return true;
             }
 
-            var locale = GetRegisteredLocaleOrThrow(result.CanonicalCode);
-            SetSelectedLocale(locale, result.CanonicalCode, preload: true);
-            _localePreferenceStore?.Save(result.CanonicalCode);
-            LocaleChanged?.Invoke();
+            ApplyApprovedChange(result.CanonicalCode, LocalePersistenceOperation.SettingsSelection);
             return true;
         }
 
@@ -144,13 +232,6 @@ namespace Game.Feature.UI.Composition
                     return false;
                 }
 
-                if (!TryGetLocale(DefaultLocaleCode, out _) ||
-                    !TryGetLocale(KoreanLocaleCode, out _))
-                {
-                    failureReason = "Required en-US and ko-KR Locale assets are not available.";
-                    return false;
-                }
-
                 _registeredLocaleByCode = ResolveRegisteredLocales();
                 _selectionPolicy = new LocaleSelectionPolicy(
                     _localeCatalog,
@@ -163,17 +244,14 @@ namespace Game.Feature.UI.Composition
                     return false;
                 }
 
-                _availableLocaleCodes = Array.AsReadOnly(
-                    _selectionPolicy.SelectableLocales
-                        .Select(entry => entry.CanonicalCode)
-                        .ToArray());
+                _availableLocaleOptions = LocaleOptionSnapshot.FromCatalogEntries(
+                    _selectionPolicy.SelectableLocales);
 
-                string persistedLocaleCode = null;
-                if (_localePreferenceStore != null &&
-                    _localePreferenceStore.TryLoad(out var loadedLocaleCode))
-                {
-                    persistedLocaleCode = loadedLocaleCode;
-                }
+                var readResult = _localePreferenceStore.Load() ??
+                    throw new InvalidOperationException("Locale preference store returned a null read result.");
+                var persistedLocaleCode = readResult.Status == LocalePreferenceReadStatus.Loaded
+                    ? readResult.RawLocaleCode
+                    : null;
 
                 var selectedLocaleCode = GetCanonicalUnitySelectionCandidate(
                     LocalizationSettings.SelectedLocale?.Identifier.Code);
@@ -182,44 +260,36 @@ namespace Game.Feature.UI.Composition
                     selectedLocaleCode);
                 var initialLocale = GetRegisteredLocaleOrThrow(initialLocaleCode);
 
+                if (_availableLocaleOptions.Count > 0 &&
+                    !_availableLocaleOptions.Any(option =>
+                        string.Equals(option.CanonicalCode, initialLocaleCode, StringComparison.Ordinal)))
+                {
+                    failureReason =
+                        $"Resolved current locale '{initialLocaleCode}' is absent from available locale options " +
+                        $"[{string.Join(", ", _availableLocaleOptions.Select(option => option.CanonicalCode))}].";
+                    return false;
+                }
+
                 SetSelectedLocale(initialLocale, initialLocaleCode, preload: true);
+                if (!_validateStartupHealth(initialLocaleCode, out failureReason))
+                {
+                    return false;
+                }
+
+                if (readResult.Status == LocalePreferenceReadStatus.Failed)
+                {
+                    ReportFailure(
+                        LocalePersistenceOperation.StartupRead,
+                        initialLocaleCode,
+                        readResult.FailureReason);
+                }
+                else if (readResult.Status == LocalePreferenceReadStatus.Loaded &&
+                         !string.Equals(readResult.RawLocaleCode, initialLocaleCode, StringComparison.Ordinal))
+                {
+                    SaveAndReport(initialLocaleCode, LocalePersistenceOperation.StartupRewrite);
+                }
+
                 LocalizationSettings.SelectedLocaleChanged += HandleSelectedLocaleChanged;
-
-                if (!TryResolveFromUnity(
-                        DefaultLocaleCode,
-                        SettingsStaticTextDescriptors.Title,
-                        out _))
-                {
-                    failureReason = "UI String Table is not available or does not contain Settings title.";
-                    return false;
-                }
-
-                if (!TryResolveFromUnity(
-                        KoreanLocaleCode,
-                        SettingsStaticTextDescriptors.Title,
-                        out _))
-                {
-                    failureReason = "ko-KR UI String Table is not available or does not contain Settings title.";
-                    return false;
-                }
-
-                if (!TryResolveFromUnity(
-                        DefaultLocaleCode,
-                        new LocalizedTextDescriptor("Stage", "stage.stage-0-1.display_name"),
-                        out _))
-                {
-                    failureReason = "Stage String Table is not available or does not contain the canonical stage display name sample.";
-                    return false;
-                }
-
-                if (!TryResolveFromUnity(
-                        KoreanLocaleCode,
-                        new LocalizedTextDescriptor("Stage", "stage.stage-0-1.display_name"),
-                        out _))
-                {
-                    failureReason = "ko-KR Stage String Table is not available or does not contain the canonical stage display name sample.";
-                    return false;
-                }
 
                 return true;
             }
@@ -228,6 +298,78 @@ namespace Game.Feature.UI.Composition
                 failureReason = ex.Message;
                 return false;
             }
+        }
+
+        private bool ValidateStartupHealth(string canonicalLocaleCode, out string failureReason)
+        {
+            failureReason = string.Empty;
+            if (!_tryResolveExactLocale(
+                    canonicalLocaleCode,
+                    SettingsStaticTextDescriptors.Title,
+                    out _))
+            {
+                failureReason = CreateStartupHealthFailureReason(
+                    canonicalLocaleCode,
+                    SettingsStaticTextDescriptors.Title);
+                return false;
+            }
+
+            var stageDisplayName = new LocalizedTextDescriptor(
+                "Stage",
+                "stage.stage-0-1.display_name");
+            if (!_tryResolveExactLocale(
+                    canonicalLocaleCode,
+                    stageDisplayName,
+                    out _))
+            {
+                failureReason = CreateStartupHealthFailureReason(
+                    canonicalLocaleCode,
+                    stageDisplayName);
+                return false;
+            }
+
+            return true;
+        }
+
+        private static string CreateStartupHealthFailureReason(
+            string canonicalLocaleCode,
+            LocalizedTextDescriptor descriptor)
+        {
+            return
+                $"Selected locale '{canonicalLocaleCode}' String Table health failed for " +
+                $"table '{descriptor.Table}', key '{descriptor.Key}': the exact entry is missing, null, or empty.";
+        }
+
+        private void ApplyApprovedChange(
+            string canonicalLocaleCode,
+            LocalePersistenceOperation operation)
+        {
+            var locale = GetRegisteredLocaleOrThrow(canonicalLocaleCode);
+            SetSelectedLocale(locale, canonicalLocaleCode, preload: true);
+            LocaleChanged?.Invoke();
+            SaveAndReport(canonicalLocaleCode, operation);
+        }
+
+        private void SaveAndReport(
+            string canonicalLocaleCode,
+            LocalePersistenceOperation operation)
+        {
+            var writeResult = _localePreferenceStore.Save(canonicalLocaleCode) ??
+                throw new InvalidOperationException("Locale preference store returned a null write result.");
+            if (writeResult.Status == LocalePreferenceWriteStatus.Failed)
+            {
+                ReportFailure(operation, canonicalLocaleCode, writeResult.FailureReason);
+            }
+        }
+
+        private void ReportFailure(
+            LocalePersistenceOperation operation,
+            string canonicalLocaleCode,
+            string failureReason)
+        {
+            LocalePersistenceReportGuard.SafeReport(
+                _persistenceReporter,
+                new LocalePersistenceDiagnostic(operation, canonicalLocaleCode, failureReason));
         }
 
         private void SetSelectedLocale(Locale locale, string localeCode, bool preload)
@@ -329,9 +471,7 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            var approvedLocale = GetRegisteredLocaleOrThrow(result.CanonicalCode);
-            SetSelectedLocale(approvedLocale, result.CanonicalCode, preload: true);
-            LocaleChanged?.Invoke();
+            ApplyApprovedChange(result.CanonicalCode, LocalePersistenceOperation.ExternalSelection);
         }
 
         private void RestoreLastApprovedSelectedLocale()

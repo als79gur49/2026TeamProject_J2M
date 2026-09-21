@@ -8,10 +8,10 @@
 | Current production locales | `en-US`, `ko-KR` |
 | Approved Draft scope after the en/ko gate | Japanese `ja-JP`, Simplified Chinese `zh-CN` |
 | Out of scope | Traditional Chinese and an ambiguous shared `zh` locale |
-| Runtime implementation | Phase 2 catalog/selection policy, Phase 3 read-only string governance, and Phase 4 production selection-policy wiring are implemented; Phase 5 option-model implementation has not started |
+| Runtime implementation | Phase 2 catalog/selection policy, Phase 3 read-only string governance, Phase 4 production selection-policy wiring, Phase 5 ordered raw-autonym option-model runtime, and Phase 6 unified persistence/fallback policy are implemented |
 | Locale/font asset import | Not authorized by this document |
-| Audit basis | Initial repository audit on 2026-09-13; Phase 1-4 source/execution review and Phase 5 option/autonym/font-boundary review on 2026-09-14 |
-| Execution progress | Phases 0-4 complete; Phase 5 raw-autonym direction is approved and is the next gated implementation phase |
+| Audit basis | Initial repository audit on 2026-09-13; Phase 1-4 source/execution review and Phase 5-6 implementation/review on 2026-09-14 |
+| Execution progress | Phases 0-6 complete; Phase 5 closed with an explicitly approved tests-first chronology deviation; Phase 7 and Phases 9-17 have not started |
 
 This plan supplements
 [Localization-Typography-Architecture-Direction.md](./Localization-Typography-Architecture-Direction.md)
@@ -19,6 +19,15 @@ and does not replace the current-state contract or the
 [KBO Dia Gothic closeout](./KBO-Dia-Gothic-Typography-Migration-Closeout.md).
 It records what should be changed, why each step exists, the trade-offs, and the
 evidence required before Japanese or Chinese becomes a ship-ready locale.
+
+> Future-plan supersession notice (updated 2026-09-20): Phases 0-6 and their execution
+> records in this document remain the implemented historical/current baseline.
+> Future execution of Phases 7-21 is superseded by
+> [Localization-Typography-Four-Locale-All-Resident-Plan.md](./Localization-Typography-Four-Locale-All-Resident-Plan.md),
+> which fixes the four-locale product scope and keeps all approved Static font
+> graphs reachable through the existing Theme direct-reference contract. The
+> sections below are retained as design
+> provenance and are not an implementation entrypoint.
 
 ## 2. Objective and Non-goals
 
@@ -1003,10 +1012,12 @@ their language. A simultaneous list or popup would improve direct discovery but
 has a different multi-script font and residency cost and is not authorized by
 this phase.
 
-Phase 5 design review found no P0 issue. Implementation remains unstarted until
-the tests-first slice below is executed. The approved raw-autonym decision closes
-the display-name policy question; it does not close later CJK font, glyph,
-transaction, packing, or residency gates.
+At Phase 5 entry, the design review found no P0 issue and implementation was
+held until the tests-first slice below could be exercised. The approved
+raw-autonym decision closes the display-name policy question; it does not close
+later CJK font, glyph, transaction, packing, or residency gates. The execution
+record below documents the later implementation, green gates, and explicitly
+approved chronology deviation without rewriting the historical red sequence.
 
 #### Phase 5 current-gap audit
 
@@ -1106,12 +1117,18 @@ member is removed without a compatibility alias.
 
 Phase 5 changes only the package-free option shape of
 `PackageFreeLocalizedTextResolver`. It keeps its existing supported-code set and
-performs an exact lookup of each of those codes in the production catalog to
-obtain autonym metadata; it does not expose every future production ShipReady row
-automatically. Its current selection, startup, and persistence algorithms are
-not redesigned. Phase 6 still owns supported/selectable policy unification and
-the result-bearing persistence contract. Future CJK strings must not be copied
-into the package-free resolver.
+uses that set only as a membership restriction, never as an ordering source. It
+iterates `UiLocaleCatalog.CreateProduction().ShipReadyLocales` in catalog stable
+order, retains rows whose canonical codes are members of the existing supported
+set, and projects their catalog autonyms. This makes the catalog the single
+source of truth for option order and display metadata without automatically
+exposing every future production ShipReady row through the package-free seam.
+Reordering the supported-code declaration must not reorder the projected
+options, and a synthetic filtered-order test locks that rule. Its current
+selection, startup, and persistence algorithms are not redesigned. Phase 6
+still owns supported/selectable membership-policy unification and the
+result-bearing persistence contract. Future CJK strings must not be copied into
+the package-free resolver.
 
 #### Phase 5 current cycle-label font contract
 
@@ -1207,7 +1224,7 @@ the preferred residency result.
 | Two or more valid options and current matches exactly once | Current autonym displayed; next request follows snapshot order and wraps | Call `TrySetLocale` exactly once with the next canonical code |
 | Non-empty options but current matches zero or multiple entries | ViewModel publishes empty current-language text and disables cycle during Apply/Refresh; `SelectNextLocale` returns false | `TrySetLocale` zero calls; no selection, write, event, preload, or audio |
 | Underlying request rejects | Keep current option text and font | `TrySetLocale` one call; no preference/event/preload/audio effect and no Toggle audio |
-| Underlying request returns true but current does not equal the requested target afterward | Treat as unsuccessful and keep/refresh from the actual current option | No Toggle audio; do not report an approved UI change |
+| Underlying request returns true but current does not equal the requested target afterward | Treat as unsuccessful; synchronously refresh once from the actual current option, or publish empty/disabled if that current is absent | Return false; no Toggle audio and no approved UI-change report |
 | Approved user `Change` verified by current matching the requested target | Refresh from the port's new current option after the existing locale event | Existing Phase 4 apply/save/event cardinality; exactly one Toggle audio from the successful UI action |
 | User cycle `NoOp` | Impossible for a valid unique snapshot with two or more options and an exact current match | Tests must not use this unreachable state as ordinary cycle evidence |
 | External approved change | Match and display the new current autonym through the existing locale event | No preference write and no Toggle audio in Phase 5 |
@@ -1227,16 +1244,41 @@ so tests must guard against adding a third refresh route and must count visible
 option/audio effects. Consolidating all raw/committed observers belongs to the
 Phase 9 transition boundary unless a red Phase 5 test proves a narrower defect.
 
+The bool port is interpreted defensively after each user request. If
+`TrySetLocale(target)` returns `true` but `CurrentLocaleCode` is not `target`,
+`SelectNextLocale` calls its ViewModel refresh path exactly once after the port
+call and returns `false`. The refresh uses the actual current canonical code: a
+different valid option displays that option's autonym, while an absent current
+publishes the existing empty/disabled invariant-failure state. For example, if
+the Presenter requests `B`, a fake moves to `C`, and no locale event is raised,
+the final UI is `C`, the action result is false, and Toggle audio is zero. A
+`true` result whose current equals the target continues to rely on the existing
+locale event for ordinary refresh; failure to emit that event is a port contract
+violation and Phase 5 does not add a second success refresh route to mask it.
+
 #### Phase 5 implementation slices
 
-1. Tests-first: replace the unused descriptor-based option assumption with
-   canonical/autonym construction and immutable snapshot contracts. Add
-   synthetic stable-order, duplicate, Draft, alias, zero/one/three-option,
-   current-missing, rejected-selection, true-without-target-change, and
-   external-change cases and confirm they fail for the current
-   code-only/en-ko-branch implementation. Duplicate registration and
-   Draft/alias/unknown filtering use synthetic catalog/policy registered-code
-   input and never mutate the real `LocalesProvider`.
+Before the first Phase 5 test or production edit, capture phase-entry evidence:
+the exact `HEAD`, `git status --short --branch`, `git diff --name-only`, and
+`git diff --binary` patch, plus content hashes for every already-modified file
+that overlaps the expected Phase 5 touch set. A clean committed entry makes the
+patch empty, but the commands and revision are still recorded. If the entry is
+dirty, rollback may reverse only the recorded Phase 5 incremental patch and
+must recheck every pre-existing hash; whole-file restore is prohibited.
+
+1. Tests-first is split into two executable red steps. First add tests that
+   compile against the current API by using reflection/source assertions for
+   the sealed string-autonym DTO, `AvailableLocaleOptions`, removal of the old
+   code-list surface, and absence of en/ko branches. These tests must execute and
+   produce assertion-red XML; a compile failure or missing XML is not accepted
+   as the Phase 5 red proof. After the minimum DTO/port shape migration compiles,
+   add strongly typed behavior tests for canonical/autonym construction,
+   immutable snapshots, synthetic stable order, duplicate, Draft, alias,
+   zero/one/three-option, current-missing, rejected-selection,
+   true-without-target-change, and external-change cases, and observe
+   behavior-red before implementing their production paths. Duplicate
+   registration and Draft/alias/unknown filtering use synthetic catalog/policy
+   registered-code input and never mutate the real `LocalesProvider`.
 2. Replace `IUiLocaleSelectionPort.AvailableLocaleCodes` with
    `AvailableLocaleOptions`; migrate the production resolver, package-free
    resolver, no-op implementation, wrappers, and every fake in one slice.
@@ -1287,6 +1329,9 @@ The same-revision evidence must prove:
   Unity locale assignment, preference, locale event, and audio mutations are
   zero without claiming measured preload cardinality;
 - catalog stable order is preserved independently of raw registration order;
+- package-free projection iterates production catalog stable order and uses its
+  existing supported-code set only as membership, so reordering that membership
+  input cannot reorder options or expose unsupported future ShipReady rows;
 - synthetic catalog/policy registered-code input proves duplicate registration
   produces one option while Draft, unknown, and aliases are absent, without
   adding/removing anything from the real `LocalesProvider`;
@@ -1296,7 +1341,10 @@ The same-revision evidence must prove:
   an underlying rejection calls it once; all retain current visible state and
   produce zero write/event/additional-preload/audio effects;
 - a true result whose post-call current code does not match the requested target
-  produces no Toggle audio and is not reported as an approved UI change;
+  performs exactly one post-call refresh from the actual current option and
+  returns false; a valid different current is displayed, a missing current is
+  empty/disabled, and both produce zero Toggle audio and no approved UI-change
+  report;
 - an approved user change has the existing Phase 4 apply/save/event cardinality
   and exactly one UI Toggle audio; an external approved change refreshes the
   option and real en/ko font with zero preference/audio effects;
@@ -1340,9 +1388,11 @@ Add a governance fixture if its source is changed. Required commands are:
 
 Every focused XML must contain at least one executed test from its requested
 fixture. A full UI pass does not substitute for a missing focused fixture.
-Missing XML, zero matching tests, or timeout is failure. `core`, broad `full`,
-Player, performance, memory, glyph, font residency, and visual QA are not Phase
-5 gates unless a later scope explicitly adds them.
+The first tests-first structural red also requires assertion-failure XML; a
+compiler error is not its substitute. Missing XML, zero matching tests, or
+timeout is failure. `core`, broad `full`, Player, performance, memory, glyph,
+font residency, and visual QA are not Phase 5 gates unless a later scope
+explicitly adds them.
 
 #### Phase 5 no-touch, claim, and rollback boundary
 
@@ -1372,7 +1422,11 @@ current asset rollback independent. Reverting this unit restores the temporary
 Phase 4 code-list consumer but also restores the two-locale UI shape. If Phase 5
 execution updated its execution record, UI baseline, testing guide, or
 current-structure source, those evidence documents are part of the same rollback
-unit and must be returned to a truthful pre-Phase-5 status.
+unit and must be returned to a truthful pre-Phase-5 status. Rollback is applied
+as the Phase 5 incremental patch captured against the recorded entry revision;
+it must not use a whole-file checkout on a path that contained a pre-existing
+change. Completion requires the entry hashes and pre-existing patch to match
+again after rollback rehearsal or an equivalent reverse-patch verification.
 
 Passing Phase 5 proves a data-driven single-current-option Settings control. It
 does not prove that multiple scripts can be rendered simultaneously, that a
@@ -1396,45 +1450,635 @@ evidence. A subsequent adversarial re-review found ambiguous bool-port
 cardinality, missing-current handling, default-struct validity, preload evidence,
 asset-mutation scope, package-free projection, Phase 9 terminology, recovery-font
 packing, accessibility claims, focused fixtures, and rollback evidence. The plan
-was amended to close those documentation gaps before implementation. No Phase 5
-production code, test, asset, commit, or push was performed while recording this
-decision.
+was amended to close those documentation gaps before implementation. A final
+implementation-readiness review then identified four P1 ambiguities: package-free
+ordering authority, executable tests-first red evidence, bool-success target
+mismatch handling, and rollback over a dirty overlapping worktree. The plan now
+locks catalog-order/membership separation, assertion-red XML before strongly
+typed behavior-red, one actual-current mismatch refresh, and incremental
+entry-patch/hash rollback evidence. No Phase 5 production code, runtime behavior,
+asset, commit, or push was performed while recording these decisions.
+
+Phase 5 execution record (2026-09-14):
+
+- The Settings locale contract now exposes validated sealed
+  `LocaleOptionModel(canonicalCode, displayNameAutonym)` objects through
+  `AvailableLocaleOptions`; blank fields, null options, duplicate canonical
+  identities, externally mutable snapshots, the compatibility code-list alias,
+  and Presenter/View/Payload English/Korean label branches are rejected or
+  removed.
+- `UiLocaleCatalog` remains the canonical identity, raw-autonym, lifecycle, and
+  stable-order authority. Production projects the existing
+  `LocaleSelectionPolicy.SelectableLocales`; the package-free resolver uses its
+  supported-code declaration only as membership while iterating catalog
+  ShipReady order. Neither path resolves a language-name String Table row or
+  re-enumerates raw registration to establish option order.
+- Application owns exact unique-current matching, fail-closed zero/one/missing/
+  duplicate behavior, stable-order cycle/wrap, one port request, and post-call
+  actual-current verification. A true-but-target-mismatched request refreshes
+  exactly once from the actual current code and is not approved for Toggle
+  audio. Successful target matches keep the existing locale-event refresh and
+  Phase 4 apply/save/event cardinality. External approved and rejected Unity
+  changes preserve their zero-preference/zero-audio and restoration contracts.
+- Production read-only validation confirmed registered/options state is exactly
+  `en-US / English`, `ko-KR / 한국어`, with no registered Draft intersection or
+  uncatalogued code. Final projection tests directly cover catalog order,
+  registration deduplication, supported membership, Draft/unknown/alias
+  exclusion, and a synthetic third ShipReady option without claiming its font
+  or glyph readiness.
+- Final focused UI fixtures passed `21/21`, `74/74`, `42/42`, `53/53`, `62/62`,
+  and documentation governance `12/12`. The official `./run_tests.sh ui` passed
+  the Windows UI build and Unity UI EditMode `1464/1464`; every requested
+  focused XML contained the fixture and at least one executed test.
+- The first structural red executed `61` tests with `1` assertion failure, and
+  the first behavior red executed `20` tests with `1` ordering failure.
+  Supplemental entry-source and Presenter replays later produced `6` and `3`
+  assertion failures, but they ran after production implementation and do not
+  repair tests-first chronology. On 2026-09-14 KST the user acting as approval
+  authority explicitly accepted this process deviation and directed Phase 5
+  closeout. The exception changes the Complete/Hold decision only; the execution
+  record retains the nonconformance.
+- Entry state was reconstructed and hash-verified from exact HEAD
+  `76bc8f3dcbd3613c597afe84fae019f727c97c0d` plus the preserved pre-existing
+  binary diff. The evidence file was created after production edits began and
+  is not represented as a contemporaneous pre-edit timestamp.
+- `git diff --check` passed. There is no tracked change under
+  `Assets/Localization` or `Assets/AddressableAssetsData`, nor any entry-relative
+  Prefab, ScriptableObject/asset, material, font, or `.meta` change. Core, broad
+  full, Player, performance, memory, glyph, font-residency, packed-Addressables,
+  and visual-QA lanes were not run and are not claimed.
+- The current control still renders one current autonym with the resolver-current
+  en-US/ko-KR typography. Simultaneous-option UI, compact AutonymRecovery font,
+  Japanese/Chinese glyph readiness, atomic locale/font transition, and font
+  residency remain unimplemented. Phase 6 did not start, and no commit or push
+  was performed for this execution.
 
 ### Phase 6 — Unify persistence and fallback selection policy
 
-What is being done:
+#### Phase 6 decision status and bounded purpose
 
-- share canonical/default/invalid/Draft/alias rules across production,
-  package-free, and test resolvers;
-- retain the existing preference key;
-- save only canonical codes;
-- keep same-locale, unsupported, and Draft requests free of writes;
-- use this startup precedence: valid canonical/aliased persisted ShipReady code,
-  then valid Unity-selected ShipReady locale, then `en-US`;
-- treat external Unity locale changes as transition requests but persist them
-  only after the same complete coordinator commit used by Settings;
-- rewrite an aliased code to its canonical code only after successful commit;
-- delete/rewrite an invalid saved value only after the valid fallback locale has
-  committed, so a failed startup attempt does not destroy rollback evidence;
-- replace the write-only persistence seam with a result-bearing save contract.
+Phase 6 is a selection-policy and preference-observability change, not the
+general locale transition coordinator. It:
+
+- shares canonical/default/invalid/Draft/alias rules across production,
+  package-free, and test resolvers through the existing
+  `LocaleSelectionPolicy`;
+- retains the existing `ui.selected_locale` preference key;
+- saves only canonical codes;
+- distinguishes preference absence, a loaded raw value, and read failure;
+- makes write API completion or failure observable;
+- keeps same-locale, unsupported, and Draft requests free of writes;
+- uses valid canonical/aliased persisted ShipReady code, then valid
+  Unity-selected ShipReady locale, then `en-US` as startup precedence;
+- rewrites a valid alias or invalid loaded value only after the canonical
+  locale/fallback has committed;
+- persists an approved external Unity locale change through the same narrow
+  Composition commit path used by Settings;
+- never rolls the usable locale/string/font presentation back only because the
+  preference write failed.
+
+Phase 6 does not introduce a public raw-selected versus committed-locale state,
+transition token, transition journal, candidate FontSet/cache, lease, or atomic
+render boundary. Those remain Phase 9-17 responsibilities. The phrase
+"complete commit" in this phase means only the existing synchronous
+`SetSelectedLocale` plus `LocaleChanged` application path; it is not the later
+general transition coordinator.
 
 The package-free resolver remains a policy-test seam and emergency/bootstrap
 fallback only. It must not become a second hand-maintained store of future CJK
 strings.
 
-Persistence is deliberately not part of the visual rollback transaction. If a
-save fails after the locale/font/string state has committed, the session keeps
-the usable committed locale, reports a non-fatal durability warning, and warns
-that restart may return to the prior preference. Rolling the entire UI back for
-a storage failure would add another visible transition and is not justified for
-`PlayerPrefs`. Fault-injection must prove that save failure is observable and
-never reported as durable success.
+#### Phase 6 current-gap audit
 
-Completion gate: startup precedence and save counts are identical across
-production-facing and package-free policy tests; invalid, alias, external
-selection, and save-failure cases have explicit results.
+At Phase 6 entry:
+
+- `IUiLocalePreferenceStore.TryLoad(out string)` collapses missing, blank, and
+  read-failure outcomes and `Save(string)` is write-only;
+- production explicit selection applies, saves, then raises `LocaleChanged`,
+  while an approved external Unity selection raises the event without saving;
+- a save exception can escape after Unity/current-locale mutation, with no
+  structured non-fatal diagnostic;
+- invalid persisted data falls through without a post-commit canonical rewrite;
+- the package-free resolver duplicates en/ko membership checks, does not accept
+  catalog aliases, does not use selected-locale fallback when a preference
+  store is present, and its public unrestricted `SetLocale` can adopt Draft,
+  unknown, or malformed identities;
+- the bool `IUiLocaleSelectionPort.TrySetLocale` cannot and must not claim both
+  application success and storage completion in one value.
+
+These are Phase 6 inputs. The existing Phase 4/5 policy, option, UI, and asset
+contracts remain the baseline rather than being redesigned.
+
+#### Phase 6 exact package-free preference contracts
+
+The target package-free shapes are:
+
+```text
+public enum LocalePreferenceReadStatus
+{
+    Missing = 0,
+    Loaded = 1,
+    Failed = 2,
+}
+
+public sealed class LocalePreferenceReadResult
+{
+    private LocalePreferenceReadResult(...);
+
+    public LocalePreferenceReadStatus Status { get; }
+    public string RawLocaleCode { get; }
+    public string FailureReason { get; }
+
+    public static LocalePreferenceReadResult Missing();
+    public static LocalePreferenceReadResult Loaded(string rawLocaleCode);
+    public static LocalePreferenceReadResult Failed(string failureReason);
+}
+
+public enum LocalePreferenceWriteStatus
+{
+    Completed = 0,
+    Failed = 1,
+}
+
+public sealed class LocalePreferenceWriteResult
+{
+    private LocalePreferenceWriteResult(...);
+
+    public LocalePreferenceWriteStatus Status { get; }
+    public string FailureReason { get; }
+
+    public static LocalePreferenceWriteResult Completed();
+    public static LocalePreferenceWriteResult Failed(string failureReason);
+}
+
+public interface IUiLocalePreferenceStore
+{
+    LocalePreferenceReadResult Load();
+    LocalePreferenceWriteResult Save(string canonicalLocaleCode);
+}
+```
+
+The result types are sealed reference types with private constructors and only
+the exact public static factories above. `Missing()` returns status `Missing`
+with both strings null. `Loaded(rawLocaleCode)` permits blank, because blank is
+loaded invalid data that must remain distinguishable from a missing key, but it
+rejects null; its failure reason is null. Read `Failed(failureReason)` rejects a
+null/blank reason and returns a null raw code. `Completed()` returns status
+`Completed` with a null failure reason, while write `Failed(failureReason)`
+rejects a null/blank reason. The factories do not accept an enum parameter, so
+undefined enum values and other status/payload combinations cannot be
+constructed through the supported API. A null result from the store is a
+contract violation and fails fast. The store reads raw data only;
+`LocaleSelectionPolicy`, not the store, decides whether a loaded value is
+canonical, alias, Draft, unknown, malformed, or unregistered.
+
+Dependency omission and null are not interchangeable. Production no-argument
+factories always supply the Composition-owned PlayerPrefs store and production
+diagnostic reporter. Package-free convenience factories that omit persistence
+use a ViewShared no-op store whose `Load()` returns `Missing()` and whose
+`Save(...)` returns `Completed()`, together with a ViewShared no-op reporter.
+The existing package-free store-only compatibility overload remains and pairs
+the supplied non-null store with that no-op reporter. A full injection overload
+requires both store and reporter to be non-null; an explicitly supplied null
+dependency is rejected instead of being silently normalized.
+
+The existing direct production-resolver store-only test/utility factory also
+remains and pairs its supplied non-null store with the ViewShared no-op reporter.
+Production runtime assembly continues to enter through the no-argument bridge
+factory and therefore always receives the Composition diagnostic reporter. A
+new full-injection resolver factory is the only store/reporter recording seam;
+it requires both dependencies to be non-null.
+
+A null `Load()` result is not `Failed`: it is a store contract violation.
+Production startup converts that exception into its existing resolver-creation
+failure result after disposing the candidate, while package-free startup lets
+the contract exception propagate. Neither path writes, reports a persistence
+diagnostic, publishes the resolver custom `LocaleChanged`, or leaves a Unity
+selection subscription behind. A null `Save()` result is likewise a contract
+violation rather than an ordinary failed write. For an approved production or
+package-free runtime Change, it propagates after the already completed locale
+application and resolver custom event, with no diagnostic, retry, or
+presentation rollback. A Settings call therefore does not return normally and
+produces no Toggle audio; an approved external Unity callback also propagates
+after its resolver custom event.
+
+For a startup alias/invalid canonical rewrite, null `Save()` occurs after locale
+application and the applicable startup gate but before subscription. Production
+includes the complete Unity UI/Stage health gate; package-free has no Unity table
+probe. Production resolver creation fails and disposes the candidate;
+package-free startup lets the contract exception propagate. Both publish
+resolver custom event 0 and diagnostic 0, perform no retry or rollback, and
+leave final Unity subscription 0. The already applied startup locale is not
+restored: Phase 6 does not invent a pre-resolver committed-locale journal or
+transaction for a contract-violating store. Tests lock these layer-specific
+outcomes rather than converting null into an invented failure reason.
+
+`Completed` means `PlayerPrefs.SetString` and `PlayerPrefs.Save` returned without
+an observed exception. Because Unity's `PlayerPrefs.Save()` returns `void`, it
+does not prove a physical fsync, atomic disk durability, or preservation of the
+old in-process PlayerPrefs value after a failed write. Phase 6 must use
+"write completed" rather than claim verified durable storage. A true atomic
+durability requirement would require a separate persistence-system decision.
+
+#### Phase 6 selection result and diagnostic contract
+
+`IUiLocaleSelectionPort.TrySetLocale(string)` remains bool-shaped in Phase 6.
+Its meaning is limited to selection/application admission:
+
+- `false`: policy `Rejected`; nothing was applied, emitted, or written;
+- `true` with `NoOp`: current locale already matches; no event or write;
+- `true` with `Change`: the approved canonical locale was applied and the
+  ordinary locale event completed, whether or not the later preference write
+  completed.
+
+Returning `false` after a write failure is prohibited because the visible locale
+has already changed. A successful UI change therefore retains exactly one
+Toggle audio even when persistence reports failure. Preference completion is a
+separate structured diagnostic concern and does not alter the selection bool.
+Store/reporter contract violations are outside this bool result: they may
+propagate after application, so callers must not reinterpret the absence of a
+normal return as policy `Rejected`.
+
+The package-free diagnostic surface records only failure:
+
+```text
+public enum LocalePersistenceOperation
+{
+    StartupRead = 0,
+    StartupRewrite = 1,
+    SettingsSelection = 2,
+    ExternalSelection = 3,
+}
+
+public sealed class LocalePersistenceDiagnostic
+{
+    public LocalePersistenceDiagnostic(
+        LocalePersistenceOperation operation,
+        string canonicalLocaleCode,
+        string failureReason);
+
+    public LocalePersistenceOperation Operation { get; }
+    public string CanonicalLocaleCode { get; }
+    public string FailureReason { get; }
+}
+
+public interface IUiLocalePersistenceReporter
+{
+    void Report(LocalePersistenceDiagnostic diagnostic);
+}
+```
+
+Production Composition owns the PlayerPrefs adapter and diagnostic adapter;
+tests inject recording fakes. Each ordinary failed read/write that reaches its
+post-health-gate reporting point produces exactly one diagnostic and no success
+diagnostic. A startup read failure followed by application or health-probe
+failure never reaches that point and produces no diagnostic. Store contract
+violations such as a null result are not ordinary `Failed` results and also
+produce no diagnostic. The diagnostic constructor rejects an
+undefined `LocalePersistenceOperation`, blank canonical code, and blank failure
+reason. A `StartupRead` diagnostic is constructed only after policy resolution,
+locale application, and all required startup validation succeed, using the
+resolved selected/default canonical code rather than a blank pre-resolution
+identity.
+
+Composition and the package-free resolver use one small package-free
+`LocalePersistenceReportGuard.SafeReport` helper for every reporter call. It is
+a public ViewShared static facade, with a public static `SafeReport(reporter,
+diagnostic)` member, so Composition can use it without an asmdef change. The
+facade rejects a null reporter or diagnostic before invocation; dependency
+construction prevents those inputs in normal paths. It attempts `Report` once
+and swallows an exception thrown by that invocation without a
+secondary log, recursive report, preference retry, rejection, or presentation
+rollback. One helper-level throwing-reporter test protects that failure rule;
+the ordinary startup-read, startup-rewrite, Settings, and external failure tests
+verify their operation payload and normal report cardinality without repeating
+the throw cross-product. With a throwing reporter, the prior path-specific
+result remains unchanged. Phase 6 adds no localized popup, Settings warning row,
+String Table key, or asset. A later product decision may route the structured
+diagnostic to user-facing recovery.
+
+#### Phase 6 narrow commit and ordering contract
+
+Explicit Settings and approved external changes share one private Composition
+operation, not a new public coordinator:
+
+```text
+policy EvaluateRequest
+-> apply canonical Unity Locale and current code under event suppression
+-> invoke resolver custom LocaleChanged exactly once
+-> when required, save the canonical code exactly once
+-> on write failure, report exactly once and keep the applied presentation
+```
+
+Persistence occurs after the existing synchronous application event so a
+storage failure cannot block or undo current text/font refresh. A
+`LocaleChanged` subscriber exception remains an application contract violation;
+Phase 6 does not catch it, report storage success, or continue to a preference
+write after that incomplete application path.
+
+Here and in the matrix, event names are explicit. `Unity SelectedLocaleChanged`
+is Unity's incoming selection notification, resolver custom `LocaleChanged` is
+the application refresh event, and Toggle audio is the Settings action effect.
+An explicit approved Change suppresses the Unity callback caused by its own
+assignment and publishes resolver custom `LocaleChanged` once. An approved
+external Change begins with one incoming Unity notification and publishes the
+resolver custom event once. Rejected restoration remains under suppression and
+publishes no resolver custom event.
+
+Startup publishes no resolver custom `LocaleChanged` and uses this order:
+
+```text
+load one raw preference result
+-> resolve persisted / selected / default through LocaleSelectionPolicy
+-> apply the canonical startup Locale/current code
+-> complete every existing required UI/Stage startup table/key health probe
+-> if the read failed, attempt one StartupRead report with the resolved canonical code
+-> otherwise, conditionally rewrite a loaded alias/invalid value to the canonical code
+-> if that rewrite failed, attempt one StartupRewrite report
+-> subscribe to Unity SelectedLocaleChanged
+```
+
+If locale application or any required startup validation/probe fails, no
+cleanup write or startup diagnostic occurs. This preserves the raw preference
+when resolver creation fails anywhere before the complete Phase 7-era startup
+health gate. If a post-validation rewrite fails, resolver creation still
+succeeds with the usable session locale and attempts one non-fatal diagnostic.
+No hidden background retry or same-locale retry is added.
+Pre-gate failure means no cleanup write or startup diagnostic occurs.
+
+#### Phase 6 behavior and write-cardinality matrix
+
+| Entry | Policy/application result | Write and diagnostic result |
+|---|---|---|
+| Missing preference + valid selected | selected canonical commit | write 0, diagnostic 0 |
+| Missing preference + invalid selected | default commit | write 0, diagnostic 0 |
+| Valid canonical preference | persisted canonical commit | write 0, diagnostic 0 |
+| Valid alias preference | canonical target commit | canonical rewrite 1; failure reports `StartupRewrite` once |
+| Blank/Draft/unknown/malformed/unregistered loaded preference + valid selected | selected canonical commit | canonical rewrite 1; failure reports `StartupRewrite` once |
+| Blank/Draft/unknown/malformed/unregistered loaded preference + invalid selected | default commit | canonical rewrite 1; failure reports `StartupRewrite` once |
+| Preference read failure + startup application and every health probe succeed | selected/default commit without modifying stored data | write 0; `StartupRead` diagnostic 1 after the health gate |
+| Preference read failure + startup application or any health probe fails | resolver creation fails; raw preference is preserved | write 0, diagnostic 0, resolver custom event 0, final Unity subscription 0; observability is intentionally delayed because no usable resolver committed |
+| Store `Load()` returns null | contract violation; production creation fails and package-free startup throws | write 0, diagnostic 0, resolver custom event 0, final Unity subscription 0 |
+| Settings approved different locale | suppress the self-induced Unity callback; apply and publish resolver custom event 1; return true | canonical write 1; failure reports `SettingsSelection` once; Toggle audio remains 1 |
+| Settings same locale | return true without Unity assignment or resolver custom event | write 0, diagnostic 0, Toggle audio 0 |
+| Settings Draft/unknown/blank/case mismatch/unregistered | return false | Unity assignment/resolver custom event/write/diagnostic/Toggle audio 0 |
+| External approved different locale | after the incoming Unity notification, adopt canonical current and publish resolver custom event 1 | canonical write 1; failure reports `ExternalSelection` once; Toggle audio 0 |
+| External current locale | no-op after the incoming Unity notification | resolver custom event/write/diagnostic/Toggle audio 0 |
+| External rejected/Draft/unknown/null/unregistered | after the incoming Unity notification, restore last approved Unity Locale under suppression | resolver custom event/write/diagnostic/Toggle audio 0 |
+| Store `Save()` returns null during startup alias/invalid rewrite | startup locale and applicable startup gate completed, then production creation fails/disposes or package-free startup throws | resolver custom event/diagnostic/retry/rollback 0, final Unity subscription 0; already applied startup locale is not restored |
+| Store `Save()` returns null after approved production or package-free runtime Change | applied locale and resolver custom event remain; contract exception propagates | diagnostic/retry/rollback 0; Toggle audio 0 when invoked through Settings because the selection call did not return normally |
+| Any failed persistence operation + reporter throws | the preceding startup/Settings/external result remains unchanged | shared guard report attempt 1, no secondary log/recursive report/retry/rollback |
+
+An alias or invalid-value rewrite happens only after successful locale commit.
+When that write fails, the raw stored value may remain and startup may repeat the
+same recovery next run. A later same-locale request still writes zero times; an
+explicit persistence retry command or UI is outside Phase 6.
+
+`PlayerPrefs.SetString` may update the in-process value before
+`PlayerPrefs.Save` throws. Phase 6 does not attempt `SetString(oldValue)`,
+`DeleteKey`, or a second `Save` rollback, so a later same-process read may see
+the new canonical value even though the write result was `Failed`. Tests use a
+single adversarial faulting store that mutates its observed in-process value and
+then returns `Failed` to prove the resolver does not assume old-value
+preservation, report durable success, roll back presentation, or retry a
+same-locale request. This fake proves resolver behavior only; it is not evidence
+of actual Unity PlayerPrefs atomicity or partial-write mechanics. The real
+adapter tests cover missing, blank, and canonical round trips. Phase 6 does not
+add a PlayerPrefs backend abstraction solely to inject `SetString`/`Save`
+exceptions.
+
+#### Phase 6 package-free convergence
+
+The package-free resolver constructs one `LocaleSelectionPolicy` from
+`UiLocaleCatalog.CreateProduction()` and its supported canonical membership.
+That policy owns request evaluation and persisted -> selected -> default startup
+precedence. The supported declaration remains membership-only and is not an
+ordering, lifecycle, alias, or fallback authority.
+
+The existing package-free constructor's `initialLocaleCode` argument is the
+`selectedLocaleIdentity` input to that startup precedence. It is evaluated only
+after a loaded persisted identity is absent or rejected and before the catalog
+default. Phase 6 adds no second package-free selected-state store.
+
+The public unrestricted `PackageFreeLocalizedTextResolver.SetLocale` is removed.
+Existing en/ko callers migrate to `TrySetLocale` and assert its result. Tests
+that require an invalid current identity use an explicit fake/test seam rather
+than preserve a production bypass. No compatibility wrapper that silently drops
+a rejected result remains.
+
+#### Phase 6 risk-layered test allocation
+
+The full classification matrix is not copied into every resolver fixture.
+`LocaleSelectionPolicy` owns one parameterized table for persisted canonical,
+alias, blank/invalid/Draft/unknown/unregistered identities against valid/invalid
+selected input and default fallback, plus request `Change`/`NoOp`/`Rejected`.
+Package-free and production suites then prove only their owned wiring:
+
+- package-free startup precedence, canonical rewrite, Change/NoOp/Rejected
+  save/event cardinality, shared report guard use, and public `SetLocale`
+  absence;
+- production startup health-gate ordering, suppressed Unity assignment/resolver
+  custom-event/save ordering,
+  approved/rejected external events, restoration, and operation-specific
+  diagnostics;
+- a behavior-neutral internal startup-health validation seam used only to make
+  apply -> probe-failure -> no rewrite/report/subscription executable without
+  mutating Localization assets, String Tables, or the real LocalesProvider;
+- one narrow final source-order guard proving the Unity subscription statement
+  remains after health validation and startup rewrite/report handling; this is
+  supplemental green evidence, not tests-first red evidence;
+- null `Load()` and null `Save()` contract-violation cases with the exact
+  production/package-free propagation and side-effect rules above;
+- one state-mutating faulting-store case for no rollback/no durable-success/
+  no same-locale retry, without treating the fake as PlayerPrefs evidence;
+- one shared `SafeReport` throwing-reporter test, while the four ordinary
+  failure paths verify operation payloads without repeating reporter throws;
+- one representative throwing `LocaleChanged` subscriber test proving the
+  exception propagates, the already applied current/Unity locale remains, and
+  preference write/report/Toggle audio stay at zero. Multicast invocation after
+  the throwing subscriber follows normal delegate semantics and is not given a
+  separate cardinality guarantee;
+- real PlayerPrefs missing, loaded blank, and canonical round trips only.
+
+Subscription tests distinguish timing from cleanup: successful creation adds
+one Unity `SelectedLocaleChanged` subscription and Dispose removes it; startup
+application/probe/null-load failure ends with zero subscription; startup emits
+zero resolver custom `LocaleChanged`. A test that observes only the final
+post-Dispose count is insufficient because subscribe-before-probe followed by
+cleanup would be a false green.
+
+External Unity event cases are Composition-only and are never replicated in the
+package-free resolver. Shared policy classification is not repeated as a
+resolver cross-product. This allocation preserves drift detection while avoiding
+false complexity and duplicate focused-lane cost.
+
+#### Phase 6 implementation slices
+
+1. Before any Phase 6 edit, capture the current uncommitted Phase 5 closeout as
+   exact HEAD, status, name-only/binary diff, and hashes for every file shared by
+   the Phase 6 touch set, including all four closeout/current-structure documents
+   listed below. Phase 5 user changes and closeout additions remain the base and
+   must not be whole-file restored.
+2. Add reflection/source governance tests that compile against the Phase 5 API
+   and produce assertion-red XML for three structural gaps: the old bool/out
+   read plus void save, missing result/reporter shapes, and unrestricted public
+   package-free `SetLocale`. Policy convergence and apply/custom-event/save
+   ordering are behavior tests rather than brittle source-red tokens. The later
+   final-green suite may add the narrowly bounded subscription source-order
+   guard defined above; it is not counted as red evidence. Compiler failure,
+   zero tests, or missing XML is not red evidence.
+3. Migrate the read/write result DTOs, store/reporter ports, PlayerPrefs adapter,
+   and every production/test/no-op/wrapper/fake implementation in one shape
+   slice. In the same behavior-neutral slice, extract the existing startup
+   UI/Stage probe block behind a small internal injectable health-validation
+   seam; do not reorder it, change its real probe contents, or mutate an asset.
+   This seam extraction exists only so the next red can inject a failure after
+   locale application. Restore compilation before adding strongly typed
+   behavior tests.
+4. Add representative behavior-red cases before production behavior changes:
+   package-free policy/startup convergence, successful-health-gate alias
+   canonical rewrite exactly once, Settings write failure, and approved external
+   persistence. The current no-rewrite implementation makes the alias case an
+   actual assertion red. After production behavior is implemented, use the
+   extracted health seam to prove injected probe failure yields
+   write/report/final subscription zero without changing a String Table, Locale
+   registration, or provider; that failure-path check is a final green gate, not
+   red evidence. The final green suite covers the complete risk-layer allocation
+   above; every row need not fail independently in the behavior-red XML.
+5. Route package-free startup/requests through the existing policy, remove
+   unrestricted `SetLocale`, and introduce the narrow production apply/event/
+   save operation. Do not introduce Phase 9 transition state.
+6. Run focused gates and the official UI lane, then update the execution record,
+   testing guide, UI baseline, current-structure source, and documentation guard
+   with actual XML counts only.
+
+Expected primary touch set:
+
+- `Assets/_Features/UI/UI_ViewShared/Runtime/LocalizedTextDescriptor.cs`
+- `Assets/_Features/UI/UI_Composition/Runtime/UnityStringTableTextResolver.cs`
+- `Assets/_Features/UI/UI_Composition/Runtime/UiSettingsBridgeAssembly.cs`
+- tests and utilities implementing `IUiLocalePreferenceStore` or calling the
+  removed package-free `SetLocale`
+- `LocaleCatalogSelectionPolicyTests`, `SettingsLocalizationFoundationTests`,
+  `SettingsProductionLocalizationRuntimeTests`,
+  `UnityLocalizationStringTableIntegrationTests`, `UiArchitectureTests`, and
+  the related documentation governance fixture
+- `Docs/Architecture/Localization-Typography-CJK-Expansion-and-Residency-Plan.md`
+- `Docs/Testing/Gameplay-Test-Automation-Guide.md`
+- `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md`
+- `UI-Current-Structure-Source.md`
+
+`UiLocaleCatalog`, option DTOs, Settings payload/view typography, persistence
+key, and production assets are not automatic rewrite targets. They change only
+if a Phase 6 red test proves a contract gap. Production
+`SettingsScreenPresenters.cs` is likewise outside the automatic touch set
+because the bool selection contract remains unchanged; test fakes may migrate,
+but Application production code changes only on a red-proven need.
+
+The rollback unit is the Phase 6 incremental patch recorded against the Phase 6
+entry evidence, never any whole current file. A Hold or failed implementation
+may reverse only that incremental patch; `git checkout`, reset, whole-file
+restore, or regeneration over an overlapping Phase 5/user file is prohibited.
+After rollback, re-run `git diff --check`, compare every overlapping content
+hash with the Phase 6 entry record, and verify that the preserved Phase 5/user
+binary diff still matches. A hash mismatch stops rollback and requires an exact
+diff report rather than further mutation.
+
+#### Phase 6 validation and no-touch gates
+
+Required focused commands are:
+
+```text
+./run_tests.sh ui --filter LocaleCatalogSelectionPolicyTests
+./run_tests.sh ui --filter SettingsLocalizationFoundationTests
+./run_tests.sh ui --filter SettingsProductionLocalizationRuntimeTests
+./run_tests.sh ui --filter UnityLocalizationStringTableIntegrationTests
+./run_tests.sh ui --filter UiArchitectureTests
+./run_tests.sh ui --filter UiGovernanceDocumentationTests
+./run_tests.sh ui
+```
+
+Every focused XML must contain the requested fixture and at least one executed
+test. Red and final-green XML are separate evidence, and counts are recorded
+only after reading the XML. Fault injection must prove that an ordinary
+write/read failure is observable only after the applicable health gate,
+selection success is not misreported as rejection, a pre-gate startup failure
+preserves the prior raw preference with diagnostic zero, and null results follow
+their separate contract-violation rules.
+
+Phase 6 does not add/remove/promote a Locale, change a String Table row, delete
+the Phase 7 cross-locale probe, modify a Scene/Prefab/ScriptableObject/font/
+material/Theme/Addressables asset, add a user-facing warning, redesign the
+preference key, implement atomic disk storage, or begin Phase 9-17 transition,
+FontSet, cache, lease, loader, packing, or residency work. `Assets/Localization`
+and `Assets/AddressableAssetsData` must have no new tracked diff, and the entry
+comparison must have no new Prefab/asset/material/font/meta diff.
+
+Completion gate: one parameterized policy fixture owns classification, while
+production-facing and package-free tests prove only their applicable shared
+startup/write parity and layer-owned wiring. Invalid, alias, external,
+failed-read, and failed-write cases have explicit results and diagnostics; the
+unrestricted package-free bypass is absent; final focused and UI lanes pass;
+and evidence preserves the exact PlayerPrefs and Phase 9 non-claims. Completion
+or Hold evidence also records the Phase 6 incremental patch/rollback disposition
+and re-verifies all overlapping Phase 5/user hashes.
+
+Phase 6 execution record (2026-09-14):
+
+- Entry evidence under `/mnt/d/J2M/evidence/localization-phase6-entry-20260914`
+  records exact HEAD `76bc8f3dcbd3613c597afe84fae019f727c97c0d`, status,
+  name-only and binary diffs, overlapping-file hashes, and the four closeout/
+  current-structure document hashes. Existing Phase 5/user changes remained the
+  base. No reset, checkout, regeneration, whole-file restore, or rollback ran.
+- Structural red was assertion-red rather than compile-red:
+  `UiArchitectureTests` ran `65 total / 62 passed / 3 failed`, independently
+  exposing old `TryLoad(out string)`/void `Save`, absent result/reporter shapes,
+  and unrestricted public package-free `SetLocale`.
+- After the compilation-restoring shape migration, behavior red ran
+  `57 total / 52 passed / 5 failed` in
+  `UnityLocalizationStringTableIntegrationTests`. Four intended assertion
+  failures proved package-free startup convergence, post-health alias rewrite,
+  Settings failed-write reporting, and approved external persistence. The fifth
+  disclosed companion failure was the old public production-factory-count
+  assertion after adding full injection; it was not a fifth behavior gap.
+- ViewShared owns sealed/private-constructor result DTOs, raw preference and
+  diagnostic/reporter ports, a guarded single-attempt reporting facade, and
+  no-op defaults. Composition owns PlayerPrefs, production reporting, Unity
+  Locale application/subscription, and the shared explicit/external
+  apply -> custom event -> save -> diagnostic operation. Explicit null
+  dependencies and null store results remain contract violations.
+- Startup loads once and uses the existing `LocaleSelectionPolicy` for persisted
+  canonical/alias -> selected identity -> catalog default precedence. Canonical
+  current state is applied before post-health `StartupRead` reporting or alias/
+  invalid rewrite; startup raises no custom event and subscribes only afterward.
+  A pre-health failure performs zero writes, diagnostics, and final subscriptions.
+- Final focused XML counts were catalog `29/29`, foundation `82/82`, production
+  runtime `42/42`, Unity integration `65/65`, architecture `66/66`, and
+  documentation governance `12/12`. Official `./run_tests.sh ui` passed the
+  Windows UI build and Unity EditMode `1496/1496`.
+- Two independent read-only reviews found no P0. Their P1 findings—package-free
+  startup apply ordering, the complete parameterized classification table, and
+  an explicit startup custom-event-zero guard—were corrected and applicable
+  focused/full lanes rerun. DTO-shape reflection coverage was also strengthened;
+  the behavior-red companion-failure observation is retained above.
+- Production remains exactly registered `en-US`, `ko-KR`, with registered-Draft
+  intersection zero and uncatalogued registered-code count zero. Phase 6 added
+  no tracked diff under `Assets/Localization` or `Assets/AddressableAssetsData`
+  and no entry-relative Prefab, asset, material, font, or meta diff.
+- `Completed` proves only that `PlayerPrefs.SetString` and `PlayerPrefs.Save`
+  returned without exception; it does not prove fsync, atomic durability, or
+  old-value preservation. The mutating fault fake proves resolver behavior only.
+- Core, broad full, Player, performance, memory, glyph, font-residency, packed
+  Addressables, and visual-QA lanes were not run because they are not Phase 6
+  gates. This is not project-wide green or full-regression closure.
+  Phase 7 and Phases 9-17 remain unimplemented. No commit, push, branch, or PR
+  operation ran.
 
 ### Phase 7 — Remove runtime en/ko cross-locale table probes
+
+This and the remaining future phases are retained as historical design
+provenance. They are not authorized execution steps; follow the active
+four-locale selected-residency plan linked in the supersession notice above.
 
 Prerequisites:
 
