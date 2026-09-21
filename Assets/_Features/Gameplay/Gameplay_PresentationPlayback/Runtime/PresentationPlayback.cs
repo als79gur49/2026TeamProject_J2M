@@ -762,6 +762,7 @@ namespace Game.Feature.Gameplay.PresentationPlayback
         private int _plannedBlockingBarrierCount;
         private int _topologyPlannedBarrierCount;
         private int _plannedBlockingTickIndex;
+        private bool _hasObservedTopologyBlockingState;
         private bool _hasActiveTopologyBlocking;
         private int _activeTopologyBlockingTickIndex;
 
@@ -825,8 +826,17 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                 return;
             }
 
+            var normalizedTickIndex = Math.Max(0, tickIndex);
+            if (_hasObservedTopologyBlockingState &&
+                _hasActiveTopologyBlocking == isActive &&
+                _activeTopologyBlockingTickIndex == normalizedTickIndex)
+            {
+                return;
+            }
+
+            _hasObservedTopologyBlockingState = true;
             _hasActiveTopologyBlocking = isActive;
-            _activeTopologyBlockingTickIndex = Math.Max(0, tickIndex);
+            _activeTopologyBlockingTickIndex = normalizedTickIndex;
             RefreshBlockingSnapshot();
         }
 
@@ -837,6 +847,7 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             _plannedBlockingBarrierCount = 0;
             _topologyPlannedBarrierCount = 0;
             _plannedBlockingTickIndex = 0;
+            _hasObservedTopologyBlockingState = false;
             _hasActiveTopologyBlocking = false;
             _activeTopologyBlockingTickIndex = 0;
             BlockingSnapshot = PresentationBlockingSnapshot.Empty;
