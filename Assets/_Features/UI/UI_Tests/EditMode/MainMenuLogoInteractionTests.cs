@@ -49,6 +49,34 @@ namespace Game.Feature.UI.Tests
             AssertSerializedReference(effect, "_glowRoot", glow.GetComponent<RectTransform>());
             AssertSerializedReference(effect, "_glowCanvasGroup", glow.GetComponent<CanvasGroup>());
             AssertSerializedReference(effect, "_acceptedBurst", spark.GetComponent<ParticleSystem>());
+
+            var glowStartColor = glow.GetComponent<ParticleSystem>().main.startColor;
+            Assert.That(glowStartColor.mode, Is.EqualTo(ParticleSystemGradientMode.Color));
+            Assert.That(glowStartColor.color.r, Is.EqualTo(0.8980392f).Within(0.0001f));
+            Assert.That(glowStartColor.color.g, Is.EqualTo(0.8392157f).Within(0.0001f));
+            Assert.That(glowStartColor.color.b, Is.EqualTo(0.29411766f).Within(0.0001f));
+            Assert.That(glowStartColor.color.a, Is.EqualTo(0.46f).Within(0.0001f));
+        }
+
+        [Test]
+        public void LogoSprite_UsesHighQualityWindowsImportSettings()
+        {
+            var importer = AssetImporter.GetAtPath(LogoSpritePath) as TextureImporter;
+
+            Assert.That(importer, Is.Not.Null);
+            Assert.That(importer.textureType, Is.EqualTo(TextureImporterType.Sprite));
+            Assert.That(importer.mipmapEnabled, Is.False);
+            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Bilinear));
+            Assert.That(importer.alphaIsTransparency, Is.True);
+            Assert.That(importer.maxTextureSize, Is.EqualTo(4096));
+            Assert.That(importer.textureCompression,
+                Is.EqualTo(TextureImporterCompression.Uncompressed));
+
+            var standalone = importer.GetPlatformTextureSettings("Standalone");
+            Assert.That(standalone.overridden, Is.True);
+            Assert.That(standalone.maxTextureSize, Is.EqualTo(4096));
+            Assert.That(standalone.textureCompression,
+                Is.EqualTo(TextureImporterCompression.Uncompressed));
         }
 
         [Test]
