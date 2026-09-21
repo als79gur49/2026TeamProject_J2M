@@ -719,10 +719,13 @@ namespace Game.Feature.UI.Tests
 
         public bool IsDisposed { get; private set; }
 
+        public int DisposeCount { get; private set; }
+
         public bool IsTopmost { get; private set; }
 
         public void Dispose()
         {
+            DisposeCount++;
             IsDisposed = true;
         }
 

@@ -302,6 +302,28 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_DisposingPopupControllerWithOpenPause_DoesNotResumeGameplay()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out _,
+                out var popupController);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            Assert.That(pauseService.IsPaused, Is.True);
+
+            popupController.Dispose();
+
+            Assert.That(popupController.PopupCount, Is.Zero);
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
+            Assert.That(pauseService.IsPaused, Is.True);
+        }
+
+        [Test]
         public void UIFlowCoordinator_RequestPausePopup_ReadsFreshProgressionForEveryOpen()
         {
             var pauseService = new FakeGameplayPauseService();

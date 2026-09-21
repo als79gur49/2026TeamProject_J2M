@@ -949,6 +949,63 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
+        public void GameplayUiFlowInstaller_OnDestroyWithOpenPause_AfterCampaignSourceDispose_DoesNotReadSession()
+        {
+            var hostObject = new GameObject(
+                nameof(GameplayUiFlowInstaller_OnDestroyWithOpenPause_AfterCampaignSourceDispose_DoesNotReadSession));
+            var saveStore = new TransientCampaignSaveSlotStore(System.Guid.NewGuid().ToString("N"));
+            ICampaignChancesReadSource chancesSource = null;
+            System.IDisposable chancesSourceLifetime = null;
+
+            try
+            {
+                saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    "level-1",
+                    2,
+                    string.Empty));
+                var sourceType = typeof(ICampaignChancesReadSource).Assembly.GetType(
+                    "Game.Feature.Gameplay.Host.SaveSlotCampaignChancesReadSource",
+                    throwOnError: true);
+                chancesSource = (ICampaignChancesReadSource)System.Activator.CreateInstance(
+                    sourceType,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    null);
+                chancesSourceLifetime = (System.IDisposable)chancesSource;
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                    },
+                    campaignChancesReadSource: chancesSource));
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+
+                installer.HudView.ClickPause();
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
+
+                chancesSourceLifetime.Dispose();
+                Assert.Throws<System.ObjectDisposedException>(() =>
+                    chancesSource.TryReadChances(out _, out _, out _));
+
+                Assert.DoesNotThrow(() => InvokeOnDestroy(installer));
+
+                Assert.That(installer.PopupController.PopupCount, Is.Zero);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+                chancesSourceLifetime?.Dispose();
+                saveStore.ClearAll();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiFlowInstaller_HudPause_SettingsBack_ReturnsThroughFreshPausePopup_AndResumesOnlyOnResume()
         {
             var hostObject = new GameObject("GameplayUiFlowInstaller_HudPause_SettingsBack_ReturnsThroughFreshPausePopup_AndResumesOnlyOnResume");
@@ -1109,11 +1166,7 @@ namespace Game.Feature.UI.Tests
                 var installer = hostObject.GetComponent<GameplayUiFlowInstaller>();
                 if (installer != null)
                 {
-                    var onDestroy = typeof(GameplayUiFlowInstaller).GetMethod(
-                        "OnDestroy",
-                        BindingFlags.Instance | BindingFlags.NonPublic);
-                    Assert.That(onDestroy, Is.Not.Null);
-                    onDestroy.Invoke(installer, null);
+                    InvokeOnDestroy(installer);
                 }
             }
 
@@ -1129,10 +1182,20 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static void InvokeOnDestroy(GameplayUiFlowInstaller installer)
+        {
+            var onDestroy = typeof(GameplayUiFlowInstaller).GetMethod(
+                "OnDestroy",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(onDestroy, Is.Not.Null);
+            onDestroy.Invoke(installer, null);
+        }
+
         private static GameplaySceneHostConfiguration CreateConfiguration(
             EntityState[] initialEntities,
             StageObjectiveRuntimeDefinition objectiveRuntimeDefinition = null,
-            StageContentEntry stageContentEntry = null)
+            StageContentEntry stageContentEntry = null,
+            ICampaignChancesReadSource campaignChancesReadSource = null)
         {
             return new GameplaySceneHostConfiguration
             {
@@ -1144,6 +1207,7 @@ namespace Game.Feature.UI.Tests
                 StageContentEntry = stageContentEntry,
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled,
                 PlayerEntityId = 10,
+                CampaignChancesReadSource = campaignChancesReadSource,
             };
         }
 
