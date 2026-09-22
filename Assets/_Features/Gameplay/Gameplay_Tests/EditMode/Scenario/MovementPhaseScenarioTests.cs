@@ -747,7 +747,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
-                CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
+                CreateLegacyNoneBlocker(entityId: 90, position: new Vector2Int(4, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -818,7 +818,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
-                CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
+                CreateExplicitWallBlocker(entityId: 90, position: new Vector2Int(4, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -1278,7 +1278,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
-                CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
+                CreateExplicitWallBlocker(entityId: 90, position: new Vector2Int(4, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -1436,7 +1436,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     slidingBox,
-                    CreateNonUnitBlocker(entityId: 90, position: new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateExplicitWallBlocker(entityId: 90, position: new SurfaceCell(FaceId.Front, 0, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -2009,7 +2009,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             Assert.That(result.PresentationData.BoxSlideStopSignals, Is.Empty);
             Assert.That(
@@ -2050,7 +2049,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             Assert.That(result.PresentationData.BoxSlideStopSignals, Is.Empty);
             Assert.That(
@@ -2069,12 +2067,73 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void StageBackedWallIdentityCutover_SlideStopped_ChangesOnlyWallTypeToken()
+        {
+            CaptureStageBackedWallSlideStopperRecord();
+        }
+
+        private string CaptureStageBackedWallSlideStopperRecord()
+        {
+            var authoredWall = StageAuthoredWallTestFactory.Create(
+                40,
+                new SurfaceCell(FaceId.Floor, 2, 0));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                authoredWall,
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var slideStopperRecord = result.MovementPhaseResult.RejectedReasons.Single(entry =>
+                entry.StartsWith("MovementRejected|", StringComparison.Ordinal) &&
+                entry.Contains("Reason=SlideStopperAdjacent", StringComparison.Ordinal) &&
+                entry.Contains($"Stopper={authoredWall.entityId}", StringComparison.Ordinal));
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Is.Empty);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=SlideStopperAdjacent",
+                    "Target=20",
+                    "StopperKind=Entity",
+                    $"Stopper={authoredWall.entityId}",
+                    $"StopperType={EntityType.Wall}",
+                    "Cell=(2,0)"),
+                Is.True,
+                "The slide rejection record must carry the authored Wall type token.");
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityCell(worldState, authoredWall.entityId), Is.EqualTo(authoredWall.position));
+
+            return slideStopperRecord;
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WallIdentityDeltaComparator_SlideStopper_RejectsWrongIdKeyAndPayloadMutation()
+        {
+            WallIdentityDeltaComparatorTestHarness.AssertRuntimePositive(
+                WallIdentityDeltaSource.SlideStopper,
+                40,
+                CaptureStageBackedWallSlideStopperRecord);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Movement_IdleBoxAdjacentToSolid_DoesNotEmitBoxSlideStopSignal()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
-                CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(2, 0)),
+                CreateExplicitWallBlocker(entityId: 90, position: new Vector2Int(2, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -2318,7 +2377,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -2367,6 +2425,62 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageBackedWallIdentityCutover_PushRejected_ChangesOnlyWallTypeToken()
+        {
+            CaptureStageBackedWallPushRejectedRecord();
+        }
+
+        private string CaptureStageBackedWallPushRejectedRecord()
+        {
+            var authoredWall = StageAuthoredWallTestFactory.Create(
+                40,
+                new SurfaceCell(FaceId.Floor, 1, 0));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                authoredWall,
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var pushRejectedRecord = result.MovementPhaseResult.RejectedReasons.Single(entry =>
+                entry.StartsWith("MovementRejected|", StringComparison.Ordinal) &&
+                entry.Contains("Reason=PushTargetNotBox", StringComparison.Ordinal) &&
+                entry.Contains($"Target={authoredWall.entityId}", StringComparison.Ordinal));
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=PushTargetNotBox",
+                    "Cell=(1,0)",
+                    $"Target={authoredWall.entityId}",
+                    $"Type={EntityType.Wall}"),
+                Is.True,
+                "The push rejection record must carry the authored Wall type token.");
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityCell(worldState, authoredWall.entityId), Is.EqualTo(authoredWall.position));
+
+            return pushRejectedRecord;
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WallIdentityDeltaComparator_PushRejected_RejectsWrongIdKeyAndPayloadMutation()
+        {
+            WallIdentityDeltaComparatorTestHarness.AssertRuntimePositive(
+                WallIdentityDeltaSource.PushRejected,
+                40,
+                CaptureStageBackedWallPushRejectedRecord);
         }
 
         [Test]
@@ -2802,7 +2916,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
-
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -2818,6 +2931,63 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(-1, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageBackedWallIdentityCutover_FlipRejected_ChangesOnlyWallTypeToken()
+        {
+            CaptureStageBackedWallFlipRejectedRecord();
+        }
+
+        private string CaptureStageBackedWallFlipRejectedRecord()
+        {
+            var authoredWall = StageAuthoredWallTestFactory.Create(
+                40,
+                new SurfaceCell(FaceId.Floor, -1, 0));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                authoredWall,
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[] { CreateImmediateFlipPlayerLogic(10) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var flipRejectedRecord = result.MovementPhaseResult.RejectedReasons.Single(entry =>
+                entry.StartsWith("MovementRejected|", StringComparison.Ordinal) &&
+                entry.Contains("Reason=FlipTargetNotFlippableBox", StringComparison.Ordinal) &&
+                entry.Contains($"Target={authoredWall.entityId}", StringComparison.Ordinal));
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=FlipTargetNotFlippableBox",
+                    "Cell=(-1,0)",
+                    $"Target={authoredWall.entityId}",
+                    $"Type={EntityType.Wall}",
+                    "Capabilities=None"),
+                Is.True,
+                "The flip rejection record must carry the authored Wall type token.");
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityCell(worldState, authoredWall.entityId), Is.EqualTo(authoredWall.position));
+
+            return flipRejectedRecord;
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WallIdentityDeltaComparator_FlipRejected_RejectsWrongIdKeyAndPayloadMutation()
+        {
+            WallIdentityDeltaComparatorTestHarness.AssertRuntimePositive(
+                WallIdentityDeltaSource.FlipRejected,
+                40,
+                CaptureStageBackedWallFlipRejectedRecord);
         }
 
         [Test]
@@ -2870,7 +3040,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
-                CreateNonUnitBlocker(entityId: 20, position: new Vector2Int(1, 0)),
+                CreateExplicitWallBlocker(entityId: 20, position: new Vector2Int(1, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -2905,7 +3075,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), hp: 3, teamId: 1),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
-                CreateNonUnitBlocker(entityId: 20, position: new Vector2Int(1, 0)),
+                CreateExplicitWallBlocker(entityId: 20, position: new Vector2Int(1, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -3231,9 +3401,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     slidingBox,
                     stopper,
                     jumper,
-                    CreateNonUnitBlocker(90, new SurfaceCell(FaceId.Floor, 2, 1)),
-                    CreateNonUnitBlocker(91, new SurfaceCell(FaceId.Floor, 2, -1)),
-                    CreateNonUnitBlocker(92, new SurfaceCell(FaceId.Floor, 1, 0)),
+                    CreateExplicitWallBlocker(90, new SurfaceCell(FaceId.Floor, 2, 1)),
+                    CreateExplicitWallBlocker(91, new SurfaceCell(FaceId.Floor, 2, -1)),
+                    CreateExplicitWallBlocker(92, new SurfaceCell(FaceId.Floor, 1, 0)),
                 },
                 DeferredJumpPredictionBounds(),
                 new[] { barricade });
@@ -3678,7 +3848,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
-                    CreateNonUnitBlocker(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateExplicitWallBlocker(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
@@ -4263,7 +4433,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
-                CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(2, 0)),
+                CreateExplicitWallBlocker(entityId: 90, position: new Vector2Int(2, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -4313,7 +4483,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
-                    CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(3, 0)),
+                    CreateExplicitWallBlocker(entityId: 90, position: new Vector2Int(3, 0)),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -5081,12 +5251,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return enemy;
         }
 
-        private static EntityState CreateNonUnitBlocker(int entityId, Vector2Int position)
+        private static EntityState CreateLegacyNoneBlocker(int entityId, Vector2Int position)
         {
-            return CreateNonUnitBlocker(entityId, SurfaceCell.FromPlanar(position));
+            return CreateLegacyNoneBlocker(entityId, SurfaceCell.FromPlanar(position));
         }
 
-        private static EntityState CreateNonUnitBlocker(int entityId, SurfaceCell position)
+        private static EntityState CreateLegacyNoneBlocker(int entityId, SurfaceCell position)
         {
             return new EntityState
             {
@@ -5096,6 +5266,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.None,
+                facing = Direction.None,
+            };
+        }
+
+        private static EntityState CreateExplicitWallBlocker(int entityId, Vector2Int position)
+        {
+            return CreateExplicitWallBlocker(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateExplicitWallBlocker(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Wall,
                 facing = Direction.None,
             };
         }

@@ -216,6 +216,26 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
+        internal static void RecordIndexed(
+            int removalCandidates,
+            int timerCandidates,
+            int transitionCandidates,
+            int removalProcessed,
+            int timerProcessed,
+            int transitionProcessed)
+        {
+            if (ShouldCaptureStructural)
+            {
+                _current.RecordIndexed(
+                    removalCandidates,
+                    timerCandidates,
+                    transitionCandidates,
+                    removalProcessed,
+                    timerProcessed,
+                    transitionProcessed);
+            }
+        }
+
         internal static void RecordReferenceOracleInvocation()
         {
             _current?.RecordReferenceOracleInvocation();
@@ -255,6 +275,7 @@ namespace Game.Feature.Gameplay.Loop
             private int _transitionProcessedCount;
             private int _zeroCandidateOpportunityCount;
             private int _referenceOracleInvocationCount;
+            private int _indexedInvocationCount;
             private int _invariantMismatchCount;
             private int _cleanupProcessorTimingSampleCount;
             private long _cleanupProcessorElapsedTicks;
@@ -282,7 +303,7 @@ namespace Game.Feature.Gameplay.Loop
                 _transitionProcessedCount,
                 _zeroCandidateOpportunityCount,
                 _referenceOracleInvocationCount,
-                indexedInvocationCount: 0,
+                _indexedInvocationCount,
                 hiddenFallbackCount: 0,
                 _invariantMismatchCount,
                 _cleanupProcessorTimingSampleCount,
@@ -310,6 +331,27 @@ namespace Game.Feature.Gameplay.Loop
                 _timerProcessedCount += timerProcessed;
                 _transitionProcessedCount += transitionProcessed;
                 if (removalCandidates == 0 && timerCandidates == 0 && immediateTransitionCandidates == 0)
+                {
+                    _zeroCandidateOpportunityCount++;
+                }
+            }
+
+            internal void RecordIndexed(
+                int removalCandidates,
+                int timerCandidates,
+                int transitionCandidates,
+                int removalProcessed,
+                int timerProcessed,
+                int transitionProcessed)
+            {
+                _indexedInvocationCount++;
+                _removalCandidateCount += removalCandidates;
+                _timerCandidateCount += timerCandidates;
+                _immediateTransitionCandidateCount += transitionCandidates;
+                _removalProcessedCount += removalProcessed;
+                _timerProcessedCount += timerProcessed;
+                _transitionProcessedCount += transitionProcessed;
+                if (removalCandidates == 0 && timerCandidates == 0 && transitionCandidates == 0)
                 {
                     _zeroCandidateOpportunityCount++;
                 }

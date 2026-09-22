@@ -5,5 +5,6 @@ namespace Game.Feature.Gameplay.BoardState
         None = 0,
         Unit = 1,
         Box = 3,
+        Wall = 4,
     }
 }

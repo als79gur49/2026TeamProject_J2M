@@ -14,6 +14,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         private const int MaxAllowedReadTimeCompletedTickLagForCurrentHostOrder = 2;
 
         private CachedPresentationWindow _cachedPresentationWindow;
+        private long _windowGeneration;
+        internal long ProbeWindowGeneration()
+        {
+            ValidateReadTimeSnapshotWindowInvariant();
+            return _windowGeneration;
+        }
         private readonly GameplayInputHost _inputHost;
         private readonly GameplayHostPauseService _pauseService;
         private readonly GameplayTickViewPresenter _presenter;
@@ -160,6 +166,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 completedTickIndex,
                 _inputHost?.PlayerEntityId ?? 0);
             _cachedPresentationWindow = refreshedWindow;
+            _windowGeneration++;
             ValidateRefreshTimeSnapshotWindowInvariant(refreshedWindow, completedTickIndex);
         }
 

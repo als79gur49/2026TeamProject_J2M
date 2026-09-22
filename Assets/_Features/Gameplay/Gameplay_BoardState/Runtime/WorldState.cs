@@ -12,6 +12,8 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly Dictionary<int, TileFeatureState> _tileFeaturesById = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _tileFeatureIdsByCell = new();
+        private SnapshotOwnedCellIndex<SurfaceCell> _snapshotOwnedTileFeatureIdsByCell;
+        private bool _snapshotOwnedTileFeatureIdsByCellDirty = true;
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, PendingCellImpact> _pendingCellImpactsById = new();
@@ -33,6 +35,11 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId = new();
         private readonly Dictionary<int, UnitContinuousLocomotionState> _unitContinuousLocomotionStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
+        private readonly SortedSet<int> _cleanupRemovalCandidateIds = new();
+        private readonly SortedSet<int> _cleanupTimerCandidateIds = new();
+        private readonly SortedSet<int> _cleanupImmediateTransitionCandidateIds = new();
+        private WorldSnapshot _cachedWorldSnapshot;
+        private bool _worldSnapshotDirty = true;
         private CubeTopologyState _topology;
         private int _topologyRevision;
 
@@ -145,7 +152,13 @@ namespace Game.Feature.Gameplay.BoardState
         internal WorldSnapshot CreateSnapshot()
         {
             SnapshotMaterializationDiagnostics.RecordWorldStateCreateSnapshot();
-            return WorldSnapshot.CreateWithSnapshotOwnedCellIndexes(
+            if (_cachedWorldSnapshot != null && !_worldSnapshotDirty)
+            {
+                SnapshotMaterializationDiagnostics.RecordWorldStateSnapshotCacheHit();
+                return _cachedWorldSnapshot;
+            }
+
+            _cachedWorldSnapshot = WorldSnapshot.CreateWithSnapshotOwnedCellIndexes(
                 new Dictionary<int, EntityState>(_entitiesById),
                 CreateSnapshotOwnedStackedUnitsByCell(),
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
@@ -170,13 +183,52 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EnemyDefinitionBindingState>(_enemyDefinitionBindingsByEntityId),
                 new Dictionary<int, UnitKinematicRuntimeState>(_unitKinematicStatesByEntityId),
                 new Dictionary<int, UnitContinuousLocomotionState>(_unitContinuousLocomotionStatesByEntityId),
+                CleanupCandidateSnapshot.Create(
+                    _cleanupRemovalCandidateIds,
+                    _cleanupTimerCandidateIds,
+                    _cleanupImmediateTransitionCandidateIds),
                 _topology,
                 _topologyRevision,
                 _boardBounds);
+            SnapshotMaterializationDiagnostics.RecordWorldStateSnapshotMaterialization();
+            _worldSnapshotDirty = false;
+            return _cachedWorldSnapshot;
+        }
+
+        private void InvalidateWorldSnapshot()
+        {
+            _worldSnapshotDirty = true;
+        }
+
+        private void SetSnapshotValue<TKey, TValue>(
+            Dictionary<TKey, TValue> values,
+            TKey key,
+            TValue value)
+        {
+            if (values.TryGetValue(key, out var previous) &&
+                EqualityComparer<TValue>.Default.Equals(previous, value))
+            {
+                return;
+            }
+
+            values[key] = value;
+            InvalidateWorldSnapshot();
+        }
+
+        private void RemoveSnapshotValue<TKey, TValue>(Dictionary<TKey, TValue> values, TKey key)
+        {
+            if (values.Remove(key))
+            {
+                InvalidateWorldSnapshot();
+            }
         }
 
         private void RestoreFromSnapshotFast(WorldSnapshot snapshot)
         {
+            _cachedWorldSnapshot = null;
+            _worldSnapshotDirty = true;
+            _snapshotOwnedTileFeatureIdsByCell = null;
+            _snapshotOwnedTileFeatureIdsByCellDirty = true;
             _topologyRevision = snapshot.TopologyRevision;
             snapshot.CopyEntitiesByIdTo(_entitiesById);
             snapshot.CopyStackedUnitsByCellTo(_stackedUnitsByCell);
@@ -202,6 +254,10 @@ namespace Game.Feature.Gameplay.BoardState
             snapshot.CopyEnemyDefinitionBindingsByEntityIdTo(_enemyDefinitionBindingsByEntityId);
             snapshot.CopyUnitKinematicStatesByEntityIdTo(_unitKinematicStatesByEntityId);
             snapshot.CopyUnitContinuousLocomotionStatesByEntityIdTo(_unitContinuousLocomotionStatesByEntityId);
+            snapshot.CopyCleanupCandidateIdsTo(
+                _cleanupRemovalCandidateIds,
+                _cleanupTimerCandidateIds,
+                _cleanupImmediateTransitionCandidateIds);
         }
 
         internal IWorldWriteContext CreateWriteContext()
@@ -227,11 +283,13 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _entitiesById.Add(entity.entityId, entity);
+            UpdateCleanupCandidateMembership(entity);
             if (EntityRolePolicy.IsPlayerUnit(entity))
             {
                 _playerDamageStatesByEntityId[entity.entityId] = default;
             }
             SetOccupancyForEntity(entity);
+            InvalidateWorldSnapshot();
         }
 
         private void MoveEntityTo(int entityId, SurfaceCell destination)
@@ -248,8 +306,8 @@ namespace Game.Feature.Gameplay.BoardState
 
             ClearOccupancyForEntity(entity);
             UpdateStoredEntity(updatedEntity);
-            _unitKinematicStatesByEntityId.Remove(entityId);
-            _unitContinuousLocomotionStatesByEntityId.Remove(entityId);
+            RemoveSnapshotValue(_unitKinematicStatesByEntityId, entityId);
+            RemoveSnapshotValue(_unitContinuousLocomotionStatesByEntityId, entityId);
             SetOccupancyForEntity(updatedEntity);
         }
 
@@ -262,6 +320,9 @@ namespace Game.Feature.Gameplay.BoardState
 
             ClearOccupancyForEntity(entity);
             _entitiesById.Remove(entityId);
+            _cleanupRemovalCandidateIds.Remove(entityId);
+            _cleanupTimerCandidateIds.Remove(entityId);
+            _cleanupImmediateTransitionCandidateIds.Remove(entityId);
             _enemyActionStatesByEntityId.Remove(entityId);
             _pendingEnemyBlockedReactionsByEntityId.Remove(entityId);
             _enemyPatrolStatesByEntityId.Remove(entityId);
@@ -279,6 +340,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyDefinitionBindingsByEntityId.Remove(entityId);
             _unitKinematicStatesByEntityId.Remove(entityId);
             _unitContinuousLocomotionStatesByEntityId.Remove(entityId);
+            InvalidateWorldSnapshot();
         }
 
         private void ApplyDamage(int entityId, int amount)
@@ -293,8 +355,8 @@ namespace Game.Feature.Gameplay.BoardState
             if (entity.hp <= 0)
             {
                 ClearChargeState(entityId);
-                _phasedStatesByEntityId.Remove(entityId);
-                _enemyGlideStatesByEntityId.Remove(entityId);
+                RemoveSnapshotValue(_phasedStatesByEntityId, entityId);
+                RemoveSnapshotValue(_enemyGlideStatesByEntityId, entityId);
             }
         }
 
@@ -357,8 +419,8 @@ namespace Game.Feature.Gameplay.BoardState
             entity.markedForDeath = true;
             UpdateStoredEntity(entity);
             ClearChargeState(entityId);
-            _phasedStatesByEntityId.Remove(entityId);
-            _enemyGlideStatesByEntityId.Remove(entityId);
+            RemoveSnapshotValue(_phasedStatesByEntityId, entityId);
+            RemoveSnapshotValue(_enemyGlideStatesByEntityId, entityId);
         }
 
         private void SetFacing(int entityId, Direction facing)
@@ -403,8 +465,8 @@ namespace Game.Feature.Gameplay.BoardState
             if (boardPresence != EntityBoardPresence.Occupying)
             {
                 ClearChargeState(entityId);
-                _phasedStatesByEntityId.Remove(entityId);
-                _enemyGlideStatesByEntityId.Remove(entityId);
+                RemoveSnapshotValue(_phasedStatesByEntityId, entityId);
+                RemoveSnapshotValue(_enemyGlideStatesByEntityId, entityId);
                 ClearNonAirborneEnemyJumpStateForNonOccupyingEntity(entityId);
             }
 
@@ -425,7 +487,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _enemyJumpStatesByEntityId[entityId] = EnemyJumpQueries.Clear(jumpState);
+            SetSnapshotValue(_enemyJumpStatesByEntityId, entityId, EnemyJumpQueries.Clear(jumpState));
         }
 
         private void SetTopology(CubeTopologyState topology)
@@ -437,6 +499,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             _topology = topology;
             _topologyRevision++;
+            InvalidateWorldSnapshot();
         }
 
         private void SetPlayerControlState(int entityId, PlayerControlState state)
@@ -446,7 +509,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _playerControlStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_playerControlStatesByEntityId, entityId, state);
         }
 
         private void SetPlayerDamageState(int entityId, PlayerDamageState state)
@@ -457,7 +520,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _playerDamageStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_playerDamageStatesByEntityId, entityId, state);
         }
 
         private void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
@@ -467,17 +530,17 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _enemyActionStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_enemyActionStatesByEntityId, entityId, state);
         }
 
         private void AddPendingCellImpact(PendingCellImpact impact)
         {
-            _pendingCellImpactsById[impact.ImpactId] = impact;
+            SetSnapshotValue(_pendingCellImpactsById, impact.ImpactId, impact);
         }
 
         private void RemovePendingCellImpact(int impactId)
         {
-            _pendingCellImpactsById.Remove(impactId);
+            RemoveSnapshotValue(_pendingCellImpactsById, impactId);
         }
 
         private void SetPendingEnemyBlockedReaction(int entityId, PendingEnemyBlockedReaction reaction)
@@ -489,12 +552,12 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _pendingEnemyBlockedReactionsByEntityId[entityId] = reaction;
+            SetSnapshotValue(_pendingEnemyBlockedReactionsByEntityId, entityId, reaction);
         }
 
         private void ClearPendingEnemyBlockedReaction(int entityId)
         {
-            _pendingEnemyBlockedReactionsByEntityId.Remove(entityId);
+            RemoveSnapshotValue(_pendingEnemyBlockedReactionsByEntityId, entityId);
         }
 
         private void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
@@ -504,7 +567,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _enemyPatrolStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_enemyPatrolStatesByEntityId, entityId, state);
         }
 
         private void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
@@ -514,7 +577,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _enemyChargeStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_enemyChargeStatesByEntityId, entityId, state);
         }
 
         private void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
@@ -532,7 +595,7 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Entity {entityId} cannot hold active jump and phased runtime states simultaneously.");
             }
 
-            _enemyJumpStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_enemyJumpStatesByEntityId, entityId, state);
         }
 
         private void SetEnemyGlideState(int entityId, EnemyGlideRuntimeState state)
@@ -544,7 +607,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (!state.HasAuthoritativeRecord)
             {
-                _enemyGlideStatesByEntityId.Remove(entityId);
+                RemoveSnapshotValue(_enemyGlideStatesByEntityId, entityId);
                 return;
             }
 
@@ -562,7 +625,7 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Entity {entityId} cannot leave active glide while occupying solid cell {entity.position}.");
             }
 
-            _enemyGlideStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_enemyGlideStatesByEntityId, entityId, state);
         }
 
         internal void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
@@ -573,7 +636,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _enemyUtilityStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_enemyUtilityStatesByEntityId, entityId, state);
         }
 
         internal void SetEnemySummonBehaviorState(int entityId, EnemySummonBehaviorRuntimeState state)
@@ -583,7 +646,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _enemySummonBehaviorStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_enemySummonBehaviorStatesByEntityId, entityId, state);
         }
 
         internal void SetSummonedEntityState(int entityId, SummonedEntityState state)
@@ -593,7 +656,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _summonedEntitiesByEntityId[entityId] = state;
+            SetSnapshotValue(_summonedEntitiesByEntityId, entityId, state);
         }
 
         internal void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state)
@@ -604,7 +667,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             state.Validate(nameof(state));
-            _enemyDefinitionBindingsByEntityId[entityId] = state;
+            SetSnapshotValue(_enemyDefinitionBindingsByEntityId, entityId, state);
         }
 
         internal void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
@@ -615,7 +678,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _boxInteractionLockStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_boxInteractionLockStatesByEntityId, entityId, state);
         }
 
         internal void SetEnemyGravityFieldAuraFieldState(int fieldId, EnemyGravityFieldAuraFieldState state)
@@ -626,7 +689,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _enemyGravityFieldAuraFieldsById[fieldId] = state;
+            SetSnapshotValue(_enemyGravityFieldAuraFieldsById, fieldId, state);
         }
 
         internal void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
@@ -639,7 +702,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity.gravityFieldPhase = phase;
             entity.gravityFieldTimerTicks = timerTicks;
-            _entitiesById[entityId] = entity;
+            UpdateStoredEntity(entity);
         }
 
         internal void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)
@@ -658,7 +721,7 @@ namespace Game.Feature.Gameplay.BoardState
             var normalizedState = state.NormalizedForStorage();
             if (normalizedState.IsSettledZero)
             {
-                _unitKinematicStatesByEntityId.Remove(entityId);
+                RemoveSnapshotValue(_unitKinematicStatesByEntityId, entityId);
                 return;
             }
 
@@ -668,7 +731,7 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Entity {entityId} cannot hold active unit kinematic and continuous locomotion states at the same time.");
             }
 
-            _unitKinematicStatesByEntityId[entityId] = normalizedState;
+            SetSnapshotValue(_unitKinematicStatesByEntityId, entityId, normalizedState);
         }
 
         internal void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state)
@@ -687,7 +750,7 @@ namespace Game.Feature.Gameplay.BoardState
             var normalizedState = state.NormalizedForStorage();
             if (normalizedState.IsOmittableIdleZero)
             {
-                _unitContinuousLocomotionStatesByEntityId.Remove(entityId);
+                RemoveSnapshotValue(_unitContinuousLocomotionStatesByEntityId, entityId);
                 return;
             }
 
@@ -697,24 +760,24 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Entity {entityId} cannot hold active unit continuous locomotion and kinematic states at the same time.");
             }
 
-            _unitContinuousLocomotionStatesByEntityId[entityId] = normalizedState;
+            SetSnapshotValue(_unitContinuousLocomotionStatesByEntityId, entityId, normalizedState);
         }
 
         internal void RemoveBoxInteractionLockState(int entityId)
         {
-            _boxInteractionLockStatesByEntityId.Remove(entityId);
+            RemoveSnapshotValue(_boxInteractionLockStatesByEntityId, entityId);
         }
 
         internal void RemoveEnemyGravityFieldAuraFieldState(int fieldId)
         {
-            _enemyGravityFieldAuraFieldsById.Remove(fieldId);
+            RemoveSnapshotValue(_enemyGravityFieldAuraFieldsById, fieldId);
         }
 
         private void ClearChargeState(int entityId)
         {
             if (_enemyChargeStatesByEntityId.TryGetValue(entityId, out var currentState))
             {
-                _enemyChargeStatesByEntityId[entityId] = EnemyChargeQueries.Clear(currentState);
+                SetSnapshotValue(_enemyChargeStatesByEntityId, entityId, EnemyChargeQueries.Clear(currentState));
             }
         }
 
@@ -727,7 +790,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (!state.IsActive)
             {
-                _phasedStatesByEntityId.Remove(entityId);
+                RemoveSnapshotValue(_phasedStatesByEntityId, entityId);
                 return;
             }
 
@@ -756,7 +819,7 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Entity {entityId} cannot enter phased runtime state while jump phase is {jumpState.phase}.");
             }
 
-            _phasedStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_phasedStatesByEntityId, entityId, state);
         }
 
         private void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state)
@@ -766,7 +829,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            _executionLockStatesByEntityId[entityId] = state;
+            SetSnapshotValue(_executionLockStatesByEntityId, entityId, state);
         }
 
         private void ClearOccupancyForEntity(EntityState entity)
@@ -865,6 +928,8 @@ namespace Game.Feature.Gameplay.BoardState
 
             _tileFeaturesById.Add(state.TileId, state);
             AddTileFeatureCellIndex(state.TileId, state.Cell);
+            InvalidateSnapshotOwnedTileFeatureCellIndex();
+            InvalidateWorldSnapshot();
         }
 
         private void UpdateTileFeature(TileFeatureState state)
@@ -877,12 +942,20 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Cannot update missing TileFeature id {state.TileId}.");
             }
 
+            if (EqualityComparer<TileFeatureState>.Default.Equals(previous, state))
+            {
+                return;
+            }
+
             _tileFeaturesById[state.TileId] = state;
             if (!previous.Cell.Equals(state.Cell))
             {
                 RemoveTileFeatureCellIndex(state.TileId, previous.Cell);
                 AddTileFeatureCellIndex(state.TileId, state.Cell);
+                InvalidateSnapshotOwnedTileFeatureCellIndex();
             }
+
+            InvalidateWorldSnapshot();
         }
 
         private void RemoveTileFeature(int tileId)
@@ -901,6 +974,8 @@ namespace Game.Feature.Gameplay.BoardState
 
             _tileFeaturesById.Remove(tileId);
             RemoveTileFeatureCellIndex(tileId, previous.Cell);
+            InvalidateSnapshotOwnedTileFeatureCellIndex();
+            InvalidateWorldSnapshot();
         }
 
         private void ValidateTileFeatureState(TileFeatureState state)
@@ -945,7 +1020,34 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void UpdateStoredEntity(EntityState entity)
         {
+            if (!_entitiesById.TryGetValue(entity.entityId, out var previousEntity))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot update missing entity {entity.entityId} through the authoritative stored-entity seam.");
+            }
+
+            if (EqualityComparer<EntityState>.Default.Equals(previousEntity, entity))
+            {
+                return;
+            }
+
             _entitiesById[entity.entityId] = entity;
+            CleanupCandidateSnapshot.UpdateMembership(
+                previousEntity,
+                entity,
+                _cleanupRemovalCandidateIds,
+                _cleanupTimerCandidateIds,
+                _cleanupImmediateTransitionCandidateIds);
+            InvalidateWorldSnapshot();
+        }
+
+        private void UpdateCleanupCandidateMembership(in EntityState entity)
+        {
+            CleanupCandidateSnapshot.UpdateMembership(
+                entity,
+                _cleanupRemovalCandidateIds,
+                _cleanupTimerCandidateIds,
+                _cleanupImmediateTransitionCandidateIds);
         }
 
         internal bool TryGetEnemyUtilityState(int entityId, out EnemyUtilityRuntimeState state)
@@ -955,7 +1057,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal void RemoveEnemyUtilityState(int entityId)
         {
-            _enemyUtilityStatesByEntityId.Remove(entityId);
+            RemoveSnapshotValue(_enemyUtilityStatesByEntityId, entityId);
         }
 
         internal bool TryGetEnemySummonBehaviorState(int entityId, out EnemySummonBehaviorRuntimeState state)
@@ -965,7 +1067,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal void RemoveEnemySummonBehaviorState(int entityId)
         {
-            _enemySummonBehaviorStatesByEntityId.Remove(entityId);
+            RemoveSnapshotValue(_enemySummonBehaviorStatesByEntityId, entityId);
         }
 
         internal void EnumerateEnemyUtilityStatesOrdered(List<EnemyUtilitySnapshotEntry> buffer)
@@ -1095,7 +1197,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal void RemoveSummonedEntityState(int entityId)
         {
-            _summonedEntitiesByEntityId.Remove(entityId);
+            RemoveSnapshotValue(_summonedEntitiesByEntityId, entityId);
         }
 
         internal bool TryGetEnemyDefinitionBindingState(int entityId, out EnemyDefinitionBindingState state)
@@ -1105,7 +1207,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal void RemoveEnemyDefinitionBindingState(int entityId)
         {
-            _enemyDefinitionBindingsByEntityId.Remove(entityId);
+            RemoveSnapshotValue(_enemyDefinitionBindingsByEntityId, entityId);
         }
 
         internal void EnumerateSummonedEntityStatesOrdered(List<SummonedEntitySnapshotEntry> buffer)
@@ -1160,8 +1262,19 @@ namespace Game.Feature.Gameplay.BoardState
 
         private SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedTileFeatureIdsByCell()
         {
-            SnapshotMaterializationDiagnostics.RecordSnapshotOwnedTileFeatureCellIndexBuild(_tileFeatureIdsByCell.Count);
-            return CreateSnapshotOwnedCellIndex(_tileFeatureIdsByCell);
+            if (_snapshotOwnedTileFeatureIdsByCell == null || _snapshotOwnedTileFeatureIdsByCellDirty)
+            {
+                SnapshotMaterializationDiagnostics.RecordSnapshotOwnedTileFeatureCellIndexBuild(_tileFeatureIdsByCell.Count);
+                _snapshotOwnedTileFeatureIdsByCell = CreateSnapshotOwnedCellIndex(_tileFeatureIdsByCell);
+                _snapshotOwnedTileFeatureIdsByCellDirty = false;
+            }
+
+            return _snapshotOwnedTileFeatureIdsByCell;
+        }
+
+        private void InvalidateSnapshotOwnedTileFeatureCellIndex()
+        {
+            _snapshotOwnedTileFeatureIdsByCellDirty = true;
         }
 
         private static SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedCellIndex(

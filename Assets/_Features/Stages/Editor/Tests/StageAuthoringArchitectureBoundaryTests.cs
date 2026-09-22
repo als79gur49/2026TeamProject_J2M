@@ -434,11 +434,38 @@ namespace Game.Feature.Stages.Editor.Tests
             var hostFactorySource =
                 File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs");
             var buildResultSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs");
+            var compactInstallerSource = Regex.Replace(installerSource, @"\s+", string.Empty);
+            var compactCompositionSource = Regex.Replace(compositionSource, @"\s+", string.Empty);
+            var compactHostFactorySource = Regex.Replace(hostFactorySource, @"\s+", string.Empty);
 
             Assert.That(installerSource, Does.Contain("var buildResult = StageRuntimeBuilder.Build"));
             Assert.That(installerSource, Does.Contain("var resolvedPresentation = StagePresentationAssembler.Resolve"));
-            Assert.That(installerSource, Does.Contain("StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation, resolvedAudio)"));
-            Assert.That(compositionSource, Does.Contain("new StageSceneCompositionData(gameplayBuildResult, presentationData, audioData)"));
+            Assert.That(
+                compactInstallerSource,
+                Does.Contain(
+                    "StageSceneCompositionAssembler.ComposeStageBacked(" +
+                    "resolved.Entry.GameplayDefinition,buildResult,resolvedPresentation,resolvedAudio);"));
+            Assert.That(
+                compactCompositionSource,
+                Does.Contain(
+                    "returnnewStageSceneCompositionData(" +
+                    "gameplayBuildResult,presentationData,audioData," +
+                    "CreateStageBackedStaticWallProvenance(stage,gameplayBuildResult));"));
+            Assert.That(
+                compactInstallerSource,
+                Does.Contain(
+                    "_staticWallPresentationProvenance=" +
+                    "compositionData.StaticWallPresentationProvenance;"));
+            Assert.That(
+                compactInstallerSource,
+                Does.Contain(
+                    "configuration.StaticWallPresentationProvenance=" +
+                    "_staticWallPresentationProvenance??StageStaticWallPresentationProvenance.Empty;"));
+            Assert.That(
+                compactHostFactorySource,
+                Does.Contain(
+                    "presenter.ConfigureStaticWallPresentationProvenance(" +
+                    "configuration.StaticWallPresentationProvenance);"));
             Assert.That(buildResultSource, Does.Not.Contain("EnemyPresentationBindings"));
             Assert.That(buildResultSource, Does.Not.Contain("StaticEntityPresentationBindings"));
             Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationBinding"));

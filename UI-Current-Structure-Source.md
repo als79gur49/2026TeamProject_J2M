@@ -30,23 +30,25 @@ This file is the external current-structure source for the completed UI cleanup 
   - `ObjectiveHud`
   - `ChancePanel`
   - `SurfaceBeltIndicator`
-  - `PlayerStatus`
 
 - HUD responsibility:
   - HUD is a display consumer of mapped UI presentation state.
   - HUD is not a gameplay command owner.
   - HUD may raise bounded UI-owned requests such as pause flow, but it must not dispatch gameplay Push/Flip commands.
-  - `PlayerStatus` displays current player status/readiness state only; it does not own Push/Flip command routing.
+  - Cross-layer shell state follows `UIFlowCoordinator -> IUIFlowPresentationSource -> UIFlowShellPresenter`. The source publishes one immutable snapshot after block-policy evaluation; `GameplayUiFlowInstaller` only assembles the route and does not pull state from controller or terminal callbacks.
+  - `UIFlowCoordinator` exposes that presentation contract only through explicit interface implementation. Its concrete public surface remains bounded to flow routing, while the application presenter projects HUD visibility, mapped HUD interaction blocking, and popup-backdrop state.
   - `SurfaceBeltIndicator` authors one number-free 32x32 `NormalBadge` only to the left of the centered `Cell_0` visual. Its frame and fill share the Objective completion gold, and the current sector's `HasAnyRemaining` value selects fully lit or dim inactive alpha. Initial binding is immediate; later state changes use local DOTween color/scale transitions, while entry into a new active sector plays one runtime-isolated All In 1 Shine and identical binds do not replay it. Neighboring sector cells author no badge.
   - The in-game Stage Name resolves `HeaderLarge` through `GameplayUiTypographyTheme` in both locales: en-US uses Orbitron ExtraBold and ko-KR uses KBO Dia Gothic Medium, prefab-authored sizing remains unchanged, and the target adds TMP `UpperCase` presentation without mutating localized source strings. World Guide and transition-label default-locale restoration remain separate contracts.
+- `PlayerStatus` was retired because its authored labels were permanently hidden and cleared; HUD construction retains only the five visible child slices.
+- The unused legacy `ObjectiveConditionRowView` is retired; `ObjectiveHudRowView` remains the canonical authored objective-row view.
 
 ## Preserved Classification Decisions
 
-- `DemoStageControl` is not a gameplay popup catalog entry.
-- `DemoStageControl` is a catalog-less runtime assist popup.
+- `DemoStageControl` is a catalog-authored, English operator-assist popup registered in `GameplayPopupPrefabCatalog`.
+- `UIFlowCoordinator` owns its popup flow and lifetime routing, while feature-local sources and command ports own its presentation and commands.
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing.
 - `DemoStageControl` is not a deletion candidate and is not a dev-only compile exclusion target.
-- Future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision.
+- Future product/build availability for `DemoStageControl` is supplied through a separate access-provider decision that gates new opens only.
 - `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
 - Reward popup is not current popup vocabulary. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not a UI popup route.
 - Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
@@ -119,7 +121,7 @@ This file is the external current-structure source for the completed UI cleanup 
 
 - Do not modify runtime code for this source regeneration.
 - Do not modify prefabs or catalogs for this source regeneration.
-- Do not change `DemoStageControl` runtime behavior.
+- Preserve the catalog-authored DemoStageControl popup, coordinator-owned toggle flow, and feature-local live presentation source.
 - Do not simplify or reroute StageResult, Pause/Confirm popup, settings, audio, display, or UI bridge paths.
 - Do not reintroduce a Main Menu-only Settings presenter/view composition, `_settingsScreenPrefab`, `_koreanSettingsFont`, or `PopupPrefabCatalog.TypographyTheme` as a Settings asset source.
 - Do not restore StageResult result title/summary/detail schema or title/detail labels without a new product decision.

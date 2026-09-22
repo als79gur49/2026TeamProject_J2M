@@ -34,6 +34,7 @@ namespace Game.Feature.Gameplay.Host
 
         private ActiveSlotProvider _activeSlotProvider;
         private CampaignChanceDisplayOverride _campaignChanceDisplayOverride;
+        private SaveSlotCampaignChancesReadSource _campaignChancesReadSource;
         private CampaignGameplayFlowController _campaignFlowController;
         private CampaignStageSequenceResolver _campaignStageSequenceResolver;
         private bool _campaignRuntimeActive;
@@ -47,6 +48,8 @@ namespace Game.Feature.Gameplay.Host
         private BgmRequestLease _stageBgmRequestLease;
         private BackgroundWallSurfaceTintPresenterAdapter _backgroundWallSurfaceTintPresenterAdapter;
         private BackgroundSpaceOrbitPresenterAdapter _backgroundSpaceOrbitPresenterAdapter;
+        private StageStaticWallPresentationProvenance _staticWallPresentationProvenance =
+            StageStaticWallPresentationProvenance.Empty;
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
 
@@ -104,7 +107,12 @@ namespace Game.Feature.Gameplay.Host
                 var resolvedAudio = StageAudioAssembler.Resolve(resolved.Entry.AudioDefinition);
                 _resolvedPresentationDefinition = resolved.Entry.PresentationDefinition;
                 _resolvedAudioData = resolvedAudio;
-                var compositionData = StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation, resolvedAudio);
+                var compositionData = StageSceneCompositionAssembler.ComposeStageBacked(
+                    resolved.Entry.GameplayDefinition,
+                    buildResult,
+                    resolvedPresentation,
+                    resolvedAudio);
+                _staticWallPresentationProvenance = compositionData.StaticWallPresentationProvenance;
 
                 return new InitialGameplayState(
                     compositionData.GameplayBuildResult.BoardBounds,
@@ -143,6 +151,8 @@ namespace Game.Feature.Gameplay.Host
             GameplaySceneHostConfiguration configuration,
             in InitialGameplayState initialState)
         {
+            configuration.StaticWallPresentationProvenance =
+                _staticWallPresentationProvenance ?? StageStaticWallPresentationProvenance.Empty;
             configuration.CampaignStageSequenceResolver = RequireCampaignStageSequenceResolver();
             CampaignLaunchHandoff capturedHandoff = null;
             StageLaunchContext capturedContext = null;
@@ -184,6 +194,8 @@ namespace Game.Feature.Gameplay.Host
                     (hasPendingLaunch || hasActiveSlot);
                 if (!_campaignRuntimeActive)
                 {
+                    _campaignChancesReadSource?.Dispose();
+                    _campaignChancesReadSource = null;
                     _campaignChanceDisplayOverride = null;
                     _runningSlotContext = null;
                     CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)
@@ -210,10 +222,10 @@ namespace Game.Feature.Gameplay.Host
                         SaveStoreDiagnosticsKey = _saveSlotStore != null ? _saveSlotStore.DiagnosticsKey : string.Empty,
                         ActiveSlotDiagnosticsKey = _activeSlotProvider != null ? _activeSlotProvider.DiagnosticsKey : string.Empty,
                         SourceIsNull = true,
-                        FailureReason = !hasActiveSlot && !hasPendingLaunch
-                            ? CampaignChanceReadFailureReason.NoActiveSlot
-                            : isSuppressed
-                                ? CampaignChanceReadFailureReason.EditorDirectPlaySuppressed
+                        FailureReason = isSuppressed
+                            ? CampaignChanceReadFailureReason.EditorDirectPlaySuppressed
+                            : !hasActiveSlot && !hasPendingLaunch
+                                ? CampaignChanceReadFailureReason.NoActiveSlot
                                 : CampaignChanceReadFailureReason.SourceMissing,
                     });
                     return;
@@ -229,7 +241,8 @@ namespace Game.Feature.Gameplay.Host
                     capturedContext);
                 _campaignChanceDisplayOverride = new CampaignChanceDisplayOverride();
                 configuration.DisablePlayerRespawn = true;
-                configuration.CampaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
+                _campaignChancesReadSource?.Dispose();
+                configuration.CampaignChancesReadSource = _campaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
                     _saveSlotStore,
                     _runningSlotContext,
                     _campaignChanceDisplayOverride);
@@ -256,6 +269,8 @@ namespace Game.Feature.Gameplay.Host
             }
             catch
             {
+                _campaignChancesReadSource?.Dispose();
+                _campaignChancesReadSource = null;
                 _runningSlotContext = null;
                 CleanupCapturedLaunch(capturedHandoff, capturedContext);
                 throw;
@@ -434,6 +449,8 @@ namespace Game.Feature.Gameplay.Host
         private void OnDestroy()
         {
             ReleaseStageBgmRequestLease();
+            _campaignChancesReadSource?.Dispose();
+            _campaignChancesReadSource = null;
             _backgroundSpaceOrbitPresenterAdapter?.Dispose();
             _backgroundSpaceOrbitPresenterAdapter = null;
             _backgroundWallSurfaceTintPresenterAdapter?.Dispose();

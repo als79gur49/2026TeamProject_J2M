@@ -76,6 +76,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void CleanupProcessor_UsesOrderedCandidateIndexesWithoutFullEntityScan()
+        {
+            var cleanupProcessorSource = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_Cleanup/Runtime/CleanupProcessor.cs");
+            var worldStateSource = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldState.cs");
+            var worldSnapshotSource = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldSnapshot.cs");
+
+            Assert.That(cleanupProcessorSource, Does.Contain("snapshot.CleanupRemovalCandidateIds"));
+            Assert.That(cleanupProcessorSource, Does.Not.Contain("EnumerateEntitiesOrdered"));
+            Assert.That(cleanupProcessorSource, Does.Not.Contain("List<EntityState>"));
+            Assert.That(worldStateSource, Does.Contain("UpdateCleanupCandidateMembership(entity)"));
+            Assert.That(worldStateSource, Does.Contain("snapshot.CopyCleanupCandidateIdsTo("));
+            Assert.That(worldSnapshotSource, Does.Contain("CleanupCandidateSnapshot cleanupCandidates"));
+            Assert.That(worldSnapshotSource, Does.Contain("CleanupImmediateTransitionCandidateIds"));
+        }
+
+        [Test]
         [Category("Extended")]
         public void WorldState_WritePath_UsesRepresentableGuard_NotRuntimeLegalityPolicy()
         {

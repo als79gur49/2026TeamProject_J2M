@@ -239,12 +239,11 @@ namespace Game.Feature.Gameplay.Entities
 
             target = default;
 
-            var orderedEntities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(orderedEntities);
+            var orderedEntities = snapshot.GetOrderedEntitiesForRead();
 
             var bestDistance = int.MaxValue;
             result = default;
-            for (var i = 0; i < orderedEntities.Count; i++)
+            for (var i = 0; i < orderedEntities.Length; i++)
             {
                 var candidate = orderedEntities[i];
                 if (!TryValidateCandidate(

@@ -21,7 +21,7 @@ namespace Game.Feature.UI.Flow
         internal TerminalDestinationKind DestinationKind { get; }
     }
 
-    public sealed class UIFlowCoordinator : IDisposable, IUiFlowAudioIntentBoundary
+    public sealed class UIFlowCoordinator : IDisposable, IUiFlowAudioIntentBoundary, IUIFlowPresentationSource
     {
         private enum PauseReturnMode
         {
@@ -39,6 +39,9 @@ namespace Game.Feature.UI.Flow
         private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly IUiAudioPort _uiAudioPort;
         private readonly UIBlockPolicy _uiBlockPolicy;
+        private Action<UIFlowPresentationSnapshot> _flowPresentationChanged;
+        private UIFlowPresentationSnapshot _currentFlowPresentation =
+            UIFlowPresentationSnapshot.GameplayDefault;
         private UiFlowAudioTransaction _activeAudioTransaction;
         private PopupController.PopupCompletionDispatchEvent? _activePopupCompletionDispatch;
         private UITickEventKey? _lastStageClearedEventKey;
@@ -86,6 +89,15 @@ namespace Game.Feature.UI.Flow
 
         internal UiFlowAudioTrace LastFlowAudioTrace { get; private set; }
 
+        UIFlowPresentationSnapshot IUIFlowPresentationSource.Current =>
+            _currentFlowPresentation;
+
+        event Action<UIFlowPresentationSnapshot> IUIFlowPresentationSource.Changed
+        {
+            add => _flowPresentationChanged += value;
+            remove => _flowPresentationChanged -= value;
+        }
+
         public void Initialize()
         {
             ClearPauseReturnMode();
@@ -112,11 +124,20 @@ namespace Game.Feature.UI.Flow
                 () => RequestConfirmPopupCore(payload, completionCallback));
         }
 
-        public bool RequestDemoStageControlPopup(IPopupPayload payload)
+        internal bool TryToggleDemoStageControlPopup(
+            bool allowNewOpen,
+            Func<IPopupPayload> payloadFactory)
         {
+            if (SceneEntryPresentationRegistry.IsActive)
+            {
+                return false;
+            }
+
+            var closingDemoPopup = _popupController.TopPopup.HasValue &&
+                                   _popupController.TopPopup.Value.PopupId == PopupId.DemoStageControl;
             return ExecuteIntent(
-                UiFlowAudioIntentKind.OpenForward,
-                () => TryPushPopupRequestCore(new PopupRequest(PopupId.DemoStageControl, payload)));
+                closingDemoPopup ? ResolveBackIntent() : UiFlowAudioIntentKind.OpenForward,
+                () => TryToggleDemoStageControlPopupCore(allowNewOpen, payloadFactory));
         }
 
         public bool HandleBackRequested()
@@ -186,12 +207,29 @@ namespace Game.Feature.UI.Flow
 
         private void RefreshBlockSnapshot()
         {
-            CurrentBlockSnapshot = _uiBlockPolicy.Evaluate(
+            var blockSnapshot = _uiBlockPolicy.Evaluate(
                 new UIFlowStateSnapshot(
                     _screenController.CurrentEntry,
                     _popupController.TopPopup,
                     _popupController.PopupCount,
                     TerminalSessionRegistry.IsActive));
+            var presentationSnapshot = new UIFlowPresentationSnapshot(
+                isHudVisible: !_screenController.CurrentEntry.HasValue ||
+                              _screenController.CurrentEntry.Value.Policy.HudShellMode != HudShellMode.Hidden,
+                isUiGameplayInputBlocked: blockSnapshot.BlocksUiGameplayInput,
+                isPopupLayerVisible: _popupController.PopupCount > 0,
+                showsPopupDim: blockSnapshot.ShowsPopupDim,
+                blocksLowerLayerPointer: blockSnapshot.BlocksLowerLayerPointer,
+                popupBackdropMode: blockSnapshot.PopupBackdropMode);
+
+            CurrentBlockSnapshot = blockSnapshot;
+            if (_currentFlowPresentation.Equals(presentationSnapshot))
+            {
+                return;
+            }
+
+            _currentFlowPresentation = presentationSnapshot;
+            _flowPresentationChanged?.Invoke(presentationSnapshot);
         }
 
         private void HandleTerminalSessionChanged(TerminalSessionSnapshot snapshot)
@@ -404,6 +442,38 @@ namespace Game.Feature.UI.Flow
             {
                 EndTransaction(createdRoot);
             }
+        }
+
+        private bool TryToggleDemoStageControlPopupCore(
+            bool allowNewOpen,
+            Func<IPopupPayload> payloadFactory)
+        {
+            var topPopup = _popupController.TopPopup;
+            if (topPopup.HasValue)
+            {
+                if (topPopup.Value.PopupId == PopupId.DemoStageControl)
+                {
+                    return HandleBackRequestedCore();
+                }
+
+                return true;
+            }
+
+            if (!allowNewOpen)
+            {
+                return false;
+            }
+
+            if (payloadFactory == null)
+            {
+                throw new ArgumentNullException(nameof(payloadFactory));
+            }
+
+            var payload = payloadFactory()
+                ?? throw new InvalidOperationException(
+                    "Demo Stage Control payload factory returned null.");
+            return TryPushPopupRequestCore(
+                new PopupRequest(PopupId.DemoStageControl, payload));
         }
 
         private bool BeginTransaction(UiFlowAudioIntentKind intent)

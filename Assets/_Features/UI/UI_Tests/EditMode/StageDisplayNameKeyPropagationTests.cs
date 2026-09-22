@@ -76,14 +76,6 @@ namespace Game.Feature.UI.Tests
                     isPaused: false,
                     canAcceptGameplayCommands: true,
                     isUiGameplayInputBlocked: false,
-                    playerEntityId: 0,
-                    currentHp: 1,
-                    facing: default,
-                    activeActionKind: default,
-                    isRecoveryPhase: false,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: true,
-                    recoveryCooldown: null,
                     stageId: gameplayReadModel.StageId,
                     stageDisplayNameKey: gameplayReadModel.DisplayNameKey));
 

@@ -8656,7 +8656,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = Direction.None,

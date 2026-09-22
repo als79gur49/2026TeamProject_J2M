@@ -93,11 +93,7 @@ namespace Game.Feature.UI.Tests
             var mapper = new UIStateMapper();
             var refreshInput = CreateRefreshInput(
                 tickIndex: 5,
-                shouldUpdateTickIndex: true,
-                activeActionKind: GameplayUiActionKind.Flip,
-                isRecoveryPhase: true,
-                canMoveThisTick: false,
-                canStartActionThisTick: false);
+                shouldUpdateTickIndex: true);
             var resolvedEvent = CreateEvent(
                 tickIndex: 5,
                 eventKind: UITickEventKind.PlayerActionResolved,
@@ -114,7 +110,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(result.AppliedEvents.Count, Is.EqualTo(1));
             Assert.That(result.Snapshot.Player.LastResolvedOutcome, Is.EqualTo(GameplayUiActionResolutionKind.Impact));
             Assert.That(result.Snapshot.Player.LastResolvedTickIndex, Is.EqualTo(5));
-            Assert.That(result.Snapshot.Player.IsRecoveryPhase, Is.True);
             Assert.That(result.Snapshot.Notifications.ActiveNotifications.Count, Is.EqualTo(1));
         }
 
@@ -234,33 +229,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(SurfaceBeltSnapshot.Empty.ButtonRemainders.All(remainder => remainder.TotalRemaining == 0), Is.True);
         }
 
-        [Test]
-        public void UIStateMapper_ReduceRefresh_MapsMinimalRecoveryCooldownSlice()
-        {
-            var mapper = new UIStateMapper();
-
-            var result = mapper.ReduceRefresh(
-                UIPresentationSnapshot.Empty,
-                CreateRefreshInput(
-                    tickIndex: 6,
-                    shouldUpdateTickIndex: true,
-                    activeActionKind: GameplayUiActionKind.Push,
-                    isRecoveryPhase: true,
-                    canMoveThisTick: false,
-                    canStartActionThisTick: false,
-                    recoveryCooldown: new UIRecoveryCooldownSlice(
-                        GameplayUiActionKind.Push,
-                        remainingRecoveryTicks: 2,
-                        totalRecoveryTicks: 2)));
-
-            Assert.That(result.Snapshot.Player.RecoveryCooldown.HasValue, Is.True);
-            Assert.That(result.Snapshot.Player.RecoveryCooldown.Value.ActionKind, Is.EqualTo(GameplayUiActionKind.Push));
-            Assert.That(result.Snapshot.Player.RecoveryCooldown.Value.RemainingRecoveryTicks, Is.EqualTo(2));
-            Assert.That(result.Snapshot.Player.RecoveryCooldown.Value.TotalRecoveryTicks, Is.EqualTo(2));
-        }
-
-        [Test]
-        public void UIStateMapper_ReduceRefresh_MapsChancesCapacitySlice()
+        [TestCase(3, 3)]
+        [TestCase(0, 2)]
+        [TestCase(-1, 2)]
+        public void UIStateMapper_ReduceRefresh_MapsChancesCapacitySlice(int rawMaximum, int expectedMaximum)
         {
             var mapper = new UIStateMapper();
 
@@ -269,13 +241,41 @@ namespace Game.Feature.UI.Tests
                 CreateRefreshInput(
                     hasRemainingChances: true,
                     remainingChances: 2,
-                    maxChances: 3,
+                    maxChances: rawMaximum,
                     chanceAudioPolicy: GameplayChanceAudioPolicy.SuppressChanceChangeCue));
 
-            Assert.That(result.Snapshot.Player.HasRemainingChances, Is.True);
-            Assert.That(result.Snapshot.Player.RemainingChances, Is.EqualTo(2));
-            Assert.That(result.Snapshot.Player.MaxChances, Is.EqualTo(3));
+            Assert.That(result.Snapshot.Chance.HasChances, Is.True);
+            Assert.That(result.Snapshot.Chance.RemainingChances, Is.EqualTo(2));
+            Assert.That(result.Snapshot.Chance.MaxChances, Is.EqualTo(expectedMaximum));
             Assert.That(result.Snapshot.Chance.AudioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+        }
+
+        [Test]
+        public void UIStateMapper_ReduceTick_PreservesChanceWhileApplyingActionAndDamage()
+        {
+            var mapper = new UIStateMapper();
+            var result = mapper.ReduceTick(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(
+                    tickIndex: 5,
+                    shouldUpdateTickIndex: true,
+                    hasRemainingChances: true,
+                    remainingChances: 2,
+                    maxChances: 3,
+                    chanceAudioPolicy: GameplayChanceAudioPolicy.SuppressChanceChangeCue),
+                new[]
+                {
+                    CreateEvent(5, UITickEventKind.PlayerActionResolved, 10,
+                        GameplayUiActionKind.Flip, 9, GameplayUiActionResolutionKind.Impact),
+                    CreateEvent(5, UITickEventKind.PlayerDamaged, 10, damageAmount: 1),
+                });
+
+            Assert.That(result.Snapshot.Player.LastResolvedOutcome, Is.EqualTo(GameplayUiActionResolutionKind.Impact));
+            Assert.That(result.Snapshot.Player.TookDamageThisTick, Is.True);
+            Assert.That(result.Snapshot.Player.LastDamageAmount, Is.EqualTo(1));
+            Assert.That(result.AppliedEvents.Count, Is.EqualTo(2));
+            Assert.That(result.Snapshot.Chance, Is.EqualTo(new UIChanceSlice(
+                true, 2, 3, GameplayChanceAudioPolicy.SuppressChanceChangeCue)));
         }
 
         [Test]
@@ -558,130 +558,11 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiPresentationSource_RefreshMapsRecoveryCooldownFromPlayerHudQuery()
-        {
-            var queryFacade = new FakeGameplayQueryFacade(
-                new GameplaySessionReadModel(1, false, true, false),
-                new GameplayPlayerHudReadModel(
-                    isAvailable: true,
-                    playerEntityId: 10,
-                    currentHp: 3,
-                    maxHp: 3,
-                    facing: GameplayUiDirection.Right,
-                    activeActionKind: GameplayUiActionKind.Flip,
-                    activeActionDirection: GameplayUiDirection.Right,
-                    activeTargetEntityId: 20,
-                    isActionInProgress: true,
-                    isActionInRecoveryPhase: true,
-                    canMoveThisTick: false,
-                    canStartActionThisTick: false,
-                    recoveryCooldown: new GameplayUiRecoveryCooldown(
-                        GameplayUiActionKind.Flip,
-                        remainingRecoveryTicks: 1,
-                        totalRecoveryTicks: 2)),
-                new GameplayObjectiveReadModel(false, false, false, false));
-            var presentationFeed = new FakeGameplayPresentationFeed();
-            var pauseService = new FakeGameplayPauseService();
-            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
-
-            queryFacade.SetSession(new GameplaySessionReadModel(2, false, true, false));
-            presentationFeed.PublishState(new GameplayPresentationState(
-                new GameplayUiTopology(GameplayUiFace.Front),
-                isPresentationActive: false,
-                hasBlockingPresentation: false,
-                isTopologyTransitionActive: false));
-
-            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.HasValue, Is.True);
-            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.Value.ActionKind, Is.EqualTo(GameplayUiActionKind.Flip));
-            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.Value.RemainingRecoveryTicks, Is.EqualTo(1));
-            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.Value.TotalRecoveryTicks, Is.EqualTo(2));
-        }
-
-        [Test]
-        public void GameplayUiPresentationSource_RefreshMapsPushReadyAndArmedContractFromPlayerHudQuery()
-        {
-            var queryFacade = new FakeGameplayQueryFacade(
-                new GameplaySessionReadModel(1, false, true, false),
-                new GameplayPlayerHudReadModel(
-                    isAvailable: true,
-                    playerEntityId: 10,
-                    currentHp: 3,
-                    maxHp: 3,
-                    facing: GameplayUiDirection.Right,
-                    activeActionKind: GameplayUiActionKind.None,
-                    activeActionDirection: GameplayUiDirection.None,
-                    activeTargetEntityId: 0,
-                    isActionInProgress: false,
-                    isActionInRecoveryPhase: false,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: true,
-                    recoveryCooldown: null,
-                    canStartAnyActionThisTick: true,
-                    hasExplicitPushCandidateInCurrentDirection: true),
-                new GameplayObjectiveReadModel(false, false, false, false));
-            var presentationFeed = new FakeGameplayPresentationFeed();
-            var pauseService = new FakeGameplayPauseService();
-            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
-
-            queryFacade.SetSession(new GameplaySessionReadModel(2, false, true, false));
-            presentationFeed.PublishState(new GameplayPresentationState(
-                new GameplayUiTopology(GameplayUiFace.Front),
-                isPresentationActive: false,
-                hasBlockingPresentation: false,
-                isTopologyTransitionActive: false));
-
-            Assert.That(source.CurrentSnapshot.Player.CanStartActionThisTick, Is.True);
-            Assert.That(source.CurrentSnapshot.Player.CanStartAnyActionThisTick, Is.True);
-            Assert.That(source.CurrentSnapshot.Player.HasExplicitPushCandidateInCurrentDirection, Is.True);
-
-            queryFacade.SetPlayerHud(new GameplayPlayerHudReadModel(
-                isAvailable: true,
-                playerEntityId: 10,
-                currentHp: 3,
-                maxHp: 3,
-                facing: GameplayUiDirection.Right,
-                activeActionKind: GameplayUiActionKind.Push,
-                activeActionDirection: GameplayUiDirection.Right,
-                activeTargetEntityId: 20,
-                isActionInProgress: true,
-                isActionInRecoveryPhase: true,
-                canMoveThisTick: false,
-                canStartActionThisTick: false,
-                recoveryCooldown: null,
-                canStartAnyActionThisTick: false,
-                hasExplicitPushCandidateInCurrentDirection: false));
-            presentationFeed.PublishState(new GameplayPresentationState(
-                new GameplayUiTopology(GameplayUiFace.Front),
-                isPresentationActive: false,
-                hasBlockingPresentation: false,
-                isTopologyTransitionActive: false));
-
-            Assert.That(source.CurrentSnapshot.Player.CanStartActionThisTick, Is.False);
-            Assert.That(source.CurrentSnapshot.Player.CanStartAnyActionThisTick, Is.False);
-            Assert.That(source.CurrentSnapshot.Player.HasExplicitPushCandidateInCurrentDirection, Is.False);
-        }
-
-        [Test]
         public void GameplayUiPresentationSource_RefreshMapsRemainingAndMaxChancesFromPlayerHudQuery()
         {
             var queryFacade = new FakeGameplayQueryFacade(
                 new GameplaySessionReadModel(1, false, true, false),
                 new GameplayPlayerHudReadModel(
-                    isAvailable: true,
-                    playerEntityId: 10,
-                    currentHp: 3,
-                    maxHp: 3,
-                    facing: GameplayUiDirection.Right,
-                    activeActionKind: GameplayUiActionKind.None,
-                    activeActionDirection: GameplayUiDirection.None,
-                    activeTargetEntityId: 0,
-                    isActionInProgress: false,
-                    isActionInRecoveryPhase: false,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: true,
-                    recoveryCooldown: null,
-                    canStartAnyActionThisTick: true,
-                    hasExplicitPushCandidateInCurrentDirection: false,
                     hasRemainingChances: true,
                     remainingChances: 2,
                     maxChances: 3,
@@ -697,9 +578,9 @@ namespace Game.Feature.UI.Tests
                 hasBlockingPresentation: false,
                 isTopologyTransitionActive: false));
 
-            Assert.That(source.CurrentSnapshot.Player.HasRemainingChances, Is.True);
-            Assert.That(source.CurrentSnapshot.Player.RemainingChances, Is.EqualTo(2));
-            Assert.That(source.CurrentSnapshot.Player.MaxChances, Is.EqualTo(3));
+            Assert.That(source.CurrentSnapshot.Chance.HasChances, Is.True);
+            Assert.That(source.CurrentSnapshot.Chance.RemainingChances, Is.EqualTo(2));
+            Assert.That(source.CurrentSnapshot.Chance.MaxChances, Is.EqualTo(3));
             Assert.That(source.CurrentSnapshot.Chance.AudioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
         }
 
@@ -853,15 +734,6 @@ namespace Game.Feature.UI.Tests
             bool isPaused = false,
             bool canAcceptGameplayCommands = true,
             bool isUiGameplayInputBlocked = false,
-            int playerEntityId = 10,
-            int currentHp = 3,
-            int maxHp = 3,
-            GameplayUiDirection facing = GameplayUiDirection.Up,
-            GameplayUiActionKind activeActionKind = GameplayUiActionKind.None,
-            bool isRecoveryPhase = false,
-            bool canMoveThisTick = true,
-            bool canStartActionThisTick = true,
-            UIRecoveryCooldownSlice? recoveryCooldown = null,
             bool hasRemainingChances = false,
             int remainingChances = 0,
             int maxChances = 0,
@@ -883,15 +755,6 @@ namespace Game.Feature.UI.Tests
                 isPaused,
                 canAcceptGameplayCommands,
                 isUiGameplayInputBlocked,
-                playerEntityId,
-                currentHp,
-                maxHp,
-                facing,
-                activeActionKind,
-                isRecoveryPhase,
-                canMoveThisTick,
-                canStartActionThisTick,
-                recoveryCooldown,
                 hasRemainingChances: hasRemainingChances,
                 remainingChances: remainingChances,
                 maxChances: maxChances,
@@ -952,11 +815,7 @@ namespace Game.Feature.UI.Tests
                 UIPresentationSnapshot.Empty,
                 CreateRefreshInput(
                     tickIndex: 2,
-                    shouldUpdateTickIndex: true,
-                    activeActionKind: GameplayUiActionKind.Push,
-                    isRecoveryPhase: true,
-                    canMoveThisTick: false,
-                    canStartActionThisTick: false),
+                    shouldUpdateTickIndex: true),
                 new[]
                 {
                     CreateEvent(
@@ -977,18 +836,12 @@ namespace Game.Feature.UI.Tests
                 firstTick.Snapshot,
                 CreateRefreshInput(
                     isPaused: true,
-                    canAcceptGameplayCommands: false,
-                    activeActionKind: GameplayUiActionKind.None,
-                    isRecoveryPhase: false));
+                    canAcceptGameplayCommands: false));
             var finalTick = mapper.ReduceTick(
                 refresh.Snapshot,
                 CreateRefreshInput(
                     tickIndex: 5,
-                    shouldUpdateTickIndex: true,
-                    activeActionKind: GameplayUiActionKind.None,
-                    isRecoveryPhase: false,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: true),
+                    shouldUpdateTickIndex: true),
                 new[]
                 {
                     CreateEvent(

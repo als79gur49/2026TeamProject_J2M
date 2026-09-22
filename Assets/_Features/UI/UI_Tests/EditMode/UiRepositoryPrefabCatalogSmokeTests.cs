@@ -92,7 +92,7 @@ namespace Game.Feature.UI.Tests
             var catalog = UiTestPrefabAssetUtility.LoadPopupCatalog();
             var expectedPopups = Enum.GetValues(typeof(PopupId))
                 .Cast<PopupId>()
-                .Where(popupId => popupId != PopupId.None && popupId != PopupId.DemoStageControl)
+                .Where(popupId => popupId != PopupId.None)
                 .ToArray();
             var failures = new List<string>();
 
@@ -1130,7 +1130,8 @@ namespace Game.Feature.UI.Tests
             {
                 instance.ValidateAuthoredStructureOrThrow();
 
-                Assert.That(instance.PlayerStatusView, Is.Not.Null);
+                Assert.That(instance.GetComponentsInChildren<MonoBehaviour>(true).All(component => component != null), Is.True, "Canonical HUD must not contain missing scripts.");
+                Assert.That(instance.transform.Find("PlayerStatus"), Is.Null);
                 Assert.That(instance.ObjectiveHudView, Is.Not.Null);
                 Assert.That(instance.ChancePanelView, Is.Not.Null);
                 Assert.That(instance.SurfaceBeltIndicatorView, Is.Not.Null);
@@ -1279,8 +1280,17 @@ namespace Game.Feature.UI.Tests
             {
                 PopupId.Pause => catalog.PausePrefab,
                 PopupId.Confirm => catalog.ConfirmPrefab,
+                PopupId.DemoStageControl => ResolveDemoStageControlPrefab(catalog),
                 _ => throw new ArgumentOutOfRangeException(nameof(popupId), popupId, null),
             };
+        }
+
+        private static Component ResolveDemoStageControlPrefab(PopupPrefabCatalog catalog)
+        {
+            var property = typeof(PopupPrefabCatalog).GetProperty("DemoStageControlPrefab");
+            Assert.That(property, Is.Not.Null,
+                "PopupPrefabCatalog must expose a typed DemoStageControl prefab reference.");
+            return property?.GetValue(catalog) as Component;
         }
 
         private static MinimalStageCompletionReadModel CreateActualReadModel(

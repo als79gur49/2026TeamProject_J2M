@@ -992,7 +992,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 position = position,
                 hp = 1,
                 maxHp = 1,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
                 boardPresence = EntityBoardPresence.Occupying,

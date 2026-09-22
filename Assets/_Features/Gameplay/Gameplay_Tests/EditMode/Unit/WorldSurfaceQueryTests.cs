@@ -11,6 +11,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class WorldSurfaceQueryTests
     {
         [Test]
+        [Category("Core")]
+        public void WorldSnapshot_ExplicitWallAndLegacyNone_PreserveWallSolidQueries()
+        {
+            var legacyCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var explicitCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var legacyWall = CreateLegacyNoneSolid(40, legacyCell);
+            var explicitWall = CreateExplicitWall(41, explicitCell);
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { legacyWall, explicitWall },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)))
+                .CreateSnapshot();
+
+            Assert.That(snapshot.TryGetSolidOccupantAt(legacyCell, out var legacySolid), Is.True);
+            Assert.That(snapshot.TryGetSolidOccupantAt(explicitCell, out var explicitSolid), Is.True);
+            Assert.That(legacySolid.type, Is.EqualTo(EntityType.None));
+            Assert.That(explicitSolid.type, Is.EqualTo(EntityType.Wall));
+            Assert.That(snapshot.TryGetSolidSemanticAt(legacyCell, out var legacySemantic), Is.True);
+            Assert.That(snapshot.TryGetSolidSemanticAt(explicitCell, out var explicitSemantic), Is.True);
+            Assert.That(legacySemantic.Kind, Is.EqualTo(SolidKind.Wall));
+            Assert.That(explicitSemantic.Kind, Is.EqualTo(SolidKind.Wall));
+            Assert.That(snapshot.IsWallAt(legacyCell), Is.True);
+            Assert.That(snapshot.IsWallAt(explicitCell), Is.True);
+        }
+
+        [Test]
         [Category("Extended")]
         public void WorldSnapshot_TryGetUnitAt_IgnoresInactiveFaceOccupant()
         {
@@ -95,7 +120,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBox(20, normalBoxCell),
                     CreateBox(21, moonBoxCell, BoxArchetype.Moon),
                     CreateUnit(30, unitCell),
-                    CreateWall(50, wallCell),
+                    CreateExplicitWall(50, wallCell),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(4, 1)));
             var snapshot = CreateSnapshot(worldState);
@@ -119,7 +144,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     CreateBox(entityId: 40, position: boxCell),
-                    CreateWall(entityId: 50, position: wallCell),
+                    CreateExplicitWall(entityId: 50, position: wallCell),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
             var snapshot = CreateSnapshot(worldState);
@@ -324,7 +349,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[]
                     {
                         CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 1)),
-                        CreateWall(entityId: 30, position: new SurfaceCell(FaceId.Front, 1, 0)),
+                        CreateExplicitWall(entityId: 30, position: new SurfaceCell(FaceId.Front, 1, 0)),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
@@ -354,7 +379,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 wallSnapshot.TryGetPlacementBlocker(wallTopology, EntityType.Unit, wallDestination, ignoredEntityId: 10, out var blocker),
                 Is.True);
             Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
-            Assert.That(blocker.EntityType, Is.EqualTo(EntityType.None));
+            Assert.That(blocker.EntityType, Is.EqualTo(EntityType.Wall));
         }
 
         [Test]
@@ -569,7 +594,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayWorldStateTestFactory.CreateBounded(
                     new[]
                     {
-                        CreateWall(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
+                        CreateExplicitWall(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
@@ -583,7 +608,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(destination, Is.EqualTo(default(SurfaceCell)));
             Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.Entity));
             Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-            Assert.That(stopper.EntityType, Is.EqualTo(EntityType.None));
+            Assert.That(stopper.EntityType, Is.EqualTo(EntityType.Wall));
         }
 
         [Test]
@@ -990,7 +1015,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
-                    CreateWall(20, targetCell),
+                    CreateExplicitWall(20, targetCell),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor),
@@ -1198,7 +1223,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     CreateUnit(10, sourceCell),
-                    CreateWall(20, contactCell),
+                    CreateExplicitWall(20, contactCell),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor));
@@ -1284,7 +1309,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     CreateUnit(10, sourceCell),
-                    CreateWall(20, sourceContactCell),
+                    CreateExplicitWall(20, sourceContactCell),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor));
@@ -1344,7 +1369,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
-                    CreateWall(20, new SurfaceCell(FaceId.Back, 1, 0)),
+                    CreateExplicitWall(20, new SurfaceCell(FaceId.Back, 1, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor));
@@ -1499,7 +1524,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
-                    CreateWall(20, footprintNeighbor),
+                    CreateExplicitWall(20, footprintNeighbor),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor));
@@ -1600,7 +1625,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
-        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        private static EntityState CreateExplicitWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Wall,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+            };
+        }
+
+        private static EntityState CreateLegacyNoneSolid(int entityId, SurfaceCell position)
         {
             return new EntityState
             {

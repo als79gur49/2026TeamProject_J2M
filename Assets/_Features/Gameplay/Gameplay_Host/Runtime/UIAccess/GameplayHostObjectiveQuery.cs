@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Loop;
@@ -8,7 +9,7 @@ using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
-    internal sealed class GameplayHostObjectiveQuery : IGameplayObjectiveQuery
+    internal sealed class GameplayHostObjectiveQuery : IGameplayObjectiveQuery, IGameplayHudRevisionedQuery<GameplayObjectiveReadModel>
     {
         private static readonly IReadOnlyList<GameplayObjectiveConditionReadModel> EmptyConditions =
             Array.Empty<GameplayObjectiveConditionReadModel>();
@@ -26,6 +27,20 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         {
             _tickRunner = tickRunner;
             _barrierTracker = barrierTracker;
+        }
+
+        public bool TryGetRevision(out GameplayHudQueryStamp stamp)
+        {
+            stamp = new GameplayHudQueryStamp(this, _tickRunner?.ObjectiveDefinition,
+                _tickRunner?.CurrentObjectiveResult, version: _barrierTracker?.Version ?? 0);
+            return true;
+        }
+        public GameplayHudQueryRead<GameplayObjectiveReadModel> ReadWithRevision()
+        {
+            TryGetRevision(out var before);
+            var value = Read();
+            TryGetRevision(out var after);
+            return new GameplayHudQueryRead<GameplayObjectiveReadModel>(value, before, before.Equals(after));
         }
 
         public GameplayObjectiveReadModel Read()

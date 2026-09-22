@@ -566,6 +566,9 @@ namespace Game.Feature.UI.Tests
                 UIPresentationSnapshot.Empty.Tick,
                 UIPresentationSnapshot.Empty.Interaction,
                 new UIStageSlice(stageId, StageDisplayNameKeys.ForStage(stageId)),
+                UIObjectiveSlice.Empty,
+                UIChanceSlice.Empty,
+                UIPresentationSnapshot.Empty.Topology,
                 UIPresentationSnapshot.Empty.Player,
                 UIPresentationSnapshot.Empty.Notifications);
         }

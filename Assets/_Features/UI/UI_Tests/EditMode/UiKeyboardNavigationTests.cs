@@ -523,6 +523,75 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiNavigationInputRouter_DestroyedCurrentTarget_ReconcilesToLiveCancelTarget()
+        {
+            var destroyedTargetObject = new GameObject(nameof(UnityNavigationTarget));
+            var routerObject = new GameObject(
+                nameof(UiNavigationInputRouter_DestroyedCurrentTarget_ReconcilesToLiveCancelTarget));
+            var destroyedTarget = destroyedTargetObject.AddComponent<UnityNavigationTarget>();
+            var liveTarget = new HandledCancelNavigationTarget();
+            var resolver = new MutableNavigationTargetResolver(destroyedTarget);
+            var fallbackCount = 0;
+
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    resolver,
+                    () =>
+                    {
+                        fallbackCount++;
+                        return true;
+                    },
+                    () => false);
+                UnityEngine.Object.DestroyImmediate(destroyedTargetObject);
+                resolver.Target = liveTarget;
+
+                Assert.DoesNotThrow(() => Assert.That(router.DispatchCancel(), Is.True));
+                Assert.That(liveTarget.CancelCount, Is.EqualTo(1));
+                Assert.That(fallbackCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+                if (destroyedTargetObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(destroyedTargetObject);
+                }
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_FocusLostFailure_CommitsNewTargetBeforeCallback()
+        {
+            var routerObject = new GameObject(
+                nameof(UiNavigationInputRouter_FocusLostFailure_CommitsNewTargetBeforeCallback));
+            var previousTarget = new ThrowingFocusLostNavigationTarget();
+            var liveTarget = new HandledCancelNavigationTarget();
+            var resolver = new MutableNavigationTargetResolver(previousTarget);
+
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(null, resolver, () => false, () => false);
+                resolver.Target = liveTarget;
+
+                Assert.Throws<InvalidOperationException>(() => router.DispatchCancel());
+                Assert.That(previousTarget.FocusLostCount, Is.EqualTo(1));
+                Assert.That(liveTarget.CancelCount, Is.Zero);
+
+                Assert.DoesNotThrow(() => Assert.That(router.DispatchCancel(), Is.True));
+                Assert.That(previousTarget.FocusLostCount, Is.EqualTo(1));
+                Assert.That(liveTarget.CancelCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
         public void PausePopup_FirstSubmit_RevealsOnly_SecondSubmitResumes()
         {
             var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(
@@ -845,6 +914,41 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(firstFeedback.IsFocused, Is.False);
                 Assert.That(secondFeedback.IsFocused, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void UiSelectableButtonGroup_DestroyedExplicitFeedback_IsIgnored()
+        {
+            var root = new GameObject(
+                nameof(UiSelectableButtonGroup_DestroyedExplicitFeedback_IsIgnored));
+            var profile = UiSelectionVisualProfile.CreateRuntimeDefault();
+            try
+            {
+                var button = CreateButton("Action", root.transform);
+                var frame = CreateFrame(button.transform);
+                var feedback = button.gameObject.AddComponent<TrackingSelectionFeedback>();
+                var slot = new UiSelectableButtonSlot(button, frame, feedback);
+                var group = new UiSelectableButtonGroup();
+                group.Configure(
+                    new[] { slot },
+                    profile,
+                    wrap: false,
+                    skipNonInteractable: true);
+                UnityEngine.Object.DestroyImmediate(feedback);
+
+                Assert.That(slot.ResolveSelectionFeedback(), Is.Null);
+                Assert.DoesNotThrow(group.HideAllFrames);
+                Assert.DoesNotThrow(group.RefreshVisuals);
+                Assert.That(frame.gameObject.activeSelf, Is.True);
+                Assert.DoesNotThrow(group.PlaySelectedSubmitFeedback);
+                Assert.DoesNotThrow(group.HideAllFrames);
+                Assert.That(frame.gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -2919,6 +3023,89 @@ namespace Game.Feature.UI.Tests
             public UiNavigationTargetResolution Resolve()
             {
                 return UiNavigationTargetResolution.Open(_target);
+            }
+        }
+
+        private sealed class MutableNavigationTargetResolver : IUiNavigationTargetResolver
+        {
+            public MutableNavigationTargetResolver(IUiNavigationTarget target)
+            {
+                Target = target;
+            }
+
+            public IUiNavigationTarget Target { get; set; }
+
+            public UiNavigationTargetResolution Resolve()
+            {
+                return UiNavigationTargetResolution.Open(Target);
+            }
+        }
+
+        private sealed class UnityNavigationTarget : MonoBehaviour, IUiNavigationTarget
+        {
+            public bool CanHandleUiNavigation => isActiveAndEnabled;
+
+            public bool HandleNavigate(UiNavigationCommand command) => true;
+
+            public bool HandleSubmit() => true;
+
+            public bool HandleCancel() => true;
+
+            public void OnNavigationFocusGained()
+            {
+            }
+
+            public void OnNavigationFocusLost()
+            {
+                _ = isActiveAndEnabled;
+            }
+        }
+
+        private sealed class HandledCancelNavigationTarget : IUiNavigationTarget
+        {
+            public int CancelCount { get; private set; }
+
+            public bool CanHandleUiNavigation => true;
+
+            public bool HandleNavigate(UiNavigationCommand command) => true;
+
+            public bool HandleSubmit() => true;
+
+            public bool HandleCancel()
+            {
+                CancelCount++;
+                return true;
+            }
+
+            public void OnNavigationFocusGained()
+            {
+            }
+
+            public void OnNavigationFocusLost()
+            {
+            }
+        }
+
+        private sealed class ThrowingFocusLostNavigationTarget : IUiNavigationTarget
+        {
+            public int FocusLostCount { get; private set; }
+
+            public bool CanHandleUiNavigation => true;
+
+            public bool HandleNavigate(UiNavigationCommand command) => true;
+
+            public bool HandleSubmit() => true;
+
+            public bool HandleCancel() => true;
+
+            public void OnNavigationFocusGained()
+            {
+            }
+
+            public void OnNavigationFocusLost()
+            {
+                FocusLostCount++;
+                throw new InvalidOperationException("Injected focus-lost failure.");
             }
         }
 

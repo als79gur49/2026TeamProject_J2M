@@ -138,7 +138,7 @@ namespace Game.Feature.Stages
         }
     }
 
-    public sealed class CampaignLaunchStateRepairingCampaignSaveSlotStore : ICampaignSaveRuntime
+    public sealed class CampaignLaunchStateRepairingCampaignSaveSlotStore : ICampaignSaveRuntime, ICampaignHudReadProvider
     {
         private readonly ICampaignSaveRuntime _inner;
         private readonly IActiveSlotStorage _activeSlotStorage;
@@ -153,6 +153,11 @@ namespace Game.Feature.Stages
             _activeSlotStorage = activeSlotStorage ?? throw new ArgumentNullException(nameof(activeSlotStorage));
             _launchHandoffStore = launchHandoffStore ?? throw new ArgumentNullException(nameof(launchHandoffStore));
         }
+
+        CampaignHudReadStore ICampaignHudReadProvider.HudReadStore => (_inner as ICampaignHudReadProvider)?.HudReadStore;
+
+        ICampaignHudReadSession ICampaignHudReadProvider.OpenHudReadSession(int slotNumber) =>
+            (_inner as ICampaignHudReadProvider)?.OpenHudReadSession(slotNumber);
 
         public string DiagnosticsKey => _inner.DiagnosticsKey;
 

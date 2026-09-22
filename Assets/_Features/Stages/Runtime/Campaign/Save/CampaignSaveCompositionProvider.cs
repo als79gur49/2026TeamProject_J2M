@@ -81,6 +81,7 @@ namespace Game.Feature.Stages
                 throw new System.ArgumentNullException(nameof(pathProvider));
             }
 
+            CampaignHudReadRegistry.Reset(CampaignHudReadRegistry.FileKey(pathProvider.SaveRootPath));
             var textFileStore = new AtomicTextFileStore(pathProvider.SaveRootPath);
             textFileStore.DeleteActiveFileArtifacts(FileCampaignProfileRepository.ProfileFileName);
             textFileStore.DeleteActiveFileArtifacts(CampaignLocalLaunchStateRepository.FileName);
@@ -106,6 +107,11 @@ namespace Game.Feature.Stages
 
         internal static void ResetProductionProfileBackedForTests()
         {
+            var current = productionCompositionOverride ?? productionComposition;
+            var liveReads = (current?.SlotStore as ICampaignHudReadProvider)?.HudReadStore;
+            if (liveReads != null) liveReads.Reset();
+            else CampaignHudReadRegistry.Reset(CampaignHudReadRegistry.FileKey(
+                CreateProductionProfileBackedOptions().PathProvider.SaveRootPath));
             productionComposition = null;
             productionCompositionOverride = null;
         }

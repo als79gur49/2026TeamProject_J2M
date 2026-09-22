@@ -89,6 +89,29 @@ namespace Game.Feature.UI.Composition
 
         public bool IsTransitionInProgress => _guard.IsTransitionInProgress;
 
+        internal event Action<bool> TransitionStateChanged;
+
+        private bool TryBeginTransition(out int transitionId)
+        {
+            if (!_guard.TryBegin(out transitionId))
+            {
+                return false;
+            }
+
+            TransitionStateChanged?.Invoke(true);
+            return true;
+        }
+
+        private void CompleteTransition(int transitionId)
+        {
+            var wasInProgress = _guard.IsTransitionInProgress;
+            _guard.Complete(transitionId);
+            if (wasInProgress && !_guard.IsTransitionInProgress)
+            {
+                TransitionStateChanged?.Invoke(false);
+            }
+        }
+
         internal int AcceptedTransitionCount { get; private set; }
 
         internal SceneTransitionRoutePolicy? LastResolvedRoutePolicy { get; private set; }
@@ -227,13 +250,15 @@ namespace Game.Feature.UI.Composition
                 fromSceneName,
                 targetSceneName);
             LastResolvedRoutePolicy = routePolicy;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             Debug.Log(
                 SceneTransitionRouteDiagnostic.Format(
                     routePolicy,
                     request.Source,
                     profile.Kind),
                 this);
-            if (!_guard.TryBegin(out var transitionId))
+#endif
+            if (!TryBeginTransition(out var transitionId))
             {
                 Debug.LogWarning(
                     $"Ignoring scene transition to '{targetSceneName}' because transition {_guard.CurrentTransitionId} is already in progress.",
@@ -247,7 +272,7 @@ namespace Game.Feature.UI.Composition
                     FindFirstObjectByType<MainMenuUiFlowInstaller>();
                 if (mainMenuSource == null)
                 {
-                    _guard.Complete(transitionId);
+                    CompleteTransition(transitionId);
                     throw new InvalidOperationException(
                         "GameplayEntry requires the production Main Menu source Iris owner before session claim.");
                 }
@@ -258,7 +283,7 @@ namespace Game.Feature.UI.Composition
                 }
                 catch
                 {
-                    _guard.Complete(transitionId);
+                    CompleteTransition(transitionId);
                     throw;
                 }
             }
@@ -266,7 +291,7 @@ namespace Game.Feature.UI.Composition
             if (routePolicy.Intent == SceneTransitionIntent.GameplayEntry &&
                 StageLaunchContextStore.TryPeek(out _))
             {
-                _guard.Complete(transitionId);
+                CompleteTransition(transitionId);
                 throw new InvalidOperationException(
                     "GameplayEntry launch context is already owned; source Iris was not started.");
             }
@@ -281,7 +306,7 @@ namespace Game.Feature.UI.Composition
                 }
                 catch
                 {
-                    _guard.Complete(transitionId);
+                    CompleteTransition(transitionId);
                     throw;
                 }
             }
@@ -462,7 +487,7 @@ namespace Game.Feature.UI.Composition
                                        failureReason);
                 if (!holdingCover)
                 {
-                    _guard.Complete(transitionId);
+                    CompleteTransition(transitionId);
                 }
 
                 _currentCampaignLaunchToken = null;
@@ -570,7 +595,7 @@ namespace Game.Feature.UI.Composition
                     }
                     else
                     {
-                        _guard.Complete(transitionId);
+                        CompleteTransition(transitionId);
                         Debug.LogException(failure, this);
                     }
                 }
@@ -604,7 +629,7 @@ namespace Game.Feature.UI.Composition
                         }
                         else
                         {
-                            _guard.Complete(transitionId);
+                            CompleteTransition(transitionId);
                         }
 
                         Debug.LogException(incompleteFailure, this);
@@ -612,7 +637,7 @@ namespace Game.Feature.UI.Composition
                 }
                 else
                 {
-                    _guard.Complete(transitionId);
+                    CompleteTransition(transitionId);
                     if (_currentCampaignLaunchToken == campaignLaunchToken)
                     {
                         _currentCampaignLaunchToken = null;

@@ -8,21 +8,13 @@ namespace Game.Feature.DemoStageControl.UI
 {
     public sealed class DemoStageControlPanelPayload : IPopupPayload
     {
-        public DemoStageControlPanelPayload(
-            IReadOnlyList<DemoStageControlStageItem> stages,
-            DemoStageControlStatus status,
-            DemoGameplayOverrideStatus overrideStatus = default)
+        public DemoStageControlPanelPayload(IDemoStageControlPresentationSource presentationSource)
         {
-            Stages = stages ?? Array.Empty<DemoStageControlStageItem>();
-            Status = status;
-            OverrideStatus = overrideStatus;
+            PresentationSource = presentationSource
+                ?? throw new ArgumentNullException(nameof(presentationSource));
         }
 
-        public IReadOnlyList<DemoStageControlStageItem> Stages { get; }
-
-        public DemoStageControlStatus Status { get; }
-
-        public DemoGameplayOverrideStatus OverrideStatus { get; }
+        public IDemoStageControlPresentationSource PresentationSource { get; }
     }
 
     public sealed class DemoStageControlPanelViewModel
@@ -60,28 +52,23 @@ namespace Game.Feature.DemoStageControl.UI
 
         public bool CanForceClearCurrentStage { get; private set; }
 
-        public void Apply(DemoStageControlPanelPayload payload, StageId preferredSelection)
+        public void Apply(DemoStageControlPresentationSnapshot snapshot, StageId preferredSelection)
         {
-            if (payload == null)
-            {
-                throw new ArgumentNullException(nameof(payload));
-            }
-
-            Stages = payload.Stages ?? Array.Empty<DemoStageControlStageItem>();
-            SelectedStageIndex = ResolveSelectedIndex(Stages, preferredSelection, payload.Status.CurrentStageId);
+            Stages = snapshot.Stages ?? Array.Empty<DemoStageControlStageItem>();
+            SelectedStageIndex = ResolveSelectedIndex(Stages, preferredSelection, snapshot.Status.CurrentStageId);
             SelectedStageId = Stages.Count > 0 ? Stages[SelectedStageIndex].StageId : StageId.None;
-            CurrentStageText = FormatStageLine("Current StageId", payload.Status.CurrentStageId);
-            CampaignActiveStageText = FormatStageLine("Campaign Active StageId", payload.Status.CampaignActiveStageId);
+            CurrentStageText = FormatStageLine("Current StageId", snapshot.Status.CurrentStageId);
+            CampaignActiveStageText = FormatStageLine("Campaign Active StageId", snapshot.Status.CampaignActiveStageId);
             SelectedStageText = FormatSelectedStage(Stages, SelectedStageIndex);
-            LastResultText = string.IsNullOrWhiteSpace(payload.Status.LastResultMessage)
-                ? payload.OverrideStatus.LastOverrideMessage
-                : payload.Status.LastResultMessage;
-            PlayerInvincible = payload.OverrideStatus.PlayerInvincible;
+            LastResultText = string.IsNullOrWhiteSpace(snapshot.Status.LastResultMessage)
+                ? snapshot.OverrideStatus.LastOverrideMessage
+                : snapshot.Status.LastResultMessage;
+            PlayerInvincible = snapshot.OverrideStatus.PlayerInvincible;
             PlayerInvincibleText = PlayerInvincible
                 ? "Player Invincible: ON"
                 : "Player Invincible: OFF";
-            CanStartSelectedStage = SelectedStageId.IsValid && !payload.Status.IsSceneTransitionInProgress;
-            CanForceClearCurrentStage = !payload.Status.IsCompletionInProgress;
+            CanStartSelectedStage = SelectedStageId.IsValid && !snapshot.Status.IsSceneTransitionInProgress;
+            CanForceClearCurrentStage = !snapshot.Status.IsCompletionInProgress;
             Changed?.Invoke();
         }
 

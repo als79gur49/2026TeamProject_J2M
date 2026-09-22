@@ -23,13 +23,14 @@ namespace Game.Feature.UI.Screens
         private const int ParticipantCommandIndex = 3;
 
         private const string MissingAuthoredStructureMessage =
-            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, SaveSlotOverlayLayer, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, SaveSlotBlocker, SaveSlotCloseButton, and command SelectionFrame slots.";
+            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, LogoEffectRoot, SaveSlotOverlayLayer, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, SaveSlotBlocker, SaveSlotCloseButton, and command SelectionFrame/feedback slots.";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private RectTransform _topBar;
         [SerializeField] private RectTransform _contentHost;
         [SerializeField] private RectTransform _bottomBar;
         [SerializeField] private RectTransform _mainCommandPanel;
+        [SerializeField] private MainMenuLogoEffectView _logoEffectView;
         [SerializeField] private RectTransform _saveSlotOverlayLayer;
         [SerializeField] private SaveSlotPanelView _saveSlotPanel;
         [SerializeField] private GameObject _saveSlotBlockerRoot;
@@ -80,6 +81,10 @@ namespace Game.Feature.UI.Screens
         private bool _navigationFocusVisible;
         private bool _pendingEnterSaveSlotNavigation;
         private bool _launchInteractionBlocked;
+        private bool _commandFeedbackBlocked;
+        private MainMenuCommandId _pointerFocusedCommand;
+        private MainMenuCommandId _navigationFocusedCommand;
+        private MainMenuLogoFocus _publishedCommandFocus;
 
         public event Action<MainMenuCommandIntent> CommandRequested;
 
@@ -87,7 +92,11 @@ namespace Game.Feature.UI.Screens
 
         public event Action<MainMenuSectionId> SectionChanged;
 
+        public event Action<MainMenuCommandFocusChanged> CommandFocusChanged;
+
         public SaveSlotPanelView SaveSlotPanel => _saveSlotPanel;
+
+        public MainMenuLogoEffectView LogoEffectView => _logoEffectView;
 
         public MainMenuSectionId ActiveSection { get; private set; } = MainMenuSectionId.SaveSlots;
 
@@ -120,6 +129,45 @@ namespace Game.Feature.UI.Screens
             {
                 OnNavigationFocusLost();
             }
+        }
+
+        public void SetCommandFeedbackBlocked(bool blocked)
+        {
+            if (_commandFeedbackBlocked == blocked)
+            {
+                return;
+            }
+
+            _commandFeedbackBlocked = blocked;
+            PublishEffectiveCommandFocus();
+        }
+
+        internal void NotifyCommandPointerFocus(MainMenuCommandId commandId, bool focused)
+        {
+            if (focused)
+            {
+                _pointerFocusedCommand = commandId;
+            }
+            else if (_pointerFocusedCommand == commandId)
+            {
+                _pointerFocusedCommand = MainMenuCommandId.None;
+            }
+
+            PublishEffectiveCommandFocus();
+        }
+
+        internal void NotifyCommandNavigationFocus(MainMenuCommandId commandId, bool focused)
+        {
+            if (focused)
+            {
+                _navigationFocusedCommand = commandId;
+            }
+            else if (_navigationFocusedCommand == commandId)
+            {
+                _navigationFocusedCommand = MainMenuCommandId.None;
+            }
+
+            PublishEffectiveCommandFocus();
         }
 
         public void BindStaticLocalization(
@@ -259,6 +307,7 @@ namespace Game.Feature.UI.Screens
                 _contentHost == null ||
                 _bottomBar == null ||
                 _mainCommandPanel == null ||
+                _logoEffectView == null ||
                 _saveSlotOverlayLayer == null ||
                 _saveSlotPanel == null ||
                 _saveSlotBlockerRoot == null ||
@@ -279,11 +328,24 @@ namespace Game.Feature.UI.Screens
             }
 
             _commandNavigationGroup.ValidateOrThrow(MissingAuthoredStructureMessage);
+            _logoEffectView.ValidateAuthoredStructureOrThrow();
+
+            for (var i = 0; i < _commandNavigationGroup.SlotCount; i++)
+            {
+                var relay = _commandNavigationGroup.GetSlot(i)?.SelectionFeedback as MainMenuCommandFeedbackRelay;
+                if (relay == null)
+                {
+                    throw new InvalidOperationException(MissingAuthoredStructureMessage);
+                }
+
+                relay.ValidateAuthoredStructureOrThrow();
+            }
 
             RequireOwnedBy(_topBar, transform);
             RequireOwnedBy(_contentHost, transform);
             RequireOwnedBy(_bottomBar, transform);
             RequireOwnedBy(_mainCommandPanel, transform);
+            RequireOwnedBy(_logoEffectView.transform, _contentHost);
             RequireOwnedBy(_saveSlotOverlayLayer, transform);
             RequireOwnedBy(_saveSlotPanel.transform, _saveSlotOverlayLayer);
             RequireOwnedBy(_saveSlotBlockerRoot.transform, _saveSlotOverlayLayer);
@@ -554,10 +616,14 @@ namespace Game.Feature.UI.Screens
             _activeFocusDomain = MainMenuFocusDomain.Commands;
             _navigationFocusVisible = false;
             _pendingEnterSaveSlotNavigation = false;
+            _pointerFocusedCommand = MainMenuCommandId.None;
+            _navigationFocusedCommand = MainMenuCommandId.None;
+            _publishedCommandFocus = MainMenuLogoFocus.None;
         }
 
         private void OnDisable()
         {
+            ClearCommandFocusSources();
             UnwireButtons();
             ApplyCommandButtonsInteractable(true);
         }
@@ -864,6 +930,43 @@ namespace Game.Feature.UI.Screens
             {
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
             }
+        }
+
+        private void ClearCommandFocusSources()
+        {
+            _pointerFocusedCommand = MainMenuCommandId.None;
+            _navigationFocusedCommand = MainMenuCommandId.None;
+            PublishEffectiveCommandFocus();
+        }
+
+        private void PublishEffectiveCommandFocus()
+        {
+            var next = ResolveEffectiveCommandFocus();
+            if (_publishedCommandFocus.Equals(next))
+            {
+                return;
+            }
+
+            var previous = _publishedCommandFocus;
+            _publishedCommandFocus = next;
+            CommandFocusChanged?.Invoke(new MainMenuCommandFocusChanged(previous, next));
+        }
+
+        private MainMenuLogoFocus ResolveEffectiveCommandFocus()
+        {
+            if (_commandFeedbackBlocked || !isActiveAndEnabled || (_root != null && !_root.activeInHierarchy))
+            {
+                return MainMenuLogoFocus.None;
+            }
+
+            if (_pointerFocusedCommand != MainMenuCommandId.None)
+            {
+                return new MainMenuLogoFocus(_pointerFocusedCommand, MainMenuLogoFocusSource.Pointer);
+            }
+
+            return _navigationFocusedCommand != MainMenuCommandId.None
+                ? new MainMenuLogoFocus(_navigationFocusedCommand, MainMenuLogoFocusSource.Navigation)
+                : MainMenuLogoFocus.None;
         }
     }
 }

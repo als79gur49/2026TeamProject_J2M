@@ -25,6 +25,16 @@ namespace Game.Feature.Gameplay.BoardState
             _current?.RecordWorldStateCreateSnapshot();
         }
 
+        internal static void RecordWorldStateSnapshotCacheHit()
+        {
+            _current?.RecordWorldStateSnapshotCacheHit();
+        }
+
+        internal static void RecordWorldStateSnapshotMaterialization()
+        {
+            _current?.RecordWorldStateSnapshotMaterialization();
+        }
+
         internal static void RecordSnapshotOwnedTileFeatureCellIndexBuild(int cellCount)
         {
             _current?.RecordSnapshotOwnedTileFeatureCellIndexBuild(cellCount);
@@ -163,6 +173,8 @@ namespace Game.Feature.Gameplay.BoardState
         internal sealed class Capture
         {
             private int _worldStateCreateSnapshotCount;
+            private int _worldStateSnapshotCacheHitCount;
+            private int _worldStateSnapshotMaterializationCount;
             private int _snapshotOwnedTileFeatureCellIndexBuildCount;
             private int _snapshotOwnedStackedUnitCellIndexBuildCount;
             private int _snapshotReadonlyCellIndexSecondCopySkippedCount;
@@ -210,6 +222,8 @@ namespace Game.Feature.Gameplay.BoardState
             public SnapshotMaterializationCounts Counts =>
                 new(
                     _worldStateCreateSnapshotCount,
+                    _worldStateSnapshotCacheHitCount,
+                    _worldStateSnapshotMaterializationCount,
                     _snapshotOwnedTileFeatureCellIndexBuildCount,
                     _snapshotOwnedStackedUnitCellIndexBuildCount,
                     _snapshotReadonlyCellIndexSecondCopySkippedCount,
@@ -257,6 +271,16 @@ namespace Game.Feature.Gameplay.BoardState
             public void RecordWorldStateCreateSnapshot()
             {
                 _worldStateCreateSnapshotCount++;
+            }
+
+            public void RecordWorldStateSnapshotCacheHit()
+            {
+                _worldStateSnapshotCacheHitCount++;
+            }
+
+            public void RecordWorldStateSnapshotMaterialization()
+            {
+                _worldStateSnapshotMaterializationCount++;
             }
 
             public void RecordSnapshotOwnedTileFeatureCellIndexBuild(int cellCount)
@@ -440,6 +464,8 @@ namespace Game.Feature.Gameplay.BoardState
                 0,
                 0,
                 0,
+                0,
+                0,
                 projectedWorldMaterializedSnapshotCount,
                 projectedWorldCacheHitCount,
                 projectedWorldApplyBatchCount,
@@ -483,6 +509,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public SnapshotMaterializationCounts(
             int worldStateCreateSnapshotCount,
+            int worldStateSnapshotCacheHitCount,
+            int worldStateSnapshotMaterializationCount,
             int snapshotOwnedTileFeatureCellIndexBuildCount,
             int snapshotOwnedStackedUnitCellIndexBuildCount,
             int snapshotReadonlyCellIndexSecondCopySkippedCount,
@@ -528,6 +556,8 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<ProjectedWorldBatchReason, int> emptyApplyBatchCountsByReason)
         {
             WorldStateCreateSnapshotCount = worldStateCreateSnapshotCount;
+            WorldStateSnapshotCacheHitCount = worldStateSnapshotCacheHitCount;
+            WorldStateSnapshotMaterializationCount = worldStateSnapshotMaterializationCount;
             SnapshotOwnedTileFeatureCellIndexBuildCount = snapshotOwnedTileFeatureCellIndexBuildCount;
             SnapshotOwnedStackedUnitCellIndexBuildCount = snapshotOwnedStackedUnitCellIndexBuildCount;
             SnapshotReadonlyCellIndexSecondCopySkippedCount = snapshotReadonlyCellIndexSecondCopySkippedCount;
@@ -574,6 +604,14 @@ namespace Game.Feature.Gameplay.BoardState
         }
 
         public int WorldStateCreateSnapshotCount { get; }
+
+        public int WorldStateSnapshotCacheHitCount { get; }
+
+        public int WorldStateSnapshotMaterializationCount { get; }
+
+        public bool WorldStateSnapshotRequestAccountingIsBalanced =>
+            WorldStateCreateSnapshotCount ==
+            WorldStateSnapshotCacheHitCount + WorldStateSnapshotMaterializationCount;
 
         public int SnapshotOwnedTileFeatureCellIndexBuildCount { get; }
 

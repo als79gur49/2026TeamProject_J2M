@@ -13,6 +13,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class LegalityResultCanonicalizationTests
     {
         [Test]
+        [Category("Core")]
+        public void RuntimeTraversalLegalityPolicy_ExplicitWallAndLegacyNone_PreserveSolidBlockerVocabulary()
+        {
+            AssertWallPairLegality(LegalityDomain.Traversal);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RuntimeSettlementLegalityPolicy_ExplicitWallAndLegacyNone_PreserveSolidBlockerVocabulary()
+        {
+            AssertWallPairLegality(LegalityDomain.Settlement);
+        }
+
+        [Test]
         [Category("Extended")]
         public void RuntimePlacementValidityPolicy_EvaluateGameplayPlacement_InactiveFaceInBoundsCell_PreservesCanonicalFields()
         {
@@ -643,6 +657,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(legality.Reservation, Is.EqualTo(ReservationStatus.Conflicted));
             Assert.That(legality.Blockers.Count, Is.EqualTo(1));
             Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Reservation));
+        }
+
+        private static void AssertWallPairLegality(LegalityDomain domain)
+        {
+            var actor = CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0));
+            var legacyWall = CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0));
+            legacyWall.type = EntityType.None;
+            var explicitWall = CreateBox(30, new SurfaceCell(FaceId.Floor, 2, 0));
+            explicitWall.type = EntityType.Wall;
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { actor, legacyWall, explicitWall },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)))
+                .CreateSnapshot();
+
+            LegalityResult Evaluate(SurfaceCell cell)
+            {
+                return domain == LegalityDomain.Traversal
+                    ? RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                        snapshot,
+                        EntityType.Unit,
+                        cell,
+                        actor.entityId,
+                        snapshot.Topology,
+                        CubeRotationKind.None,
+                        snapshot.Topology,
+                        TileFeatureTraversalEvidence.Empty)
+                    : RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                        snapshot,
+                        EntityType.Unit,
+                        cell,
+                        actor.entityId,
+                        TileFeatureSettlementEvidence.Empty);
+            }
+
+            var legacy = Evaluate(legacyWall.position);
+            var explicitResult = Evaluate(explicitWall.position);
+
+            Assert.That(legacy.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(explicitResult.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(legacy.Blockers.Count, Is.EqualTo(1));
+            Assert.That(explicitResult.Blockers.Count, Is.EqualTo(1));
+            Assert.That(legacy.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Solid));
+            Assert.That(explicitResult.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Solid));
+            Assert.That(legacy.Blockers[0].SolidKind, Is.EqualTo(SolidKind.Wall));
+            Assert.That(explicitResult.Blockers[0].SolidKind, Is.EqualTo(SolidKind.Wall));
+            Assert.That(legacy.Blockers[0].EntityType, Is.EqualTo(EntityType.None));
+            Assert.That(explicitResult.Blockers[0].EntityType, Is.EqualTo(EntityType.Wall));
         }
 
         private static EntityState CreateBox(

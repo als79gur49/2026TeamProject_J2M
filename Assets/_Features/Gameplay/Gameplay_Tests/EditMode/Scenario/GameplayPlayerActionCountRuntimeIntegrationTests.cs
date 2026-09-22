@@ -454,7 +454,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             else if (actionCase == ActualActionCase.PushDestroyFallback)
             {
-                entities.Add(CreateEntity(90, 4, UnitRole.None, EntityType.None, BoxCapabilities.None));
+                entities.Add(CreateEntity(90, 4, UnitRole.None, EntityType.Wall, BoxCapabilities.None));
             }
             else if (actionCase == ActualActionCase.FlipImpact)
             {

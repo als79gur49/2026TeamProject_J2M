@@ -342,12 +342,14 @@ namespace Game.Feature.UI.Tests
                 var startLabel = CreateNestedButtonLabel(startButton.transform);
                 var settingsLabel = CreateNestedButtonLabel(settingsButton.transform);
                 var quitLabel = CreateNestedButtonLabel(quitButton.transform);
+                var logoEffectView = CreateLogoEffectView(contentHost);
 
                 SetPrivateField(view, "_root", root);
                 SetPrivateField(view, "_topBar", topBar);
                 SetPrivateField(view, "_contentHost", contentHost);
                 SetPrivateField(view, "_bottomBar", bottomBar);
                 SetPrivateField(view, "_mainCommandPanel", commandPanel);
+                SetPrivateField(view, "_logoEffectView", logoEffectView);
                 SetPrivateField(view, "_saveSlotOverlayLayer", saveSlotOverlayLayer);
                 SetPrivateField(view, "_saveSlotPanel", panel);
                 SetPrivateField(view, "_saveSlotBlockerRoot", saveSlotBlockerRoot);
@@ -366,6 +368,7 @@ namespace Game.Feature.UI.Tests
                     view,
                     "_commandNavigationGroup",
                     CreateNavigationGroup(
+                        view,
                         startButton,
                         settingsButton,
                         quitButton));
@@ -1096,19 +1099,58 @@ namespace Game.Feature.UI.Tests
             return buttonObject.AddComponent<Button>();
         }
 
-        private static UiSelectableButtonGroup CreateNavigationGroup(params Button[] buttons)
+        private static UiSelectableButtonGroup CreateNavigationGroup(
+            MainMenuScreenView owner,
+            params Button[] buttons)
         {
             var slots = new UiSelectableButtonSlot[buttons.Length];
             for (var i = 0; i < buttons.Length; i++)
             {
                 var frameObject = new GameObject("SelectionFrame", typeof(RectTransform));
                 frameObject.transform.SetParent(buttons[i].transform, false);
-                slots[i] = new UiSelectableButtonSlot(buttons[i], frameObject.AddComponent<Image>());
+                var hoverEffect = buttons[i].gameObject.AddComponent<UiHoverScaleEffect>();
+                var relay = buttons[i].gameObject.AddComponent<MainMenuCommandFeedbackRelay>();
+                SetPrivateField(relay, "_owner", owner);
+                SetPrivateField(relay, "_commandId", (MainMenuCommandId)(i + 1));
+                SetPrivateField(relay, "_selectionFeedback", hoverEffect);
+                slots[i] = new UiSelectableButtonSlot(
+                    buttons[i],
+                    frameObject.AddComponent<Image>(),
+                    relay);
             }
 
             var group = new UiSelectableButtonGroup();
             group.Configure(slots, UiSelectionVisualProfile.CreateRuntimeDefault(), wrap: false, skipNonInteractable: true);
             return group;
+        }
+
+        private static MainMenuLogoEffectView CreateLogoEffectView(RectTransform contentHost)
+        {
+            var effectRoot = new GameObject("LogoEffectRoot", typeof(RectTransform));
+            effectRoot.transform.SetParent(contentHost, false);
+            var effectView = effectRoot.AddComponent<MainMenuLogoEffectView>();
+
+            var glowRoot = new GameObject("ParticleFX_Glow", typeof(RectTransform), typeof(CanvasGroup));
+            glowRoot.transform.SetParent(effectRoot.transform, false);
+            var impactRoot = new GameObject("LogoMotionRoot", typeof(RectTransform)).GetComponent<RectTransform>();
+            impactRoot.SetParent(effectRoot.transform, false);
+            var logoImage = new GameObject("Logo", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            logoImage.transform.SetParent(impactRoot, false);
+            logoImage.raycastTarget = false;
+            var burst = new GameObject("LogoSparkBurst", typeof(ParticleSystem)).GetComponent<ParticleSystem>();
+            burst.transform.SetParent(effectRoot.transform, false);
+
+            SetPrivateField(effectView, "_logoImage", logoImage);
+            SetPrivateField(effectView, "_impactRoot", impactRoot);
+            SetPrivateField(effectView, "_glowRoot", glowRoot.GetComponent<RectTransform>());
+            SetPrivateField(effectView, "_glowCanvasGroup", glowRoot.GetComponent<CanvasGroup>());
+            SetPrivateField(effectView, "_acceptedBurst", burst);
+            SetPrivateField(
+                effectView,
+                "_allIn1Template",
+                AssetDatabase.LoadAssetAtPath<Material>(
+                    "Assets/_Features/UI/UI_Screens/Materials/LogoShine_AllIn1.mat"));
+            return effectView;
         }
 
         private static SaveSlotCardView CreateAuthoredSaveSlotCard(string name, Transform parent)

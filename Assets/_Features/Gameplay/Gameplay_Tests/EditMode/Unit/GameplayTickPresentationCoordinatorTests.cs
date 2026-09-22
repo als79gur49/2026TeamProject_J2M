@@ -28,6 +28,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayTickPresentationCoordinatorTests
     {
+        [Test]
+        [Category("Core")]
+        public void GameplayPresentationTrackState_ProposedWall_BasePoseResolverUsesStaticOwner()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            stateStore.EntityTypesByEntityId[40] = (EntityType)4;
+            stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(
+                new Vector3(1f, 0f, 0f),
+                Quaternion.identity);
+
+            var collector = new PresentationPoseCandidateCollector(stateStore, trackState);
+            var resolver = new PresentationBasePoseFrameResolver(collector);
+            var frames = new ResolvedPresentationFrameSet();
+            resolver.Resolve(7, frames);
+
+            Assert.That(frames.TryGetFrame(40, out var frame), Is.True);
+            Assert.That(
+                frame.OwnerRole,
+                Is.EqualTo(PresentationOwnerRole.Static),
+                "Proposed Wall base-pose candidates must resolve to the Static owner.");
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.CommittedPose));
+            Assert.That(frames.Rejections, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayPresentationTrackState_ProposedWall_TransitionVisibilityResolverUsesStaticOwner()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            stateStore.EntityTypesByEntityId[40] = (EntityType)4;
+            stateStore.TransitionVisibilityStates[40] = new TransitionVisibilityState(
+                TickTransitionVisibilityMode.ShowAtTransitionStart,
+                new GameplayEntityPose(new Vector3(1f, 0f, 0f), Quaternion.identity),
+                projectedSlot: null,
+                FaceId.Front);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
+            collector.CollectTransitionEntityVisibility(93, candidates);
+
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates, Has.Count.EqualTo(1));
+            Assert.That(
+                entityCandidates[0].Provenance.OwnerRole,
+                Is.EqualTo(PresentationOwnerRole.Static),
+                "Proposed Wall transition visibility must resolve to the Static owner.");
+            Assert.That(entityCandidates[0].Provenance.SourceKind,
+                Is.EqualTo(PresentationVisibilitySourceKind.TransitionEntityVisibility));
+        }
+
         private const string MoonGeneratorPrefabPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_MoonGenerator_Default.prefab";
 
@@ -14610,7 +14662,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,

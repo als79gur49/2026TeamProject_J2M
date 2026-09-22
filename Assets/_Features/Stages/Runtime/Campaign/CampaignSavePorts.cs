@@ -410,6 +410,7 @@ namespace Game.Feature.Stages
         private readonly ICampaignProfileRepository _repository;
         private readonly IAtomicTextFileStore _textFileStore;
         private readonly Func<DateTime> _utcNow;
+        private CampaignHudReadStore HudReadStore => (_repository as FileCampaignProfileRepository)?.HudReadStore;
         private readonly string _profileId;
         private readonly string _productVersion;
 
@@ -421,13 +422,21 @@ namespace Game.Feature.Stages
             string productVersion)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-            _textFileStore = textFileStore ?? throw new ArgumentNullException(nameof(textFileStore));
+            if (textFileStore == null) throw new ArgumentNullException(nameof(textFileStore));
+            _textFileStore = HudReadStore != null && !(textFileStore is CampaignHudObservedFileStore)
+                ? new CampaignHudObservedFileStore(textFileStore, HudReadStore) : textFileStore;
             _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
             _profileId = string.IsNullOrWhiteSpace(profileId) ? "campaign-profile" : profileId;
             _productVersion = productVersion ?? string.Empty;
         }
 
         public CampaignSaveResetResult ResetBlockedProfile(CampaignSaveLoadStatus expectedStatus)
+        {
+            using var operation = HudReadStore?.BeginOperation();
+            return ResetBlockedProfileCore(expectedStatus);
+        }
+
+        private CampaignSaveResetResult ResetBlockedProfileCore(CampaignSaveLoadStatus expectedStatus)
         {
             if ((CampaignSaveRecoveryPolicy.GetActions(expectedStatus) &
                  CampaignSaveRecoveryActions.ResetProfile) == 0)
@@ -475,10 +484,13 @@ namespace Game.Feature.Stages
             {
                 try
                 {
-                    return _textFileStore.Exists(PendingResetFileName);
+                    var pending = _textFileStore.Exists(PendingResetFileName);
+                    HudReadStore?.ObserveGate(pending);
+                    return pending;
                 }
                 catch
                 {
+                    HudReadStore?.ObserveGate(true);
                     return true;
                 }
             }
@@ -490,6 +502,12 @@ namespace Game.Feature.Stages
         }
 
         public CampaignSaveResetResult ResumePendingReset()
+        {
+            using var operation = HudReadStore?.BeginOperation();
+            return ResumePendingResetCore();
+        }
+
+        private CampaignSaveResetResult ResumePendingResetCore()
         {
             if (!HasPendingReset)
             {
@@ -662,6 +680,7 @@ namespace Game.Feature.Stages
         {
             var deletedCanonical = _textFileStore.Delete(PendingResetFileName);
             _textFileStore.Delete(PendingResetFileName + ".bak");
+            HudReadStore?.ObserveGate(!deletedCanonical);
             return deletedCanonical;
         }
 

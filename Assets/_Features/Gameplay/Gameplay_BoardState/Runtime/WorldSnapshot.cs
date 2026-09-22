@@ -11,10 +11,11 @@ namespace Game.Feature.Gameplay.BoardState
     {
         internal SnapshotOwnedCellIndex(Dictionary<TKey, IReadOnlyCollection<int>> values)
         {
-            Values = values ?? throw new ArgumentNullException(nameof(values));
+            QueryView = new ReadOnlyDictionary<TKey, IReadOnlyCollection<int>>(
+                values ?? throw new ArgumentNullException(nameof(values)));
         }
 
-        internal Dictionary<TKey, IReadOnlyCollection<int>> Values { get; }
+        internal IReadOnlyDictionary<TKey, IReadOnlyCollection<int>> QueryView { get; }
     }
 
     public enum BoxInteractionLockSourceReason
@@ -207,6 +208,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
         private readonly IReadOnlyDictionary<int, TileFeatureState> _tileFeaturesById;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
+        private readonly CleanupCandidateSnapshot _cleanupCandidates;
         private readonly CubeTopologyState _topology;
         private readonly int _topologyRevision;
         private EntityState[] _orderedEntitiesCache;
@@ -265,6 +267,7 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyDefinitionBindingsByEntityId,
                 unitKinematicStatesByEntityId,
                 unitContinuousLocomotionStatesByEntityId,
+                CleanupCandidateSnapshot.CreateFromEntities(entitiesById),
                 topology,
                 topologyRevision,
                 boardBounds)
@@ -296,6 +299,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            CleanupCandidateSnapshot cleanupCandidates,
             CubeTopologyState topology,
             int topologyRevision,
             BoardBounds boardBounds)
@@ -325,6 +329,7 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyDefinitionBindingsByEntityId,
                 unitKinematicStatesByEntityId,
                 unitContinuousLocomotionStatesByEntityId,
+                cleanupCandidates,
                 topology,
                 topologyRevision,
                 boardBounds);
@@ -355,6 +360,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            CleanupCandidateSnapshot cleanupCandidates,
             CubeTopologyState topology,
             int topologyRevision,
             BoardBounds boardBounds)
@@ -383,6 +389,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyDefinitionBindingsByEntityId = new ReadOnlyDictionary<int, EnemyDefinitionBindingState>(enemyDefinitionBindingsByEntityId ?? throw new ArgumentNullException(nameof(enemyDefinitionBindingsByEntityId)));
             _unitKinematicStatesByEntityId = new ReadOnlyDictionary<int, UnitKinematicRuntimeState>(unitKinematicStatesByEntityId ?? throw new ArgumentNullException(nameof(unitKinematicStatesByEntityId)));
             _unitContinuousLocomotionStatesByEntityId = new ReadOnlyDictionary<int, UnitContinuousLocomotionState>(unitContinuousLocomotionStatesByEntityId ?? throw new ArgumentNullException(nameof(unitContinuousLocomotionStatesByEntityId)));
+            _cleanupCandidates = cleanupCandidates ?? throw new ArgumentNullException(nameof(cleanupCandidates));
             _topology = topology;
             _topologyRevision = topologyRevision;
             _boardBounds = boardBounds;
@@ -399,6 +406,13 @@ namespace Game.Feature.Gameplay.BoardState
         internal int EntityCount => _entitiesById.Count;
 
         internal int TileFeatureCount => _tileFeaturesById.Count;
+
+        internal ReadOnlyMemory<int> CleanupRemovalCandidateIds => _cleanupCandidates.RemovalCandidateIds;
+
+        internal ReadOnlyMemory<int> CleanupTimerCandidateIds => _cleanupCandidates.TimerCandidateIds;
+
+        internal ReadOnlyMemory<int> CleanupImmediateTransitionCandidateIds =>
+            _cleanupCandidates.ImmediateTransitionCandidateIds;
 
         internal void CopyEntitiesByIdTo(Dictionary<int, EntityState> target)
         {
@@ -518,6 +532,17 @@ namespace Game.Feature.Gameplay.BoardState
         internal void CopyUnitContinuousLocomotionStatesByEntityIdTo(Dictionary<int, UnitContinuousLocomotionState> target)
         {
             CopyDictionaryTo(_unitContinuousLocomotionStatesByEntityId, target);
+        }
+
+        internal void CopyCleanupCandidateIdsTo(
+            SortedSet<int> removalCandidateIds,
+            SortedSet<int> timerCandidateIds,
+            SortedSet<int> immediateTransitionCandidateIds)
+        {
+            _cleanupCandidates.CopyTo(
+                removalCandidateIds,
+                timerCandidateIds,
+                immediateTransitionCandidateIds);
         }
 
         public bool TryGetEntity(int entityId, out EntityState entity)
@@ -1169,6 +1194,16 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             buffer.Clear();
+            AddRange(buffer, GetOrBuildOrderedEntitiesCache());
+        }
+
+        internal ReadOnlySpan<EntityState> GetOrderedEntitiesForRead()
+        {
+            return GetOrBuildOrderedEntitiesCache();
+        }
+
+        private EntityState[] GetOrBuildOrderedEntitiesCache()
+        {
             var orderedEntities = _orderedEntitiesCache;
             if (orderedEntities == null)
             {
@@ -1181,7 +1216,7 @@ namespace Game.Feature.Gameplay.BoardState
                 SnapshotMaterializationDiagnostics.RecordOrderedEntitiesCacheHit(orderedEntities.Length);
             }
 
-            AddRange(buffer, orderedEntities);
+            return orderedEntities;
         }
 
         internal bool TryGetUnitBlocker(SurfaceCell cell, out SlideStopper blocker)
@@ -1862,10 +1897,10 @@ namespace Game.Feature.Gameplay.BoardState
             return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(buffer);
         }
 
-        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlySnapshotOwnedCellIndex(
+        private static IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlySnapshotOwnedCellIndex(
             SnapshotOwnedCellIndex<SurfaceCell> cellIndex)
         {
-            var values = cellIndex.Values;
+            var values = cellIndex.QueryView;
             foreach (var pair in values)
             {
                 if (pair.Value == null)
@@ -1875,7 +1910,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             SnapshotMaterializationDiagnostics.RecordSnapshotReadonlyCellIndexSecondCopySkipped(values.Count);
-            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(values);
+            return values;
         }
 
         private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlyStackedUnitsByCell(

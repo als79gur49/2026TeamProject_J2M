@@ -72,21 +72,6 @@ namespace Game.Feature.UI.HUD
 
         public void SetState(
             bool isVisible,
-            IReadOnlyList<ObjectiveConditionHudViewModel> rows)
-        {
-            SetState(isVisible, string.Empty, rows);
-        }
-
-        public void SetState(
-            bool isVisible,
-            string objectiveStableId,
-            IReadOnlyList<ObjectiveConditionHudViewModel> rows)
-        {
-            SetState(isVisible, objectiveStableId, string.Empty, rows);
-        }
-
-        public void SetState(
-            bool isVisible,
             string objectiveStableId,
             string headerText,
             IReadOnlyList<ObjectiveConditionHudViewModel> rows)

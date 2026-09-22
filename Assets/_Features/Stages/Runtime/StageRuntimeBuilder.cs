@@ -568,7 +568,7 @@ namespace Game.Feature.Stages
                 hp = hp,
                 maxHp = hp,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = ResolveFacing(facing, Direction.None),

@@ -72,6 +72,127 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_DemoToggle_OwnsOpenConsumeAndClosePolicy()
+        {
+            var factory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                new FakeGameplayPauseService(), factory,
+                out _, out var popupController, out var uiAudioPort);
+            coordinator.Initialize();
+            var payloadReads = 0;
+            Func<IPopupPayload> payloadFactory = () =>
+            {
+                payloadReads++;
+                return new ConfirmPopupPayload("Demo", "Body", "Yes", "No", false);
+            };
+
+            Assert.That(coordinator.TryToggleDemoStageControlPopup(true, payloadFactory), Is.True);
+            Assert.That(popupController.TopPopup?.PopupId, Is.EqualTo(PopupId.DemoStageControl));
+            Assert.That(payloadReads, Is.EqualTo(1));
+
+            uiAudioPort.Clear();
+            Assert.That(coordinator.TryToggleDemoStageControlPopup(false, payloadFactory), Is.True);
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+            Assert.That(payloadReads, Is.EqualTo(1));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateBack }));
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Back));
+
+            Assert.That(coordinator.RequestConfirmPopup(
+                new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);
+            Assert.That(coordinator.TryToggleDemoStageControlPopup(true, payloadFactory), Is.True);
+            Assert.That(popupController.TopPopup?.PopupId, Is.EqualTo(PopupId.Confirm));
+            Assert.That(payloadReads, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_DemoToggle_DuringTerminalTransitionIsNotQueued()
+        {
+            using var coordinator = CreateCoordinator(
+                new FakeGameplayPauseService(), new FakePopupRuntimeFactory(),
+                out _, out var popupController, out _);
+            coordinator.Initialize();
+            var payloadReads = 0;
+            Func<IPopupPayload> payloadFactory = () =>
+            {
+                payloadReads++;
+                return new ConfirmPopupPayload("Demo", "Body", "Yes", "No", false);
+            };
+            var authority = TerminalSessionRegistry.Authority;
+            var generation = authority.RegisterSceneBootstrap(7102, "demo-toggle-terminal-test");
+            var claim = authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Defeat,
+                generation,
+                TerminalDestinationKind.ReloadedGameplay));
+            Assert.That(claim.Accepted, Is.True);
+
+            Assert.That(coordinator.TryToggleDemoStageControlPopup(true, payloadFactory), Is.False);
+            Assert.That(payloadReads, Is.EqualTo(0));
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+
+            Assert.That(authority.TryAdvancePhase(claim.Token, TerminalSessionPhase.Revealing), Is.True);
+            Assert.That(authority.TryComplete(claim.Token), Is.True);
+            Assert.That(popupController.PopupCount, Is.EqualTo(0), "blocked toggle must not queue");
+            Assert.That(coordinator.TryToggleDemoStageControlPopup(true, payloadFactory), Is.True);
+            Assert.That(payloadReads, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_DemoToggle_DuringSceneEntryIsBlockedWithoutPayloadRead()
+        {
+            using var coordinator = CreateCoordinator(
+                new FakeGameplayPauseService(), new FakePopupRuntimeFactory(),
+                out _, out var popupController, out _);
+            coordinator.Initialize();
+            Assert.That(SceneEntryPresentationRegistry.TryClaim(
+                StageId.CreateOrThrow("stage-0-1"), 1, out _), Is.True);
+            var payloadReads = 0;
+
+            var handled = coordinator.TryToggleDemoStageControlPopup(true, () =>
+            {
+                payloadReads++;
+                return new ConfirmPopupPayload("Demo", "Body", "Yes", "No", false);
+            });
+
+            Assert.That(handled, Is.False);
+            Assert.That(payloadReads, Is.Zero);
+            Assert.That(popupController.PopupCount, Is.Zero);
+        }
+
+        [Test]
+        public void UIFlowCoordinator_TerminalCompletion_PublishesFinalUnblockedPresentation()
+        {
+            using var coordinator = CreateCoordinator(
+                new FakeGameplayPauseService(),
+                new FakePopupRuntimeFactory(),
+                out _,
+                out _,
+                out _);
+            coordinator.Initialize();
+            var presentationSource = (IUIFlowPresentationSource)coordinator;
+            var published = new List<UIFlowPresentationSnapshot>();
+            presentationSource.Changed += published.Add;
+
+            var authority = TerminalSessionRegistry.Authority;
+            var generation = authority.RegisterSceneBootstrap(7002, "terminal-flow-presentation-test");
+            var claim = authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Defeat,
+                generation,
+                TerminalDestinationKind.ReloadedGameplay));
+            Assert.That(claim.Accepted, Is.True);
+            Assert.That(presentationSource.Current.IsUiGameplayInputBlocked, Is.True);
+            Assert.That(
+                authority.TryAdvancePhase(claim.Token, TerminalSessionPhase.Revealing),
+                Is.True);
+
+            Assert.That(authority.TryComplete(claim.Token), Is.True);
+
+            Assert.That(presentationSource.Current.IsUiGameplayInputBlocked, Is.False);
+            Assert.That(published, Is.Not.Empty);
+            Assert.That(published[^1], Is.EqualTo(presentationSource.Current));
+            Assert.That(published[^1].IsUiGameplayInputBlocked, Is.False);
+        }
+
+        [Test]
         public void UIFlowCoordinator_ScreenTransitions_CloseCurrentPopupStack_Deterministically()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -178,6 +299,28 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.RequestPausePopup(), Is.False);
             Assert.That(popupController.PopupCount, Is.EqualTo(1));
             Assert.That(pauseService.PauseCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_DisposingPopupControllerWithOpenPause_DoesNotResumeGameplay()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out _,
+                out var popupController);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            Assert.That(pauseService.IsPaused, Is.True);
+
+            popupController.Dispose();
+
+            Assert.That(popupController.PopupCount, Is.Zero);
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
+            Assert.That(pauseService.IsPaused, Is.True);
         }
 
         [Test]
@@ -1662,6 +1805,9 @@ namespace Game.Feature.UI.Tests
                 UIPresentationSnapshot.Empty.Tick,
                 UIPresentationSnapshot.Empty.Interaction,
                 new UIStageSlice(stageId, StageDisplayNameKeys.ForStage(stageId)),
+                UIObjectiveSlice.Empty,
+                UIChanceSlice.Empty,
+                UIPresentationSnapshot.Empty.Topology,
                 UIPresentationSnapshot.Empty.Player,
                 UIPresentationSnapshot.Empty.Notifications);
         }

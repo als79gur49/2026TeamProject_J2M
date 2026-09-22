@@ -332,6 +332,11 @@ namespace Game.Feature.UI.Flow
             PopupCompletionKind completionKind,
             PopupCloseReason closeReason)
         {
+            if (closeReason == PopupCloseReason.Dispose)
+            {
+                return;
+            }
+
             var completion = new PopupCompletion(
                 entry.InstanceId,
                 entry.PopupId,

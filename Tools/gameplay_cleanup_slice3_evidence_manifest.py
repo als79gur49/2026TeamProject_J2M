@@ -1019,6 +1019,8 @@ def build_manifest(
         "CleanupValidatorSha256", "AggregatorSha256", "ManifestToolSha256",
         "WorkloadContractSha256", "HarnessSha256",
     )
+    if any("PerformanceAdmissionPolicy" in values for values in (preflight, captured)):
+        identity_keys += ("PerformanceAdmissionPolicy",)
     settings_keys = {
         "ExpectedWidth", "ExpectedHeight", "ExpectedWarmupFrames",
         "ExpectedSampleFrames", "ExpectedTickInterval",
@@ -1132,6 +1134,7 @@ def build_manifest(
                 expected_warmup_frames=int(preflight.get("ExpectedWarmupFrames")),
                 expected_sample_frames=int(preflight.get("ExpectedSampleFrames")),
                 expected_tick_interval=int(preflight.get("ExpectedTickInterval")),
+                admission_policy=preflight.get("PerformanceAdmissionPolicy", "strict-v1"),
             )
         except (TypeError, ValueError, IndexError, ArithmeticError) as error:
             _append(reasons, reason("PERSISTED_REPORT_MISMATCH", "performanceAdmission", "canonical report", str(error)))

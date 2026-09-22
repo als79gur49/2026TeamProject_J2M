@@ -4,7 +4,7 @@ using Game.Feature.Gameplay.UIAccess.Models;
 
 namespace Game.Feature.Gameplay.UIAccess.Queries
 {
-    public sealed class GameplayQueryFacade : IGameplayQueryFacade
+    public sealed class GameplayQueryFacade : IGameplayQueryFacade, IGameplayHudQueryRevisions, IGameplayHudContentInvalidation
     {
         public GameplayQueryFacade(
             IGameplaySessionQuery session,
@@ -56,6 +56,25 @@ namespace Game.Feature.Gameplay.UIAccess.Queries
         public IGameplayObjectiveQuery Objectives { get; }
 
         public IGameplaySurfaceButtonRemainderQuery SurfaceButtonRemainders { get; }
+
+        public bool TryGetRevision(GameplayHudQueryKind kind, out GameplayHudQueryStamp stamp)
+        {
+            object query = kind switch
+            {
+                GameplayHudQueryKind.Stage => Stage,
+                GameplayHudQueryKind.Objective => Objectives,
+                GameplayHudQueryKind.PlayerHud => PlayerHud,
+                GameplayHudQueryKind.SurfaceRemainder => SurfaceButtonRemainders,
+                _ => null,
+            };
+            stamp = default;
+            return query is IGameplayHudRevisionProbe probe && probe.TryGetRevision(out stamp);
+        }
+        public void InvalidateHudContent()
+        {
+            (Stage as IGameplayHudContentInvalidation)?.InvalidateHudContent();
+            (SurfaceButtonRemainders as IGameplayHudContentInvalidation)?.InvalidateHudContent();
+        }
 
         private sealed class EmptyGameplayStageQuery : IGameplayStageQuery
         {

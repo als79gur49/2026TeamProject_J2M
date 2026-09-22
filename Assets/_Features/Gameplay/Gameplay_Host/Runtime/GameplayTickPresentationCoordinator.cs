@@ -18,6 +18,7 @@ using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.PresentationRuntime;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
+using Game.Feature.Stages;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -188,6 +189,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly PlayerLocomotionAudioPresentationController _playerLocomotionAudioPresentationController;
         private readonly CoreGameplaySfxLaneRuntime _coreGameplaySfxLane;
         private readonly GameplayCommittedFrameBuilder _committedFrameBuilder;
+        private StageStaticWallPresentationProvenance _staticWallPresentationProvenance =
+            StageStaticWallPresentationProvenance.Empty;
         private readonly GameplayEntityPresentationApplier _entityPresentationApplier;
         private readonly IEnemyVisualSemanticResolver _enemyVisualSemanticResolver;
         private readonly GameplayExitPresentationController _exitPresentationController;
@@ -697,6 +700,7 @@ namespace Game.Feature.Gameplay.Host
             _tileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? Array.Empty<TileFeatureVfxStyleBinding>();
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
+            _committedFrameBuilder.ResetSession(_staticWallPresentationProvenance, _projector);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _playerActionAnimationTimingProfileSource.TimingProfile = _timingProfile;
             _coreGameplaySfxLane.ConfigureTiming(_timingProfile);
@@ -749,6 +753,13 @@ namespace Game.Feature.Gameplay.Host
             ResetTypedPresentationLanesExceptBox();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             ResetPresentationPipelineDiagnosticsIfEnabled();
+        }
+
+        internal void ConfigureStaticWallPresentationProvenance(
+            StageStaticWallPresentationProvenance provenance)
+        {
+            _staticWallPresentationProvenance =
+                provenance ?? StageStaticWallPresentationProvenance.Empty;
         }
 
         public void AttachCameraRig(GameplayCameraRig viewCameraRig)
@@ -873,7 +884,10 @@ namespace Game.Feature.Gameplay.Host
                 result.FinalTopology,
                 _projector,
                 _viewBinder,
-                TopologyCommitted);
+                TopologyCommitted,
+                result.PresentationData,
+                result.TickIndex,
+                CommittedFrameStoreReason.Tick);
             RegisterCommittedViewPauseTargets();
             _gravityFieldVisualPresentationController.RefreshContinuousStates(_currentGravityFieldVisualStates);
             _gravityFieldVisualPresentationController.RefreshEnemyGravityFieldAuraLockedTargets(
@@ -1060,12 +1074,17 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionEpoch = 0;
             ResetPresentationPipelineDiagnosticsIfEnabled();
 
+            _committedFrameBuilder.ResetSession(_staticWallPresentationProvenance, _projector);
+
             _committedFrameBuilder.StoreCommittedFrame(
                 entities,
                 topology,
                 _projector,
                 _viewBinder,
-                TopologyCommitted);
+                TopologyCommitted,
+                presentationData: null,
+                tickIndex: -1,
+                reason: CommittedFrameStoreReason.Initial);
             RegisterCommittedViewPauseTargets();
             _topologyTransitionController.CompleteInitialTopology(topology);
             _animationSync.ApplyInitialEnemyPresentation(

@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
@@ -31,9 +32,27 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         }
     }
 
-    internal sealed class GameplayHostStageQuery : IGameplayStageQuery
+    internal sealed class GameplayHostStageQuery : IGameplayStageQuery, IGameplayHudRevisionedQuery<GameplayStageReadModel>, IGameplayHudContentInvalidation
     {
         private readonly StageContentEntry _stageContentEntry;
+        private long _contentGeneration;
+        public void InvalidateHudContent() => _contentGeneration++;
+        public bool TryGetRevision(out GameplayHudQueryStamp stamp)
+        {
+            stamp = new GameplayHudQueryStamp(this, _stageContentEntry, generation: _contentGeneration);
+#if UNITY_EDITOR
+            return false;
+#else
+            return true;
+#endif
+        }
+        public GameplayHudQueryRead<GameplayStageReadModel> ReadWithRevision()
+        {
+            var supported = TryGetRevision(out var before);
+            var value = Read();
+            TryGetRevision(out var after);
+            return new GameplayHudQueryRead<GameplayStageReadModel>(value, before, supported && before.Equals(after));
+        }
 
         public GameplayHostStageQuery(StageContentEntry stageContentEntry)
         {

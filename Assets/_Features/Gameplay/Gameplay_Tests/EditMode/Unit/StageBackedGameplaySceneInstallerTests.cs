@@ -656,6 +656,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void StageBackedGameplaySceneInstaller_Configuration_CarriesStageAuthoredWallProvenance()
+        {
+            var installerObject = new GameObject(
+                "StageBackedGameplaySceneInstaller_Configuration_CarriesStageAuthoredWallProvenance");
+
+            try
+            {
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                AssignStageContentEntry(installer);
+                AssignTimingPresets(installer);
+
+                var configuration = BuildConfiguration(installer);
+                var buildResult = StageRuntimeBuilder.Build(configuration.StageContentEntry.GameplayDefinition);
+                var authoredWallIds = buildResult.InitialEntities
+                    .Where(entity => entity.type == EntityType.Wall)
+                    .Select(entity => entity.entityId)
+                    .OrderBy(entityId => entityId)
+                    .ToArray();
+                var provenance = configuration.StaticWallPresentationProvenance;
+
+                Assert.That(authoredWallIds, Is.Not.Empty, "The production stage fixture must contain authored Walls.");
+                Assert.That(provenance, Is.Not.SameAs(StageStaticWallPresentationProvenance.Empty));
+                Assert.That(provenance.Count, Is.EqualTo(authoredWallIds.Length));
+                Assert.That(provenance.EntityIds, Is.EqualTo(authoredWallIds));
+                foreach (var entityId in authoredWallIds)
+                {
+                    Assert.That(provenance.TryGetEntry(entityId, out var entry), Is.True);
+                    Assert.That(entry.EntityId, Is.EqualTo(entityId));
+                    Assert.That(entry.SourceKind,
+                        Is.EqualTo(StageStaticWallProvenanceSourceKind.StageAuthoredStaticWall));
+                    Assert.That(entry.InitialWall.entityId, Is.EqualTo(entityId));
+                    Assert.That(entry.InitialWall.type, Is.EqualTo(EntityType.Wall));
+                }
+            }
+            finally
+            {
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void StageBackedGameplaySceneInstaller_Configuration_UsesStageDefinitionEnemyUnitArchetypeCatalog()
         {
             var installerObject = new GameObject("StageBackedGameplaySceneInstaller_Configuration_UsesEnemyUnitArchetypeCatalog");
@@ -2291,7 +2334,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             for (var i = 0; i < entities.Count; i++)
             {
                 var entity = entities[i];
-                if (entity.type == EntityType.None && entity.position.Equals(cell))
+                if (entity.type == EntityType.Wall && entity.position.Equals(cell))
                 {
                     return true;
                 }

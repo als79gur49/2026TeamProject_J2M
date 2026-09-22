@@ -15,6 +15,7 @@ using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.Tests;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
@@ -29,6 +30,150 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class RuntimeBoardBoundsGuardTests
     {
+        [Test]
+        [Category("Core")]
+        public void DefaultGameplayEntityViewFactory_ProposedWall_UsesStaticPrefabAdmission()
+        {
+            var parentObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_ProposedWall_UsesStaticPrefabAdmission));
+            var prefabObject = new GameObject("ProposedWallStaticPrefab");
+
+            try
+            {
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                prefabObject.AddComponent<BoxCollider>();
+                prefabObject.AddComponent<Rigidbody>();
+                var marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                marker.name = "BoundPrefabMarker";
+                marker.transform.SetParent(prefabObject.transform, worldPositionStays: false);
+                marker.AddComponent<Rigidbody>();
+                var factory = new DefaultGameplayEntityViewFactory(
+                    parentObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    staticViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        { 40, prefabView },
+                    });
+                var proposedWall = CreateProposedWallTestEntity(40, (EntityType)4, new SurfaceCell(FaceId.Floor, 1, 0));
+
+                var view = factory.CreateView(proposedWall);
+
+                Assert.That(
+                    view.transform.Find("BoundPrefabMarker"),
+                    Is.Not.Null,
+                    "Proposed Wall must use its bound static prefab and not primitive fallback.");
+                Assert.That(view.ModelRoot.Find("Visual"), Is.Null);
+                Assert.That(view.GetComponentsInChildren<Collider>(includeInactive: true), Is.Empty);
+                Assert.That(view.GetComponentsInChildren<Rigidbody>(includeInactive: true), Is.Empty);
+                Assert.That(view.GetComponent<PlayerAnimatorDriver>(), Is.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityVisualProfile_ProposedWall_PreservesWallGeometry()
+        {
+            var legacyWall = GameplayEntityVisualProfile.Create(EntityType.None, 1f);
+            var proposedWall = GameplayEntityVisualProfile.Create(EntityType.Wall, 1f);
+
+            Assert.That(
+                proposedWall.ModelLocalScale,
+                Is.EqualTo(legacyWall.ModelLocalScale),
+                "Proposed Wall must preserve the existing Wall cube geometry.");
+            Assert.That(proposedWall.ModelLocalPosition, Is.EqualTo(legacyWall.ModelLocalPosition));
+            Assert.That(proposedWall.ModelLocalRotation, Is.EqualTo(legacyWall.ModelLocalRotation));
+            Assert.That(proposedWall.SurfaceOffsetFromFacePlane, Is.EqualTo(legacyWall.SurfaceOffsetFromFacePlane));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageBackedWallIdentityCutover_ActualWallBinding_PreservesStaticPresentation()
+        {
+            var parentObject = new GameObject(nameof(StageBackedWallIdentityCutover_ActualWallBinding_PreservesStaticPresentation));
+            var prefabObject = new GameObject("StageBackedWallStaticPrefab");
+
+            try
+            {
+                const int authoredWallId = 640;
+                var authoredWall = StageAuthoredWallTestFactory.Create(
+                    authoredWallId,
+                    new SurfaceCell(FaceId.Floor, 1, 0));
+                var legacyNoneWall = authoredWall;
+                legacyNoneWall.entityId = 641;
+                legacyNoneWall.position = new SurfaceCell(FaceId.Floor, 2, 0);
+                legacyNoneWall.type = EntityType.None;
+
+                var authoredProfile = GameplayEntityVisualProfile.Create(authoredWall.type, 1f);
+                var legacyProfile = GameplayEntityVisualProfile.Create(legacyNoneWall.type, 1f);
+
+                Assert.That(authoredWall.type, Is.EqualTo(EntityType.Wall));
+                Assert.That(authoredProfile.ModelLocalScale, Is.EqualTo(legacyProfile.ModelLocalScale));
+                Assert.That(authoredProfile.ModelLocalPosition, Is.EqualTo(legacyProfile.ModelLocalPosition));
+                Assert.That(authoredProfile.SurfaceOffsetFromFacePlane, Is.EqualTo(legacyProfile.SurfaceOffsetFromFacePlane));
+
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                var boundMarker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                boundMarker.name = "BoundStageWallMarker";
+                boundMarker.transform.SetParent(prefabObject.transform, worldPositionStays: false);
+                var boundFactory = new DefaultGameplayEntityViewFactory(
+                    parentObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    staticViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        { authoredWallId, prefabView },
+                    });
+                var boundView = boundFactory.CreateView(authoredWall);
+
+                Assert.That(boundView.transform.Find("BoundStageWallMarker"), Is.Not.Null);
+                Assert.That(boundView.GetComponent<PlayerAnimatorDriver>(), Is.Null);
+                Assert.That(boundView.GetComponent<EnemyAnimatorDriver>(), Is.Null);
+
+                var stateStore = new GameplayPresentationStateStore();
+                var trackState = new GameplayPresentationTrackState();
+                stateStore.EntityTypesByEntityId[authoredWallId] = authoredWall.type;
+                stateStore.CommittedLocalTargetPoses[authoredWallId] = new GameplayEntityPose(
+                    Vector3.zero,
+                    Quaternion.identity);
+                var frames = new ResolvedPresentationFrameSet();
+                new PresentationBasePoseFrameResolver(
+                        new PresentationPoseCandidateCollector(stateStore, trackState))
+                    .Resolve(1, frames);
+
+                Assert.That(frames.TryGetFrame(authoredWallId, out var frame), Is.True);
+                Assert.That(frame.OwnerRole, Is.EqualTo(PresentationOwnerRole.Static));
+                Assert.That(frames.Rejections, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        private static EntityState CreateProposedWallTestEntity(int id, EntityType type, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = id,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = type,
+                unitRole = UnitRole.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
         [Test]
         [Category("Full")]
         public void HostConfiguration_DefaultGameplayLocomotion_AppliesExpectedFlags()
@@ -582,7 +727,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 hp = 1,
                                 maxHp = 1,
                                 teamId = 0,
-                                type = EntityType.None,
+                                type = EntityType.Wall,
                                 state = EntityPhaseState.Idle,
                                 facing = Direction.None,
                             },
@@ -792,7 +937,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 hp = 1,
                                 maxHp = 1,
                                 teamId = 0,
-                                type = EntityType.None,
+                                type = EntityType.Wall,
                                 state = EntityPhaseState.Idle,
                                 facing = Direction.None,
                             },
@@ -1041,6 +1186,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [TestCase(EntityType.Unit, 20, "Enemy")]
         [TestCase(EntityType.Box, 20, "static")]
         [TestCase(EntityType.None, 20, "static")]
+        [TestCase(EntityType.Wall, 20, "static")]
         [TestCase((EntityType)999, 20, "unsupported")]
         [Category("Core")]
         public void DefaultGameplayEntityViewFactory_MissingSupply_ReportsEntityAndSupply(
@@ -1070,6 +1216,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [TestCase(EntityType.Box, true)]
         [TestCase(EntityType.None, false)]
         [TestCase(EntityType.None, true)]
+        [TestCase(EntityType.Wall, false)]
+        [TestCase(EntityType.Wall, true)]
         [Category("Core")]
         public void DefaultGameplayEntityViewFactory_MissingOrNullBinding_ReportsRequestedEntity(
             EntityType entityType, bool includeNullEntry)
@@ -1282,7 +1430,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void GameplayEntityVisualProfile_WallVisualRecedesIntoFaceInterior()
         {
-            var profile = GameplayEntityVisualProfile.Create(EntityType.None, 1f);
+            var profile = GameplayEntityVisualProfile.Create(EntityType.Wall, 1f);
 
             Assert.That(profile.ModelLocalScale, Is.EqualTo(new Vector3(1f, 1f, 0.5f)));
             Assert.That(profile.SurfaceOffsetFromFacePlane, Is.EqualTo(0.37f).Within(0.001f));
@@ -7517,7 +7665,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,

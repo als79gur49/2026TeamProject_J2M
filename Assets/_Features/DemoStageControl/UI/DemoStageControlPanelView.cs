@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.ViewShared;
@@ -10,32 +11,47 @@ namespace Game.Feature.DemoStageControl.UI
 {
     public sealed class DemoStageControlPanelView : MonoBehaviour, IPopupView, IUiNavigationTarget
     {
-        private Button _closeButton;
-        private CanvasGroup _canvasGroup;
-        private TextMeshProUGUI _campaignText;
-        private TextMeshProUGUI _currentText;
-        private Button _forceClearButton;
-        private TextMeshProUGUI _lastResultText;
-        private Button _nextButton;
-        private Button _playerInvincibleButton;
-        private TextMeshProUGUI _playerInvincibleButtonLabel;
-        private Button _previousButton;
-        private RectTransform _root;
-        private TextMeshProUGUI _selectedStageText;
-        private Button _startButton;
+        private const int PreviousIndex = 0;
+        private const int NextIndex = 1;
+        private const int StartIndex = 2;
+        private const int ForceClearIndex = 3;
+        private const int InvincibleIndex = 4;
+        private const int CloseIndex = 5;
+        private const int RequiredActionCount = 6;
+
+        private static readonly int[] RecoveryPriority =
+        {
+            StartIndex, ForceClearIndex, InvincibleIndex, CloseIndex, PreviousIndex, NextIndex,
+        };
+
+        [SerializeField] private RectTransform _root;
+        [SerializeField] private CanvasGroup _canvasGroup;
+        [SerializeField] private TextMeshProUGUI _currentText;
+        [SerializeField] private TextMeshProUGUI _campaignText;
+        [SerializeField] private TextMeshProUGUI _selectedStageText;
+        [SerializeField] private TextMeshProUGUI _lastResultText;
+        [SerializeField] private Button _previousButton;
+        [SerializeField] private Button _nextButton;
+        [SerializeField] private Button _startButton;
+        [SerializeField] private Button _forceClearButton;
+        [SerializeField] private Button _playerInvincibleButton;
+        [SerializeField] private TextMeshProUGUI _playerInvincibleButtonLabel;
+        [SerializeField] private Button _closeButton;
+        [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
+        [SerializeField] private TMP_Text[] _typographyTargets = Array.Empty<TMP_Text>();
+
         private DemoStageControlPanelViewModel _viewModel;
+        private bool _navigationFocusVisible;
+        private int _lastSelectorIndex = PreviousIndex;
 
         public event Action<PopupCompletionKind> CompletionRequested;
-
         public event Action<StageId> SelectedStageChanged;
-
         public event Action<StageId> StartStageClicked;
-
         public event Action ForceClearClicked;
-
         public event Action<bool> PlayerInvincibleToggled;
 
-        public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
+        public bool CanHandleUiNavigation =>
+            IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
 
         public bool IsVisible
         {
@@ -43,331 +59,380 @@ namespace Game.Feature.DemoStageControl.UI
             set => gameObject.SetActive(value);
         }
 
-        public static DemoStageControlPanelView CreateRuntime(Transform parent)
+        public IReadOnlyList<TMP_Text> CreateTypographyTargets() => _typographyTargets;
+
+        public void ValidateAuthoredReferences()
         {
-            var rootObject = new GameObject(nameof(DemoStageControlPanelView), typeof(RectTransform), typeof(CanvasGroup));
-            rootObject.transform.SetParent(parent, false);
-            var view = rootObject.AddComponent<DemoStageControlPanelView>();
-            view.EnsureHierarchy();
-            return view;
+            if (_root == null || _root != transform || _canvasGroup == null ||
+                _currentText == null || _campaignText == null ||
+                _selectedStageText == null || _lastResultText == null ||
+                _previousButton == null || _nextButton == null ||
+                _startButton == null || _forceClearButton == null ||
+                _playerInvincibleButton == null || _playerInvincibleButtonLabel == null ||
+                _playerInvincibleButton.targetGraphic == null || _closeButton == null)
+            {
+                throw new InvalidOperationException(
+                    "DemoStageControlPanel prefab has missing or malformed authored references.");
+            }
+
+            _navigationGroup?.ValidateOrThrow(
+                "DemoStageControlPanel requires six authored navigation slots and a visual profile.");
+            if (_navigationGroup == null || _navigationGroup.SlotCount != RequiredActionCount)
+            {
+                throw new InvalidOperationException(
+                    "DemoStageControlPanel requires exactly six authored navigation slots.");
+            }
+
+            var expectedButtons = GetButtons();
+            for (var i = 0; i < RequiredActionCount; i++)
+            {
+                if (_navigationGroup.GetSlot(i)?.Button != expectedButtons[i] ||
+                    _navigationGroup.GetSlot(i)?.SelectionFrame == null)
+                {
+                    throw new InvalidOperationException(
+                        $"DemoStageControlPanel navigation slot {i} is malformed.");
+                }
+            }
+
+            if (_typographyTargets == null || _typographyTargets.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "DemoStageControlPanel requires authored typography targets.");
+            }
+
+            var authoredTexts = GetComponentsInChildren<TMP_Text>(true);
+            if (authoredTexts.Length != _typographyTargets.Length)
+            {
+                throw new InvalidOperationException(
+                    "DemoStageControlPanel must register every authored TMP text as a typography target.");
+            }
+
+            var typographyTargets = new HashSet<TMP_Text>();
+            for (var i = 0; i < _typographyTargets.Length; i++)
+            {
+                var target = _typographyTargets[i];
+                if (target == null ||
+                    !typographyTargets.Add(target))
+                {
+                    throw new InvalidOperationException(
+                        $"DemoStageControlPanel typography target {i} is malformed.");
+                }
+            }
+
+            for (var i = 0; i < authoredTexts.Length; i++)
+            {
+                if (!typographyTargets.Contains(authoredTexts[i]))
+                {
+                    throw new InvalidOperationException(
+                        $"DemoStageControlPanel TMP text '{authoredTexts[i].name}' is not registered for typography.");
+                }
+            }
+
+            foreach (var authoredTransform in GetComponentsInChildren<Transform>(true))
+            {
+                var components = authoredTransform.GetComponents<Component>();
+                for (var i = 0; i < components.Length; i++)
+                {
+                    if (components[i] == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"DemoStageControlPanel prefab contains a missing script on '{authoredTransform.name}'.");
+                    }
+                }
+            }
         }
 
         public void Bind(DemoStageControlPanelViewModel viewModel)
         {
-            if (_viewModel != null)
-            {
-                _viewModel.Changed -= Refresh;
-            }
-
+            if (_viewModel != null) _viewModel.Changed -= Refresh;
             _viewModel = viewModel;
-            if (_viewModel != null)
-            {
-                _viewModel.Changed += Refresh;
-            }
-
+            if (_viewModel != null) _viewModel.Changed += Refresh;
+            if (_viewModel != null) BindButtonListeners();
+            else UnbindButtonListeners();
             Refresh();
         }
 
         public void SetIsTopmost(bool isTopmost)
         {
-            if (_canvasGroup == null)
-            {
-                return;
-            }
-
             _canvasGroup.interactable = isTopmost;
             _canvasGroup.blocksRaycasts = isTopmost;
+            if (!isTopmost) OnNavigationFocusLost();
         }
 
         public bool HandleNavigate(UiNavigationCommand command)
         {
-            return false;
+            if (!CanHandleUiNavigation) return false;
+            if (!_navigationFocusVisible) OnNavigationFocusGained();
+
+            var selected = _navigationGroup.SelectedIndex;
+            var next = ResolveDirectionalTarget(selected, command);
+            if (next < 0 || next == selected) return false;
+            if (next == PreviousIndex || next == NextIndex) _lastSelectorIndex = next;
+            _navigationGroup.SetSelectedIndex(next);
+            return true;
         }
 
         public bool HandleSubmit()
         {
-            return false;
+            if (!CanHandleUiNavigation) return false;
+            if (!_navigationFocusVisible)
+            {
+                OnNavigationFocusGained();
+                return true;
+            }
+
+            var selected = _navigationGroup.GetSelectedButton();
+            if (selected == null || !selected.interactable)
+            {
+                RecoverFocus();
+                return false;
+            }
+
+            _navigationGroup.PlaySelectedSubmitFeedback();
+            InvokeAction(_navigationGroup.SelectedIndex);
+            return true;
         }
 
         public bool HandleCancel()
         {
-            CompletionRequested?.Invoke(PopupCompletionKind.Closed);
+            if (!CanHandleUiNavigation) return false;
+            ClickClose();
             return true;
         }
 
         public void OnNavigationFocusGained()
         {
+            if (!CanHandleUiNavigation) return;
+            _navigationFocusVisible = true;
+            _navigationGroup.SetSelectedIndex(StartIndex);
+            RecoverFocus();
         }
 
         public void OnNavigationFocusLost()
         {
+            _navigationFocusVisible = false;
+            _navigationGroup?.HideAllFrames();
         }
 
-        private void Awake()
+        private void Awake() => ValidateAuthoredReferences();
+
+        private void OnEnable()
         {
-            EnsureHierarchy();
+            BindButtonListeners();
+        }
+
+        private void BindButtonListeners()
+        {
+            Rebind(_previousButton, ClickPrevious);
+            Rebind(_nextButton, ClickNext);
+            Rebind(_startButton, ClickStart);
+            Rebind(_forceClearButton, ClickForceClear);
+            Rebind(_playerInvincibleButton, ClickPlayerInvincible);
+            Rebind(_closeButton, ClickClose);
+        }
+
+        private void OnDisable()
+        {
+            UnbindButtonListeners();
+            OnNavigationFocusLost();
+        }
+
+        private void UnbindButtonListeners()
+        {
+            Unbind(_previousButton, ClickPrevious);
+            Unbind(_nextButton, ClickNext);
+            Unbind(_startButton, ClickStart);
+            Unbind(_forceClearButton, ClickForceClear);
+            Unbind(_playerInvincibleButton, ClickPlayerInvincible);
+            Unbind(_closeButton, ClickClose);
         }
 
         private void OnDestroy()
         {
-            if (_viewModel != null)
-            {
-                _viewModel.Changed -= Refresh;
-            }
-        }
-
-        private void BuildHierarchy()
-        {
-            _root = (RectTransform)transform;
-            _root.anchorMin = new Vector2(0.5f, 0.5f);
-            _root.anchorMax = new Vector2(0.5f, 0.5f);
-            _root.pivot = new Vector2(0.5f, 0.5f);
-            _root.sizeDelta = new Vector2(620f, 520f);
-
-            _canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
-            var background = gameObject.GetComponent<Image>() ?? gameObject.AddComponent<Image>();
-            background.color = new Color(0.05f, 0.06f, 0.07f, 0.96f);
-
-            var layout = gameObject.GetComponent<VerticalLayoutGroup>() ?? gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(24, 24, 20, 20);
-            layout.spacing = 12f;
-            layout.childControlHeight = true;
-            layout.childControlWidth = true;
-            layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = true;
-
-            AddText("Demo Stage Control", 28, FontStyles.Bold, TextAlignmentOptions.Left);
-            _currentText = AddText(string.Empty, 18, FontStyles.Normal, TextAlignmentOptions.Left);
-            _campaignText = AddText(string.Empty, 18, FontStyles.Normal, TextAlignmentOptions.Left);
-            _selectedStageText = AddText(string.Empty, 18, FontStyles.Bold, TextAlignmentOptions.Left);
-
-            var selectorRow = AddRow("SelectorRow");
-            _previousButton = AddButton(selectorRow, "Prev");
-            _nextButton = AddButton(selectorRow, "Next");
-
-            _startButton = AddButton(transform, "Start Selected Stage");
-            _forceClearButton = AddButton(transform, "Force Clear Current Stage");
-            _playerInvincibleButton = AddToggleButton(
-                transform,
-                "Player Invincible: OFF",
-                out _playerInvincibleButtonLabel);
-            _lastResultText = AddText(string.Empty, 16, FontStyles.Normal, TextAlignmentOptions.Left);
-            _closeButton = AddButton(transform, "Close");
-
-            _previousButton.onClick.AddListener(HandlePreviousClicked);
-            _nextButton.onClick.AddListener(HandleNextClicked);
-            _startButton.onClick.AddListener(HandleStartClicked);
-            _forceClearButton.onClick.AddListener(() => ForceClearClicked?.Invoke());
-            _playerInvincibleButton.onClick.AddListener(HandlePlayerInvincibleButtonClicked);
-            _closeButton.onClick.AddListener(() => CompletionRequested?.Invoke(PopupCompletionKind.Closed));
-        }
-
-        private void EnsureHierarchy()
-        {
-            if (_root == null)
-            {
-                BuildHierarchy();
-            }
-        }
-
-        private Transform AddRow(string name)
-        {
-            var row = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup));
-            row.transform.SetParent(transform, false);
-            var layout = row.GetComponent<HorizontalLayoutGroup>();
-            layout.spacing = 10f;
-            layout.childControlHeight = true;
-            layout.childControlWidth = true;
-            layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = true;
-            var layoutElement = row.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = 44f;
-            return row.transform;
-        }
-
-        private TextMeshProUGUI AddText(
-            string text,
-            int fontSize,
-            FontStyles style,
-            TextAlignmentOptions alignment)
-        {
-            var textObject = new GameObject("Text", typeof(RectTransform));
-            textObject.transform.SetParent(transform, false);
-            var textComponent = textObject.AddComponent<TextMeshProUGUI>();
-            textComponent.text = text;
-            textComponent.fontSize = fontSize;
-            textComponent.fontStyle = style;
-            textComponent.alignment = alignment;
-            textComponent.color = Color.white;
-            textComponent.textWrappingMode = TextWrappingModes.Normal;
-            var layoutElement = textObject.AddComponent<LayoutElement>();
-            layoutElement.minHeight = fontSize + 10f;
-            return textComponent;
-        }
-
-        private Button AddButton(Transform parent, string label)
-        {
-            var buttonObject = new GameObject(label, typeof(RectTransform), typeof(Image), typeof(Button));
-            buttonObject.transform.SetParent(parent, false);
-            var image = buttonObject.GetComponent<Image>();
-            image.color = new Color(0.18f, 0.22f, 0.25f, 1f);
-            var button = buttonObject.GetComponent<Button>();
-            var colors = button.colors;
-            colors.normalColor = image.color;
-            colors.highlightedColor = new Color(0.26f, 0.31f, 0.35f, 1f);
-            colors.pressedColor = new Color(0.12f, 0.15f, 0.18f, 1f);
-            colors.disabledColor = new Color(0.10f, 0.11f, 0.12f, 0.6f);
-            button.colors = colors;
-
-            var labelObject = new GameObject("Label", typeof(RectTransform));
-            labelObject.transform.SetParent(buttonObject.transform, false);
-            var labelRect = (RectTransform)labelObject.transform;
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = new Vector2(12f, 4f);
-            labelRect.offsetMax = new Vector2(-12f, -4f);
-            var text = labelObject.AddComponent<TextMeshProUGUI>();
-            text.text = label;
-            text.fontSize = 17f;
-            text.alignment = TextAlignmentOptions.Center;
-            text.color = Color.white;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-
-            var layoutElement = buttonObject.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = 44f;
-            layoutElement.minHeight = 38f;
-            return button;
-        }
-
-        private Button AddToggleButton(
-            Transform parent,
-            string label,
-            out TextMeshProUGUI labelText)
-        {
-            var buttonObject = new GameObject("Player Invincible", typeof(RectTransform), typeof(Image), typeof(Button));
-            buttonObject.transform.SetParent(parent, false);
-            var image = buttonObject.GetComponent<Image>();
-            image.color = new Color(0.18f, 0.22f, 0.25f, 1f);
-            var button = buttonObject.GetComponent<Button>();
-            var colors = button.colors;
-            colors.normalColor = image.color;
-            colors.highlightedColor = new Color(0.26f, 0.31f, 0.35f, 1f);
-            colors.pressedColor = new Color(0.12f, 0.15f, 0.18f, 1f);
-            colors.disabledColor = new Color(0.10f, 0.11f, 0.12f, 0.6f);
-            button.colors = colors;
-
-            var labelObject = new GameObject("Label", typeof(RectTransform));
-            labelObject.transform.SetParent(buttonObject.transform, false);
-            var labelRect = (RectTransform)labelObject.transform;
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = new Vector2(12f, 4f);
-            labelRect.offsetMax = new Vector2(-12f, -4f);
-            labelText = labelObject.AddComponent<TextMeshProUGUI>();
-            labelText.text = label;
-            labelText.fontSize = 17f;
-            labelText.alignment = TextAlignmentOptions.Center;
-            labelText.color = Color.white;
-            labelText.textWrappingMode = TextWrappingModes.NoWrap;
-
-            var layoutElement = buttonObject.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = 44f;
-            layoutElement.minHeight = 38f;
-            return button;
+            if (_viewModel != null) _viewModel.Changed -= Refresh;
         }
 
         private void Refresh()
         {
-            if (_viewModel == null || _currentText == null)
-            {
-                return;
-            }
-
+            if (_viewModel == null) return;
             _currentText.text = _viewModel.CurrentStageText;
             _campaignText.text = _viewModel.CampaignActiveStageText;
             _selectedStageText.text = _viewModel.SelectedStageText;
             _lastResultText.text = string.IsNullOrWhiteSpace(_viewModel.LastResultText)
                 ? "Last result: none"
                 : $"Last result: {_viewModel.LastResultText}";
-            if (_playerInvincibleButton != null)
-            {
-                _playerInvincibleButtonLabel.text = _viewModel.PlayerInvincibleText;
-                _playerInvincibleButton.interactable = true;
-                RefreshPlayerInvincibleButtonColors();
-            }
-
+            _playerInvincibleButtonLabel.text = _viewModel.PlayerInvincibleText;
+            _playerInvincibleButton.interactable = true;
+            RefreshPlayerInvincibleVisual();
             _startButton.interactable = _viewModel.CanStartSelectedStage;
             _forceClearButton.interactable = _viewModel.CanForceClearCurrentStage;
             _previousButton.interactable = _viewModel.Stages.Count > 1;
             _nextButton.interactable = _viewModel.Stages.Count > 1;
+            if (_navigationFocusVisible) RecoverFocus();
         }
 
-        private void HandlePreviousClicked()
+        private int ResolveDirectionalTarget(int selected, UiNavigationCommand command)
         {
-            if (_viewModel == null || _viewModel.Stages.Count == 0)
+            if (selected == PreviousIndex || selected == NextIndex)
             {
+                if (command == UiNavigationCommand.Left && selected == NextIndex && IsEnabled(PreviousIndex))
+                    return PreviousIndex;
+                if (command == UiNavigationCommand.Right && selected == PreviousIndex && IsEnabled(NextIndex))
+                    return NextIndex;
+                return command == UiNavigationCommand.Down ? FindEnabledVertical(StartIndex, 1) : -1;
+            }
+
+            if (command == UiNavigationCommand.Up)
+            {
+                if (selected == StartIndex)
+                    return IsEnabled(_lastSelectorIndex) ? _lastSelectorIndex : FindEnabledSelector();
+                var verticalTarget = FindEnabledVertical(selected - 1, -1);
+                return verticalTarget >= 0 ? verticalTarget : FindEnabledSelector();
+            }
+
+            return command == UiNavigationCommand.Down
+                ? FindEnabledVertical(selected + 1, 1)
+                : -1;
+        }
+
+        private int FindEnabledVertical(int origin, int delta)
+        {
+            for (var index = origin; index >= StartIndex && index <= CloseIndex; index += delta)
+                if (IsEnabled(index)) return index;
+            return -1;
+        }
+
+        private int FindEnabledSelector()
+        {
+            if (IsEnabled(PreviousIndex)) return PreviousIndex;
+            return IsEnabled(NextIndex) ? NextIndex : -1;
+        }
+
+        private void RecoverFocus()
+        {
+            var selected = _navigationGroup.SelectedIndex;
+            if (IsEnabled(selected))
+            {
+                _navigationGroup.RefreshVisuals();
                 return;
             }
 
-            var nextIndex = _viewModel.SelectedStageIndex <= 0
+            var bestIndex = CloseIndex;
+            var bestDistance = int.MaxValue;
+            for (var i = 0; i < RecoveryPriority.Length; i++)
+            {
+                var candidate = RecoveryPriority[i];
+                if (!IsEnabled(candidate)) continue;
+                var distance = GraphDistance(selected, candidate);
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                bestIndex = candidate;
+            }
+
+            _navigationGroup.SetSelectedIndex(bestIndex);
+        }
+
+        private static int GraphDistance(int from, int to)
+        {
+            if (from == to) return 0;
+            var fromVertical = from >= StartIndex;
+            var toVertical = to >= StartIndex;
+            if (fromVertical && toVertical) return Math.Abs(from - to);
+            if (!fromVertical && !toVertical) return 1;
+            var vertical = fromVertical ? from : to;
+            return 1 + Math.Abs(vertical - StartIndex);
+        }
+
+        private bool IsEnabled(int index)
+        {
+            var button = _navigationGroup.GetSlot(index)?.Button;
+            return button != null && button.gameObject.activeInHierarchy && button.interactable;
+        }
+
+        private Button[] GetButtons() => new[]
+        {
+            _previousButton, _nextButton, _startButton,
+            _forceClearButton, _playerInvincibleButton, _closeButton,
+        };
+
+        private void InvokeAction(int index)
+        {
+            switch (index)
+            {
+                case PreviousIndex: ClickPrevious(); break;
+                case NextIndex: ClickNext(); break;
+                case StartIndex: ClickStart(); break;
+                case ForceClearIndex: ClickForceClear(); break;
+                case InvincibleIndex: ClickPlayerInvincible(); break;
+                case CloseIndex: ClickClose(); break;
+            }
+        }
+
+        private void ClickPrevious()
+        {
+            if (!CanInvoke(_previousButton) || _viewModel.Stages.Count == 0) return;
+            _lastSelectorIndex = PreviousIndex;
+            var index = _viewModel.SelectedStageIndex <= 0
                 ? _viewModel.Stages.Count - 1
                 : _viewModel.SelectedStageIndex - 1;
-            _viewModel.SelectIndex(nextIndex);
+            _viewModel.SelectIndex(index);
             SelectedStageChanged?.Invoke(_viewModel.SelectedStageId);
         }
 
-        private void HandlePlayerInvincibleButtonClicked()
+        private void ClickNext()
         {
-            if (_viewModel == null)
-            {
-                return;
-            }
+            if (!CanInvoke(_nextButton) || _viewModel.Stages.Count == 0) return;
+            _lastSelectorIndex = NextIndex;
+            var index = _viewModel.SelectedStageIndex >= _viewModel.Stages.Count - 1
+                ? 0
+                : _viewModel.SelectedStageIndex + 1;
+            _viewModel.SelectIndex(index);
+            SelectedStageChanged?.Invoke(_viewModel.SelectedStageId);
+        }
 
+        private void ClickStart()
+        {
+            if (!CanInvoke(_startButton) || !_viewModel.SelectedStageId.IsValid) return;
+            StartStageClicked?.Invoke(_viewModel.SelectedStageId);
+        }
+
+        private void ClickForceClear()
+        {
+            if (!CanInvoke(_forceClearButton)) return;
+            ForceClearClicked?.Invoke();
+        }
+
+        private void ClickPlayerInvincible()
+        {
+            if (!CanInvoke(_playerInvincibleButton)) return;
             PlayerInvincibleToggled?.Invoke(!_viewModel.PlayerInvincible);
         }
 
-        private void RefreshPlayerInvincibleButtonColors()
+        private void ClickClose()
         {
-            var normalColor = _viewModel.PlayerInvincible
+            if (!CanInvoke(_closeButton)) return;
+            CompletionRequested?.Invoke(PopupCompletionKind.Closed);
+        }
+
+        private bool CanInvoke(Button button) =>
+            _viewModel != null && CanHandleUiNavigation && button != null && button.interactable;
+
+        private void RefreshPlayerInvincibleVisual()
+        {
+            _playerInvincibleButton.targetGraphic.color = _viewModel.PlayerInvincible
                 ? new Color(0.18f, 0.42f, 0.34f, 1f)
                 : new Color(0.18f, 0.22f, 0.25f, 1f);
-            var colors = _playerInvincibleButton.colors;
-            colors.normalColor = normalColor;
-            colors.highlightedColor = _viewModel.PlayerInvincible
-                ? new Color(0.23f, 0.50f, 0.41f, 1f)
-                : new Color(0.26f, 0.31f, 0.35f, 1f);
-            colors.pressedColor = _viewModel.PlayerInvincible
-                ? new Color(0.13f, 0.30f, 0.24f, 1f)
-                : new Color(0.12f, 0.15f, 0.18f, 1f);
-            _playerInvincibleButton.colors = colors;
-            if (_playerInvincibleButton.targetGraphic is Image image)
-            {
-                image.color = normalColor;
-            }
         }
 
-        private void HandleNextClicked()
+        private static void Rebind(Button button, UnityEngine.Events.UnityAction action)
         {
-            if (_viewModel == null || _viewModel.Stages.Count == 0)
-            {
-                return;
-            }
-
-            var nextIndex = _viewModel.SelectedStageIndex >= _viewModel.Stages.Count - 1
-                ? 0
-                : _viewModel.SelectedStageIndex + 1;
-            _viewModel.SelectIndex(nextIndex);
-            SelectedStageChanged?.Invoke(_viewModel.SelectedStageId);
+            button.onClick.RemoveListener(action);
+            button.onClick.AddListener(action);
         }
 
-        private void HandleStartClicked()
+        private static void Unbind(Button button, UnityEngine.Events.UnityAction action)
         {
-            if (_viewModel == null || !_viewModel.SelectedStageId.IsValid)
-            {
-                return;
-            }
-
-            StartStageClicked?.Invoke(_viewModel.SelectedStageId);
+            if (button != null) button.onClick.RemoveListener(action);
         }
     }
 }

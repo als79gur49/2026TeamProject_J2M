@@ -69,6 +69,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void StageRuntimeBuilder_AuthoredWall_MaterializesExplicitWallType()
+        {
+            var wallCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var stage = CreateStage(
+                "AuthoredWallExplicitType",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateSpawn(40, StageSpawnKind.Wall, wallCell, hp: 2, facing: Direction.Left));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 40, out var wall), Is.True);
+                Assert.That(wall.position, Is.EqualTo(wallCell));
+                Assert.That(wall.hp, Is.EqualTo(2));
+                Assert.That(wall.facing, Is.EqualTo(Direction.Left));
+                Assert.That(wall.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                Assert.That(wall.type, Is.EqualTo(EntityType.Wall),
+                    "StageSpawnKind.Wall must materialize as the explicit runtime Wall identity.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void StageRuntimeBuilder_UnitMobility_DefaultsGround_AndAuthoredAirMaterializesForUnits()
         {
             var stage = CreateStage(
@@ -93,7 +122,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(TryGetEntity(buildResult.InitialEntities, 40, out var box), Is.True);
                 Assert.That(box.type, Is.EqualTo(EntityType.Box));
                 Assert.That(TryGetEntity(buildResult.InitialEntities, 50, out var wall), Is.True);
-                Assert.That(wall.type, Is.EqualTo(EntityType.None));
+                Assert.That(wall.type, Is.EqualTo(EntityType.Wall));
             }
             finally
             {
@@ -137,10 +166,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var buildResult = StageRuntimeBuilder.Build(stage);
 
                 Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var authoredWall), Is.True);
-                Assert.That(authoredWall.type, Is.EqualTo(EntityType.None));
+                Assert.That(authoredWall.type, Is.EqualTo(EntityType.Wall));
                 Assert.That(authoredWall.facing, Is.EqualTo(Direction.Left));
                 Assert.That(TryGetEntity(buildResult.InitialEntities, 21, out var defaultWall), Is.True);
-                Assert.That(defaultWall.type, Is.EqualTo(EntityType.None));
+                Assert.That(defaultWall.type, Is.EqualTo(EntityType.Wall));
                 Assert.That(defaultWall.facing, Is.EqualTo(Direction.None));
             }
             finally
@@ -1635,7 +1664,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var wallSpawn = stage.WallSpawns.First();
             Assert.That(TryGetEntity(buildResult.InitialEntities, wallSpawn.EntityId, out var wall), Is.True);
-            Assert.That(wall.type, Is.EqualTo(EntityType.None));
+            Assert.That(wall.type, Is.EqualTo(EntityType.Wall));
             Assert.That(wall.position, Is.EqualTo(wallSpawn.Cell));
             Assert.That(wall.unitRole, Is.EqualTo(UnitRole.None));
 
@@ -1801,7 +1830,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(enemy.unitMobilityKind, Is.EqualTo(enemySpawn.UnitMobilityKind));
             }
 
-            Assert.That(buildResult.InitialEntities.Any(entity => entity.type == EntityType.None), Is.True);
+            Assert.That(stage.WallSpawns, Is.Not.Empty);
+            var expectedWallIds = stage.WallSpawns
+                .Select(spawn => spawn.EntityId)
+                .OrderBy(entityId => entityId)
+                .ToArray();
+            foreach (var wallSpawn in stage.WallSpawns)
+            {
+                Assert.That(
+                    TryGetEntity(buildResult.InitialEntities, wallSpawn.EntityId, out var authoredWall),
+                    Is.True,
+                    $"Missing authored Wall entity {wallSpawn.EntityId}.");
+                Assert.That(authoredWall.type, Is.EqualTo(EntityType.Wall));
+                Assert.That(authoredWall.position, Is.EqualTo(wallSpawn.Cell));
+            }
+
+            CollectionAssert.AreEqual(
+                expectedWallIds,
+                buildResult.InitialEntities
+                    .Where(entity => entity.type == EntityType.Wall)
+                    .Select(entity => entity.entityId)
+                    .OrderBy(entityId => entityId)
+                    .ToArray());
 
             var expectedProfileOverrideIds = stage.EnemySpawns
                 .Where(spawn => spawn.EnemyAiProfile != null)
@@ -1851,7 +1901,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, Stage32GlideWallId, out var wall), Is.True);
             Assert.That(wall.position, Is.EqualTo(wallCell));
-            Assert.That(wall.type, Is.EqualTo(EntityType.None));
+            Assert.That(wall.type, Is.EqualTo(EntityType.Wall));
 
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 buildResult.InitialEntities,
@@ -2789,7 +2839,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             for (var i = 0; i < entities.Length; i++)
             {
-                if (entities[i].type == EntityType.None && entities[i].position == cell)
+                if (entities[i].type == EntityType.Wall && entities[i].position == cell)
                 {
                     return true;
                 }

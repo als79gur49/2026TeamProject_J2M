@@ -300,6 +300,41 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage3_2_AuthoredWallBindsStaticPrefabView()
+        {
+            var stageId = StageId.CreateOrThrow("stage-3-2");
+            StageLaunchContextStore.SetCurrent(stageId);
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            yield return LoadScene(UIAudioScenePath);
+
+            var host = Object.FindObjectsByType<GameplaySceneHost>(
+                    FindObjectsInactive.Exclude,
+                    FindObjectsSortMode.None)
+                .Single();
+            var firstTick = host.InputHost.RunSingleTick();
+            yield return null;
+            Assert.That(firstTick, Is.Not.Null);
+            var authoredWalls = firstTick.FinalEntities
+                .Where(entity => entity.type == EntityType.Wall)
+                .ToArray();
+
+            Assert.That(authoredWalls, Is.Not.Empty);
+            Assert.That(authoredWalls.Select(entity => entity.entityId), Has.Member(227));
+            Assert.That(host.ViewRegistry.TryGetView(227, out var wallView), Is.True);
+            var modelRoot = wallView.transform.Find("ModelRoot");
+            Assert.That(modelRoot, Is.Not.Null,
+                "Stage 3-2 Wall 227 must use its authored static prefab instead of the primitive fallback.");
+            Assert.That(modelRoot.Find("Visual"), Is.Null,
+                "The primitive fallback adds ModelRoot/Visual and must not satisfy this binding smoke.");
+            Assert.That(modelRoot.localScale, Is.EqualTo(Vector3.one * 7f),
+                "Wall 227 must preserve the authored StaticView_Wall_Desk ModelRoot scale.");
+            Assert.That(wallView.GetComponentInChildren<Renderer>(includeInactive: false), Is.Not.Null);
+            Assert.That(wallView.GetComponent<PlayerAnimatorDriver>(), Is.Null);
+            Assert.That(wallView.GetComponent<EnemyAnimatorDriver>(), Is.Null);
+        }
+
+        [UnityTest]
+        [Category("Core")]
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage4_1_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
@@ -661,7 +696,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     destinationHost.TimingProfile.SimulationTickIntervalSeconds * 10f),
                 Is.Zero);
             Assert.That(destinationHost.InputHost.RunSingleTick(), Is.Null);
-            Assert.That(destinationHost.InputHost.PreviewPushDirection(), Is.EqualTo(Direction.None));
+            Assert.That(typeof(GameplayInputHost).GetField("_sampledMoveInput", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(destinationHost.InputHost), Is.EqualTo(Vector2.zero));
+            Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedPush", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(destinationHost.InputHost), Is.False);
+            Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedFlip", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(destinationHost.InputHost), Is.False);
             var uiAccess = (object)destinationHost.UiAccess;
             var commandGateway = uiAccess
                 .GetType()

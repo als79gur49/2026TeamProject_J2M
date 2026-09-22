@@ -22,6 +22,8 @@ namespace Game.Feature.Stages
             _rootDirectory = rootDirectory;
         }
 
+        internal string RootDirectory => _rootDirectory;
+
         public bool Exists(string fileName)
         {
             return File.Exists(GetPath(fileName));

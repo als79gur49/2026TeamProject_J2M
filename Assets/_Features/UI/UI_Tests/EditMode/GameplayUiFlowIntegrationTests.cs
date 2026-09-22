@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using ArgumentNullException = System.ArgumentNullException;
 using InvalidOperationException = System.InvalidOperationException;
@@ -18,6 +19,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -540,6 +542,58 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
+        public void GameplayUiFlowInstaller_TerminalCompletion_RestoresHudPauseWithoutBackInput()
+        {
+            var hostObject = new GameObject(nameof(
+                GameplayUiFlowInstaller_TerminalCompletion_RestoresHudPauseWithoutBackInput));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                }));
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+
+                var pauseButton = installer.HudView
+                    .GetComponentsInChildren<Button>(includeInactive: true)
+                    .Single(button => button.name == "PauseButton");
+                var terminalToken = ClaimTerminalSession(
+                    TerminalTransitionKind.Defeat,
+                    TerminalDestinationKind.ReloadedGameplay,
+                    sceneHandle: 902);
+
+                Assert.That(
+                    TerminalSessionRegistry.TryAdvance(
+                        terminalToken,
+                        TerminalSessionPhase.Revealing),
+                    Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.False);
+                Assert.That(pauseButton.interactable, Is.False);
+
+                Assert.That(TerminalSessionRegistry.TryComplete(terminalToken), Is.True);
+
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.True);
+                Assert.That(pauseButton.interactable, Is.True);
+                Assert.That(pauseButton.enabled, Is.True);
+                Assert.That(installer.HudView.IsVisible, Is.True);
+                Assert.That(pauseButton.gameObject.activeInHierarchy, Is.True);
+                Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.False);
+
+                installer.HudView.ClickPause();
+                Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiFlowInstaller_LevelFailedTerminalCompletion_KeepsSelectionHiddenUntilInput()
         {
             var hostObject = new GameObject(nameof(
@@ -857,9 +911,9 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_PreservesHudReadOnlySeam_ThroughScreenAndPausePopup()
+        public void GameplayUiFlowInstaller_PreservesHudShellState_ThroughScreenAndPausePopup()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_PreservesHudReadOnlySeam_ThroughScreenAndPausePopup");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_PreservesHudShellState_ThroughScreenAndPausePopup");
 
             try
             {
@@ -875,7 +929,8 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.True);
 
                 installer.HudView.ClickPause();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
@@ -889,6 +944,63 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 DestroySupportObjects(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiFlowInstaller_OnDestroyWithOpenPause_AfterCampaignSourceDispose_DoesNotReadSession()
+        {
+            var hostObject = new GameObject(
+                nameof(GameplayUiFlowInstaller_OnDestroyWithOpenPause_AfterCampaignSourceDispose_DoesNotReadSession));
+            var saveStore = new TransientCampaignSaveSlotStore(System.Guid.NewGuid().ToString("N"));
+            ICampaignChancesReadSource chancesSource = null;
+            System.IDisposable chancesSourceLifetime = null;
+
+            try
+            {
+                saveStore.ImportSlotSeed(new CampaignSlotSeedImportRequest(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    "level-1",
+                    2,
+                    string.Empty));
+                var sourceType = typeof(ICampaignChancesReadSource).Assembly.GetType(
+                    "Game.Feature.Gameplay.Host.SaveSlotCampaignChancesReadSource",
+                    throwOnError: true);
+                chancesSource = (ICampaignChancesReadSource)System.Activator.CreateInstance(
+                    sourceType,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    null);
+                chancesSourceLifetime = (System.IDisposable)chancesSource;
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                    },
+                    campaignChancesReadSource: chancesSource));
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+
+                installer.HudView.ClickPause();
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
+
+                chancesSourceLifetime.Dispose();
+                Assert.Throws<System.ObjectDisposedException>(() =>
+                    chancesSource.TryReadChances(out _, out _, out _));
+
+                Assert.DoesNotThrow(() => InvokeOnDestroy(installer));
+
+                Assert.That(installer.PopupController.PopupCount, Is.Zero);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+                chancesSourceLifetime?.Dispose();
+                saveStore.ClearAll();
             }
         }
 
@@ -914,14 +1026,16 @@ namespace Game.Feature.UI.Tests
                 var originalPausePopup = installer.PausePopupView;
 
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.False);
 
                 originalPausePopup.ClickSettings();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
                 Assert.That(installer.HudView.IsVisible, Is.False);
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.False);
 
                 installer.SettingsScreenView.ClickBack();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -929,12 +1043,14 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.PausePopupView, Is.Not.Null);
                 Assert.That(installer.PausePopupView, Is.Not.SameAs(originalPausePopup));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.True);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.False);
 
                 installer.PausePopupView.ClickResume();
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsDimmed, Is.False);
+                Assert.That(installer.HudController.RootViewModel.IsPauseButtonEnabled, Is.True);
             }
             finally
             {
@@ -1050,11 +1166,7 @@ namespace Game.Feature.UI.Tests
                 var installer = hostObject.GetComponent<GameplayUiFlowInstaller>();
                 if (installer != null)
                 {
-                    var onDestroy = typeof(GameplayUiFlowInstaller).GetMethod(
-                        "OnDestroy",
-                        BindingFlags.Instance | BindingFlags.NonPublic);
-                    Assert.That(onDestroy, Is.Not.Null);
-                    onDestroy.Invoke(installer, null);
+                    InvokeOnDestroy(installer);
                 }
             }
 
@@ -1070,10 +1182,20 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static void InvokeOnDestroy(GameplayUiFlowInstaller installer)
+        {
+            var onDestroy = typeof(GameplayUiFlowInstaller).GetMethod(
+                "OnDestroy",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(onDestroy, Is.Not.Null);
+            onDestroy.Invoke(installer, null);
+        }
+
         private static GameplaySceneHostConfiguration CreateConfiguration(
             EntityState[] initialEntities,
             StageObjectiveRuntimeDefinition objectiveRuntimeDefinition = null,
-            StageContentEntry stageContentEntry = null)
+            StageContentEntry stageContentEntry = null,
+            ICampaignChancesReadSource campaignChancesReadSource = null)
         {
             return new GameplaySceneHostConfiguration
             {
@@ -1085,6 +1207,7 @@ namespace Game.Feature.UI.Tests
                 StageContentEntry = stageContentEntry,
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled,
                 PlayerEntityId = 10,
+                CampaignChancesReadSource = campaignChancesReadSource,
             };
         }
 

@@ -1,5 +1,9 @@
 # Slice 3 S3-A 재감사 수정안
 
+> **후속 검증 안내(2026-09-14):** 아래 본문은 작성 당시 계획·판정을 보존한다. 제품 통합과 후속 측정 도구의 `40a16e613` 반영, 실제 A/B 리비전, CPU 개선 신호와 측정 한계는 [Closeout §4](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md#4-검증과-측정-결과)에 기록했다. 새 bundle 결과로 historical official Cleanup Hold를 해제하지 않는다.
+
+> **2026-09-14 후속 상태:** 이 문서의 `Hold`, 구현 미승인과 production full-scan 문구는 2026-08-29 S3-A evidence 수정안의 historical 경계다. Cleanup candidate index/ordered executor의 현재 production 반영 상태는 [Gameplay 최적화 main 통합 Closeout](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md)이 소유한다. 당시 evidence Hold 자체를 소급해 PASS로 바꾸지는 않는다.
+
 - 작성일: 2026-08-29 KST
 - 문서 상태: `Proposal-level GO — implementation not authorized`
 - 저장소 상태: `Hold — valid evidence incomplete`
@@ -32,7 +36,7 @@
 
 ### 2.2 CurrentPolicy — 검증 후 교체 가능
 
-- 현재 production Cleanup executor는 full scan이다.
+- 작성 당시 production Cleanup executor는 full scan이었다.
 - S3-A 진단 데이터 구조와 report 구현 세부는 StrongContract를 보존하는 범위에서 변경할 수 있다.
 - 공식 S3-A 전략은 `A`만 허용된다.
 - Evidence Contract v4와 S3-EV-016 hard block은 v5가 명시적으로 승인·구현·검증되기 전까지 유효하다.

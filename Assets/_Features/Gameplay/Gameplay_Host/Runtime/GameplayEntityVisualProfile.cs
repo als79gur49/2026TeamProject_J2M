@@ -46,7 +46,7 @@ namespace Game.Feature.Gameplay.Host
                     0.5f,
                     BoxVisibleRevealMultiplier,
                     ResolveSurfaceOffsetMultiplier(entityType)),
-                EntityType.None => CreateInteriorMountedCube(
+                EntityType.None or EntityType.Wall => CreateInteriorMountedCube(
                     cellSize,
                     1f,
                     1f,
@@ -101,7 +101,7 @@ namespace Game.Feature.Gameplay.Host
             return entityType switch
             {
                 EntityType.Box => GameplayPresentationGeometry.TileThicknessMultiplier + BoxVisibleRevealMultiplier,
-                EntityType.None => GameplayPresentationGeometry.TileThicknessMultiplier + DefaultVisibleRevealMultiplier,
+                EntityType.None or EntityType.Wall => GameplayPresentationGeometry.TileThicknessMultiplier + DefaultVisibleRevealMultiplier,
                 _ => GameplayPresentationGeometry.TileThicknessMultiplier + DefaultVisibleRevealMultiplier,
             };
         }

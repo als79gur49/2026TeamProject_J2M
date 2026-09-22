@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
@@ -6,7 +7,7 @@ using Game.Feature.Gameplay.UIAccess.Queries;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
-    internal sealed class GameplayHostSurfaceButtonRemainderQuery : IGameplaySurfaceButtonRemainderQuery
+    internal sealed class GameplayHostSurfaceButtonRemainderQuery : IGameplaySurfaceButtonRemainderQuery, IGameplayHudRevisionedQuery<IReadOnlyList<GameplaySurfaceButtonRemainderReadModel>>, IGameplayHudContentInvalidation
     {
         private static readonly GameplaySurfaceButtonRemainderReadModel[] Empty =
         {
@@ -26,6 +27,23 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         {
             _admissionPolicy = admissionPolicy;
             _definitionsByTileId = BuildDefinitionLookup(tileFeatureDefinitions);
+        }
+
+        private long _definitionGeneration;
+        public void InvalidateHudContent() => _definitionGeneration++;
+        public bool TryGetRevision(out GameplayHudQueryStamp stamp)
+        {
+            stamp = new GameplayHudQueryStamp(this, generation: _admissionPolicy?.ProbeWindowGeneration() ?? 0,
+                version: _definitionGeneration);
+            return true;
+        }
+        public GameplayHudQueryRead<IReadOnlyList<GameplaySurfaceButtonRemainderReadModel>> ReadWithRevision()
+        {
+            TryGetRevision(out var before);
+            var value = Read();
+            TryGetRevision(out var after);
+            return new GameplayHudQueryRead<IReadOnlyList<GameplaySurfaceButtonRemainderReadModel>>(
+                value, before, before.Equals(after));
         }
 
         public IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> Read()

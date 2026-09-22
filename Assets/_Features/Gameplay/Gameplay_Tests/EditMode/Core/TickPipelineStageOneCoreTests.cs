@@ -112,6 +112,26 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void ActionGroupComparer_OtherwiseEqualSpawn_RawEntityTypeProvidesStableOrder()
+        {
+            var legacyWall = CreateActionGroup(intentId: 10, sourceId: 1, priority: 10, groupId: 1);
+            var explicitWall = CreateActionGroup(intentId: 10, sourceId: 1, priority: 10, groupId: 1);
+            var entity = CreateUnit(40, new SurfaceCell(FaceId.Floor, 1, 0));
+            entity.type = EntityType.None;
+            legacyWall.Spawns.Add(new SpawnAction(1, entity));
+            entity.type = EntityType.Wall;
+            explicitWall.Spawns.Add(new SpawnAction(1, entity));
+
+            Assert.That(ActionGroupComparer.Instance.Compare(legacyWall, explicitWall), Is.LessThan(0));
+            Assert.That(ActionGroupComparer.Instance.Compare(explicitWall, legacyWall), Is.GreaterThan(0));
+
+            var sorted = new List<ActionGroup> { explicitWall, legacyWall };
+            sorted.Sort(ActionGroupComparer.Instance);
+            CollectionAssert.AreEqual(new[] { legacyWall, explicitWall }, sorted);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ProjectedWorld_EmptyFinalizationBatch_DoesNotDirtyProjectedWorld()
         {
             var projectedWorld = new ProjectedWorld(CreateSnapshot(Array.Empty<TileFeatureState>()));

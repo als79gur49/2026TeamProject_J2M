@@ -112,6 +112,7 @@ namespace Game.Feature.Stages
         private const int SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion;
 
         private readonly ICampaignProfileRepository _repository;
+        internal CampaignHudReadStore HudReadStore { get; }
         private readonly Func<string> _utcNowProvider;
         private readonly string _profileId;
         private readonly string _productVersion;
@@ -124,6 +125,8 @@ namespace Game.Feature.Stages
             string productVersion)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            HudReadStore = (repository as FileCampaignProfileRepository)?.HudReadStore ??
+                CampaignHudReadRegistry.Acquire(CampaignHudReadRegistry.MemoryKey(repository));
             _utcNowProvider = utcNowProvider ?? DefaultUtcNow;
             _profileId = string.IsNullOrWhiteSpace(profileId) ? "campaign-profile" : profileId;
             _productVersion = productVersion ?? string.Empty;
@@ -138,6 +141,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult LoadProfile()
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (!TryLoadProfile(out var document, out var failure, allowMissing: true))
             {
                 return failure;
@@ -152,6 +156,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult GetSlots()
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (!TryLoadProfile(out var document, out var failure, allowMissing: true))
             {
                 return failure;
@@ -166,6 +171,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult GetSlot(int slotNumber)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
@@ -191,6 +197,7 @@ namespace Game.Feature.Stages
             string initialStageId,
             string initialLevelGroupId)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             return InitializeNewGame(new CampaignNewGameRequest
             {
                 SlotNumber = slotNumber,
@@ -201,6 +208,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult InitializeNewGame(CampaignNewGameRequest request)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (request == null)
             {
                 return CampaignSaveServiceResult.Failure(
@@ -255,6 +263,7 @@ namespace Game.Feature.Stages
         public CampaignSaveServiceResult ImportSlotSeed(
             CampaignSlotSeedImportRequest request)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (request == null)
             {
                 return CampaignSaveServiceResult.Failure(
@@ -284,6 +293,7 @@ namespace Game.Feature.Stages
         public CampaignSaveServiceResult PrepareContinue(
             CampaignContinuePreparationCommand command)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (command == null)
             {
                 return CampaignSaveServiceResult.Failure(
@@ -347,6 +357,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult DeleteSlot(int slotNumber)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
@@ -377,6 +388,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult ClearAll()
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             return Mutate(document =>
             {
                 var now = Now();
@@ -394,6 +406,7 @@ namespace Game.Feature.Stages
             int slotNumber,
             CampaignDeathTransitionPlan plan)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
@@ -445,6 +458,7 @@ namespace Game.Feature.Stages
             int slotNumber,
             CampaignStageClearCommitRequest request)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
@@ -472,6 +486,7 @@ namespace Game.Feature.Stages
                         document);
                 }
 
+                HudReadStore.ObserveBeforeMutation(parsed.Entry.State);
                 var transition = CampaignSlotTransitionEngine.ApplyStageClear(
                     parsed.Entry.State,
                     request,
@@ -495,6 +510,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult SetIntroComicCompleted(int slotNumber)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             return SetComicCompletion(
                 slotNumber,
                 new CampaignComicCompletionCommand(CampaignComicCompletionKind.Intro));
@@ -502,6 +518,7 @@ namespace Game.Feature.Stages
 
         public CampaignSaveServiceResult SetOutroComicCompleted(int slotNumber)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             return SetComicCompletion(
                 slotNumber,
                 new CampaignComicCompletionCommand(CampaignComicCompletionKind.Outro));
@@ -565,6 +582,7 @@ namespace Game.Feature.Stages
             StageId stageId,
             string levelGroupId)
         {
+            using var hudOperation = HudReadStore.BeginOperation();
             if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
             {
                 return CampaignSaveServiceResult.Failure(
@@ -711,6 +729,7 @@ namespace Game.Feature.Stages
             CampaignSaveServiceResult result,
             bool destructive)
         {
+            HudReadStore.Invalidate();
             try
             {
                 if (destructive)
@@ -730,10 +749,26 @@ namespace Game.Feature.Stages
                     document);
             }
 
+            HudReadStore.ObserveProfile(new CampaignProfileLoadResult(
+                CampaignProfileLoadStatus.Loaded, document, "Campaign profile committed."));
             return result;
         }
 
         private bool TryLoadProfile(
+            out CampaignProfileDocument document,
+            out CampaignSaveServiceResult failure,
+            bool allowMissing)
+        {
+            HudReadStore.InvalidateForValidation();
+            var success = TryLoadProfileCore(out document, out failure, allowMissing);
+            HudReadStore.ObserveProfile(new CampaignProfileLoadResult(
+                success ? _lastProfileLoadStatus : failure.HasProfileLoadStatus
+                    ? failure.ProfileLoadStatus : CampaignProfileLoadStatus.IoFailed,
+                success ? document : null, failure?.Message ?? "Campaign profile validated."));
+            return success;
+        }
+
+        private bool TryLoadProfileCore(
             out CampaignProfileDocument document,
             out CampaignSaveServiceResult failure,
             bool allowMissing)

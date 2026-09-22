@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
+using Unity.Profiling;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -43,6 +44,72 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(capturedResult.DeterminismHash, Is.EqualTo(uncapturedResult.DeterminismHash));
             CollectionAssert.AreEqual(uncapturedResult.CompletedPhases, capturedResult.CompletedPhases);
             CollectionAssert.AreEqual(uncapturedResult.PhaseTrace, capturedResult.PhaseTrace);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SnapshotDiagnosticsCapture_DisabledCachedRequestsProduceNoGcAllocEvents()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>());
+            worldState.CreateSnapshot();
+
+            const int iterations = 10000;
+            Assert.That(SnapshotMaterializationDiagnostics.IsEnabled, Is.False);
+
+            using (var positiveRecorder = StartGcAllocationRecorder())
+            {
+                GC.KeepAlive(new byte[4096]);
+                positiveRecorder.Stop();
+                AssertRecorderIsUsable(positiveRecorder);
+                Assert.That(
+                    positiveRecorder.Count,
+                    Is.GreaterThan(0),
+                    "GC.Alloc positive control must prove that allocation events are observable.");
+            }
+
+            using (var emptyRecorder = StartGcAllocationRecorder())
+            {
+                for (var index = 0; index < iterations; index++)
+                {
+                }
+
+                emptyRecorder.Stop();
+                AssertRecorderIsUsable(emptyRecorder);
+                Assert.That(
+                    emptyRecorder.Count,
+                    Is.Zero,
+                    "The empty loop control must not introduce GC allocation events.");
+            }
+
+            using (var cachedRequestRecorder = StartGcAllocationRecorder())
+            {
+                for (var index = 0; index < iterations; index++)
+                {
+                    worldState.CreateSnapshot();
+                }
+
+                cachedRequestRecorder.Stop();
+                AssertRecorderIsUsable(cachedRequestRecorder);
+                Assert.That(
+                    cachedRequestRecorder.Count,
+                    Is.Zero,
+                    "Capture-off cached snapshot requests must not produce GC allocation events.");
+            }
+        }
+
+        private static ProfilerRecorder StartGcAllocationRecorder()
+        {
+            return ProfilerRecorder.StartNew(
+                ProfilerCategory.Internal,
+                "GC.Alloc",
+                65536,
+                ProfilerRecorderOptions.CollectOnlyOnCurrentThread);
+        }
+
+        private static void AssertRecorderIsUsable(ProfilerRecorder recorder)
+        {
+            Assert.That(recorder.Valid, Is.True, "GC.Alloc recorder must be available.");
+            Assert.That(recorder.Count, Is.LessThan(recorder.Capacity), "Reject truncated allocation samples.");
         }
 
         [Test]
@@ -139,6 +206,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 counts.WorldStateCreateSnapshotCount,
                 Is.EqualTo(5),
                 "idle budget sentinel: empty idle RunTick authoritative snapshot requests should remain pinned");
+            Assert.That(
+                counts.WorldStateSnapshotCacheHitCount,
+                Is.EqualTo(4),
+                "idle budget sentinel: all authoritative requests after the first materialization should hit the cache");
+            Assert.That(
+                counts.WorldStateSnapshotMaterializationCount,
+                Is.EqualTo(1),
+                "idle budget sentinel: the authoritative snapshot should materialize once per clean idle tick");
+            Assert.That(
+                counts.WorldStateSnapshotRequestAccountingIsBalanced,
+                Is.True,
+                "idle budget sentinel: every successful authoritative request must be a cache hit or materialization");
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotTileFeatureCellIndexCellCount, Is.Zero);
+            Assert.That(counts.SnapshotStackedUnitCellIndexCellCount, Is.Zero);
             Assert.That(
                 counts.ProjectedWorldMaterializedSnapshotCount,
                 Is.EqualTo(1),

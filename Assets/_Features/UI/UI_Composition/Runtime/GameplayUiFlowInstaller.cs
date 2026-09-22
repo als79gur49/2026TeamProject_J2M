@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using System;
 using System.Reflection;
 using Game.Feature.DemoStageControl;
@@ -77,8 +78,10 @@ namespace Game.Feature.UI.Composition
         private IUiAudioPort _uiAudioPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
+        private UIFlowShellPresenter _flowShellPresenter;
         private IDemoStageControlCommandPort _demoStageControlCommandPort;
         private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
+        private DemoStageControlPresentationSource _demoStageControlPresentationSource;
         private bool _isDisposed;
         private GameplayTerminalTransitionPort _terminalTransitionPort;
         private TerminalIrisMotionProfileResolver _terminalIrisMotionResolver;
@@ -439,6 +442,12 @@ namespace Game.Feature.UI.Composition
             UnsubscribeTerminalSession();
         }
 
+        private void LateUpdate()
+        {
+            if (_isInstalled && !_isDisposed)
+                (PresentationSource as IGameplayHudPendingRefresh)?.FlushPendingChanceChanges();
+        }
+
         private void Update()
         {
             _terminalTransitionPort?.Tick(Time.unscaledDeltaTime);
@@ -497,8 +506,25 @@ namespace Game.Feature.UI.Composition
                     sceneHost.UiAccess.CampaignStageSequenceResolver;
                 _gameplayWorldGuidePresenter = sceneHost.GetComponent<GameplayWorldGuidePresenter>();
                 RegisterSceneEntryDestinationIfApplicable();
-                _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
-                _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
+                var demoOverrideCommands = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
+                var demoStageCommands = CreateDemoStageControlCommandPort(sceneHost);
+                if (demoStageCommands != null)
+                {
+                    _demoStageControlPresentationSource =
+                        new DemoStageControlPresentationSource(
+                            demoStageCommands,
+                            demoOverrideCommands,
+                            SceneTransitionCoordinator.Instance);
+                    _demoStageControlCommandPort =
+                        new RefreshingDemoStageControlCommandPort(
+                            demoStageCommands,
+                            _demoStageControlPresentationSource);
+                    _demoGameplayOverrideCommandPort = demoOverrideCommands == null
+                        ? null
+                        : new RefreshingDemoGameplayOverrideCommandPort(
+                            demoOverrideCommands,
+                            _demoStageControlPresentationSource);
+                }
                 var presentationSource = new GameplayUiPresentationSource(
                     sceneHost.UiAccess.QueryFacade,
                     sceneHost.UiAccess.PresentationFeed,
@@ -673,7 +699,6 @@ namespace Game.Feature.UI.Composition
                 PopupController,
                 _displayPreviewTimeoutRelay);
 
-            var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter(_localizedTextResolver);
             var objectiveHudPresenter = new ObjectiveHudPresenter(_localizedTextResolver);
             var objectiveTypographyBinding =
@@ -693,8 +718,7 @@ namespace Game.Feature.UI.Composition
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
-                surfaceBeltIndicatorPresenter,
-                playerStatusPresenter);
+                surfaceBeltIndicatorPresenter);
 
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
                 screenLayerView: _rootView.ScreenLayerView,
@@ -713,8 +737,7 @@ namespace Game.Feature.UI.Composition
                 stageInfoPresenter.ViewModel,
                 objectiveHudPresenter.ViewModel,
                 chancePanelPresenter.ViewModel,
-                surfaceBeltIndicatorPresenter.ViewModel,
-                playerStatusPresenter.ViewModel);
+                surfaceBeltIndicatorPresenter.ViewModel);
             _hudUiAudioFeedbackController = new HudUiAudioFeedbackController(
                 uiAudioPort,
                 chancePanelPresenter.ViewModel,
@@ -739,11 +762,14 @@ namespace Game.Feature.UI.Composition
 
             HudController.AttachView(_rootView.HudView);
             WireViewEvents();
-            WireControllerEvents();
+            _flowShellPresenter = new UIFlowShellPresenter(
+                (IUIFlowPresentationSource)Coordinator,
+                PresentationSource,
+                _rootView.HudView,
+                _rootView.PopupLayerView);
             Coordinator.Initialize();
             SubscribeTerminalSession();
             EnsureNavigationInputRouter();
-            SyncViews();
             _isInstalled = true;
         }
 
@@ -761,6 +787,8 @@ namespace Game.Feature.UI.Composition
             _gameplayHudLocalizationBinding = null;
             // Dispose the persistent HUD presenter before any view/controller teardown can
             // encounter a partially destroyed hidden HUD hierarchy.
+            _flowShellPresenter?.Dispose();
+            _flowShellPresenter = null;
             HudRootPresenter?.Dispose();
             _mainMenuReturnSourceClosePlayback?.Dispose();
             _mainMenuReturnSourceClosePlayback = null;
@@ -772,7 +800,6 @@ namespace Game.Feature.UI.Composition
                 "DESTINATION_INSTALLER_DESTROYED",
                 "Destination UI installer was destroyed before readiness completed.");
             UnwireViewEvents();
-            UnwireControllerEvents();
             _audioSettingsLifecycleRelay?.FlushNow();
             UnsubscribeTerminalSession();
             Coordinator?.Dispose();
@@ -780,6 +807,8 @@ namespace Game.Feature.UI.Composition
             _gameplayPauseAudioBridge?.Dispose();
             ScreenController?.Dispose();
             PopupController?.Dispose();
+            _demoStageControlPresentationSource?.Dispose();
+            _demoStageControlPresentationSource = null;
             HudController?.Dispose();
             _hudUiAudioFeedbackController?.Dispose();
             _terminalTransitionPort?.Dispose();
@@ -1093,12 +1122,6 @@ namespace Game.Feature.UI.Composition
             _rootView.PopupLayerView.BackdropClicked += HandlePopupBackdropClicked;
         }
 
-        private void WireControllerEvents()
-        {
-            ScreenController.StateChanged += SyncViews;
-            PopupController.StateChanged += SyncViews;
-        }
-
         private void UnwireViewEvents()
         {
             if (_rootView == null)
@@ -1114,19 +1137,6 @@ namespace Game.Feature.UI.Composition
             if (_rootView.PopupLayerView != null)
             {
                 _rootView.PopupLayerView.BackdropClicked -= HandlePopupBackdropClicked;
-            }
-        }
-
-        private void UnwireControllerEvents()
-        {
-            if (ScreenController != null)
-            {
-                ScreenController.StateChanged -= SyncViews;
-            }
-
-            if (PopupController != null)
-            {
-                PopupController.StateChanged -= SyncViews;
             }
         }
 
@@ -1160,7 +1170,6 @@ namespace Game.Feature.UI.Composition
                 }
 
                 _navigationInputRouter?.ClearNavigationFocus();
-                SyncViews();
                 var eventSystems = FindObjectsByType<EventSystem>(
                     FindObjectsInactive.Include,
                     FindObjectsSortMode.None);
@@ -1172,7 +1181,6 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            SyncViews();
             _navigationInputRouter?.ClearNavigationFocus();
         }
 
@@ -1882,30 +1890,17 @@ namespace Game.Feature.UI.Composition
 
         private bool TryToggleDemoStageControlPanel()
         {
-            if (_demoStageControlSettings == null ||
-                !_demoStageControlSettings.Enabled ||
-                _demoStageControlCommandPort == null ||
-                PopupController == null ||
+            if (_demoStageControlCommandPort == null ||
+                _demoStageControlPresentationSource == null ||
                 Coordinator == null)
             {
                 return false;
             }
 
-            if (PopupController.TopPopup.HasValue)
-            {
-                if (PopupController.TopPopup.Value.PopupId == PopupId.DemoStageControl)
-                {
-                    Coordinator.HandleBackRequested();
-                }
-
-                return true;
-            }
-
-            Coordinator.RequestDemoStageControlPopup(new DemoStageControlPanelPayload(
-                _demoStageControlCommandPort.GetStages(),
-                _demoStageControlCommandPort.GetStatus(),
-                _demoGameplayOverrideCommandPort?.GetOverrideStatus() ?? default));
-            return true;
+            return Coordinator.TryToggleDemoStageControlPopup(
+                _demoStageControlSettings != null && _demoStageControlSettings.Enabled,
+                () => new DemoStageControlPanelPayload(
+                    _demoStageControlPresentationSource));
         }
 
         private bool WasDemoStageControlOpenKeyPressed()
@@ -2007,28 +2002,6 @@ namespace Game.Feature.UI.Composition
             }
 
             return null;
-        }
-
-        private void SyncViews()
-        {
-            if (_rootView == null ||
-                ScreenController == null ||
-                PopupController == null ||
-                Coordinator == null)
-            {
-                return;
-            }
-
-            PresentationSource?.UpdateUiGameplayInputBlocked(
-                Coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput);
-
-            _rootView.HudView.IsVisible = !ScreenController.CurrentEntry.HasValue ||
-                                          ScreenController.CurrentEntry.Value.Policy.HudShellMode != HudShellMode.Hidden;
-            _rootView.PopupLayerView.SetState(
-                PopupController.PopupCount > 0,
-                Coordinator.CurrentBlockSnapshot.ShowsPopupDim,
-                Coordinator.CurrentBlockSnapshot.BlocksLowerLayerPointer,
-                Coordinator.CurrentBlockSnapshot.PopupBackdropMode);
         }
 
         // Resolve Input System keyboard state without relying on UnityEngine.Input.

@@ -340,7 +340,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(installerSource, Does.Contain("WasDemoStageControlOpenKeyPressed() && TryToggleDemoStageControlPanel()"));
             Assert.That(installerSource, Does.Contain("KeyboardBridge.WasF10PressedThisFrame()"));
-            Assert.That(installerSource, Does.Contain("Coordinator.RequestDemoStageControlPopup"));
+            Assert.That(installerSource, Does.Contain("Coordinator.TryToggleDemoStageControlPopup"));
+            Assert.That(installerSource, Does.Not.Contain("PopupController.TopPopup"));
             Assert.That(installerSource, Does.Not.Contain(removedPopupId));
             Assert.That(installerSource, Does.Not.Contain(removedRequest));
         }
@@ -350,7 +351,7 @@ namespace Game.Feature.UI.Tests
         {
             var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
 
-            Assert.That(installerSource, Does.Contain("!_demoStageControlSettings.Enabled"));
+            Assert.That(installerSource, Does.Contain("_demoStageControlSettings.Enabled"));
             Assert.That(installerSource, Does.Contain("return false;"));
             Assert.That(installerSource, Does.Contain("return settings.OpenKey == DemoStageControlOpenKey.BackQuote"));
         }
@@ -377,6 +378,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(popupIdSource, Does.Not.Contain(removedPopupName));
             Assert.That(popupFactorySource, Does.Not.Contain(removedPopupName));
             Assert.That(popupCatalogAsset, Does.Not.Contain(removedPopupName));
+        }
+
+        [Test]
+        public void DemoStageControlFactory_UsesCanonicalCatalogPrefabWithoutRuntimeFallback()
+        {
+            var source = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
+
+            Assert.That(source, Does.Contain("_popupPrefabCatalog.DemoStageControlPrefab"));
+            Assert.That(source, Does.Contain("InstantiatePopupPrefab("));
+            Assert.That(source, Does.Not.Contain("DemoStageControlPanelView.CreateRuntime"));
+            Assert.That(source, Does.Not.Contain("new GameObject"));
         }
 
         [Test]
@@ -443,7 +456,6 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootPresenter).Assembly,
                 typeof(StageInfoPresenter).Assembly,
                 typeof(ObjectiveHudPresenter).Assembly,
-                typeof(PlayerStatusPresenter).Assembly,
                 typeof(SettingsScreenPresenter).Assembly,
                 typeof(StageResultScreenPresenter).Assembly,
                 typeof(PausePopupPresenter).Assembly,
@@ -538,7 +550,6 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootPresenter),
                 typeof(StageInfoPresenter),
                 typeof(ObjectiveHudPresenter),
-                typeof(PlayerStatusPresenter),
                 typeof(SettingsScreenPresenter),
             };
 
@@ -669,9 +680,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(publicMethodNames, Is.EqualTo(new[] { "Dispose" }));
 
             var constructors = typeof(HUDRootPresenter).GetConstructors(BindingFlags.Instance | BindingFlags.Public);
-            Assert.That(constructors, Has.Length.EqualTo(2));
+            Assert.That(constructors, Has.Length.EqualTo(1));
             var fullConstructor = constructors
-                .First(constructor => constructor.GetParameters().Length == 6);
+                .Single(constructor => constructor.GetParameters().Length == 5);
             Assert.That(
                 fullConstructor.GetParameters().Select(parameter => parameter.ParameterType).ToArray(),
                 Is.EqualTo(new[]
@@ -681,7 +692,6 @@ namespace Game.Feature.UI.Tests
                     typeof(ObjectiveHudPresenter),
                     typeof(ChancePanelPresenter),
                     typeof(SurfaceBeltIndicatorPresenter),
-                    typeof(PlayerStatusPresenter),
                 }));
 
             var forbiddenTypes = new[]
@@ -692,7 +702,6 @@ namespace Game.Feature.UI.Tests
                 typeof(PopupController),
                 typeof(UIFlowCoordinator),
                 typeof(ObjectiveHudViewModel),
-                typeof(PlayerStatusViewModel),
             };
 
             foreach (var forbiddenType in forbiddenTypes)
@@ -726,24 +735,7 @@ namespace Game.Feature.UI.Tests
                 .OrderBy(name => name)
                 .ToArray();
 
-            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsGameplayReadOnly", "IsPauseButtonEnabled" }));
-        }
-
-        [Test]
-        public void UIRecoveryCooldownSlice_PublicSurface_RemainsMinimal()
-        {
-            var propertyNames = typeof(UIRecoveryCooldownSlice)
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
-                .Select(property => property.Name)
-                .OrderBy(name => name)
-                .ToArray();
-
-            Assert.That(propertyNames, Is.EqualTo(new[]
-            {
-                "ActionKind",
-                "RemainingRecoveryTicks",
-                "TotalRecoveryTicks",
-            }));
+            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsPauseButtonEnabled" }));
         }
 
         [Test]
@@ -784,9 +776,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "ChancePanelViewModel",
-                    "IsGameplayReadOnly",
                     "ObjectiveHudViewModel",
-                    "PlayerStatusViewModel",
                     "RootViewModel",
                     "StageInfoViewModel",
                     "SurfaceBeltViewModel",
@@ -811,7 +801,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveHudPresenter),
                 typeof(ChancePanelPresenter),
                 typeof(SurfaceBeltIndicatorPresenter),
-                typeof(PlayerStatusPresenter),
             };
             var forbiddenTypes = new[]
             {
@@ -840,7 +829,6 @@ namespace Game.Feature.UI.Tests
             AssertViewBindSignature(typeof(ObjectiveHudView), typeof(ObjectiveHudViewModel));
             AssertViewBindSignature(typeof(ChancePanelView), typeof(ChancePanelViewModel));
             AssertViewBindSignature(typeof(SurfaceBeltIndicatorView), typeof(SurfaceBeltViewModel));
-            AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
         }
 
         [Test]
@@ -880,7 +868,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveHudView),
                 typeof(ChancePanelView),
                 typeof(SurfaceBeltIndicatorView),
-                typeof(PlayerStatusView),
             };
 
             foreach (var hudViewType in hudViewTypes)
@@ -902,7 +889,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveHudView),
                 typeof(ChancePanelView),
                 typeof(SurfaceBeltIndicatorView),
-                typeof(PlayerStatusView),
             };
             var forbiddenTypes = new[]
             {
@@ -991,6 +977,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "ConfirmPrefab",
+                    "DemoStageControlPrefab",
                     "PausePrefab",
                 }));
             Assert.That(GetPublicEventNames(typeof(PopupPrefabCatalog)), Is.Empty);
@@ -1083,7 +1070,6 @@ namespace Game.Feature.UI.Tests
                     "Initialize()",
                     "OpenSettingsScreen()",
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
-                    "RequestDemoStageControlPopup(IPopupPayload)",
                     "RequestPausePopup()",
                     "TryLaunchStage(StageNavigationRequest)",
                     "TryReturnToMainMenu()",
@@ -1093,6 +1079,32 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "UIFlowCoordinator(ScreenController, PopupController, UIBlockPolicy, IUiFlowPauseService, IGameplayUiPresentationSource, IUiAudioPort, IStageLaunchRouter, IMainMenuReturnRouter, IPauseProgressionReadSource, CampaignStageSequenceResolver)",
+                }));
+        }
+
+        [Test]
+        public void UIFlowPresentationSource_PublicSurface_RemainsSnapshotOnly()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(IUIFlowPresentationSource)),
+                Is.EqualTo(new[] { "Current" }));
+            Assert.That(
+                GetPublicEventNames(typeof(IUIFlowPresentationSource)),
+                Is.EqualTo(new[] { "Changed" }));
+            Assert.That(
+                GetPublicMethodSignatures(typeof(IUIFlowPresentationSource)),
+                Is.Empty);
+
+            Assert.That(
+                GetPublicPropertyNames(typeof(UIFlowPresentationSnapshot)),
+                Is.EqualTo(new[]
+                {
+                    "BlocksLowerLayerPointer",
+                    "IsHudVisible",
+                    "IsPopupLayerVisible",
+                    "IsUiGameplayInputBlocked",
+                    "PopupBackdropMode",
+                    "ShowsPopupDim",
                 }));
         }
 

@@ -59,7 +59,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             var sharedCell = new SurfaceCell(FaceId.Ceiling, 0, 0);
             var unit = CreateUnit(entityId: 10, position: sharedCell);
-            var wall = CreateWall(entityId: 20, position: sharedCell);
+            var wall = CreateLegacyNoneSolid(entityId: 20, position: sharedCell);
             var entities = wallFirst
                 ? new[] { wall, unit }
                 : new[] { unit, wall };
@@ -69,6 +69,34 @@ namespace Game.Feature.Gameplay.Tests.Core
                     BoardBounds.Unbounded,
                     TestTopology,
                     entities));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Core")]
+        public void DebugSpawnPolicy_ExplicitWallSharingUnitCell_RejectsBothOrders(bool wallFirst)
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var unit = CreateUnit(entityId: 10, position: sharedCell);
+            var wall = CreateExplicitWall(entityId: 20, position: sharedCell);
+            var entities = wallFirst
+                ? new[] { wall, unit }
+                : new[] { unit, wall };
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => DebugSpawnValidityPolicy.EnsureRepresentable(
+                    BoardBounds.Unbounded,
+                    TestTopology,
+                    entities));
+
+            var expectedBlockerId = wallFirst ? wall.entityId : unit.entityId;
+            var expectedBlockerType = wallFirst ? EntityType.Wall : EntityType.Unit;
+            Assert.That(
+                exception.Message,
+                Does.Contain($"BlockerEntity={expectedBlockerId}"));
+            Assert.That(
+                exception.Message,
+                Does.Contain($"BlockerType={expectedBlockerType}"));
         }
 
         private static EntityState CreateUnit(int entityId, SurfaceCell position)
@@ -107,7 +135,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             };
         }
 
-        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        private static EntityState CreateLegacyNoneSolid(int entityId, SurfaceCell position)
         {
             return new EntityState
             {
@@ -117,6 +145,22 @@ namespace Game.Feature.Gameplay.Tests.Core
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static EntityState CreateExplicitWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Wall,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
                 boardPresence = EntityBoardPresence.Occupying,

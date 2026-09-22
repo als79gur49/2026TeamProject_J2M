@@ -346,7 +346,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 position = position,
                 hp = 1,
                 maxHp = 1,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 state = EntityPhaseState.Idle,
                 boardPresence = EntityBoardPresence.Occupying,
             };

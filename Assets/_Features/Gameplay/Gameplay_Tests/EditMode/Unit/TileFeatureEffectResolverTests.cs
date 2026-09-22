@@ -318,7 +318,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var cases = new[]
             {
                 new object[] { "Unit", new[] { CreateUnit(20, cell) } },
-                new object[] { "NonBoxSolid", new[] { CreateSolid(21, cell) } },
+                new object[] { "NonBoxSolid", new[] { CreateExplicitWall(21, cell) } },
                 new object[] { "NonPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Flip) } },
                 new object[] { "DetachedBox", new[] { CreateBox(20, cell, boardPresence: EntityBoardPresence.Detached) } },
                 new object[] { "DeadBox", new[] { CreateBox(20, cell, hp: 0) } },
@@ -401,7 +401,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 new object[] { "NormalPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push) } },
                 new object[] { "Unit", new[] { CreateUnit(20, cell) } },
-                new object[] { "NonBoxSolid", new[] { CreateSolid(21, cell) } },
+                new object[] { "NonBoxSolid", new[] { CreateExplicitWall(21, cell) } },
                 new object[] { "DetachedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, boardPresence: EntityBoardPresence.Detached, boxArchetype: BoxArchetype.Moon) } },
                 new object[] { "DeadMoonBox", new[] { CreateBox(20, cell, hp: 0, boxCapabilities: moonCapabilities, boxArchetype: BoxArchetype.Moon) } },
                 new object[] { "MarkedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, markedForDeath: true, boxArchetype: BoxArchetype.Moon) } },
@@ -2078,7 +2078,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var cases = new[]
             {
                 new object[] { "Unit", new[] { CreateUnit(20, cell) }, TileEffectBoxContactKind.PushEnter },
-                new object[] { "NonBoxSolid", new[] { CreateSolid(20, cell) }, TileEffectBoxContactKind.PushEnter },
+                new object[] { "NonBoxSolid", new[] { CreateExplicitWall(20, cell) }, TileEffectBoxContactKind.PushEnter },
                 new object[] { "DeadBox", new[] { CreateBox(20, cell, hp: 0, state: EntityPhaseState.Sliding) }, TileEffectBoxContactKind.PushEnter },
                 new object[] { "DetachedBox", new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding, boardPresence: EntityBoardPresence.Detached) }, TileEffectBoxContactKind.PushEnter },
                 new object[] { "MarkedBox", new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding, markedForDeath: true) }, TileEffectBoxContactKind.PushEnter },
@@ -3426,7 +3426,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 selector: TileFeatureBoxSelector.None);
             var cases = new[]
             {
-                new object[] { "NonBoxSolid", new[] { CreateSolid(23, barricadeCell) } },
+                new object[] { "NonBoxSolid", new[] { CreateExplicitWall(23, barricadeCell) } },
                 new object[] { "DeadBox", new[] { CreateBox(24, barricadeCell, hp: 0) } },
                 new object[] { "DetachedBox", new[] { CreateBox(25, barricadeCell, boardPresence: EntityBoardPresence.Detached) } },
                 new object[] { "MarkedBox", new[] { CreateBox(26, barricadeCell, markedForDeath: true) } },
@@ -4749,7 +4749,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             box.stateTimer = 0;
             var attackLogic = new CapturingAttackLogic();
             var worldState = CreateWorldState(
-                new[] { box, CreateSolid(21, new SurfaceCell(FaceId.Floor, 2, 1)) },
+                new[] { box, CreateExplicitWall(21, new SurfaceCell(FaceId.Floor, 2, 1)) },
                 new[] { button });
             var pipeline = CreatePipeline(
                 worldState,
@@ -5753,7 +5753,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return unit;
         }
 
-        private static EntityState CreateSolid(int entityId, SurfaceCell position)
+        private static EntityState CreateExplicitWall(int entityId, SurfaceCell position)
         {
             return new EntityState
             {
@@ -5762,7 +5762,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,

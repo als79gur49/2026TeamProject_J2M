@@ -414,19 +414,7 @@ namespace Game.Feature.UI.Tests
 
         public static GameplayPlayerHudReadModel CreateDefaultPlayerHud()
         {
-            return new GameplayPlayerHudReadModel(
-                isAvailable: true,
-                playerEntityId: 10,
-                currentHp: 3,
-                maxHp: 3,
-                facing: GameplayUiDirection.Up,
-                activeActionKind: GameplayUiActionKind.None,
-                activeActionDirection: GameplayUiDirection.None,
-                activeTargetEntityId: 0,
-                isActionInProgress: false,
-                isActionInRecoveryPhase: false,
-                canMoveThisTick: true,
-                canStartActionThisTick: true);
+            return new GameplayPlayerHudReadModel();
         }
 
         private sealed class MutableSessionQuery : IGameplaySessionQuery
@@ -592,6 +580,21 @@ namespace Game.Feature.UI.Tests
 
         public void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked)
         {
+            var interaction = CurrentSnapshot.Interaction;
+            PublishSnapshot(new UIPresentationSnapshot(
+                CurrentSnapshot.Tick,
+                new UIInteractionSlice(
+                    interaction.IsPaused,
+                    interaction.CanAcceptGameplayCommands,
+                    interaction.HasBlockingGameplayPresentation,
+                    isUiGameplayInputBlocked),
+                CurrentSnapshot.Stage,
+                CurrentSnapshot.Objective,
+                CurrentSnapshot.Chance,
+                CurrentSnapshot.Topology,
+                CurrentSnapshot.SurfaceBelt,
+                CurrentSnapshot.Player,
+                CurrentSnapshot.Notifications));
         }
     }
 
@@ -670,6 +673,16 @@ namespace Game.Feature.UI.Tests
                     showsDim: true,
                     blocksLowerLayers: true)
             },
+            {
+                PopupId.DemoStageControl,
+                new PopupPolicy(
+                    PopupPolicyClass.ModalBlocking,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Close,
+                    PopupBackdropMode.Consume,
+                    showsDim: true,
+                    blocksLowerLayers: true)
+            },
         };
 
         public List<FakePopupRuntimeRecord> CreatedRuntimes { get; } = new();
@@ -706,10 +719,13 @@ namespace Game.Feature.UI.Tests
 
         public bool IsDisposed { get; private set; }
 
+        public int DisposeCount { get; private set; }
+
         public bool IsTopmost { get; private set; }
 
         public void Dispose()
         {
+            DisposeCount++;
             IsDisposed = true;
         }
 

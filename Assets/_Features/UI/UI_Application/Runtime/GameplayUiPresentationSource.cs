@@ -1,6 +1,10 @@
+#if VECTORQUAKE_CAPTURE_BUILD
+using Game.Shared.Diagnostics;
+#endif
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Contracts;
+using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
@@ -27,7 +31,7 @@ namespace Game.Feature.UI.Application
         void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked);
     }
 
-    public sealed class GameplayUiPresentationSource : IGameplayUiPresentationSource, IDisposable
+    public sealed class GameplayUiPresentationSource : IGameplayUiPresentationSource, IGameplayHudPendingRefresh, IDisposable
     {
         private readonly UITickEventRouter _eventRouter;
         private readonly IGameplayPauseService _pauseService;
@@ -35,6 +39,18 @@ namespace Game.Feature.UI.Application
         private readonly IGameplayQueryFacade _queryFacade;
         private readonly UIStateMapper _stateMapper;
         private bool _isUiGameplayInputBlocked;
+        private IGameplayHudChanceChanges _chanceChanges;
+        private long _inputChanceRevision = -1, _handledChanceRevision = -1, _autoAttemptedChanceRevision = -1;
+        private long _preparedChanceRevision = -1;
+        private GameplayPlayerHudReadModel _preparedPlayerHud;
+        private bool _isFlushingChance, _isDisposed;
+        private HudQueryCache<GameplayStageReadModel> _stageReads;
+        private HudQueryCache<GameplayObjectiveReadModel> _objectiveReads;
+        private HudQueryCache<GameplayPlayerHudReadModel> _playerReads;
+        private HudQueryCache<IReadOnlyList<GameplaySurfaceButtonRemainderReadModel>> _surfaceReads;
+        private long _uncachedChanceRevision = -1;
+        private GameplayHudQueryStamp _preparedHudStamp;
+        private bool _hasPreparedHudStamp;
 
         public GameplayUiPresentationSource(
             IGameplayQueryFacade queryFacade,
@@ -55,6 +71,7 @@ namespace Game.Feature.UI.Application
                     frame: null,
                     shouldUpdateTickIndex: false,
                     shouldUpdateFinalTopology: true)).Snapshot;
+            _handledChanceRevision = _inputChanceRevision;
             CurrentTickEvents = UITickEventBatch.Empty;
 
             _presentationFeed.FramePublished += HandleFramePublished;
@@ -79,10 +96,146 @@ namespace Game.Feature.UI.Application
 
         public void Dispose()
         {
+            _isDisposed = true;
+            InvalidateHudQueries();
+            _preparedChanceRevision = -1;
             _presentationFeed.FramePublished -= HandleFramePublished;
             _presentationFeed.StateChanged -= HandlePresentationStateChanged;
             _presentationFeed.LevelFailedCommitted -= HandleLevelFailedCommitted;
             _pauseService.PauseChanged -= HandlePauseChanged;
+        }
+
+        public void FlushPendingChanceChanges()
+        {
+            if (_isDisposed || _isFlushingChance || _chanceChanges == null ||
+                _chanceChanges.IsChanceDisplayUpdating ||
+                !_chanceChanges.TryGetChanceRevision(out var revision) ||
+                revision == _handledChanceRevision || revision == _autoAttemptedChanceRevision) return;
+
+#if VECTORQUAKE_CAPTURE_BUILD
+            using var capture = UiCallbackCapture.Measure(UiCallbackSection.UiRefreshHandling, UiCallbackOrigin.PresentStateChanged);
+#endif
+            _isFlushingChance = true;
+            var attempted = revision;
+            try
+            {
+                var player = ReadPlayerHudForRefresh(out attempted, force: true);
+                _hasPreparedHudStamp = _playerReads?.Query is IGameplayHudRevisionProbe;
+                if (_playerReads?.Query is IGameplayHudRevisionProbe preparedProbe)
+                    preparedProbe.TryGetRevision(out _preparedHudStamp);
+                if (_chanceChanges.IsChanceDisplayUpdating) return;
+                var chance = new UIChanceSlice(player.HasRemainingChances, player.RemainingChances,
+                    player.MaxChances, player.ChanceAudioPolicy);
+                if (CurrentSnapshot.Chance.Equals(chance))
+                {
+                    _handledChanceRevision = Math.Max(_handledChanceRevision, attempted);
+                    return;
+                }
+                _preparedPlayerHud = player;
+                _preparedChanceRevision = attempted;
+                PublishSnapshot(_stateMapper.ReduceRefresh(CurrentSnapshot, CreateRefreshInput(
+                    frame: null, shouldUpdateTickIndex: false, shouldUpdateFinalTopology: false)).Snapshot);
+            }
+            finally
+            {
+                if (attempted < 0) attempted = revision;
+                _autoAttemptedChanceRevision = attempted;
+                _preparedChanceRevision = -1;
+                _isFlushingChance = false;
+            }
+        }
+
+        public void InvalidateHudQueries()
+        {
+            _stageReads?.Invalidate();
+            _objectiveReads?.Invalidate();
+            _playerReads?.Invalidate();
+            _surfaceReads?.Invalidate();
+        }
+
+        private GameplayStageReadModel ReadStageForRefresh()
+        {
+            var query = _queryFacade.Stage;
+            if (_stageReads == null || !ReferenceEquals(_stageReads.Query, query))
+            {
+                _stageReads = new HudQueryCache<GameplayStageReadModel>(query, query.Read);
+#if VECTORQUAKE_CAPTURE_BUILD
+                _stageReads.CaptureSection = UiCallbackSection.QueryStage;
+#endif
+            }
+            return _stageReads.Read().Value;
+        }
+        private GameplayObjectiveReadModel ReadObjectiveForRefresh()
+        {
+            var query = _queryFacade.Objectives;
+            if (_objectiveReads == null || !ReferenceEquals(_objectiveReads.Query, query))
+            {
+                _objectiveReads = new HudQueryCache<GameplayObjectiveReadModel>(query, query.Read);
+#if VECTORQUAKE_CAPTURE_BUILD
+                _objectiveReads.CaptureSection = UiCallbackSection.QueryObjectives;
+#endif
+            }
+            return _objectiveReads.Read().Value;
+        }
+        private IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> ReadSurfaceForRefresh()
+        {
+            var query = _queryFacade.SurfaceButtonRemainders;
+            if (_surfaceReads == null || !ReferenceEquals(_surfaceReads.Query, query))
+            {
+                _surfaceReads = new HudQueryCache<IReadOnlyList<GameplaySurfaceButtonRemainderReadModel>>(query, query.Read);
+#if VECTORQUAKE_CAPTURE_BUILD
+                _surfaceReads.CaptureSection = UiCallbackSection.QuerySurfaceButtonRemainders;
+#endif
+            }
+            return _surfaceReads.Read().Value;
+        }
+        private GameplayPlayerHudReadModel ReadUncachedPlayerHud(IGameplayPlayerHudQuery query)
+        {
+            if (query is IGameplayHudChanceChanges changes && changes.TryGetChanceRevision(out _))
+            {
+                var attempted = -1L;
+                try { return changes.ReadChance(out attempted); }
+                finally { _uncachedChanceRevision = attempted; }
+            }
+            return query.Read();
+        }
+        private GameplayPlayerHudReadModel ReadPlayerHudForRefresh(out long revision, bool force = false)
+        {
+            revision = -1;
+            var playerQuery = _queryFacade.PlayerHud;
+            _chanceChanges = playerQuery as IGameplayHudChanceChanges;
+            if (_playerReads == null || !ReferenceEquals(_playerReads.Query, playerQuery))
+            {
+                _playerReads = new HudQueryCache<GameplayPlayerHudReadModel>(playerQuery, () => ReadUncachedPlayerHud(playerQuery));
+#if VECTORQUAKE_CAPTURE_BUILD
+                _playerReads.CaptureSection = UiCallbackSection.QueryPlayerHud;
+#endif
+            }
+            if (!force && _preparedChanceRevision >= 0 && _chanceChanges != null &&
+                _chanceChanges.TryGetChanceRevision(out var current) && _preparedChanceRevision == current)
+            {
+                var sameWindow = true;
+                if (_hasPreparedHudStamp && playerQuery is IGameplayHudRevisionProbe probe)
+                {
+                    probe.TryGetRevision(out var now);
+                    sameWindow = now.Equals(_preparedHudStamp);
+                }
+                if (sameWindow) { revision = current; return _preparedPlayerHud; }
+            }
+            _uncachedChanceRevision = -1;
+            try
+            {
+                var read = _playerReads.Read(force);
+                revision = read.CanReuse ? read.Stamp.ChanceRevision : _uncachedChanceRevision;
+                return read.Value;
+            }
+            catch
+            {
+                if (_uncachedChanceRevision < 0 && playerQuery is IGameplayHudRevisionedQuery<GameplayPlayerHudReadModel>)
+                    _chanceChanges?.TryGetChanceRevision(out _uncachedChanceRevision);
+                throw;
+            }
+            finally { if (revision < 0) revision = _uncachedChanceRevision; }
         }
 
         public void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked)
@@ -161,15 +314,13 @@ namespace Game.Feature.UI.Application
             bool shouldUpdateTickIndex,
             bool shouldUpdateFinalTopology)
         {
+            long chanceRevision;
             var session = _queryFacade.Session.Read();
-            var stage = _queryFacade.Stage.Read();
-            var objective = _queryFacade.Objectives.Read();
-            var playerHud = _queryFacade.PlayerHud.Read();
-            var surfaceButtonRemainders = _queryFacade.SurfaceButtonRemainders.Read();
-            var player = frame.HasValue && frame.Value.Player.HasValue
-                ? frame.Value.Player.Value
-                : default;
-            var hasFramePlayer = frame.HasValue && frame.Value.Player.HasValue;
+            var stage = ReadStageForRefresh();
+            var objective = ReadObjectiveForRefresh();
+            var playerHud = ReadPlayerHudForRefresh(out chanceRevision);
+            var surfaceButtonRemainders = ReadSurfaceForRefresh();
+            _inputChanceRevision = _chanceChanges?.IsChanceDisplayUpdating == true ? -1 : chanceRevision;
             var hasStageClearFrame =
                 frame.HasValue &&
                 frame.Value.StageEvent.HasValue &&
@@ -191,17 +342,6 @@ namespace Game.Feature.UI.Application
                 _pauseService.IsPaused,
                 session.CanAcceptGameplayCommands,
                 _isUiGameplayInputBlocked,
-                playerHud.PlayerEntityId,
-                playerHud.CurrentHp,
-                playerHud.MaxHp,
-                playerHud.Facing,
-                playerHud.ActiveActionKind,
-                hasFramePlayer ? player.IsRecoveryPhase : playerHud.IsActionInRecoveryPhase,
-                playerHud.CanMoveThisTick,
-                playerHud.CanStartActionThisTick,
-                MapRecoveryCooldown(playerHud.RecoveryCooldown),
-                playerHud.CanStartAnyActionThisTick,
-                playerHud.HasExplicitPushCandidateInCurrentDirection,
                 playerHud.HasRemainingChances,
                 playerHud.RemainingChances,
                 playerHud.MaxChances,
@@ -234,21 +374,15 @@ namespace Game.Feature.UI.Application
             return result;
         }
 
-        private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)
+        private void PublishSnapshot(UIPresentationSnapshot nextSnapshot)
         {
-            if (!recoveryCooldown.HasValue)
-            {
-                return null;
-            }
-
-            var value = recoveryCooldown.Value;
-            return new UIRecoveryCooldownSlice(
-                value.ActionKind,
-                value.RemainingRecoveryTicks,
-                value.TotalRecoveryTicks);
+            var revision = _inputChanceRevision;
+            PublishSnapshotCore(nextSnapshot);
+            if (_chanceChanges?.IsChanceDisplayUpdating != true)
+                _handledChanceRevision = Math.Max(_handledChanceRevision, revision);
         }
 
-        private void PublishSnapshot(UIPresentationSnapshot nextSnapshot)
+        private void PublishSnapshotCore(UIPresentationSnapshot nextSnapshot)
         {
             if (CurrentSnapshot.Equals(nextSnapshot))
             {

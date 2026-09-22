@@ -22,81 +22,6 @@ namespace Game.Feature.UI.Application
             bool isPaused,
             bool canAcceptGameplayCommands,
             bool isUiGameplayInputBlocked,
-            int playerEntityId,
-            int currentHp,
-            GameplayUiDirection facing,
-            GameplayUiActionKind activeActionKind,
-            bool isRecoveryPhase,
-            bool canMoveThisTick,
-            bool canStartActionThisTick,
-            UIRecoveryCooldownSlice? recoveryCooldown,
-            bool canStartAnyActionThisTick = false,
-            bool hasExplicitPushCandidateInCurrentDirection = false,
-            bool hasRemainingChances = false,
-            int remainingChances = 0,
-            int maxChances = 0,
-            StageId stageId = default,
-            string stageDisplayNameKey = null,
-            GameplayObjectiveReadModel objective = default,
-            GameplayTopologyPresentationSlice? topologyPresentation = null,
-            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default,
-            IReadOnlyList<UISurfaceButtonRemainderInput> surfaceButtonRemainders = null)
-            : this(
-                tickIndex,
-                shouldUpdateTickIndex,
-                finalTopology,
-                shouldUpdateFinalTopology,
-                isStageCleared,
-                isTopologyTransitionActive,
-                hasBlockingGameplayPresentation,
-                isPaused,
-                canAcceptGameplayCommands,
-                isUiGameplayInputBlocked,
-                playerEntityId,
-                currentHp,
-                currentHp,
-                facing,
-                activeActionKind,
-                isRecoveryPhase,
-                canMoveThisTick,
-                canStartActionThisTick,
-                recoveryCooldown,
-                canStartAnyActionThisTick,
-                hasExplicitPushCandidateInCurrentDirection,
-                hasRemainingChances,
-                remainingChances,
-                maxChances,
-                stageId,
-                stageDisplayNameKey,
-                objective,
-                topologyPresentation,
-                chanceAudioPolicy,
-                surfaceButtonRemainders)
-        {
-        }
-
-        public UIStateRefreshInput(
-            int tickIndex,
-            bool shouldUpdateTickIndex,
-            GameplayUiTopology finalTopology,
-            bool shouldUpdateFinalTopology,
-            bool isStageCleared,
-            bool isTopologyTransitionActive,
-            bool hasBlockingGameplayPresentation,
-            bool isPaused,
-            bool canAcceptGameplayCommands,
-            bool isUiGameplayInputBlocked,
-            int playerEntityId,
-            int currentHp,
-            int maxHp,
-            GameplayUiDirection facing,
-            GameplayUiActionKind activeActionKind,
-            bool isRecoveryPhase,
-            bool canMoveThisTick,
-            bool canStartActionThisTick,
-            UIRecoveryCooldownSlice? recoveryCooldown,
-            bool canStartAnyActionThisTick = false,
-            bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
             int remainingChances = 0,
             int maxChances = 0,
@@ -117,16 +42,6 @@ namespace Game.Feature.UI.Application
             IsPaused = isPaused;
             CanAcceptGameplayCommands = canAcceptGameplayCommands;
             IsUiGameplayInputBlocked = isUiGameplayInputBlocked;
-            PlayerEntityId = playerEntityId;
-            CurrentHp = currentHp;
-            MaxHp = maxHp > 0 ? maxHp : currentHp;
-            Facing = facing;
-            ActiveActionKind = activeActionKind;
-            IsRecoveryPhase = isRecoveryPhase;
-            CanMoveThisTick = canMoveThisTick;
-            CanStartActionThisTick = canStartActionThisTick;
-            CanStartAnyActionThisTick = canStartAnyActionThisTick || canStartActionThisTick;
-            HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             HasRemainingChances = hasRemainingChances;
             RemainingChances = remainingChances;
             MaxChances = maxChances > 0
@@ -139,7 +54,6 @@ namespace Game.Feature.UI.Application
             StageDisplayNameKey = StageDisplayNameKeys.Normalize(stageDisplayNameKey);
             Objective = objective;
             TopologyPresentation = topologyPresentation;
-            RecoveryCooldown = recoveryCooldown;
             SurfaceButtonRemainders = CopySurfaceButtonRemainders(surfaceButtonRemainders);
         }
 
@@ -163,26 +77,6 @@ namespace Game.Feature.UI.Application
 
         public bool IsUiGameplayInputBlocked { get; }
 
-        public int PlayerEntityId { get; }
-
-        public int CurrentHp { get; }
-
-        public int MaxHp { get; }
-
-        public GameplayUiDirection Facing { get; }
-
-        public GameplayUiActionKind ActiveActionKind { get; }
-
-        public bool IsRecoveryPhase { get; }
-
-        public bool CanMoveThisTick { get; }
-
-        public bool CanStartActionThisTick { get; }
-
-        public bool CanStartAnyActionThisTick { get; }
-
-        public bool HasExplicitPushCandidateInCurrentDirection { get; }
-
         public bool HasRemainingChances { get; }
 
         public int RemainingChances { get; }
@@ -198,8 +92,6 @@ namespace Game.Feature.UI.Application
         public GameplayObjectiveReadModel Objective { get; }
 
         public GameplayTopologyPresentationSlice? TopologyPresentation { get; }
-
-        public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
 
         public IReadOnlyList<UISurfaceButtonRemainderInput> SurfaceButtonRemainders { get; }
 
@@ -349,25 +241,11 @@ namespace Game.Feature.UI.Application
             var topology = MapTopology(tick, refreshInput);
             var surfaceBelt = MapSurfaceBelt(tick, refreshInput);
             var player = new UIPlayerActionSlice(
-                refreshInput.PlayerEntityId,
-                refreshInput.CurrentHp,
-                refreshInput.MaxHp,
-                refreshInput.Facing,
-                refreshInput.ActiveActionKind,
-                refreshInput.IsRecoveryPhase,
-                refreshInput.CanMoveThisTick,
-                refreshInput.CanStartActionThisTick,
                 previous.Player.LastResolvedOutcome,
                 previous.Player.LastResolvedTickIndex,
                 preserveTickScopedDamage && previous.Player.TookDamageThisTick,
                 previous.Player.LastDamageAmount,
-                previous.Player.LastDamageTickIndex,
-                refreshInput.RecoveryCooldown,
-                refreshInput.CanStartAnyActionThisTick,
-                refreshInput.HasExplicitPushCandidateInCurrentDirection,
-                refreshInput.HasRemainingChances,
-                refreshInput.RemainingChances,
-                refreshInput.MaxChances);
+                previous.Player.LastDamageTickIndex);
 
             return new UIPresentationSnapshot(
                 tick,
@@ -401,25 +279,11 @@ namespace Game.Feature.UI.Application
                         snapshot.Topology,
                         snapshot.SurfaceBelt,
                         new UIPlayerActionSlice(
-                            snapshot.Player.PlayerEntityId,
-                            snapshot.Player.CurrentHp,
-                            snapshot.Player.MaxHp,
-                            snapshot.Player.Facing,
-                            snapshot.Player.ActiveActionKind,
-                            snapshot.Player.IsRecoveryPhase,
-                            snapshot.Player.CanMoveThisTick,
-                            snapshot.Player.CanStartActionThisTick,
                             tickEvent.ResolutionKind,
                             tickEvent.TickIndex,
                             snapshot.Player.TookDamageThisTick,
                             snapshot.Player.LastDamageAmount,
-                            snapshot.Player.LastDamageTickIndex,
-                            snapshot.Player.RecoveryCooldown,
-                            snapshot.Player.CanStartAnyActionThisTick,
-                            snapshot.Player.HasExplicitPushCandidateInCurrentDirection,
-                            snapshot.Player.HasRemainingChances,
-                            snapshot.Player.RemainingChances,
-                            snapshot.Player.MaxChances),
+                            snapshot.Player.LastDamageTickIndex),
                         snapshot.Notifications);
 
                 case UITickEventKind.PlayerDamaged:
@@ -432,25 +296,11 @@ namespace Game.Feature.UI.Application
                         snapshot.Topology,
                         snapshot.SurfaceBelt,
                         new UIPlayerActionSlice(
-                            snapshot.Player.PlayerEntityId,
-                            snapshot.Player.CurrentHp,
-                            snapshot.Player.MaxHp,
-                            snapshot.Player.Facing,
-                            snapshot.Player.ActiveActionKind,
-                            snapshot.Player.IsRecoveryPhase,
-                            snapshot.Player.CanMoveThisTick,
-                            snapshot.Player.CanStartActionThisTick,
                             snapshot.Player.LastResolvedOutcome,
                             snapshot.Player.LastResolvedTickIndex,
                             true,
                             tickEvent.DamageAmount,
-                            tickEvent.TickIndex,
-                            snapshot.Player.RecoveryCooldown,
-                            snapshot.Player.CanStartAnyActionThisTick,
-                            snapshot.Player.HasExplicitPushCandidateInCurrentDirection,
-                            snapshot.Player.HasRemainingChances,
-                            snapshot.Player.RemainingChances,
-                            snapshot.Player.MaxChances),
+                            tickEvent.TickIndex),
                         snapshot.Notifications);
 
                 case UITickEventKind.StageCleared:

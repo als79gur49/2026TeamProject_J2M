@@ -13,6 +13,90 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class WorldStatePlacementInvariantTests
     {
         [Test]
+        [Category("Core")]
+        public void WorldState_ExplicitWallAndLegacyNone_OccupySolidLaneOnly()
+        {
+            var legacyCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var explicitCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var legacyWall = CreateLegacyNoneSolid(40, legacyCell);
+            var explicitWall = CreateExplicitWall(41, explicitCell);
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { legacyWall, explicitWall },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)))
+                .CreateSnapshot();
+
+            Assert.That(snapshot.TryGetSolidOccupantAt(legacyCell, out var legacySolid), Is.True);
+            Assert.That(snapshot.TryGetSolidOccupantAt(explicitCell, out var explicitSolid), Is.True);
+            Assert.That(legacySolid.type, Is.EqualTo(EntityType.None));
+            Assert.That((int)explicitSolid.type, Is.EqualTo(4));
+            Assert.That(snapshot.HasAnyUnitAt(legacyCell), Is.False);
+            Assert.That(snapshot.HasAnyUnitAt(explicitCell), Is.False);
+            Assert.That(snapshot.TryGetPrimaryUnitAt(legacyCell, out _), Is.False);
+            Assert.That(snapshot.TryGetPrimaryUnitAt(explicitCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityTypeContract_WallUsesFreshValueFour()
+        {
+            Assert.That(
+                Enum.GetName(typeof(EntityType), (EntityType)4),
+                Is.EqualTo("Wall"),
+                "EntityType value 4 must be the explicit Wall identity.");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityTypeContract_LegacyProjectileValueTwo_RemainsUnassigned()
+        {
+            Assert.That((int)EntityType.None, Is.EqualTo(0));
+            Assert.That((int)EntityType.Unit, Is.EqualTo(1));
+            Assert.That(Enum.IsDefined(typeof(EntityType), 2), Is.False);
+            Assert.That((int)EntityType.Box, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldPlacementPolicy_ProposedWall_PreservesLegacyWallSolidRules()
+        {
+            var occupiedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreateUnit(entityId: 10, position: occupiedCell) });
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(
+                snapshot.TryGetAuthoritativePlacementBlocker(
+                    EntityType.None,
+                    occupiedCell,
+                    ignoredEntityId: 0,
+                    out var legacyBlocker),
+                Is.True);
+            Assert.That(legacyBlocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(legacyBlocker.EntityId, Is.EqualTo(10));
+
+            var proposedWallPreservesRules = false;
+            try
+            {
+                proposedWallPreservesRules = snapshot.TryGetAuthoritativePlacementBlocker(
+                    (EntityType)4,
+                    occupiedCell,
+                    ignoredEntityId: 0,
+                    out var proposedBlocker) &&
+                    proposedBlocker.Kind == legacyBlocker.Kind &&
+                    proposedBlocker.EntityId == legacyBlocker.EntityId;
+            }
+            catch (InvalidOperationException)
+            {
+                proposedWallPreservesRules = false;
+            }
+
+            Assert.That(
+                proposedWallPreservesRules,
+                Is.True,
+                "Proposed Wall must preserve the legacy live-None solid placement blocker contract.");
+        }
+
+        [Test]
         [Category("Extended")]
         public void MoveEntity_InBoundsDestination_AllowsRepresentableAuthoritativeMove()
         {
@@ -367,7 +451,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
-                    CreateWall(entityId: 238, position: wallCell),
+                    CreateExplicitWall(entityId: 238, position: wallCell),
                     CreateUnit(entityId: 241, position: Vector2Int.zero),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
@@ -450,7 +534,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
-                    CreateWall(entityId: 238, position: wallCell),
+                    CreateExplicitWall(entityId: 238, position: wallCell),
                     CreateUnit(entityId: 241, position: Vector2Int.zero),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
@@ -517,7 +601,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
-        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        private static EntityState CreateExplicitWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Wall,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                markedForDeath = false,
+                spawnTick = 0,
+            };
+        }
+
+        private static EntityState CreateLegacyNoneSolid(int entityId, SurfaceCell position)
         {
             return new EntityState
             {

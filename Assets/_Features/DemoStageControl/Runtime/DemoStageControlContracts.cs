@@ -15,6 +15,91 @@ namespace Game.Feature.DemoStageControl
         DemoStageControlResult ForceClearCurrentStage();
     }
 
+    public interface IDemoStageControlPresentationSource
+    {
+        DemoStageControlPresentationSnapshot Current { get; }
+
+        event Action<DemoStageControlPresentationSnapshot> Changed;
+    }
+
+    public readonly struct DemoStageControlPresentationSnapshot : IEquatable<DemoStageControlPresentationSnapshot>
+    {
+        private readonly IReadOnlyList<DemoStageControlStageItem> _stages;
+
+        public DemoStageControlPresentationSnapshot(
+            IReadOnlyList<DemoStageControlStageItem> stages,
+            DemoStageControlStatus status,
+            DemoGameplayOverrideStatus overrideStatus)
+        {
+            _stages = stages == null
+                ? Array.Empty<DemoStageControlStageItem>()
+                : Array.AsReadOnly(CopyStages(stages));
+            Status = status;
+            OverrideStatus = overrideStatus;
+        }
+
+        public IReadOnlyList<DemoStageControlStageItem> Stages =>
+            _stages ?? Array.Empty<DemoStageControlStageItem>();
+
+        public DemoStageControlStatus Status { get; }
+
+        public DemoGameplayOverrideStatus OverrideStatus { get; }
+
+        public bool Equals(DemoStageControlPresentationSnapshot other)
+        {
+            if (!Status.Equals(other.Status) || !OverrideStatus.Equals(other.OverrideStatus))
+            {
+                return false;
+            }
+
+            var left = Stages;
+            var right = other.Stages;
+            if (left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (!left[i].Equals(right[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj) =>
+            obj is DemoStageControlPresentationSnapshot other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(Status);
+            hash.Add(OverrideStatus);
+            var stages = Stages;
+            for (var i = 0; i < stages.Count; i++)
+            {
+                hash.Add(stages[i]);
+            }
+
+            return hash.ToHashCode();
+        }
+
+        private static DemoStageControlStageItem[] CopyStages(
+            IReadOnlyList<DemoStageControlStageItem> stages)
+        {
+            var copy = new DemoStageControlStageItem[stages.Count];
+            for (var i = 0; i < stages.Count; i++)
+            {
+                copy[i] = stages[i];
+            }
+
+            return copy;
+        }
+    }
+
     public interface IDemoStageControlCampaignBridge
     {
         StageId CurrentStageId { get; }

@@ -18,6 +18,43 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void WorldState_FastImport_ExplicitWallPreservesSolidAndPendingReactionFieldsInOrder()
+        {
+            var wallCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = GameplayCompositionRoot.CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), UnitRole.Enemy, teamId: 2),
+                    CreateUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), UnitRole.Enemy, teamId: 2),
+                    CreateWall(40, wallCell),
+                },
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor));
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPendingEnemyBlockedReaction(20, CreateWallReaction(20, 40, wallCell, createdTick: 7));
+            writeContext.SetPendingEnemyBlockedReaction(10, CreateWallReaction(10, 40, wallCell, createdTick: 5));
+            var before = worldState.CreateSnapshot();
+
+            var after = WorldState.CreateFromSnapshotFast(before).CreateSnapshot();
+
+            Assert.That(after.TryGetEntity(40, out var wall), Is.True);
+            Assert.That(wall.type, Is.EqualTo(EntityType.Wall));
+            Assert.That(after.TryGetSolidOccupantAt(wallCell, out var solid), Is.True);
+            Assert.That(solid.entityId, Is.EqualTo(40));
+            Assert.That(after.TryGetSolidSemanticAt(wallCell, out var semantic), Is.True);
+            Assert.That(semantic.Kind, Is.EqualTo(SolidKind.Wall));
+            var beforeReactions = Collect<PendingEnemyBlockedReactionSnapshotEntry>(before.EnumeratePendingEnemyBlockedReactionsOrdered);
+            var afterReactions = Collect<PendingEnemyBlockedReactionSnapshotEntry>(after.EnumeratePendingEnemyBlockedReactionsOrdered);
+            CollectionAssert.AreEqual(new[] { 10, 20 }, afterReactions.Select(entry => entry.EntityId).ToArray());
+            Assert.That(afterReactions, Has.Count.EqualTo(beforeReactions.Count));
+            for (var i = 0; i < beforeReactions.Count; i++)
+            {
+                AssertReactionEqual(beforeReactions[i], afterReactions[i]);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void ProjectedWorld_FastImport_ProducesSameSnapshotAsSlowImport()
         {
             var baseSnapshot = CreateRichSnapshot();
@@ -26,6 +63,42 @@ namespace Game.Feature.Gameplay.Tests.Core
             var fastSnapshot = SnapshotBuilder.Create(WorldState.CreateFromSnapshotFast(baseSnapshot));
 
             AssertSnapshotsEquivalent(slowSnapshot, fastSnapshot);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectedWorld_FastImport_PreservesNonEmptyCleanupCandidateIndexes()
+        {
+            var timerEntity = CreateUnit(
+                10,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                UnitRole.Enemy,
+                teamId: 2,
+                boardPresence: EntityBoardPresence.Detached);
+            timerEntity.state = EntityPhaseState.Cooldown;
+            timerEntity.stateTimer = 2;
+            var removalAndTransitionEntity = CreateUnit(
+                20,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                UnitRole.Enemy,
+                teamId: 2,
+                boardPresence: EntityBoardPresence.Detached);
+            removalAndTransitionEntity.hp = 0;
+            removalAndTransitionEntity.state = EntityPhaseState.Acting;
+
+            var baseWorld = GameplayCompositionRoot.CreateWorldState(
+                new[] { removalAndTransitionEntity, timerEntity },
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor));
+            var baseSnapshot = baseWorld.CreateSnapshot();
+
+            var slowSnapshot = SnapshotBuilder.Create(ProjectedWorld.MaterializeWorldStateSlowForTest(baseSnapshot));
+            var fastSnapshot = SnapshotBuilder.Create(WorldState.CreateFromSnapshotFast(baseSnapshot));
+
+            AssertSnapshotsEquivalent(slowSnapshot, fastSnapshot);
+            CollectionAssert.AreEqual(new[] { 20 }, fastSnapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 10 }, fastSnapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 20 }, fastSnapshot.CleanupImmediateTransitionCandidateIds.ToArray());
         }
 
         [Test]
@@ -92,6 +165,13 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(counts.SlowBaseSnapshotImportCount, Is.EqualTo(0));
             Assert.That(counts.FastImportedEntityCount, Is.EqualTo(baseSnapshot.EntityCount));
             Assert.That(counts.FastImportedTileFeatureCount, Is.EqualTo(baseSnapshot.TileFeatureCount));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(1));
+            Assert.That(counts.WorldStateSnapshotCacheHitCount, Is.Zero);
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(1));
+            Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
         }
 
         [Test]
@@ -115,6 +195,47 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(projectedSnapshot.TryGetEntity(91, out var entity), Is.True);
             Assert.That(entity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 4)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectedWorld_OverlayEntityOperations_UpdateCleanupCandidateIndexes()
+        {
+            var immediateEntity = CreateUnit(30, new SurfaceCell(FaceId.Floor, 3, 1), UnitRole.Enemy, teamId: 2);
+            immediateEntity.state = EntityPhaseState.Acting;
+            var timerEntity = CreateUnit(20, new SurfaceCell(FaceId.Floor, 2, 1), UnitRole.Enemy, teamId: 2);
+            timerEntity.state = EntityPhaseState.Cooldown;
+            timerEntity.stateTimer = 2;
+            var baseWorld = GameplayCompositionRoot.CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 1, 1), UnitRole.Enemy, teamId: 2),
+                    timerEntity,
+                    immediateEntity,
+                },
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor));
+            var projectedWorld = new ProjectedWorld(baseWorld.CreateSnapshot());
+            var spawnedTimerEntity = CreateUnit(
+                40,
+                new SurfaceCell(FaceId.Floor, 4, 1),
+                UnitRole.Enemy,
+                teamId: 2);
+            spawnedTimerEntity.state = EntityPhaseState.Sliding;
+            spawnedTimerEntity.stateTimer = 3;
+            var batch = new FinalizationBatch();
+            batch.ApplyDamage(10, amount: 3);
+            batch.ApplyStateChange(20, EntityPhaseState.Cooldown, stateTimer: 0);
+            batch.MarkDestroy(30);
+            batch.SpawnEntity(spawnedTimerEntity);
+            projectedWorld.ApplyBatch(batch);
+
+            var projectedSnapshot = projectedWorld.CreateSnapshot();
+
+            CollectionAssert.AreEqual(new[] { 10, 30 }, projectedSnapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 40 }, projectedSnapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(new[] { 20, 30 }, projectedSnapshot.CleanupImmediateTransitionCandidateIds.ToArray());
+            AssertCleanupCandidateIndexesMatchEntities(projectedSnapshot);
         }
 
         [Test]
@@ -304,6 +425,37 @@ namespace Game.Feature.Gameplay.Tests.Core
             CollectionAssert.AreEqual(Collect<UnitKinematicSnapshotEntry>(expected.EnumerateUnitKinematicStatesOrdered), Collect<UnitKinematicSnapshotEntry>(actual.EnumerateUnitKinematicStatesOrdered));
             CollectionAssert.AreEqual(Collect<UnitContinuousLocomotionSnapshotEntry>(expected.EnumerateUnitContinuousLocomotionStatesOrdered), Collect<UnitContinuousLocomotionSnapshotEntry>(actual.EnumerateUnitContinuousLocomotionStatesOrdered));
             CollectionAssert.AreEqual(Collect<PhasedSnapshotEntry>(expected.EnumeratePhasedStatesOrdered), Collect<PhasedSnapshotEntry>(actual.EnumeratePhasedStatesOrdered));
+            CollectionAssert.AreEqual(
+                expected.CleanupRemovalCandidateIds.ToArray(),
+                actual.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                expected.CleanupTimerCandidateIds.ToArray(),
+                actual.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                expected.CleanupImmediateTransitionCandidateIds.ToArray(),
+                actual.CleanupImmediateTransitionCandidateIds.ToArray());
+        }
+
+        private static void AssertCleanupCandidateIndexesMatchEntities(WorldSnapshot snapshot)
+        {
+            var entities = Collect<EntityState>(snapshot.EnumerateEntitiesOrdered);
+            CollectionAssert.AreEqual(
+                entities.Where(entity => entity.hp <= 0 || entity.markedForDeath)
+                    .Select(entity => entity.entityId)
+                    .ToArray(),
+                snapshot.CleanupRemovalCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                entities.Where(entity => entity.stateTimer > 0)
+                    .Select(entity => entity.entityId)
+                    .ToArray(),
+                snapshot.CleanupTimerCandidateIds.ToArray());
+            CollectionAssert.AreEqual(
+                entities.Where(entity =>
+                        entity.stateTimer <= 0 &&
+                        (entity.state == EntityPhaseState.Acting || entity.state == EntityPhaseState.Cooldown))
+                    .Select(entity => entity.entityId)
+                    .ToArray(),
+                snapshot.CleanupImmediateTransitionCandidateIds.ToArray());
         }
 
         private static List<T> Collect<T>(Action<List<T>> enumerate)
@@ -379,6 +531,54 @@ namespace Game.Feature.Gameplay.Tests.Core
                 boardPresence = EntityBoardPresence.Occupying,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
             };
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            var wall = CreateBox(entityId, position);
+            wall.type = EntityType.Wall;
+            wall.boxCapabilities = BoxCapabilities.None;
+            return wall;
+        }
+
+        private static PendingEnemyBlockedReaction CreateWallReaction(
+            int enemyEntityId,
+            int blockerEntityId,
+            SurfaceCell wallCell,
+            int createdTick)
+        {
+            return new PendingEnemyBlockedReaction(
+                enemyEntityId,
+                EnemyBlockedReactionKind.KinematicContinuationTargetBlocked,
+                EnemyAiMode.Chase,
+                wallCell + Vector2Int.left,
+                wallCell,
+                Direction.Right,
+                LegalityBlockerKind.Solid,
+                SolidKind.Wall,
+                EntityType.Wall,
+                blockerEntityId,
+                createdTick,
+                createdTick + 2);
+        }
+
+        private static void AssertReactionEqual(
+            PendingEnemyBlockedReactionSnapshotEntry expected,
+            PendingEnemyBlockedReactionSnapshotEntry actual)
+        {
+            Assert.That(actual.EntityId, Is.EqualTo(expected.EntityId));
+            Assert.That(actual.Reaction.EnemyEntityId, Is.EqualTo(expected.Reaction.EnemyEntityId));
+            Assert.That(actual.Reaction.Kind, Is.EqualTo(expected.Reaction.Kind));
+            Assert.That(actual.Reaction.ModeAtBlock, Is.EqualTo(expected.Reaction.ModeAtBlock));
+            Assert.That(actual.Reaction.SourceCell, Is.EqualTo(expected.Reaction.SourceCell));
+            Assert.That(actual.Reaction.BlockedTargetCell, Is.EqualTo(expected.Reaction.BlockedTargetCell));
+            Assert.That(actual.Reaction.BlockedDirection, Is.EqualTo(expected.Reaction.BlockedDirection));
+            Assert.That(actual.Reaction.BlockerKind, Is.EqualTo(expected.Reaction.BlockerKind));
+            Assert.That(actual.Reaction.BlockerSolidKind, Is.EqualTo(expected.Reaction.BlockerSolidKind));
+            Assert.That(actual.Reaction.BlockerEntityType, Is.EqualTo(expected.Reaction.BlockerEntityType));
+            Assert.That(actual.Reaction.BlockerEntityId, Is.EqualTo(expected.Reaction.BlockerEntityId));
+            Assert.That(actual.Reaction.CreatedTick, Is.EqualTo(expected.Reaction.CreatedTick));
+            Assert.That(actual.Reaction.ExpireTick, Is.EqualTo(expected.Reaction.ExpireTick));
         }
 
         private static UnitKinematicRuntimeState CreateKinematicState()

@@ -93,6 +93,7 @@ namespace Game.Feature.Gameplay.BoardState
 
                 case EntityType.Box:
                 case EntityType.None:
+                case EntityType.Wall:
                     solidOccupancyByCell[entity.position] = entity.entityId;
                     break;
 
@@ -111,6 +112,7 @@ namespace Game.Feature.Gameplay.BoardState
                 case EntityType.None:
                 case EntityType.Unit:
                 case EntityType.Box:
+                case EntityType.Wall:
                     return;
 
                 default:

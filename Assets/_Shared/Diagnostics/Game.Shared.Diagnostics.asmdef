@@ -1,0 +1,6 @@
+{
+  "name": "Game.Shared.Diagnostics",
+  "rootNamespace": "Game.Shared.Diagnostics",
+  "references": [],
+  "noEngineReferences": true
+}

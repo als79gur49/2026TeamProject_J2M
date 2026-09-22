@@ -915,6 +915,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void WorldSnapshot_OrderedRead_SharesCacheWithLegacyBufferAndRetainedSnapshot()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEntity(30, EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), Direction.Right),
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 1, 0), Direction.Right),
+            });
+            var firstSnapshot = worldState.CreateSnapshot();
+            var firstView = firstSnapshot.GetOrderedEntitiesForRead();
+            var buffer = new List<EntityState>();
+            firstSnapshot.EnumerateEntitiesOrdered(buffer);
+
+            Assert.That(firstView.Length, Is.EqualTo(2));
+            Assert.That(firstView[0], Is.EqualTo(buffer[0]));
+            Assert.That(firstView[1], Is.EqualTo(buffer[1]));
+
+            CreateWriteContext(worldState).SpawnEntity(
+                CreateEntity(20, EntityType.Unit, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right));
+            var secondView = worldState.CreateSnapshot().GetOrderedEntitiesForRead();
+
+            Assert.That(firstView.Length, Is.EqualTo(2));
+            Assert.That(secondView.Length, Is.EqualTo(3));
+            Assert.That(firstView[0].entityId, Is.EqualTo(10));
+            Assert.That(secondView[1].entityId, Is.EqualTo(20));
+        }
+
+        [Test]
         [Category("Extended")]
         public void WorldSnapshot_EnumerateTileFeaturesOrdered_SecondCallUsesCache()
         {
@@ -1064,6 +1092,221 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             CollectionAssert.AreEqual(new[] { 10, 30 }, CollectUnitIdsAt(snapshot, cell));
             CollectionAssert.AreEqual(new[] { 10, 30 }, CollectTileFeatureIdsAt(snapshot, cell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileCellIndex_NoMutationAndSameCellUpdate_ShareImmutableQueryView()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var original = CreateTileFeature(10, cell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var updated = new TileFeatureState(
+                original.TileId,
+                original.Cell,
+                original.Kind,
+                TileFeatureFlags.Activated,
+                original.SourceEntityId,
+                original.OwnerEntityId,
+                original.TeamId,
+                lifetimeTicks: 3,
+                charges: 1);
+            var worldState = CreateWorldState(
+                Array.Empty<EntityState>(),
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { original });
+
+            WorldSnapshot beforeSnapshot;
+            WorldSnapshot afterSnapshot;
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> beforeView;
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> repeatedView;
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> afterView;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                beforeSnapshot = worldState.CreateSnapshot();
+                beforeView = GetCellIndex(beforeSnapshot, "_tileFeatureIdsByCell");
+                repeatedView = GetCellIndex(worldState.CreateSnapshot(), "_tileFeatureIdsByCell");
+                CreateWriteContext(worldState).UpdateTileFeature(updated);
+                afterSnapshot = worldState.CreateSnapshot();
+                afterView = GetCellIndex(afterSnapshot, "_tileFeatureIdsByCell");
+                counts = capture.Counts;
+            }
+
+            Assert.That(ReferenceEquals(repeatedView, beforeView), Is.True);
+            Assert.That(ReferenceEquals(afterView, beforeView), Is.True);
+            Assert.That(beforeSnapshot.TryGetTileFeature(10, out var beforeState), Is.True);
+            Assert.That(afterSnapshot.TryGetTileFeature(10, out var afterState), Is.True);
+            Assert.That(beforeState, Is.EqualTo(original));
+            Assert.That(afterState, Is.EqualTo(updated));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(3));
+            Assert.That(counts.WorldStateSnapshotCacheHitCount, Is.EqualTo(1));
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotTileFeatureCellIndexCellCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileCellIndex_MembershipMutation_RebuildsWithoutChangingRetainedSnapshot()
+        {
+            var originalCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var movedCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var original = CreateTileFeature(10, originalCell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var moved = CreateTileFeature(10, movedCell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var worldState = CreateWorldState(
+                Array.Empty<EntityState>(),
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { original });
+            WorldSnapshot beforeSnapshot;
+            WorldSnapshot afterSnapshot;
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> beforeView;
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> afterView;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                beforeSnapshot = worldState.CreateSnapshot();
+                beforeView = GetCellIndex(beforeSnapshot, "_tileFeatureIdsByCell");
+                CreateWriteContext(worldState).UpdateTileFeature(moved);
+                afterSnapshot = worldState.CreateSnapshot();
+                afterView = GetCellIndex(afterSnapshot, "_tileFeatureIdsByCell");
+                counts = capture.Counts;
+            }
+
+            Assert.That(ReferenceEquals(afterView, beforeView), Is.False);
+            CollectionAssert.AreEqual(new[] { 10 }, CollectTileFeatureIdsAt(beforeSnapshot, originalCell));
+            CollectionAssert.IsEmpty(CollectTileFeatureIdsAt(beforeSnapshot, movedCell));
+            CollectionAssert.IsEmpty(CollectTileFeatureIdsAt(afterSnapshot, originalCell));
+            CollectionAssert.AreEqual(new[] { 10 }, CollectTileFeatureIdsAt(afterSnapshot, movedCell));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateSnapshotCacheHitCount, Is.Zero);
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotTileFeatureCellIndexCellCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(2));
+            Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldSnapshotReuse_CleanAndNormalizedNoOpReuse_ActualEntityMutationInvalidates()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right),
+            });
+            var writeContext = CreateWriteContext(worldState);
+            WorldSnapshot before;
+            WorldSnapshot after;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                before = worldState.CreateSnapshot();
+
+                Assert.That(ReferenceEquals(worldState.CreateSnapshot(), before), Is.True);
+                ((IMovementCommitContext)writeContext).SetFacing(10, Direction.Right);
+                Assert.That(ReferenceEquals(worldState.CreateSnapshot(), before), Is.True);
+
+                ((IMovementCommitContext)writeContext).SetFacing(10, Direction.Left);
+                after = worldState.CreateSnapshot();
+                counts = capture.Counts;
+            }
+
+            Assert.That(ReferenceEquals(after, before), Is.False);
+            Assert.That(before.TryGetEntity(10, out var retainedEntity), Is.True);
+            Assert.That(after.TryGetEntity(10, out var currentEntity), Is.True);
+            Assert.That(retainedEntity.facing, Is.EqualTo(Direction.Right));
+            Assert.That(currentEntity.facing, Is.EqualTo(Direction.Left));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(4));
+            Assert.That(counts.WorldStateSnapshotCacheHitCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldSnapshotReuse_TopologyTileAndAuxiliaryMutations_EachInvalidate()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var tile = CreateTileFeature(20, cell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var worldState = CreateWorldState(
+                new[] { CreateEntity(10, EntityType.Unit, cell, Direction.Right) },
+                TestBounds,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { tile });
+            var writeContext = CreateWriteContext(worldState);
+            var initial = worldState.CreateSnapshot();
+
+            writeContext.SetTopology(new CubeTopologyState(FaceId.Front));
+            var afterTopology = worldState.CreateSnapshot();
+            writeContext.UpdateTileFeature(new TileFeatureState(
+                tile.TileId,
+                tile.Cell,
+                tile.Kind,
+                TileFeatureFlags.Activated,
+                tile.SourceEntityId,
+                tile.OwnerEntityId,
+                tile.TeamId,
+                lifetimeTicks: 1,
+                charges: 0));
+            var afterTile = worldState.CreateSnapshot();
+            writeContext.SetEnemyActionState(
+                10,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Left,
+                    startTick = 1,
+                    executeTick = 2,
+                });
+            var afterAuxiliary = worldState.CreateSnapshot();
+
+            Assert.That(ReferenceEquals(afterTopology, initial), Is.False);
+            Assert.That(ReferenceEquals(afterTile, afterTopology), Is.False);
+            Assert.That(ReferenceEquals(afterAuxiliary, afterTile), Is.False);
+            Assert.That(ReferenceEquals(worldState.CreateSnapshot(), afterAuxiliary), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldSnapshotReuse_FastImportKeepsCacheIdentityWorldLocal()
+        {
+            var sourceWorld = CreateWorldState(new[]
+            {
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right),
+            });
+            var sourceSnapshot = sourceWorld.CreateSnapshot();
+            WorldState importedWorld;
+            WorldSnapshot importedSnapshot;
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                importedWorld = WorldState.CreateFromSnapshotFast(sourceSnapshot);
+                importedSnapshot = importedWorld.CreateSnapshot();
+
+                Assert.That(ReferenceEquals(importedWorld.CreateSnapshot(), importedSnapshot), Is.True);
+                counts = capture.Counts;
+            }
+
+            Assert.That(ReferenceEquals(importedSnapshot, sourceSnapshot), Is.False);
+            Assert.That(importedSnapshot.TryGetEntity(10, out var imported), Is.True);
+            Assert.That(sourceSnapshot.TryGetEntity(10, out var source), Is.True);
+            Assert.That(imported, Is.EqualTo(source));
+            Assert.That(counts.FastBaseSnapshotImportCount, Is.EqualTo(1));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateSnapshotCacheHitCount, Is.EqualTo(1));
+            Assert.That(counts.WorldStateSnapshotMaterializationCount, Is.EqualTo(1));
+            Assert.That(counts.WorldStateSnapshotRequestAccountingIsBalanced, Is.True);
+            Assert.That(counts.SnapshotOwnedTileFeatureCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotOwnedStackedUnitCellIndexBuildCount, Is.EqualTo(1));
+            Assert.That(counts.SnapshotReadonlyCellIndexSecondCopySkippedCount, Is.EqualTo(2));
         }
 
         [Test]
@@ -1251,7 +1494,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp = 1,
                         maxHp = 1,
                         teamId = 0,
-                        type = EntityType.None,
+                        type = EntityType.Wall,
                     },
                     new EntityState
                     {
@@ -1260,7 +1503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp = 1,
                         maxHp = 1,
                         teamId = 0,
-                        type = EntityType.None,
+                        type = EntityType.Wall,
                     },
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)));
@@ -1323,7 +1566,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp = 1,
                         maxHp = 1,
                         teamId = 0,
-                        type = EntityType.None,
+                        type = EntityType.Wall,
                     },
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(3, 1)));

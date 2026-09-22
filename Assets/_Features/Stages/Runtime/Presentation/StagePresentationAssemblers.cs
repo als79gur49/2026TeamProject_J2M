@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using UnityEngine;
 
@@ -188,6 +189,19 @@ namespace Game.Feature.Stages
             StageRuntimeBuildResult gameplayBuildResult,
             StagePresentationResolvedData presentationData,
             StageAudioResolvedData audioData)
+            : this(
+                gameplayBuildResult,
+                presentationData,
+                audioData,
+                StageStaticWallPresentationProvenance.Empty)
+        {
+        }
+
+        internal StageSceneCompositionData(
+            StageRuntimeBuildResult gameplayBuildResult,
+            StagePresentationResolvedData presentationData,
+            StageAudioResolvedData audioData,
+            StageStaticWallPresentationProvenance staticWallPresentationProvenance)
         {
             if (gameplayBuildResult == null)
             {
@@ -197,6 +211,8 @@ namespace Game.Feature.Stages
             GameplayBuildResult = gameplayBuildResult;
             PresentationData = presentationData ?? StagePresentationAssembler.EmptyResolvedData;
             AudioData = audioData ?? StageAudioAssembler.EmptyResolvedData;
+            StaticWallPresentationProvenance =
+                staticWallPresentationProvenance ?? StageStaticWallPresentationProvenance.Empty;
         }
 
         public StageRuntimeBuildResult GameplayBuildResult { get; }
@@ -204,6 +220,8 @@ namespace Game.Feature.Stages
         public StagePresentationResolvedData PresentationData { get; }
 
         public StageAudioResolvedData AudioData { get; }
+
+        internal StageStaticWallPresentationProvenance StaticWallPresentationProvenance { get; }
     }
 
     public static class StagePresentationAssembler
@@ -750,6 +768,159 @@ namespace Game.Feature.Stages
             StageAudioResolvedData audioData)
         {
             return new StageSceneCompositionData(gameplayBuildResult, presentationData, audioData);
+        }
+
+        internal static StageSceneCompositionData ComposeStageBacked(
+            StageDefinition stage,
+            StageRuntimeBuildResult gameplayBuildResult,
+            StagePresentationResolvedData presentationData,
+            StageAudioResolvedData audioData)
+        {
+            return new StageSceneCompositionData(
+                gameplayBuildResult,
+                presentationData,
+                audioData,
+                CreateStageBackedStaticWallProvenance(stage, gameplayBuildResult));
+        }
+
+        private static StageStaticWallPresentationProvenance CreateStageBackedStaticWallProvenance(
+            StageDefinition stage,
+            StageRuntimeBuildResult gameplayBuildResult)
+        {
+            if (gameplayBuildResult == null)
+            {
+                throw new ArgumentNullException(nameof(gameplayBuildResult));
+            }
+
+            var validated = StageDefinitionValidator.ValidateAndNormalize(stage);
+            var canonicalBuildResult = StageRuntimeBuilder.Build(stage);
+            var canonicalById = BuildUniqueEntityMap(canonicalBuildResult.InitialEntities, "canonical normalized stage");
+            var materializedById = BuildUniqueEntityMap(gameplayBuildResult.InitialEntities, "stage runtime build");
+            if (canonicalById.Count != materializedById.Count || canonicalById.Count != validated.Spawns.Length)
+            {
+                throw new InvalidOperationException(
+                    "Stage runtime build entity count does not match normalized stage spawns.");
+            }
+
+            var entriesByEntityId = new Dictionary<int, StageStaticWallProvenanceEntry>();
+            for (var i = 0; i < validated.Spawns.Length; i++)
+            {
+                var spawn = validated.Spawns[i];
+                if (!canonicalById.TryGetValue(spawn.EntityId, out var canonical))
+                {
+                    throw new InvalidOperationException(
+                        $"Normalized stage spawn {spawn.EntityId} has no canonical runtime entity.");
+                }
+
+                if (!materializedById.TryGetValue(spawn.EntityId, out var materialized))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage spawn {spawn.EntityId} has no matching runtime entity.");
+                }
+
+                var expectedType = ResolveExpectedEntityType(spawn.Kind);
+                if (canonical.type != expectedType || materialized.type != expectedType)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage spawn {spawn.EntityId} kind {spawn.Kind} materialized as {materialized.type}, expected {expectedType}.");
+                }
+
+                if (!StageStaticWallProvenanceSignature.SemanticallyEquals(canonical, materialized))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage spawn {spawn.EntityId} runtime EntityState does not match its normalized canonical signature.");
+                }
+
+                if (spawn.Kind != StageSpawnKind.Wall)
+                {
+                    continue;
+                }
+
+                entriesByEntityId.Add(
+                    spawn.EntityId,
+                    new StageStaticWallProvenanceEntry(
+                        spawn.EntityId,
+                        StageStaticWallProvenanceSourceKind.StageAuthoredStaticWall,
+                        canonical,
+                        StageStaticWallProvenanceSignature.BuildEntry(spawn.Kind, canonical)));
+            }
+
+            if (entriesByEntityId.Count == 0)
+            {
+                return StageStaticWallPresentationProvenance.Empty;
+            }
+
+            return new StageBackedStaticWallProvenance(entriesByEntityId);
+        }
+
+        private static Dictionary<int, EntityState> BuildUniqueEntityMap(
+            IReadOnlyList<EntityState> entities,
+            string owner)
+        {
+            var byId = new Dictionary<int, EntityState>(entities?.Count ?? 0);
+            if (entities == null)
+            {
+                return byId;
+            }
+
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (!byId.TryAdd(entity.entityId, entity))
+                {
+                    throw new InvalidOperationException($"{owner} contains duplicate entity id {entity.entityId}.");
+                }
+            }
+
+            return byId;
+        }
+
+        private static EntityType ResolveExpectedEntityType(StageSpawnKind kind)
+        {
+            return kind switch
+            {
+                StageSpawnKind.Player => EntityType.Unit,
+                StageSpawnKind.Enemy => EntityType.Unit,
+                StageSpawnKind.Box => EntityType.Box,
+                StageSpawnKind.Wall => EntityType.Wall,
+                _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown stage spawn kind."),
+            };
+        }
+
+        private sealed class StageBackedStaticWallProvenance : StageStaticWallPresentationProvenance
+        {
+            private readonly Dictionary<int, StageStaticWallProvenanceEntry> _entriesByEntityId;
+            private readonly IReadOnlyList<int> _entityIds;
+            private readonly string _staticRevision;
+
+            internal StageBackedStaticWallProvenance(
+                Dictionary<int, StageStaticWallProvenanceEntry> entriesByEntityId)
+            {
+                _entriesByEntityId = new Dictionary<int, StageStaticWallProvenanceEntry>(entriesByEntityId);
+                var entityIds = new int[_entriesByEntityId.Count];
+                _entriesByEntityId.Keys.CopyTo(entityIds, 0);
+                Array.Sort(entityIds);
+                _entityIds = Array.AsReadOnly(entityIds);
+                var signaturesByEntityId = new Dictionary<int, string>(_entriesByEntityId.Count);
+                foreach (var pair in _entriesByEntityId)
+                {
+                    signaturesByEntityId.Add(pair.Key, pair.Value.Signature);
+                }
+                _staticRevision = StageStaticWallProvenanceSignature.BuildRevision(
+                    _entityIds,
+                    signaturesByEntityId);
+            }
+
+            internal override int Count => _entityIds.Count;
+
+            internal override string StaticRevision => _staticRevision;
+
+            internal override IReadOnlyList<int> EntityIds => _entityIds;
+
+            internal override bool TryGetEntry(int entityId, out StageStaticWallProvenanceEntry entry)
+            {
+                return _entriesByEntityId.TryGetValue(entityId, out entry);
+            }
         }
     }
 }

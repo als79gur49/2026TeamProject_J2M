@@ -346,7 +346,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var rootViewModel = new HUDRootViewModel();
             rootViewModel.SetShellState(
                 isDimmed: false,
-                isGameplayReadOnly: false,
                 isPauseButtonEnabled: true);
             hud.Bind(rootViewModel);
 

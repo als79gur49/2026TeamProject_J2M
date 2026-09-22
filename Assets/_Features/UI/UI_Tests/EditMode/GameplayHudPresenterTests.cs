@@ -7,8 +7,10 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.Popups;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.UI.Tests
 {
@@ -18,7 +20,8 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_IsTheOnlyHudSubscriberToMappedPresentationSource()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
 
@@ -26,12 +29,14 @@ namespace Game.Feature.UI.Tests
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
             using var controller = new HUDController(
                 rootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
                 objectiveHudPresenter.ViewModel,
-                playerStatusPresenter.ViewModel);
+                chancePanelPresenter.ViewModel,
+                surfaceBeltIndicatorPresenter.ViewModel);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
             Assert.That(source.TickEventSubscriberCount, Is.EqualTo(0));
@@ -41,14 +46,16 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_Dispose_RemovesItsMappedSnapshotSubscription()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
             Assert.That(source.TickEventSubscriberCount, Is.EqualTo(0));
@@ -60,10 +67,55 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowShellPresenter_ProjectsOneFlowSnapshotToHudPopupAndMappedInteraction()
+        {
+            var hudParent = new GameObject("UIFlowShellPresenter_HudParent", typeof(RectTransform));
+            var popupObject = new GameObject("UIFlowShellPresenter_PopupLayer");
+            try
+            {
+                var hudView = UiTestPrefabAssetUtility.InstantiateHudPrefab(
+                    hudParent.GetComponent<RectTransform>());
+                var popupLayerView = popupObject.AddComponent<PopupLayerView>();
+                var flowSource = new ManualUIFlowPresentationSource();
+                var gameplaySource = new ManualGameplayUiPresentationSource();
+                using var presenter = new UIFlowShellPresenter(
+                    flowSource,
+                    gameplaySource,
+                    hudView,
+                    popupLayerView);
+
+                var snapshot = new UIFlowPresentationSnapshot(
+                    isHudVisible: false,
+                    isUiGameplayInputBlocked: true,
+                    isPopupLayerVisible: true,
+                    showsPopupDim: true,
+                    blocksLowerLayerPointer: true,
+                    PopupBackdropMode.CloseTop);
+                flowSource.Publish(snapshot);
+
+                Assert.That(hudView.IsVisible, Is.False);
+                Assert.That(
+                    gameplaySource.CurrentSnapshot.Interaction.IsUiGameplayInputBlocked,
+                    Is.True);
+                Assert.That(popupLayerView.IsDimVisible, Is.True);
+                Assert.That(popupLayerView.BlocksLowerLayerPointer, Is.True);
+                Assert.That(popupLayerView.BackdropMode, Is.EqualTo(PopupBackdropMode.CloseTop));
+                Assert.That(flowSource.SubscriberCount, Is.EqualTo(1));
+
+                presenter.Dispose();
+                Assert.That(flowSource.SubscriberCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(popupObject);
+                UnityEngine.Object.DestroyImmediate(hudParent);
+            }
+        }
+
+        [Test]
         public void HUDRootPresenter_FansOutMappedSnapshotToShellAndChildViewModels()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
@@ -73,16 +125,12 @@ namespace Game.Feature.UI.Tests
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
-                surfaceBeltIndicatorPresenter,
-                playerStatusPresenter);
+                surfaceBeltIndicatorPresenter);
 
             source.PublishSnapshot(CreateSnapshot(
                 isPaused: false,
                 isUiBlocked: true,
                 hasBlockingPresentation: false,
-                currentHp: 2,
-                activeActionKind: GameplayUiActionKind.Flip,
-                isRecoveryPhase: true,
                 lastOutcome: GameplayUiActionResolutionKind.Blocked,
                 stageDisplayNameKey: "stage.stage-1-1.display_name"));
 
@@ -90,46 +138,54 @@ namespace Game.Feature.UI.Tests
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
             Assert.That(stageInfoPresenter.ViewModel.StageName, Is.EqualTo("Stage 1-1"));
             Assert.That(stageInfoPresenter.ViewModel.HasStageName, Is.True);
-            Assert.That(playerStatusPresenter.ViewModel.FacingText, Is.EqualTo("Right"));
-            Assert.That(playerStatusPresenter.ViewModel.TopologyText, Is.Empty);
-            Assert.That(playerStatusPresenter.ViewModel.HasRemainingChances, Is.False);
-            Assert.That(playerStatusPresenter.ViewModel.MaxChances, Is.EqualTo(0));
             Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.False);
             Assert.That(surfaceBeltIndicatorPresenter.ViewModel.CenterSlotIndex, Is.EqualTo(1));
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.False);
         }
 
-        [Test]
-        public void PlayerStatusPresenter_DoesNotOwnChanceOrTopologyHudState()
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void ChancePanelPresenter_DiagnosticsTogglePreservesChanceTransition(
+            bool diagnosticsEnabled, bool consoleEnabled)
         {
-            var presenter = new PlayerStatusPresenter();
-
-            presenter.Apply(
-                new UITickSlice(4, new GameplayUiTopology(GameplayUiFace.Front), false, false),
-                new UIInteractionSlice(false, true, false, false),
-                new UIPlayerActionSlice(
-                    playerEntityId: 10,
-                    currentHp: 2,
-                    maxHp: 4,
-                    facing: GameplayUiDirection.Right,
-                    activeActionKind: GameplayUiActionKind.None,
-                    isRecoveryPhase: false,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: true,
-                    lastResolvedOutcome: GameplayUiActionResolutionKind.None,
-                    lastResolvedTickIndex: 0,
-                    tookDamageThisTick: false,
-                    lastDamageAmount: 0,
-                    lastDamageTickIndex: 0,
-                    hasRemainingChances: true,
-                    remainingChances: 2,
-                    maxChances: 3));
-
-            Assert.That(presenter.ViewModel.HasRemainingChances, Is.False);
-            Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(0));
-            Assert.That(presenter.ViewModel.MaxChances, Is.EqualTo(0));
-            Assert.That(presenter.ViewModel.FacingText, Is.EqualTo("Right"));
-            Assert.That(presenter.ViewModel.TopologyText, Is.Empty);
+            var previousEnabled = CampaignChanceHudDiagnostics.IsEnabled;
+            var previousConsole = CampaignChanceHudDiagnostics.LogToUnityConsole;
+            try
+            {
+                CampaignChanceHudDiagnostics.IsEnabled = diagnosticsEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = consoleEnabled;
+                CampaignChanceHudDiagnostics.Clear();
+                var presenter = new ChancePanelPresenter();
+                presenter.Apply(new UIChanceSlice(true, 3, 3));
+                presenter.Apply(new UIChanceSlice(true, 2, 3));
+                Assert.That(presenter.ViewModel.HasChances, Is.True);
+                Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(2));
+                Assert.That(presenter.ViewModel.Slots.Count, Is.EqualTo(3));
+                Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Lost));
+                Assert.That(presenter.ViewModel.AnimationHint.PrimarySlotIndex, Is.EqualTo(2));
+                Assert.That(presenter.ViewModel.AnimationHint.AudioCuePolicy, Is.EqualTo(ChanceChangeAudioCuePolicy.Default));
+                var records = CampaignChanceHudDiagnostics.Snapshot();
+                Assert.That(records.Count, Is.EqualTo(diagnosticsEnabled ? 2 : 0));
+                if (diagnosticsEnabled)
+                {
+                    Assert.That(records.Select(record => record.RemainingChances), Is.EqualTo(new[] { 3, 2 }));
+                    foreach (var record in records)
+                    {
+                        Assert.That(record.Kind, Is.EqualTo(CampaignChanceHudDiagnosticKind.HudViewModel));
+                        Assert.That(record.MaxChances, Is.EqualTo(3));
+                        Assert.That(record.FinalHasChances, Is.True);
+                        Assert.That(record.FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.None));
+                    }
+                }
+            }
+            finally
+            {
+                CampaignChanceHudDiagnostics.Clear();
+                CampaignChanceHudDiagnostics.IsEnabled = previousEnabled;
+                CampaignChanceHudDiagnostics.LogToUnityConsole = previousConsole;
+            }
         }
 
         [Test]
@@ -654,14 +710,16 @@ namespace Game.Feature.UI.Tests
         public void HUDRootPresenter_FansOutObjectiveSliceToObjectivePresenter()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
 
             source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice()));
 
@@ -671,61 +729,62 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellReadOnlyState_ThroughMappedSourceOnly()
+        public void HUDRootPresenter_RefreshOnlyInteractionChanges_UpdateShellDisplayState_ThroughMappedSourceOnly()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
 
             source.PublishSnapshot(CreateSnapshot(isPaused: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
 
             source.PublishSnapshot(CreateSnapshot(hasBlockingPresentation: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
 
             source.PublishSnapshot(CreateSnapshot(isUiBlocked: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
+            Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
 
             source.PublishSnapshot(CreateSnapshot(canAcceptGameplayCommands: false));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.True);
+            Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
 
             source.PublishSnapshot(CreateSnapshot());
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.False);
         }
 
         [Test]
         public void HUDRootPresenter_NonBlockingMoonBlockLocalPresentation_DoesNotDimShell()
         {
             var source = new ManualGameplayUiPresentationSource();
-            var playerStatusPresenter = new PlayerStatusPresenter();
+            var chancePanelPresenter = new ChancePanelPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter);
+                chancePanelPresenter,
+                surfaceBeltIndicatorPresenter);
 
             source.PublishSnapshot(CreateSnapshot(
                 hasBlockingPresentation: false,
                 canAcceptGameplayCommands: true));
 
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
-            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.False);
+            Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
         }
 
         private static UIPresentationSnapshot CreateSnapshot(
@@ -733,17 +792,10 @@ namespace Game.Feature.UI.Tests
             bool isUiBlocked = false,
             bool hasBlockingPresentation = false,
             bool? canAcceptGameplayCommands = null,
-            int currentHp = 3,
-            GameplayUiActionKind activeActionKind = GameplayUiActionKind.None,
-            bool isRecoveryPhase = false,
-            bool canStartActionThisTick = true,
-            bool canStartAnyActionThisTick = true,
-            bool hasExplicitPushCandidateInCurrentDirection = false,
             GameplayUiActionResolutionKind lastOutcome = GameplayUiActionResolutionKind.None,
             UITickEventKind notificationEventKind = UITickEventKind.PlayerActionResolved,
             GameplayUiActionKind notificationActionKind = GameplayUiActionKind.Flip,
             GameplayUiActionResolutionKind notificationResolutionKind = GameplayUiActionResolutionKind.Success,
-            UIRecoveryCooldownSlice? recoveryCooldown = null,
             string stageDisplayNameKey = "",
             UIObjectiveSlice? objective = null)
         {
@@ -766,22 +818,14 @@ namespace Game.Feature.UI.Tests
                         : StageId.CreateOrThrow("stage-1-1"),
                     stageDisplayNameKey),
                 objective ?? UIObjectiveSlice.Empty,
+                UIChanceSlice.Empty,
+                UITopologySlice.FromTopology(new GameplayUiTopology(GameplayUiFace.Front), false),
                 new UIPlayerActionSlice(
-                    playerEntityId: 10,
-                    currentHp: currentHp,
-                    facing: GameplayUiDirection.Right,
-                    activeActionKind: activeActionKind,
-                    isRecoveryPhase: isRecoveryPhase,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: canStartActionThisTick,
                     lastResolvedOutcome: lastOutcome,
                     lastResolvedTickIndex: lastOutcome == GameplayUiActionResolutionKind.None ? 0 : 4,
                     tookDamageThisTick: true,
                     lastDamageAmount: 1,
-                    lastDamageTickIndex: 4,
-                    recoveryCooldown: recoveryCooldown,
-                    canStartAnyActionThisTick: canStartAnyActionThisTick,
-                    hasExplicitPushCandidateInCurrentDirection: hasExplicitPushCandidateInCurrentDirection),
+                    lastDamageTickIndex: 4),
                 new UINotificationLedgerSlice(new[]
                 {
                     new UINotificationRecord(
@@ -873,6 +917,36 @@ namespace Game.Feature.UI.Tests
             public string Resolve(LocalizedTextDescriptor descriptor)
             {
                 return _resolvedText;
+            }
+        }
+
+        private sealed class ManualUIFlowPresentationSource : IUIFlowPresentationSource
+        {
+            private Action<UIFlowPresentationSnapshot> _changed;
+
+            public UIFlowPresentationSnapshot Current { get; private set; } =
+                UIFlowPresentationSnapshot.GameplayDefault;
+
+            public int SubscriberCount { get; private set; }
+
+            public event Action<UIFlowPresentationSnapshot> Changed
+            {
+                add
+                {
+                    _changed += value;
+                    SubscriberCount++;
+                }
+                remove
+                {
+                    _changed -= value;
+                    SubscriberCount--;
+                }
+            }
+
+            public void Publish(UIFlowPresentationSnapshot snapshot)
+            {
+                Current = snapshot;
+                _changed?.Invoke(snapshot);
             }
         }
 

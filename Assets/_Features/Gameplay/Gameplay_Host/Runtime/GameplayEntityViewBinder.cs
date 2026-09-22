@@ -23,7 +23,12 @@ namespace Game.Feature.Gameplay.Host
         {
             if (_viewRegistry.TryGetView(entity.entityId, out var existingView))
             {
-                return existingView;
+                if (existingView != null)
+                {
+                    return existingView;
+                }
+
+                _viewRegistry.Unregister(entity.entityId);
             }
 
             if (_viewFactory == null)

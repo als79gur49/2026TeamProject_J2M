@@ -443,6 +443,7 @@ namespace Game.Feature.Gameplay.BoardState
 
                 case EntityType.Box:
                 case EntityType.None:
+                case EntityType.Wall:
                     if (TryGetPlacementOccupant(
                             entitiesById,
                             solidOccupancyByCell,

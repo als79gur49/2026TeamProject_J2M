@@ -4,6 +4,7 @@ using System.Linq;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
@@ -83,6 +84,59 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(reaction.BlockerEntityId, Is.EqualTo(201));
             Assert.That(reaction.CreatedTick, Is.EqualTo(2));
             Assert.That(reaction.ExpireTick, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageBackedWallIdentityCutover_PendingBlockedReaction_ChangesOnlyWallType()
+        {
+            var first = RunStageBackedWallBlockedContinuation();
+            var second = RunStageBackedWallBlockedContinuation();
+
+            Assert.That(first.DeterminismHash, Is.Not.Empty);
+            Assert.That(first.RecomputedHash, Is.EqualTo(first.DeterminismHash));
+            Assert.That(second.RecomputedHash, Is.EqualTo(second.DeterminismHash));
+            Assert.That(second.DeterminismHash, Is.EqualTo(first.DeterminismHash));
+            Assert.That(second.Trace, Is.EqualTo(first.Trace));
+            Assert.That(second.ReactionRecord, Is.EqualTo(first.ReactionRecord));
+            Assert.That(second.EventLogRecord, Is.EqualTo(first.EventLogRecord));
+            Assert.That(second.SolidProjection, Is.EqualTo(first.SolidProjection));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WallIdentityDeltaComparator_PendingReaction_RejectsWrongIdKeyAndPayloadMutation()
+        {
+            WallIdentityDeltaComparatorTestHarness.AssertRuntimePositive(
+                WallIdentityDeltaSource.PendingReaction,
+                301,
+                () => CapturePendingRuntimePositive("PendingReaction"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WallIdentityDeltaComparator_PendingEventLog_RejectsWrongIdKeyAndPayloadMutation()
+        {
+            WallIdentityDeltaComparatorTestHarness.AssertRuntimePositive(
+                WallIdentityDeltaSource.PendingEventLog,
+                301,
+                () => CapturePendingRuntimePositive("PendingEventLog"));
+        }
+
+        private string CapturePendingRuntimePositive(string source)
+        {
+            var capture = RunStageBackedWallBlockedContinuation();
+            if (string.Equals(source, "PendingReaction", StringComparison.Ordinal))
+            {
+                return capture.ReactionRecord;
+            }
+
+            if (string.Equals(source, "PendingEventLog", StringComparison.Ordinal))
+            {
+                return capture.EventLogRecord;
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(source), source, null);
         }
 
         [Test]
@@ -378,6 +432,106 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.False);
         }
 
+        private static StageBackedWallKinematicCapture RunStageBackedWallBlockedContinuation()
+        {
+            const int playerEntityId = 10;
+            const int enemyEntityId = 61;
+            const int wallEntityId = 301;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var blockedCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var playerCell = new SurfaceCell(FaceId.Floor, 14, 4);
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
+
+            try
+            {
+                return StageAuthoredWallTestFactory.RunInHost(
+                    wallEntityId,
+                    blockedCell,
+                    playerEntityId,
+                    playerCell,
+                    profile,
+                    true,
+                    (host, authoredWall) =>
+                    {
+                        host.TickRunner.RunTick(new TickInput(1));
+
+                        var writeContext = host.WorldState.CreateWriteContext();
+                        writeContext.SpawnEntity(CreateEnemy(enemyEntityId, sourceCell));
+                        writeContext.SetUnitKinematicState(
+                            enemyEntityId,
+                            CreateCommitTickKinematicContinuationState());
+                        writeContext.SetEnemyJumpState(
+                            enemyEntityId,
+                            CreatePostLandingCooldownJumpState());
+
+                        var result = host.TickRunner.RunTick(new TickInput(2));
+                        var snapshot = host.WorldState.CreateSnapshot();
+
+                        Assert.That(
+                            snapshot.TryGetSolidOccupantAt(blockedCell, out var solidOccupant),
+                            Is.True);
+                        Assert.That(solidOccupant.entityId, Is.EqualTo(authoredWall.entityId));
+                        Assert.That(solidOccupant.type, Is.EqualTo(EntityType.Wall));
+                        Assert.That(
+                            snapshot.TryGetSolidSemanticAt(blockedCell, out var solidSemantic),
+                            Is.True);
+                        Assert.That(solidSemantic.Entity.entityId, Is.EqualTo(authoredWall.entityId));
+                        Assert.That(solidSemantic.Kind, Is.EqualTo(SolidKind.Wall));
+                        Assert.That(snapshot.IsWallAt(blockedCell), Is.True);
+                        Assert.That(snapshot.IsBoxAt(blockedCell), Is.False);
+
+                        Assert.That(
+                            snapshot.TryGetPendingEnemyBlockedReaction(enemyEntityId, out var reaction),
+                            Is.True);
+                        Assert.That(reaction.BlockerEntityId, Is.EqualTo(authoredWall.entityId));
+                        Assert.That(reaction.BlockerKind, Is.EqualTo(LegalityBlockerKind.Solid));
+                        Assert.That(reaction.BlockerSolidKind, Is.EqualTo(SolidKind.Wall));
+                        Assert.That(reaction.BlockerEntityType, Is.EqualTo(EntityType.Wall));
+
+                        var eventLogRecord = result.EventLog.Single(entry =>
+                            entry.StartsWith("PendingEnemyBlockedReactionSet|", StringComparison.Ordinal) &&
+                            entry.Contains($"BlockerEntityId={authoredWall.entityId}", StringComparison.Ordinal));
+                        Assert.That(eventLogRecord, Does.Contain($"BlockerEntityType={EntityType.Wall}"));
+                        Assert.That(
+                            result.EventLog.Count(entry =>
+                                entry.StartsWith("PendingEnemyBlockedReactionSet|", StringComparison.Ordinal) &&
+                                entry.Contains($"BlockerEntityId={authoredWall.entityId}", StringComparison.Ordinal)),
+                            Is.EqualTo(1));
+
+                        var reactionRecord =
+                            $"PendingReaction|EnemyEntityId={reaction.EnemyEntityId}|Kind={reaction.Kind}|ModeAtBlock={reaction.ModeAtBlock}|SourceCell={reaction.SourceCell}|BlockedTargetCell={reaction.BlockedTargetCell}|BlockedDirection={reaction.BlockedDirection}|BlockerKind={reaction.BlockerKind}|BlockerSolidKind={reaction.BlockerSolidKind}|BlockerEntityType={reaction.BlockerEntityType}|BlockerEntityId={reaction.BlockerEntityId}|CreatedTick={reaction.CreatedTick}|ExpireTick={reaction.ExpireTick}";
+                        var tickResultData = new TickResultData(
+                            result.FinalEntities,
+                            Array.Empty<DelayedAttackEffectRecord>(),
+                            result.EventLog,
+                            result.PresentationData,
+                            result.ObjectiveResult);
+                        var recomputedHash = new DeterminismHashBuilder().Build(
+                            result.TickIndex,
+                            snapshot,
+                            tickResultData);
+                        var solidProjection =
+                            $"Solid|Cell={blockedCell}|E={solidSemantic.Entity.entityId}|Type={solidSemantic.Entity.type}|Kind={solidSemantic.Kind}";
+
+                        Assert.That(recomputedHash, Is.EqualTo(result.DeterminismHash));
+                        TestContext.Out.WriteLine(
+                            $"STAGE_BACKED_WALL_E2E|Hash={result.DeterminismHash}|Reaction={reactionRecord}|Event={eventLogRecord}|Projection={solidProjection}");
+
+                        return new StageBackedWallKinematicCapture(
+                            reactionRecord,
+                            eventLogRecord,
+                            result.DeterminismHash,
+                            recomputedHash,
+                            result.Trace.Text,
+                            solidProjection);
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
         private static bool HasClosedBlockedKinematicContinuation(TickResult result)
         {
             return result.MovementPhaseResult.RejectedReasons.Any(reason =>
@@ -495,6 +649,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 blockerEntityId,
                 createdTick: 6,
                 expireTick: 7);
+        }
+
+        private readonly struct StageBackedWallKinematicCapture
+        {
+            public StageBackedWallKinematicCapture(
+                string reactionRecord,
+                string eventLogRecord,
+                string determinismHash,
+                string recomputedHash,
+                string trace,
+                string solidProjection)
+            {
+                ReactionRecord = reactionRecord;
+                EventLogRecord = eventLogRecord;
+                DeterminismHash = determinismHash;
+                RecomputedHash = recomputedHash;
+                Trace = trace;
+                SolidProjection = solidProjection;
+            }
+
+            public string ReactionRecord { get; }
+
+            public string EventLogRecord { get; }
+
+            public string DeterminismHash { get; }
+
+            public string RecomputedHash { get; }
+
+            public string Trace { get; }
+
+            public string SolidProjection { get; }
         }
 
         private static WorldState CreateWorldState(EntityState[] entities)

@@ -34,25 +34,6 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         Back = 3,
     }
 
-    public readonly struct GameplayUiRecoveryCooldown
-    {
-        public GameplayUiRecoveryCooldown(
-            GameplayUiActionKind actionKind,
-            int remainingRecoveryTicks,
-            int totalRecoveryTicks)
-        {
-            ActionKind = actionKind;
-            RemainingRecoveryTicks = remainingRecoveryTicks;
-            TotalRecoveryTicks = totalRecoveryTicks;
-        }
-
-        public GameplayUiActionKind ActionKind { get; }
-
-        public int RemainingRecoveryTicks { get; }
-
-        public int TotalRecoveryTicks { get; }
-    }
-
     public enum GameplayUiRotationKind
     {
         None = 0,

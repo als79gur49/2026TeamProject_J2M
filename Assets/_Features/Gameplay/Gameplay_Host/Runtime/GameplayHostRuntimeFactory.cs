@@ -186,6 +186,8 @@ namespace Game.Feature.Gameplay.Host
                 initialSnapshot,
                 initialObjectiveResult);
 
+            presenter.ConfigureStaticWallPresentationProvenance(
+                configuration.StaticWallPresentationProvenance);
             presenter.Initialize(
                 viewBinder,
                 configuration.InitialBoardBounds,
@@ -278,7 +280,6 @@ namespace Game.Feature.Gameplay.Host
                     new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
                     new GameplayHostStageQuery(configuration.StageContentEntry),
                     new GameplayHostPlayerHudQuery(
-                        tickRunner,
                         inputHost,
                         admissionPolicy,
                         configuration.CampaignChancesReadSource),

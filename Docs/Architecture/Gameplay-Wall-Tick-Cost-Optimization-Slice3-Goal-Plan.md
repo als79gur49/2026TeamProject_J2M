@@ -1,5 +1,9 @@
 # Gameplay Wall Tick Cost Optimization — Master Plan Slice 3 Goal
 
+> **후속 검증 안내(2026-09-14):** 아래 본문은 작성 당시 계획·판정을 보존한다. 제품 통합과 후속 측정 도구의 `40a16e613` 반영, 실제 A/B 리비전, CPU 개선 신호와 측정 한계는 [Closeout §4](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md#4-검증과-측정-결과)에 기록했다. 새 bundle 결과로 historical official Cleanup Hold를 해제하지 않는다.
+
+> **2026-09-14 후속 상태:** 아래 `Hold`와 full-scan 설명은 당시 official S3-A evidence/production 기준의 historical 판정이다. Cleanup candidate index와 ordered executor는 이후 각각 `e6ac8e5e5`, `153d9fa15`로 적응 이식되어 `main` `b77765bde`에 반영됐다. 현재 상태와 측정 비주장은 [Gameplay 최적화 main 통합 Closeout](./Gameplay-Optimization-Main-Integration-Closeout-2026-09-14.md)을 따른다.
+
 - 현재 상태: `Hold — valid evidence incomplete`
 - 현재 package: S3-A measurement-contract remediation
 - S3-B·S3-C: valid S3-A signal과 사용자 continuation 승인 전까지 금지
@@ -33,7 +37,7 @@ S3-A-only 측정은 B 진입 여부를 정하는 preliminary attribution/calibra
 
 아래 비용·instrumentation inventory는 2026-08-27 실행 시작 baseline이다. 그 아래의 S3-A signal, Hold/defer, S3-B/S3-C 진입 규칙은 현재 normative gate다.
 
-현재 base `CleanupProcessor`는 snapshot의 모든 엔티티를 ID 순서로 materialize하고 survivor 목록을 만든 뒤 Removal, Timer, Transition을 실행한다. 후보가 없어도 ordered/survivor/result collection과 전체 방문이 발생한다.
+실행 시작 baseline 당시 base `CleanupProcessor`는 snapshot의 모든 엔티티를 ID 순서로 materialize하고 survivor 목록을 만든 뒤 Removal, Timer, Transition을 실행했다. 후보가 없어도 ordered/survivor/result collection과 전체 방문이 발생했다.
 
 그러나 현재 workload diagnostics에는 다음 Slice 3 귀속 정보가 없다.
 

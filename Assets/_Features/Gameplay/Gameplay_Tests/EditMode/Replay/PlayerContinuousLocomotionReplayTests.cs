@@ -658,7 +658,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
-                type = EntityType.None,
+                type = EntityType.Wall,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
             };

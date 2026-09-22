@@ -318,8 +318,11 @@ Interaction rules:
 - `Non-Negotiable` Screens do not directly manage popup stack state.
 - `Non-Negotiable` HUD does not manage screen navigation.
 - `Non-Negotiable` Pause remains popup-owned. Gameplay-root back may open the pause popup, but pause is not a screen taxonomy example.
-- `Non-Negotiable` PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested keeps gameplay paused, opens the settings screen, and returns back to a fresh PausePopup.
+- `Non-Negotiable` PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested keeps gameplay paused, opens the settings screen, and returns back to a fresh PausePopup. Composition disposal is not a popup completion: `PopupCloseReason.Dispose` clears popup state and runtime resources without dispatching completion callbacks or resuming gameplay. `PopupController.Dispose()` is reserved for scene- or composition-scoped teardown where popup consumers and gameplay ownership are ending together; UI-only detach while gameplay continues must first release Pause ownership through an operational close reason such as `Programmatic` or `ScreenTransition`.
 - `Non-Negotiable` `UIBlockPolicy` decides interaction blocking. Visual hierarchy alone does not.
+- `Non-Negotiable` Flow-derived HUD visibility, gameplay-input blocking, and popup-backdrop state leave `UIFlowCoordinator` through the single immutable `IUIFlowPresentationSource` snapshot seam. The coordinator updates the complete snapshot before publishing its one change notification.
+- `Non-Negotiable` `GameplayUiFlowInstaller` may assemble that source with `UIFlowShellPresenter`, but it must not subscribe to controller or terminal events to pull and remap flow state itself. Flow-to-view projection belongs to the application presenter.
+- `Non-Negotiable` `UIFlowCoordinator` implements the presentation source explicitly. Do not widen its concrete public routing surface with presentation events or individual shell-state getters.
 - `Default Guidance` Keep controllers narrow. Put cross-controller rules in the coordinator, not duplicated in each controller.
 
 Composition note:
@@ -371,13 +374,15 @@ Popup classification notes:
 - `Pause` and `Confirm` are canonical gameplay popup catalog entries.
 - `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
 - Reward popup is not current popup vocabulary: it is not a `PopupId`, catalog entry, prefab, factory case, or stage-clear presentation path. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not popup UI vocabulary.
-- `DemoStageControl` is not a gameplay popup catalog entry. It is a catalog-less runtime assist popup created through the factory/runtime/hotkey path.
-- `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing. It is not a deletion candidate and is not a dev-only compile exclusion target.
-- Future public-release hiding or disabling for `DemoStageControl` must be controlled by a separate product/build configuration decision, not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate.
+- `DemoStageControl` is a catalog-authored, English operator-assist popup. `UIFlowCoordinator` owns its popup flow and lifetime routing, while feature-local sources and command ports own its presentation and commands.
+- It remains a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing; it is not a deletion candidate and is not a dev-only compile exclusion target.
+- Its authored prefab is registered in `GameplayPopupPrefabCatalog`; fixed runtime hierarchy generation and pointer-only navigation are resolved migration debt and must not return.
+- Future product/build availability is supplied through a separate access-provider decision. `DemoStageControlSettings.Enabled` remains fail-closed, and a future provider gates only new opens rather than closing an already-open popup.
 
 HUD classification notes:
 
-- Current canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`.
+- Current canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, and `SurfaceBeltIndicator`.
+- PlayerStatus was retired on 2026-09-07: its Presenter/VM/View and invisible prefab subtree are removed. HUD construction explicitly shares the remaining five dependencies; gameplay player queries and snapshot fields retain their existing contracts.
 - ActionBar was removed as retired HUD proof residue after product option B selected deletion instead of wiring recovery.
 - `ActionBarView` and `ActionBarPresenter` are not current display components.
 - HUD is a display consumer of mapped UI presentation state. It is not a gameplay command owner.
@@ -385,7 +390,7 @@ HUD classification notes:
 - Push/Flip physical gameplay commands flow through the gameplay input route, not UI HUD command injection.
 - `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
 - Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore.
-- This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership.
+- The original ActionBar deletion retained readiness mapping. The later H03 retirement below removes that UI mapping; gameplay command ownership remains with InputHost/Tick.
 - The current HUD-side mapping is display semantics only.
 
 Objective HUD localization contract:
