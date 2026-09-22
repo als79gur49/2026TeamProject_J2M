@@ -95,15 +95,6 @@ namespace Game.Feature.Stages
 
             var record = new TerminalTraceRecord(session, traceEvent, accepted, reason);
             Records.Add(record);
-            Debug.Log(
-                "TerminalTrace " +
-                $"token={record.Token} transitionId={record.TransitionId} " +
-                $"terminalKind={record.TerminalKind} destinationKind={record.DestinationKind} " +
-                $"sourceGeneration={record.SourceSceneGeneration} " +
-                $"destinationGeneration={record.DestinationSceneGeneration} " +
-                $"authorityPhase={record.AuthorityPhase} event={record.Event} " +
-                $"accepted={record.Accepted} reason={record.Reason} " +
-                $"unscaledTime={record.UnscaledTime:0.000}");
         }
 
         internal static void Reset()

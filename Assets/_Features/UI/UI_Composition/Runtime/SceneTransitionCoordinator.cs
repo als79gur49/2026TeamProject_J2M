@@ -250,12 +250,14 @@ namespace Game.Feature.UI.Composition
                 fromSceneName,
                 targetSceneName);
             LastResolvedRoutePolicy = routePolicy;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             Debug.Log(
                 SceneTransitionRouteDiagnostic.Format(
                     routePolicy,
                     request.Source,
                     profile.Kind),
                 this);
+#endif
             if (!TryBeginTransition(out var transitionId))
             {
                 Debug.LogWarning(
