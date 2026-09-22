@@ -43,7 +43,9 @@ namespace Game.Feature.Gameplay.BoardState
             var capabilities = StateQuery.GetBaseCapabilities(actor.SpatialState);
             if (actor.GlideState.IsActive)
             {
-                capabilities = capabilities.With(LegalityCapabilityId.IgnoreTraversalSolidBlocker);
+                capabilities = capabilities
+                    .With(LegalityCapabilityId.IgnoreTraversalSolidBlocker)
+                    .With(LegalityCapabilityId.IgnoreTraversalActiveBarricadeBlocker);
             }
 
             return capabilities;
@@ -57,6 +59,9 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 LegalityBlockerKind.Unit => capabilities.Has(LegalityCapabilityId.IgnoreTraversalUnitBlocker),
                 LegalityBlockerKind.Solid => capabilities.Has(LegalityCapabilityId.IgnoreTraversalSolidBlocker),
+                LegalityBlockerKind.TileFeature =>
+                    blocker.TileFeatureKind == TileFeatureKind.Barricade &&
+                    capabilities.Has(LegalityCapabilityId.IgnoreTraversalActiveBarricadeBlocker),
                 _ => false,
             };
         }

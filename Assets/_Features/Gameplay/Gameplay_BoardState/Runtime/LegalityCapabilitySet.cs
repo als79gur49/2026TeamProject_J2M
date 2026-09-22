@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.BoardState
         None = 0,
         IgnoreTraversalUnitBlocker = 1 << 0,
         IgnoreTraversalSolidBlocker = 1 << 1,
+        IgnoreTraversalActiveBarricadeBlocker = 1 << 2,
     }
 
     internal readonly struct LegalityCapabilitySet

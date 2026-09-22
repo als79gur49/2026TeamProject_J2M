@@ -188,6 +188,7 @@
   - `JumpLandingEvidence`
   - `ImpactFollowThroughEvidence`
 - `TileFeatureTraversalEvidence`와 `TileFeatureSettlementEvidence`는 각각 traversal/settlement의 feature-specific definition read seam만 운반하는 필수 typed evidence다. featureless caller는 `Empty`를 명시하며, `null` 또는 `default` missing input은 유효한 evidence가 아니다. current snapshot과 evidence를 결합한 blocker 및 최종 verdict는 해당 legality policy owner가 계산한다.
+- Active Glide의 overflight와 recovery landing은 별도 legality 계약이다. traversal은 solid 및 allowlist된 static Barricade blocker를 capability로 우회하지만 anchor commit 직전 최신 snapshot 재검사를 생략하지 않는다. recovery settlement는 solid 또는 topology-active Barricade 위에서 차단되며, Barricade가 glider 점유로 suppressed된 경우에도 occupant가 없을 때의 topology-active 상태를 기준으로 한다. landing-pending 의미는 public phase가 아니라 `Active + WantsRecover`로 표현한다.
 - current Flip landing의 caller-local Barricade precheck는 Push/Flip impact 경로에 남은 narrow exception이며, 이 context/evidence 계약을 다른 caller-local legality 조립으로 일반화하는 선례가 아니다.
 - context rule:
   - raw blocker list, raw occupant enumeration, semantic fact cache, mutation handle, caller-specific boolean은 base context에 넣지 않는다.

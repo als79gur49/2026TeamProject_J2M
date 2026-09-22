@@ -31,6 +31,51 @@ namespace Game.Feature.Gameplay.BoardState
 
     internal static class RuntimeSettlementLegalityPolicy
     {
+        public static LegalityResult EvaluateGlideRecoveryLanding(
+            WorldSnapshot snapshot,
+            SurfaceCell terminalCell,
+            TileFeatureSettlementEvidence tileFeatureEvidence)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (snapshot.TryGetSolidSemanticAt(terminalCell, out var solidSemantic))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    terminalCell,
+                    snapshot.Topology,
+                    RuntimeLegalityBlockerFactory.Create(solidSemantic.Entity),
+                    ReservationStatus.None);
+            }
+
+            if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                    snapshot,
+                    tileFeatureEvidence.Definitions,
+                    terminalCell,
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.UnitSettlement,
+                    out var barricade,
+                    snapshot.Topology,
+                    existingOccupantEntityId: 0))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    terminalCell,
+                    snapshot.Topology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(barricade),
+                    ReservationStatus.None);
+            }
+
+            return LegalityResult.Allowed(
+                LegalityDomain.Settlement,
+                terminalCell,
+                snapshot.Topology,
+                ReservationStatus.None);
+        }
+
         public static LegalityResult EvaluateLandingPlacement(
             SettlementContext context,
             TileFeatureSettlementEvidence tileFeatureEvidence)

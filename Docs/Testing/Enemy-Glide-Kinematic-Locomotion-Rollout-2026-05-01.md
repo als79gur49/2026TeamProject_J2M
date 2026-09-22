@@ -8,18 +8,18 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyGlideKinemati
 - Flag on: the kinematic state uses `MotionMode.Voluntary`; glide semantics stay in `EnemyGlideRuntimeState.Active` and boundary/trace reason text.
 - Flag on: horizontal presentation comes from `TickKinematicMotionTrack`; height presentation stays in `TickEnemyGlidePresentationSignal` and remains presentation-only.
 - Flag on: active glide anchor commits are `MovementExecutionBoundaryKind.LocomotionAnchorCommit` with reason `GlideActiveKinematicAnchorCommit`.
-- Active glide solid blocker bypass is preserved. Board edge, topology, reservation, TileFeature, and unit overlap restrictions are not bypassed.
+- Active glide bypasses solid blockers and the allowlisted static TileFeature blocker `Barricade`. Board edge, topology-transition guards, reservation, and unit overlap restrictions are not bypassed.
 - Contact remains anchor-based: source anchor before commit, destination anchor from commit tick onward. Swept and footprint contact are not introduced.
 - If active ends while a kinematic segment is non-settled, the segment completes naturally. New glide kinematic steps start only while phase is `Active`.
-- If active ends while the current committed anchor overlaps a solid, the existing `EnemyGlidePhase.LandingPending` lifecycle starts or persists and movement remains suppressed until the solid overlap clears.
-- Nonlethal hit during active glide kinematic movement interrupts the voluntary kinematic pose and moves the glide lifecycle into recovery; lethal hit/removal purges unit kinematics and glide state through cleanup.
+- If active ends while the committed anchor overlaps a solid or topology-active Barricade, landing-pending semantics persist as `Active + WantsRecover`; the removed public `LandingPending` phase is not restored. Active traversal remains available until the unit reaches a non-blocked cell, then Recovery begins on the next lifecycle evaluation.
+- Nonlethal hit during active glide kinematic movement interrupts the voluntary kinematic pose and applies the recovery landing gate: safe cells enter Recovery, while solid or topology-active Barricade cells remain `Active + WantsRecover`. Lethal hit/removal purges unit kinematics and glide state through cleanup.
 - Glide kinematic continuation requires authoritative glide provenance: the voluntary segment must have started inside the recorded active window. Arbitrary pre-seeded `MotionMode.Voluntary` enemy state is not treated as glide continuation.
-- `Windup`, `LandingPending`, and `Recovery` still suppress movement. `Cooldown` follows ordinary enemy movement policy and is not a glide-specific migration target.
+- `Windup` and `Recovery` suppress movement. `Active + WantsRecover` retains Active traversal solely until a valid recovery landing cell is reached. `Cooldown` follows ordinary enemy movement policy and is not a glide-specific migration target.
 
 ## Stabilization v1.1
 
 v1.1 stabilized `EnableEnemyGlideKinematicLocomotion` as an explicit flag before default adoption.
-The stabilization gate adds coverage for contact timing, LandingPending on solid overlap, active-end non-settled continuation, hit/death cleanup, replay determinism, and voluntary-state provenance.
+The stabilization gate adds coverage for contact timing, `Active + WantsRecover` landing-pending semantics on static blocker overlap, active-end non-settled continuation, hit/death cleanup, replay determinism, and voluntary-state provenance.
 Explicit flag-on active glide is considered stabilized for the legacy ordinary movement blocker once these tests are green.
 
 ## Default Adoption v2

@@ -1038,7 +1038,11 @@ namespace Game.Feature.Gameplay.Entities
                             return changed;
                         }
 
-                        if (snapshot.TryGetSolidSemanticAt(source.position, out _))
+                        var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateGlideRecoveryLanding(
+                            snapshot,
+                            source.position,
+                            new TileFeatureSettlementEvidence(_tileFeatureDefinitions));
+                        if (landingLegality.Verdict == LegalityVerdict.Blocked)
                         {
                             if (!nextState.WantsRecover)
                             {

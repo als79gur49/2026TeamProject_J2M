@@ -330,6 +330,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void Glider_ActiveDurationExpired_OnTopologyActiveBarricade_WaitsUntilSafeCellThenRecovers()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 1, recoveryTicks: 1, cooldownTicks: 0));
+            var barricadeCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var safeCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var definitions = new[]
+            {
+                CreateTileDefinition(100, TileFeatureKind.Barricade, activationRule: TileFeatureActivationRule.BottomFaceOnly),
+            };
+            var worldState = CreateWorldState(
+                new[] { CreateUnit(40, teamId: 2, safeCell, EnemyAiMode.Chase) },
+                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)),
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade, TileFeatureFlags.Activated) });
+            var logic = new EnemyLogic(40, profile);
+            logic.BindTileFeatureDefinitions(definitions);
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(
+                    activeUntilTickExclusive: 2,
+                    durationTicks: 1,
+                    cooldownTicks: 0,
+                    recoveryTicks: 1,
+                    lockedStepX: -1,
+                    lockedStepY: 0));
+            worldState.CreateWriteContext().MoveEntity(40, barricadeCell);
+
+            try
+            {
+                CommitPreMovement(logic, worldState, tickIndex: 2);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var pending), Is.True);
+                Assert.That(pending.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+                Assert.That(pending.WantsRecover, Is.True);
+
+                CommitPreMovement(logic, worldState, tickIndex: 3);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var stillPending), Is.True);
+                Assert.That(stillPending.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+                Assert.That(stillPending.WantsRecover, Is.True);
+
+                worldState.CreateWriteContext().MoveEntity(40, safeCell);
+                CommitPreMovement(logic, worldState, tickIndex: 4);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var recovery), Is.True);
+                Assert.That(recovery.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
+                Assert.That(recovery.RecoveryUntilTickExclusive, Is.EqualTo(5));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyLogic_ActiveGlideAndCooldownDoNotSuppressChaseMovementIntent()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
@@ -704,7 +757,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideOverSolid_ActiveDoesNotBypassActivatedBarricadeTileFeature()
+        public void GlideOverSolid_ActiveBypassesActivatedBarricadeTileFeature()
         {
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
@@ -725,10 +778,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     moonBlockRespawnDefinitions: null)
                 .RunTick(new TickInput(1));
 
-            Assert.That(HasMoveEntity(tick, 40, destination), Is.False);
-            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.False);
-            AssertEntityAt(worldState, 40, SurfaceCell.FromPlanar(Vector2Int.zero));
-            Assert.That(worldState.CreateSnapshot().TryGetPrimaryUnitAt(destination, out _), Is.False);
+            Assert.That(
+                HasMoveEntity(tick, 40, destination),
+                Is.True,
+                $"Trace={tick.Trace.Text}\nEvents={string.Join("\n", tick.EventLog)}");
+            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.True);
+            AssertEntityAt(worldState, 40, destination);
+            Assert.That(worldState.CreateSnapshot().TryGetPrimaryUnitAt(destination, out var glider), Is.True);
+            Assert.That(glider.entityId, Is.EqualTo(40));
         }
 
         [Test]
@@ -1317,7 +1374,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Legality_ActiveGlideBypassesSolidButNotTileFeatureOrReservationBlockers()
+        public void Legality_ActiveGlideBypassesStaticBlockersButNotBoardOrReservationBlockers()
         {
             var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var terrainCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -2448,7 +2505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[] { CreateWall(30, destination) },
                 new[] { CreateTileFeature(100, destination, TileFeatureKind.Barricade, TileFeatureFlags.Activated) },
                 new[] { CreateTileDefinition(100, TileFeatureKind.Barricade, activationRule: TileFeatureActivationRule.BottomFaceOnly) },
-                activeShouldMove: false);
+                activeShouldMove: true);
             yield return new P1SolidTileMatrixCase(
                 "InactiveBarricadeTileFeature",
                 destination,

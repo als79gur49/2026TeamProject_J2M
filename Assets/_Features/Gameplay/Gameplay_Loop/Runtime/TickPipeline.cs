@@ -1311,6 +1311,7 @@ namespace Game.Feature.Gameplay.Loop
                 attackStageBatch,
                 attackCommitEvents,
                 tickIndex,
+                _tileFeatureSettlementEvidence,
                 interruptEnemyGlideKinematics: _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion);
             finalizationBatch.MergeFrom(attackStageBatch);
             projectedWorld.ApplyBatch(attackStageBatch);
@@ -3355,8 +3356,7 @@ namespace Game.Feature.Gameplay.Loop
                     out var resolvedGlideKind)
                 ? resolvedGlideKind
                 : EnemyGlideKinematicKind.None;
-            if (continuationGlideKind == EnemyGlideKinematicKind.None &&
-                outcome.AnchorChanged)
+            if (outcome.AnchorChanged)
             {
                 var anchorCommitLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
                     snapshot,
@@ -7608,6 +7608,7 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch attackStageBatch,
             List<string> commitEvents,
             int tickIndex,
+            TileFeatureSettlementEvidence tileFeatureSettlementEvidence,
             bool interruptEnemyGlideKinematics)
         {
             if (attackSnapshot == null)
@@ -7657,6 +7658,7 @@ namespace Game.Feature.Gameplay.Loop
                     damageResolution.LocalActionIndex,
                     damageResolution.SourceKind,
                     tickIndex,
+                    tileFeatureSettlementEvidence,
                     interruptEnemyGlideKinematics,
                     damageResolution.Amount);
                 if (!enemyInterruptHandled)
@@ -7695,6 +7697,7 @@ namespace Game.Feature.Gameplay.Loop
                     destroyResolution.LocalActionIndex,
                     AttackSourceKind.Combat,
                     tickIndex,
+                    tileFeatureSettlementEvidence,
                     interruptEnemyGlideKinematics,
                     damageAmount: 0);
                 if (!enemyInterruptHandled)
@@ -7728,6 +7731,7 @@ namespace Game.Feature.Gameplay.Loop
             int localActionIndex,
             AttackSourceKind sourceKind,
             int tickIndex,
+            TileFeatureSettlementEvidence tileFeatureSettlementEvidence,
             bool interruptEnemyGlideKinematics,
             int damageAmount)
         {
@@ -7766,15 +7770,23 @@ namespace Game.Feature.Gameplay.Loop
                     metadata);
                 if (enemyGlideInterrupt &&
                     IsNonLethalDamage(attackSnapshot, targetEntityId, damageAmount) &&
+                    attackSnapshot.TryGetEntity(targetEntityId, out targetEntity) &&
                     attackSnapshot.TryGetEnemyGlideState(targetEntityId, out var glideState) &&
                     glideState.Phase == EnemyGlidePhase.Active)
                 {
+                    var landing = RuntimeSettlementLegalityPolicy.EvaluateGlideRecoveryLanding(
+                        attackSnapshot,
+                        targetEntity.position,
+                        tileFeatureSettlementEvidence);
+                    var interruptedGlideState = landing.Verdict == LegalityVerdict.Blocked
+                        ? EnemyGlideQueries.MarkActiveWantsRecover(glideState)
+                        : EnemyGlideQueries.BeginRecovery(glideState, tickIndex);
                     attackStageBatch.SetEnemyGlideState(
                         targetEntityId,
-                        EnemyGlideQueries.BeginRecovery(glideState, tickIndex),
+                        interruptedGlideState,
                         metadata);
                     commitEvents.Add(
-                        $"EnemyGlideStateUpdated|E={targetEntityId}|Label=InterruptedToRecovery|Phase={EnemyGlidePhase.Recovery}|Seq={glideState.Sequence}");
+                        $"EnemyGlideStateUpdated|E={targetEntityId}|Label={(interruptedGlideState.Phase == EnemyGlidePhase.Recovery ? "InterruptedToRecovery" : "InterruptedRecoveryDeferred")}|Phase={interruptedGlideState.Phase}|WantsRecover={(interruptedGlideState.WantsRecover ? 1 : 0)}|Seq={glideState.Sequence}");
                 }
 
                 interruptRecords.Add(

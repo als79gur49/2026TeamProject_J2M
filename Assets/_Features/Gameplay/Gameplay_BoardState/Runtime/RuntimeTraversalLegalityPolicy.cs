@@ -42,23 +42,17 @@ namespace Game.Feature.Gameplay.BoardState
                         tileFeatureDefinitions,
                         out var tileFeatureBlocker))
                 {
-                    return LegalityResult.Blocked(
-                        LegalityDomain.Traversal,
-                        context.CandidateCell,
-                        context.EvaluationTopology,
-                        RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
-                        context.ReservationStatus,
-                        context.TransitionRequirement);
-                }
-
-                if (context.Actor.GlideState.IsActive)
-                {
-                    return LegalityResult.Allowed(
-                        LegalityDomain.Traversal,
-                        context.CandidateCell,
-                        context.EvaluationTopology,
-                        context.ReservationStatus,
-                        context.TransitionRequirement);
+                    var tileFeatureBlockers = RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker);
+                    if (!ModifierQuery.IgnoresTraversalBlocker(capabilities, tileFeatureBlockers[0]))
+                    {
+                        return LegalityResult.Blocked(
+                            LegalityDomain.Traversal,
+                            context.CandidateCell,
+                            context.EvaluationTopology,
+                            tileFeatureBlockers,
+                            context.ReservationStatus,
+                            context.TransitionRequirement);
+                    }
                 }
 
                 return LegalityResult.Allowed(
@@ -77,23 +71,17 @@ namespace Game.Feature.Gameplay.BoardState
                         tileFeatureDefinitions,
                         out var tileFeatureBlocker))
                 {
-                    return LegalityResult.Blocked(
-                        LegalityDomain.Traversal,
-                        context.CandidateCell,
-                        context.EvaluationTopology,
-                        RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
-                        context.ReservationStatus,
-                        context.TransitionRequirement);
-                }
-
-                if (context.Actor.GlideState.IsActive)
-                {
-                    return LegalityResult.Allowed(
-                        LegalityDomain.Traversal,
-                        context.CandidateCell,
-                        context.EvaluationTopology,
-                        context.ReservationStatus,
-                        context.TransitionRequirement);
+                    var tileFeatureBlockers = RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker);
+                    if (!ModifierQuery.IgnoresTraversalBlocker(capabilities, tileFeatureBlockers[0]))
+                    {
+                        return LegalityResult.Blocked(
+                            LegalityDomain.Traversal,
+                            context.CandidateCell,
+                            context.EvaluationTopology,
+                            tileFeatureBlockers,
+                            context.ReservationStatus,
+                            context.TransitionRequirement);
+                    }
                 }
 
                 return LegalityResult.Allowed(
