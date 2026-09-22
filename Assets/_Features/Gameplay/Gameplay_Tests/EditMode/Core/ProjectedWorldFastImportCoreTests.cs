@@ -272,6 +272,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(counts.OrderedEntitiesSortCount, Is.EqualTo(1));
         }
 
+        [Test]
+        [Category("Core")]
         public void ProjectedWorld_FastImport_OverlayEntityOperationStillValidates()
         {
             var baseSnapshot = CreateRichSnapshot();
