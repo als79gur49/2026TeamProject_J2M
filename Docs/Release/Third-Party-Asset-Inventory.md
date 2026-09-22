@@ -1,6 +1,6 @@
 # Third-Party Asset Inventory
 
-검토 기준일: 2026-09-05 KST
+검토 기준일: 2026-09-23 KST
 대상: VectorQuake Windows Direct / Steam 배포 후보와 저장소에 포함된 외부 자산
 
 이 문서는 내부 권리·고지 관리용 인벤토리다. 배포물에 포함되는 공개 고지문은
@@ -144,8 +144,9 @@ UPM 버전은 `Packages/packages-lock.json`과 공개 고지가 일치해야 한
 | F-01 | Orbitron ExtraBold | `Assets/Synty/InterfaceSciFiSoldierHUD/Fonts/Orbitron/` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | font copy와 함께 copyright 및 OFL 제공 | 수정본에 Reserved Font Name `Orbitron` 사용 금지(허가 없는 경우) | 확인 |
 | F-02 | Exo 2.0 Regular / SemiBold | `Assets/Synty/InterfaceSciFiSoldierHUD/Fonts/exo-2-0/` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | font copy와 함께 copyright 및 OFL 제공 | 수정본에 Reserved Font Name `Exo` 사용 금지(허가 없는 경우) | 확인 |
 | F-03 | Saira Condensed SemiBold derived SDF | `Assets/Synty/InterfaceSciFiSoldierHUD/Fonts/Font_SciFiSoldier_Bold.asset` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | embedded/derived font software와 함께 copyright 및 OFL 제공 | 수정본에 Reserved Font Name `Saira` 사용 금지(허가 없는 경우) | 확인 |
-| F-04 | KBO Dia Gothic Light / Medium | `Assets/_Shared/UI/Fonts/` | KBO 다이아고딕 라이선스 ([공식 페이지](https://www.koreabaseball.com/Reference/etc/KboFont.aspx), [Ver.2 PDF](https://6ptotvmi5753.edge.naverncp.com/KBO_FILE/file_down/KBO_%EB%8B%A4%EC%9D%B4%EC%95%84%EA%B3%A0%EB%94%95_%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4_%EC%95%88%EB%82%B4_Ver2.pdf)) | 일반 상업 이용 및 소프트웨어·게임 UI 임베딩 가능 | 별도 엔드크레딧 요구 확인 안 됨 | 별도 라이선스 동봉 의무 확인 안 됨; 프로젝트는 출처·조건을 자발적으로 고지 | 원본 배포 형태 유지, TTF 수정·개작본 재배포 및 폰트 자체 판매 금지; CI/BI(회사·브랜드·상품명, 로고·마크, 슬로건·캐치프레이즈 등) 사용 금지; 콘텐츠 제한 및 KBO의 폰트 사용 인쇄물·광고물(온라인 포함) 이미지 홍보 활용·거절 조항 존재 | 일반 이용·원본 임베딩 확인 / TMP SDF는 공개자료상 미확인·출시 전 권리자 문의 권장 |
+| F-04 | KBO Dia Gothic Light / Medium | `Assets/_Shared/UI/Fonts/` | KBO 다이아고딕 라이선스 ([공식 페이지](https://www.koreabaseball.com/Reference/etc/KboFont.aspx), [Ver.2 PDF](https://6ptotvmi5753.edge.naverncp.com/KBO_FILE/file_down/KBO_%EB%8B%A4%EC%9D%B4%EC%95%84%EA%B3%A0%EB%94%95_%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4_%EC%95%88%EB%82%B4_Ver2.pdf)) | 일반 상업 이용 및 소프트웨어·게임 UI 임베딩 가능 | 별도 엔드크레딧 요구 확인 안 됨 | 별도 라이선스 동봉 의무 확인 안 됨; 프로젝트는 출처·조건을 자발적으로 고지 | 원본 배포 형태 유지, TTF 수정·개작본 재배포 및 폰트 자체 판매 금지; CI/BI(회사·브랜드·상품명, 로고·마크, 슬로건·캐치프레이즈 등) 사용 금지; 콘텐츠 제한 및 KBO의 폰트 사용 인쇄물·광고물(온라인 포함) 이미지 홍보 활용·거절 조항 존재 | 2026-09-23 출시 책임자가 TMP Static SDF 동봉에 필요한 KBO/KBOP 확인 완료를 확인함; 비공개 권리 증빙 ledger가 authoritative record | 확인 |
 | F-05 | Liberation Sans | `Assets/TextMesh Pro/Fonts/` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | font copy와 함께 copyright 및 OFL 제공 | `Liberation` 등 명시된 Reserved Font Name 제한 준수 | 확인 |
+| F-06 | Noto Sans JP Regular/Bold, Noto Sans SC Regular/Bold 및 생성된 TMP Static SDF | `Assets/_Shared/UI/Fonts/NotoSansCJK/` | SIL OFL 1.1 | 가능 | 별도 엔드크레딧은 불필요 | font copy와 함께 Adobe copyright, Noto trademark 고지 및 OFL 전문 제공 | 파생 font software는 OFL 유지; standalone font 판매 금지 | `ThirdPartyNotices.txt`에 4개 style, source, copyright/trademark, 생성 SDF 및 OFL 전문 반영 | 확인 |
 
 OFL의 copyright 및 전문은 `ThirdPartyNotices.txt`의 `Open Font Software` 절에 포함되어
 있다. 폰트를 수정하거나 family/style을 추가하면 Reserved Font Name과 copyright 문구를
@@ -175,13 +176,10 @@ OFL의 copyright 및 전문은 `ThirdPartyNotices.txt`의 `Open Font Software` �
    - 구매 주체와 license tier를 확인한다.
    - 취득 당시 적용 EULA와 별도 Provider/Restricted Asset Terms 존재 여부를 보존한다.
    - 실제 Windows release lane에서 두 공개 고지가 payload에 포함되는지 재검증한다.
-2. **KBO Dia Gothic TMP/SDF 확인 조건**
-   - `kbop@koreabaseball.or.kr`에 원본 TTF·글자 디자인은 변경하지 않고 Unity
-     TextMeshPro로 필요한 글자의 SDF 아틀라스와 표시용 데이터를 생성해 유료 게임에
-     포함하는 방식이 허용되는 임베딩인지 문의한다.
-   - 권리자 회신과 확인일을 비공개 Evidence ID에 연결한다. 회신을 받지 못하면
-     TMP/SDF를 명시 승인된 것으로 표시하지 말고, 남은 불확실성에 대한 출시 책임자의
-     판단을 기록한다.
+2. **KBO Dia Gothic TMP/SDF 확인 유지 조건**
+   - 2026-09-23 KST에 출시 책임자가 TMP Static SDF 동봉에 필요한 KBO/KBOP 확인이
+     완료됐음을 확인했다. 권리자 회신과 확인일은 비공개 Evidence ID에 연결하고
+     release마다 유효성을 유지한다.
    - 대표 `VectorQuake`·`J2M`·로고·슬로건·캐치프레이즈가 KBO 폰트를 사용하지 않는지
      release candidate에서 재확인한다.
 3. C-02~C-07의 구매·좌석 증빙을 비공개 ledger와 연결한다. 특히 Extension Asset과

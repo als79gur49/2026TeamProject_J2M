@@ -136,7 +136,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void KboLicenseGovernance_SeparatesEmbeddingBrandingAndSdfInterpretation()
+        public void KboLicenseGovernance_SeparatesEmbeddingBrandingAndConfirmedSdfClearance()
         {
             var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
             var assetNotice = File.ReadAllText(Path.Combine(
@@ -153,29 +153,29 @@ namespace Game.Feature.UI.Tests
             Assert.That(assetNotice, Does.Contain("Commercial use and software embedding are permitted"));
             Assert.That(assetNotice, Does.Contain("CI / BI use is not permitted."));
             Assert.That(assetNotice, Does.Contain("must not be used as the\nrepresentative branding"));
-            Assert.That(assetNotice, Does.Contain("does not\nexpressly address TextMesh Pro SDF assets"));
-            Assert.That(assetNotice, Does.Contain("Static versus Dynamic"));
+            Assert.That(assetNotice, Does.Contain("On 2026-09-23 KST"));
+            Assert.That(assetNotice, Does.Contain("required KBO/KBOP clearance"));
+            Assert.That(assetNotice, Does.Contain("private rights evidence ledger"));
             Assert.That(assetNotice, Does.Contain("kbop@koreabaseball.or.kr"));
             Assert.That(assetNotice, Does.Contain("images of printed materials and advertising materials"));
             Assert.That(assetNotice, Does.Contain("The font itself may not be sold."));
             Assert.That(assetNotice, Does.Not.Contain("web1.koreabaseball.com"));
 
             Assert.That(distributionNotice, Does.Contain("CI / BI use is not permitted."));
-            Assert.That(
-                distributionNotice,
-                Does.Contain("The official KBO license does not\nexpressly address TextMesh Pro SDF assets."));
+            Assert.That(distributionNotice, Does.Contain("On 2026-09-23 KST"));
+            Assert.That(distributionNotice, Does.Contain("required KBO/KBOP clearance"));
+            Assert.That(distributionNotice, Does.Contain("private rights\nevidence ledger"));
             Assert.That(distributionNotice, Does.Contain("No explicit end-credit or license-file bundling requirement"));
-            Assert.That(distributionNotice, Does.Contain("KBO/KBOP\nconfirmation remains a release review item."));
             Assert.That(distributionNotice, Does.Contain("kbop@koreabaseball.or.kr"));
             Assert.That(distributionNotice, Does.Not.Contain("CI / BI use is permitted."));
             Assert.That(distributionNotice, Does.Not.Contain("KBO has approved TextMesh Pro SDF"));
 
             Assert.That(closeout, Does.Contain("`VectorQuake`"));
             Assert.That(closeout, Does.Contain("`J2M`"));
-            Assert.That(closeout, Does.Contain("rights-holder-confirmation\nitem"));
+            Assert.That(closeout, Does.Contain("required KBO/KBOP clearance"));
             Assert.That(closeout, Does.Contain("원본 TTF의 내용과 글자 디자인은 변경하지 않고"));
-            Assert.That(inventory, Does.Contain("TMP SDF는 공개자료상 미확인·출시 전 권리자 문의 권장"));
-            Assert.That(inventory, Does.Contain("KBO Dia Gothic TMP/SDF 확인 조건"));
+            Assert.That(inventory, Does.Contain("TMP Static SDF 동봉에 필요한 KBO/KBOP 확인 완료"));
+            Assert.That(inventory, Does.Contain("KBO Dia Gothic TMP/SDF 확인 유지 조건"));
         }
 
         [Test]
