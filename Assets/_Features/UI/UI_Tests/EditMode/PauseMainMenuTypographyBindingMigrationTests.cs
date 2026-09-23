@@ -202,7 +202,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(warning.gameObject.activeSelf, Is.True);
                 Assert.That(warningLayout.preferredHeight, Is.EqualTo(authoredWarningHeight));
 
-                resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+                Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
                 RebuildConfirmLayout((RectTransform)root.transform);
 
                 Assert.That(warning.text, Is.Not.Empty);

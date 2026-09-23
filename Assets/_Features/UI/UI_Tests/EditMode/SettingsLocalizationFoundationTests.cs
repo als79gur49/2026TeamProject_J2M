@@ -16,6 +16,212 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class SettingsLocalizationFoundationTests
     {
+        [Test]
+        public void LocalePreferenceResultsAndDiagnostics_EnforceClosedValidShapes()
+        {
+            Assert.That(typeof(LocalePreferenceReadResult).IsSealed, Is.True);
+            Assert.That(typeof(LocalePreferenceWriteResult).IsSealed, Is.True);
+            Assert.That(
+                typeof(LocalePreferenceReadResult).GetConstructors(BindingFlags.Instance | BindingFlags.Public),
+                Is.Empty);
+            Assert.That(
+                typeof(LocalePreferenceWriteResult).GetConstructors(BindingFlags.Instance | BindingFlags.Public),
+                Is.Empty);
+            var readConstructors = typeof(LocalePreferenceReadResult)
+                .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic);
+            var writeConstructors = typeof(LocalePreferenceWriteResult)
+                .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(readConstructors, Has.Length.EqualTo(1));
+            Assert.That(writeConstructors, Has.Length.EqualTo(1));
+            Assert.That(readConstructors.All(constructor => constructor.IsPrivate), Is.True);
+            Assert.That(writeConstructors.All(constructor => constructor.IsPrivate), Is.True);
+
+            var missing = LocalePreferenceReadResult.Missing();
+            Assert.That(missing.Status, Is.EqualTo(LocalePreferenceReadStatus.Missing));
+            Assert.That(missing.RawLocaleCode, Is.Null);
+            Assert.That(missing.FailureReason, Is.Null);
+
+            var blankLoaded = LocalePreferenceReadResult.Loaded(string.Empty);
+            Assert.That(blankLoaded.Status, Is.EqualTo(LocalePreferenceReadStatus.Loaded));
+            Assert.That(blankLoaded.RawLocaleCode, Is.Empty);
+            Assert.That(blankLoaded.FailureReason, Is.Null);
+            Assert.Throws<ArgumentNullException>(() => LocalePreferenceReadResult.Loaded(null));
+            Assert.Throws<ArgumentException>(() => LocalePreferenceReadResult.Failed(" "));
+
+            var completed = LocalePreferenceWriteResult.Completed();
+            Assert.That(completed.Status, Is.EqualTo(LocalePreferenceWriteStatus.Completed));
+            Assert.That(completed.FailureReason, Is.Null);
+            Assert.Throws<ArgumentException>(() => LocalePreferenceWriteResult.Failed(null));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new LocalePersistenceDiagnostic(
+                (LocalePersistenceOperation)99,
+                "en-US",
+                "failure"));
+            Assert.Throws<ArgumentException>(() => new LocalePersistenceDiagnostic(
+                LocalePersistenceOperation.StartupRead,
+                " ",
+                "failure"));
+            Assert.Throws<ArgumentException>(() => new LocalePersistenceDiagnostic(
+                LocalePersistenceOperation.StartupRead,
+                "en-US",
+                " "));
+        }
+
+        [Test]
+        public void LocalePersistenceReportGuard_AttemptsOnceAndSwallowsOnlyReporterFailure()
+        {
+            var reporter = new ThrowingLocalePersistenceReporter();
+            var diagnostic = new LocalePersistenceDiagnostic(
+                LocalePersistenceOperation.SettingsSelection,
+                "ko-KR",
+                "failed");
+
+            Assert.DoesNotThrow(() => LocalePersistenceReportGuard.SafeReport(reporter, diagnostic));
+            Assert.That(reporter.CallCount, Is.EqualTo(1));
+            Assert.Throws<ArgumentNullException>(() =>
+                LocalePersistenceReportGuard.SafeReport(null, diagnostic));
+            Assert.Throws<ArgumentNullException>(() =>
+                LocalePersistenceReportGuard.SafeReport(reporter, null));
+        }
+
+        [Test]
+        public void PackageFreeResolver_ReadFailureReportsResolvedSelectedWithoutWriting()
+        {
+            var store = new FakeUiLocalePreferenceStore
+            {
+                ReadResult = LocalePreferenceReadResult.Failed("read failed"),
+            };
+            var reporter = new RecordingLocalePersistenceReporter();
+
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                "ko-KR",
+                store,
+                reporter);
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.LoadCallCount, Is.EqualTo(1));
+            Assert.That(store.SaveCallCount, Is.Zero);
+            Assert.That(reporter.Diagnostics.Single().Operation,
+                Is.EqualTo(LocalePersistenceOperation.StartupRead));
+            Assert.That(reporter.Diagnostics.Single().CanonicalLocaleCode, Is.EqualTo("ko-KR"));
+        }
+
+        [Test]
+        public void PackageFreeResolver_StartupRewriteFailureReportsAndKeepsResolvedLocale()
+        {
+            var store = new FakeUiLocalePreferenceStore("invalid-loaded")
+            {
+                WriteResult = LocalePreferenceWriteResult.Failed("rewrite failed"),
+            };
+            var reporter = new RecordingLocalePersistenceReporter();
+
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                "ko-KR",
+                store,
+                reporter);
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(reporter.Diagnostics.Single().Operation,
+                Is.EqualTo(LocalePersistenceOperation.StartupRewrite));
+        }
+
+        [Test]
+        public void PackageFreeFactories_DistinguishOmissionFromExplicitNullDependencies()
+        {
+            var noOpStore = new NoOpUiLocalePreferenceStore();
+            Assert.That(noOpStore.Load().Status, Is.EqualTo(LocalePreferenceReadStatus.Missing));
+            Assert.That(noOpStore.Save("en-US").Status,
+                Is.EqualTo(LocalePreferenceWriteStatus.Completed));
+            Assert.DoesNotThrow(() => new NoOpUiLocalePersistenceReporter().Report(
+                new LocalePersistenceDiagnostic(
+                    LocalePersistenceOperation.StartupRead,
+                    "en-US",
+                    "test")));
+
+            Assert.Throws<ArgumentNullException>(() =>
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                    "en-US",
+                    null,
+                    new NoOpUiLocalePersistenceReporter()));
+            Assert.Throws<ArgumentNullException>(() =>
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                    "en-US",
+                    new NoOpUiLocalePreferenceStore(),
+                    null));
+        }
+
+        [Test]
+        public void PackageFreeResolver_NullLoadAndSaveResultsPropagateWithExactPriorEffects()
+        {
+            var nullLoadStore = new FakeUiLocalePreferenceStore { ReturnNullLoad = true };
+            var loadReporter = new RecordingLocalePersistenceReporter();
+            Assert.Throws<InvalidOperationException>(() =>
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                    "en-US",
+                    nullLoadStore,
+                    loadReporter));
+            Assert.That(nullLoadStore.SaveCallCount, Is.Zero);
+            Assert.That(loadReporter.Diagnostics, Is.Empty);
+
+            var nullSaveStore = new FakeUiLocalePreferenceStore { ReturnNullSave = true };
+            var saveReporter = new RecordingLocalePersistenceReporter();
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                "en-US",
+                nullSaveStore,
+                saveReporter);
+            var eventCount = 0;
+            resolver.LocaleChanged += () => eventCount++;
+
+            Assert.Throws<InvalidOperationException>(() => resolver.TrySetLocale("ko-KR"));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(eventCount, Is.EqualTo(1));
+            Assert.That(nullSaveStore.SaveCallCount, Is.EqualTo(1));
+            Assert.That(saveReporter.Diagnostics, Is.Empty);
+        }
+
+        [Test]
+        public void PackageFreeResolver_SubscriberFailureStopsPreferenceWrite()
+        {
+            var store = new FakeUiLocalePreferenceStore();
+            var reporter = new RecordingLocalePersistenceReporter();
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                "en-US",
+                store,
+                reporter);
+            resolver.LocaleChanged += () => throw new InvalidOperationException("subscriber failed");
+
+            Assert.Throws<InvalidOperationException>(() => resolver.TrySetLocale("ko-KR"));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.Zero);
+            Assert.That(reporter.Diagnostics, Is.Empty);
+        }
+
+        [Test]
+        public void PackageFreeResolver_PartialFailedWriteKeepsChangeReportsOnceAndDoesNotRetryNoOp()
+        {
+            var store = new FakeUiLocalePreferenceStore
+            {
+                WriteResult = LocalePreferenceWriteResult.Failed("partial failure"),
+                MutateOnFailedWrite = true,
+            };
+            var reporter = new RecordingLocalePersistenceReporter();
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                "en-US",
+                store,
+                reporter);
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.StoredLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(reporter.Diagnostics.Single().Operation,
+                Is.EqualTo(LocalePersistenceOperation.SettingsSelection));
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(reporter.Diagnostics, Has.Count.EqualTo(1));
+        }
+
         private static readonly LocalizedTextDescriptor[] ExpectedSettingsDescriptors =
         {
             SettingsStaticTextDescriptors.Title,
@@ -27,8 +233,6 @@ namespace Game.Feature.UI.Tests
             SettingsStaticTextDescriptors.Flip,
             SettingsStaticTextDescriptors.ResetInput,
             SettingsStaticTextDescriptors.Language,
-            SettingsStaticTextDescriptors.LanguageEnglish,
-            SettingsStaticTextDescriptors.LanguageKorean,
             SettingsStaticTextDescriptors.AudioMain,
             SettingsStaticTextDescriptors.AudioBgm,
             SettingsStaticTextDescriptors.AudioSfx,
@@ -199,7 +403,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.ConfirmLabel, Is.EqualTo("Reset"));
             Assert.That(presenter.ViewModel.CancelLabel, Is.EqualTo("Cancel"));
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("키 설정 초기화"));
             Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("키 설정을 기본값으로 초기화할까요?"));
@@ -207,7 +411,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.CancelLabel, Is.EqualTo("취소"));
 
             presenter.Dispose();
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode), Is.True);
 
             Assert.That(
                 presenter.ViewModel.TitleText,
@@ -398,7 +602,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void InvariantSettingsFallback_DefaultInputPresenter_PreservesUnknownDiagnosticFallback()
+        public void InvariantSettingsFallback_DefaultInputPresenter_UsesVisibleMissingTranslationSentinel()
         {
             var presenter = new SettingsInputPresenter(
                 new RejectingKeyboardSettingsPort(KeyboardBindingValidationResult.Success));
@@ -410,7 +614,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 presenter.ViewModel.MovementLabel,
-                Is.EqualTo("[UI:ui.settings.input.unknown]"));
+                Is.EqualTo(PackageFreeLocalizedTextResolver.MissingTranslationSentinel));
         }
 
         [Test]
@@ -425,7 +629,7 @@ namespace Game.Feature.UI.Tests
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
                 Is.EqualTo("Reverting in 10s"));
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
@@ -469,7 +673,7 @@ namespace Game.Feature.UI.Tests
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
                 Is.EqualTo("Press a key for Flip..."));
 
-            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
@@ -520,8 +724,6 @@ namespace Game.Feature.UI.Tests
                     "ui.settings.input.flip",
                     "ui.settings.input.reset_input",
                     "ui.settings.language",
-                    "ui.settings.language.english",
-                    "ui.settings.language.korean",
                     "ui.settings.audio.main",
                     "ui.settings.audio.bgm",
                     "ui.settings.audio.sfx",
@@ -613,20 +815,20 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.TitleTextDescriptor), Is.EqualTo("Settings"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.LanguageLabelDescriptor), Is.EqualTo("Language"));
-            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.KoreanLanguageLabelDescriptor), Is.EqualTo("Korean"));
+            Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean), Is.EqualTo("Korean"));
             Assert.That(resolver.Resolve(PausePopupPayload.Default.TitleTextDescriptor), Is.EqualTo("Paused"));
             Assert.That(resolver.Resolve(PausePopupPayload.Default.MainMenuLabelDescriptor), Is.EqualTo("Main Menu"));
             Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.StartLabelDescriptor), Is.EqualTo("Start"));
             Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.SettingsLabelDescriptor), Is.EqualTo("Settings"));
             Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.QuitLabelDescriptor), Is.EqualTo("Quit"));
 
-            resolver.SetLocale("ko-KR");
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.TitleTextDescriptor), Is.EqualTo("설정"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.ResetInputLabelDescriptor), Is.EqualTo("키 설정 초기화"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.LanguageLabelDescriptor), Is.EqualTo("언어"));
-            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.KoreanLanguageLabelDescriptor), Is.EqualTo("한국어"));
+            Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean), Is.EqualTo("한국어"));
             Assert.That(resolver.Resolve(PausePopupPayload.Default.TitleTextDescriptor), Is.EqualTo("일시 정지"));
             Assert.That(resolver.Resolve(PausePopupPayload.Default.MainMenuLabelDescriptor), Is.EqualTo("메인 메뉴"));
             Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.StartLabelDescriptor), Is.EqualTo("시작"));
@@ -639,7 +841,9 @@ namespace Game.Feature.UI.Tests
         {
             IUiLocaleSelectionPort localeSelectionPort = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
 
-            Assert.That(localeSelectionPort.AvailableLocaleCodes, Is.EqualTo(new[] { "en-US", "ko-KR" }));
+            Assert.That(
+                localeSelectionPort.AvailableLocaleOptions.Select(option => option.CanonicalCode).ToArray(),
+                Is.EqualTo(new[] { "en-US", "ko-KR" }));
             Assert.That(localeSelectionPort.CurrentLocaleCode, Is.EqualTo("en-US"));
 
             Assert.That(localeSelectionPort.TrySetLocale("ko-KR"), Is.True);
@@ -740,6 +944,185 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.InputPresenter.ViewModel.PushLabel, Is.EqualTo("밀기"));
             Assert.That(presenter.InputPresenter.ViewModel.FlipLabel, Is.EqualTo("뒤집기"));
             Assert.That(presenter.InputPresenter.ViewModel.ResetLabel, Is.EqualTo("키 설정 초기화"));
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_ZeroOneAndMissingCurrentDisableCyclingWithoutPortCalls()
+        {
+            var zero = CreateLocalePresenter(new RecordingLocaleSelectionPort("missing"));
+            zero.Presenter.Apply(15d);
+            Assert.That(zero.Presenter.ViewModel.CurrentLanguageText, Is.Empty);
+            Assert.That(zero.Presenter.ViewModel.IsLanguageSelectionAvailable, Is.False);
+            Assert.That(zero.Presenter.SelectNextLocale(), Is.False);
+            Assert.That(zero.Port.TrySetCallCount, Is.Zero);
+
+            var one = CreateLocalePresenter(
+                new RecordingLocaleSelectionPort("a-AA", Option("a-AA", "A")));
+            one.Presenter.Apply(15d);
+            Assert.That(one.Presenter.ViewModel.CurrentLanguageText, Is.EqualTo("A"));
+            Assert.That(one.Presenter.ViewModel.IsLanguageSelectionAvailable, Is.False);
+            Assert.That(one.Presenter.SelectNextLocale(), Is.False);
+            Assert.That(one.Port.TrySetCallCount, Is.Zero);
+
+            var missing = CreateLocalePresenter(
+                new RecordingLocaleSelectionPort(
+                    "missing",
+                    Option("a-AA", "A"),
+                    Option("b-BB", "B")));
+            missing.Presenter.Apply(15d);
+            Assert.That(missing.Presenter.ViewModel.CurrentLanguageText, Is.Empty);
+            Assert.That(missing.Presenter.ViewModel.IsLanguageSelectionAvailable, Is.False);
+            Assert.That(missing.Presenter.SelectNextLocale(), Is.False);
+            Assert.That(missing.Port.TrySetCallCount, Is.Zero);
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_ThreeOptionsCycleInSnapshotOrderAndWrap()
+        {
+            var fixture = CreateLocalePresenter(
+                new RecordingLocaleSelectionPort(
+                    "a-AA",
+                    Option("a-AA", "A"),
+                    Option("b-BB", "B"),
+                    Option("c-CC", "C")));
+            fixture.Presenter.Apply(15d);
+
+            Assert.That(fixture.Presenter.ViewModel.CurrentLanguageText, Is.EqualTo("A"));
+            Assert.That(fixture.Presenter.SelectNextLocale(), Is.True);
+            fixture.Presenter.RefreshLocalization();
+            Assert.That(fixture.Presenter.ViewModel.CurrentLanguageText, Is.EqualTo("B"));
+            Assert.That(fixture.Presenter.SelectNextLocale(), Is.True);
+            fixture.Presenter.RefreshLocalization();
+            Assert.That(fixture.Presenter.ViewModel.CurrentLanguageText, Is.EqualTo("C"));
+            Assert.That(fixture.Presenter.SelectNextLocale(), Is.True);
+            fixture.Presenter.RefreshLocalization();
+            Assert.That(fixture.Presenter.ViewModel.CurrentLanguageText, Is.EqualTo("A"));
+            Assert.That(fixture.Port.RequestedCodes, Is.EqualTo(new[] { "b-BB", "c-CC", "a-AA" }));
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_RejectionKeepsVisibleAutonymAndCallsPortOnce()
+        {
+            var port = new RecordingLocaleSelectionPort(
+                "a-AA",
+                Option("a-AA", "A"),
+                Option("b-BB", "B"))
+            {
+                Result = false,
+            };
+            var fixture = CreateLocalePresenter(port);
+            fixture.Presenter.Apply(15d);
+
+            Assert.That(fixture.Presenter.SelectNextLocale(), Is.False);
+            Assert.That(fixture.Presenter.ViewModel.CurrentLanguageText, Is.EqualTo("A"));
+            Assert.That(port.TrySetCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_TrueTargetMismatchRefreshesActualCurrentOnceAndReturnsFalse()
+        {
+            var port = new RecordingLocaleSelectionPort(
+                "a-AA",
+                Option("a-AA", "A"),
+                Option("b-BB", "B"),
+                Option("c-CC", "C"))
+            {
+                PostCallCurrentCode = "c-CC",
+            };
+            var fixture = CreateLocalePresenter(port);
+            fixture.Presenter.Apply(15d);
+            var changedCount = 0;
+            fixture.Presenter.ViewModel.Changed += () => changedCount++;
+
+            Assert.That(fixture.Presenter.SelectNextLocale(), Is.False);
+            Assert.That(fixture.Presenter.ViewModel.CurrentLanguageText, Is.EqualTo("C"));
+            Assert.That(fixture.Presenter.ViewModel.IsLanguageSelectionAvailable, Is.True);
+            Assert.That(changedCount, Is.EqualTo(1));
+            Assert.That(port.TrySetCallCount, Is.EqualTo(1));
+            Assert.That(port.RequestedCodes, Is.EqualTo(new[] { "b-BB" }));
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_TrueTargetMismatchToMissingCurrentPublishesDisabledEmptyState()
+        {
+            var port = new RecordingLocaleSelectionPort(
+                "a-AA",
+                Option("a-AA", "A"),
+                Option("b-BB", "B"))
+            {
+                PostCallCurrentCode = "missing",
+            };
+            var fixture = CreateLocalePresenter(port);
+            fixture.Presenter.Apply(15d);
+
+            Assert.That(fixture.Presenter.SelectNextLocale(), Is.False);
+            Assert.That(fixture.Presenter.ViewModel.CurrentLanguageText, Is.Empty);
+            Assert.That(fixture.Presenter.ViewModel.IsLanguageSelectionAvailable, Is.False);
+            Assert.That(port.TrySetCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_DuplicateCurrentMatchIsDefensivelyDisabled()
+        {
+            var port = new RecordingLocaleSelectionPort(
+                "a-AA",
+                Option("a-AA", "A"),
+                Option("a-AA", "Duplicate A"),
+                Option("b-BB", "B"));
+            var fixture = CreateLocalePresenter(port);
+            fixture.Presenter.Apply(15d);
+
+            Assert.That(fixture.Presenter.ViewModel.CurrentLanguageText, Is.Empty);
+            Assert.That(fixture.Presenter.ViewModel.IsLanguageSelectionAvailable, Is.False);
+            Assert.That(fixture.Presenter.SelectNextLocale(), Is.False);
+            Assert.That(port.TrySetCallCount, Is.Zero);
+        }
+
+        [Test]
+        public void PackageFreeInvalidInitialFallsBackAndUnsupportedRequestCannotCreateInvalidCurrent()
+        {
+            var invalidInitial = PackageFreeLocalizedTextResolver.CreateSettingsDefault("unsupported-initial");
+            var port = new CountingLocaleSelectionPort(invalidInitial);
+            var presenter = new SettingsDisplayPresenter(
+                new FakeDisplaySettingsPort(),
+                invalidInitial,
+                port);
+
+            presenter.Apply(15d);
+
+            Assert.That(invalidInitial.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(invalidInitial.TrySetLocale("unsupported-current"), Is.False);
+            Assert.That(invalidInitial.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(presenter.ViewModel.CurrentLanguageText, Is.EqualTo("English"));
+            Assert.That(presenter.ViewModel.IsLanguageSelectionAvailable, Is.True);
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_DefaultNoOpLocaleSeamIsEmptyAndDisabled()
+        {
+            var presenter = new SettingsDisplayPresenter(new FakeDisplaySettingsPort());
+
+            presenter.Apply(15d);
+
+            Assert.That(presenter.ViewModel.CurrentLanguageText, Is.Empty);
+            Assert.That(presenter.ViewModel.IsLanguageSelectionAvailable, Is.False);
+            Assert.That(presenter.SelectNextLocale(), Is.False);
+        }
+
+        private static LocaleOptionModel Option(string code, string autonym)
+        {
+            return new LocaleOptionModel(code, autonym);
+        }
+
+        private static (SettingsDisplayPresenter Presenter, RecordingLocaleSelectionPort Port)
+            CreateLocalePresenter(RecordingLocaleSelectionPort port)
+        {
+            return (
+                new SettingsDisplayPresenter(
+                    new FakeDisplaySettingsPort(),
+                    PackageFreeLocalizedTextResolver.CreateSettingsDefault(),
+                    port),
+                port);
         }
 
         [Test]
@@ -944,8 +1327,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.reset_complete"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.reserved_key"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language"));
-            Assert.That(descriptorKeys, Does.Contain("ui.settings.language.english"));
-            Assert.That(descriptorKeys, Does.Contain("ui.settings.language.korean"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.language.english"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.language.korean"));
             Assert.That(typeof(AudioSettingsRowViewModel).GetProperty(nameof(AudioSettingsRowViewModel.ValueText))?.PropertyType, Is.EqualTo(typeof(string)));
             Assert.That(typeof(SettingsDisplayViewModel).GetProperty(nameof(SettingsDisplayViewModel.DisplayStatusText))?.PropertyType, Is.EqualTo(typeof(string)));
             Assert.That(typeof(SettingsDisplayViewModel).GetProperty(nameof(SettingsDisplayViewModel.PreviewCountdownText))?.PropertyType, Is.EqualTo(typeof(string)));
@@ -1516,8 +1899,6 @@ namespace Game.Feature.UI.Tests
                 payload.FlipLabelDescriptor,
                 payload.ResetInputLabelDescriptor,
                 payload.LanguageLabelDescriptor,
-                payload.EnglishLanguageLabelDescriptor,
-                payload.KoreanLanguageLabelDescriptor,
                 payload.AudioMainLabelDescriptor,
                 payload.AudioBgmLabelDescriptor,
                 payload.AudioSfxLabelDescriptor,
@@ -1740,6 +2121,65 @@ namespace Game.Feature.UI.Tests
             return presenter.ViewModel.StatusText;
         }
 
+        private sealed class RecordingLocaleSelectionPort : IUiLocaleSelectionPort
+        {
+            public RecordingLocaleSelectionPort(
+                string currentLocaleCode,
+                params LocaleOptionModel[] options)
+            {
+                CurrentLocaleCode = currentLocaleCode;
+                AvailableLocaleOptions = Array.AsReadOnly(options.ToArray());
+            }
+
+            public string CurrentLocaleCode { get; private set; }
+
+            public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions { get; }
+
+            public bool Result { get; set; } = true;
+
+            public string PostCallCurrentCode { get; set; }
+
+            public int TrySetCallCount { get; private set; }
+
+            public List<string> RequestedCodes { get; } = new();
+
+            public bool TrySetLocale(string localeCode)
+            {
+                TrySetCallCount++;
+                RequestedCodes.Add(localeCode);
+                if (!Result)
+                {
+                    return false;
+                }
+
+                CurrentLocaleCode = PostCallCurrentCode ?? localeCode;
+                return true;
+            }
+        }
+
+        private sealed class CountingLocaleSelectionPort : IUiLocaleSelectionPort
+        {
+            private readonly IUiLocaleSelectionPort _inner;
+
+            public CountingLocaleSelectionPort(IUiLocaleSelectionPort inner)
+            {
+                _inner = inner;
+            }
+
+            public string CurrentLocaleCode => _inner.CurrentLocaleCode;
+
+            public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions =>
+                _inner.AvailableLocaleOptions;
+
+            public int TrySetCallCount { get; private set; }
+
+            public bool TrySetLocale(string localeCode)
+            {
+                TrySetCallCount++;
+                return _inner.TrySetLocale(localeCode);
+            }
+        }
+
         private sealed class FakeLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
         {
             private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _values =
@@ -1811,8 +2251,12 @@ namespace Game.Feature.UI.Tests
 
             public string CurrentLocaleCode { get; private set; } = "en-US";
 
-            public IReadOnlyList<string> AvailableLocaleCodes { get; } =
-                new[] { "en-US", "ko-KR" };
+            public IReadOnlyList<LocaleOptionModel> AvailableLocaleOptions { get; } =
+                Array.AsReadOnly(new[]
+                {
+                    new LocaleOptionModel("en-US", "English"),
+                    new LocaleOptionModel("ko-KR", "한국어"),
+                });
 
             private Action _localeChanged;
 
@@ -1858,7 +2302,8 @@ namespace Game.Feature.UI.Tests
 
             public bool TrySetLocale(string localeCode)
             {
-                if (!AvailableLocaleCodes.Contains(localeCode))
+                if (!AvailableLocaleOptions.Any(option =>
+                        string.Equals(option.CanonicalCode, localeCode, StringComparison.Ordinal)))
                 {
                     return false;
                 }
@@ -2155,19 +2600,78 @@ namespace Game.Feature.UI.Tests
 
             public int SaveCallCount { get; private set; }
 
+            public int LoadCallCount { get; private set; }
+
             public string LastSavedLocaleCode { get; private set; }
 
-            public bool TryLoad(out string localeCode)
+            public string StoredLocaleCode => _localeCode;
+
+            public LocalePreferenceReadResult ReadResult { get; set; }
+
+            public LocalePreferenceWriteResult WriteResult { get; set; } =
+                LocalePreferenceWriteResult.Completed();
+
+            public bool ReturnNullLoad { get; set; }
+
+            public bool ReturnNullSave { get; set; }
+
+            public bool MutateOnFailedWrite { get; set; }
+
+            public LocalePreferenceReadResult Load()
             {
-                localeCode = _localeCode;
-                return localeCode != null;
+                LoadCallCount++;
+                if (ReturnNullLoad)
+                {
+                    return null;
+                }
+
+                if (ReadResult != null)
+                {
+                    return ReadResult;
+                }
+
+                return _localeCode == null
+                    ? LocalePreferenceReadResult.Missing()
+                    : LocalePreferenceReadResult.Loaded(_localeCode);
             }
 
-            public void Save(string localeCode)
+            public LocalePreferenceWriteResult Save(string localeCode)
             {
                 SaveCallCount++;
                 LastSavedLocaleCode = localeCode;
-                _localeCode = localeCode;
+                if (ReturnNullSave)
+                {
+                    return null;
+                }
+
+                if (WriteResult.Status == LocalePreferenceWriteStatus.Completed || MutateOnFailedWrite)
+                {
+                    _localeCode = localeCode;
+                }
+
+                return WriteResult;
+            }
+        }
+
+        private sealed class RecordingLocalePersistenceReporter : IUiLocalePersistenceReporter
+        {
+            public List<LocalePersistenceDiagnostic> Diagnostics { get; } =
+                new List<LocalePersistenceDiagnostic>();
+
+            public void Report(LocalePersistenceDiagnostic diagnostic)
+            {
+                Diagnostics.Add(diagnostic);
+            }
+        }
+
+        private sealed class ThrowingLocalePersistenceReporter : IUiLocalePersistenceReporter
+        {
+            public int CallCount { get; private set; }
+
+            public void Report(LocalePersistenceDiagnostic diagnostic)
+            {
+                CallCount++;
+                throw new InvalidOperationException("reporter failed");
             }
         }
     }

@@ -88,10 +88,12 @@ focused inquiry is:
 
 > 원본 TTF의 내용과 글자 디자인은 변경하지 않고, Unity TextMeshPro로 필요한 글자의 SDF 아틀라스와 표시용 데이터를 생성하여 유료 게임에 포함하는 방식이 허용되는 임베딩에 해당하는지 확인 부탁드립니다.
 
-Until that answer is received, the project status is: general commercial UI use
-and original-font embedding reviewed as permitted; representative CI/BI use is
-excluded; TMP/SDF distribution remains a documented rights-holder-confirmation
-item.
+On 2026-09-23 KST, the project release owner confirmed that the
+required KBO/KBOP clearance for distributing the generated TMP Static SDF
+rendering assets with the game had been obtained. The reply and confirmation date remain
+in the private rights evidence ledger. General commercial UI use and original-
+font embedding remain permitted within the official scope; representative
+CI/BI use, standalone font sales, and source TTF modification remain excluded.
 
 ## Canonical asset identity
 

@@ -145,7 +145,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(invariant.Resolve(descriptor), Is.EqualTo(entry.English), entry.Key);
             }
 
-            packageFree.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(packageFree.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
             foreach (var entry in TerminalResultLocalizationContract.Entries)
             {
                 var descriptor = new LocalizedTextDescriptor(entry.Table, entry.Key, entry.Role, entry.Weight);
@@ -646,7 +646,7 @@ namespace Game.Feature.UI.Tests
 
             public void SetLocale(string localeCode)
             {
-                _inner.SetLocale(localeCode);
+                Assert.That(_inner.TrySetLocale(localeCode), Is.True);
             }
         }
 

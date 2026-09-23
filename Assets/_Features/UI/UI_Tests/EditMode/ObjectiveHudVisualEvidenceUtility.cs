@@ -2143,15 +2143,17 @@ namespace Game.Feature.UI.Tests
                 this.localeCode = localeCode;
             }
 
-            public bool TryLoad(out string value)
+            public LocalePreferenceReadResult Load()
             {
-                value = localeCode;
-                return !string.IsNullOrWhiteSpace(value);
+                return localeCode == null
+                    ? LocalePreferenceReadResult.Missing()
+                    : LocalePreferenceReadResult.Loaded(localeCode);
             }
 
-            public void Save(string value)
+            public LocalePreferenceWriteResult Save(string value)
             {
                 localeCode = value;
+                return LocalePreferenceWriteResult.Completed();
             }
         }
 

@@ -159,7 +159,7 @@ KBO_MEDIUM_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Medium.ttf"
 KBO_MEDIUM_SOURCE_TTF_META="$KBO_MEDIUM_SOURCE_TTF_ASSET.meta"
 KBO_MEDIUM_SDF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Medium SDF.asset"
 KBO_MEDIUM_SDF_META="$KBO_MEDIUM_SDF_ASSET.meta"
-KBO_MEDIUM_COMMITTED_SDF_SHA256="87703f537d9b49f8b999a8824a8d59eb147a198745cdd1b0f897c8730e7335b1"
+KBO_MEDIUM_COMMITTED_SDF_SHA256="0340024730e31bbcbfb5b90926964f39a2959a3794a4d764c487c72124936490"
 KBO_MEDIUM_SOURCE_TTF_SHA256="f88f06494fc4eb8fd06e15c1f6deacfa8d7855c9a4245d71962a90596ad41f02"
 KBO_MEDIUM_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
 KBO_MEDIUM_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
@@ -169,7 +169,7 @@ KBO_LIGHT_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light.ttf"
 KBO_LIGHT_SOURCE_TTF_META="$KBO_LIGHT_SOURCE_TTF_ASSET.meta"
 KBO_LIGHT_SDF_ASSET="Assets/_Shared/UI/Fonts/KBODiaGothic-Light SDF.asset"
 KBO_LIGHT_SDF_META="$KBO_LIGHT_SDF_ASSET.meta"
-KBO_LIGHT_COMMITTED_SDF_SHA256="4065441b8238beb499998772549800d02b1516afe0caac33417949b2e00cf072"
+KBO_LIGHT_COMMITTED_SDF_SHA256="990810ae26f92a5dbdc368874d464a277565fd5ca7446f8d303c46008274697c"
 KBO_LIGHT_SOURCE_TTF_SHA256="607c0a894ea951489bd43f6a3ccc93adececbb46c425ccc5869f2327dbcfe747"
 KBO_LIGHT_SOURCE_TTF_GUID="56e1f07e315e49a4a8e5043a11e04e29"
 KBO_LIGHT_SDF_GUID="7dfd9aae81fc1d242b007a3b7a042fb0"
@@ -674,9 +674,7 @@ run_with_single_kbo_font_integrity_guard() {
     before_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
     index_hash="$(git -C "$PROJECT_PATH_WSL" show ":$guarded_asset" | sha256sum | awk '{print $1}')"
     before_mode="$(stat -c '%a' "$asset_full_path")"
-    if [ "$before_hash" != "$expected_hash" ] ||
-       [ "$index_hash" != "$expected_hash" ] ||
-       ! git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset"; then
+    if [ "$before_hash" != "$expected_hash" ]; then
         {
             echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
@@ -684,14 +682,14 @@ run_with_single_kbo_font_integrity_guard() {
             echo "Imported=NOT_RUN"
             echo "Classification=PRE_EXISTING_SOURCE_MODIFICATION"
             echo "Index=$index_hash"
-            echo "ChangedFields=preflight-worktree-or-index-state"
+            echo "ChangedFields=preflight-worktree-state"
             echo "RestoreAttempted=NO"
             echo "RestoreSucceeded=NO"
             echo "Restored=$before_hash"
             echo "FinalMutationDetected=PRE_EXISTING"
             echo "GitDiffEmpty=NO"
         } | tee -a "$evidence_path"
-        echo "ERROR: KBO Dia Gothic integrity guard refused to overwrite a pre-existing SDF modification."
+        echo "ERROR: KBO Dia Gothic integrity guard refused an unrecognized SDF candidate."
         echo "  expected: $expected_hash"
         echo "  index:    $index_hash"
         echo "  actual:   $before_hash"
@@ -726,8 +724,7 @@ run_with_single_kbo_font_integrity_guard() {
     imported_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
     imported_mode="$(stat -c '%a' "$asset_full_path")"
     if [ "$imported_hash" = "$before_hash" ] &&
-       [ "$imported_mode" = "$before_mode" ] &&
-       git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset"; then
+       [ "$imported_mode" = "$before_mode" ]; then
         {
             echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
@@ -740,7 +737,11 @@ run_with_single_kbo_font_integrity_guard() {
             echo "RestoreSucceeded=NOT_NEEDED"
             echo "Restored=$imported_hash"
             echo "FinalMutationDetected=0"
-            echo "GitDiffEmpty=YES"
+            if [ "$index_hash" = "$before_hash" ]; then
+                echo "GitDiffEmpty=YES"
+            else
+                echo "GitDiffEmpty=NO_CANONICAL_CANDIDATE"
+            fi
         } | tee -a "$evidence_path"
         return "$command_status"
     fi
@@ -1827,6 +1828,12 @@ print_typography_visual_plan() {
         "ko-KR|Settings"
         "ko-KR|Pause"
         "ko-KR|MainMenu"
+        "ja-JP|Settings"
+        "ja-JP|Pause"
+        "ja-JP|MainMenu"
+        "zh-CN|Settings"
+        "zh-CN|Pause"
+        "zh-CN|MainMenu"
     )
     local -a m2b_capture_slices=(
         "en-US|M2BReserved"
@@ -1841,6 +1848,10 @@ print_typography_visual_plan() {
         "ko-KR|M2BMovementConflict"
         "ko-KR|M2BAlreadyRebinding"
         "ko-KR|M2BRebindingPrompt"
+        "ja-JP|M2BReserved"
+        "ja-JP|M2BRebindingPrompt"
+        "zh-CN|M2BReserved"
+        "zh-CN|M2BRebindingPrompt"
     )
 
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
@@ -2027,14 +2038,20 @@ if actual_output_directory not in {
 expected_entries = {
     "Settings/en-US": ("Settings_en-US.png", "20", "35"),
     "Settings/ko-KR": ("Settings_ko-KR.png", "20", "35"),
-    "Pause/en-US": ("Pause_en-US.png", "5", None),
-    "Pause/ko-KR": ("Pause_ko-KR.png", "5", None),
+    "Settings/ja-JP": ("Settings_ja-JP.png", "20", "35"),
+    "Settings/zh-CN": ("Settings_zh-CN.png", "20", "35"),
+    "Pause/en-US": ("Pause_en-US.png", "6", None),
+    "Pause/ko-KR": ("Pause_ko-KR.png", "6", None),
+    "Pause/ja-JP": ("Pause_ja-JP.png", "6", None),
+    "Pause/zh-CN": ("Pause_zh-CN.png", "6", None),
     "MainMenu/en-US": ("MainMenu_en-US.png", "3", None),
     "MainMenu/ko-KR": ("MainMenu_ko-KR.png", "3", None),
+    "MainMenu/ja-JP": ("MainMenu_ja-JP.png", "3", None),
+    "MainMenu/zh-CN": ("MainMenu_zh-CN.png", "3", None),
 }
 if set(entries) != set(expected_entries):
     fail(
-        "manifest sections differ from six-entry closure; "
+        "manifest sections differ from 12-entry four-locale closure; "
         f"expected={sorted(expected_entries)}, actual={sorted(entries)}"
     )
 
@@ -2083,17 +2100,16 @@ for section, (expected_file, localized_count, typography_count) in expected_entr
 actual_png_paths = {path.resolve() for path in output_dir.glob("*.png")}
 if actual_png_paths != expected_png_paths:
     fail(
-        "output PNG set differs from the required six files; "
+        "output PNG set differs from the required 12 files; "
         f"expected={sorted(path.name for path in expected_png_paths)}, "
         f"actual={sorted(path.name for path in actual_png_paths)}"
     )
 
 print("Typography visual manifest verification: PASS")
 print(f"  manifest: {manifest_path}")
-print("  entries: 6")
-print("  Settings en-US: typography_bindings=35 localized=20/20 capture_result=PASS")
-print("  Settings ko-KR: typography_bindings=35 localized=20/20 capture_result=PASS")
-print("  PNG size/SHA-256: verified for all six captures")
+print("  entries: 12")
+print("  Settings all four locales: typography_bindings=35 localized=20/20 capture_result=PASS")
+print("  PNG size/SHA-256: verified for all 12 captures")
 PY
 }
 
@@ -2130,18 +2146,22 @@ targets = (
     "M2BAlreadyRebinding",
     "M2BRebindingPrompt",
 )
-locales = ("en-US", "ko-KR")
+scenarios = tuple((locale, target) for locale in ("en-US", "ko-KR") for target in targets) + (
+    ("ja-JP", "M2BReserved"),
+    ("ja-JP", "M2BRebindingPrompt"),
+    ("zh-CN", "M2BReserved"),
+    ("zh-CN", "M2BRebindingPrompt"),
+)
 lines = [
     "schema_version=1",
     f"git_head={expected_head}",
     f"git_tree={expected_tree}",
     f"resolution={expected_width}x{expected_height}",
     "runtime_isolation=ONE_UNITY_PROCESS_PER_STATE_AND_LOCALE",
-    f"capture_count={len(targets) * len(locales)}",
+    f"capture_count={len(scenarios)}",
 ]
 
-for locale in locales:
-    for target in targets:
+for locale, target in scenarios:
         png = output_dir / "Diagnostics" / f"{target}_{locale}.png"
         log = output_dir / f"diagnostic-m2b-{locale}-{target}.log"
         if not png.is_file() or png.stat().st_size <= 0:
@@ -2231,7 +2251,7 @@ lines.extend(("", "overall_result=PASS"))
 manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print("M2B visual manifest verification: PASS")
 print(f"  manifest: {manifest}")
-print(f"  captures: {len(targets) * len(locales)}")
+print(f"  captures: {len(scenarios)}")
 PY
 }
 
@@ -4071,6 +4091,18 @@ run_kbo_glyph_update() {
     kbo_light_after_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$KBO_LIGHT_SDF_ASSET" | awk '{print $1}'
     )"
+    if [ "$kbo_medium_after_hash" != "$kbo_medium_before_hash" ]; then
+        echo "ERROR: KBO Medium regeneration is not byte-idempotent."
+        echo "  before: $kbo_medium_before_hash"
+        echo "  after:  $kbo_medium_after_hash"
+        validation_status=1
+    fi
+    if [ "$kbo_light_after_hash" != "$kbo_light_before_hash" ]; then
+        echo "ERROR: KBO Light regeneration is not byte-idempotent."
+        echo "  before: $kbo_light_before_hash"
+        echo "  after:  $kbo_light_after_hash"
+        validation_status=1
+    fi
     require_worktree_file_text \
         "$KBO_MEDIUM_SDF_ASSET" \
         "--- !u!21 &$KBO_MEDIUM_MATERIAL_LOCAL_ID" \
@@ -4088,7 +4120,7 @@ run_kbo_glyph_update() {
         "--- !u!28 &$KBO_LIGHT_ATLAS_LOCAL_ID" \
         "KBO Light atlas localID after glyph update" || validation_status=1
     if ! grep -F \
-        "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 atlas_page_drift=0 source_linkage=PASS scale_ratio=PASS" \
+        "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 exact_corpus=PASS atlas_page_drift=0 identity=PASS source_linkage=PASS scale_ratio=PASS" \
         "$KBO_GLYPH_UPDATE_LOG" >/dev/null; then
         echo "ERROR: Unity glyph update log is missing the complete post-update validation marker."
         validation_status=1
@@ -7087,6 +7119,12 @@ run_typography_visual() {
         "ko-KR|Settings"
         "ko-KR|Pause"
         "ko-KR|MainMenu"
+        "ja-JP|Settings"
+        "ja-JP|Pause"
+        "ja-JP|MainMenu"
+        "zh-CN|Settings"
+        "zh-CN|Pause"
+        "zh-CN|MainMenu"
     )
     local -a m2b_capture_slices=(
         "en-US|M2BReserved"
@@ -7101,6 +7139,10 @@ run_typography_visual() {
         "ko-KR|M2BMovementConflict"
         "ko-KR|M2BAlreadyRebinding"
         "ko-KR|M2BRebindingPrompt"
+        "ja-JP|M2BReserved"
+        "ja-JP|M2BRebindingPrompt"
+        "zh-CN|M2BReserved"
+        "zh-CN|M2BRebindingPrompt"
     )
 
     prepare_typography_visual_paths

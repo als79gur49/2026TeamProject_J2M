@@ -1246,6 +1246,19 @@ Project provenance: included in the imported Synty INTERFACE - Sci-Fi Soldier
 HUD asset package. The font software is separately licensed under the SIL Open
 Font License, Version 1.1.
 
+Noto Sans JP / Noto Sans SC
+
+Styles included: JP Regular, JP Bold, SC Regular, SC Bold
+
+Copyright 2014-2021 Adobe (http://www.adobe.com/).
+Noto is a trademark of Google Inc.
+
+Source: https://github.com/notofonts/noto-cjk
+
+This product includes static TextMesh Pro SDF rendering assets generated from
+the listed font software. The source fonts and generated font assets remain
+subject to the SIL Open Font License, Version 1.1, reproduced below.
+
 Liberation Sans
 
 Digitized data copyright (c) 2010 Google Corporation
@@ -1374,12 +1387,12 @@ printed materials and advertising materials (including online advertising)
 made with the font for KBO promotion, and the user may request otherwise.
 
 This project includes the unmodified Light and Medium TTF files and generated
-static TextMesh Pro SDF rendering assets. The official KBO license does not
-expressly address TextMesh Pro SDF assets. Their technical distinction from the
-source TTF is not a rights-holder approval of their distribution; KBO/KBOP
-confirmation remains a release review item. Until then, this notice does not
-describe SDF distribution as explicitly approved. Static versus Dynamic atlas
-population does not resolve that legal classification.
+static TextMesh Pro SDF rendering assets. On 2026-09-23 KST, the project release
+owner confirmed that the required KBO/KBOP clearance for distributing those
+generated rendering assets with the game had been obtained. The private rights
+evidence ledger, rather than this public summary, is the authority for that
+clearance. This confirmation does not permit standalone font sales, source TTF
+modification, CI / BI use, or redistribution outside the official scope.
 
 No explicit end-credit or license-file bundling requirement was identified in
 the reviewed official materials. This notice is provided voluntarily for

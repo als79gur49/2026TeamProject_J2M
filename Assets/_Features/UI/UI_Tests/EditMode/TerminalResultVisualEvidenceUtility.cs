@@ -1256,15 +1256,17 @@ namespace Game.Feature.UI.Tests
                 _locale = locale;
             }
 
-            public bool TryLoad(out string localeCode)
+            public LocalePreferenceReadResult Load()
             {
-                localeCode = _locale;
-                return !string.IsNullOrWhiteSpace(localeCode);
+                return _locale == null
+                    ? LocalePreferenceReadResult.Missing()
+                    : LocalePreferenceReadResult.Loaded(_locale);
             }
 
-            public void Save(string localeCode)
+            public LocalePreferenceWriteResult Save(string localeCode)
             {
                 _locale = localeCode;
+                return LocalePreferenceWriteResult.Completed();
             }
         }
     }

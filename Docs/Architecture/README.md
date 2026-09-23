@@ -40,6 +40,10 @@
   - current runner/governance truth for `./run_tests.sh core`, `./run_tests.sh ui`, and PlayMode escalation expectations
 - [UI-Authoring-and-Navigation-Guide.md](./UI-Authoring-and-Navigation-Guide.md)
   - supporting implementation guide for prefab-first UI authoring, bounded runtime-generation exceptions, and pointer/keyboard navigation parity
+- [Localization-Typography-CJK-Expansion-and-Residency-Plan.md](./Localization-Typography-CJK-Expansion-and-Residency-Plan.md)
+  - historical Phase 0-6 implementation record and superseded broader future proposal; use the four-locale all-resident plan below for future execution
+- [Localization-Typography-Four-Locale-All-Resident-Plan.md](./Localization-Typography-Four-Locale-All-Resident-Plan.md)
+  - active plan for fixed `en-US`/`ko-KR`/`ja-JP`/`zh-CN` support with approved-string exact Static atlases and all four Theme font graphs resident
 - [MainMenu-Logo-Interaction-Effect-Implementation-Plan.md](./MainMenu-Logo-Interaction-Effect-Implementation-Plan.md)
   - proposed MainMenu Logo hover, navigation-focus, accepted-command shine/impact/particle implementation contract
 - [Docs/Testing/Post-Stage-Content-Bounded-Lane-Operations.md](../Testing/Post-Stage-Content-Bounded-Lane-Operations.md)

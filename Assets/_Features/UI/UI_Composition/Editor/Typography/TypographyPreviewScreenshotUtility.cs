@@ -656,6 +656,7 @@ namespace Game.Feature.UI.Composition.Editor
                 ForceGraphicUpdates(prefabRoot);
                 ForceTextMeshUpdates(prefabRoot);
                 Canvas.ForceUpdateCanvases();
+                ValidateLocalizedTextBounds(prefabRoot, capture, camera, options);
 
                 var texture = RenderCameraToTexture(
                     camera,
@@ -1500,7 +1501,7 @@ namespace Game.Feature.UI.Composition.Editor
                     expectedStatus,
                     expectedText,
                     m2bState);
-                ValidateM2bFrameAnchors(capture, enabledPixels, options);
+                ValidateM2bFrameAnchors(prefabRoot, capture, camera, enabledPixels, options);
             }
             else if (IsStageSaveSlotTarget(capture.Target.FileStem) ||
                 TryGetM2aCampaignSaveStatus(capture.Target.FileStem, out _))
@@ -1684,7 +1685,9 @@ namespace Game.Feature.UI.Composition.Editor
         }
 
         private static void ValidateM2bFrameAnchors(
+            GameObject prefabRoot,
             TypographyPreviewScreenshotCaptureResult capture,
+            Camera camera,
             IReadOnlyList<Color32> pixels,
             TypographyPreviewScreenshotOptions options)
         {
@@ -1696,22 +1699,17 @@ namespace Game.Feature.UI.Composition.Editor
                 options.Height * 0.79f,
                 options.Width * 0.56f,
                 options.Height * 0.87f);
-            var pushKeyPixels = CountBrightPixels(
+            var inputView = prefabRoot.GetComponentInChildren<SettingsInputView>(true);
+            var pushKeyPixels = CountBrightPixelsInGraphicRect(
+                inputView == null ? null : ResolveSettingsGraphicProof(inputView.transform, "JKey").Graphic,
+                camera,
                 pixels,
-                options.Width,
-                options.Height,
-                options.Width * 0.35f,
-                options.Height * 0.53f,
-                options.Width * 0.39f,
-                options.Height * 0.61f);
-            var flipKeyPixels = CountBrightPixels(
+                options);
+            var flipKeyPixels = CountBrightPixelsInGraphicRect(
+                inputView == null ? null : ResolveSettingsGraphicProof(inputView.transform, "KKey").Graphic,
+                camera,
                 pixels,
-                options.Width,
-                options.Height,
-                options.Width * 0.35f,
-                options.Height * 0.46f,
-                options.Width * 0.39f,
-                options.Height * 0.54f);
+                options);
             var passed = titlePixels > 100 &&
                 pushKeyPixels > 20 &&
                 flipKeyPixels > 20;
@@ -1729,6 +1727,32 @@ namespace Game.Feature.UI.Composition.Editor
                     $"{capture.Target.Name} {capture.LocaleCode}: saved PNG frame anchors were incomplete " +
                     $"(title={titlePixels}, push={pushKeyPixels}, flip={flipKeyPixels}).");
             }
+        }
+
+        private static int CountBrightPixelsInGraphicRect(
+            Graphic graphic,
+            Camera camera,
+            IReadOnlyList<Color32> pixels,
+            TypographyPreviewScreenshotOptions options)
+        {
+            if (graphic == null)
+            {
+                return 0;
+            }
+
+            var corners = new Vector3[4];
+            graphic.rectTransform.GetWorldCorners(corners);
+            var screenCorners = corners
+                .Select(corner => RectTransformUtility.WorldToScreenPoint(camera, corner))
+                .ToArray();
+            return CountBrightPixels(
+                pixels,
+                options.Width,
+                options.Height,
+                screenCorners.Min(point => point.x),
+                screenCorners.Min(point => point.y),
+                screenCorners.Max(point => point.x),
+                screenCorners.Max(point => point.y));
         }
 
         private static void ValidateSettingsRenderedControls(
@@ -2258,6 +2282,82 @@ namespace Game.Feature.UI.Composition.Editor
             {
                 capture.AddError(
                     $"{capture.Target.Name} {capture.LocaleCode}: Font coverage is missing {missingGlyph}.");
+            }
+        }
+
+        private static void ValidateLocalizedTextBounds(
+            GameObject root,
+            TypographyPreviewScreenshotCaptureResult capture,
+            Camera camera,
+            TypographyPreviewScreenshotOptions options)
+        {
+            var localizedTexts = new HashSet<string>(capture.LocalizedTexts, StringComparer.Ordinal);
+            var targets = root
+                .GetComponentsInChildren<TMP_Text>(true)
+                .Where(target =>
+                    target != null &&
+                    target.gameObject.activeInHierarchy &&
+                    localizedTexts.Contains(target.text))
+                .Distinct()
+                .ToArray();
+
+            foreach (var target in targets)
+            {
+                target.ForceMeshUpdate(true, true);
+                var hierarchyPath = BuildHierarchyPath(target.transform);
+                if (target.isTextOverflowing)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{hierarchyPath}' " +
+                        $"overflows its authored text bounds with text '{target.text}'.");
+                }
+
+                var rect = target.rectTransform.rect;
+                var textBounds = target.textBounds;
+                // TMP glyph faces can carry a sub-unit side bearing beyond the authored box
+                // without clipping or reporting text overflow. Keep the allowance bounded so
+                // meaningful localization growth still fails.
+                const float localTolerance = 2f;
+                if (textBounds.min.x < rect.xMin - localTolerance ||
+                    textBounds.max.x > rect.xMax + localTolerance ||
+                    textBounds.min.y < rect.yMin - localTolerance ||
+                    textBounds.max.y > rect.yMax + localTolerance)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{hierarchyPath}' glyph mesh " +
+                        $"({textBounds.min.x:F1},{textBounds.min.y:F1})-({textBounds.max.x:F1},{textBounds.max.y:F1}) " +
+                        $"exceeds its RectTransform ({rect.xMin:F1},{rect.yMin:F1})-({rect.xMax:F1},{rect.yMax:F1}) " +
+                        $"with text '{target.text}'.");
+                }
+
+                var localTextCorners = new[]
+                {
+                    new Vector3(textBounds.min.x, textBounds.min.y),
+                    new Vector3(textBounds.min.x, textBounds.max.y),
+                    new Vector3(textBounds.max.x, textBounds.max.y),
+                    new Vector3(textBounds.max.x, textBounds.min.y),
+                };
+                var screenCorners = localTextCorners
+                    .Select(corner => RectTransformUtility.WorldToScreenPoint(
+                        camera,
+                        target.rectTransform.TransformPoint(corner)))
+                    .ToArray();
+                var minX = screenCorners.Min(point => point.x);
+                var maxX = screenCorners.Max(point => point.x);
+                var minY = screenCorners.Min(point => point.y);
+                var maxY = screenCorners.Max(point => point.y);
+                if (minX < -0.5f ||
+                    minY < -0.5f ||
+                    maxX > options.Width + 0.5f ||
+                    maxY > options.Height + 0.5f ||
+                    maxX <= minX ||
+                    maxY <= minY)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{hierarchyPath}' glyph mesh is outside " +
+                        $"the {options.Width}x{options.Height} capture bounds " +
+                        $"({minX:F1},{minY:F1})-({maxX:F1},{maxY:F1}).");
+                }
             }
         }
 

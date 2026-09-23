@@ -14,6 +14,11 @@ namespace Game.Feature.UI.Screens
         private const string MissingControlsMessage =
             "Settings display section is missing required authored controls. Repair: open SettingsScreen.prefab and assign every SettingsDisplayView serialized reference.";
         private const int KeyboardListVisibleItemCount = 4;
+        private static readonly LocalizedTextDescriptor LanguageOptionTypographyDescriptor = new(
+            SettingsLocalizationContract.Table,
+            string.Empty,
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
 
         [SerializeField] private TMP_Text _currentDisplayLabel;
         [SerializeField] private TMP_Text _currentDisplayValue;
@@ -49,8 +54,6 @@ namespace Game.Feature.UI.Screens
         private ILocalizedTypographyResolver _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
         private GameplayUiTypographyTheme _typographyTheme;
         private LocalizedTextDescriptor _languageLabelDescriptor = SettingsStaticTextDescriptors.Language;
-        private LocalizedTextDescriptor _englishLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageEnglish;
-        private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
         private SettingsDisplayViewModel _viewModel;
 
         public event Action<int> ResolutionChanged;
@@ -113,8 +116,6 @@ namespace Game.Feature.UI.Screens
             }
 
             _languageLabelDescriptor = payload.LanguageLabelDescriptor;
-            _englishLanguageLabelDescriptor = payload.EnglishLanguageLabelDescriptor;
-            _koreanLanguageLabelDescriptor = payload.KoreanLanguageLabelDescriptor;
             _localizedTextResolver = textResolver;
             _localizedTypographyResolver = typographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             _typographyTheme = typographyTheme;
@@ -631,7 +632,7 @@ namespace Game.Feature.UI.Screens
                 localeCode);
             ApplyLocalizedStyle(
                 _languageCycleButtonLabel,
-                CurrentLanguageDescriptor(localeCode),
+                LanguageOptionTypographyDescriptor,
                 localeCode);
         }
 
@@ -660,13 +661,6 @@ namespace Game.Feature.UI.Screens
                     localeCode,
                     descriptor.Role,
                     descriptor.Weight));
-        }
-
-        private LocalizedTextDescriptor CurrentLanguageDescriptor(string localeCode)
-        {
-            return string.Equals(localeCode, "ko-KR", StringComparison.Ordinal)
-                ? _koreanLanguageLabelDescriptor
-                : _englishLanguageLabelDescriptor;
         }
 
         private void RefreshTypography()

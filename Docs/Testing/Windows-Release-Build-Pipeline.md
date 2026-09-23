@@ -362,6 +362,13 @@ root public notices beside `VectorQuake.exe`:
   are included alongside the bundled notices, including
   Cinemachine's bundled Clipper/Boost notice and Unity.Mathematics 1.3.3's
   Ashima Arts / Stefan Gustavson Noise MIT notice.
+  The font inventory includes Noto Sans JP Regular/Bold and Noto Sans SC
+  Regular/Bold, their generated TMP Static SDF assets, the Adobe copyright and
+  Google Noto trademark notice, and the canonical SIL OFL 1.1 body. It also
+  records the 2026-09-23 release-owner confirmation that the required KBO/KBOP
+  clearance for distributing the KBO Dia Gothic TMP rendering assets was
+  obtained while retaining the CI/BI, standalone-sale, and source-modification
+  restrictions.
 - `payload/UnityPlayerThirdPartyNotices.pdf` is Unity's unmodified
   Player/Windows/Mono notice for Unity `6000.3.11f1`. Its decoded content covers
   Unity Player components such as Mono, HarfBuzz, and ICU, but does not contain

@@ -10,7 +10,7 @@ namespace Game.Feature.UI.Composition.Editor
         public const string ThemeAssetPath =
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
 
-        public static readonly string[] RequiredLocaleCodes = { "en-US", "ko-KR" };
+        public static readonly string[] RequiredLocaleCodes = { "en-US", "ko-KR", "ja-JP", "zh-CN" };
 
         public static readonly TypographyStyleTag[] RequiredStyleTags =
             Enum.GetValues(typeof(TypographyStyleTag)).Cast<TypographyStyleTag>().ToArray();
@@ -99,7 +99,7 @@ namespace Game.Feature.UI.Composition.Editor
 
             if (!report.HasErrors)
             {
-                report.AddInfo(target, "Theme resolves all required typography styles for en-US and ko-KR.");
+                report.AddInfo(target, "Theme resolves all required typography styles for en-US, ko-KR, ja-JP, and zh-CN.");
             }
 
             return report;

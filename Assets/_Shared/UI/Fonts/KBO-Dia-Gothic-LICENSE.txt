@@ -27,13 +27,13 @@ online advertising) made with the font for KBO promotion; the user may ask KBO
 not to do so.
 
 This project includes the unmodified Light and Medium TTF files. The generated
-TextMesh Pro SDF assets are technically separate Unity rendering assets and are
-not offered as standalone font products. The official KBO license does not
-expressly address TextMesh Pro SDF assets or confirm how their distribution is
-treated under its modification and redistribution restrictions. Treat this as
-an unresolved license interpretation and seek KBO/KBOP confirmation before
-release. Until then, do not describe SDF distribution as explicitly approved;
-Static versus Dynamic atlas population does not resolve that question.
+TextMesh Pro SDF assets are Unity rendering assets and are not offered as
+standalone font products. On 2026-09-23 KST, the project release owner confirmed
+that the required KBO/KBOP clearance for distributing those generated rendering
+assets with the game had been obtained. The private rights evidence ledger,
+rather than this summary, is the authority for that clearance. This confirmation
+does not permit standalone font sales, source TTF modification, CI / BI use, or
+redistribution outside the official scope.
 
 No explicit end-credit or license-file bundling requirement was identified in
 the reviewed official materials. This notice is retained voluntarily for
@@ -48,4 +48,4 @@ https://6ptotvmi5753.edge.naverncp.com/KBO_FILE/file_down/KBO_%EB%8B%A4%EC%9D%B4
 License contact:
 kbop@koreabaseball.or.kr
 
-Reviewed: 2026-09-05
+Reviewed: 2026-09-23
