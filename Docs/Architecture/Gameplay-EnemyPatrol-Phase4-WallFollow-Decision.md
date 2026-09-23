@@ -11,14 +11,15 @@ The SunWheel follow-up changes WallFollow behavior without moving it into the co
 - Skip `LethalOnEnter`; do not restore lethal candidates when no safe alternative exists.
 - Active DestroyTile remains traversal-legal and is not a wall-follow boundary. Inactive DestroyTile remains eligible; actor-specific immunity remains owned by the shared hazard query.
 - When every candidate is blocked or lethal, emit no movement intent and keep position/facing. The former `BeforeAttack` rotate-only fallback is removed, including for solid-only dead ends.
+- WallFollow selects facing through its committed movement only. The unused `IPatrolFacingStrategy` / `TryResolveFacing` path and its discarded pre-movement intent probe are retired; candidate selection runs in the movement-intent path.
 - Re-evaluate on subsequent eligible ticks; resume when a safe candidate appears. Do not change AI mode solely because movement failed.
 - Same-cell passive contact, topology participation, cooldown ownership, and the absence of patrol-state writes are preserved.
 
 Behavior tests are `EnemyWallFollow_SunWheelProfile_DestroyTileRiskFiltersChoiceWithoutBlockingTraversal`, `EnemyWallFollow_SunWheelProfile_NoSafeCandidateHoldsFacingAndResumesWhenHazardRemoved`, `EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_KeepsFacing`, and `WallFollowPatrolStrategy_AllDirectionsBlocked_KeepsFacingWithoutMovementIntent`.
 
-Validation status: tests were changed before runtime implementation. Unity Red/Green and core execution were blocked in the editing environment (`Missing required command: wslpath`; Windows Unity unavailable). The draft requires execution through the repository runner on a Windows/WSL Unity checkout.
+Original implementation validation status: tests were changed before runtime implementation. Unity Red/Green and core execution were blocked in that editing environment (`Missing required command: wslpath`; Windows Unity unavailable). Follow-up runner results are recorded in the PR evidence.
 
-Sections 1–14 below preserve the historical Phase 4 decision and its evidence names. Their former passability-only and rotate-only descriptions are superseded by section 0; they are not the current hazard/facing contract. The historical maintain-vs-commonization verdict remains unchanged.
+Sections 1–14 below preserve the historical Phase 4 decision and its evidence names. Their former passability-only, rotate-only, and facing-interface descriptions are superseded by section 0; they are not the current hazard/facing contract. The historical maintain-vs-commonization verdict remains unchanged.
 
 ## 1. 단계 4 목표 요약
 

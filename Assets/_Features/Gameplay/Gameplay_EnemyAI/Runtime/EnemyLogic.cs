@@ -3045,34 +3045,7 @@ namespace Game.Feature.Gameplay.Entities
                     : (Direction?)null;
             }
 
-            if (stage == EnemyAiTransitionStage.BeforeMovement &&
-                _patrolStrategy is WallFollowPatrolStrategy &&
-                _patrolStrategy.TryBuildMovementIntent(
-                    snapshot,
-                    source,
-                    _commonSettings,
-                    _patrolSettings,
-                    _tileFeatureDefinitions,
-                    out _))
-            {
-                return null;
-            }
-
-            if (stage == EnemyAiTransitionStage.BeforeMovement &&
-                _patrolStrategy is WallFollowPatrolStrategy)
-            {
-                return null;
-            }
-
-            if (stage == EnemyAiTransitionStage.BeforeMovement &&
-                _patrolStrategy is IPatrolFacingStrategy patrolFacingStrategy &&
-                patrolFacingStrategy.TryResolveFacing(snapshot, source, _patrolSettings, out var patrolFacing))
-            {
-                return patrolFacing;
-            }
-
-            // WallFollow turns through its selected movement. With no safe candidate,
-            // keep facing and retry on a later tick instead of rotating in place.
+            // WallFollow facing changes only when its movement is committed.
             return null;
         }
 
