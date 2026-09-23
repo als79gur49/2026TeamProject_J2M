@@ -569,6 +569,88 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void Coordinator_MoonBlockFlipDestroyRespawn_DelaysDestroyVfxUntilGhostMotionEnds()
+        {
+            var scenario = CreatePresenterScenario("MoonBlockFlipDestroyRespawnDelay");
+            var vfxPrefab = new GameObject("MoonBlockFlipDestroyRespawnDelay_VfxPrefab");
+            VfxBindingDefinitionAsset smokeBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
+                cueMap = CreateCueMap(smokeBinding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachPresentationExtension(runtime);
+
+                var sourceCell = scenario.BoxCell;
+                var destroyCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                var generatorCell = new SurfaceCell(FaceId.Floor, 3, 1);
+                scenario.Presenter.PresentInitial(
+                    new[] { CreateBox(20, sourceCell) },
+                    scenario.Topology);
+                Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
+                var motionAuthoring = boxView.gameObject.AddComponent<EntityMotionPresentationAuthoring>();
+                SetField(motionAuthoring, "flipMotionDurationSeconds", 0.6f);
+
+                var motion = new TickEntityMotion(
+                    20,
+                    TickEntityMotionKind.Flip,
+                    sourceCell,
+                    destroyCell,
+                    scenario.Topology,
+                    scenario.Topology,
+                    Direction.Right,
+                    Direction.Right);
+                var exitSignal = new TickEntityExitPresentationSignal(
+                    20,
+                    TickEntityExitCause.BoxDestroy,
+                    destroyCell,
+                    scenario.Topology,
+                    Direction.Right,
+                    EntityType.Box,
+                    presentationSeed: 8831,
+                    timing: EntityExitPresentationTiming.AfterEntityMotion,
+                    hasPresentationTargetCell: true,
+                    presentationTargetCell: destroyCell);
+                var generatedEvent = new TilePresentationEvent(
+                    TilePresentationEventKind.MoonBlockGenerated,
+                    tileId: 100,
+                    cell: generatorCell,
+                    tileFeatureKind: TileFeatureKind.MoonBlockGenerator,
+                    sourceEntityId: 101,
+                    ownerEntityId: 102,
+                    teamId: 0,
+                    targetEntityId: 20,
+                    spawnTick: 12,
+                    spawnInteractionLockTicks: MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks);
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(
+                        new[] { exitSignal },
+                        entityMotions: new[] { motion },
+                        tileEvents: new[] { generatedEvent }),
+                    scenario.Topology,
+                    new[] { CreateBox(20, generatorCell) }));
+
+                Assert.That(runtime.PendingDelayedSpecialVfxCount, Is.GreaterThan(0));
+                scenario.Presenter.UpdatePresentation(0.25f);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+                Assert.That(scenario.Presenter.ActiveMoonBlockDestructionGhostCount, Is.EqualTo(1));
+
+                scenario.Presenter.UpdatePresentation(0.36f);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(scenario.Registry.TryGetView(20, out var liveView), Is.True);
+                Assert.That(liveView.gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                Destroy(cueMap, smokeBinding, vfxPrefab);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
         [Category("Core")]
         public void TopologyTransitionStart_DropsPendingDelayedSpecialVfxQueues()
         {
@@ -1028,7 +1110,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TickEntityMotion[] entityMotions = null,
             TickImpactTransientPresentationSignal[] impactTransientSignals = null,
             FlipImpactPresentationSignal[] flipImpactSignals = null,
-            TickTopologyMotion? topologyMotion = null)
+            TickTopologyMotion? topologyMotion = null,
+            TilePresentationEvent[] tileEvents = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
@@ -1038,12 +1121,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickPlayerActionPresentationSignal>(),
                 Array.Empty<TickPlayerLocomotionPresentationSignal>(),
                 Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
                 exitSignals,
                 impactTransientSignals ?? Array.Empty<TickImpactTransientPresentationSignal>(),
-                flipImpactSignals ?? Array.Empty<FlipImpactPresentationSignal>());
+                flipImpactSignals ?? Array.Empty<FlipImpactPresentationSignal>(),
+                tileEvents: tileEvents);
         }
 
         private static TickEntityExitPresentationSignal CreateExitSignal(

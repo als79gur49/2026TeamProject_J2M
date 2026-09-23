@@ -156,16 +156,15 @@ namespace Game.Feature.Gameplay.Host
 
         public bool TryStartDestructionGhostMotion(
             int entityId,
-            GameplayEntityPose startPose,
-            GameplayEntityPose endPose,
-            float durationSeconds)
+            MotionClip clip)
         {
             if (!_activeByEntityId.TryGetValue(entityId, out var sequence))
             {
                 return false;
             }
 
-            sequence.StartGhostMotion(startPose, endPose, durationSeconds);
+            sequence.StartGhostMotion(clip);
+            _stateStore.MoonBlockDestructionMotionDurationSecondsByEntityId[entityId] = clip.DurationSeconds;
             _trackState.LocalMotionTracks.Remove(entityId);
             _trackState.MotionVisualScaleEntityIds.Remove(entityId);
             _stateStore.RetainedLocalTargetPoses.Remove(entityId);
@@ -464,13 +463,9 @@ namespace Game.Feature.Gameplay.Host
 
             private Transform GhostModelRoot { get; set; }
 
-            private GameplayEntityPose MotionStartPose { get; set; }
+            private MotionClip _motionClip;
 
-            private GameplayEntityPose MotionEndPose { get; set; }
-
-            private float MotionDurationSeconds { get; set; }
-
-            private float MotionElapsedSeconds { get; set; }
+            private Vector3 _ghostModelBaseLocalScale;
 
             private float SequenceElapsedSeconds { get; set; }
 
@@ -484,6 +479,9 @@ namespace Game.Feature.Gameplay.Host
             {
                 GhostRoot = ghostRoot;
                 GhostModelRoot = ghostModelRoot;
+                _ghostModelBaseLocalScale = ghostModelRoot != null
+                    ? ghostModelRoot.localScale
+                    : Vector3.one;
             }
 
             public void ClearGhost()
@@ -492,18 +490,13 @@ namespace Game.Feature.Gameplay.Host
                 GhostModelRoot = null;
             }
 
-            public void StartGhostMotion(
-                GameplayEntityPose startPose,
-                GameplayEntityPose endPose,
-                float durationSeconds)
+            public void StartGhostMotion(MotionClip clip)
             {
-                MotionStartPose = startPose;
-                MotionEndPose = endPose;
-                MotionDurationSeconds = Mathf.Max(0.0001f, durationSeconds);
-                MotionElapsedSeconds = 0f;
+                _motionClip = clip ?? throw new ArgumentNullException(nameof(clip));
                 HasGhostMotion = true;
                 MotionComplete = false;
-                ApplyGhostPose(startPose);
+                ApplyGhostPose(clip.StartPose);
+                ApplyGhostScale(clip.SampleVisualScaleMultiplier());
             }
 
             public void Advance(float deltaTime)
@@ -514,15 +507,23 @@ namespace Game.Feature.Gameplay.Host
                     return;
                 }
 
-                MotionElapsedSeconds += Mathf.Max(0f, deltaTime);
-                var progress = Mathf.Clamp01(MotionElapsedSeconds / MotionDurationSeconds);
-                var pose = new GameplayEntityPose(
-                    Vector3.Lerp(MotionStartPose.Position, MotionEndPose.Position, progress),
-                    Quaternion.Slerp(MotionStartPose.Rotation, MotionEndPose.Rotation, progress));
+                _motionClip.Advance(Mathf.Max(0f, deltaTime));
+                var pose = _motionClip.IsComplete
+                    ? _motionClip.EndPose
+                    : _motionClip.Sample();
                 ApplyGhostPose(pose);
-                if (progress >= 1f)
+                ApplyGhostScale(_motionClip.SampleVisualScaleMultiplier());
+                if (_motionClip.IsComplete)
                 {
                     MotionComplete = true;
+                }
+            }
+
+            private void ApplyGhostScale(Vector3 scaleMultiplier)
+            {
+                if (GhostModelRoot != null)
+                {
+                    GhostModelRoot.localScale = Vector3.Scale(_ghostModelBaseLocalScale, scaleMultiplier);
                 }
             }
 

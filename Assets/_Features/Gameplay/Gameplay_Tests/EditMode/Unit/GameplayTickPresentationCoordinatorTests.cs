@@ -9397,6 +9397,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_MoonBlockFlipIntoDestroyTile_GhostFollowsFlipArcWhileLiveViewRespawns()
+        {
+            var rootObject = new GameObject(
+                nameof(GameplayTickViewPresenter_MoonBlockFlipIntoDestroyTile_GhostFollowsFlipArcWhileLiveViewRespawns));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destroyTileCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var generatorCell = new SurfaceCell(FaceId.Floor, 3, 0);
+                var vfxState = new RecordingDestroyShrinkVfxStateExtension();
+                vfxState.SetState(40, 9003, DestroyShrinkVfxSequenceState.ScheduledDelay);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.AttachPresentationExtension(vfxState);
+                presenter.PresentInitial(new[] { CreateBox(40, sourceCell) }, topology);
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        new[] { CreateBox(40, generatorCell) },
+                        topology,
+                        CreateMoonBlockDestroyAndGeneratedPresentationData(
+                            entityId: 40,
+                            sourceCell,
+                            destroyTileCell,
+                            generatorCell,
+                            topology,
+                            presentationSeed: 9003,
+                            motionKind: TickEntityMotionKind.Flip)));
+
+                var ghost = registry.transform.Find("MoonBlockDestructionGhost_40_9003");
+                Assert.That(ghost, Is.Not.Null);
+                var sourcePosition = GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Box);
+                var targetPosition = GetProjectedEntityPosition(boardBounds, topology, destroyTileCell, EntityType.Box);
+                AssertPositionApproximately(ghost.localPosition, sourcePosition);
+
+                presenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * BoxFlipSlamSampler.LiftEndTime);
+
+                var travel = targetPosition - sourcePosition;
+                var ghostTravel = ghost.localPosition - sourcePosition;
+                Assert.That(
+                    Vector3.Dot(ghostTravel, travel.normalized),
+                    Is.EqualTo(travel.magnitude * 0.5f).Within(0.03f));
+                Assert.That(
+                    Vector3.ProjectOnPlane(ghostTravel, travel.normalized).magnitude,
+                    Is.GreaterThan(0.1f));
+                Assert.That(registry.TryGetView(40, out var liveView), Is.True);
+                AssertPositionApproximately(
+                    liveView.transform.localPosition,
+                    GetProjectedEntityPosition(boardBounds, topology, generatorCell, EntityType.Box));
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Core")]
         public void GameplayTickViewPresenter_MoonBlockDestroyGhost_CleansUpOnViewUnregister()
         {
@@ -14924,14 +14993,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell generatorCell,
             CubeTopologyState topology,
             int presentationSeed,
-            TickTopologyMotion? topologyMotion = null)
+            TickTopologyMotion? topologyMotion = null,
+            TickEntityMotionKind motionKind = TickEntityMotionKind.Push)
         {
             return new TickPresentationData(
                 new[]
                 {
                     new TickEntityMotion(
                         entityId,
-                        TickEntityMotionKind.Push,
+                        motionKind,
                         sourceCell,
                         destroyTileCell),
                 },

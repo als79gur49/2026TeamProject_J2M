@@ -1045,12 +1045,25 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var motionDurationSeconds = ResolveMotionDurationSeconds(presentationData, motion, timingProfile);
+            var clip = MotionClip.CreateWithSourceTick(
+                motion.MotionKind,
+                startLocalPose,
+                endLocalPose,
+                motionDurationSeconds,
+                IsTopologyTransitionPresentation(presentationData.TopologyMotion),
+                ResolveFlipPeakHeightWorld(
+                    presentationData,
+                    motion,
+                    startLocalPose,
+                    endLocalPose,
+                    projector,
+                    timingProfile),
+                sourceTickIndex,
+                sequenceOrActionPlanId);
             if (_moonBlockDestructionPresentationController != null &&
                 _moonBlockDestructionPresentationController.TryStartDestructionGhostMotion(
                     motion.EntityId,
-                    startLocalPose,
-                    endLocalPose,
-                    motionDurationSeconds))
+                    clip))
             {
                 return true;
             }
@@ -1061,22 +1074,7 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.LocalMotionTracks[motion.EntityId] = track;
             }
 
-            track.Append(
-                MotionClip.CreateWithSourceTick(
-                    motion.MotionKind,
-                    startLocalPose,
-                    endLocalPose,
-                    motionDurationSeconds,
-                    IsTopologyTransitionPresentation(presentationData.TopologyMotion),
-                    ResolveFlipPeakHeightWorld(
-                        presentationData,
-                        motion,
-                        startLocalPose,
-                        endLocalPose,
-                        projector,
-                        timingProfile),
-                    sourceTickIndex,
-                    sequenceOrActionPlanId));
+            track.Append(clip);
 
             if (!_stateStore.CommittedLocalTargetPoses.ContainsKey(motion.EntityId))
             {

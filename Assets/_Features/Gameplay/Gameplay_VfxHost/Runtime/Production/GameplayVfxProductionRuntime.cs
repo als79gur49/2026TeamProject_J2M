@@ -2407,7 +2407,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 var delaySeconds = ResolveEntityMotionDelaySeconds(
                     presentationData,
                     signal.ExitedEntityId,
-                    context.TimingProfile);
+                    context.TimingProfile,
+                    context.StateStore);
                 if (delaySeconds <= 0.0001f)
                 {
                     PlayDelayedBoxDestroyExitVfx(
@@ -2549,11 +2550,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private static float ResolveEntityMotionDelaySeconds(
             TickPresentationData presentationData,
             int entityId,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            GameplayPresentationStateStore stateStore)
         {
             if (presentationData == null || timingProfile == null)
             {
                 return 0f;
+            }
+
+            if (stateStore != null &&
+                stateStore.MoonBlockDestructionMotionDurationSecondsByEntityId.TryGetValue(
+                    entityId,
+                    out var moonBlockMotionDurationSeconds))
+            {
+                return moonBlockMotionDurationSeconds;
             }
 
             var delaySeconds = 0f;
