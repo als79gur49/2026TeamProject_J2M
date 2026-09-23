@@ -18,6 +18,18 @@ namespace Game.Feature.Gameplay.BoardState
         internal IReadOnlyDictionary<TKey, IReadOnlyCollection<int>> QueryView { get; }
     }
 
+    internal sealed class SnapshotOwnedOrderedEntityIds
+    {
+        private readonly int[] _orderedIds;
+
+        internal SnapshotOwnedOrderedEntityIds(int[] orderedIds)
+        {
+            _orderedIds = orderedIds ?? throw new ArgumentNullException(nameof(orderedIds));
+        }
+
+        internal ReadOnlySpan<int> OrderedIds => _orderedIds;
+    }
+
     public enum BoxInteractionLockSourceReason
     {
         Unspecified = 0,
@@ -197,6 +209,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyGravityFieldAuraFieldState> _enemyGravityFieldAuraFieldsById;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
+        private readonly SnapshotOwnedOrderedEntityIds _snapshotOwnedOrderedEntityIds;
         private readonly IReadOnlyDictionary<int, PhasedRuntimeState> _phasedStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerDamageState> _playerDamageStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
@@ -205,6 +218,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId;
         private readonly IReadOnlyDictionary<int, UnitContinuousLocomotionState> _unitContinuousLocomotionStatesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
+        private readonly SnapshotOwnedCellIndex<SurfaceCell> _snapshotOwnedStackedUnitsByCell;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
         private readonly IReadOnlyDictionary<int, TileFeatureState> _tileFeaturesById;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
@@ -244,7 +258,8 @@ namespace Game.Feature.Gameplay.BoardState
             BoardBounds boardBounds)
             : this(
                 entitiesById,
-                CreateReadonlyStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
+                CreateSnapshotOwnedOrderedEntityIds(entitiesById),
+                CreateSnapshotOwnedStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
                 solidOccupancy,
                 tileFeaturesById,
                 CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
@@ -274,8 +289,9 @@ namespace Game.Feature.Gameplay.BoardState
         {
         }
 
-        internal static WorldSnapshot CreateWithSnapshotOwnedCellIndexes(
+        internal static WorldSnapshot CreateWithSnapshotOwnedIndexes(
             Dictionary<int, EntityState> entitiesById,
+            SnapshotOwnedOrderedEntityIds orderedEntityIds,
             SnapshotOwnedCellIndex<SurfaceCell> stackedUnitsByCell,
             Dictionary<SurfaceCell, int> solidOccupancy,
             Dictionary<int, TileFeatureState> tileFeaturesById,
@@ -306,7 +322,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return new WorldSnapshot(
                 entitiesById,
-                CreateReadonlySnapshotOwnedCellIndex(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
+                orderedEntityIds ?? throw new ArgumentNullException(nameof(orderedEntityIds)),
+                stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell)),
                 solidOccupancy,
                 tileFeaturesById,
                 CreateReadonlySnapshotOwnedCellIndex(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
@@ -337,7 +354,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         private WorldSnapshot(
             Dictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            SnapshotOwnedOrderedEntityIds orderedEntityIds,
+            SnapshotOwnedCellIndex<SurfaceCell> stackedUnitsByCell,
             Dictionary<SurfaceCell, int> solidOccupancy,
             Dictionary<int, TileFeatureState> tileFeaturesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> tileFeatureIdsByCell,
@@ -366,7 +384,9 @@ namespace Game.Feature.Gameplay.BoardState
             BoardBounds boardBounds)
         {
             _entitiesById = new ReadOnlyDictionary<int, EntityState>(entitiesById ?? throw new ArgumentNullException(nameof(entitiesById)));
-            _stackedUnitsByCell = stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell));
+            _snapshotOwnedOrderedEntityIds = orderedEntityIds ?? throw new ArgumentNullException(nameof(orderedEntityIds));
+            _snapshotOwnedStackedUnitsByCell = stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell));
+            _stackedUnitsByCell = CreateReadonlySnapshotOwnedCellIndex(_snapshotOwnedStackedUnitsByCell);
             _solidOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(solidOccupancy ?? throw new ArgumentNullException(nameof(solidOccupancy)));
             _tileFeaturesById = new ReadOnlyDictionary<int, TileFeatureState>(tileFeaturesById ?? throw new ArgumentNullException(nameof(tileFeaturesById)));
             _tileFeatureIdsByCell = tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell));
@@ -405,7 +425,13 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal int EntityCount => _entitiesById.Count;
 
+        internal SnapshotOwnedOrderedEntityIds SnapshotOwnedOrderedEntityIds =>
+            _snapshotOwnedOrderedEntityIds;
+
         internal int TileFeatureCount => _tileFeaturesById.Count;
+
+        internal SnapshotOwnedCellIndex<SurfaceCell> SnapshotOwnedStackedUnitsByCell =>
+            _snapshotOwnedStackedUnitsByCell;
 
         internal ReadOnlyMemory<int> CleanupRemovalCandidateIds => _cleanupCandidates.RemovalCandidateIds;
 
@@ -1779,16 +1805,34 @@ namespace Game.Feature.Gameplay.BoardState
 
         private EntityState[] BuildOrderedEntitiesCache()
         {
-            var ordered = new EntityState[_entitiesById.Count];
-            var index = 0;
-            foreach (var entity in _entitiesById.Values)
+            var orderedIds = _snapshotOwnedOrderedEntityIds.OrderedIds;
+            var ordered = new EntityState[orderedIds.Length];
+            for (var index = 0; index < orderedIds.Length; index++)
             {
-                ordered[index++] = entity;
+                var entityId = orderedIds[index];
+                if (!_entitiesById.TryGetValue(entityId, out ordered[index]))
+                {
+                    throw new InvalidOperationException(
+                        $"Ordered Entity ID carrier contains missing entity {entityId}.");
+                }
             }
 
-            Array.Sort(ordered, CompareEntityById);
-            SnapshotMaterializationDiagnostics.RecordOrderedEntitiesSort(ordered.Length);
             return ordered;
+        }
+
+        private static SnapshotOwnedOrderedEntityIds CreateSnapshotOwnedOrderedEntityIds(
+            Dictionary<int, EntityState> entitiesById)
+        {
+            if (entitiesById == null)
+            {
+                throw new ArgumentNullException(nameof(entitiesById));
+            }
+
+            var orderedIds = new int[entitiesById.Count];
+            entitiesById.Keys.CopyTo(orderedIds, 0);
+            Array.Sort(orderedIds);
+            SnapshotMaterializationDiagnostics.RecordOrderedEntitiesSort(orderedIds.Length);
+            return new SnapshotOwnedOrderedEntityIds(orderedIds);
         }
 
         private TileFeatureState[] BuildOrderedTileFeaturesCache()
@@ -1843,11 +1887,6 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 target.Add(pair.Key, new SortedSet<int>(pair.Value));
             }
-        }
-
-        private static int CompareEntityById(EntityState left, EntityState right)
-        {
-            return left.entityId.CompareTo(right.entityId);
         }
 
         private static int CompareTileFeatureByCellThenId(TileFeatureState left, TileFeatureState right)
@@ -1913,7 +1952,7 @@ namespace Game.Feature.Gameplay.BoardState
             return values;
         }
 
-        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlyStackedUnitsByCell(
+        private static SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedStackedUnitsByCell(
             Dictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell)
         {
             var buffer = new Dictionary<SurfaceCell, IReadOnlyCollection<int>>(stackedUnitsByCell.Count);
@@ -1934,7 +1973,7 @@ namespace Game.Feature.Gameplay.BoardState
                 buffer.Add(pair.Key, orderedEntityIds.AsReadOnly());
             }
 
-            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(buffer);
+            return new SnapshotOwnedCellIndex<SurfaceCell>(buffer);
         }
     }
 }

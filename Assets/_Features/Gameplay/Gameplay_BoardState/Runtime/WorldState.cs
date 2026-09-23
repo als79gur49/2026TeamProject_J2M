@@ -9,6 +9,8 @@ namespace Game.Feature.Gameplay.BoardState
     public sealed class WorldState : IWorldStateMutationPort
     {
         private readonly Dictionary<int, EntityState> _entitiesById = new();
+        private SnapshotOwnedOrderedEntityIds _snapshotOwnedOrderedEntityIds;
+        private bool _snapshotOwnedOrderedEntityIdsDirty = true;
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly Dictionary<int, TileFeatureState> _tileFeaturesById = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _tileFeatureIdsByCell = new();
@@ -35,6 +37,8 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId = new();
         private readonly Dictionary<int, UnitContinuousLocomotionState> _unitContinuousLocomotionStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
+        private SnapshotOwnedCellIndex<SurfaceCell> _snapshotOwnedStackedUnitsByCell;
+        private bool _snapshotOwnedStackedUnitsByCellDirty = true;
         private readonly SortedSet<int> _cleanupRemovalCandidateIds = new();
         private readonly SortedSet<int> _cleanupTimerCandidateIds = new();
         private readonly SortedSet<int> _cleanupImmediateTransitionCandidateIds = new();
@@ -158,8 +162,9 @@ namespace Game.Feature.Gameplay.BoardState
                 return _cachedWorldSnapshot;
             }
 
-            _cachedWorldSnapshot = WorldSnapshot.CreateWithSnapshotOwnedCellIndexes(
+            _cachedWorldSnapshot = WorldSnapshot.CreateWithSnapshotOwnedIndexes(
                 new Dictionary<int, EntityState>(_entitiesById),
+                CreateSnapshotOwnedOrderedEntityIds(),
                 CreateSnapshotOwnedStackedUnitsByCell(),
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
                 new Dictionary<int, TileFeatureState>(_tileFeaturesById),
@@ -231,7 +236,11 @@ namespace Game.Feature.Gameplay.BoardState
             _snapshotOwnedTileFeatureIdsByCellDirty = true;
             _topologyRevision = snapshot.TopologyRevision;
             snapshot.CopyEntitiesByIdTo(_entitiesById);
+            _snapshotOwnedOrderedEntityIds = snapshot.SnapshotOwnedOrderedEntityIds;
+            _snapshotOwnedOrderedEntityIdsDirty = false;
             snapshot.CopyStackedUnitsByCellTo(_stackedUnitsByCell);
+            _snapshotOwnedStackedUnitsByCell = snapshot.SnapshotOwnedStackedUnitsByCell;
+            _snapshotOwnedStackedUnitsByCellDirty = false;
             snapshot.CopySolidOccupancyTo(_solidOccupancy);
             snapshot.CopyTileFeaturesByIdTo(_tileFeaturesById);
             snapshot.CopyTileFeatureIdsByCellTo(_tileFeatureIdsByCell);
@@ -283,6 +292,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _entitiesById.Add(entity.entityId, entity);
+            InvalidateSnapshotOwnedOrderedEntityIds();
             UpdateCleanupCandidateMembership(entity);
             if (EntityRolePolicy.IsPlayerUnit(entity))
             {
@@ -319,7 +329,10 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             ClearOccupancyForEntity(entity);
-            _entitiesById.Remove(entityId);
+            if (_entitiesById.Remove(entityId))
+            {
+                InvalidateSnapshotOwnedOrderedEntityIds();
+            }
             _cleanupRemovalCandidateIds.Remove(entityId);
             _cleanupTimerCandidateIds.Remove(entityId);
             _cleanupImmediateTransitionCandidateIds.Remove(entityId);
@@ -1256,8 +1269,29 @@ namespace Game.Feature.Gameplay.BoardState
 
         private SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedStackedUnitsByCell()
         {
-            SnapshotMaterializationDiagnostics.RecordSnapshotOwnedStackedUnitCellIndexBuild(_stackedUnitsByCell.Count);
-            return CreateSnapshotOwnedCellIndex(_stackedUnitsByCell);
+            if (_snapshotOwnedStackedUnitsByCell == null || _snapshotOwnedStackedUnitsByCellDirty)
+            {
+                SnapshotMaterializationDiagnostics.RecordSnapshotOwnedStackedUnitCellIndexBuild(_stackedUnitsByCell.Count);
+                _snapshotOwnedStackedUnitsByCell = CreateSnapshotOwnedCellIndex(_stackedUnitsByCell);
+                _snapshotOwnedStackedUnitsByCellDirty = false;
+            }
+
+            return _snapshotOwnedStackedUnitsByCell;
+        }
+
+        private SnapshotOwnedOrderedEntityIds CreateSnapshotOwnedOrderedEntityIds()
+        {
+            if (_snapshotOwnedOrderedEntityIds == null || _snapshotOwnedOrderedEntityIdsDirty)
+            {
+                var orderedIds = new int[_entitiesById.Count];
+                _entitiesById.Keys.CopyTo(orderedIds, 0);
+                Array.Sort(orderedIds);
+                SnapshotMaterializationDiagnostics.RecordOrderedEntitiesSort(orderedIds.Length);
+                _snapshotOwnedOrderedEntityIds = new SnapshotOwnedOrderedEntityIds(orderedIds);
+                _snapshotOwnedOrderedEntityIdsDirty = false;
+            }
+
+            return _snapshotOwnedOrderedEntityIds;
         }
 
         private SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedTileFeatureIdsByCell()
@@ -1275,6 +1309,16 @@ namespace Game.Feature.Gameplay.BoardState
         private void InvalidateSnapshotOwnedTileFeatureCellIndex()
         {
             _snapshotOwnedTileFeatureIdsByCellDirty = true;
+        }
+
+        private void InvalidateSnapshotOwnedStackedUnitCellIndex()
+        {
+            _snapshotOwnedStackedUnitsByCellDirty = true;
+        }
+
+        private void InvalidateSnapshotOwnedOrderedEntityIds()
+        {
+            _snapshotOwnedOrderedEntityIdsDirty = true;
         }
 
         private static SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedCellIndex(
@@ -1321,6 +1365,8 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Conflicting stacked-unit occupancy detected while updating world state at {position}.");
             }
 
+            InvalidateSnapshotOwnedStackedUnitCellIndex();
+
             if (entityIds.Count == 0)
             {
                 _stackedUnitsByCell.Remove(position);
@@ -1335,7 +1381,10 @@ namespace Game.Feature.Gameplay.BoardState
                 _stackedUnitsByCell.Add(position, entityIds);
             }
 
-            entityIds.Add(entityId);
+            if (entityIds.Add(entityId))
+            {
+                InvalidateSnapshotOwnedStackedUnitCellIndex();
+            }
         }
 
         private static bool ShouldStoreEntityInOccupancy(EntityState entity)

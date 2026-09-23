@@ -2512,6 +2512,68 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void BlockingScheduler_ExactTopologyObservation_DeduplicatesButTickAndResetRefresh()
+        {
+            var scheduler = new PresentationPlaybackScheduler();
+
+            scheduler.ObserveActiveBlockingState(PresentationBlockingSource.TopologyTransition, true, 12);
+            var firstSources = scheduler.BlockingSnapshot.Sources;
+
+            scheduler.ObserveActiveBlockingState(PresentationBlockingSource.TopologyTransition, true, 12);
+
+            Assert.That(scheduler.BlockingSnapshot.Sources, Is.SameAs(firstSources));
+            Assert.That(scheduler.BlockingSnapshot.LastTickIndex, Is.EqualTo(12));
+
+            scheduler.ObserveActiveBlockingState(PresentationBlockingSource.TopologyTransition, true, 13);
+            var nextTickSources = scheduler.BlockingSnapshot.Sources;
+
+            Assert.That(nextTickSources, Is.Not.SameAs(firstSources));
+            Assert.That(scheduler.BlockingSnapshot.LastTickIndex, Is.EqualTo(13));
+
+            scheduler.ResetSession();
+            scheduler.ObserveActiveBlockingState(PresentationBlockingSource.TopologyTransition, true, 13);
+
+            Assert.That(scheduler.BlockingSnapshot.Sources, Is.Not.SameAs(nextTickSources));
+            Assert.That(scheduler.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+            Assert.That(scheduler.BlockingSnapshot.LastTickIndex, Is.EqualTo(13));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlockingScheduler_AcceptRefresh_RemainsCurrentWhenObservationPairIsUnchanged()
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(CreateDiagnosticTickResult(
+                new TickTopologyMotion(
+                    new CubeTopologyState(FaceId.Floor),
+                    new CubeTopologyState(FaceId.Front),
+                    CubeRotationKind.Forward)));
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new TopologyCuePlanner(),
+            }).Plan(factFrame);
+            var plan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var scheduler = new PresentationPlaybackScheduler();
+
+            scheduler.ObserveActiveBlockingState(
+                PresentationBlockingSource.TopologyTransition,
+                true,
+                plan.TickIndex);
+            scheduler.Accept(plan);
+            var acceptedSources = scheduler.BlockingSnapshot.Sources;
+
+            scheduler.ObserveActiveBlockingState(
+                PresentationBlockingSource.TopologyTransition,
+                true,
+                plan.TickIndex);
+
+            Assert.That(scheduler.BlockingSnapshot.Sources, Is.SameAs(acceptedSources));
+            Assert.That(scheduler.BlockingSnapshot.HasPlannedBlockingBarrier, Is.True);
+            Assert.That(scheduler.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+            Assert.That(scheduler.BlockingSnapshot.Sources, Has.Count.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Core")]
         public void TopologyFactExtraction_NormalizesTopologyMotionAsTypedSemanticFact()
         {
             var sourceTopology = new CubeTopologyState(FaceId.Floor);

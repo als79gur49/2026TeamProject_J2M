@@ -661,7 +661,6 @@ namespace Game.Feature.Gameplay.Loop
                 planSnapshot,
                 input.TickIndex,
                 entityLogicsForTick.MovementLogics,
-                planFinalizationBatch,
                 preMovementStateResult.Updates,
                 jumpLandingPlans,
                 jumpLandingSpaceContests,
@@ -919,7 +918,6 @@ namespace Game.Feature.Gameplay.Loop
             finalizationBatch.MergeFrom(planPhaseResult.PlanFinalizationBatch);
             finalizationBatch.MergeFrom(movementStageBatch);
             var projectedWorld = new ProjectedWorld(planSnapshot);
-            projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
             projectedWorld.ApplyBatch(movementStageBatch);
             // postMovementSnapshot is the movement-visible resolve surface. Accepted
             // impact follow-through writes are materialized here before jump landing.
@@ -1035,7 +1033,6 @@ namespace Game.Feature.Gameplay.Loop
                 finalizationBatch.MergeFrom(planPhaseResult.PlanFinalizationBatch);
                 finalizationBatch.MergeFrom(movementStageBatch);
                 projectedWorld = new ProjectedWorld(planSnapshot);
-                projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                 projectedWorld.ApplyBatch(movementStageBatch);
                 postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
 
@@ -1080,7 +1077,6 @@ namespace Game.Feature.Gameplay.Loop
                 finalizationBatch.MergeFrom(movementStageBatch);
                 finalizationBatch.MergeFrom(jumpLandingResolveBatch);
                 projectedWorld = new ProjectedWorld(planSnapshot);
-                projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                 projectedWorld.ApplyBatch(movementStageBatch);
                 projectedWorld.ApplyBatch(jumpLandingResolveBatch);
                 postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
@@ -1167,7 +1163,6 @@ namespace Game.Feature.Gameplay.Loop
                     }
 
                     projectedWorld = new ProjectedWorld(planSnapshot);
-                    projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                     projectedWorld.ApplyBatch(movementStageBatch);
                     projectedWorld.ApplyBatch(jumpLandingResolveBatch);
                     if (!tileEffectResult.Operations.IsEmpty)
@@ -5919,7 +5914,6 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             int tickIndex,
             IReadOnlyList<IMovementEntityLogic> movementLogics,
-            FinalizationBatch planFinalizationBatch,
             List<string> preMovementUpdates,
             List<JumpLandingPlan> jumpLandingPlans,
             List<Contest> jumpLandingSpaceContests,
