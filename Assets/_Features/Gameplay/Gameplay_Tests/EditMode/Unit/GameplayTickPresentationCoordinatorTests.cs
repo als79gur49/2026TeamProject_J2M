@@ -9072,9 +9072,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
+        [TestCase(TickEntityMotionKind.Push)]
+        [TestCase(TickEntityMotionKind.Flip)]
         [Category("Core")]
-        public void GameplayTickViewPresenter_AfterEntityMotionBoxDestroy_KeepsOriginalViewVisibleUntilMotionCompletes()
+        public void GameplayTickViewPresenter_AfterEntityMotionBoxDestroy_KeepsOriginalViewVisibleUntilMotionCompletes(
+            TickEntityMotionKind motionKind)
         {
             var rootObject = new GameObject(
                 "GameplayTickViewPresenter_AfterEntityMotionBoxDestroy_KeepsOriginalViewVisibleUntilMotionCompletes");
@@ -9118,7 +9120,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             {
                                 new TickEntityMotion(
                                     30,
-                                    TickEntityMotionKind.Push,
+                                    motionKind,
                                     sourceCell,
                                     destroyTileCell),
                             },
@@ -9141,7 +9143,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(boxView.gameObject.activeSelf, Is.True);
 
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+                var motionDurationSeconds = motionKind == TickEntityMotionKind.Flip
+                    ? timingProfile.FlipMotionDurationSeconds
+                    : timingProfile.PushMotionDurationSeconds;
+                presenter.UpdatePresentation(motionDurationSeconds * 0.5f);
 
                 var sourcePosition = GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Box);
                 var destinationPosition = GetProjectedEntityPosition(boardBounds, topology, destroyTileCell, EntityType.Box);
@@ -9153,7 +9158,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(progress, Is.GreaterThan(0.001f));
                 Assert.That(progress, Is.LessThan(travel.magnitude - 0.001f));
 
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f + 0.01f);
+                presenter.UpdatePresentation(motionDurationSeconds * 0.5f + 0.01f);
 
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
             }

@@ -390,6 +390,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 result.PresentationData.TileEvents[0].TimingAnchor.VisualContactNormalizedTime,
                 Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+            Assert.That(result.PresentationData.EntityMotions.Any(motion =>
+                motion.EntityId == 30 &&
+                motion.MotionKind == TickEntityMotionKind.Flip &&
+                motion.DestinationCell.Equals(destroyCell)), Is.True);
+            Assert.That(result.PresentationData.EntityExitSignals.Any(signal =>
+                signal.ExitedEntityId == 30 &&
+                signal.EntityType == EntityType.Box &&
+                signal.ExitCause == TickEntityExitCause.BoxDestroy &&
+                signal.Timing == EntityExitPresentationTiming.AfterEntityMotion), Is.True);
             Assert.That(result.FinalEntities.Any(entity => entity.entityId == 30), Is.False);
         }
 
