@@ -28,6 +28,13 @@
   - `Destroy` fallback은 sliding continuation blocked path에 재적용하지 않는다.
   - active Barricade는 PlayerControl이 동일한 tile-definition context를 받기 전까지 execute-time policy다.
 
+## Sliding box / topology transition
+
+- SlideTile이 지정한 진행 방향은 박스의 `EntityState.facing`에 저장되는 Surface-local 방향이다. Topology transition만으로 방향이나 `Sliding` 상태를 초기화하지 않는다.
+- 전환 후에도 박스가 있는 면이 Bottom 또는 Front로 활성 상태이면 정상 슬라이드 간격과 충돌·타일 효과 규칙에 따라 계속 이동한다. Front가 Bottom으로 바뀌어 원래 SlideTile이 비활성화되어도 이미 시작한 슬라이딩은 지속된다.
+- 박스가 있는 면이 비활성이면 슬라이딩 이동은 발생하지 않는다. 다른 gameplay effect가 상태를 바꾸지 않는 한 위치·방향·`Sliding`을 보존하고, 재활성화 후 정상 타이머 조건을 만족하면 같은 방향으로 재개한다. 비활성 중 타이머 정지를 뜻하지 않으며, 재활성화 자체는 새 SlideTile 접촉이 아니다.
+- 상세 계약과 실제 플레이어 전환 회귀 테스트는 [ADR-006 SlideTile Policy](ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md#slidetile-policy)를 따른다. 면 경계 도달 이후에는 기존 Bottom/Front 연결 및 board-edge 정지 규칙을 적용한다.
+
 ## Flip
 - 관련 코드:
   - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Expansion/MovementExpander.cs`

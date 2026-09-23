@@ -3581,6 +3581,111 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void SlideTile_TopologyTransition_ActiveSurfaceContinuesInRedirectedLocalDirection()
+        {
+            AssertSlideTileTopologyContinuation(becomesInactive: false);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_TopologyTransition_InactiveSurfaceSuspendsAndReactivationResumes()
+        {
+            AssertSlideTileTopologyContinuation(becomesInactive: true);
+        }
+
+        private static void AssertSlideTileTopologyContinuation(bool becomesInactive)
+        {
+            var slideCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var transitionDirection = becomesInactive ? Direction.Down : Direction.Up;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, becomesInactive ? 0 : 4)),
+                    CreateSlidingPushBox(20, new SurfaceCell(FaceId.Front, 1, 1), Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)),
+                new[]
+                {
+                    new TileFeatureState(100, slideCell, TileFeatureKind.Slide, TileFeatureFlags.None,
+                        sourceEntityId: 0, ownerEntityId: 0, teamId: 0, lifetimeTicks: 0, charges: 0),
+                });
+            var pipeline = CreatePlayerTileFeaturePipeline(worldState, new[]
+            {
+                new TileFeatureRuntimeDefinition(100, TileFeatureActivationRule.FrontFaceOnly,
+                    Direction2D.Up, TileFeatureBoxSelector.None, boundEntityId: 0),
+            });
+
+            var redirected = pipeline.RunTick(new TickInput(1));
+            Assert.That(redirected.PresentationData.TileEvents.Count(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.SlideTileRedirected &&
+                tileEvent.TargetEntityId == 20 && tileEvent.Direction == Direction.Up), Is.EqualTo(1));
+            AssertSlidingBoxAt(worldState, slideCell);
+
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0,
+                y: becomesInactive ? SimulationFixed.MinLocalOffset : SimulationFixed.MaxPositiveLocalOffset,
+                transitionDirection);
+            var transition = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(transitionDirection)));
+            Assert.That(transition.MovementPhaseResult.ResolvedOperations.Any(IsSetTopologyOperation), Is.True);
+            var topology = CreateSnapshot(worldState).Topology;
+            Assert.That(topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor).Rotate(
+                becomesInactive ? CubeRotationKind.Backward : CubeRotationKind.Forward)));
+            Assert.That(topology.IsFaceActive(FaceId.Front), Is.EqualTo(!becomesInactive));
+            AssertSlidingBoxAt(worldState, slideCell);
+
+            var tick = 3;
+            if (becomesInactive)
+            {
+                // Wait beyond multiple slide intervals: hidden movement and loss of Sliding must both fail.
+                for (; tick <= 2 + 2 * DefaultBoxSlideStepIntervalTicks; tick++)
+                {
+                    var suspended = pipeline.RunTick(new TickInput(tick));
+                    AssertSlidingBoxAt(worldState, slideCell);
+                    Assert.That(suspended.PresentationData.TileEvents, Is.Empty);
+                }
+
+                SetPlayerFree2DSeamOffset(worldState, 10, x: 0,
+                    y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
+                var reactivated = pipeline.RunTick(new TickInput(tick++, PlayerTickCommand.Move(Direction.Up)));
+                Assert.That(reactivated.MovementPhaseResult.ResolvedOperations.Any(IsSetTopologyOperation), Is.True);
+                Assert.That(CreateSnapshot(worldState).Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+                Assert.That(reactivated.PresentationData.TileEvents, Is.Empty,
+                    "Reactivation alone must not retrigger SlideTile contact.");
+            }
+            else
+            {
+                Assert.That(topology.BottomFace, Is.EqualTo(FaceId.Front),
+                    "The box continues even though its SlideTile is no longer FrontFaceOnly-active.");
+            }
+
+            var nextCell = new SurfaceCell(FaceId.Front, 2, 2);
+            var deadline = tick + DefaultBoxSlideStepIntervalTicks;
+            for (; tick <= deadline; tick++)
+            {
+                var snapshot = CreateSnapshot(worldState);
+                Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
+                if (box.position == nextCell)
+                {
+                    break;
+                }
+
+                AssertSlidingBoxAt(worldState, slideCell);
+                var continued = pipeline.RunTick(new TickInput(tick));
+                Assert.That(continued.PresentationData.TileEvents, Is.Empty);
+            }
+
+            AssertSlidingBoxAt(worldState, nextCell);
+        }
+
+        private static void AssertSlidingBoxAt(WorldState worldState, SurfaceCell expectedCell)
+        {
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(expectedCell));
+            Assert.That(box.facing, Is.EqualTo(Direction.Up));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTile_TopologyActivationUnderSlidingBox_DestroysBox()
         {
             var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);

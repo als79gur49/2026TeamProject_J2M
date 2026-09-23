@@ -139,6 +139,10 @@ Destroy gameplay activation, static presentation selection, and runtime active s
 - SlideTile does not perform same-tick extra movement.
 - SlideTile retargets box facing only.
 - For sliding boxes, `EntityState.facing` is the authoritative continuation direction. SlideTile redirect changes facing, not position.
+- Topology transition alone does not clear a box's `Sliding` state or retarget its `facing`. Continuation uses the stored Surface-local direction, not a fixed screen/world-space direction.
+- A sliding box continues on its Surface after transition while that face remains active (`BottomFace` or `FrontFace`), subject to the normal slide interval, blockers, and tile effects. A Front-to-Bottom role change does not require the original SlideTile to remain active: `FrontFaceOnly` gates redirect contact, not the box's subsequent movement.
+- While the box's face is inactive, it emits no sliding movement intent and retains its position, `Sliding` state, and facing unless another gameplay effect changes it. Reactivation allows continuation in that stored direction when the normal slide timer is ready; this is not a promise that the timer itself freezes while inactive. Reactivation alone is not a new SlideTile contact.
+- Regression coverage: `MovementPhaseScenarioTests.SlideTile_TopologyTransition_ActiveSurfaceContinuesInRedirectedLocalDirection` and `SlideTile_TopologyTransition_InactiveSurfaceSuspendsAndReactivationResumes` redirect a moving box and commit topology transitions through player movement before checking continuation/suspension/resumption. Run with `./run_tests.sh full --filter SlideTile_TopologyTransition` (the `core` lane does not select the Gameplay scenario assembly).
 - If the box is already facing the redirect direction, no SetFacing operation and no event are created.
 - DestroyTile wins: a destroyed box is not Slide redirected.
 - `SlideTileRedirected` event is emitted only from the actual state-change branch.
