@@ -3052,55 +3052,8 @@ namespace Game.Feature.Gameplay.Entities
                     : (Direction?)null;
             }
 
-            if (stage == EnemyAiTransitionStage.BeforeMovement &&
-                _patrolStrategy is WallFollowPatrolStrategy &&
-                _patrolStrategy.TryBuildMovementIntent(
-                    snapshot,
-                    source,
-                    _commonSettings,
-                    _patrolSettings,
-                    _tileFeatureDefinitions,
-                    out _))
-            {
-                return null;
-            }
-
-            if (stage == EnemyAiTransitionStage.BeforeMovement &&
-                _patrolStrategy is WallFollowPatrolStrategy)
-            {
-                return null;
-            }
-
-            if (stage == EnemyAiTransitionStage.BeforeMovement &&
-                _patrolStrategy is IPatrolFacingStrategy patrolFacingStrategy &&
-                patrolFacingStrategy.TryResolveFacing(snapshot, source, _patrolSettings, out var patrolFacing))
-            {
-                return patrolFacing;
-            }
-
-            if (stage != EnemyAiTransitionStage.BeforeAttack ||
-                _patrolStrategy is not WallFollowPatrolStrategy)
-            {
-                return null;
-            }
-
-            var wallFollowOutcome = EnemyMovementStrategyShared.ChooseWallFollowDirection(
-                snapshot,
-                source,
-                _patrolSettings,
-                _tileFeatureDefinitions,
-                out _);
-            if (wallFollowOutcome == EnemyMovementStrategyShared.WallFollowHandRuleOutcome.BuiltDirection ||
-                !EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
-                    source.facing,
-                    _patrolSettings.TurnPreference,
-                    out var rotateOnlyFacing) ||
-                rotateOnlyFacing == source.facing)
-            {
-                return null;
-            }
-
-            return rotateOnlyFacing;
+            // WallFollow facing changes only when its movement is committed.
+            return null;
         }
 
         private bool TryBuildPatrolDecisionProposal(

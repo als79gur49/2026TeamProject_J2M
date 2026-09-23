@@ -171,15 +171,6 @@ namespace Game.Feature.Gameplay.Entities
             out RawMovementIntent intent);
     }
 
-    public interface IPatrolFacingStrategy
-    {
-        bool TryResolveFacing(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in PatrolSettings settings,
-            out Direction facing);
-    }
-
     public interface IChaseStrategy
     {
         bool TryBuildMovementIntent(
@@ -244,36 +235,9 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    public sealed class WallFollowPatrolStrategy : IPatrolStrategy, IPatrolFacingStrategy
+    public sealed class WallFollowPatrolStrategy : IPatrolStrategy
     {
         public static readonly WallFollowPatrolStrategy Instance = new();
-
-        public bool TryResolveFacing(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in PatrolSettings settings,
-            out Direction facing)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            facing = source.facing;
-
-            if (!EnemyMovementStrategyShared.TryChooseWallFollowFacing(snapshot, source, settings, out var nextFacing))
-            {
-                return false;
-            }
-
-            if (nextFacing == source.facing)
-            {
-                return false;
-            }
-
-            facing = nextFacing;
-            return true;
-        }
 
         public bool TryBuildMovementIntent(
             WorldSnapshot snapshot,
@@ -1013,16 +977,6 @@ namespace Game.Feature.Gameplay.Entities
                 settings);
         }
 
-        internal static bool TryChooseWallFollowDirection(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in PatrolSettings settings,
-            out Direction direction)
-        {
-            return ChooseWallFollowDirection(snapshot, source, settings, null, out direction) ==
-                   WallFollowHandRuleOutcome.BuiltDirection;
-        }
-
         internal static WallFollowHandRuleOutcome ChooseWallFollowDirection(
             WorldSnapshot snapshot,
             in EntityState source,
@@ -1105,37 +1059,6 @@ namespace Game.Feature.Gameplay.Entities
             return WallFollowHandRuleOutcome.NoLegalMove;
         }
 
-        internal static bool TryChooseWallFollowFacing(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in PatrolSettings settings,
-            out Direction direction)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            if (ChooseWallFollowDirection(snapshot, source, settings, null, out direction) ==
-                WallFollowHandRuleOutcome.BuiltDirection &&
-                direction != source.facing)
-            {
-                return true;
-            }
-
-            direction = Direction.None;
-            return false;
-        }
-
-        internal static bool TryChooseWallFollowRotateOnlyFacing(
-            Direction facing,
-            WallFollowTurnPreference turnPreference,
-            out Direction direction)
-        {
-            return TryResolveWallFollowDirection(facing, turnPreference, WallFollowMovementChoice.PreferredTurn, out direction, out _) &&
-                   direction != facing;
-        }
-
         private static bool TryEvaluateWallFollowCandidate(
             WorldSnapshot snapshot,
             in EntityState source,
@@ -1152,7 +1075,9 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!TryResolveWallFollowDirection(source.facing, settings.TurnPreference, choice, out direction, out delta) ||
                 !CanTraverseStep(snapshot, source, delta, tileFeatureDefinitions) ||
-                !TryResolveAdjacentCellWithoutTopologyChange(snapshot, source.position, delta, out destinationCell))
+                !TryResolveAdjacentCellWithoutTopologyChange(snapshot, source.position, delta, out destinationCell) ||
+                TileFeatureHazardQueries.EvaluateTileApproachRisk(
+                    snapshot, tileFeatureDefinitions, source, destinationCell) == TileApproachRisk.LethalOnEnter)
             {
                 direction = Direction.None;
                 delta = Vector2Int.zero;
