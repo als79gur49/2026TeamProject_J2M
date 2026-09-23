@@ -245,4 +245,3 @@ phase 4 이후 canonical truth는 아래로 고정한다.
 - commonization 필요성이 evidence 없이 추정으로만 남는다.
 - `WallFollow` unchanged evidence 없이 문서만 추가된다.
 - phase 4 변경이 `Forward` / `RandomWalk` seam이나 authored patrol policy를 흔든다.
-

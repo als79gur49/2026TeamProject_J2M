@@ -4322,4 +4322,3 @@ namespace Game.Feature.Gameplay.Entities
         public Direction? Facing { get; }
     }
 }
-
