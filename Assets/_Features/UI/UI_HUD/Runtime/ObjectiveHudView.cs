@@ -97,7 +97,7 @@ namespace Game.Feature.UI.HUD
         public void ConfigureTypography(IObjectiveHudTypographyApplicator typographyApplicator)
         {
             _typographyApplicator = typographyApplicator;
-            RefreshTypography();
+            RefreshLocalizedContent();
         }
 
         private void Awake()
@@ -228,11 +228,23 @@ namespace Game.Feature.UI.HUD
 
         private void RefreshView()
         {
+            if (!enabled)
+            {
+                return;
+            }
+
             ValidateAuthoredStructureOrThrow();
             HideAuthoredListChildren();
 
             var isVisible = _viewModel != null && _viewModel.IsVisible;
+            // Keep local visibility current even under a hidden HUD, so an empty
+            // objective can wake when the HUD returns. Do not create rows there.
             _root.SetActive(isVisible);
+            if (transform.parent != null && !transform.parent.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
             if (!isVisible)
             {
                 ForceClearAllRows(clearDismissed: true);
@@ -241,7 +253,7 @@ namespace Game.Feature.UI.HUD
             }
 
             _headerLabel.text = _viewModel.HeaderText;
-            RefreshTypography();
+            RefreshLocalizedContent();
 
             var objectiveStableId = _viewModel.ObjectiveStableId ?? string.Empty;
             if (!string.Equals(_currentObjectiveStableId, objectiveStableId, StringComparison.Ordinal))
@@ -837,12 +849,27 @@ namespace Game.Feature.UI.HUD
             return rowView;
         }
 
-        private void RefreshTypography()
+        private void RefreshLocalizedContent()
         {
             _typographyApplicator?.ApplyHeader(_headerLabel);
             foreach (var pair in _activeRowsByStableId)
             {
-                pair.Value?.RefreshTypography();
+                if (pair.Value == null || _viewModel == null)
+                {
+                    continue;
+                }
+
+                foreach (var model in _viewModel.Rows)
+                {
+                    if (model != null && string.Equals(pair.Key, model.StableId, StringComparison.Ordinal))
+                    {
+                        pair.Value.RefreshContent(model);
+                        break;
+                    }
+                }
+
+                // Removed rows retain their matching text/font while exiting;
+                // there is no current localized text to pair with a new font.
             }
         }
 

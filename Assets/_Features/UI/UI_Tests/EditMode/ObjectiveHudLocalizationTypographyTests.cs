@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
@@ -190,6 +191,136 @@ namespace Game.Feature.UI.Tests
             Assert.That(MaximumSemanticRowCount, Is.EqualTo(3));
             Assert.That(objectiveLayout.preferredHeight, Is.GreaterThanOrEqualTo(requiredHeight));
             Assert.That(objectiveView.HeaderLabel.rectTransform.rect.height, Is.GreaterThan(0f));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ObjectiveHud_HiddenLocaleChanges_DeferRowsUntilLatestStateIsShown(bool initiallyEmpty)
+        {
+            using var fixture = new LocaleHudFixture();
+            if (!initiallyEmpty) fixture.Show("ko-KR", "출구로 이동하기 (0/1)");
+            fixture.Root.SetActive(false);
+            // EditMode does not drive MonoBehaviour lifecycle callbacks for this prefab.
+            typeof(ObjectiveHudView).GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(fixture.View, null);
+            var rowCount = fixture.View.GetComponentsInChildren<ObjectiveHudRowView>(true).Length;
+
+            foreach (var locale in new[] { "ja-JP", "zh-CN", "en-US", "ko-KR" })
+            {
+                fixture.Show(locale, locale == "ko-KR" ? "출구로 이동하기 (0/1)" : "脱出エリアに到達する（0/1）");
+                Assert.That(fixture.Rows, Is.Empty, "Hidden callbacks must not enter or bind rows.");
+                Assert.That(fixture.View.GetComponentsInChildren<ObjectiveHudRowView>(true).Length,
+                    Is.EqualTo(rowCount));
+            }
+
+            fixture.Root.SetActive(true);
+            Assert.That(fixture.View.gameObject.activeInHierarchy, Is.True);
+            typeof(ObjectiveHudView).GetMethod("OnEnable", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(fixture.View, null);
+            Assert.That(fixture.Rows, Has.Length.EqualTo(1));
+            fixture.AssertRendered(fixture.Rows[0], "출구로 이동하기 (0/1)");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ObjectiveHud_LocaleChangeDuringTransition_RefreshesContentWithoutRestart(bool exiting)
+        {
+            using var fixture = new LocaleHudFixture();
+            fixture.Show("ja-JP", "脱出エリアに到達する（0/1）");
+            var row = fixture.Rows.Single();
+            if (exiting)
+            {
+                for (var i = 0; i < 60; i++) row.Tick(0.02f);
+                fixture.Show("ja-JP", "脱出エリアに到達する（1/1）", satisfied: true);
+                typeof(ObjectiveHudView).GetMethod("ProcessTransitionAdvance", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(fixture.View, new object[] { float.MaxValue });
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+            }
+            else
+            {
+                row.Tick(0.02f);
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+            }
+
+            var state = row.VisualState;
+            var elapsed = GetField<float>(row, "_heightElapsed");
+            var text = exiting ? "출구로 이동하기 (1/1)" : "출구로 이동하기 (0/1)";
+            fixture.Show("ko-KR", text, satisfied: exiting);
+
+            Assert.That(fixture.Rows.Single(), Is.SameAs(row));
+            Assert.That(row.VisualState, Is.EqualTo(state));
+            Assert.That(GetField<float>(row, "_heightElapsed"), Is.EqualTo(elapsed));
+            fixture.AssertRendered(row, text);
+        }
+
+        [Test]
+        public void ObjectiveHud_RemovedExitingRow_KeepsMatchingTextAndFont()
+        {
+            using var fixture = new LocaleHudFixture();
+            fixture.Show("ja-JP", "脱出エリアに到達する（0/1）");
+            var row = fixture.Rows.Single();
+            for (var i = 0; i < 60; i++) row.Tick(0.02f);
+            var label = GetField<TMP_Text>(row, "_label");
+            var font = label.font;
+            fixture.Resolver.SetLocale("ko-KR");
+            fixture.Model.SetState(true, "objective", string.Empty, Array.Empty<ObjectiveConditionHudViewModel>());
+            typeof(ObjectiveHudView).GetMethod("ProcessTransitionAdvance", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(fixture.View, new object[] { float.MaxValue });
+            Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+            Assert.That(label.font, Is.SameAs(font));
+            Assert.That(label.text, Is.EqualTo("脱出エリアに到達する（0/1）"));
+            label.ForceMeshUpdate();
+        }
+
+        [Test]
+        public void ObjectiveHud_EmptyRoot_CanWakeForNewObjective()
+        {
+            using var fixture = new LocaleHudFixture();
+            fixture.Model.Reset();
+            Assert.That(fixture.View.gameObject.activeSelf, Is.False);
+            fixture.Show("ko-KR", "출구로 이동하기 (0/1)");
+            Assert.That(fixture.View.isActiveAndEnabled, Is.True);
+            fixture.AssertRendered(fixture.Rows.Single(), "출구로 이동하기 (0/1)");
+        }
+
+        private sealed class LocaleHudFixture : IDisposable
+        {
+            public readonly GameObject Root = new("ObjectiveLocaleLifecycle", typeof(RectTransform), typeof(Canvas));
+            public readonly MutableLocaleResolver Resolver = new("ja-JP");
+            public readonly ObjectiveHudViewModel Model = new();
+            public readonly ObjectiveHudView View;
+            public ObjectiveHudRowView[] Rows => View.GetComponentsInChildren<ObjectiveHudRowView>(true)
+                .Where(row => !string.IsNullOrEmpty(row.StableId)).ToArray();
+
+            public LocaleHudFixture()
+            {
+                Root.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                var hud = UiTestPrefabAssetUtility.InstantiateHudPrefab(Root.GetComponent<RectTransform>());
+                View = hud.ObjectiveHudView;
+                var binding = View.GetComponent<ObjectiveHudTypographyBinding>();
+                binding.Initialize(Resolver);
+                View.ConfigureTypography(binding);
+                View.Bind(Model);
+            }
+
+            public void Show(string locale, string text, bool satisfied = false)
+            {
+                Resolver.SetLocale(locale);
+                Model.SetState(true, "objective", string.Empty,
+                    new[] { new ObjectiveConditionHudViewModel("exit", text, satisfied, satisfied) });
+            }
+
+            public void AssertRendered(ObjectiveHudRowView row, string text)
+            {
+                var label = GetField<TMP_Text>(row, "_label");
+                Assert.That(label.text, Is.EqualTo(text));
+                Assert.That(label.font, Is.SameAs(UiTestPrefabAssetUtility.LoadKboDiaGothicLightFont()));
+                Canvas.ForceUpdateCanvases();
+                label.ForceMeshUpdate();
+                Assert.That(label.textInfo.characterCount, Is.GreaterThan(0));
+            }
+
+            public void Dispose() => UnityEngine.Object.DestroyImmediate(Root);
         }
 
         private static T GetField<T>(object target, string fieldName)

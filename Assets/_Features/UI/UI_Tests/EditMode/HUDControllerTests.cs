@@ -208,7 +208,6 @@ namespace Game.Feature.UI.Tests
             else
             {
                 var dismissingRow = fixture.ActiveRows.Single();
-                var previousRowText = dismissingRow.GetComponentInChildren<TMP_Text>(true).text;
                 fixture.Locale.ChangeLocale("ko-KR");
                 Assert.That(fixture.Objective.ViewModel.HeaderText, Does.StartWith("ko-KR:"));
                 Assert.That(fixture.Objective.ViewModel.Rows[0].Text, Does.StartWith("ko-KR:"));
@@ -216,8 +215,9 @@ namespace Game.Feature.UI.Tests
                 Assert.That(fixture.View.HeaderLabel.text, Is.EqualTo(fixture.Objective.ViewModel.HeaderText));
                 Assert.That(new[] { ObjectiveRowVisualState.Completing, ObjectiveRowVisualState.WaitingForOut,
                     ObjectiveRowVisualState.Collapsing }, Does.Contain(dismissingRow.VisualState));
-                Assert.That(dismissingRow.GetComponentInChildren<TMP_Text>(true).text, Is.EqualTo(previousRowText),
-                    "Existing View behavior freezes outgoing row text during its transition.");
+                Assert.That(dismissingRow.GetComponentInChildren<TMP_Text>(true).text,
+                    Is.EqualTo(fixture.Objective.ViewModel.Rows[0].Text),
+                    "Locale changes refresh outgoing content without restarting its transition.");
                 fixture.FinishDismiss();
                 fixture.Locale.ChangeLocale("en-US");
                 Assert.That(fixture.ActiveRows, Is.Empty);

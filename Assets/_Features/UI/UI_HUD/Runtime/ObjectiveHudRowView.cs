@@ -110,6 +110,24 @@ namespace Game.Feature.UI.HUD
             Refresh(model);
         }
 
+        public void RefreshContent(ObjectiveConditionHudViewModel model)
+        {
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            if (_hasBoundModel && !string.Equals(StableId, model.StableId, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(ObjectiveHudRowView)} cannot refresh content for a different stable id.");
+            }
+
+            ResolveReferences();
+            _label.text = model.Text;
+            RefreshTypography();
+        }
+
         public void PlayEnter(ObjectiveConditionHudViewModel model)
         {
             if (model == null)
@@ -124,8 +142,7 @@ namespace Game.Feature.UI.HUD
             _wasSatisfied = model.IsSatisfied;
             _enterFinishedRaised = false;
             _dismissFinishedRaised = false;
-            _label.text = model.Text;
-            RefreshTypography();
+            RefreshContent(model);
             _layoutElement.ignoreLayout = false;
             ResetProgressPulseState();
             SetAnimatorBool(false);
@@ -158,8 +175,7 @@ namespace Game.Feature.UI.HUD
                 _hasBoundModel = true;
             }
 
-            _label.text = model.Text;
-            RefreshTypography();
+            RefreshContent(model);
 
             if (IsDismissing)
             {
