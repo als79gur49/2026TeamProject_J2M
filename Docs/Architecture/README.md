@@ -40,6 +40,8 @@
   - current runner/governance truth for `./run_tests.sh core`, `./run_tests.sh ui`, and PlayMode escalation expectations
 - [UI-Authoring-and-Navigation-Guide.md](./UI-Authoring-and-Navigation-Guide.md)
   - supporting implementation guide for prefab-first UI authoring, bounded runtime-generation exceptions, and pointer/keyboard navigation parity
+- [UI-Hidden-View-Lifecycle-Remediation-Plan.md](./UI-Hidden-View-Lifecycle-Remediation-Plan.md)
+  - Objective HUD locale mismatch fix with UI/Core validation, related UI lifecycle audit, and staged remediation plan; manual Pause reproduction and broader lifecycle cleanup remain pending
 - [Localization-Typography-CJK-Expansion-and-Residency-Plan.md](./Localization-Typography-CJK-Expansion-and-Residency-Plan.md)
   - historical Phase 0-6 implementation record and superseded broader future proposal; use the four-locale all-resident plan below for future execution
 - [Localization-Typography-Four-Locale-All-Resident-Plan.md](./Localization-Typography-Four-Locale-All-Resident-Plan.md)
