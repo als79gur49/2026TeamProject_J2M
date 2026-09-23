@@ -95,4 +95,22 @@ namespace Game.Feature.Gameplay.Loop
             return new PlayerTickCommand(moveDirection, pushPressed, flipPressed, isMoveBuffered, heldMoveDirection);
         }
     }
+
+    internal static class PlayerActionDirectionResolver
+    {
+        public static Direction Resolve(in PlayerTickCommand command, Direction facing)
+        {
+            if (DirectionUtility.IsCardinal(command.HeldMoveDirection))
+            {
+                return command.HeldMoveDirection;
+            }
+
+            if (!command.IsMoveBuffered && DirectionUtility.IsCardinal(command.MoveDirection))
+            {
+                return command.MoveDirection;
+            }
+
+            return DirectionUtility.IsCardinal(facing) ? facing : Direction.None;
+        }
+    }
 }

@@ -1472,6 +1472,55 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
+        public IEnumerator GameplayInputHost_PushKeyAlone_StartsAgainstFacingBox()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+            }, actions: actions);
+
+            SetKeyboardState(_keyboard, Key.J);
+            var result = host.InputHost.RunSingleTick();
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+
+            SetKeyboardState(_keyboard);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_FlipKeyAlone_StartsAgainstFacingBox()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            }, actions: actions);
+
+            SetKeyboardState(_keyboard, Key.K);
+            var result = host.InputHost.RunSingleTick();
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+
+            SetKeyboardState(_keyboard);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_ItemPickup_HidesOriginalItemBeforeNextMoveWhileConsumeEffectContinues()
         {
             var host = CreateHost(

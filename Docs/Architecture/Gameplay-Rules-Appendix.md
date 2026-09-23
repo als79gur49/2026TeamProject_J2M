@@ -2,6 +2,13 @@
 
 이 문서는 canonical spec의 보조 문서다. 구조 vocabulary가 아니라 gameplay rule text를 기록한다.
 
+## Push / Flip input direction
+- 상호작용 키와 함께 현재 유지 중인 방향 입력이 있으면 그 방향으로 시도한다.
+- 유지 중인 방향 입력이 없으면 authoritative player facing 방향으로 시도한다.
+- 테스트·리플레이의 명시적 command move direction은 buffered move가 아닐 때 유지 중인 방향 다음 우선순위로 사용한다.
+- 키를 놓은 뒤 잠시 남는 movement intent buffer는 현재 유지 중인 방향으로 취급하지 않는다.
+- 방향 선택은 target capability, settlement, lock, landing, and action timing legality를 바꾸지 않는다.
+
 ## Push
 - 관련 코드:
   - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Expansion/MovementExpander.cs`

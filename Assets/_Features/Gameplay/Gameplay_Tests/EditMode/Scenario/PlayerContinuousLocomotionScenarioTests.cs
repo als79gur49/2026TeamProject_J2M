@@ -1952,6 +1952,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 reason.Contains("Kind=Push")), Is.True);
         }
 
+        [TestCase(PlayerActionKind.Push, BoxCapabilities.Push)]
+        [TestCase(PlayerActionKind.Flip, BoxCapabilities.Flip)]
+        [Category("Extended")]
+        public void Free2DActionAssist_DirectionlessInteraction_QueuesInFacingDirection(
+            PlayerActionKind actionKind,
+            BoxCapabilities capability)
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), capability));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+            var command = actionKind == PlayerActionKind.Push
+                ? PlayerTickCommand.Push(Direction.None)
+                : PlayerTickCommand.Flip(Direction.None);
+
+            var result = pipeline.RunTick(new TickInput(1, command));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.True);
+            Assert.That(controlState.queuedFree2DAction.direction, Is.EqualTo(Direction.Right));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+        }
+
         [Test]
         [Category("Extended")]
         public void Free2DActionAssist_EmptyFloorWithinSettleWindow_PushDoesNotQueueOrAlign()

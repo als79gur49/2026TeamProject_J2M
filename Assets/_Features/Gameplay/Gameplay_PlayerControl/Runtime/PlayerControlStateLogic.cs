@@ -111,18 +111,22 @@ namespace Game.Feature.Gameplay.PlayerControl
                 PlayerControlQueries.CanStartExplicitAction(nextState, input.TickIndex);
             var isSettledAtAnchor = UnitSpatialQuery.IsSettledAtAnchor(snapshot, _entityId);
             var canStartSettledAction = canStartAction && isSettledAtAnchor;
-            var canUseMoveDirectionForActionState =
-                !input.PlayerCommand.IsMoveBuffered ||
-                input.PlayerCommand.PushPressed ||
-                input.PlayerCommand.FlipPressed;
+            var hasInteractionInput = input.PlayerCommand.PushPressed || input.PlayerCommand.FlipPressed;
+            var actionDirection = hasInteractionInput
+                ? PlayerActionDirectionResolver.Resolve(input.PlayerCommand, entity.facing)
+                : Direction.None;
+            var facingDirection = hasInteractionInput
+                ? actionDirection
+                : input.PlayerCommand.IsMoveBuffered
+                    ? Direction.None
+                    : input.PlayerCommand.MoveDirection;
             var flipResultTurnTransition = default(PlayerFlipResultTurnTransition);
 
             if (!previousAction.IsActive &&
                 canStartSettledAction &&
-                canUseMoveDirectionForActionState &&
-                input.PlayerCommand.MoveDirection != Direction.None)
+                DirectionUtility.IsCardinal(facingDirection))
             {
-                writeContext.SetFacing(_entityId, input.PlayerCommand.MoveDirection);
+                writeContext.SetFacing(_entityId, facingDirection);
             }
 
             if (previousAction.IsActive)
@@ -182,9 +186,9 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
             else if (input.PlayerCommand.PushPressed)
             {
-                if (input.PlayerCommand.MoveDirection != Direction.None &&
+                if (actionDirection != Direction.None &&
                     canStartSettledAction &&
-                    PlayerControlQueries.TryResolvePushContact(snapshot, entity, input.PlayerCommand.MoveDirection, input.TickIndex, out var pushTarget))
+                    PlayerControlQueries.TryResolvePushContact(snapshot, entity, actionDirection, input.TickIndex, out var pushTarget))
                 {
                     nextState = PlayerControlQueries.StartAction(
                         nextState,
@@ -195,12 +199,12 @@ namespace Game.Feature.Gameplay.PlayerControl
                         _pushWindupTicks,
                         _pushRecoveryTicks);
                 }
-                else if (input.PlayerCommand.MoveDirection != Direction.None &&
+                else if (actionDirection != Direction.None &&
                          canStartSettledAction &&
-                         PlayerControlQueries.TryResolveAdjacentPushTarget(snapshot, entity, input.PlayerCommand.MoveDirection, out var adjacentTarget))
+                         PlayerControlQueries.TryResolveAdjacentPushTarget(snapshot, entity, actionDirection, out var adjacentTarget))
                 {
                     updates.Add(
-                        $"MovementRejected|Stage=PreMovement|Source={_entityId}|Reason=ExplicitPushNotStartable|Direction={input.PlayerCommand.MoveDirection}|Target={adjacentTarget.TargetEntityId}");
+                        $"MovementRejected|Stage=PreMovement|Source={_entityId}|Reason=ExplicitPushNotStartable|Direction={actionDirection}|Target={adjacentTarget.TargetEntityId}");
                 }
                 else if (!isSettledAtAnchor)
                 {
@@ -212,7 +216,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             {
 
                 if (canStartSettledAction &&
-                    PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, input.PlayerCommand.MoveDirection, input.TickIndex, out var flipTarget))
+                    PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, actionDirection, input.TickIndex, out var flipTarget))
                 {
                     nextState = PlayerControlQueries.StartAction(
                         nextState,

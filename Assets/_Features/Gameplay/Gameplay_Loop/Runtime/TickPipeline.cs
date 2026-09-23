@@ -2395,7 +2395,7 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            var direction = ResolvePlayerActionAttemptFeedbackDirection(playerCommand, entity);
+            var direction = PlayerActionDirectionResolver.Resolve(playerCommand, entity.facing);
             var queuedActionKind = PlayerControlQueries.ToQueuedFree2DActionKind(actionKind);
             var feedbackKind = PlayerActionAttemptFeedbackKind.NoTarget;
             var targetEntityId = 0;
@@ -2475,7 +2475,7 @@ namespace Game.Feature.Gameplay.Loop
             resolution = new PlayerActionAttemptResolution(
                 entity.entityId,
                 actionKind,
-                direction,
+                direction == Direction.None ? Direction.Up : direction,
                 feedbackKind,
                 consumesMovement: true,
                 emitsFakePresentation: true,
@@ -2503,25 +2503,6 @@ namespace Game.Feature.Gameplay.Loop
 
             actionKind = PlayerActionKind.None;
             return false;
-        }
-
-        private static Direction ResolvePlayerActionAttemptFeedbackDirection(
-            PlayerTickCommand playerCommand,
-            in EntityState entity)
-        {
-            if (TryResolveDirectionDelta(playerCommand.MoveDirection, out _))
-            {
-                return playerCommand.MoveDirection;
-            }
-
-            if (TryResolveDirectionDelta(playerCommand.HeldMoveDirection, out _))
-            {
-                return playerCommand.HeldMoveDirection;
-            }
-
-            return TryResolveDirectionDelta(entity.facing, out _)
-                ? entity.facing
-                : Direction.Up;
         }
 
         private static void AddPlayerActionAttemptResolution(
@@ -2564,11 +2545,12 @@ namespace Game.Feature.Gameplay.Loop
             out PlayerControlState queuedPlayerControlState)
         {
             queuedPlayerControlState = playerControlState;
+            var actionDirection = PlayerActionDirectionResolver.Resolve(playerCommand, entity.facing);
             if (playerControlState.activeAction.IsActive ||
                 PlayerControlQueries.HasQueuedFree2DAction(playerControlState) ||
                 pose.State.localOffset.IsZero ||
                 !TryResolveQueuedFree2DActionKind(playerCommand, out var actionKind) ||
-                !TryResolveDirectionDelta(playerCommand.MoveDirection, out _))
+                actionDirection == Direction.None)
             {
                 return false;
             }
@@ -2576,7 +2558,7 @@ namespace Game.Feature.Gameplay.Loop
             if (!IsWithinFree2DActionAssistSettleWindow(pose.State.localOffset))
             {
                 rejectedReasons.Add(
-                    $"Free2DActionAssistRejected|Stage=Plan|Reason=OutsideSettleWindow|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Offset={pose.LocalOffset}|Window={_playerContinuousLocomotion.ActionAssistSettleWindowUnits}");
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=OutsideSettleWindow|Source={entity.entityId}|Kind={actionKind}|Direction={actionDirection}|Offset={pose.LocalOffset}|Window={_playerContinuousLocomotion.ActionAssistSettleWindowUnits}");
                 return false;
             }
 
@@ -2585,12 +2567,12 @@ namespace Game.Feature.Gameplay.Loop
                     entity,
                     pose.AnchorCell,
                     actionKind,
-                    playerCommand.MoveDirection,
+                    actionDirection,
                     tickIndex,
                     out var lockedTarget))
             {
                 rejectedReasons.Add(
-                    $"Free2DActionAssistRejected|Stage=Plan|Reason=BoxInteractionLocked|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Target={lockedTarget.TargetEntityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=BoxInteractionLocked|Source={entity.entityId}|Kind={actionKind}|Direction={actionDirection}|Target={lockedTarget.TargetEntityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
                 return false;
             }
 
@@ -2599,17 +2581,17 @@ namespace Game.Feature.Gameplay.Loop
                     entity,
                     pose.AnchorCell,
                     actionKind,
-                    playerCommand.MoveDirection))
+                    actionDirection))
             {
                 rejectedReasons.Add(
-                    $"Free2DActionAssistRejected|Stage=Plan|Reason=NoActionCandidate|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=NoActionCandidate|Source={entity.entityId}|Kind={actionKind}|Direction={actionDirection}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
                 return false;
             }
 
             queuedPlayerControlState = PlayerControlQueries.QueueFree2DAction(
                 playerControlState,
                 actionKind,
-                playerCommand.MoveDirection,
+                actionDirection,
                 tickIndex);
             batch.SetPlayerControlState(
                 entity.entityId,
@@ -2620,7 +2602,7 @@ namespace Game.Feature.Gameplay.Loop
                     entity.entityId,
                     actionPlanId: 0));
             rejectedReasons.Add(
-                $"Free2DActionAssistQueued|Stage=Plan|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|RequestedTick={tickIndex}|Anchor={FormatCell(entity.position)}|Offset={pose.LocalOffset}");
+                $"Free2DActionAssistQueued|Stage=Plan|Source={entity.entityId}|Kind={actionKind}|Direction={actionDirection}|RequestedTick={tickIndex}|Anchor={FormatCell(entity.position)}|Offset={pose.LocalOffset}");
             return true;
         }
 

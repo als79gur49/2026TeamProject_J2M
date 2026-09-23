@@ -180,17 +180,19 @@ fake failure moment:
 
 fake attempt animation에는 direction이 필요하다.
 
-fallback order:
+action direction selection for Push/Flip, ActionAssist, and fake attempt classification:
 
-1. command move direction
-2. held move direction
-3. entity facing
-4. `Direction.Up`
+1. currently held move direction
+2. explicit command move direction when `IsMoveBuffered` is false
+3. authoritative entity facing
+4. `Direction.None` when no cardinal direction exists
+
+The `0.125s` released movement buffer is not a currently held interaction direction. A fake visual may still use `Direction.Up` when all action-direction sources are invalid.
 
 중요한 경계:
 
-- direction fallback은 fake presentation/audio feedback용이다
-- actual Push/Flip start 조건을 완화하지 않는다
+- fake visual fallback `Direction.Up`은 presentation/audio feedback용이며 actual target resolution에 사용하지 않는다
+- target capability, settlement, lock, landing, and action timing requirements remain unchanged
 - direction이 없다는 이유로 fake attempt signal을 누락하지 않는다
 
 ## 5. Forbidden Paths For Fake Attempt
