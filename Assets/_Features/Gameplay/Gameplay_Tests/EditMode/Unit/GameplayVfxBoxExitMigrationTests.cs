@@ -724,6 +724,165 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TopologyActivatedDestroyTile_PlaysOnlyItsBoxExitDuringTransition()
+        {
+            var scenario = CreatePresenterScenario("TopologyActivatedDestroyTileBoxExit");
+            var vfxPrefab = new GameObject("TopologyActivatedDestroyTileBoxSmoke");
+            var modelRoot = new GameObject("ModelRoot");
+            modelRoot.transform.SetParent(vfxPrefab.transform, worldPositionStays: false);
+            modelRoot.AddComponent<ParticleSystem>();
+            VfxBindingDefinitionAsset smokeBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
+                cueMap = CreateCueMap(smokeBinding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachPresentationExtension(runtime);
+
+                var cell = scenario.BoxCell;
+                var unrelatedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                scenario.Presenter.PresentInitial(
+                    new[] { CreateBox(20, cell), CreateBox(21, unrelatedCell) },
+                    scenario.Topology);
+
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var tileEvents = new[]
+                {
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileActivated,
+                        7, cell, TileFeatureKind.Destroy, 0, 0, 0),
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileTriggered,
+                        7, cell, TileFeatureKind.Destroy, 0, 0, 0, targetEntityId: 20),
+                };
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(
+                        new[]
+                        {
+                            CreateExitSignal(20, TickEntityExitCause.BoxDestroy, cell, scenario.Topology,
+                                timing: EntityExitPresentationTiming.AfterEntityMotion),
+                            CreateExitSignal(21, TickEntityExitCause.BoxDestroy, unrelatedCell, scenario.Topology,
+                                timing: EntityExitPresentationTiming.AfterEntityMotion),
+                        },
+                        topologyMotion: new TickTopologyMotion(
+                            scenario.Topology, destinationTopology, CubeRotationKind.Forward),
+                        tileEvents: tileEvents),
+                    destinationTopology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)),
+                    Is.EqualTo(1));
+                scenario.Presenter.UpdatePresentation(0.05f);
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)),
+                    Is.EqualTo(1));
+            }
+            finally
+            {
+                Destroy(cueMap, smokeBinding, vfxPrefab);
+                scenario.Destroy();
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Core")]
+        public void TopologyActivatedDestroyTile_PlaysSpecialBoxExitOwnerDuringTransition(bool flipDestroySelf)
+        {
+            var scenario = CreatePresenterScenario("TopologyActivatedDestroyTileSpecialBoxExit");
+            var commonHost = new GameObject("TopologyActivatedDestroyTileSpecialCommonHost");
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Destroy(visual.GetComponent<Collider>());
+            visual.transform.SetParent(commonHost.transform, worldPositionStays: false);
+            var smokePrefab = new GameObject("TopologyActivatedDestroyTileSpecialSmoke");
+            var smokeModelRoot = new GameObject("ModelRoot");
+            smokeModelRoot.transform.SetParent(smokePrefab.transform, worldPositionStays: false);
+            smokeModelRoot.AddComponent<ParticleSystem>();
+            VfxBindingDefinitionAsset specialBinding = null;
+            VfxBindingDefinitionAsset smokeBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                var specialCue = flipDestroySelf
+                    ? BoxVfxCue.FlipDestroySelfMotion
+                    : BoxVfxCue.ImpactTransientBreak;
+                specialBinding = CreateBinding(null, specialCue);
+                smokeBinding = CreateBinding(smokePrefab, BoxVfxCue.DestroySmoke);
+                cueMap = CreateCueMap(specialBinding, smokeBinding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureCommonEmptyHostPrefab(commonHost);
+                scenario.Presenter.AttachPresentationExtension(runtime);
+
+                var cell = scenario.BoxCell;
+                var unrelatedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                scenario.Presenter.PresentInitial(
+                    new[] { CreateBox(20, cell), CreateBox(21, unrelatedCell) },
+                    scenario.Topology);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var tileEvents = new[]
+                {
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileActivated,
+                        7, cell, TileFeatureKind.Destroy, 0, 0, 0),
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileTriggered,
+                        7, cell, TileFeatureKind.Destroy, 0, 0, 0, targetEntityId: 20),
+                };
+                var impactSignals = flipDestroySelf
+                    ? null
+                    : new[]
+                    {
+                        new TickImpactTransientPresentationSignal(
+                            20, EntityType.Box, cell, unrelatedCell,
+                            scenario.Topology, Direction.Right, presentationSeed: 101),
+                        new TickImpactTransientPresentationSignal(
+                            21, EntityType.Box, unrelatedCell, cell,
+                            scenario.Topology, Direction.Left, presentationSeed: 102),
+                    };
+                var flipSignals = flipDestroySelf
+                    ? new[]
+                    {
+                        new FlipImpactPresentationSignal(
+                            1, 20, 21, 10, cell, unrelatedCell, scenario.Topology,
+                            Direction.Right, Direction.Left, FlipImpactPresentationDisposition.DestroySelf),
+                        new FlipImpactPresentationSignal(
+                            2, 21, 20, 10, unrelatedCell, cell, scenario.Topology,
+                            Direction.Left, Direction.Right, FlipImpactPresentationDisposition.DestroySelf),
+                    }
+                    : null;
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(
+                        new[]
+                        {
+                            CreateExitSignal(20, TickEntityExitCause.BoxDestroy, cell, scenario.Topology,
+                                timing: EntityExitPresentationTiming.AfterEntityMotion),
+                            CreateExitSignal(21, TickEntityExitCause.BoxDestroy, unrelatedCell, scenario.Topology,
+                                timing: EntityExitPresentationTiming.AfterEntityMotion),
+                        },
+                        impactTransientSignals: impactSignals,
+                        flipImpactSignals: flipSignals,
+                        topologyMotion: new TickTopologyMotion(
+                            scenario.Topology, destinationTopology, CubeRotationKind.Forward),
+                        tileEvents: tileEvents),
+                    destinationTopology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(specialCue)),
+                    Is.EqualTo(1));
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)),
+                    Is.Zero);
+            }
+            finally
+            {
+                Destroy(cueMap, specialBinding, smokeBinding, commonHost, smokePrefab);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect()
         {
             var scenario = CreatePresenterScenario("ShrinkOnSmokeOff");
@@ -1209,20 +1368,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
             SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            var usesSourceCloneMotion =
+                cue == BoxVfxCue.DestroyShrink ||
+                cue == BoxVfxCue.ImpactTransientBreak ||
+                cue == BoxVfxCue.FlipDestroySelfMotion;
             SetField(
                 binding,
                 "visualSourceMode",
-                cue == BoxVfxCue.DestroyShrink
+                usesSourceCloneMotion
                     ? VfxVisualSourceMode.SourceCloneMotion
                     : VfxVisualSourceMode.PrefabOnly);
             SetField(
                 binding,
                 "hostRequirement",
-                cue == BoxVfxCue.DestroyShrink
+                usesSourceCloneMotion
                     ? GameplayVfxHostRequirement.CommonHostAllowed
                     : GameplayVfxHostRequirement.ExplicitPrefabRequired);
             SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
-            SetField(binding, "defaultLifetimeSeconds", cue == BoxVfxCue.DestroyShrink ? 0f : 0.18f);
+            SetField(binding, "defaultLifetimeSeconds", usesSourceCloneMotion ? 0f : 0.18f);
             SetField(binding, "tailSeconds", cue == BoxVfxCue.DestroySmoke ? 0.25f : cue == BoxVfxCue.DestroyShrink ? 0.18f : 0.20f);
             SetField(binding, "initialPoolSize", 4);
             SetField(binding, "maxConcurrentInstances", cue == BoxVfxCue.DestroySmoke || cue == BoxVfxCue.DestroyShrink ? 12 : 8);

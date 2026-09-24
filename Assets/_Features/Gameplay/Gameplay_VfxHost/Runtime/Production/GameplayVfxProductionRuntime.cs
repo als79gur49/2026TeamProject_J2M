@@ -11,7 +11,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayDestroyShrinkVfxSequenceStateProvider, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable, IGameplayStageTerminalPresentationExtension, IDamageDeathGameplayVfxPlaybackRuntime
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayDestroyShrinkVfxSequenceStateProvider, IGameplayTopologyTransitionStartPresentationExtension, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable, IGameplayStageTerminalPresentationExtension, IDamageDeathGameplayVfxPlaybackRuntime
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -101,6 +101,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool isStageTerminalVfxSuppressed;
         private GameplayStageTerminalPresentationReason stageTerminalSuppressionReason;
         private int topologyTransitionSuppressEpoch;
+        private int preparedTopologyTransitionEpoch = -1;
+        private int preparedTopologyTransitionTickIndex = -1;
+        private int topologyExitTickIndex = -1;
+        private readonly HashSet<int> topologyDestroyTileExitEntityIds = new();
         private int damageDeathPlaybackRequestCount;
         private int damageDeathPlaybackSucceededCount;
         private GameplayVfxCueId lastDamageDeathPlaybackCueId;
@@ -525,6 +529,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             isStageTerminalVfxSuppressed = false;
             stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             topologyTransitionSuppressEpoch = 0;
+            preparedTopologyTransitionEpoch = -1;
+            preparedTopologyTransitionTickIndex = -1;
+            topologyExitTickIndex = -1;
+            topologyDestroyTileExitEntityIds.Clear();
             damageDeathPlaybackRequestCount = 0;
             damageDeathPlaybackSucceededCount = 0;
             lastDamageDeathPlaybackCueId = default;
@@ -743,7 +751,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (IsTopologyTransitionStart(context))
             {
-                ClearGameplayVfxForTopologyTransitionStart(context.TopologyTransitionEpoch);
+                PrepareTopologyTransitionStart(context);
+                if (topologyDestroyTileExitEntityIds.Count > 0 && AnyGameplayVfxEnabled)
+                {
+                    LastPlannedRequestCount =
+                        PlayFlipDestroySelfMotionCommands(context) +
+                        ScheduleAfterEntityMotionBoxDestroyExitVfx(context) +
+                        PlayImpactTransientBreakCommands(context) +
+                        PlayEnemyDeathMotionCommands(context);
+                }
                 return;
             }
 
@@ -885,6 +901,27 @@ namespace Game.Feature.Gameplay.Vfx.Host
                                       forwardCellProjectileCommandCount;
         }
 
+        public void PrepareTopologyTransitionStart(in GameplayTickPresentationExtensionContext context)
+        {
+            if (!IsTopologyTransitionStart(context) ||
+                (preparedTopologyTransitionEpoch == context.TopologyTransitionEpoch &&
+                 preparedTopologyTransitionTickIndex == context.Result.TickIndex))
+            {
+                return;
+            }
+
+            ConfigureEnemyPresentationProfiles(
+                context.EnemyPresentationCatalog,
+                context.EnemyPresentationBindings);
+            EnsureRuntime(context);
+            ClearGameplayVfxForTopologyTransitionStart(context.TopologyTransitionEpoch);
+            preparedTopologyTransitionEpoch = context.TopologyTransitionEpoch;
+            preparedTopologyTransitionTickIndex = context.Result.TickIndex;
+            topologyExitTickIndex = context.Result.TickIndex;
+            CollectTopologyDestroyTileExits(context.Result.PresentationData);
+            controller.SetTopologyTransitionExitAdmission(IsAdmittedTopologyExitRequest);
+        }
+
         public void ReconcileTopologyTransitionCompleted(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
@@ -969,6 +1006,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (isTopologyTransitionVfxSuppressed)
             {
+                AdvanceDelayedBoxDestroyExitVfx(deltaTime);
+                AdvanceDelayedEnemyDeathMotionVfx(deltaTime);
+                controller?.Update(deltaTime);
+                pool?.Advance(deltaTime);
+                AdvanceDestroyShrinkSequenceStates(deltaTime);
                 return;
             }
 
@@ -1005,6 +1047,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (isTopologyTransitionVfxSuppressed)
             {
                 motionFollowingVfxController.ClearForTopologyTransitionStart(pool);
+                PlayReadyDelayedBoxDestroyExitVfx();
+                PlayReadyDelayedEnemyDeathMotionVfx();
                 return;
             }
 
@@ -1082,6 +1126,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             isStageTerminalVfxSuppressed = false;
             stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             topologyTransitionSuppressEpoch = 0;
+            preparedTopologyTransitionEpoch = -1;
+            preparedTopologyTransitionTickIndex = -1;
+            topologyExitTickIndex = -1;
+            topologyDestroyTileExitEntityIds.Clear();
             motionFollowingVfxController.HardCleanup();
             forwardCellProjectileVfxController.HardCleanup(pool);
             RecordCleanup(GameplayVfxCleanupReason.ManualHardCleanup, GameplayVfxCleanupScope.AllFamilies);
@@ -1171,6 +1219,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (isStageTerminalVfxSuppressed)
             {
                 controller.BeginStageTerminalVfxSuppression();
+            }
+
+            if (isTopologyTransitionVfxSuppressed)
+            {
+                controller.SetTopologyTransitionStartSuppression(true, topologyTransitionSuppressEpoch);
+                controller.SetTopologyTransitionExitAdmission(IsAdmittedTopologyExitRequest);
             }
 
             if (isPresentationPaused)
@@ -1263,6 +1317,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             isStageTerminalVfxSuppressed = false;
             stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             topologyTransitionSuppressEpoch = 0;
+            preparedTopologyTransitionEpoch = -1;
+            preparedTopologyTransitionTickIndex = -1;
+            topologyExitTickIndex = -1;
+            topologyDestroyTileExitEntityIds.Clear();
             motionFollowingVfxController.HardCleanup();
             forwardCellProjectileVfxController.HardCleanup(pool);
             enemyMotionAttachedFollowerPlanner.Clear();
@@ -1477,7 +1535,71 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             isTopologyTransitionVfxSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
+            topologyExitTickIndex = -1;
+            topologyDestroyTileExitEntityIds.Clear();
             controller?.SetTopologyTransitionStartSuppression(false, 0);
+        }
+
+        private void CollectTopologyDestroyTileExits(TickPresentationData presentationData)
+        {
+            topologyDestroyTileExitEntityIds.Clear();
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            var events = presentationData.TileEvents;
+            var exits = presentationData.EntityExitSignals;
+            for (var eventIndex = 0; eventIndex < events.Count; eventIndex++)
+            {
+                var triggered = events[eventIndex];
+                if (triggered.EventKind != TilePresentationEventKind.DestroyTileTriggered ||
+                    triggered.TargetEntityId <= 0)
+                {
+                    continue;
+                }
+
+                var activatedThisTick = false;
+                for (var activationIndex = 0; activationIndex < events.Count; activationIndex++)
+                {
+                    var activated = events[activationIndex];
+                    if (activated.EventKind == TilePresentationEventKind.DestroyTileActivated &&
+                        activated.TileId == triggered.TileId &&
+                        activated.Cell.Equals(triggered.Cell))
+                    {
+                        activatedThisTick = true;
+                        break;
+                    }
+                }
+
+                if (!activatedThisTick)
+                {
+                    continue;
+                }
+
+                for (var exitIndex = 0; exitIndex < exits.Count; exitIndex++)
+                {
+                    var exit = exits[exitIndex];
+                    if (exit.ExitedEntityId != triggered.TargetEntityId ||
+                        !exit.SourceCell.Equals(triggered.Cell) ||
+                        (exit.ExitCause != TickEntityExitCause.BoxDestroy &&
+                         exit.ExitCause != TickEntityExitCause.EnemyDeath))
+                    {
+                        continue;
+                    }
+
+                    topologyDestroyTileExitEntityIds.Add(exit.ExitedEntityId);
+                }
+            }
+        }
+
+        private bool IsAdmittedTopologyExitRequest(GameplayVfxRequest request)
+        {
+            return isTopologyTransitionVfxSuppressed &&
+                   request.TickIndex == topologyExitTickIndex &&
+                   topologyDestroyTileExitEntityIds.Contains(request.SourceEntityId) &&
+                   request.CueId == GameplayVfxCueId.From(EnemyVfxCue.Death) &&
+                   !request.IsPersistent;
         }
 
         private static bool IsTopologyTransitionStart(in GameplayTickPresentationExtensionContext context)
@@ -1794,6 +1916,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
+                if (isTopologyTransitionVfxSuppressed &&
+                    !topologyDestroyTileExitEntityIds.Contains(signal.EntityId))
+                {
+                    continue;
+                }
+
                 if (!ImpactTransientBreakVfxCommandBuilder.TryBuild(
                         context.Result.TickIndex,
                         signal,
@@ -2001,13 +2129,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 localSpaceRoot,
                 outputCamera,
                 context.StateStore,
-                context.Projector.CellSize);
+                context.Projector.CellSize,
+                destinationCameraView: isTopologyTransitionVfxSuppressed
+                    ? context.TopologyDestinationCameraView
+                    : null);
             var plannedCommandCount = 0;
             var signals = presentationData.EntityExitSignals;
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
                 if (!EnemyDeathMotionVfxCommandBuilder.IsEnemyDeathExitCandidate(signal))
+                {
+                    continue;
+                }
+
+                if (isTopologyTransitionVfxSuppressed &&
+                    !topologyDestroyTileExitEntityIds.Contains(signal.ExitedEntityId))
                 {
                     continue;
                 }
@@ -2019,7 +2156,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                             context.Result.TickIndex,
                             signal,
                             context.TimingProfile,
-                            context.StateStore))
+                            context.StateStore,
+                            isTopologyTransitionVfxSuppressed
+                                ? context.TopologyDestinationCameraView
+                                : null))
                     {
                         plannedCommandCount++;
                     }
@@ -2052,7 +2192,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             int tickIndex,
             in TickEntityExitPresentationSignal signal,
             GameplayTimingProfile timingProfile,
-            GameplayPresentationStateStore stateStore)
+            GameplayPresentationStateStore stateStore,
+            GameplayCameraViewSnapshot? destinationCameraView)
         {
             var key = DelayedEnemyDeathMotionVfxKey.Create(tickIndex, signal);
             if (!scheduledDelayedEnemyDeathMotionVfxKeys.Add(key))
@@ -2074,7 +2215,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 signal.PresentationSeed != 0 ? signal.PresentationSeed : signal.ExitedEntityId);
             if (cloneSourceProvider.TryResolveCloneSource(cloneSourceKey, out var cloneSource))
             {
-                sourcePoseCapture = VfxSourceHierarchyPoseCapture.Capture(cloneSource.ModelRoot);
+                sourcePoseCapture = isTopologyTransitionVfxSuppressed &&
+                                    topologyDestroyTileExitEntityIds.Contains(signal.ExitedEntityId)
+                    ? VfxSourceHierarchyPoseCapture.CaptureForTopologyExit(cloneSource.ModelRoot)
+                    : VfxSourceHierarchyPoseCapture.Capture(cloneSource.ModelRoot);
             }
 
             var delayed = new DelayedEnemyDeathMotionVfx(
@@ -2083,7 +2227,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 resolvedTimingProfile,
                 delaySeconds,
                 sourceVisualSnapshot,
-                sourcePoseCapture);
+                sourcePoseCapture,
+                destinationCameraView);
             if (delaySeconds <= 0.0001f)
             {
                 PlayDelayedEnemyDeathMotionVfx(delayed);
@@ -2140,7 +2285,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 localSpaceRoot,
                 outputCamera,
                 configuredStateStore,
-                configuredProjector.CellSize);
+                configuredProjector.CellSize,
+                destinationCameraView: delayed.DestinationCameraView);
             if (!EnemyDeathMotionVfxCommandBuilder.TryBuild(
                     delayed.Signal,
                     delayed.TimingProfile,
@@ -2217,12 +2363,30 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalPosition,
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            pool.PlayParameterizedMotion(
+            var resolvedSourcePoseCapture = sourcePoseCapture;
+            if (!resolvedSourcePoseCapture.WasAttempted &&
+                isTopologyTransitionVfxSuppressed &&
+                tickIndex == topologyExitTickIndex &&
+                topologyDestroyTileExitEntityIds.Contains(command.EntityId) &&
+                configuredStateStore != null)
+            {
+                var cloneSourceProvider = new GameplayVfxStateStoreCloneSourceProvider(configuredStateStore);
+                var cloneSourceKey = new GameplayVfxCloneSourceKey(
+                    command.EntityId,
+                    parameterizedCommand.SequenceId);
+                if (cloneSourceProvider.TryResolveCloneSource(cloneSourceKey, out var cloneSource))
+                {
+                    resolvedSourcePoseCapture =
+                        VfxSourceHierarchyPoseCapture.CaptureForTopologyExit(cloneSource.ModelRoot);
+                }
+            }
+
+            var handle = pool.PlayParameterizedMotion(
                 playbackCommand,
                 parameterizedCommand,
                 sourceVisualSnapshot,
-                sourcePoseCapture);
-            return true;
+                resolvedSourcePoseCapture);
+            return handle != null;
         }
 
         private int PlayBoxSlideSolidStopCommands(in GameplayTickPresentationExtensionContext context)
@@ -2380,6 +2544,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 if (!EntityExitBoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) ||
                     signal.Timing != EntityExitPresentationTiming.AfterEntityMotion ||
                     EntityExitBoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
+                {
+                    continue;
+                }
+
+                if (isTopologyTransitionVfxSuppressed &&
+                    !topologyDestroyTileExitEntityIds.Contains(signal.ExitedEntityId))
                 {
                     continue;
                 }
@@ -2715,6 +2885,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
+                if (isTopologyTransitionVfxSuppressed &&
+                    !topologyDestroyTileExitEntityIds.Contains(signal.BoxEntityId))
+                {
+                    continue;
+                }
+
                 if (!FlipDestroySelfMotionVfxCommandBuilder.TryBuild(
                         signal,
                         context.TimingProfile,
@@ -3234,7 +3410,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 GameplayTimingProfile timingProfile,
                 float remainingSeconds,
                 in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot,
-                in VfxSourceHierarchyPoseCapture sourcePoseCapture)
+                in VfxSourceHierarchyPoseCapture sourcePoseCapture,
+                GameplayCameraViewSnapshot? destinationCameraView)
             {
                 TickIndex = tickIndex;
                 Signal = signal;
@@ -3242,6 +3419,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 RemainingSeconds = Mathf.Max(0f, remainingSeconds);
                 SourceVisualSnapshot = sourceVisualSnapshot;
                 SourcePoseCapture = sourcePoseCapture;
+                DestinationCameraView = destinationCameraView;
             }
 
             public int TickIndex { get; }
@@ -3256,6 +3434,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             public VfxSourceHierarchyPoseCapture SourcePoseCapture { get; }
 
+            public GameplayCameraViewSnapshot? DestinationCameraView { get; }
+
             public DelayedEnemyDeathMotionVfx Advance(float deltaTime)
             {
                 return new DelayedEnemyDeathMotionVfx(
@@ -3264,7 +3444,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     TimingProfile,
                     RemainingSeconds - Mathf.Max(0f, deltaTime),
                     SourceVisualSnapshot,
-                    SourcePoseCapture);
+                    SourcePoseCapture,
+                    DestinationCameraView);
             }
         }
 

@@ -75,6 +75,16 @@ namespace Game.Feature.Gameplay.Host
 
         public TopologyTransitionVisualState CurrentVisualState => _currentVisualState;
 
+        public bool TryResolveDestinationCameraView(out GameplayCameraViewSnapshot snapshot)
+        {
+            snapshot = default;
+            return _activeTopologyMotion.HasValue &&
+                   _cameraRig != null &&
+                   _cameraRig.TryResolveUnshakenViewForOrbit(
+                       Quaternion.Inverse(_boardSurfaceTransitionDestinationRotation),
+                       out snapshot);
+        }
+
         public void Configure(
             GameplayBoardRoot boardRoot,
             GameplayBoardSurfaceRenderer boardSurfaceRenderer,
