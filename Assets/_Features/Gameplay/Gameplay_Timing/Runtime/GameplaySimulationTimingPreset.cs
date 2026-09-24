@@ -15,7 +15,6 @@ namespace Game.Feature.Gameplay.Timing
         [SerializeField] private PlayerControlTimingSettings playerControlTiming = PlayerControlTimingSettings.CreateDefault();
         [SerializeField] private UnitKinematicLocomotionTimingSettings unitKinematicLocomotionTiming =
             UnitKinematicLocomotionTimingSettings.CreateDefault();
-        [SerializeField] private PlayerRespawnTimingSettings playerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
@@ -32,7 +31,6 @@ namespace Game.Feature.Gameplay.Timing
             configuration.InitialMoveDelaySeconds = initialMoveDelaySeconds;
             configuration.PlayerControlTiming = playerControlTiming.Clone();
             configuration.UnitKinematicLocomotionTiming = unitKinematicLocomotionTiming.Clone();
-            configuration.PlayerRespawnTiming = playerRespawnTiming.Clone();
             configuration.RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             configuration.BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
             configuration.ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
@@ -57,12 +55,6 @@ namespace Game.Feature.Gameplay.Timing
                     $"{nameof(GameplaySimulationTimingPreset)} '{name}' requires {nameof(playerControlTiming)}.");
             }
 
-            if (playerRespawnTiming == null)
-            {
-                throw new InvalidOperationException(
-                    $"{nameof(GameplaySimulationTimingPreset)} '{name}' requires {nameof(playerRespawnTiming)}.");
-            }
-
             if (unitKinematicLocomotionTiming == null)
             {
                 throw new InvalidOperationException(
@@ -71,7 +63,6 @@ namespace Game.Feature.Gameplay.Timing
 
             playerControlTiming.Validate(repeatedMoveIntervalSeconds);
             unitKinematicLocomotionTiming.Validate();
-            playerRespawnTiming.Validate();
         }
 
         private static void ValidatePositiveInterval(float value, string paramName)

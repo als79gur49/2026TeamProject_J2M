@@ -10,6 +10,97 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayTopologyTransitionControllerPresentedRotationTests
     {
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        [Category("Core")]
+        public void DestinationCameraView_MatchesCompletedOrbitWithoutChangingCurrentPose(
+            bool useAuthoredBaseline,
+            bool hierarchyCamera)
+        {
+            var rootObject = new GameObject("DestinationCameraViewRoot");
+            var cameraObject = new GameObject("DestinationCameraViewCamera");
+            GameplayTopologyTransitionController controller = null;
+            try
+            {
+                var boardRoot = rootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                viewCamera.aspect = 16f / 9f;
+                viewCamera.transform.SetPositionAndRotation(
+                    new Vector3(4f, 6f, -8f),
+                    Quaternion.Euler(12f, -18f, 0f));
+                var rig = rootObject.AddComponent<GameplayCameraRig>();
+                if (useAuthoredBaseline)
+                {
+                    rig.CaptureAuthoredSceneCameraPose(viewCamera.transform, 46f, 0.2f, 90f);
+                    var settings = rig.ResolveConfiguredSettings(
+                        GameplayCameraSettings.CreateRuntimeDefault(),
+                        new GameplayCameraBaselineAuthoringPolicy
+                        {
+                            UseAuthoredSceneCameraPose = true,
+                            UseAuthoredSceneCameraLens = true,
+                        },
+                        boardRoot.CameraTargetRoot.position,
+                        new CubeTopologyState(FaceId.Floor),
+                        TopologyRotationVisualMapping.ForwardUsesPositiveX);
+                    rig.ApplySettings(settings);
+                }
+                else
+                {
+                    rig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+                }
+
+                rig.Initialize(
+                    hierarchyCamera ? null : viewCamera,
+                    boardRoot.CameraTargetRoot,
+                    new Bounds(Vector3.zero, Vector3.one * 5f));
+                controller = CreateController();
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile();
+                controller.Configure(
+                    boardRoot,
+                    boardSurfaceRenderer: null,
+                    timingProfile,
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX,
+                    new TopologyRotationTweenSettings { Ease = TopologyRotationTweenEase.Linear },
+                    () => Vector3.zero);
+                controller.AttachCameraRig(rig);
+                controller.CompleteInitialTopology(sourceTopology);
+                controller.RefreshTopologyTrack(
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        new TickTopologyMotion(sourceTopology, destinationTopology, CubeRotationKind.Forward),
+                        Array.Empty<TickVisibilityChange>()),
+                    destinationTopology);
+
+                var currentPoseRoot = hierarchyCamera ? boardRoot.CameraPoseRoot : viewCamera.transform;
+                var currentPosition = currentPoseRoot.position;
+                var currentRotation = currentPoseRoot.rotation;
+                Assert.That(controller.TryResolveDestinationCameraView(out var predictedView), Is.True);
+                Assert.That(Vector3.Distance(currentPoseRoot.position, currentPosition), Is.LessThan(0.0001f));
+                Assert.That(Quaternion.Angle(currentPoseRoot.rotation, currentRotation), Is.LessThan(0.001f));
+
+                controller.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds, destinationTopology);
+                if (hierarchyCamera)
+                {
+                    rig.SnapToTarget();
+                }
+
+                Assert.That(Vector3.Distance(currentPoseRoot.position, predictedView.WorldPosition),
+                    Is.LessThan(0.001f));
+                Assert.That(Quaternion.Angle(currentPoseRoot.rotation, predictedView.WorldRotation),
+                    Is.LessThan(0.01f));
+            }
+            finally
+            {
+                controller?.Reset();
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         [Test]
         [Category("Full")]
         public void GameplayTopologyTransitionController_AttachCameraRig_MidTransition_ReappliesCurrentPresentedRotation()

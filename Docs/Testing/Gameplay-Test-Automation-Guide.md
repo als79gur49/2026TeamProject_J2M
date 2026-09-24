@@ -160,6 +160,12 @@
 
 ## UI baseline governance / UI baseline governance
 
+### PR #221 main integration: death input and Push/Flip ownership (2026-09-25)
+
+- Merged the main branch's permanent player-death input/tick block with the Push/Flip press-time direction capture and interaction-playback lock. The obsolete respawn-delay gate is retired; the Host-owned admission-policy/feed cleanup and deleted UI movement Gateway remain unchanged.
+- Same integration working tree: `./run_tests.sh core` passed EditMode `293/0` and PlayMode `109 passed / 4 graphics skips / 0 failed`; focused death-flow `full` passed EditMode `1/0`; focused policy and Push/Flip `full` passed EditMode `11/0` and PlayMode `10/0`; `./run_tests.sh ui` passed the Windows build and EditMode `1623/0`. Evidence: `/mnt/d/J2M/evidence/pr221-main-integration-20260925/`.
+- The first Core attempt stopped on a stale Unity-generated project file referring to the removed RespawnProcessor; a runner cold-checkout import refreshed the generated project before the successful rerun. Manual Editor/Player input/death review, Player build, dedicated graphics evidence and unfiltered full were not run.
+
 ### UI EventSystem navigation action direct access (2026-09-25)
 
 - The Main Menu and Gameplay EventSystem installers now obtain `InputSystemUIInputModule` directly and clear its public `move`, `submit`, and `cancel` action references. The nine reflection-name probes and module type lookup are removed. `UiNavigationInputRouter` still dispatches navigation while the Input System module retains pointer input.

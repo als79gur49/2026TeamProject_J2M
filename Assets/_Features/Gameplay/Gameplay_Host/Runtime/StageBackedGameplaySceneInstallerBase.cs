@@ -228,7 +228,8 @@ namespace Game.Feature.Gameplay.Host
                                 ? CampaignChanceReadFailureReason.NoActiveSlot
                                 : CampaignChanceReadFailureReason.SourceMissing,
                     });
-                    return;
+                    throw new System.InvalidOperationException(
+                        "Stage gameplay requires an active Campaign slot or launch handoff before play begins.");
                 }
 
                 var resolvedStageId = initialState.StageContentEntry != null
@@ -240,7 +241,6 @@ namespace Game.Feature.Gameplay.Host
                     hasPendingLaunch ? capturedHandoff : null,
                     capturedContext);
                 _campaignChanceDisplayOverride = new CampaignChanceDisplayOverride();
-                configuration.DisablePlayerRespawn = true;
                 _campaignChancesReadSource?.Dispose();
                 configuration.CampaignChancesReadSource = _campaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
                     _saveSlotStore,
@@ -333,21 +333,6 @@ namespace Game.Feature.Gameplay.Host
                 AttachBackgroundWallSurfaceTintPresenter(host);
                 AttachBackgroundSpaceOrbitPresenter(host);
                 var terminalTransitionPort = CreateTerminalTransitionPort(gameObject);
-
-                if (!_campaignRuntimeActive)
-                {
-                    if (host.UiAccess?.PresentationFeed is not GameplayHostPresentationFeed presentationFeed)
-                    {
-                        throw new System.InvalidOperationException(
-                            "Stage-backed noncampaign bootstrap requires the production gameplay presentation feed.");
-                    }
-
-                    // Direct-play/noncampaign scenes keep global respawn semantics and publish
-                    // no terminal destination. Demo Force Clear remains a minimal completion-only
-                    // command and does not install or invoke the campaign terminal authority.
-                    presentationFeed.DisableTerminalOutcomes();
-                    return;
-                }
 
                 if (_runningSlotContext == null)
                 {
@@ -573,7 +558,8 @@ namespace Game.Feature.Gameplay.Host
             {
                 var slotNumber = ValidateCommittedActiveSlotMatchesLaunchStage(resolvedStageId);
                 if (launchContext != null &&
-                    launchContext.EditorDirectPlayContext.Mode != EditorDirectPlayMode.None)
+                    (launchContext.IsEditorDirectPlayBootstrap ||
+                     launchContext.EditorDirectPlayContext.Mode != EditorDirectPlayMode.None))
                 {
                     if (!StaticStageLaunchContextCommitStore.Instance.TryConsume(
                             launchContext,

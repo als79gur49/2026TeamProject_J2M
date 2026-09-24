@@ -176,9 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                         timing.SimulationTicksPerSecond,
                         timing.RepeatedMoveIntervalSeconds),
-                    playerRespawnDelayTicks: 1,
                     objectiveDefinition: build.ObjectiveRuntimeDefinition,
-                    allowPlayerRespawn: true,
                     runtimeFeatureFlags: default,
                     unitKinematicLocomotionTiming: default,
                     playerContinuousLocomotion: default,

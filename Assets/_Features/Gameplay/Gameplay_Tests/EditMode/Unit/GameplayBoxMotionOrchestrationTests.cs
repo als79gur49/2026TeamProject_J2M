@@ -55,6 +55,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(typeof(PresentationMotionPayload).AssemblyQualifiedName, Does.Not.Contain("UnityEngine"));
         }
 
+        [TestCase(EntityType.Box, true)]
+        [TestCase(EntityType.Unit, false)]
+        [Category("Core")]
+        public void BoxMotionFactExtraction_RemovedFlipEntity_UsesExitSignalType(
+            EntityType exitingType,
+            bool expectsBoxFlip)
+        {
+            var result = CreateBoxMotionTickResult(exitingType, includeFinalBox: false);
+            var frame = new TickPresentationFactExtractor().Extract(result);
+
+            Assert.That(
+                frame.Facts.Any(fact =>
+                    fact.Source.SemanticSource == PresentationSemanticSource.BoxFlipMotion &&
+                    fact.MotionPayload.Kind == PresentationMotionFactKind.BoxFlip &&
+                    fact.MotionPayload.EntityId == BoxEntityId),
+                Is.EqualTo(expectsBoxFlip));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotionFactExtraction_ExitSignalTypePrecedesFinalEntityType()
+        {
+            var result = CreateBoxMotionTickResult(EntityType.Unit, includeFinalBox: true);
+            var frame = new TickPresentationFactExtractor().Extract(result);
+
+            Assert.That(frame.Facts.Any(fact =>
+                fact.Source.SemanticSource == PresentationSemanticSource.BoxFlipMotion), Is.False);
+        }
+
         [Test]
         [Category("Core")]
         public void MotionCuePlanner_UsesTypedMotionCueKeysAndSymbolicAnchors()
@@ -491,7 +520,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static readonly SurfaceCell ImpactCell = new(FaceId.Floor, 2, 3);
         private static readonly CubeTopologyState Topology = new(FaceId.Floor);
 
-        private static TickResult CreateBoxMotionTickResult()
+        private static TickResult CreateBoxMotionTickResult(
+            EntityType? exitingType = null,
+            bool includeFinalBox = true)
         {
             var presentationData = new TickPresentationData(
                 new[]
@@ -525,7 +556,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
-                Array.Empty<TickEntityExitPresentationSignal>(),
+                exitingType.HasValue
+                    ? new[]
+                    {
+                        new TickEntityExitPresentationSignal(
+                            BoxEntityId,
+                            TickEntityExitCause.BoxDestroy,
+                            FlipDestinationCell,
+                            Topology,
+                            Direction.Up,
+                            exitingType.Value),
+                    }
+                    : Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
                 boxSlideStartSignals: new[]
                 {
@@ -543,20 +585,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 phaseTrace: Array.Empty<string>(),
                 movementPhaseResult: MovementPhaseResult.Empty,
                 attackPhaseResult: AttackPhaseResult.Empty,
-                finalEntities: new[]
-                {
-                    new EntityState
+                finalEntities: includeFinalBox
+                    ? new[]
                     {
-                        entityId = BoxEntityId,
-                        type = EntityType.Box,
-                        position = FlipDestinationCell,
-                        facing = Direction.Up,
-                        hp = 1,
-                        maxHp = 1,
-                        boardPresence = EntityBoardPresence.Occupying,
-                        boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
-                    },
-                },
+                        new EntityState
+                        {
+                            entityId = BoxEntityId,
+                            type = EntityType.Box,
+                            position = FlipDestinationCell,
+                            facing = Direction.Up,
+                            hp = 1,
+                            maxHp = 1,
+                            boardPresence = EntityBoardPresence.Occupying,
+                            boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+                        },
+                    }
+                    : Array.Empty<EntityState>(),
                 eventLog: new[] { "AuthoritativeEvent" },
                 finalTopology: Topology,
                 presentationData: presentationData,

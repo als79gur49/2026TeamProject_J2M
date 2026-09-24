@@ -63,7 +63,6 @@ namespace Game.Product.Achievements.Tests
             Assert.That(sink.LastAchievementId, Is.EqualTo(GameAchievementIds.CampaignLevel4Clear));
         }
 
-        [TestCase(EditorDirectPlayMode.NonCampaign)]
         [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
         [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
         public void Startup_EveryDirectPlayMode_SkipsCanonicalProfileRead(

@@ -288,55 +288,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void CanonicalPlayerScope_OtherEntitySignalsAndResetsAreIgnored_CanonicalRespawnRebindsReplacementView()
-        {
-            using var harness = CreateHarness();
-
-            harness.Presenter.Present(CreateResult(
-                tickIndex: 1,
-                GetEntities(harness.WorldState),
-                CreatePresentationData(
-                    playerActionSignals: new[]
-                    {
-                        CreateActionSignal(99, 1),
-                        CreateActionSignal(PlayerEntityId, 1),
-                    })));
-            Assert.That(harness.Runtime.Count, Is.EqualTo(1));
-            Assert.That(harness.Runtime.PendingRevealCount, Is.EqualTo(1));
-
-            harness.Presenter.Present(CreateResult(
-                tickIndex: 2,
-                GetEntities(harness.WorldState),
-                CreatePresentationData(
-                    playerDeathSignals: new[] { CreateDeathSignal(99) },
-                    entitySpawnSignals: new[] { CreateRespawnSignal(99) })));
-            Assert.That(harness.Runtime.Count, Is.EqualTo(1));
-
-            Assert.That(harness.Registry.TryGetView(PlayerEntityId, out var oldPlayerView), Is.True);
-            Assert.That(harness.Registry.Unregister(PlayerEntityId), Is.True);
-            Object.DestroyImmediate(oldPlayerView.gameObject);
-
-            harness.Presenter.Present(CreateResult(
-                tickIndex: 3,
-                GetEntities(harness.WorldState),
-                CreatePresentationData(entitySpawnSignals: new[] { CreateRespawnSignal(PlayerEntityId) })));
-            Assert.That(harness.Runtime.Count, Is.Zero);
-            Assert.That(harness.Runtime.Mount, Is.Null, "Respawn reset removes the transient mount until a new action.");
-
-            harness.Presenter.Present(CreateResult(
-                tickIndex: 4,
-                GetEntities(harness.WorldState),
-                CreatePresentationData(playerActionSignals: new[] { CreateActionSignal(PlayerEntityId, 2) })));
-            Assert.That(harness.Registry.TryGetView(PlayerEntityId, out var replacementPlayerView), Is.True);
-            Assert.That(replacementPlayerView, Is.Not.SameAs(oldPlayerView));
-            Assert.That(harness.Runtime.Count, Is.EqualTo(1));
-            Assert.That(harness.Runtime.CounterView, Is.Null);
-            harness.Presenter.UpdatePresentation(harness.Runtime.PushRevealDelaySeconds);
-            Assert.That(harness.Runtime.CounterView, Is.Not.Null);
-            AssertEntityRootDirectChildrenAreViews(harness.BoardRoot.EntityRoot);
-        }
-
-        [Test]
         public void ResetSessionAndHardCleanup_ClearStateAndOwnedMount()
         {
             using var harness = CreateHarness();
@@ -536,22 +487,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 deathDirectionHintKind: DeathDirectionHintKind.AttackerReverse);
         }
 
-        private static EntitySpawnPresentationSignal CreateRespawnSignal(int entityId)
-        {
-            return new EntitySpawnPresentationSignal(
-                entityId,
-                EntityPresentationKind.Player,
-                EntitySpawnPresentationReason.PlayerRespawn,
-                new SurfaceCell(FaceId.Floor, 0, 0),
-                new CubeTopologyState(FaceId.Floor),
-                Direction.Right,
-                sourceTileFeature: null);
-        }
-
         private static TickPresentationData CreatePresentationData(
             TickPlayerActionPresentationSignal[] playerActionSignals = null,
-            TickPlayerDeathPresentationSignal[] playerDeathSignals = null,
-            EntitySpawnPresentationSignal[] entitySpawnSignals = null)
+            TickPlayerDeathPresentationSignal[] playerDeathSignals = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -567,7 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
                 entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
-                entitySpawnSignals: entitySpawnSignals ?? Array.Empty<EntitySpawnPresentationSignal>());
+                entitySpawnSignals: Array.Empty<EntitySpawnPresentationSignal>());
         }
 
         private static TickResult CreateResult(

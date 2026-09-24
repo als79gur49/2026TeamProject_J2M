@@ -24,6 +24,8 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class CampaignProductionEntryTests
     {
+        private const string RetiredNonCampaignContextJson =
+            "{\"SchemaVersion\":2,\"Mode\":1,\"StageId\":\"stage-0-1\",\"RemainingChances\":0,\"SuppressCampaignFlow\":true}";
         private const string MainMenuScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab";
         private const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
         private const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
@@ -687,10 +689,10 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ConfiguredGameplayStageLaunchRouter_Launch_ClearsStaleNonCampaignDirectPlayContext_BeforeStageTransition()
+        public void ConfiguredGameplayStageLaunchRouter_Launch_ClearsRawRetiredDirectPlayContext_BeforeStageTransition()
         {
             AssertConfiguredGameplayLaunchClearsStaleDirectPlayContext(
-                EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-0-1")));
+                EditorDirectPlayContext.None, RetiredNonCampaignContextJson);
         }
 
         [Test]
@@ -879,8 +881,8 @@ namespace Game.Feature.UI.Tests
                 attemptedOwnershipGeneration);
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(directPlayContext));
 
-            var newerContext = EditorDirectPlayContext.CreateNonCampaign(
-                StageId.CreateOrThrow("stage-0-2"));
+            var newerContext = EditorDirectPlayContext.CreateCampaignTempSlot(
+                StageId.CreateOrThrow("stage-0-2"), remainingChances: 2);
             EditorDirectPlayContextStore.SetCurrent(newerContext);
             SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(
                 request,
@@ -941,7 +943,7 @@ namespace Game.Feature.UI.Tests
 
         [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
         [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
-        public void ConfiguredRouter_ConsumesRetainedInitialDirectPlayContextForFirstContinuation(
+        public void ConfiguredRouter_AfterConsumedDirectPlayBootstrapRegistersFirstContinuation(
             EditorDirectPlayMode mode)
         {
             var installerObject = new GameObject("initial-direct-play-installer");
@@ -979,8 +981,7 @@ namespace Game.Feature.UI.Tests
                 var configuration = BuildConfiguration(installer);
 
                 Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
-                Assert.That(StageLaunchContextStore.TryPeek(out var retainedBootstrap), Is.True);
-                Assert.That(retainedBootstrap, Is.SameAs(initialLaunchContext));
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
 
                 new ConfiguredGameplayStageLaunchRouter(
                         routeConfig,
@@ -1048,10 +1049,10 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Full")]
-        public void ProductionMainMenuLaunch_WithStaleNonCampaignDirectPlayContext_InjectsChanceReadSource()
+        public void ProductionMainMenuLaunch_WithRawRetiredDirectPlayContext_InjectsChanceReadSource()
         {
             AssertProductionMainMenuLaunchWithStaleContextInjectsChanceReadSource(
-                EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow(CombinedStageId)));
+                EditorDirectPlayContext.None, RetiredNonCampaignContextJson);
         }
 
         [Test]
@@ -2013,7 +2014,8 @@ namespace Game.Feature.UI.Tests
         }
 
         private static void AssertConfiguredGameplayLaunchClearsStaleDirectPlayContext(
-            EditorDirectPlayContext staleContext)
+            EditorDirectPlayContext staleContext,
+            string rawRetiredContextJson = null)
         {
             var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
             var stageId = StageId.CreateOrThrow("stage-0-1");
@@ -2021,8 +2023,17 @@ namespace Game.Feature.UI.Tests
             {
                 CampaignLaunchHandoffSessionStore.ResetForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
-                EditorDirectPlayContextStore.SetCurrent(staleContext);
-                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(staleContext.Mode));
+                if (rawRetiredContextJson == null)
+                {
+                    EditorDirectPlayContextStore.SetCurrent(staleContext);
+                    Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                        Is.EqualTo(staleContext.Mode));
+                }
+                else
+                {
+                    SessionState.SetString("Game.Feature.Stages.DirectPlay.Context",
+                        rawRetiredContextJson);
+                }
                 Assert.That(
                     CampaignLaunchHandoffSessionStore.Instance.TryBegin(
                         1,
@@ -2056,7 +2067,8 @@ namespace Game.Feature.UI.Tests
         }
 
         private static void AssertProductionMainMenuLaunchWithStaleContextInjectsChanceReadSource(
-            EditorDirectPlayContext staleContext)
+            EditorDirectPlayContext staleContext,
+            string rawRetiredContextJson = null)
         {
             var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
             var installerObject = new GameObject("ProductionMainMenuLaunch_WithStaleDirectPlayContext_InjectsChanceReadSource");
@@ -2068,8 +2080,17 @@ namespace Game.Feature.UI.Tests
                 CampaignLaunchHandoffSessionStore.ResetForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 saveHarness.PrepareDefaultSlot(stageId, remainingChances: 2);
-                EditorDirectPlayContextStore.SetCurrent(staleContext);
-                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(staleContext.Mode));
+                if (rawRetiredContextJson == null)
+                {
+                    EditorDirectPlayContextStore.SetCurrent(staleContext);
+                    Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                        Is.EqualTo(staleContext.Mode));
+                }
+                else
+                {
+                    SessionState.SetString("Game.Feature.Stages.DirectPlay.Context",
+                        rawRetiredContextJson);
+                }
                 Assert.That(
                     CampaignLaunchHandoffSessionStore.Instance.TryBegin(
                         1,

@@ -248,26 +248,64 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 fallbackCell);
         }
 
-        [Test]
+        [TestCase(true)]
+        [TestCase(false)]
         [Category("Extended")]
-        public void EnemyWallFollow_SunWheelProfile_ActivatedDestroyTileDoesNotHardBlockTraversal_CurrentPolicy()
+        public void EnemyWallFollow_SunWheelProfile_DestroyTileRiskFiltersChoiceWithoutBlockingTraversal(bool active)
         {
             var destroyTile = CreateTileFeature(102, WallFollowDestination, TileFeatureKind.Destroy);
             var worldState = CreateWallFollowWorld(initialTileFeatures: new[] { destroyTile });
+            var definitions = active ? CreateActiveDefinitions(destroyTile) : CreateInactiveDefinitions(destroyTile);
+            var expectedCell = active ? new SurfaceCell(FaceId.Floor, 1, -1) : WallFollowDestination;
+            var pipeline = CreatePipeline(worldState, LoadSunWheelProfile(), definitions);
 
-            var tick = RunUntilEnemyAtOrRemoved(
-                CreatePipeline(worldState, LoadSunWheelProfile(), CreateActiveDefinitions(destroyTile)),
-                worldState,
-                startTick: 1,
-                WallFollowDestination);
+            Assert.That(EnemyMovementStrategyShared.CanTraverseStep(
+                worldState.CreateSnapshot(), GetEntity(worldState, EnemyId), Vector2Int.left, definitions), Is.True,
+                "DestroyTile remains traversal-legal; avoidance belongs to WallFollow candidate selection.");
+            var tick = pipeline.RunTick(new TickInput(1));
+            AssertSunWheelIntentDestination(tick, expectedCell.PlanarPosition);
+            RunUntilEntityAt(pipeline, worldState, startTick: 2, destination: expectedCell);
+            Assert.That(GetEntity(worldState, EnemyId).hp, Is.EqualTo(3));
+        }
 
-            Assert.That(
-                tick.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("TileFeature", StringComparison.Ordinal) ||
-                    reason.Contains("TraversalBlocked", StringComparison.Ordinal)),
-                Is.False,
-                "CurrentPolicy: active DestroyTile is not a Solid-equivalent hard traversal blocker for SunWheel ordinary movement.");
-            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(WallFollowDestination, out _), Is.False);
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Extended")]
+        public void EnemyWallFollow_SunWheelProfile_NoSafeCandidateHoldsFacingAndResumesWhenHazardRemoved(bool allDestroyTiles)
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var neighbors = new[]
+            {
+                new SurfaceCell(FaceId.Floor, 1, 2),
+                new SurfaceCell(FaceId.Floor, 2, 1),
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+            };
+            var hazards = neighbors
+                .Where((cell, index) => allDestroyTiles || index == 0)
+                .Select((cell, index) => CreateTileFeature(100 + index, cell, TileFeatureKind.Destroy))
+                .ToArray();
+            var entities = new List<EntityState> { CreateEnemy(sourceCell, Direction.Up) };
+            if (!allDestroyTiles)
+            {
+                entities.AddRange(neighbors.Skip(1).Select((cell, index) => CreateWall(90 + index, cell)));
+            }
+
+            var worldState = CreateWorldState(entities, initialTileFeatures: hazards);
+            var pipeline = CreatePipeline(worldState, LoadSunWheelProfile(), CreateActiveDefinitions(hazards));
+            for (var tickIndex = 1; tickIndex <= 3; tickIndex++)
+            {
+                var tick = pipeline.RunTick(new TickInput(tickIndex));
+                Assert.That(tick.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == EnemyId), Is.False);
+                var enemy = GetEntity(worldState, EnemyId);
+                Assert.That(enemy.position, Is.EqualTo(sourceCell));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Up));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
+
+            worldState.CreateWriteContext().RemoveTileFeature(100);
+            RunUntilEntityAt(pipeline, worldState, startTick: 4, destination: neighbors[0]);
+            Assert.That(GetEntity(worldState, EnemyId).hp, Is.EqualTo(3));
         }
 
         [TestCase("HpZero")]
@@ -759,28 +797,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             Assert.Fail($"SunWheel WallFollow did not reach {destination} within {maxTicks} ticks. Last trace: {result?.Trace.Text}");
-            return result;
-        }
-
-        private static TickResult RunUntilEnemyAtOrRemoved(
-            TickPipeline pipeline,
-            WorldState worldState,
-            int startTick,
-            SurfaceCell destination,
-            int maxTicks = 60)
-        {
-            TickResult result = null;
-            for (var tick = startTick; tick < startTick + maxTicks; tick++)
-            {
-                result = pipeline.RunTick(new TickInput(tick));
-                if (!worldState.CreateSnapshot().TryGetEntity(EnemyId, out var enemy) ||
-                    enemy.position == destination)
-                {
-                    return result;
-                }
-            }
-
-            Assert.Fail($"SunWheel WallFollow did not enter or resolve {destination} within {maxTicks} ticks. Last trace: {result?.Trace.Text}");
             return result;
         }
 

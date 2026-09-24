@@ -18,16 +18,18 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void NonCampaignDirectPlay_PrimesSuppressContext()
+        public void CampaignTempDirectPlay_PrimesCampaignContext()
         {
             var stageId = StageId.CreateOrThrow("stage-1-1");
 
-            StageEditorDirectPlayLauncher.PrimeNonCampaignForTests(stageId);
+            StageEditorDirectPlayLauncher.PrimeCampaignTempSlotForTests(
+                stageId, CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                CampaignSaveSlotPolicy.DefaultRemainingChances);
 
             Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out var context), Is.True);
-            Assert.That(context.Mode, Is.EqualTo(EditorDirectPlayMode.NonCampaign));
+            Assert.That(context.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
             Assert.That(context.StageId, Is.EqualTo(stageId));
-            Assert.That(context.SuppressCampaignFlow, Is.True);
+            Assert.That(context.SuppressCampaignFlow, Is.False);
             Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var pending), Is.True);
             Assert.That(pending, Is.EqualTo(stageId));
         }

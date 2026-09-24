@@ -25,7 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Extended")]
-        public void RunTick_CompletesPlanResolveFinalizeCleanupRespawn()
+        public void RunTick_CompletesPlanResolveFinalizeCleanupMoonBlockGeneration()
         {
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()));
@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     TickPhase.Resolve,
                     TickPhase.Finalize,
                     TickPhase.Cleanup,
-                    TickPhase.Respawn,
+                    TickPhase.MoonBlockGeneration,
                 },
                 result.CompletedPhases);
             CollectionAssert.AreEqual(
@@ -55,10 +55,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Finalize:Exit",
                     "Cleanup:Enter",
                     "Cleanup:Exit",
-                    "Respawn:Enter",
-                    "Respawn:Exit",
+                    "MoonBlockGeneration:Enter",
+                    "MoonBlockGeneration:Exit",
                 },
                 result.PhaseTrace);
+            Assert.That(result.Trace.Text, Does.Contain("MoonBlockGeneration.Events"));
+            Assert.That(result.Trace.Text, Does.Not.Contain("Respawn.Events"));
         }
 
         [Test]

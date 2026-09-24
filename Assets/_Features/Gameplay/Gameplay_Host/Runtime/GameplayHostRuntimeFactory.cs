@@ -95,7 +95,6 @@ namespace Game.Feature.Gameplay.Host
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var unitKinematicLocomotionTiming = configuration.CreateUnitKinematicLocomotionTimingSnapshot();
             var playerContinuousLocomotion = configuration.CreatePlayerContinuousLocomotionSnapshot();
-            var playerRespawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
             var enemyPresentationArchetypeRegistry = configuration.CreateEnemyPresentationArchetypeRegistry(enemyAiRuntime);
             var faceSeamGap = configuration.ResolveFaceSeamGap();
@@ -137,10 +136,8 @@ namespace Game.Feature.Gameplay.Host
                 inputBuffer,
                 generalTimingProfile,
                 playerControlTiming,
-                playerRespawnTiming.RespawnDelayTicks,
                 configuration.ObjectiveRuntimeDefinition,
                 startTickIndex: 1,
-                allowPlayerRespawn: !configuration.DisablePlayerRespawn,
                 runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags(),
                 unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
                 playerContinuousLocomotion: playerContinuousLocomotion,
@@ -311,8 +308,7 @@ namespace Game.Feature.Gameplay.Host
                     startupPlan.OutputCamera,
                     viewCameraRig,
                     presentedInitialEntities,
-                    uiAccess,
-                    playerRespawnTiming.RespawnDelayTicks);
+                    uiAccess);
             }
             catch
             {

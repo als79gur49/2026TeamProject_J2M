@@ -48,7 +48,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose? targetLocalPose,
             Camera outputCamera,
             float cellSize,
-            int presentationSeed)
+            int presentationSeed,
+            GameplayCameraViewSnapshot? destinationCameraView = null)
         {
             if (parent == null)
             {
@@ -63,14 +64,16 @@ namespace Game.Feature.Gameplay.Host
             var arcHeight = seededValues.NextRange(0.1f, 0.2f) * resolvedCellSize;
             var spinDegrees = seededValues.NextSignedRange(240f, 420f);
 
-            if (outputCamera != null &&
+            if (destinationCameraView.HasValue &&
+                destinationCameraView.Value.IsValid &&
                 TryResolveCameraForwardTargetLocalPosition(
                     parent,
                     sourceLocalPose,
                     targetLocalPose,
-                    outputCamera,
+                    destinationCameraView.Value,
                     resolvedCellSize,
                     planeJitter,
+                    allowBehindCameraSourceFallback: true,
                     out var cameraForwardTargetLocalPosition,
                     out var cameraUpLocalDirection,
                     out var cameraForwardLocalDirection))
@@ -81,6 +84,32 @@ namespace Game.Feature.Gameplay.Host
                     arcHeight,
                     spinDegrees,
                     cameraForwardLocalDirection);
+            }
+
+            if (outputCamera != null &&
+                TryResolveCameraForwardTargetLocalPosition(
+                    parent,
+                    sourceLocalPose,
+                    targetLocalPose,
+                    new GameplayCameraViewSnapshot(
+                        outputCamera.transform.position,
+                        outputCamera.transform.rotation,
+                        outputCamera.fieldOfView,
+                        outputCamera.aspect,
+                        outputCamera.nearClipPlane),
+                    resolvedCellSize,
+                    planeJitter,
+                    allowBehindCameraSourceFallback: false,
+                    out var currentCameraTargetLocalPosition,
+                    out var currentCameraUpLocalDirection,
+                    out var currentCameraForwardLocalDirection))
+            {
+                return new EnemyDeathExitEffectPlan(
+                    currentCameraTargetLocalPosition,
+                    currentCameraUpLocalDirection,
+                    arcHeight,
+                    spinDegrees,
+                    currentCameraForwardLocalDirection);
             }
 
             var fallbackForwardDirection = sourceLocalPose.Rotation * Vector3.back;
@@ -116,16 +145,21 @@ namespace Game.Feature.Gameplay.Host
             Transform parent,
             GameplayEntityPose sourceLocalPose,
             GameplayEntityPose? targetLocalPose,
-            Camera outputCamera,
+            in GameplayCameraViewSnapshot cameraView,
             float cellSize,
             Vector2 planeJitter,
+            bool allowBehindCameraSourceFallback,
             out Vector3 targetLocalPosition,
             out Vector3 arcLocalDirection,
             out Vector3 spinAxisLocal)
         {
             var startWorldPosition = parent.TransformPoint(sourceLocalPose.Position);
-            var startCameraLocalPosition = outputCamera.transform.InverseTransformPoint(startWorldPosition);
-            if (!IsValidCameraLocalPoint(startCameraLocalPosition))
+            var inverseCameraRotation = Quaternion.Inverse(cameraView.WorldRotation);
+            var startCameraLocalPosition = inverseCameraRotation *
+                                           (startWorldPosition - cameraView.WorldPosition);
+            if (!cameraView.IsValid ||
+                !IsFinite(startCameraLocalPosition) ||
+                (!allowBehindCameraSourceFallback && !IsValidCameraLocalPoint(startCameraLocalPosition)))
             {
                 targetLocalPosition = default;
                 arcLocalDirection = default;
@@ -134,18 +168,30 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var targetCameraLocalPosition = startCameraLocalPosition;
-            targetCameraLocalPosition.z = outputCamera.nearClipPlane + Mathf.Max(0.05f, CameraNearPlanePaddingInCells * cellSize);
-            var planeOffset = ResolveCameraPlaneOffset(
-                parent,
-                targetLocalPose,
-                outputCamera,
-                startCameraLocalPosition,
-                cellSize,
-                planeJitter);
-            targetCameraLocalPosition.x += planeOffset.x;
-            targetCameraLocalPosition.y += planeOffset.y;
+            targetCameraLocalPosition.z = cameraView.NearClipPlane +
+                                          Mathf.Max(0.05f, CameraNearPlanePaddingInCells * cellSize);
+            if (IsValidCameraLocalPoint(startCameraLocalPosition))
+            {
+                var planeOffset = ResolveCameraPlaneOffset(
+                    parent,
+                    targetLocalPose,
+                    cameraView,
+                    startCameraLocalPosition,
+                    cellSize,
+                    planeJitter);
+                targetCameraLocalPosition.x += planeOffset.x;
+                targetCameraLocalPosition.y += planeOffset.y;
+            }
+            else
+            {
+                // A source behind the destination camera has no usable screen ray.
+                // Keep the destination camera direction and enter its view at the center.
+                targetCameraLocalPosition.x = 0f;
+                targetCameraLocalPosition.y = 0f;
+            }
 
-            var targetWorldPosition = outputCamera.transform.TransformPoint(targetCameraLocalPosition);
+            var targetWorldPosition = cameraView.WorldPosition +
+                                      (cameraView.WorldRotation * targetCameraLocalPosition);
             if (!IsFinite(targetWorldPosition))
             {
                 targetLocalPosition = default;
@@ -155,15 +201,15 @@ namespace Game.Feature.Gameplay.Host
             }
 
             targetLocalPosition = parent.InverseTransformPoint(targetWorldPosition);
-            arcLocalDirection = parent.InverseTransformDirection(outputCamera.transform.up).normalized;
-            spinAxisLocal = parent.InverseTransformDirection(outputCamera.transform.forward).normalized;
+            arcLocalDirection = parent.InverseTransformDirection(cameraView.WorldRotation * Vector3.up).normalized;
+            spinAxisLocal = parent.InverseTransformDirection(cameraView.WorldRotation * Vector3.forward).normalized;
             return true;
         }
 
         private static Vector2 ResolveCameraPlaneOffset(
             Transform parent,
             GameplayEntityPose? targetLocalPose,
-            Camera outputCamera,
+            in GameplayCameraViewSnapshot cameraView,
             Vector3 startCameraLocalPosition,
             float cellSize,
             Vector2 planeJitter)
@@ -175,7 +221,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var targetWorldPosition = parent.TransformPoint(targetLocalPose.Value.Position);
-            var targetCameraLocalPosition = outputCamera.transform.InverseTransformPoint(targetWorldPosition);
+            var targetCameraLocalPosition = Quaternion.Inverse(cameraView.WorldRotation) *
+                                            (targetWorldPosition - cameraView.WorldPosition);
             if (!IsFinite(targetCameraLocalPosition))
             {
                 return planeOffset;

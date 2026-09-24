@@ -1,46 +1,21 @@
 # Gameplay Death Recovery Lifecycle
 
-Death recovery has one shared timing policy and two separate recovery owners.
+Player death removes the actor from the authoritative world. A retry creates a new stage host through campaign navigation; the tick pipeline does not recreate the player in the same world.
 
 ## Lifecycle
 
-1. Death cleanup removes the dead player through the canonical cleanup write path.
-2. Death recovery hold runs for the configured player respawn delay ticks.
-3. After the hold elapses, recovery continues through exactly one lane:
-   - in-world respawn through `RespawnProcessor`, or
-   - campaign retry / level failed navigation through `CampaignGameplayFlowController`.
+1. Accepted fatal damage or DestroyTile movement identifies the death source. Cleanup removes the player through its canonical write path.
+2. The tick result emits one player death signal with the selected source and direction hint. Presentation retains the removed actor's pose for death playback. The hold is produced from the death signal without a respawn countdown.
+3. `GameplayInputHost` blocks further gameplay ticks and player commands once it receives the death signal. The block ends only when a new host is initialized.
+4. `CampaignGameplayFlowController` commits the chance update on the death tick. It starts retry or level failed terminal playback. The retry handoff loads a new stage host at the terminal playback milestone.
 
 ## Ownership
 
-- `RespawnProcessor` owns in-world respawn eligibility, topology / placement defer, and `WorldState` spawn writes.
-- `CampaignGameplayFlowController` owns campaign retry and level failed navigation.
-- Presentation death hold signals only retain the death pose / animation. They do not spawn entities or launch scenes.
-
-## Delay vs Topology Defer
-
-Respawn delay and topology defer are different gates.
-
-- Respawn delay is a deterministic countdown from death cleanup to recovery eligibility.
-- Topology / placement defer is evaluated only after respawn delay has elapsed.
-- A topology reset cannot replace the death recovery hold.
-
-## Campaign Retry
-
-Campaign retry uses the same death recovery delay policy as in-world respawn, but it does not use `WorldState.SpawnEntity`.
-After the hold elapses, campaign flow launches `StageNavigationRequest.Retry` or publishes level failed once.
+- `WorldState` owns the removal. The tick result carries death and presentation data but cannot spawn a replacement player.
+- `CampaignGameplayFlowController` owns chance persistence and retry or level failed navigation.
+- Presentation owns death animation, direction, retained pose, and hold. These effects do not mutate authoritative gameplay state.
+- The MoonBlock generator separately creates its configured box after Cleanup. Its spawn and blocked facts are unrelated to player recovery.
 
 ## Save Durability
 
-Campaign death save updates are committed on the death tick.
-
-- Remaining chances, current stage route, current level group, and total death count are updated before the recovery hold elapses.
-- If the app exits during the death recovery hold, the death is still treated as committed.
-- TODO: If product policy changes, evaluate moving the save commit to the hold-elapsed transition instead of the death tick.
-
-## Event Naming Compatibility
-
-`PlayerRespawnDelayStarted`, `PlayerRespawnDelayTicking`, and `PlayerRespawnDelayElapsed` currently describe the shared death recovery hold.
-They are emitted for in-world respawn and for campaign death recovery when player respawn is disabled.
-
-The names are kept for v1 event compatibility.
-Long term, this surface can be renamed to `PlayerDeathRecoveryDelayStarted`, `PlayerDeathRecoveryDelayTicking`, and `PlayerDeathRecoveryDelayElapsed`.
+Remaining chances, the current stage route, level group, and total deaths are committed before terminal playback completes. If the app exits during playback, the death remains committed.

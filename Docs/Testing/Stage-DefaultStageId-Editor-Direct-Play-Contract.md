@@ -20,12 +20,16 @@
   - `Replay Last Stage`
   - supported stage quick-launch menu
   - Play mode 진입 전에 pending launch context를 주입한다.
+  - 기본 실행은 검증된 `CampaignTempSlot`을 생성한다. `CampaignProductionSlot`은 명시적으로 선택하고 저장 데이터 덮어쓰기를 확인해야 한다.
+  - 선택 가능한 stage는 캠페인 시퀀스와 카탈로그 양쪽에 있어야 하며, 레벨 그룹도 확인한다.
 - `StageLaunchContextStore`
   - pending editor direct-play stage id를 1회 소비하고 current launch context로 승격한다.
 
 ## Disallowed Interpretation
 
 - scene open 후 바로 Play 하는 workflow를 supported direct-play path로 취급하지 않는다.
+- campaign slot 또는 launch handoff 없이 stage gameplay host를 시작하지 않는다. installer가 host 시작 전에 거부한다.
+- 저장된 `NonCampaign` 모드 값 `1`은 호환성 식별값으로만 보존하며 새 실행과 복원을 허용하지 않는다.
 - `defaultStageId`를 다른 이름의 scene-local runtime fallback으로 치환하지 않는다.
 - continue/retry의 canonical source를 `StageNavigationRequest` / `StageId`에서 scene-local default 값으로 되돌리지 않는다.
 
@@ -50,10 +54,21 @@
 
 ## Supported Stage Ids
 
+- `Launch Stage...` 선택 목록은 카탈로그와 캠페인 시퀀스의 교집합이다. 현재 시퀀스는 `stage-0-1`부터 `stage-4-3`까지 13개 stage를 포함한다.
+- 아래 두 ID는 별도의 quick-launch 메뉴와 필수 smoke 예시다.
 - `stage-0-1`
 - `stage-1-1`
 
 위 exact stage ids는 supported stage parity와 smoke note에 그대로 사용한다.
+
+## Player Capture Launch
+
+- `--capture-stage stage-3-2`, `--capture-stage=stage-3-2`, `-captureStage stage-3-2`는 모두 검증된 임시 캠페인 슬롯을 기본으로 사용한다.
+- stage가 카탈로그와 캠페인 시퀀스에 있고 레벨 그룹이 정해졌는지 저장소 초기화 전에 확인한다. 잘못된 stage에서는 저장소와 실행 컨텍스트를 변경하지 않는다.
+- 임시 슬롯 seed에는 선택한 stage의 실제 레벨 그룹을 기록한다. `--capture-campaign-temp-slot`은 같은 임시 슬롯 경로를 명시적으로 요청한다.
+- `--capture-campaign-temp-slot-chances N`은 기본 임시 슬롯과 명시적 임시 슬롯 모두에서 사용할 수 있다.
+- `--capture-campaign-normal-slot`은 기존 별도 승인 조건을 통과한 개발용 캡처 빌드에서만 사용한다.
+- 캡처 smoke는 시작, 사망 시 기회 차감, 재시작, 클리어를 확인한다.
 
 ## Soft Adoption
 

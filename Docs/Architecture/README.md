@@ -70,6 +70,10 @@
   - implementation and bounded validation record for removing seven unused Player actions and the UI movement gateway, preserving saved bindings and Host-owned admission-policy lifetime; manual interaction validation remains pending
 - [Gameplay-VFX-Governance.md](./Gameplay-VFX-Governance.md)
   - current supporting truth for presentation-only Gameplay VFX lane boundaries, family-specific planners, lifecycle vocabulary, persistent desired state, and existing presenter migration guardrails
+- [Gameplay-Death-Recovery-Lifecycle.md](./Gameplay-Death-Recovery-Lifecycle.md)
+  - player death presentation, input stop, and campaign retry ownership and timing
+- [Player-Respawn-and-NonCampaign-Direct-Play-Removal-Plan.md](./Player-Respawn-and-NonCampaign-Direct-Play-Removal-Plan.md)
+  - completed removal record, death-pose preparatory change, validation evidence, and remaining manual checks
 - [Enemy-FrontFaceInactive-Visual-Policy.md](./Enemy-FrontFaceInactive-Visual-Policy.md)
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
 - [Gameplay-Presentation-Driver-Cache-Optimization-Plan.md](./Gameplay-Presentation-Driver-Cache-Optimization-Plan.md)

@@ -251,7 +251,7 @@ namespace Game.Feature.Gameplay.Loop
             _completedPhases[1] == TickPhase.Resolve &&
             _completedPhases[2] == TickPhase.Finalize &&
             _completedPhases[3] == TickPhase.Cleanup &&
-            _completedPhases[4] == TickPhase.Respawn;
+            _completedPhases[4] == TickPhase.MoonBlockGeneration;
 
         private readonly struct OwnedFinalEntitiesToken
         {

@@ -24,8 +24,6 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplayTimingProfile TimingProfile => _runtime?.TimingProfile;
 
-        public int PlayerRespawnDelayTicks => _runtime?.PlayerRespawnDelayTicks ?? 1;
-
         public GameplayBoardRoot BoardRoot => _runtime?.BoardRoot;
 
         public GameplayBoardSurfaceRenderer BoardSurfaceRenderer => _runtime?.BoardSurfaceRenderer;

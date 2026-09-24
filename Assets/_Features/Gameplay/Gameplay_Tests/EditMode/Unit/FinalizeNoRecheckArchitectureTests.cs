@@ -64,15 +64,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void RespawnProcessor_Process_UsesCanonicalAuthoritativePlacementLegality()
+        public void MoonBlockGeneratorRespawnProcessor_Process_UsesCanonicalAuthoritativePlacementLegality()
         {
-            var respawnProcessorSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.RespawnProcessor.cs");
-            var respawnProcessBody = ExtractMethodBody(respawnProcessorSource, "public RespawnPhaseResult Process(");
+            var processorSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.MoonBlockGeneratorRespawnProcessor.cs");
+            var processBody = ExtractMethodBody(processorSource, "public MoonBlockGeneratorRespawnProcessorResult Process(");
 
             Assert.That(
-                respawnProcessBody,
+                processBody,
                 Does.Contain("RuntimePlacementValidityPolicy.EvaluateAuthoritativePlacement("));
-            Assert.That(respawnProcessBody, Does.Not.Contain("TryGetAuthoritativePlacementBlocker("));
+            Assert.That(processBody, Does.Not.Contain("TryGetAuthoritativePlacementBlocker("));
         }
 
         [Test]
@@ -106,13 +106,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
-        public void TickPipeline_CleanupRespawnDirectWritePath_IsDocumentedAndBounded()
+        [Category("Core")]
+        public void TickPipeline_CleanupMoonBlockGenerationDirectWritePath_IsDocumentedAndBounded()
         {
             var tickPipelineSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
             var finalizationBatchSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.FinalizationBatch.cs");
             var cleanupProcessorSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Cleanup/Runtime/CleanupProcessor.cs");
-            var respawnProcessorSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.RespawnProcessor.cs");
             var moonBlockRespawnProcessorSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.MoonBlockGeneratorRespawnProcessor.cs");
             var canonicalSpec = ReadRepoFile("Docs/Architecture/Tick-Simulation-Canonical-Spec.md");
 
@@ -135,7 +134,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "postFinalizeSnapshot,",
                 "writeContext,",
                 "var postCleanupSnapshot = SnapshotBuilder.Create(_worldState);");
-            Assert.That(runTickBody, Does.Contain("RunRespawnPhase("));
+            Assert.That(runTickBody, Does.Contain("RunMoonBlockGenerationPhase("));
 
             var runPlanPhaseBody = ExtractMethodBody(tickPipelineSource, "private PlanPhaseResult RunPlanPhase(");
             var runResolvePhaseBody = ExtractMethodBody(tickPipelineSource, "private ResolvePhaseResult RunResolvePhase(");
@@ -152,7 +151,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var expirePendingEnemyBlockedReactionsBody = ExtractMethodBody(
                 tickPipelineSource,
                 "private static CleanupPhaseResult ExpirePendingEnemyBlockedReactions(");
-            var runRespawnPhaseBody = ExtractMethodBody(tickPipelineSource, "private RespawnPhaseResult RunRespawnPhase(");
+            var runMoonBlockGenerationPhaseBody = ExtractMethodBody(tickPipelineSource, "private MoonBlockGenerationPhaseResult RunMoonBlockGenerationPhase(");
             AssertAppearsInOrder(
                 runCleanupPhaseBody,
                 "_cleanupProcessor.Process(snapshot, writeContext, tickIndex)",
@@ -190,20 +189,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 expirePendingEnemyBlockedReactionsBody,
                 Does.Contain("snapshot.EnumeratePendingEnemyBlockedReactionsOrdered("));
-            Assert.That(runRespawnPhaseBody, Does.Contain("_respawnProcessor.Process("));
-            Assert.That(runRespawnPhaseBody, Does.Contain("_moonBlockGeneratorRespawnProcessor.Process("));
-            Assert.That(runRespawnPhaseBody, Does.Contain("writeContext);"));
+            Assert.That(runMoonBlockGenerationPhaseBody, Does.Contain("_moonBlockGeneratorRespawnProcessor.Process("));
+            Assert.That(runMoonBlockGenerationPhaseBody, Does.Contain("writeContext);"));
 
             Assert.That(cleanupProcessorSource, Does.Contain("public CleanupPhaseResult Process("));
             Assert.That(cleanupProcessorSource, Does.Contain("ICleanupCommitContext writeContext"));
-            Assert.That(respawnProcessorSource, Does.Contain("public RespawnPhaseResult Process("));
-            Assert.That(respawnProcessorSource, Does.Contain("IWorldWriteContext writeContext"));
             Assert.That(moonBlockRespawnProcessorSource, Does.Contain("public MoonBlockGeneratorRespawnProcessorResult Process("));
             Assert.That(moonBlockRespawnProcessorSource, Does.Contain("IWorldWriteContext writeContext"));
 
             Assert.That(CountOccurrences(tickPipelineSource, "IWorldWriteContext writeContext"), Is.EqualTo(2));
             Assert.That(CountOccurrences(tickPipelineSource, "ICleanupCommitContext"), Is.EqualTo(4));
-            Assert.That(CountOccurrences(respawnProcessorSource, "IWorldWriteContext writeContext"), Is.EqualTo(1));
             Assert.That(CountOccurrences(moonBlockRespawnProcessorSource, "IWorldWriteContext writeContext"), Is.EqualTo(1));
             Assert.That(CountOccurrences(cleanupProcessorSource, "ICleanupCommitContext writeContext"), Is.EqualTo(1));
 
@@ -214,14 +209,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(finalizationBatchSource, Does.Not.Contain("ExpireEnemyGravityFieldAuraFields"));
             Assert.That(finalizationBatchSource, Does.Not.Contain("ExpirePendingEnemyBlockedReactions"));
 
-            Assert.That(canonicalSpec, Does.Contain("Cleanup/Respawn direct write path"));
+            Assert.That(canonicalSpec, Does.Contain("Cleanup/MoonBlockGeneration direct write path"));
             Assert.That(canonicalSpec, Does.Contain("bounded exception"));
             AssertContainsExactTrimmedLine(
                 canonicalSpec,
                 "- 허용된 Cleanup direct write entrypoint는 `CleanupProcessor.Process`, `ExpireBoxInteractionLocks`, `ExpireEnemyGravityFieldAuraFields`, `ExpirePendingEnemyBlockedReactions`다.");
             AssertContainsExactTrimmedLine(
                 canonicalSpec,
-                "- 허용된 Respawn direct write entrypoint는 `RespawnProcessor.Process`, `MoonBlockGeneratorRespawnProcessor.Process`다.");
+                "- 허용된 MoonBlockGeneration direct write entrypoint는 `MoonBlockGeneratorRespawnProcessor.Process`다.");
             Assert.That(canonicalSpec, Does.Contain("SRP 작업 중 몰래 `FinalizationBatch`로 옮기지 않는다"));
         }
 
@@ -238,7 +233,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var tickPhaseBody = ExtractEnumBody(tickPhaseSource, "public enum TickPhase");
             Assert.That(
                 NormalizeWhitespace(tickPhaseBody),
-                Is.EqualTo("Plan = 0, Resolve = 1, Finalize = 2, Cleanup = 3, Respawn = 4,"));
+                Is.EqualTo("Plan = 0, Resolve = 1, Finalize = 2, Cleanup = 3, MoonBlockGeneration = 4,"));
+            Assert.That(tickPhaseBody, Does.Not.Contain("Respawn"));
             Assert.That(tickPhaseBody, Does.Not.Contain("Movement"));
             Assert.That(tickPhaseBody, Does.Not.Contain("Attack"));
             Assert.That(tickPhaseSource, Does.Not.Contain("MovementPlan"));

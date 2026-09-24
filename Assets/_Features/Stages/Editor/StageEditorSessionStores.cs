@@ -142,8 +142,8 @@ namespace Game.Feature.Stages.Editor
         public StageId StageId => ExpectedRuntimeContext?.StageId ?? StageId.None;
 
         public bool IsValid =>
-            Mode != EditorDirectPlayMode.None &&
-            Enum.IsDefined(typeof(EditorDirectPlayMode), Mode) &&
+            (Mode == EditorDirectPlayMode.CampaignTempSlot ||
+             Mode == EditorDirectPlayMode.CampaignProductionSlot) &&
             ExpectedRuntimeContext != null &&
             ExpectedRuntimeContext.SlotNumber == 0 &&
             (ExpectedRuntimeContext.IsEditorDirectPlayBootstrap ||
@@ -255,8 +255,42 @@ namespace Game.Feature.Stages.Editor
             var slotNumber = SessionState.GetInt(SlotSessionKey, -1);
             var navigationValue = SessionState.GetInt(NavigationSessionKey, 0);
             var source = SessionState.GetString(SourceSessionKey, string.Empty);
-            if (!Enum.IsDefined(typeof(EditorDirectPlayMode), modeValue) ||
-                modeValue == (int)EditorDirectPlayMode.None ||
+            if (modeValue == (int)EditorDirectPlayMode.NonCampaign)
+            {
+                EditorDirectPlayContextStore.GetCurrentOrNone();
+                if (Guid.TryParse(rawToken, out var retiredToken) &&
+                    StageId.TryCreate(rawStageId, out var retiredStageId))
+                {
+                    if (StageLaunchContextStore.TryPeek(out var runtimeContext) &&
+                        runtimeContext.Token == retiredToken &&
+                        runtimeContext.StageId.Equals(retiredStageId) &&
+                        runtimeContext.SlotNumber == 0)
+                    {
+                        StageLaunchContextStore.TryClear(runtimeContext);
+                    }
+
+                    if (StageLaunchContextStore.TryPeekPendingEditorDirectPlayContext(
+                            out var pendingContext) &&
+                        pendingContext.Token == retiredToken &&
+                        pendingContext.StageId.Equals(retiredStageId))
+                    {
+                        StageLaunchContextStore.TryClearPendingEditorDirectPlay(pendingContext);
+                    }
+                }
+
+                if (SessionState.GetInt(ModeSessionKey, 0) == modeValue &&
+                    string.Equals(SessionState.GetString(TokenSessionKey, string.Empty),
+                        rawToken, StringComparison.Ordinal))
+                {
+                    Clear();
+                }
+
+                ownership = default;
+                return false;
+            }
+
+            if (modeValue != (int)EditorDirectPlayMode.CampaignTempSlot &&
+                modeValue != (int)EditorDirectPlayMode.CampaignProductionSlot ||
                 !Enum.IsDefined(typeof(StageNavigationKind), navigationValue) ||
                 navigationValue == (int)StageNavigationKind.None ||
                 !StageId.TryCreate(rawStageId, out var stageId) ||

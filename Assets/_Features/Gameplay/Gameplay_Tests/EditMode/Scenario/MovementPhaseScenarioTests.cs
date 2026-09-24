@@ -390,6 +390,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 result.PresentationData.TileEvents[0].TimingAnchor.VisualContactNormalizedTime,
                 Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+            Assert.That(result.PresentationData.EntityMotions.Any(motion =>
+                motion.EntityId == 30 &&
+                motion.MotionKind == TickEntityMotionKind.Flip &&
+                motion.DestinationCell.Equals(destroyCell)), Is.True);
+            Assert.That(result.PresentationData.EntityExitSignals.Any(signal =>
+                signal.ExitedEntityId == 30 &&
+                signal.EntityType == EntityType.Box &&
+                signal.ExitCause == TickEntityExitCause.BoxDestroy &&
+                signal.Timing == EntityExitPresentationTiming.AfterEntityMotion), Is.True);
             Assert.That(result.FinalEntities.Any(entity => entity.entityId == 30), Is.False);
         }
 
@@ -3575,6 +3584,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered);
 
             Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileActivated &&
+                tileEvent.TileId == destroyEvent.TileId &&
+                tileEvent.Cell.Equals(destroyEvent.Cell)), Is.True);
+            var exit = result.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 20);
+            Assert.That(exit.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(exit.SourceCell, Is.EqualTo(destroyEvent.Cell));
+            Assert.That(exit.Timing, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
             Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
         }
@@ -3709,6 +3726,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered);
 
             Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileActivated &&
+                tileEvent.TileId == destroyEvent.TileId &&
+                tileEvent.Cell.Equals(destroyEvent.Cell)), Is.True);
+            var exit = result.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 20);
+            Assert.That(exit.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(exit.SourceCell, Is.EqualTo(destroyEvent.Cell));
+            Assert.That(exit.Timing, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
             Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
         }
@@ -3736,6 +3761,48 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered);
 
             Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileActivated &&
+                tileEvent.TileId == destroyEvent.TileId &&
+                tileEvent.Cell.Equals(destroyEvent.Cell)), Is.True);
+            Assert.That(result.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 20), Is.False);
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_TopologyActivationUnderGroundEnemy_EmitsDeathExit()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var enemy = CreateUnit(entityId: 20, position: destroyCell, teamId: 2);
+            enemy.unitRole = UnitRole.Enemy;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    enemy,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var destroyEvent = result.PresentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered);
+
+            Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileActivated &&
+                tileEvent.TileId == destroyEvent.TileId &&
+                tileEvent.Cell.Equals(destroyEvent.Cell)), Is.True);
+            var exit = result.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 20);
+            Assert.That(exit.ExitCause, Is.EqualTo(TickEntityExitCause.EnemyDeath));
+            Assert.That(exit.SourceCell, Is.EqualTo(destroyEvent.Cell));
+            Assert.That(exit.Timing, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
             Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
         }
@@ -5614,7 +5681,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 entityLogics,
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                playerRespawnDelayTicks: 1,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None,
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
@@ -5633,10 +5699,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayEntityLogicProviderFactory.CreateDefault(),
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                playerRespawnDelayTicks: 1,
                 objectiveDefinition: null,
                 enemySpawnDefaultsByArchetypeId: null,
-                allowPlayerRespawn: true,
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 unitKinematicLocomotionTiming: default,
                 playerContinuousLocomotion: default,

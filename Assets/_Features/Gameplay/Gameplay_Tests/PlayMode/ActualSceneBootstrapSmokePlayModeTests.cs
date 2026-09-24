@@ -7,6 +7,7 @@ using System.Linq;
 using System;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Flow.Audio;
@@ -14,6 +15,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.Tests.Support.Unity;
 using Game.Feature.Gameplay.Vfx.Host;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
@@ -43,6 +45,139 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private const int FirstTickSmokeCount = 5;
         private const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualStageScene_WithoutCampaignSlot_RejectsBeforeHostInitialization()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
+            var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
+            var activeSlot = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore);
+            var hadActiveSlot = activeSlot.TryGetActiveSlotNumber(out var originalActiveSlot);
+            try
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                EditorDirectPlayContextStore.ClearTemporaryCampaignState();
+                EditorDirectPlayContextStore.Clear();
+                activeSlot.ClearActiveSlot();
+                StageLaunchContextStore.SetCurrent(stageId);
+
+                LogAssert.Expect(LogType.Exception, new Regex(
+                    "InvalidOperationException: Stage gameplay requires an active Campaign slot or launch handoff before play begins"));
+                LogAssert.Expect(LogType.Exception, new Regex(
+                    "InvalidOperationException: GameplaySceneHost must be initialized before installing UI flow"));
+                yield return LoadScene(UIAudioScenePath);
+
+                var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+                Assert.That(host, Is.Not.Null);
+                Assert.That(host.WorldState, Is.Null);
+                Assert.That(host.InputHost, Is.Null);
+                Assert.That(host.TickRunner, Is.Null);
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+                EditorDirectPlayContextStore.ClearTemporaryCampaignState();
+                if (hadActiveSlot)
+                {
+                    activeSlot.SetActiveSlot(originalActiveSlot);
+                }
+                else
+                {
+                    activeSlot.ClearActiveSlot();
+                }
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneStage1_1_BoxSlideSameDestination_CapturesProductionViews()
+        {
+            var outputDirectory = Environment.GetEnvironmentVariable("BOX_SLIDE_INGAME_CAPTURE_DIR");
+            yield return LoadCampaignEntityViewScene("stage-1-1");
+            try
+            {
+                var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+                Assert.That(host, Is.Not.Null);
+                var camera = host.ViewCamera != null ? host.ViewCamera : Camera.main;
+                Assert.That(camera, Is.Not.Null);
+                var leftCell = new SurfaceCell(FaceId.Floor, 10, 2);
+                var middleCell = new SurfaceCell(FaceId.Floor, 11, 2);
+                var rightCell = new SurfaceCell(FaceId.Floor, 12, 2);
+                var snapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+                var entities = new List<EntityState>();
+                snapshot.EnumerateEntitiesOrdered(entities);
+                var leftBox = entities.Single(entity => entity.type == EntityType.Box && entity.position == leftCell);
+                var rightBox = entities.Single(entity => entity.type == EntityType.Box && entity.position == rightCell);
+                Assert.That(leftBox.boxCapabilities.HasFlag(BoxCapabilities.Push), Is.True);
+                Assert.That(rightBox.boxCapabilities.HasFlag(BoxCapabilities.Push), Is.True);
+                Assert.That(host.ViewRegistry.TryGetView(leftBox.entityId, out var leftView), Is.True);
+                Assert.That(host.ViewRegistry.TryGetView(rightBox.entityId, out var rightView), Is.True);
+                Assert.That(leftView.GetComponentInChildren<Renderer>(true), Is.Not.Null);
+                Assert.That(rightView.GetComponentInChildren<Renderer>(true), Is.Not.Null);
+
+                SetEntityViewScenarioState(host.WorldState, "SetFacing", leftBox.entityId, Direction.Right);
+                SetEntityViewScenarioState(host.WorldState, "SetFacing", rightBox.entityId, Direction.Left);
+                SetEntityViewScenarioState(host.WorldState, "ApplyStateChange", leftBox.entityId, EntityPhaseState.Sliding, 0);
+                SetEntityViewScenarioState(host.WorldState, "ApplyStateChange", rightBox.entityId, EntityPhaseState.Sliding, 0);
+
+                var contestTick = host.InputHost.RunSingleTick();
+                Assert.That(contestTick, Is.Not.Null);
+                var boxIds = new[] { leftBox.entityId, rightBox.entityId };
+                var winningMotions = contestTick.PresentationData.EntityMotions
+                    .Where(motion => boxIds.Contains(motion.EntityId) && motion.MotionKind == TickEntityMotionKind.BoxSlide)
+                    .ToArray();
+                Assert.That(winningMotions, Has.Length.EqualTo(1));
+                Assert.That(winningMotions[0].DestinationCell, Is.EqualTo(middleCell));
+                Assert.That(contestTick.PresentationData.BoxSlideStopSignals.Any(signal => boxIds.Contains(signal.BoxEntityId)), Is.False);
+                var winnerId = winningMotions[0].EntityId;
+                var loserId = winnerId == leftBox.entityId ? rightBox.entityId : leftBox.entityId;
+                var center = (leftView.transform.position + rightView.transform.position) * 0.5f;
+                var loserView = loserId == leftBox.entityId ? leftView : rightView;
+                var loserStartPosition = loserView.transform.position;
+                CaptureActualBoxSlideFrame(camera, center, outputDirectory, "01-contest.png");
+
+                host.Presenter.UpdatePresentation(host.TimingProfile.SimulationTickIntervalSeconds);
+                var stopTick = host.InputHost.RunSingleTick();
+                Assert.That(stopTick, Is.Not.Null);
+                Assert.That(stopTick.PresentationData.BoxSlideStopSignals.Any(signal => signal.BoxEntityId == loserId), Is.True);
+                var winnerView = winnerId == leftBox.entityId ? leftView : rightView;
+                Assert.That(Vector3.Distance(winnerView.transform.position, loserView.transform.position), Is.GreaterThan(0.5f));
+                Assert.That(Vector3.Distance(loserView.transform.position, loserStartPosition), Is.LessThan(0.0001f));
+                CaptureActualBoxSlideFrame(camera, center, outputDirectory, "02-stop-signal.png");
+
+                host.Presenter.UpdatePresentation(host.TimingProfile.BoxSlideStepIntervalSeconds);
+                Assert.That(Vector3.Distance(loserView.transform.position, loserStartPosition), Is.LessThan(0.0001f));
+                CaptureActualBoxSlideFrame(camera, center, outputDirectory, "03-settled.png");
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+            }
+        }
+
+        private static void CaptureActualBoxSlideFrame(
+            Camera camera,
+            Vector3 center,
+            string outputDirectory,
+            string filename)
+        {
+            if (string.IsNullOrWhiteSpace(outputDirectory))
+            {
+                return;
+            }
+
+            camera.transform.position = center - camera.transform.forward * 8f;
+            var capture = VisualEvidenceFrameCapture.CaptureFrame(
+                camera,
+                Path.Combine(outputDirectory, filename),
+                width: 1280,
+                height: 720);
+            TestContext.WriteLine($"BOX_SLIDE_INGAME_CAPTURE path={capture.AbsolutePath} sha256={capture.Sha256}");
+        }
 #if UNITY_EDITOR
         private const string StageBackedGameplaySceneInstallerGuid = "41909c3f1846cad878e314473f74442c";
         private const string StageBackedGameplaySceneInstallerBasePath =
@@ -213,8 +348,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_1_BackgroundOrbitAdvancesAndPauses()
         {
             var stageId = StageId.CreateOrThrow("stage-0-1");
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            CampaignStageSceneTestLaunch.Prime(stageId);
             yield return LoadScene(UIAudioScenePath);
 
             var host = Object.FindObjectsByType<GameplaySceneHost>(
@@ -303,8 +437,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage3_2_AuthoredWallBindsStaticPrefabView()
         {
             var stageId = StageId.CreateOrThrow("stage-3-2");
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            CampaignStageSceneTestLaunch.Prime(stageId);
             yield return LoadScene(UIAudioScenePath);
 
             var host = Object.FindObjectsByType<GameplaySceneHost>(
@@ -567,8 +700,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator TerminalProductionSceneHandoff_LoadSceneAsyncSingle_BlocksNewHostUntilReveal()
         {
             var stageId = StageId.CreateOrThrow("stage-1-1");
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            CampaignStageSceneTestLaunch.Prime(stageId);
             yield return LoadScene(UIAudioScenePath);
 
             var sourceHost = Object.FindObjectsByType<GameplaySceneHost>(
@@ -579,8 +711,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     FindObjectsInactive.Exclude,
                     FindObjectsSortMode.None)
                 .Single();
-            Assert.That(sourceInstaller.CampaignRuntimeActive, Is.False);
-            Assert.That(sourceInstaller.TerminalOutcomesEnabled, Is.False);
+            Assert.That(sourceInstaller.CampaignRuntimeActive, Is.True);
+            Assert.That(sourceInstaller.TerminalOutcomesEnabled, Is.True);
             sourceHost.InputHost.SetAutoAdvanceTicks(false);
             var sourceHostId = sourceHost.GetInstanceID();
             var authority = TerminalSessionRegistry.Authority;
@@ -747,9 +879,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var stageId = StageId.CreateOrThrow("stage-1-1");
             try
             {
-                StageLaunchContextStore.SetCurrent(stageId);
-                EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(stageId));
+                CampaignStageSceneTestLaunch.Prime(stageId);
                 yield return LoadScene(UIAudioScenePath);
 
                 var sourceHost = Object.FindFirstObjectByType<GameplaySceneHost>();
@@ -857,9 +987,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var stageId = StageId.CreateOrThrow("stage-1-1");
             try
             {
-                StageLaunchContextStore.SetCurrent(stageId);
-                EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(stageId));
+                CampaignStageSceneTestLaunch.Prime(stageId);
                 yield return LoadScene(UIAudioScenePath);
 
                 var sourceInstaller =
@@ -983,9 +1111,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 foreach (var source in sources)
                 {
-                    StageLaunchContextStore.SetCurrent(stageId);
-                    EditorDirectPlayContextStore.SetCurrent(
-                        EditorDirectPlayContext.CreateNonCampaign(stageId));
+                    CampaignStageSceneTestLaunch.Prime(stageId);
                     yield return LoadScene(UIAudioScenePath);
 
                     var sourceInstaller =
@@ -1281,9 +1407,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     });
                 Object.DestroyImmediate(sequenceDefinition);
                 activeSlotProvider.SetActiveSlot(1);
-                StageLaunchContextStore.SetCurrent(stageId);
-                EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(stageId));
+                CampaignStageSceneTestLaunch.Prime(stageId);
                 yield return LoadScene(UIAudioScenePath);
 
                 var source =
@@ -1465,9 +1589,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator M2LevelFailedRestart_PreservesSourceScreenUntilOpaqueAndCompletesCanonicalEntry()
         {
             var stageId = StageId.CreateOrThrow("stage-1-1");
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(
-                EditorDirectPlayContext.CreateNonCampaign(stageId));
+            CampaignStageSceneTestLaunch.Prime(stageId);
             yield return LoadScene(UIAudioScenePath);
 
             var sourceHost = Object.FindFirstObjectByType<GameplaySceneHost>();
@@ -1546,9 +1668,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator M2DemoStageRelaunch_KeepsIntentAndUsesSharedRetryEntryExecutor()
         {
             var stageId = StageId.CreateOrThrow("stage-1-1");
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(
-                EditorDirectPlayContext.CreateNonCampaign(stageId));
+            CampaignStageSceneTestLaunch.Prime(stageId);
             yield return LoadScene(UIAudioScenePath);
 
             var sourceHost = Object.FindFirstObjectByType<GameplaySceneHost>();
@@ -3481,58 +3601,36 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
                 StageId.CreateOrThrow("stage-1-1"),
-                assertDirectPlayEvidence: true);
+                assertDirectPlayEvidence: true,
+                primeFromCaptureArguments: true);
         }
 
-        [UnityTest]
+#if UNITY_EDITOR
+        [Test]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_UIAudioSceneLegacyStage51_NonCampaignTile12BarricadeSmoke()
+        public void LegacyStage51_CatalogOnlyTile12PreservesBarricadeContent()
         {
-            var stageId = StageId.CreateOrThrow("legacy-stage-5-1");
-            yield return AssertSceneBootstrapFirstFiveTicks(UIAudioScenePath, stageId);
-
-            var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
-            Assert.That(directPlayContext.Mode, Is.EqualTo(EditorDirectPlayMode.NonCampaign));
-            Assert.That(directPlayContext.StageId, Is.EqualTo(stageId));
-            Assert.That(directPlayContext.SuppressCampaignFlow, Is.True);
-
-            var host = Object.FindObjectsByType<GameplaySceneHost>(
-                    FindObjectsInactive.Exclude,
-                    FindObjectsSortMode.None)
-                .Single();
-            var expectedCell = new SurfaceCell(FaceId.Floor, 8, 0);
-
-            var registry = host.GetComponent<TileFeatureVisualRegistry>();
-            Assert.That(registry, Is.Not.Null);
-            Assert.That(registry.TryGetTileVisual(12, out var visualTarget), Is.True);
-            var targetView = visualTarget as TileFeatureVisualTargetView;
-            Assert.That(targetView, Is.Not.Null);
-            Assert.That(targetView.TileId, Is.EqualTo(12));
-            Assert.That(targetView.Cell, Is.EqualTo(expectedCell));
-
-            Assert.That(
-                targetView.gameObject.name,
-                Does.StartWith("TileFeature_Barricade_Default"),
-                "TileId 12 must instantiate the Barricade presentation prefab.");
-
-            var provider = targetView.GetComponent<TileFeatureVisualProfileProvider>();
-            Assert.That(provider, Is.Not.Null);
-            Assert.That(provider.TryGetProfile(TileFeatureKind.Barricade, out var profile), Is.True);
-            Assert.That(profile, Is.Not.Null);
-
-            var animator = targetView.DebugAnimator;
-            Assert.That(animator, Is.Not.Null);
-            var expectedActive = expectedCell.face == host.Presenter.CurrentTopology.FrontFace;
-            Assert.That(animator.GetBool("BarricadeActive"), Is.EqualTo(expectedActive));
+            var catalog = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
+                StageContentPaths.StageCatalogProviderAssetPath);
+            Assert.That(catalog, Is.Not.Null);
+            var entry = new StageCatalogResolver(catalog).ResolveOrThrow(
+                StageId.CreateOrThrow("legacy-stage-5-1"));
+            Assert.That(entry.CampaignParticipation, Is.EqualTo(CampaignParticipation.CatalogOnly));
+            var tile = entry.GameplayDefinition.TileFeatures.Single(feature => feature.TileId == 12);
+            Assert.That(tile.Kind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(tile.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 8, 0)));
+            var binding = entry.PresentationDefinition.TileFeaturePresentationBindings
+                .Single(value => value.TileId == 12);
+            Assert.That(binding.PresentationKey, Is.EqualTo("barricade.default"));
         }
+#endif
 
         [UnityTest]
         [Category("Core")]
         public IEnumerator ActualSceneBootstrap_UIAudioScene_DamageDeathVfxProductionPort_ReachesConcreteRuntimeWithoutMissingPort()
         {
             var stageId = StageId.CreateOrThrow("stage-0-1");
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            CampaignStageSceneTestLaunch.Prime(stageId);
             yield return LoadScene(UIAudioScenePath);
 
             var host = Object.FindObjectsByType<GameplaySceneHost>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
@@ -3591,8 +3689,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator ActualSceneBootstrap_UIAudioScene_TopologyRuntimeGate_ProductionBridgeLockCleanupAndDeterminism()
         {
             var stageId = StageId.CreateOrThrow("stage-0-1");
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            CampaignStageSceneTestLaunch.Prime(stageId);
             yield return LoadScene(UIAudioScenePath);
 
             var host = Object.FindObjectsByType<GameplaySceneHost>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
@@ -3729,7 +3826,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static IEnumerator AssertSceneBootstrapFirstFiveTicks(
             string scenePath,
             StageId stageId,
-            bool assertDirectPlayEvidence = false)
+            bool assertDirectPlayEvidence = false,
+            bool primeFromCaptureArguments = false)
         {
             var bootstrapRuntimeErrorCount = 0;
 
@@ -3746,11 +3844,20 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Application.logMessageReceived += CountBootstrapRuntimeErrors;
             try
             {
-                StageLaunchContextStore.SetCurrent(stageId);
-                EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+                if (primeFromCaptureArguments)
+                {
+                    Assert.That(PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                        new[] { "Game.exe", "--capture-stage", stageId.Value },
+                        logErrors: false, out var captureError), Is.True, captureError);
+                }
+                else
+                {
+                    CampaignStageSceneTestLaunch.Prime(stageId);
+                }
                 yield return LoadScene(scenePath);
 
-                Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(stageId), scenePath);
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False,
+                    $"{scenePath} must consume the Direct Play bootstrap context.");
 
                 var hosts = Object.FindObjectsByType<GameplaySceneHost>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
                 Assert.That(hosts, Has.Length.EqualTo(1), $"{scenePath} must have exactly one active GameplaySceneHost.");
@@ -3761,6 +3868,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(host.WorldState, Is.Not.Null, $"{scenePath} must reach the initial gameplay state.");
                 Assert.That(host.BoardRoot, Is.Not.Null, $"{scenePath} must create the runtime board root.");
                 Assert.That(host.UiAccess, Is.Not.Null, $"{scenePath} must expose UIAccess as the read/intent seam.");
+#if UNITY_EDITOR
+                if (scenePath == UIAudioScenePath)
+                {
+                    var cinemachineCamera = GameObject.Find("CinemachineCamera");
+                    Assert.That(cinemachineCamera, Is.Not.Null);
+                    Assert.That(cinemachineCamera.hideFlags, Is.EqualTo(HideFlags.NotEditable),
+                        "Runtime lens changes must be excluded from Cinemachine Save During Play.");
+                }
+#endif
 
                 AssertActiveEntityViews(host);
                 AssertAudioBootstrap(scenePath, host);
@@ -3804,7 +3920,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage4_3_SummonUsesArchetypePrefab()
         {
-            yield return LoadNonCampaignEntityViewScene("stage-4-3");
+            yield return LoadCampaignEntityViewScene("stage-4-3");
             var host = Object.FindFirstObjectByType<GameplaySceneHost>();
             const int summonerId = 59;
             var snapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
@@ -3854,7 +3970,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage3_2_MoonBlockRespawnReusesStaticBinding()
         {
-            yield return LoadNonCampaignEntityViewScene("stage-3-2");
+            yield return LoadCampaignEntityViewScene("stage-3-2");
             var host = Object.FindFirstObjectByType<GameplaySceneHost>();
             const int moonId = 240;
             Assert.That(host.ViewRegistry.TryGetView(moonId, out var initialView), Is.True);
@@ -3898,53 +4014,90 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_1_NonCampaignPlayerDeathRespawnRecreatesPrefabView()
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_1_PassiveContactDeathCommitsCampaignDefeat()
         {
-            // Normal campaign uses terminal death/reload with respawn disabled. This
-            // explicitly exercises the actual scene's supported noncampaign respawn.
-            yield return LoadNonCampaignEntityViewScene("stage-0-1");
+            yield return LoadCampaignEntityViewScene(
+                "stage-0-1", primeFromCaptureArguments: true);
             var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+            var installer = Object.FindFirstObjectByType<StageBackedGameplaySceneInstaller>();
+            Assert.That(installer, Is.Not.Null);
+            Assert.That(installer.CampaignRuntimeActive, Is.True);
+            Assert.That(installer.TerminalOutcomesEnabled, Is.True);
+            Assert.That(installer.HasCampaignFlowController, Is.True);
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
             var playerId = host.PlayerEntityId;
             var before = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
             Assert.That(before.TryGetEntity(playerId, out var player), Is.True);
-            Assert.That(host.ViewRegistry.TryGetView(playerId, out var initialView), Is.True);
-            var expectedMeshes = EntityViewMeshes(initialView);
-            SetEntityViewScenarioState(host.WorldState, "ApplyDamage", playerId, player.hp);
-            var death = host.InputHost.RunSingleTick();
-            Assert.That(death, Is.Not.Null);
-            Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(playerId, out _), Is.False);
-            host.Presenter.UpdatePresentation(10f);
-            Assert.That(host.ViewRegistry.Unregister(playerId), Is.True);
-            Object.Destroy(initialView.gameObject);
-            yield return null;
-            for (var attempt = 0; attempt < 240; attempt++)
+            const int attackerId = 165;
+            Assert.That(before.TryGetEntity(attackerId, out _), Is.True);
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            var initialChances = EditorDirectPlayContextStore.GetCurrentOrNone().RemainingChances;
+            Assert.That(initialChances, Is.EqualTo(2));
+            Assert.That(saveStore.LoadSlot(1).State.RemainingChances,
+                Is.EqualTo(initialChances));
+
+            SetEntityViewScenarioState(host.WorldState, "MoveEntity", attackerId, player.position);
+            var deathTick = host.InputHost.RunSingleTick();
+
+            Assert.That(deathTick, Is.Not.Null);
+            Assert.That(deathTick.PresentationData.PlayerDeathSignals, Has.Count.EqualTo(1));
+            Assert.That(deathTick.PresentationData.PlayerDeathSignals[0].EntityId,
+                Is.EqualTo(playerId));
+            Assert.That(deathTick.PresentationData.PlayerDeathSignals[0].SourceEntityId,
+                Is.EqualTo(attackerId));
+            Assert.That(deathTick.PresentationData.PlayerDeathHoldSignals, Has.Count.EqualTo(1));
+            Assert.That(deathTick.PresentationData.PlayerDeathHoldSignals[0].StartedThisTick,
+                Is.True);
+            Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState)
+                .TryGetEntity(playerId, out _), Is.False);
+            Assert.That(saveStore.LoadSlot(1).State.RemainingChances,
+                Is.EqualTo(initialChances - 1));
+            var transitionCoordinator = Object.FindFirstObjectByType<SceneTransitionCoordinator>();
+            Assert.That(transitionCoordinator, Is.Not.Null);
+            Assert.That(transitionCoordinator.LastResolvedRoutePolicy?.Intent,
+                Is.EqualTo(SceneTransitionIntent.DeathRetry));
+            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+
+            var sourceHostId = host.GetInstanceID();
+            GameplaySceneHost retryHost = null;
+            var retryDeadline = Time.realtimeSinceStartup + 15f;
+            while (retryHost == null && Time.realtimeSinceStartup < retryDeadline)
             {
-                host.Presenter.UpdatePresentation(1f);
-                var result = host.InputHost.RunSingleTick();
-                if (result != null && result.EventLog.Any(entry => entry.StartsWith($"RespawnCommitted|E={playerId}|", StringComparison.Ordinal)))
+                var hosts = Object.FindObjectsByType<GameplaySceneHost>(
+                    FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+                retryHost = hosts.FirstOrDefault(candidate =>
+                    candidate != null && candidate.GetInstanceID() != sourceHostId);
+                if (retryHost == null)
                 {
-                    Assert.That(GameplayCompositionRoot.CreateSnapshot(host.WorldState).TryGetEntity(playerId, out var respawned), Is.True);
-                    Assert.That(respawned.hp, Is.GreaterThan(0));
-                    Assert.That(host.ViewRegistry.TryGetView(playerId, out var restoredView), Is.True);
-                    Assert.That(restoredView, Is.Not.SameAs(initialView));
-                    Assert.That(restoredView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
-                    Assert.That(restoredView.GetComponent<PlayerAnimationTimingAuthoring>(), Is.Not.Null);
-                    host.Presenter.UpdatePresentation(10f);
-                    Assert.That(restoredView.gameObject.activeInHierarchy, Is.True);
-                    Assert.That(EntityViewMeshes(restoredView), Is.EqualTo(expectedMeshes));
-                    TestContext.WriteLine($"Actual scene noncampaign player respawn: entity={playerId}, tick={result.TickIndex}");
-                    yield break;
+                    yield return null;
                 }
-                yield return null;
             }
-            Assert.Fail("Actual scene noncampaign player did not respawn within 240 tick attempts.");
+
+            Assert.That(retryHost, Is.Not.Null,
+                "Capture death retry must reload the same stage into a new host.");
+            Assert.That(saveStore.LoadSlot(1).State.CurrentStageId,
+                Is.EqualTo(StageId.CreateOrThrow("stage-0-1")));
+            Assert.That(GameplayCompositionRoot.CreateSnapshot(retryHost.WorldState)
+                .TryGetEntity(retryHost.PlayerEntityId, out _), Is.True);
+            Assert.That(saveStore.LoadSlot(1).State.RemainingChances,
+                Is.EqualTo(initialChances - 1));
         }
 
-        private static IEnumerator LoadNonCampaignEntityViewScene(string stageName)
+        private static IEnumerator LoadCampaignEntityViewScene(
+            string stageName, bool primeFromCaptureArguments = false)
         {
             var stageId = StageId.CreateOrThrow(stageName);
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            if (primeFromCaptureArguments)
+            {
+                Assert.That(PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                    new[] { "Game.exe", "-captureStage", stageId.Value },
+                    logErrors: false, out var captureError), Is.True, captureError);
+            }
+            else
+            {
+                CampaignStageSceneTestLaunch.Prime(stageId);
+            }
             yield return LoadScene(UIAudioScenePath);
             var host = Object.FindFirstObjectByType<GameplaySceneHost>();
             Assert.That(host, Is.Not.Null);
@@ -4070,7 +4223,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(stageId.Value, Is.EqualTo("stage-1-1"), "This evidence smoke is scoped to stage-1-1.");
             Assert.That(scenePath, Is.EqualTo(UIAudioScenePath));
             Assert.That(stageId.Value, Is.Not.EqualTo("legacy-stage-5-1"));
-            Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(stageId), "requested id must be stage-1-1.");
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().StageId,
+                Is.EqualTo(stageId), "requested id must be stage-1-1.");
 
             var resolveRecord = CampaignChanceHudDiagnostics.Snapshot()
                 .SingleOrDefault(record => record.Kind == CampaignChanceHudDiagnosticKind.StageResolve);
@@ -4083,8 +4237,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(installerRecord, Is.Not.Null, "Runtime bootstrap must record installer diagnostics.");
             Assert.That(installerRecord.LaunchStageId, Is.EqualTo("stage-1-1"));
             Assert.That(installerRecord.ResolvedStageId, Is.EqualTo("stage-1-1"));
-            Assert.That(installerRecord.SuppressCampaignFlow, Is.True);
-            Assert.That(installerRecord.CampaignRuntimeActive, Is.False);
+            Assert.That(installerRecord.SuppressCampaignFlow, Is.False);
+            Assert.That(installerRecord.CampaignRuntimeActive, Is.True);
 
             Assert.That(host.WorldState, Is.Not.Null, "first gameplay state reached.");
             Assert.That(host.TickRunner.NextTickIndex, Is.GreaterThanOrEqualTo(1), "initial presentation refresh reached before manual tick smoke.");
@@ -4107,9 +4261,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Is.True);
             Assert.That(
                 ((GameplayTerminalTransitionPort)transitionPort).CurrentPlayback,
-                Is.Null);
-            Assert.That(TerminalSessionRegistry.IsActive, Is.False);
-            Assert.That(host.InputHost.IsTerminalHoldActive, Is.False);
+                Is.Not.Null);
+            Assert.That(TerminalSessionRegistry.IsActive, Is.True);
+            Assert.That(host.InputHost.IsTerminalHoldActive, Is.True);
         }
 
         private static void AssertSceneInstallerIntegrity(string scenePath)
@@ -4366,20 +4520,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             PrepareCampaignStage(stageId);
             yield return LoadScene(UIAudioScenePath);
-            Assert.That(
-                StageLaunchContextStore.TryPeek(out var directPlayBootstrapContext),
-                Is.True,
-                "Temp DirectPlay must own the scene-bootstrap launch context.");
-            Assert.That(
-                directPlayBootstrapContext.Source,
-                Is.EqualTo("editor-direct-play"));
-            Assert.That(
-                StageLaunchContextStore.TryConsume(
-                    directPlayBootstrapContext,
-                    out var consumedBootstrapContext),
-                Is.True,
-                "Production campaign bootstrap consumes its exact launch context before result navigation.");
-            Assert.That(consumedBootstrapContext, Is.EqualTo(directPlayBootstrapContext));
+            Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False,
+                "Temp DirectPlay must consume its scene-bootstrap context before result navigation.");
 
             var uiInstaller = Object.FindObjectsByType<GameplayUiFlowInstaller>(
                     FindObjectsInactive.Exclude,
@@ -5342,7 +5484,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             for (var i = SceneManager.sceneCount - 1; i >= 0; i--)
             {
                 var scene = SceneManager.GetSceneAt(i);
-                if (!scene.isLoaded)
+                if (!scene.isLoaded || SceneManager.sceneCount <= 1)
                 {
                     continue;
                 }

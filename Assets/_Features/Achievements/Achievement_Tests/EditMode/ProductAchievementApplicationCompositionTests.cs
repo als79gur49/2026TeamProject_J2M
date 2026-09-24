@@ -187,7 +187,6 @@ namespace Game.Product.Achievements.Tests
             Assert.That(host.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count, Is.EqualTo(1));
         }
 
-        [TestCase(EditorDirectPlayMode.NonCampaign)]
         [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
         [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
         public void LifetimeOwner_DirectPlayStartup_SkipsProfileRead(

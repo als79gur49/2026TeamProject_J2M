@@ -1,5 +1,10 @@
 # 런타임 아키텍처 다이어그램 검증 보고서
 
+> Historical snapshot from 2026-09-16. The current final execution stage is
+> `MoonBlockGeneration` (numeric value 4); player in-world respawn has been removed.
+> See [Tick Simulation Canonical Spec](./Tick-Simulation-Canonical-Spec.md) for
+> the current pipeline contract.
+
 - 조사일: 2026-09-16
 - 조사 방식: 저장소 코드, Unity Scene/설정, 패키지 및 문서의 읽기 전용 조사
 - 교차 검토: 1차 gameplay/UI·persistence/Steam·보고서 완전성 검토에 더해, Tick 실행 흐름·상태 변경 경계·presentation/결정성을 나눈 3개 독립 서브 에이전트가 반증 중심으로 재검토한 뒤 주 에이전트가 지적 근거를 재확인
@@ -599,4 +604,3 @@ VectorQuake는 메뉴 진행 정보와 실제 퍼즐·전투 상태를 분리해
 9. Steam client launch option으로 SteamWindows 실행 후 Init/App ID/login 진단.
 10. 테스트 계정의 achievement schema, 실제 unlock, callback과 재실행 reconciliation.
 11. Steam Cloud가 비활성이고 기존 local file을 덮어쓰지 않는지.
-

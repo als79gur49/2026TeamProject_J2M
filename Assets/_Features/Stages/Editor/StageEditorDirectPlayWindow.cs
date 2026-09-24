@@ -9,7 +9,7 @@ namespace Game.Feature.Stages.Editor
     {
         private readonly List<StageId> _stageIds = new();
         private readonly List<string> _stageLabels = new();
-        private EditorDirectPlayMode _mode = EditorDirectPlayMode.NonCampaign;
+        private EditorDirectPlayMode _mode = EditorDirectPlayMode.CampaignTempSlot;
         private int _productionSlot = 1;
         private int _remainingChances = CampaignSaveSlotPolicy.DefaultRemainingChances;
         private int _selectedStageIndex;
@@ -39,7 +39,14 @@ namespace Game.Feature.Stages.Editor
             }
 
             _selectedStageIndex = EditorGUILayout.Popup("StageId", _selectedStageIndex, _stageLabels.ToArray());
-            _mode = (EditorDirectPlayMode)EditorGUILayout.EnumPopup("Mode", _mode);
+            _mode = (EditorDirectPlayMode)EditorGUILayout.IntPopup(
+                "Mode",
+                (int)_mode,
+                new[] { "Temporary Campaign Slot", "Production Campaign Slot" },
+                new[] {
+                    (int)EditorDirectPlayMode.CampaignTempSlot,
+                    (int)EditorDirectPlayMode.CampaignProductionSlot,
+                });
             _remainingChances = EditorGUILayout.IntPopup(
                 "Remaining Chances",
                 _remainingChances,
@@ -75,9 +82,12 @@ namespace Game.Feature.Stages.Editor
                         _productionSlot);
                 }
 
-                if (GUILayout.Button("Clear Temp Direct Play Save"))
+                using (new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode))
                 {
-                    StageEditorDirectPlayLauncher.ClearTemporaryCampaignState();
+                    if (GUILayout.Button("Clear Temp Direct Play Save"))
+                    {
+                        StageEditorDirectPlayLauncher.ClearTemporaryCampaignState();
+                    }
                 }
             }
 
@@ -98,11 +108,21 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
+            var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                StageContentPaths.CampaignStageSequenceAssetPath);
+            if (definition == null)
+            {
+                return;
+            }
+
+            var sequence = new CampaignStageSequenceResolver(definition);
+
             var entries = provider.LoadEntries();
             for (var i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
-                if (entry == null || !entry.StageId.IsValid)
+                if (entry == null || !entry.StageId.IsValid ||
+                    !sequence.Contains(entry.StageId))
                 {
                     continue;
                 }

@@ -1,8 +1,8 @@
 # Player 미사용 액션 및 UI 이동 명령 경로 제거 설계
 
-- 상태: A/B1/B2 구현 및 아래 자동 검증 완료. 수동 Editor/Player 조작 검증은 미실행이며 전체 close 조건은 아직 충족하지 않았다. 1~6절은 실행에 사용한 설계이고 현재 결과는 7절을 따른다.
+- 상태: A/B1/B2 구현과 `main`의 플레이어 재생성 제거 계약을 통합해 자동 검증했다. 수동 Editor/Player 조작 검증은 미실행이며 전체 close 조건은 아직 충족하지 않았다. 1~6절은 원래 실행 설계, 7절은 통합 전 기록, 8절은 현재 통합 결과다.
 - 작성일: 2026-09-25 KST.
-- 검토 기준: `c9b765235c03b5fde281c1f0f62f8488cf7c2bd1` 및 해당 working tree의 현재 소스.
+- 원 설계 검토 기준: `c9b765235c03b5fde281c1f0f62f8488cf7c2bd1`. 8절의 통합 기준은 PR head `e21707597`과 `main` `2ffc71ffc`다.
 - 목적: 제품 소비자가 없는 Player 액션 7개와 UI 이동 명령 경로를 제거하면서 기존 키 설정, 실제 게임 입력, HUD query 및 Host 수명주기를 보존한다.
 - 실행 단위: A(액션 에셋), B1(policy 소유권 이전), B2(UI 이동 경로 제거). A와 B는 독립적이며 B2는 B1 이후에 수행한다.
 
@@ -10,7 +10,7 @@
 
 | 분류 | 내용 |
 | --- | --- |
-| StrongContract — 보존 | Move/Push/Flip 입력 의미, Push/Flip binding ID 기반 저장 호환성, 이동 버퍼와 입력 시각 소유권, Pause·terminal·scene-entry·respawn·presentation 차단, completed snapshot freshness, presentation-only UI 경계 |
+| StrongContract — 보존 | Move/Push/Flip 입력 의미, Push/Flip binding ID 기반 저장 호환성, 이동 버퍼와 입력 시각 소유권, Pause·terminal·scene-entry·presentation gate와 사망 후 영구 입력 차단, completed snapshot freshness, presentation-only UI 경계 |
 | 명시적으로 폐기할 공개면 | `IGameplayCommandGateway`, Context/FlowPorts의 `CommandGateway`, UI held-direction 전달. 기존 architecture/type-shape 테스트는 새 공개면에 맞춰 이관한다. |
 | CurrentPolicy — 보존 | 맵 enable/disable 복구, 0.125초 이동 버퍼, 물리 키 입력 순서와 Push/Flip 방향 캡처, 현재 Pause의 일반 입력 보존 방식 |
 | 제거 대상 에셋 데이터 | Player/Look, Attack, Crouch, Jump, Previous, Next, Sprint 및 이들에 속한 바인딩 |
@@ -234,3 +234,16 @@ A의 호환성/import 실패는 이 작업의 에셋·테스트 변경만 되돌
 - 소스 기준: `c9b765235c03b5fde281c1f0f62f8488cf7c2bd1` + 보존된 working-tree patch/source hashes. 이 작업에서는 커밋하지 않았다.
 - 미실행: 사람의 실제 키보드/마우스 Editor·Player smoke, broad unfiltered full, 별도 graphics/render lanes 및 Player build. 자동 씬/가상 장치 테스트를 수동 조작 증거로 간주하지 않는다.
 - 보존: 기존 untracked 두 파일과 inputactions meta의 SHA-256은 작업 시작과 동일하다. 삭제한 C# meta GUID의 Assets/ProjectSettings 잔여 참조는 0이다.
+
+## 8. `main` 통합 — 2026-09-25
+
+`main`의 플레이어 재생성 제거(`3b3b35b79`) 이후 임시 respawn-delay 차단은 현재 계약이 아니다. `GameplayInputHost`는 사망 신호를 받으면 입력과 후속 tick을 영구 차단하고, 그 전까지 Push/Flip 입력 시점 방향 캡처와 행동 재생 잠금을 유지한다. 사망 결과 처리에서는 행동 잠금 갱신 후 사망 차단이 pending 입력을 지운다. UI held-direction 경로는 복구하지 않는다.
+
+Factory의 구성 실패 `try/catch`와 Host Context의 admission-policy/feed 소유권을 유지하면서, `main`이 제거한 respawn timing 및 Context 생성자 인수는 되살리지 않았다. 자동 병합 테스트의 폐기된 Gateway 더블은 `NoOpLifetime`으로 이관했다. 기존 사망·캠페인 테스트에는 사망 후 Move/Push/Flip 재입력과 자동/수동 tick 차단 검증을 추가했다.
+
+- 같은 통합 working tree에서 `./run_tests.sh core`: EditMode `293 passed / 0 failed`, PlayMode `109 passed / 4 graphics skips / 0 failed`.
+- `./run_tests.sh full --filter PipelineDestroyTileDeathAndObjectiveClear_FeedCommitsDefeatOnceAndBlocksInput`: EditMode `1 passed / 0 failed`, PlayMode `0 selected`.
+- Factory policy와 Push/Flip 입력 10개 사례의 filtered `full`: EditMode `11 passed / 0 failed`, PlayMode `10 passed / 0 failed`.
+- `./run_tests.sh ui`: Windows build와 EditMode `1623 passed / 0 failed`.
+- 증거: `/mnt/d/J2M/evidence/pr221-main-integration-20260925/`. 최초 Core 실행은 오래된 Unity 생성 `.csproj`가 제거된 RespawnProcessor 파일을 참조해 Windows build 전에 중단됐다. 생성 파일을 증거 폴더로 옮긴 뒤 runner의 cold-checkout import 경로로 재실행해 최종 Core가 통과했다.
+- 미실행: 수동 Editor/Player 입력·사망 전환, 별도 Player build, 그래픽 전용 검사, 필터 없는 broad `full`. 따라서 통합된 자동 검증 범위만 주장한다.

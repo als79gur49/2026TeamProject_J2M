@@ -417,36 +417,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState.CreateSnapshot().TryGetPlacementBlocker(EntityType.Unit, solidCell, EnemyId, out _),
                 Is.True);
 
-            var before = DumpOccupancy(worldState.CreateSnapshot());
             var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
 
             AssertNoForwardCellProjectileStarted(worldState);
             Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
             Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
-            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
+            Assert.That(GetEntity(worldState, 60).position, Is.EqualTo(solidCell));
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.Not.EqualTo(solidCell));
         }
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_AttackModeSolidBlocked_FallsBackToChase()
+        public void BlackEye_ForwardCellProjectile_AttackModeSolidBlocked_FallsBackToPatrol()
         {
             var solidCell = new SurfaceCell(FaceId.Floor, 2, 0);
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
             var worldState = CreateCombatWorld(
                 targetCell,
                 extraEntities: new[] { CreateBox(61, solidCell) });
-            var before = DumpOccupancy(worldState.CreateSnapshot());
-
             var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
             var enemy = GetEntity(worldState, EnemyId);
 
-            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(tick.Trace.Text, Does.Contain("Reason=ForwardProjectilePathBlockedBySolid"));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(enemy.position, Is.Not.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)),
+                "An unblocked patrol step should remain available after losing a target behind Solid.");
+            Assert.That(tick.Trace.Text, Does.Contain("Reason=NoTarget"));
             AssertNoForwardCellProjectileStarted(worldState);
             Assert.That(tick.PresentationData.ForwardCellProjectileWindupSignals, Is.Empty);
             Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
             Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
-            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
+            Assert.That(GetEntity(worldState, 61).position, Is.EqualTo(solidCell));
+            Assert.That(enemy.position, Is.Not.EqualTo(solidCell));
         }
 
         [Test]
@@ -474,14 +475,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateCombatWorld(
                 targetCell,
                 extraEntities: new[] { CreateBox(70, solidCell) });
-            var before = DumpOccupancy(worldState.CreateSnapshot());
-
             var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
 
             AssertNoForwardCellProjectileStarted(worldState);
             Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
             Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
-            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
+            Assert.That(GetEntity(worldState, 70).position, Is.EqualTo(solidCell));
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.Not.EqualTo(solidCell));
         }
 
         [Test]

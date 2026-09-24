@@ -1539,12 +1539,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void ScopedDeletionPrep_GridTransactions_AreNotDeletionCandidates()
         {
             BoundaryInventory_GridTransactionsRemainAllowed_UnderDefaultGameplayLocomotion();
-            BoundaryInventory_SpawnRespawnCleanup_NotOrdinaryMovement();
+            BoundaryInventory_PlayerCleanup_DoesNotRespawnOrReportOrdinaryMovement();
         }
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_SpawnRespawnCleanup_NotOrdinaryMovement()
+        public void BoundaryInventory_PlayerCleanup_DoesNotRespawnOrReportOrdinaryMovement()
         {
             var worldState = CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0), hp: 1) });
             var pipeline = CreatePipeline(
@@ -1554,19 +1554,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             ((IAttackCommitContext)worldState.CreateWriteContext()).MarkDestroy(10);
             var cleanupTick = pipeline.RunTick(new TickInput(1));
-            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(cleanupTick.EventLog), Does.Contain(10));
-            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(cleanupTick);
+            var laterTick = pipeline.RunTick(new TickInput(2));
 
-            var respawnTick = pipeline.RunTick(new TickInput(2));
-            Assert.That(
-                respawnTick.PresentationData.TransitionVisibilityChanges.Any(change => change.EntityId == 10) ||
-                respawnTick.EventLog.Any(entry => entry.Contains("RespawnCommitted|E=10", StringComparison.Ordinal)),
-                Is.True);
-            Assert.That(
-                respawnTick.Trace.Text.Contains("Boundary=SpawnRespawnPlacement", StringComparison.Ordinal) ||
-                respawnTick.Trace.Text.Contains("BoundaryReason=PlayerRespawnPlacement", StringComparison.Ordinal),
-                Is.True);
-            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(respawnTick);
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(cleanupTick.EventLog), Does.Contain(10));
+            Assert.That(laterTick.FinalEntities.Any(entity => entity.entityId == 10), Is.False);
+            Assert.That(laterTick.PresentationData.EntitySpawnSignals, Is.Empty);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(cleanupTick);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(laterTick);
         }
 
         [Test]

@@ -537,8 +537,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var configuration = CreateConfiguration(
                     new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
                     campaignChancesReadSource: source);
-                // Keep the actor absent through the real Respawn stage using the existing campaign option.
-                configuration.DisablePlayerRespawn = true;
                 host.Initialize(configuration);
                 CampaignChanceHudDiagnostics.Clear();
                 AssertNondefaultChances(host.UiAccess.QueryFacade.PlayerHud.Read());

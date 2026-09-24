@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 snapshot,
                 AttackPhaseResult.Empty,
                 CleanupPhaseResult.Empty,
-                RespawnPhaseResult.Empty,
+                MoonBlockGenerationPhaseResult.Empty,
                 snapshot,
                 owned,
                 ownedHash);
@@ -88,7 +88,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 snapshot,
                 AttackPhaseResult.Empty,
                 CleanupPhaseResult.Empty,
-                RespawnPhaseResult.Empty,
+                MoonBlockGenerationPhaseResult.Empty,
                 snapshot,
                 copied,
                 copiedHash);

@@ -19,7 +19,7 @@ function Get-RestartFailureDetails([Exception]$Failure, [string[]]$Redact = @())
     while ($queue.Count -gt 0 -and $count -lt 16) {
         $error = $queue.Pop(); $count++
         $lines.Add("Exception $count`: $($error.GetType().FullName) HResult: $($error.HResult)")
-        foreach ($key in @('RestartOperation', 'NativeOperation', 'TargetPid')) {
+        foreach ($key in @('RestartOperation', 'NativeOperation', 'TargetPid', 'OriginalSteamPid', 'ShutdownCommandPid', 'ShutdownCommandExitConfirmed')) {
             if ($error.Data.Contains($key)) { $lines.Add("$key`: $($error.Data[$key])") }
         }
         if ($error -is [ComponentModel.Win32Exception]) { $lines.Add("NativeErrorCode: $($error.NativeErrorCode)") }

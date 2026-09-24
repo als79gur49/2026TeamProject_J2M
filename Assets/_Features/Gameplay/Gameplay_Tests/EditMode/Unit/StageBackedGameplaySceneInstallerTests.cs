@@ -755,7 +755,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var configuration = BuildConfiguration(installer);
                 activeSlotProvider.SetActiveSlot(2);
 
-                Assert.That(configuration.DisablePlayerRespawn, Is.True);
                 Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
                 var runningSlotContext = ReadInstallerPrivateField<CampaignRunningSlotContext>(
                     installer,
@@ -1565,7 +1564,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StageBackedGameplaySceneInstaller_CampaignTempContextWithoutTempState_SkipsChanceSource()
+        public void StageBackedGameplaySceneInstaller_CampaignTempContextWithoutTempState_RejectsBeforeGameplay()
         {
             var installerObject = new GameObject(
                 "StageBackedGameplaySceneInstaller_CampaignTempContextWithoutTempState_SkipsChanceSource");
@@ -1583,10 +1582,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EditorDirectPlayContextStore.SetCurrent(
                     EditorDirectPlayContext.CreateCampaignTempSlot(launchStageId, remainingChances: 2));
 
-                var configuration = BuildConfiguration(installer);
-
-                Assert.That(configuration.CampaignChancesReadSource, Is.Null);
-                Assert.That(configuration.DisablePlayerRespawn, Is.False);
+                var rejection = Assert.Throws<TargetInvocationException>(() => BuildConfiguration(installer));
+                Assert.That(rejection.InnerException, Is.TypeOf<InvalidOperationException>());
+                Assert.That(rejection.InnerException.Message, Does.Contain("active Campaign slot"));
                 var installerRecord = CampaignChanceHudDiagnostics.Snapshot()
                     .LastOrDefault(record => record.Kind == CampaignChanceHudDiagnosticKind.Installer);
                 Assert.That(installerRecord, Is.Not.Null);
@@ -1611,10 +1609,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StageBackedGameplaySceneInstaller_NonCampaignDirectPlayContext_SuppressesChanceSource()
+        public void StageBackedGameplaySceneInstaller_NoCampaignSlot_RejectsBeforeGameplay()
         {
             var installerObject = new GameObject(
-                "StageBackedGameplaySceneInstaller_NonCampaignDirectPlayContext_SuppressesChanceSource");
+                "StageBackedGameplaySceneInstaller_NoCampaignSlot_RejectsBeforeGameplay");
             var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
 
             try
@@ -1625,21 +1623,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntryForProductionLaunch(installer, launchStageId);
                 AssignTimingPresets(installer);
-                EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(launchStageId));
+                EditorDirectPlayContextStore.Clear();
+                AssignCampaignStores(installer,
+                    new TransientCampaignSaveSlotStore(CreateTransientNamespace("no-slot-save")),
+                    new ActiveSlotProvider(new TransientActiveSlotStorage(
+                        CreateTransientNamespace("no-slot-active"))));
 
-                var configuration = BuildConfiguration(installer);
-
-                Assert.That(configuration.CampaignChancesReadSource, Is.Null);
-                Assert.That(configuration.DisablePlayerRespawn, Is.False);
+                var rejection = Assert.Throws<TargetInvocationException>(() => BuildConfiguration(installer));
+                Assert.That(rejection.InnerException, Is.TypeOf<InvalidOperationException>());
+                Assert.That(rejection.InnerException.Message, Does.Contain("active Campaign slot"));
                 var installerRecord = CampaignChanceHudDiagnostics.Snapshot()
                     .LastOrDefault(record => record.Kind == CampaignChanceHudDiagnosticKind.Installer);
                 Assert.That(installerRecord, Is.Not.Null);
-                Assert.That(installerRecord.EditorDirectPlayMode, Is.EqualTo(EditorDirectPlayMode.NonCampaign));
-                Assert.That(installerRecord.SuppressCampaignFlow, Is.True);
+                Assert.That(installerRecord.EditorDirectPlayMode, Is.EqualTo(EditorDirectPlayMode.None));
+                Assert.That(installerRecord.SuppressCampaignFlow, Is.False);
                 Assert.That(installerRecord.UsesTemporaryCampaignState, Is.False);
                 Assert.That(installerRecord.CampaignRuntimeActive, Is.False);
                 Assert.That(installerRecord.SourceIsNull, Is.True);
-                Assert.That(installerRecord.FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.EditorDirectPlaySuppressed));
+                Assert.That(installerRecord.FailureReason, Is.EqualTo(CampaignChanceReadFailureReason.NoActiveSlot));
             }
             finally
             {
@@ -1678,7 +1679,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssignStageContentEntryForProductionLaunch(installer, stageId);
                 AssignTimingPresets(installer);
                 EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(stageId));
+                    EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances: 2));
 
                 var exception = Assert.Throws<TargetInvocationException>(() => BuildConfiguration(installer));
 
@@ -1742,7 +1743,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
-                DisableCampaignFlow(installer);
 
                 var configuration = BuildConfiguration(installer);
                 var buildResult = StageRuntimeBuilder.Build(configuration.StageContentEntry.GameplayDefinition);
@@ -1767,7 +1767,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
-                DisableCampaignFlow(installer);
 
                 var configuration = BuildConfiguration(installer);
                 var resolvedPresentation =
@@ -2125,15 +2124,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(presentationField, Is.Not.Null);
             presentationField.SetValue(installer, presentationPreset);
-        }
-
-        private static void DisableCampaignFlow(StageBackedGameplaySceneInstaller installer)
-        {
-            var campaignFlowField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
-                "enableCampaignFlow",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(campaignFlowField, Is.Not.Null);
-            campaignFlowField.SetValue(installer, false);
         }
 
         private static IGameplayEntityViewFactory CreateViewFactory(
@@ -2821,7 +2811,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new TickResult(
                 tickIndex,
-                new[] { TickPhase.Plan, TickPhase.Resolve, TickPhase.Finalize, TickPhase.Cleanup, TickPhase.Respawn },
+                new[] { TickPhase.Plan, TickPhase.Resolve, TickPhase.Finalize, TickPhase.Cleanup, TickPhase.MoonBlockGeneration },
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,

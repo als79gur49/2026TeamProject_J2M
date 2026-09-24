@@ -52,17 +52,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly Camera outputCamera;
         private readonly GameplayPresentationStateStore stateStore;
         private readonly float cellSize;
+        private readonly GameplayCameraViewSnapshot? destinationCameraView;
 
         public EnemyDeathMotionTargetResolver(
             Transform localSpaceRoot,
             Camera outputCamera,
             GameplayPresentationStateStore stateStore,
-            float cellSize)
+            float cellSize,
+            GameplayCameraViewSnapshot? destinationCameraView = null)
         {
             this.localSpaceRoot = localSpaceRoot;
             this.outputCamera = outputCamera;
             this.stateStore = stateStore;
             this.cellSize = cellSize;
+            this.destinationCameraView = destinationCameraView;
         }
 
         public bool TryResolveDeathMotionTarget(
@@ -88,7 +91,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 targetLocalPose,
                 outputCamera,
                 cellSize,
-                presentationSeed);
+                presentationSeed,
+                destinationCameraView);
             target = new EnemyDeathMotionTarget(
                 plan.TargetLocalPosition,
                 sourceLocalPose.Rotation,
