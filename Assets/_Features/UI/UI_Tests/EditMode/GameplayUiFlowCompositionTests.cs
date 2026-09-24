@@ -17,11 +17,56 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.UI;
 
 namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiFlowCompositionTests
     {
+        [Test]
+        public void UiEventSystemNavigationActionUtility_ReactivationKeepsPointerActionsAndClearsNavigationAgain()
+        {
+            var root = new GameObject(nameof(UiEventSystemNavigationActionUtility_ReactivationKeepsPointerActionsAndClearsNavigationAgain));
+            try
+            {
+                root.AddComponent<EventSystem>();
+                var module = root.AddComponent<InputSystemUIInputModule>();
+                var utilityType = typeof(GameplayUiFlowInstaller).Assembly.GetType(
+                    "Game.Feature.UI.Composition.UiEventSystemNavigationActionUtility");
+                Assert.That(utilityType, Is.Not.Null);
+                var disableNavigation = utilityType.GetMethod(
+                    "DisableNavigationActions", BindingFlags.Static | BindingFlags.NonPublic);
+                Assert.That(disableNavigation, Is.Not.Null);
+
+                for (var cycle = 0; cycle < 2; cycle++)
+                {
+                    if (cycle > 0)
+                    {
+                        module.enabled = false;
+                        module.enabled = true;
+                    }
+
+                    var point = module.point;
+                    var leftClick = module.leftClick;
+                    var scroll = module.scrollWheel;
+                    Assert.That(point, Is.Not.Null);
+                    Assert.That(leftClick, Is.Not.Null);
+                    Assert.That(scroll, Is.Not.Null);
+                    disableNavigation.Invoke(null, new object[] { module });
+                    Assert.That(module.move, Is.Null);
+                    Assert.That(module.submit, Is.Null);
+                    Assert.That(module.cancel, Is.Null);
+                    Assert.That(module.point, Is.SameAs(point));
+                    Assert.That(module.leftClick, Is.SameAs(leftClick));
+                    Assert.That(module.scrollWheel, Is.SameAs(scroll));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
         [TestCase(DemoStageControlOpenKey.F10, Key.F10, Key.Backquote)]
         [TestCase(DemoStageControlOpenKey.BackQuote, Key.Backquote, Key.F10)]
         public void DemoStageControlHotkey_UsesSelectedPressEdge_AndHandlesKeyboardReconnect(
@@ -301,7 +346,14 @@ namespace Game.Feature.UI.Tests
 
                 var eventSystem = Object.FindFirstObjectByType<EventSystem>();
                 Assert.That(eventSystem, Is.Not.Null);
-                Assert.That(eventSystem.GetComponent("InputSystemUIInputModule"), Is.Not.Null);
+                var inputModule = eventSystem.GetComponent<InputSystemUIInputModule>();
+                Assert.That(inputModule, Is.Not.Null);
+                Assert.That(inputModule.move, Is.Null);
+                Assert.That(inputModule.submit, Is.Null);
+                Assert.That(inputModule.cancel, Is.Null);
+                Assert.That(inputModule.point, Is.Not.Null);
+                Assert.That(inputModule.leftClick, Is.Not.Null);
+                Assert.That(inputModule.scrollWheel, Is.Not.Null);
                 Assert.That(eventSystem.GetComponent<StandaloneInputModule>(), Is.Null);
 
                 Assert.That(installer.RootView, Is.Not.Null);

@@ -47,17 +47,23 @@
 - Current four-locale representative layout-boundary rerun: green on 2026-09-22 KST, Windows UI build passed and Unity UI EditMode `1528 total / 0 failed`; the existing 12-capture Settings/Pause/Main Menu fixture now rejects localized TMP overflow, glyph meshes outside authored text rectangles beyond a bounded two-unit bearing tolerance, and glyph meshes outside the capture frame for en-US/ko-KR/ja-JP/zh-CN. The clean-revision `127bc453770f5fddb9ebbc11bc69b3c17f7bdfd5` visual lane passed 12 canonical captures, 16 M2B dynamic captures, and four Stage save-slot diagnostics at 1920x1080 with no guarded-asset mutation; evidence is `/mnt/d/J2M/evidence/typography-visual/CommandLine-20260922-042424`.
 - Current main-integration rerun: green on 2026-09-22 KST after the localization branch was merged with current `origin/main`; Windows UI build passed and the second Unity UI EditMode run passed `1609 total / 0 failed`. The first cold-worktree run completed package and asset import but reported `1609 total / 59 failed` because Unity Localization initialization had not completed; no source or guarded font asset mutation occurred, and the same worktree rerun closed that initialization-only failure.
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1622 total / 0 failed` (demo hotkey keyboard bridge simplification, 2026-09-25; two UI input cases added)
-- Baseline test result: command `./run_tests.sh ui`, result `1622 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1623 total / 0 failed` (EventSystem navigation action direct access, 2026-09-25; one UI lifecycle case added)
+- Baseline test result: command `./run_tests.sh ui`, result `1623 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current visual result: automated `./run_tests.sh typography-visual` passed on clean revision `127bc453770f5fddb9ebbc11bc69b3c17f7bdfd5` on 2026-09-22 KST for four-locale representative 1920x1080 coverage; the prior user-performed manual visual validation remains the 2026-09-05 KST result and does not independently cover the later ja-JP/zh-CN addition
 - Current KBO interpretation: 19/19 ko-KR roles use KBO Dia Gothic Medium/Light with Normal style and authored sizing, managed glyph fallback is 0, and the Pause/audio/display layout contracts remain guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
-- Result XML: `/mnt/d/J2M/evidence/keyboard-bridge-20260925-012711/ui-isolated/test-results/wsl-unity-ui-editmode.xml`
-- Unity log: `/mnt/d/J2M/evidence/keyboard-bridge-20260925-012711/ui-isolated/test-results/wsl-unity-ui-editmode.log`
-- Build log: `/mnt/d/J2M/evidence/keyboard-bridge-20260925-012711/ui-isolated/test-results/wsl-dotnet-ui.log`
+- Result XML: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/ui/test-results/wsl-unity-ui-editmode.xml`
+- Unity log: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/ui/test-results/wsl-unity-ui-editmode.log`
+- Build log: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/ui/test-results/wsl-dotnet-ui.log`
 
 ## Structural Delta
+
+### UI EventSystem navigation action direct access (2026-09-25)
+
+- The Main Menu and Gameplay EventSystem installers now obtain `InputSystemUIInputModule` directly and clear its public `move`, `submit`, and `cancel` action references. The nine reflection-name probes and module type lookup are removed. `UiNavigationInputRouter` still dispatches navigation while the Input System module retains pointer input.
+- One UI lifecycle case was added for module reactivation and reapplication; the existing Gameplay UI composition case now checks that navigation actions are null and point/left-click/scroll references remain connected. No tests were removed, renamed, merged or split; no prefab migration or new product ownership. The selected input actions and UI navigation router were not changed.
+- UI Windows build and EditMode passed `1623/0`. Navigation action cleanup is repeated when either installer ensures the EventSystem; the test verifies the module's default actions can return on reactivation and be cleared again without dropping pointer references. Evidence: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/validation-summary.md`. Manual Editor/Player interaction and broad full were not run.
 
 ### Demo hotkey keyboard bridge simplification (2026-09-25)
 

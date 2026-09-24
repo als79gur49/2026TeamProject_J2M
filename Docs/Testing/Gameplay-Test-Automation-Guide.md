@@ -160,6 +160,12 @@
 
 ## UI baseline governance / UI baseline governance
 
+### UI EventSystem navigation action direct access (2026-09-25)
+
+- The Main Menu and Gameplay EventSystem installers now obtain `InputSystemUIInputModule` directly and clear its public `move`, `submit`, and `cancel` action references. The nine reflection-name probes and module type lookup are removed. `UiNavigationInputRouter` still dispatches navigation while the Input System module retains pointer input.
+- One UI lifecycle case was added for module reactivation and reapplication; the existing Gameplay UI composition case now checks that navigation actions are null and point/left-click/scroll references remain connected. No tests were removed, renamed, merged or split; no prefab migration or new product ownership. The selected input actions and UI navigation router were not changed.
+- UI Windows build and EditMode passed `1623/0`. Navigation action cleanup is repeated when either installer ensures the EventSystem; the test verifies the module's default actions can return on reactivation and be cleared again without dropping pointer references. Evidence: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/validation-summary.md`. Manual Editor/Player interaction and broad full were not run.
+
 ### Demo hotkey keyboard bridge simplification (2026-09-25)
 
 - Replaced F10/BackQuote reflection reads with null-safe `Keyboard.current` access. Removed keyboard/key property metadata, including the Escape metadata used only to discover `wasPressedThisFrame`. Key selection, rebind/transition gates, panel toggling and the separate navigation utility are unchanged.
