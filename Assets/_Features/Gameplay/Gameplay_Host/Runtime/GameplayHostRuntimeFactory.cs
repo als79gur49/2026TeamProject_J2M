@@ -260,7 +260,6 @@ namespace Game.Feature.Gameplay.Host
                 generalTimingProfile,
                 configuration.PlayerEntityId,
                 configuration.MoveDeadzone,
-                configuration.DirectionChangeConsumesDelay,
                 configuration.AutoAdvanceTicks,
                 configuration.TerminalSessionReadModel,
                 configuration.SceneEntryPresentationReadModel);

@@ -50,27 +50,5 @@ namespace Game.Feature.Gameplay.Loop
         {
             return _inputsByTick.ContainsKey(tickIndex);
         }
-
-        public void ClearBefore(int tickIndex)
-        {
-            if (_inputsByTick.Count == 0)
-            {
-                return;
-            }
-
-            var ticksToClear = new List<int>();
-            foreach (var pendingTickIndex in _inputsByTick.Keys)
-            {
-                if (pendingTickIndex < tickIndex)
-                {
-                    ticksToClear.Add(pendingTickIndex);
-                }
-            }
-
-            for (var i = 0; i < ticksToClear.Count; i++)
-            {
-                _inputsByTick.Remove(ticksToClear[i]);
-            }
-        }
     }
 }

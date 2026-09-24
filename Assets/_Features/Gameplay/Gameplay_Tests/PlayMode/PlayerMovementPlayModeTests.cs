@@ -2570,7 +2570,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplayInputHost_FlipBufferedDuringDirectionChangeDelay_UsesSampledDirection()
+        public IEnumerator GameplayInputHost_FlipAfterDirectionChange_PreservesProjectedViewState()
         {
             var host = CreateHost(
                 new[]
@@ -2580,8 +2580,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 },
                 actions: null,
                 staticEntityLogics: null,
-                initialMoveDelaySeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
-                directionChangeConsumesDelay: true);
+                initialMoveDelaySeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
@@ -3072,7 +3071,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             IEntityLogic[] staticEntityLogics = null,
             float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
-            bool directionChangeConsumesDelay = false,
             float moveMotionDurationSeconds = 0.2f,
             float itemConsumeEffectDurationSeconds = -1f,
             float boxDestroyEffectDurationSeconds = -1f,
@@ -3098,7 +3096,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 staticEntityLogics,
                 initialMoveDelaySeconds,
                 repeatedMoveIntervalSeconds,
-                directionChangeConsumesDelay,
                 moveMotionDurationSeconds,
                 itemConsumeEffectDurationSeconds,
                 boxDestroyEffectDurationSeconds,
@@ -3125,7 +3122,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             IEntityLogic[] staticEntityLogics,
             float initialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds,
-            bool directionChangeConsumesDelay,
             float moveMotionDurationSeconds,
             float itemConsumeEffectDurationSeconds,
             float boxDestroyEffectDurationSeconds,
@@ -3179,7 +3175,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 AutoCreateViews = true,
                 BoxSlideStepIntervalSeconds = 0.2f,
                 CellSize = 1f,
-                DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 FlipArcHeightInCells = 0.65f,
                 FlipMotionDurationSeconds = 0.2f,
                 InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),

@@ -70,7 +70,6 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile,
             int playerEntityId,
             float moveDeadzone,
-            bool directionChangeConsumesDelay,
             bool autoAdvanceTicks,
             ITerminalSessionReadModel terminalSession,
             ISceneEntryPresentationReadModel sceneEntrySession = null)
@@ -276,13 +275,6 @@ namespace Game.Feature.Gameplay.Host
             _accumulatedTime = 0f;
         }
 
-        internal void ExitTerminalHold()
-        {
-            EnsureInitialized();
-            _isTerminalHoldActive = false;
-            _terminalHoldToken = default;
-        }
-
         internal bool TryExitTerminalHold(TerminalSessionToken token)
         {
             EnsureInitialized();
@@ -392,8 +384,7 @@ namespace Game.Feature.Gameplay.Host
 
         internal void ClearPendingUiInput()
         {
-            EnsureInitialized();
-            _uiHeldMoveDirection = Direction.None;
+            ClearUiHeldMoveDirection();
         }
 
         private void Update()
@@ -557,8 +548,6 @@ namespace Game.Feature.Gameplay.Host
         {
             ClearPendingPlayerInput();
             ClearPendingUiInput();
-            _sampledMoveInput = Vector2.zero;
-            _keyboardMoveOrderTracker?.Reset();
             _accumulatedTime = 0f;
         }
 
@@ -625,7 +614,6 @@ namespace Game.Feature.Gameplay.Host
             _sampledMoveInput = Vector2.zero;
             _heldDirectionBeforeInputUpdate = Direction.None;
             _hasInputUpdateDirectionSnapshot = false;
-            _keyboardMoveOrderTracker?.Reset();
             _moveIntentBuffer?.Reset();
         }
 
@@ -1236,23 +1224,6 @@ namespace Game.Feature.Gameplay.Host
 
             keyboardPath = null;
             return false;
-        }
-
-        private static bool IsRawDirectionActive(Vector2 rawInput, Direction direction, float deadzone)
-        {
-            switch (direction)
-            {
-                case Direction.Up:
-                    return rawInput.y > deadzone;
-                case Direction.Right:
-                    return rawInput.x > deadzone;
-                case Direction.Down:
-                    return rawInput.y < -deadzone;
-                case Direction.Left:
-                    return rawInput.x < -deadzone;
-                default:
-                    return false;
-            }
         }
 
         private static Direction FromIndex(int index)
