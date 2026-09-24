@@ -3882,6 +3882,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(host.WorldState, Is.Not.Null, $"{scenePath} must reach the initial gameplay state.");
                 Assert.That(host.BoardRoot, Is.Not.Null, $"{scenePath} must create the runtime board root.");
                 Assert.That(host.UiAccess, Is.Not.Null, $"{scenePath} must expose UIAccess as the read/intent seam.");
+#if UNITY_EDITOR
+                if (scenePath == UIAudioScenePath)
+                {
+                    var cinemachineCamera = GameObject.Find("CinemachineCamera");
+                    Assert.That(cinemachineCamera, Is.Not.Null);
+                    Assert.That(cinemachineCamera.hideFlags, Is.EqualTo(HideFlags.NotEditable),
+                        "Runtime lens changes must be excluded from Cinemachine Save During Play.");
+                }
+#endif
 
                 AssertActiveEntityViews(host);
                 AssertAudioBootstrap(scenePath, host);
