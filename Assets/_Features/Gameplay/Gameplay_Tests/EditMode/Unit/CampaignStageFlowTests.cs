@@ -467,6 +467,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     entry,
                     campaignStageSequenceResolver: resolver);
                 uiAccess = new GameplayHostUiAccessContext(
+                    new NoOpLifetime(),
                     new NoOpGameplayCommandGateway(),
                     new NoOpGameplayQueryFacade(),
                     feed,
@@ -3472,6 +3473,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 return new AchievementEarnBatchResult(_result, values);
             }
+        }
+
+        private sealed class NoOpLifetime : IDisposable
+        {
+            public void Dispose() { }
         }
 
         private sealed class NoOpGameplayCommandGateway : IGameplayCommandGateway

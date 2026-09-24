@@ -7,7 +7,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 {
     public sealed class GameplayHostUiAccessContext : IDisposable
     {
+        private readonly IDisposable _admissionPolicyLifetime;
+        private bool _isDisposed;
+
         public GameplayHostUiAccessContext(
+            IDisposable admissionPolicyLifetime,
             IGameplayCommandGateway commandGateway,
             IGameplayQueryFacade queryFacade,
             IGameplayPresentationFeed presentationFeed,
@@ -16,6 +20,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             IDemoStageControlCompletionBridge demoStageControlCompletionBridge = null,
             CampaignStageSequenceResolver campaignStageSequenceResolver = null)
         {
+            _admissionPolicyLifetime = admissionPolicyLifetime ?? throw new ArgumentNullException(nameof(admissionPolicyLifetime));
             CommandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             PresentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
@@ -41,14 +46,19 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public void Dispose()
         {
-            if (CommandGateway is IDisposable disposableCommandGateway)
+            if (_isDisposed)
             {
-                disposableCommandGateway.Dispose();
+                return;
             }
 
-            if (PresentationFeed is IDisposable disposableFeed)
+            _isDisposed = true;
+            try
             {
-                disposableFeed.Dispose();
+                _admissionPolicyLifetime.Dispose();
+            }
+            finally
+            {
+                (PresentationFeed as IDisposable)?.Dispose();
             }
         }
     }

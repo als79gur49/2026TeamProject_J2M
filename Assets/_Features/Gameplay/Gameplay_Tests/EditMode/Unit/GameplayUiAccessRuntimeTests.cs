@@ -868,6 +868,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [TestCase(false, 0.150f)]
+        [TestCase(true, 0.124f)]
+        [TestCase(true, 0.126f)]
+        [Category("Extended")]
+        public void PauseService_PreservesPhysicalHeldInputAndReleasedBufferExpiry(bool released, float resumeTime)
+        {
+            var hostObject = new GameObject(nameof(PauseService_PreservesPhysicalHeldInputAndReleasedBufferExpiry));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) }));
+                var now = 0f;
+                host.InputHost.InputTimeProvider = () => now;
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.UiAccess.PauseService.Pause();
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                Assert.That(host.UiAccess.QueryFacade.Session.Read().CanAcceptGameplayCommands, Is.False);
+                if (released)
+                {
+                    now = 0.060f;
+                    host.InputHost.SetRawMoveInput(Vector2.zero);
+                }
+
+                now = resumeTime;
+                host.UiAccess.PauseService.Resume();
+                var command = BuildInputCommand(host.InputHost);
+                var expected = !released || resumeTime <= 0.125f ? Direction.Right : Direction.None;
+                Assert.That(command.MoveDirection, Is.EqualTo(expected));
+                Assert.That(command.HeldMoveDirection, Is.EqualTo(released ? Direction.None : Direction.Right));
+                Assert.That(command.IsMoveBuffered, Is.EqualTo(released && expected != Direction.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
         [Test]
         [Category("Core")]
         public void PauseService_PauseTwiceResumeOnce_RemainsSimulationAndPresentationPaused()

@@ -265,50 +265,77 @@ namespace Game.Feature.Gameplay.Host
                 configuration.SceneEntryPresentationReadModel);
             var pauseService = new GameplayHostPauseService(inputHost, presenter);
             var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, tickRunner, inputHost, presenter, pauseService);
-            var presentationBarrierTracker = new GameplayPresentationBarrierTracker();
-            var presentationFeed = new GameplayHostPresentationFeed(
-                inputHost,
-                presenter,
-                configuration.StageContentEntry,
-                generalTimingProfile,
-                presentationBarrierTracker,
-                configuration.CampaignStageSequenceResolver);
-            var uiAccess = new GameplayHostUiAccessContext(
-                new GameplayHostCommandGateway(inputHost, admissionPolicy),
-                new GameplayQueryFacade(
-                    new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
-                    new GameplayHostStageQuery(configuration.StageContentEntry),
-                    new GameplayHostPlayerHudQuery(
-                        inputHost,
-                        admissionPolicy,
-                        configuration.CampaignChancesReadSource),
-                    new GameplayHostObjectiveQuery(tickRunner, presentationBarrierTracker),
-                    new GameplayHostSurfaceButtonRemainderQuery(admissionPolicy, tileFeatureDefinitions)),
-                presentationFeed,
-                pauseService,
-                demoGameplayOverrideRuntime,
-                new GameplayHostDemoStageControlCompletionBridge(presentationFeed),
-                configuration.CampaignStageSequenceResolver);
+            GameplayHostPresentationFeed presentationFeed = null;
+            GameplayHostUiAccessContext uiAccess = null;
+            try
+            {
+                var presentationBarrierTracker = new GameplayPresentationBarrierTracker();
+                presentationFeed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    configuration.StageContentEntry,
+                    generalTimingProfile,
+                    presentationBarrierTracker,
+                    configuration.CampaignStageSequenceResolver);
+                uiAccess = new GameplayHostUiAccessContext(
+                    admissionPolicy,
+                    new GameplayHostCommandGateway(inputHost, admissionPolicy),
+                    new GameplayQueryFacade(
+                        new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
+                        new GameplayHostStageQuery(configuration.StageContentEntry),
+                        new GameplayHostPlayerHudQuery(
+                            inputHost,
+                            admissionPolicy,
+                            configuration.CampaignChancesReadSource),
+                        new GameplayHostObjectiveQuery(tickRunner, presentationBarrierTracker),
+                        new GameplayHostSurfaceButtonRemainderQuery(admissionPolicy, tileFeatureDefinitions)),
+                    presentationFeed,
+                    pauseService,
+                    demoGameplayOverrideRuntime,
+                    new GameplayHostDemoStageControlCompletionBridge(presentationFeed),
+                    configuration.CampaignStageSequenceResolver);
 
-            return new GameplayHostRuntimeContext(
-                boardRoot,
-                boardSurfaceRenderer,
-                inputBuffer,
-                inputHost,
-                presenter,
-                generalTimingProfile,
-                tickRunner,
-                viewRegistry,
-                tileFeatureVisualRegistry,
-                viewCameraTarget,
-                worldState,
-                configuration.ObjectiveRuntimeDefinition,
-                viewCamera,
-                startupPlan.OutputCamera,
-                viewCameraRig,
-                presentedInitialEntities,
-                uiAccess,
-                playerRespawnTiming.RespawnDelayTicks);
+                return new GameplayHostRuntimeContext(
+                    boardRoot,
+                    boardSurfaceRenderer,
+                    inputBuffer,
+                    inputHost,
+                    presenter,
+                    generalTimingProfile,
+                    tickRunner,
+                    viewRegistry,
+                    tileFeatureVisualRegistry,
+                    viewCameraTarget,
+                    worldState,
+                    configuration.ObjectiveRuntimeDefinition,
+                    viewCamera,
+                    startupPlan.OutputCamera,
+                    viewCameraRig,
+                    presentedInitialEntities,
+                    uiAccess,
+                    playerRespawnTiming.RespawnDelayTicks);
+            }
+            catch
+            {
+                // Until the context is returned, the factory owns subscription cleanup.
+                if (uiAccess != null)
+                {
+                    uiAccess.Dispose();
+                }
+                else
+                {
+                    try
+                    {
+                        admissionPolicy.Dispose();
+                    }
+                    finally
+                    {
+                        presentationFeed?.Dispose();
+                    }
+                }
+
+                throw;
+            }
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(
