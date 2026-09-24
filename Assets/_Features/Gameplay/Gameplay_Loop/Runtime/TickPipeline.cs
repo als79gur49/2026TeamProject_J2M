@@ -672,7 +672,9 @@ namespace Game.Feature.Gameplay.Loop
             var consumedPlayerActionAttemptEntityIds = new HashSet<int>();
             var playerActionAttemptBatch = new FinalizationBatch();
             CollectPreMovementPlayerActionAttemptResolutions(
+                snapshotAfterEnemyAi,
                 planSnapshot,
+                preMovementStateResult.PlayerActionTransitions,
                 input.PlayerCommand,
                 input.TickIndex,
                 rejectedReasons,
@@ -2295,25 +2297,9 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private void CollectPreMovementPlayerActionAttemptResolutions(
+            WorldSnapshot preMovementSnapshot,
             WorldSnapshot snapshot,
-            PlayerTickCommand playerCommand,
-            int tickIndex,
-            List<string> rejectedReasons,
-            FinalizationBatch batch,
-            List<PlayerActionAttemptResolution> playerActionAttemptResolutions)
-        {
-            CollectPreMovementPlayerActionAttemptResolutions(
-                snapshot,
-                playerCommand,
-                tickIndex,
-                rejectedReasons,
-                batch,
-                playerActionAttemptResolutions,
-                consumedPlayerActionAttemptEntityIds: null);
-        }
-
-        private void CollectPreMovementPlayerActionAttemptResolutions(
-            WorldSnapshot snapshot,
+            IReadOnlyList<PlayerActionTransition> preMovementActionTransitions,
             PlayerTickCommand playerCommand,
             int tickIndex,
             List<string> rejectedReasons,
@@ -2371,10 +2357,91 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 AddPlayerActionAttemptResolution(playerActionAttemptResolutions, attemptResolution);
+                RecordFailedPlayerInteractionFacing(
+                    preMovementSnapshot,
+                    snapshot,
+                    preMovementActionTransitions,
+                    entity,
+                    attemptResolution,
+                    tickIndex,
+                    batch);
                 if (attemptResolution.ConsumesMovement)
                 {
                     consumedPlayerActionAttemptEntityIds?.Add(entity.entityId);
                 }
+            }
+        }
+
+        private static void RecordFailedPlayerInteractionFacing(
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot attemptSnapshot,
+            IReadOnlyList<PlayerActionTransition> preMovementActionTransitions,
+            in EntityState entity,
+            in PlayerActionAttemptResolution attempt,
+            int tickIndex,
+            FinalizationBatch batch)
+        {
+            var direction = attempt.ResolvedActionDirection;
+            if (!DirectionUtility.IsCardinal(direction) ||
+                attempt.FailureCause == PlayerActionAttemptFailureCause.TargetLocked ||
+                attempt.FailureCause == PlayerActionAttemptFailureCause.InvalidDirection)
+            {
+                return;
+            }
+
+            var hadPreMovementTransition = false;
+            for (var i = 0; i < preMovementActionTransitions.Count; i++)
+            {
+                var transition = preMovementActionTransitions[i];
+                if (transition.EntityId != entity.entityId)
+                {
+                    continue;
+                }
+
+                if (transition.PreviousKind != PlayerActionKind.None)
+                {
+                    return;
+                }
+
+                hadPreMovementTransition = true;
+                break;
+            }
+
+            if (!hadPreMovementTransition ||
+                !preMovementSnapshot.CanStartAction(entity.entityId, tickIndex))
+            {
+                return;
+            }
+
+            preMovementSnapshot.TryGetPlayerControlState(entity.entityId, out var preMovementControlState);
+            preMovementControlState = PlayerControlQueries.ClearExpiredExplicitActionGate(
+                preMovementControlState,
+                tickIndex);
+            if (!PlayerControlQueries.CanStartExplicitAction(preMovementControlState, tickIndex) ||
+                (attempt.FailureCause == PlayerActionAttemptFailureCause.FlipLandingBlocked &&
+                 !UnitSpatialQuery.IsSettledAtAnchor(preMovementSnapshot, entity.entityId)))
+            {
+                return;
+            }
+
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.None,
+                entity.entityId,
+                actionPlanId: 0,
+                boundaryReason: "PlayerFailedInteractionFacing");
+            if (entity.facing != direction)
+            {
+                batch.SetFacing(entity.entityId, direction, metadata);
+            }
+
+            if (attemptSnapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var pose) &&
+                pose.HasAuthoritativeState &&
+                pose.State.facing != direction)
+            {
+                var state = pose.State;
+                state.facing = direction;
+                batch.SetUnitContinuousLocomotionState(entity.entityId, state, metadata);
             }
         }
 
@@ -2401,11 +2468,13 @@ namespace Game.Feature.Gameplay.Loop
             var targetEntityId = 0;
             var hasTarget = false;
             var emitsVisualFeedback = true;
+            var failureCause = PlayerActionAttemptFailureCause.General;
 
             if (queuedActionKind == PlayerQueuedFree2DActionKind.None ||
                 direction == Direction.None)
             {
                 feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
+                failureCause = PlayerActionAttemptFailureCause.InvalidDirection;
             }
             else
             {
@@ -2430,6 +2499,7 @@ namespace Game.Feature.Gameplay.Loop
                     hasTarget = true;
                     feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
                     emitsVisualFeedback = false;
+                    failureCause = PlayerActionAttemptFailureCause.TargetLocked;
                 }
                 else if (PlayerControlQueries.TryResolveFree2DActionAssistCandidate(
                         snapshot,
@@ -2469,6 +2539,7 @@ namespace Game.Feature.Gameplay.Loop
                     hasTarget = true;
                     feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
                     emitsVisualFeedback = false;
+                    failureCause = PlayerActionAttemptFailureCause.FlipLandingBlocked;
                 }
             }
 
@@ -2479,6 +2550,8 @@ namespace Game.Feature.Gameplay.Loop
                 feedbackKind,
                 consumesMovement: true,
                 emitsFakePresentation: true,
+                direction,
+                failureCause,
                 targetEntityId,
                 hasTarget,
                 emitsVisualFeedback);

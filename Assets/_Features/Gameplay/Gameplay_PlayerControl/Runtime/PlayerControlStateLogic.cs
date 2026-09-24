@@ -122,13 +122,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                     : input.PlayerCommand.MoveDirection;
             var flipResultTurnTransition = default(PlayerFlipResultTurnTransition);
 
-            if (!previousAction.IsActive &&
-                canStartSettledAction &&
-                DirectionUtility.IsCardinal(facingDirection))
-            {
-                writeContext.SetFacing(_entityId, facingDirection);
-            }
-
             if (previousAction.IsActive)
             {
                 if (!previousAction.executionAttempted &&
@@ -167,7 +160,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                              entity,
                              nextState,
                              input.TickIndex,
-                             writeContext,
                              updates,
                              out var queuedFlipResultTurnTransition,
                              out var queuedStartState))
@@ -237,6 +229,19 @@ namespace Game.Feature.Gameplay.PlayerControl
                 }
             }
 
+            if (!previousAction.IsActive &&
+                canStartSettledAction &&
+                (nextState.activeAction.IsActive || !hasInteractionInput))
+            {
+                var resolvedFacing = nextState.activeAction.IsActive
+                    ? nextState.activeAction.direction
+                    : facingDirection;
+                if (DirectionUtility.IsCardinal(resolvedFacing))
+                {
+                    writeContext.SetFacing(_entityId, resolvedFacing);
+                }
+            }
+
             UpdateMovementOwnedPhasedState(
                 snapshot,
                 input.TickIndex,
@@ -269,7 +274,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             in EntityState entity,
             in PlayerControlState state,
             int tickIndex,
-            IPreMovementStateCommitContext writeContext,
             List<string> updates,
             out PlayerFlipResultTurnTransition flipResultTurnTransition,
             out PlayerControlState nextState)
@@ -283,11 +287,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                     if (!PlayerControlQueries.TryResolvePushContact(snapshot, entity, queuedAction.direction, tickIndex, out var pushTarget))
                     {
                         return false;
-                    }
-
-                    if (entity.facing != queuedAction.direction)
-                    {
-                        writeContext.SetFacing(_entityId, queuedAction.direction);
                     }
 
                     nextState = PlayerControlQueries.StartAction(
@@ -306,11 +305,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                     if (!PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, queuedAction.direction, tickIndex, out var flipTarget))
                     {
                         return false;
-                    }
-
-                    if (entity.facing != queuedAction.direction)
-                    {
-                        writeContext.SetFacing(_entityId, queuedAction.direction);
                     }
 
                     nextState = PlayerControlQueries.StartAction(

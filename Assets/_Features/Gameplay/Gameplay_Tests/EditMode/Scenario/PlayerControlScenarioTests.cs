@@ -713,6 +713,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(attemptSignal.EmitsVisualFeedback, Is.False);
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
         }

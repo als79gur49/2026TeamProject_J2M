@@ -2079,6 +2079,81 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 reason.Contains("Reason=NoActionCandidate")), Is.True);
         }
 
+        [TestCase(PlayerActionKind.Push)]
+        [TestCase(PlayerActionKind.Flip)]
+        [Category("Extended")]
+        public void FailedInteraction_OffCenterNoTarget_TurnsEntityAndContinuousFacingWithoutMoving(
+            PlayerActionKind actionKind)
+        {
+            var startCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(CreatePlayer(10, startCell, facing: Direction.Right));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(
+                1,
+                CreatePlayerActionCommand(actionKind, Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(startCell));
+            Assert.That(player.facing, Is.EqualTo(Direction.Up));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.facing, Is.EqualTo(Direction.Up));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(state.localOffset.Y.RawValue, Is.Zero);
+            Assert.That(state.velocity, Is.EqualTo(SimulationVelocity2.Zero));
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            Assert.That(state.sequenceId, Is.EqualTo(1));
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].ActionKind, Is.EqualTo(actionKind));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].Direction, Is.EqualTo(Direction.Up));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].FeedbackKind,
+                Is.EqualTo(PlayerActionAttemptFeedbackKind.NoTarget));
+        }
+
+        [TestCase(PlayerActionKind.Push)]
+        [TestCase(PlayerActionKind.Flip)]
+        [Category("Extended")]
+        public void FailedInteraction_SettledLockedTarget_KeepsFacingWithoutVisualFeedback(
+            PlayerActionKind actionKind)
+        {
+            var startCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var boxCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                CreatePlayer(10, startCell, facing: Direction.Up),
+                CreateBox(20, boxCell, BoxCapabilities.Push | BoxCapabilities.Flip));
+            worldState.CreateWriteContext().SetBoxInteractionLockState(
+                20,
+                new BoxInteractionLockState(
+                    100,
+                    0,
+                    expiresTickExclusive: 8,
+                    blocksPush: true,
+                    blocksFlip: true));
+            var pipeline = CreateDefaultGameplayPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(
+                1,
+                CreatePlayerActionCommand(actionKind, Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(startCell));
+            Assert.That(player.facing, Is.EqualTo(Direction.Up));
+            Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(boxCell));
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].HasTarget, Is.True);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].EmitsVisualFeedback, Is.False);
+        }
+
         [Test]
         [Category("Extended")]
         public void Free2DActionAssist_NoActionCandidate_EmitsDeterministicRejectTrace()
@@ -2227,6 +2302,39 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(20));
             Assert.That(executeResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+        }
+
+        [TestCase(PlayerActionKind.Push, BoxCapabilities.Push)]
+        [TestCase(PlayerActionKind.Flip, BoxCapabilities.Flip)]
+        [Category("Extended")]
+        public void Free2DActionAssist_DirectionlessAction_KeepsQueuedFacingWhenOtherDirectionArrivesAtStart(
+            PlayerActionKind actionKind,
+            BoxCapabilities capability)
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10, facing: Direction.Right),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), capability));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1, CreatePlayerActionCommand(actionKind, Direction.None)));
+            var queuedSnapshot = worldState.CreateSnapshot();
+            Assert.That(queuedSnapshot.TryGetPlayerControlState(10, out var queuedControlState), Is.True);
+            Assert.That(queuedControlState.queuedFree2DAction.direction, Is.EqualTo(Direction.Right));
+
+            var settledTick = RunUntilSettledWithoutAction(pipeline, worldState, firstTick: 2);
+            var startResult = pipeline.RunTick(new TickInput(settledTick + 1, PlayerTickCommand.Move(Direction.Up)));
+            var startSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(startSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(actionKind));
+            Assert.That(controlState.activeAction.direction, Is.EqualTo(Direction.Right));
+            Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(20));
+            Assert.That(startSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
+            Assert.That(startResult.PresentationData.PlayerActionSignals.Any(signal =>
+                signal.EntityId == 10 && signal.StartedThisTick), Is.True);
+            Assert.That(startResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
         }
 
         [Test]

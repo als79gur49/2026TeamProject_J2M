@@ -63,6 +63,9 @@ namespace Game.Feature.Gameplay.Host
         public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
             PresentationCoordinator.IsPlayerActionAttemptPlaybackActive(entityId);
 
+        public bool IsPlayerInteractionPlaybackActive(int entityId) =>
+            PresentationCoordinator.IsPlayerInteractionPlaybackActive(entityId);
+
         public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
             PresentationCoordinator.CurrentTopologyTransitionVisualState;
 

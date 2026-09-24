@@ -355,6 +355,9 @@ namespace Game.Feature.Gameplay.Host
         public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
             _animationSync.IsPlayerActionAttemptHoldActive(entityId);
 
+        public bool IsPlayerInteractionPlaybackActive(int entityId) =>
+            _animationSync.IsPlayerInteractionHoldActive(entityId);
+
         public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
             _topologyTransitionController.CurrentVisualState;
 

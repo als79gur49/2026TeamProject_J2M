@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Stages;
 using Game.Shared.Input;
 using UnityEngine;
@@ -17,10 +18,15 @@ namespace Game.Feature.Gameplay.Host
         private float _accumulatedTime;
         private bool _areActionsBound;
         private bool _autoAdvanceTicks;
+        private bool _isPlayerActionInputLocked;
         private bool _hasBufferedFlip;
         private bool _hasBufferedPush;
+        private Direction _bufferedFlipDirection;
+        private Direction _bufferedPushDirection;
         private bool _isInitialized;
         private bool _isKeyboardMoveOrderTrackerActionChangeSubscribed;
+        private bool _isInputUpdateDirectionSubscribed;
+        private bool _hasInputUpdateDirectionSnapshot;
         private bool _isPlayerRespawnDelayInputBlocked;
         private bool _isRebuildingKeyboardMoveOrderTracker;
         private bool _isSimulationPaused;
@@ -42,6 +48,7 @@ namespace Game.Feature.Gameplay.Host
         private Vector2 _sampledMoveInput;
         private float _simulationTickIntervalSeconds;
         private Direction _uiHeldMoveDirection;
+        private Direction _heldDirectionBeforeInputUpdate;
 
         public event Action<TickResult> TickCompleted;
 
@@ -120,8 +127,13 @@ namespace Game.Feature.Gameplay.Host
             _accumulatedTime = 0f;
             _hasBufferedFlip = false;
             _hasBufferedPush = false;
+            _bufferedFlipDirection = Direction.None;
+            _bufferedPushDirection = Direction.None;
+            _isPlayerActionInputLocked = false;
             _sampledMoveInput = Vector2.zero;
             _uiHeldMoveDirection = Direction.None;
+            _heldDirectionBeforeInputUpdate = Direction.None;
+            _hasInputUpdateDirectionSnapshot = false;
             _isSimulationPaused = false;
             _isTerminalHoldActive = false;
             _isPlayerRespawnDelayInputBlocked = false;
@@ -211,6 +223,7 @@ namespace Game.Feature.Gameplay.Host
 
             var result = _runner.RunNextTick();
             ApplyAcceptedBufferedInput(result);
+            UpdatePlayerActionInputLock(result);
             RefreshPlayerRespawnDelayInputBlock(result);
             // Presentation-state queries can run during Present before completed-snapshot caches refresh on TickCompleted.
             _presenter.Present(result);
@@ -295,6 +308,13 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            if (IsPlayerInteractionInputLocked())
+            {
+                _sampledMoveInput = rawMoveInput;
+                _moveIntentBuffer?.Reset();
+                return;
+            }
+
             var previousMoveInput = _sampledMoveInput;
             _sampledMoveInput = rawMoveInput;
             var now = ResolveCurrentInputTime();
@@ -305,22 +325,46 @@ namespace Game.Feature.Gameplay.Host
         public void BufferFlip()
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            BufferFlip(ResolveHeldDirectionAtActionPress());
+        }
+
+        private void BufferFlip(Direction capturedDirection)
+        {
+            EnsureInitialized();
+            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked || IsPlayerInteractionInputLocked())
             {
                 return;
             }
 
+            if (_hasBufferedFlip)
+            {
+                return;
+            }
+
+            _bufferedFlipDirection = capturedDirection;
             _hasBufferedFlip = true;
         }
 
         public void BufferPush()
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            BufferPush(ResolveHeldDirectionAtActionPress());
+        }
+
+        private void BufferPush(Direction capturedDirection)
+        {
+            EnsureInitialized();
+            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked || IsPlayerInteractionInputLocked())
             {
                 return;
             }
 
+            if (_hasBufferedPush)
+            {
+                return;
+            }
+
+            _bufferedPushDirection = capturedDirection;
             _hasBufferedPush = true;
         }
 
@@ -417,6 +461,7 @@ namespace Game.Feature.Gameplay.Host
             _areActionsBound = true;
             RebuildKeyboardMoveOrderTracker();
             SubscribeMoveActionChanges();
+            SubscribeInputUpdateDirection();
         }
 
         private void EnsureInitialized()
@@ -529,21 +574,22 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnFlipPerformed(InputAction.CallbackContext context)
         {
-            BufferFlip();
+            BufferFlip(ResolveHeldDirectionBeforeInputUpdate());
         }
 
         private void OnFlipStarted(InputAction.CallbackContext context)
         {
-            BufferFlip();
+            BufferFlip(ResolveHeldDirectionBeforeInputUpdate());
         }
 
         private void OnPushStarted(InputAction.CallbackContext context)
         {
-            BufferPush();
+            BufferPush(ResolveHeldDirectionBeforeInputUpdate());
         }
 
         private void UnbindActions()
         {
+            UnsubscribeInputUpdateDirection();
             UnsubscribeMoveActionChanges();
 
             if (_moveAction != null)
@@ -573,12 +619,47 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _areActionsBound = false;
-            _hasBufferedFlip = false;
-            _hasBufferedPush = false;
+            _isPlayerActionInputLocked = false;
+            ClearPendingPlayerActionInput();
             _uiHeldMoveDirection = Direction.None;
             _sampledMoveInput = Vector2.zero;
+            _heldDirectionBeforeInputUpdate = Direction.None;
+            _hasInputUpdateDirectionSnapshot = false;
             _keyboardMoveOrderTracker?.Reset();
             _moveIntentBuffer?.Reset();
+        }
+
+        private void SubscribeInputUpdateDirection()
+        {
+            if (_isInputUpdateDirectionSubscribed)
+            {
+                return;
+            }
+
+            InputSystem.onBeforeUpdate += CaptureHeldDirectionBeforeInputUpdate;
+            _isInputUpdateDirectionSubscribed = true;
+        }
+
+        private void UnsubscribeInputUpdateDirection()
+        {
+            if (!_isInputUpdateDirectionSubscribed)
+            {
+                return;
+            }
+
+            InputSystem.onBeforeUpdate -= CaptureHeldDirectionBeforeInputUpdate;
+            _isInputUpdateDirectionSubscribed = false;
+        }
+
+        private void CaptureHeldDirectionBeforeInputUpdate()
+        {
+            if (!_areActionsBound)
+            {
+                return;
+            }
+
+            _heldDirectionBeforeInputUpdate = ResolveHeldDirectionAtActionPress();
+            _hasInputUpdateDirectionSnapshot = true;
         }
 
         private void SubscribeMoveActionChanges()
@@ -651,8 +732,8 @@ namespace Game.Feature.Gameplay.Host
         private void ClearPendingPlayerInput()
         {
             _sampledMoveInput = Vector2.zero;
-            _hasBufferedFlip = false;
-            _hasBufferedPush = false;
+            _isPlayerActionInputLocked = false;
+            ClearPendingPlayerActionInput();
             _keyboardMoveOrderTracker?.Reset();
             _moveIntentBuffer?.Reset();
         }
@@ -682,7 +763,7 @@ namespace Game.Feature.Gameplay.Host
                 return PlayerTickCommand.None;
             }
 
-            if (IsPlayerActionAttemptPlaybackActive())
+            if (IsPlayerInteractionInputLocked())
             {
                 _moveIntentBuffer?.ClearBufferedDirection();
                 ClearPendingPlayerActionInput();
@@ -713,9 +794,10 @@ namespace Game.Feature.Gameplay.Host
 
             var flipPressed = _hasBufferedFlip;
             var pushPressed = _hasBufferedPush;
+            var bufferedFlipDirection = _bufferedFlipDirection;
+            var bufferedPushDirection = _bufferedPushDirection;
 
-            _hasBufferedFlip = false;
-            _hasBufferedPush = false;
+            ClearPendingPlayerActionInput();
 
             if (pushPressed)
             {
@@ -723,7 +805,9 @@ namespace Game.Feature.Gameplay.Host
                     resolvedDirection,
                     pushPressed: true,
                     isMoveBuffered: usesBufferedDirection,
-                    heldMoveDirection: heldMoveDirection);
+                    heldMoveDirection: heldMoveDirection,
+                    hasCapturedActionDirection: true,
+                    capturedActionDirection: bufferedPushDirection);
             }
 
             if (flipPressed)
@@ -732,7 +816,9 @@ namespace Game.Feature.Gameplay.Host
                     resolvedDirection,
                     flipPressed: true,
                     isMoveBuffered: usesBufferedDirection,
-                    heldMoveDirection: heldMoveDirection);
+                    heldMoveDirection: heldMoveDirection,
+                    hasCapturedActionDirection: true,
+                    capturedActionDirection: bufferedFlipDirection);
             }
 
             if (resolvedDirection == Direction.None)
@@ -790,15 +876,50 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private bool IsPlayerActionAttemptPlaybackActive()
+        private void UpdatePlayerActionInputLock(TickResult result)
         {
-            return _presenter != null && _presenter.IsPlayerActionAttemptPlaybackActive(_playerEntityId);
+            var signals = result.PresentationData.PlayerActionSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId != _playerEntityId)
+                {
+                    continue;
+                }
+
+                _isPlayerActionInputLocked =
+                    signal.ActiveActionKind != PlayerActionKind.None &&
+                    !signal.CompletedThisTick &&
+                    !signal.CanceledThisTick;
+            }
+        }
+
+        private bool IsPlayerInteractionInputLocked()
+        {
+            return _isPlayerActionInputLocked ||
+                   (_presenter != null && _presenter.IsPlayerInteractionPlaybackActive(_playerEntityId));
+        }
+
+        private Direction ResolveHeldDirectionAtActionPress()
+        {
+            return _uiHeldMoveDirection != Direction.None
+                ? _uiHeldMoveDirection
+                : ResolveSampledMoveDirection();
+        }
+
+        private Direction ResolveHeldDirectionBeforeInputUpdate()
+        {
+            return _hasInputUpdateDirectionSnapshot
+                ? _heldDirectionBeforeInputUpdate
+                : ResolveHeldDirectionAtActionPress();
         }
 
         private void ClearPendingPlayerActionInput()
         {
             _hasBufferedFlip = false;
             _hasBufferedPush = false;
+            _bufferedFlipDirection = Direction.None;
+            _bufferedPushDirection = Direction.None;
         }
 
         private void RefreshMoveInputFromAction()

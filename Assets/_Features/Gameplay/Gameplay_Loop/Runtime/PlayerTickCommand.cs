@@ -10,7 +10,9 @@ namespace Game.Feature.Gameplay.Loop
             bool pushPressed = false,
             bool flipPressed = false,
             bool isMoveBuffered = false,
-            Direction heldMoveDirection = Direction.None)
+            Direction heldMoveDirection = Direction.None,
+            bool hasCapturedActionDirection = false,
+            Direction capturedActionDirection = Direction.None)
         {
             if (moveDirection == Direction.None && isMoveBuffered)
             {
@@ -35,10 +37,21 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentOutOfRangeException(nameof(heldMoveDirection), heldMoveDirection, "Player held move directions only support orthogonal move directions.");
             }
 
+            if (capturedActionDirection != Direction.None &&
+                capturedActionDirection != Direction.Up &&
+                capturedActionDirection != Direction.Right &&
+                capturedActionDirection != Direction.Down &&
+                capturedActionDirection != Direction.Left)
+            {
+                throw new ArgumentOutOfRangeException(nameof(capturedActionDirection), capturedActionDirection, "Captured action directions only support orthogonal directions.");
+            }
+
             MoveDirection = moveDirection;
             PushPressed = pushPressed;
             FlipPressed = flipPressed;
             IsMoveBuffered = isMoveBuffered;
+            HasCapturedActionDirection = hasCapturedActionDirection;
+            CapturedActionDirection = capturedActionDirection;
             HeldMoveDirection = heldMoveDirection == Direction.None &&
                                 moveDirection != Direction.None &&
                                 !pushPressed &&
@@ -57,6 +70,10 @@ namespace Game.Feature.Gameplay.Loop
         public bool IsMoveBuffered { get; }
 
         public Direction HeldMoveDirection { get; }
+
+        public bool HasCapturedActionDirection { get; }
+
+        public Direction CapturedActionDirection { get; }
 
         public static PlayerTickCommand None => default;
 
@@ -90,9 +107,18 @@ namespace Game.Feature.Gameplay.Loop
             bool pushPressed = false,
             bool flipPressed = false,
             bool isMoveBuffered = false,
-            Direction heldMoveDirection = Direction.None)
+            Direction heldMoveDirection = Direction.None,
+            bool hasCapturedActionDirection = false,
+            Direction capturedActionDirection = Direction.None)
         {
-            return new PlayerTickCommand(moveDirection, pushPressed, flipPressed, isMoveBuffered, heldMoveDirection);
+            return new PlayerTickCommand(
+                moveDirection,
+                pushPressed,
+                flipPressed,
+                isMoveBuffered,
+                heldMoveDirection,
+                hasCapturedActionDirection,
+                capturedActionDirection);
         }
     }
 
@@ -100,6 +126,13 @@ namespace Game.Feature.Gameplay.Loop
     {
         public static Direction Resolve(in PlayerTickCommand command, Direction facing)
         {
+            if (command.HasCapturedActionDirection)
+            {
+                return DirectionUtility.IsCardinal(command.CapturedActionDirection)
+                    ? command.CapturedActionDirection
+                    : DirectionUtility.IsCardinal(facing) ? facing : Direction.None;
+            }
+
             if (DirectionUtility.IsCardinal(command.HeldMoveDirection))
             {
                 return command.HeldMoveDirection;

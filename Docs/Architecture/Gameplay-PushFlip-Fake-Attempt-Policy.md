@@ -53,7 +53,7 @@ Free2D ActionAssist가 가능한 경우:
 - `queuedFree2DAction`을 만들지 않는다
 - `AlignToAnchor`, `MoveEntity`, `EntityMotion`을 만들지 않는다
 - ordinary move, Free2D local locomotion, topology approach settle, same-face kinematic continuation을 막는다
-- 별도 `TickPlayerActionAttemptPresentationSignal`과 failure audio request만 생성한다
+- 별도 `TickPlayerActionAttemptPresentationSignal`과 failure audio request를 생성한다. 허용된 실패 입력은 별도 facing 정책에 따라 player 방향만 기록할 수 있다
 - fake animation은 simulation state가 아니라 host-local presentation hold로 끝까지 재생한다
 
 ## 3. Runtime Structure
@@ -62,6 +62,7 @@ Implementation map:
 
 - `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs`
   - pre-movement attempt classification
+  - failed interaction facing decision after attempt classification
   - movement consume set wiring
   - Free2D local locomotion and same-face kinematic continuation skip
 - `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs`
@@ -72,6 +73,8 @@ Implementation map:
   - tick-local resolution to fake attempt presentation signal conversion
 - `Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlState.cs`
   - pure ActionAssist candidate query used to distinguish target presence from range/settle failure
+- `Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlStateLogic.cs`
+  - actual action start and ordinary movement facing writes; failed interaction facing is deferred to Plan
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerViewPresentationMapper.cs`
   - player-only mapping from attempt signal to view presentation state
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAnimationSyncCoordinator.cs`
@@ -79,7 +82,7 @@ Implementation map:
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs`
   - explicit playback request and phase override support
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs`
-  - fake attempt playback input gate and buffered input clearing
+  - Push/Flip press-time direction capture, active action/fake playback input gate, and buffered input clearing
 - `Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime/GameplayActionAudioRequestPlanner.cs`
   - fake failure audio request planning from `PlayerActionAttemptSignals`
 
@@ -139,20 +142,20 @@ fake attempt signal은 tick-local trigger이고, 지속 시간은 host-local hol
 - signal을 한 tick만 사용하면 다음 frame/tick의 Walk/Idle이 animation을 끊는다
 - player animation playback duration은 host presentation concern이므로 host-local hold가 적절한 owner다
 
-### Input gate during fake playback
+### Input gate during interaction playback
 
-`GameplayInputHost`는 presenter를 통해 fake attempt playback active 여부를 조회한다.
+`GameplayInputHost`는 `TickResult.PresentationData.PlayerActionSignals`에서 authoritative active action 입력 잠금을 갱신하고, presenter에서 player별 active action/fake attempt playback 여부를 조회한다.
 
-fake hold active 중에는:
+active action 또는 fake attempt hold 중에는:
 
 - player command를 `PlayerTickCommand.None`으로 반환한다
 - move buffer를 clear한다
-- pending Push/Flip/UI action buffer를 clear한다
+- pending Push/Flip action buffer를 clear한다
 - simulation tick 자체는 멈추지 않는다
 
 이 구조가 필요한 이유:
 
-- fake hold는 simulation state가 아니므로 다음 tick simulation pipeline만으로 held move 재진입을 알 수 없다
+- visual hold는 simulation action lifecycle보다 늦게 끝날 수 있으므로 다음 tick simulation pipeline만으로 held move 재진입을 막을 수 없다
 - player 입력만 막아야 하며 world/enemy tick은 계속 진행되어야 한다
 - topology presentation lock과 fake attempt playback lock은 의미가 다르므로 같은 blocking presentation path에 섞지 않는다
 
@@ -187,13 +190,20 @@ action direction selection for Push/Flip, ActionAssist, and fake attempt classif
 3. authoritative entity facing
 4. `Direction.None` when no cardinal direction exists
 
+Input System action callback에서 들어온 Push/Flip은 해당 입력 업데이트가 시작되기 전에 이미 유지 중이던 방향을 최초 callback에서 캡처한다. 같은 입력 업데이트 중 새로 들어온 방향은 action 방향으로 사용하지 않는다. 캡처 시 방향이 `None`이었다는 사실도 보존하고, 이 경우 simulation에서 authoritative facing을 사용한다. 뒤따른 방향 입력은 이미 캡처된 action 방향을 바꾸지 않는다. 직접 호출하는 UI/테스트용 `BufferPush`·`BufferFlip`은 호출 시점의 유지 방향을 캡처한다. 명시적 테스트·리플레이 command는 캡처 값이 없을 때 기존 우선순위를 유지한다.
+
 The `0.125s` released movement buffer is not a currently held interaction direction. A fake visual may still use `Direction.Up` when all action-direction sources are invalid.
 
 중요한 경계:
 
 - fake visual fallback `Direction.Up`은 presentation/audio feedback용이며 actual target resolution에 사용하지 않는다
+- fake visual fallback `Direction.Up`은 authoritative facing에도 기록하지 않는다
 - target capability, settlement, lock, landing, and action timing requirements remain unchanged
 - direction이 없다는 이유로 fake attempt signal을 누락하지 않는다
+
+실패 입력의 방향 기록은 fake signal이 아니라 simulation의 별도 입력 정책이다. PreMovement 시점에 이전 active action이 없고 action start gate가 허용했으며 실제 cardinal 방향이 있을 때만 Plan의 실패 분류 이후 `FinalizationBatch`에 기록한다. 일반 실패는 정착 여부와 무관하게 player facing을 요청 방향으로 기록한다. 잠금 판정으로 fake 화면 재생이 생략되면 방향을 바꾸지 않는다. Flip 착지 차단은 기존처럼 PreMovement 시점에 정착했을 때만 방향을 바꾼다. 잠금과 착지 차단이 중첩되어 기존 분류상 일반 실패가 되는 경우는 잠금 생략 예외에 포함하지 않는다.
+
+미정착 player에 authoritative `UnitContinuousLocomotionState`가 있으면 같은 배치에서 그 state의 `facing` 필드만 동기화한다. offset, velocity, mode, sequence, last move direction은 그대로 두고 상태가 없으면 새로 만들지 않는다. 이 facing 기록은 이동·ActionAssist 정착·실제 Push/Flip 실행을 만들지 않는다.
 
 ## 5. Forbidden Paths For Fake Attempt
 
@@ -212,7 +222,7 @@ fake attempt는 아래 path를 타면 안 된다.
 
 현재 의도된 owner boundary:
 
-- simulation: attempt classification과 movement consume
+- simulation: attempt classification, movement consume, 실패 입력 facing 정책
 - tick presentation: fake attempt signal emission
 - host presentation: fake animation playback hold
 - host input: fake playback 중 player command gate
@@ -291,11 +301,11 @@ fake animation hold는 simulation snapshot에 저장되지 않는다.
 
 ### Input depends on presentation hold query
 
-`GameplayInputHost`가 presenter를 통해 fake attempt playback active 여부를 조회한다.
+`GameplayInputHost`가 presenter를 통해 player별 active action 또는 fake attempt playback active 여부를 조회한다.
 
 이유:
 
-- fake hold 동안 held move가 다시 command로 생성되는 것을 막기 위한 host-local gate다
+- authoritative action 종료 후에도 남을 수 있는 visual hold와 fake hold 동안 held move가 다시 command로 생성되는 것을 막기 위한 host-local gate다
 
 위험:
 
@@ -304,9 +314,9 @@ fake animation hold는 simulation snapshot에 저장되지 않는다.
 
 규칙:
 
-- `IsPlayerActionAttemptPlaybackActive`는 player command gate 전용이다
+- `IsPlayerInteractionPlaybackActive`는 해당 player의 `ActiveAction`/`ActionAttempt` hold만 player command gate에 제공한다
 - topology transition active / blocking presentation path와 합치지 않는다
-- active action hold는 이 query에서 true로 반환하지 않는다
+- `IsPlayerActionAttemptPlaybackActive`는 기존 fake attempt 전용 관측 의미를 유지한다
 
 ### Direction preservation vs visual facing
 
@@ -314,7 +324,7 @@ fake attempt signal과 presentation state는 direction을 보존한다.
 
 주의:
 
-- direction은 simulation facing write가 아니다
+- fake signal의 direction 자체는 simulation facing write가 아니다. 별도의 실패 입력 정책만 authoritative facing write를 결정한다
 - host에서 실제 visual facing override로 사용할 때도 presentation-only 경로여야 한다
 - direction을 movement, box motion, Flip interaction target resolution에 재사용하면 안 된다
 
@@ -378,6 +388,10 @@ fake attempt 생성은 one-shot Push/Flip command 기준이어야 한다.
 - fake hold transitions windup to recovery without `PlayerActionSignals`
 - real action start, death, new fake attempt interruption behavior
 - fake hold active input gate suppresses held move command
+- actual Flip playback hold suppresses held move commands after action completion while world ticks continue, then admits input after playback ends
+- Push/Flip press followed by Down at timestamp gaps of 5, 20, or 50 ms preserves the facing-side actual target within one input update; Flip also covers separate input updates, and a no-target Flip keeps its fake visual facing
+- `Player_S1` playback after the first tick covers Down at 5, 20, and 50 ms for actual Flip, plus 50 ms actual Push and fake Flip; it checks action/attempt signals, box result, model or root facing where the phase permits it, and held-move suppression
+- Flip playback release admits the held direction and the player eventually moves, while every tick during the hold remains free of that move command
 - fake attempt signal clears stale move buffer
 - fake attempt audio maps to failure moments only
 
