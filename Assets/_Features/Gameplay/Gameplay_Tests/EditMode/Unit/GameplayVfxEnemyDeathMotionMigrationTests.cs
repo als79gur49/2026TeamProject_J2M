@@ -1167,6 +1167,105 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void Coordinator_TopologyDestroyTileRemovedKinematicPose_DoesNotReshowEnemyAfterExit()
+        {
+            var scenario = CreatePresenterScenario("TopologyDestroyTileRemovedKinematicEnemy");
+            var cameraObject = CreateCameraObject("TopologyDestroyTileRemovedKinematicEnemyCamera");
+            var prefab = CreateRuntimePrefab("TopologyDestroyTileRemovedKinematicEnemyPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachOutputCamera(cameraObject.GetComponent<Camera>());
+                var cameraRig = scenario.Root.AddComponent<GameplayCameraRig>();
+                cameraRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+                cameraRig.Initialize(
+                    cameraObject.GetComponent<Camera>(),
+                    scenario.Root.transform,
+                    new Bounds(Vector3.zero, Vector3.one * 5f));
+                scenario.Presenter.AttachCameraRig(cameraRig);
+                scenario.Presenter.AttachPresentationExtension(runtime);
+
+                var tileCell = new SurfaceCell(FaceId.Front, 1, 1);
+                scenario.Presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                        CreateEnemyUnit(40, tileCell),
+                    },
+                    scenario.Topology);
+                Assert.That(scenario.Registry.TryGetView(40, out var enemyView), Is.True);
+
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var tileEvents = new[]
+                {
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileActivated,
+                        7, tileCell, TileFeatureKind.Destroy, 0, 0, 0),
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileTriggered,
+                        7, tileCell, TileFeatureKind.Destroy, 0, 0, 0, targetEntityId: 40),
+                };
+                var removedKinematicTrack = new TickKinematicMotionTrack(
+                    40,
+                    tileCell,
+                    SimulationOffset2.Zero,
+                    tileCell,
+                    SimulationOffset2.Zero,
+                    MotionMode.Voluntary,
+                    ForcedMotionOp.None,
+                    EntityType.Unit,
+                    scenario.Topology,
+                    destinationTopology,
+                    Direction.Up,
+                    Direction.Up,
+                    TickKinematicMotionTerminalKind.Removed);
+                var presentationData = CreatePresentationData(
+                    new[]
+                    {
+                        CreateEnemyExitSignal(
+                            40,
+                            TickEntityExitCause.Killed,
+                            tileCell,
+                            scenario.Topology,
+                            timing: EntityExitPresentationTiming.AfterEntityMotion),
+                    },
+                    new TickTopologyMotion(
+                        scenario.Topology,
+                        destinationTopology,
+                        CubeRotationKind.Forward),
+                    tileEvents,
+                    new[] { removedKinematicTrack });
+
+                scenario.Presenter.Present(CreateResult(
+                    presentationData,
+                    destinationTopology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)),
+                    Is.EqualTo(1));
+                Assert.That(FindParameterizedMotionClone(scenario.Root.transform), Is.Not.Null);
+                Assert.That(enemyView.gameObject.activeSelf, Is.False,
+                    "A Removed kinematic pose must not reactivate an exit-owned original view.");
+
+                scenario.Presenter.UpdatePresentation(0.05f);
+                Assert.That(enemyView.gameObject.activeSelf, Is.False);
+                scenario.Presenter.UpdatePresentation(1f);
+                Assert.That(enemyView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Destroy(cueMap, binding, prefab, cameraObject);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void SummonedEnemy_AtContactDeathMotion_ClonesOwnedViewBeforeExitCleanup()
         {
@@ -1487,7 +1586,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPresentationData CreatePresentationData(
             TickEntityExitPresentationSignal[] entityExitSignals = null,
             TickTopologyMotion? topologyMotion = null,
-            TilePresentationEvent[] tileEvents = null)
+            TilePresentationEvent[] tileEvents = null,
+            TickKinematicMotionTrack[] kinematicMotionTracks = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -1501,8 +1601,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
                 entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
+                kinematicMotionTracks: kinematicMotionTracks,
                 tileEvents: tileEvents);
         }
 
