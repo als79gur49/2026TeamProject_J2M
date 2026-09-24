@@ -52,7 +52,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     timingProfile.SimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                playerRespawnDelayTicks: 1,
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 

@@ -21,7 +21,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _hasBufferedPush;
         private bool _isInitialized;
         private bool _isKeyboardMoveOrderTrackerActionChangeSubscribed;
-        private bool _isPlayerRespawnDelayInputBlocked;
+        private bool _isPlayerDeathInputBlocked;
         private bool _isRebuildingKeyboardMoveOrderTracker;
         private bool _isSimulationPaused;
         private bool _isTerminalHoldActive;
@@ -124,7 +124,7 @@ namespace Game.Feature.Gameplay.Host
             _uiHeldMoveDirection = Direction.None;
             _isSimulationPaused = false;
             _isTerminalHoldActive = false;
-            _isPlayerRespawnDelayInputBlocked = false;
+            _isPlayerDeathInputBlocked = false;
             _isInitialized = true;
 
             SubscribeTerminalSession();
@@ -148,7 +148,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            if (_isSimulationPaused || IsTerminalAdmissionBlocked())
+            if (_isSimulationPaused || IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked)
             {
                 return 0;
             }
@@ -165,7 +165,7 @@ namespace Game.Feature.Gameplay.Host
             while (_accumulatedTime >= _simulationTickIntervalSeconds &&
                    executedTickCount < _maxTicksPerFrame)
             {
-                if (IsPresentationLocked())
+                if (IsPresentationLocked() || _isPlayerDeathInputBlocked)
                 {
                     ClampAccumulatedTime();
                     break;
@@ -175,7 +175,7 @@ namespace Game.Feature.Gameplay.Host
                 RunSingleTickUnlocked();
                 executedTickCount++;
 
-                if (IsPresentationLocked())
+                if (IsPresentationLocked() || _isPlayerDeathInputBlocked)
                 {
                     ClampAccumulatedTime();
                     break;
@@ -194,7 +194,8 @@ namespace Game.Feature.Gameplay.Host
         public TickResult RunSingleTick()
         {
             EnsureInitialized();
-            if (_isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
+            if (_isSimulationPaused || IsTerminalAdmissionBlocked() ||
+                IsPresentationLocked() || _isPlayerDeathInputBlocked)
             {
                 return null;
             }
@@ -211,7 +212,7 @@ namespace Game.Feature.Gameplay.Host
 
             var result = _runner.RunNextTick();
             ApplyAcceptedBufferedInput(result);
-            RefreshPlayerRespawnDelayInputBlock(result);
+            BlockInputOnPlayerDeath(result);
             // Presentation-state queries can run during Present before completed-snapshot caches refresh on TickCompleted.
             _presenter.Present(result);
             TickCompleted?.Invoke(result);
@@ -288,7 +289,7 @@ namespace Game.Feature.Gameplay.Host
         public void SetRawMoveInput(Vector2 rawMoveInput)
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked)
             {
                 _sampledMoveInput = Vector2.zero;
                 _moveIntentBuffer?.Reset();
@@ -305,7 +306,7 @@ namespace Game.Feature.Gameplay.Host
         public void BufferFlip()
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked)
             {
                 return;
             }
@@ -316,7 +317,7 @@ namespace Game.Feature.Gameplay.Host
         public void BufferPush()
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked)
             {
                 return;
             }
@@ -327,7 +328,7 @@ namespace Game.Feature.Gameplay.Host
         internal void SetUiHeldMoveDirection(Direction direction)
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked)
             {
                 return;
             }
@@ -675,7 +676,7 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerTickCommand BuildPlayerCommand()
         {
-            if (_isPlayerRespawnDelayInputBlocked)
+            if (_isPlayerDeathInputBlocked)
             {
                 ClearPendingPlayerInput();
                 ClearPendingUiInput();
@@ -811,16 +812,27 @@ namespace Game.Feature.Gameplay.Host
             SetRawMoveInput(_moveAction.ReadValue<Vector2>());
         }
 
-        private void RefreshPlayerRespawnDelayInputBlock(TickResult result)
+        private void BlockInputOnPlayerDeath(TickResult result)
         {
-            if (result == null)
+            if (result == null || _isPlayerDeathInputBlocked)
             {
                 return;
             }
 
             var shouldBlock = false;
+            var deathSignals = result.PresentationData.PlayerDeathSignals;
+            for (var i = 0; i < deathSignals.Count; i++)
+            {
+                if (deathSignals[i].EntityId == _playerEntityId &&
+                    deathSignals[i].DidDieThisTick)
+                {
+                    shouldBlock = true;
+                    break;
+                }
+            }
+
             var deathHoldSignals = result.PresentationData.PlayerDeathHoldSignals;
-            for (var i = 0; i < deathHoldSignals.Count; i++)
+            for (var i = 0; !shouldBlock && i < deathHoldSignals.Count; i++)
             {
                 if (deathHoldSignals[i].EntityId == _playerEntityId)
                 {
@@ -829,12 +841,12 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            _isPlayerRespawnDelayInputBlocked = shouldBlock;
             if (!shouldBlock)
             {
                 return;
             }
 
+            _isPlayerDeathInputBlocked = true;
             ClearPendingPlayerInput();
             ClearPendingUiInput();
         }

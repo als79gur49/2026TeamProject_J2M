@@ -298,7 +298,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var finalSnapshot = SnapshotBuilder.Create(CreateWorldState(finalEntities));
             var eventLog = new[]
             {
-                "RespawnCommitted|E=10|Pos=(1,0)|Face=Floor|Facing=Left|Tick=12",
+                "InitialStageStart|E=10|Tick=12",
             };
             var spawnPresentation = new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -319,7 +319,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     new EntitySpawnPresentationSignal(
                         10,
                         EntityPresentationKind.Player,
-                        EntitySpawnPresentationReason.PlayerRespawn,
+                        EntitySpawnPresentationReason.InitialStageStart,
                         SurfaceCell.FromPlanar(new Vector2Int(1, 0)),
                         finalSnapshot.Topology,
                         Direction.Left,

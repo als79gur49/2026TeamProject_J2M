@@ -279,15 +279,6 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            var spawnSignals = presentationData.EntitySpawnSignals;
-            for (var i = 0; i < spawnSignals.Count; i++)
-            {
-                if (_counterState.TryReset(spawnSignals[i]))
-                {
-                    return true;
-                }
-            }
-
             return false;
         }
 

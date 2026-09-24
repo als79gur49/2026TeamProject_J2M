@@ -117,7 +117,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         [Test]
-        public void CanonicalDeathAndRespawn_Reset_OtherEntitySignalsDoNot()
+        public void CanonicalDeath_Reset_OtherEntitySignalsDoNot()
         {
             var state = CreateState();
             var action = CreateActionSignal(
@@ -128,15 +128,12 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(state.TryConsume(action), Is.True);
 
             Assert.That(state.TryReset(CreateDeathSignal(99)), Is.False);
-            Assert.That(state.TryReset(CreateRespawnSignal(99)), Is.False);
             Assert.That(state.Count, Is.EqualTo(1));
 
             Assert.That(state.TryReset(CreateDeathSignal(PlayerEntityId)), Is.True);
             AssertReset(state);
             Assert.That(state.TryConsume(action), Is.True, "A reset run may reuse an action sequence.");
 
-            Assert.That(state.TryReset(CreateRespawnSignal(PlayerEntityId)), Is.True);
-            AssertReset(state);
         }
 
         [Test]
@@ -203,18 +200,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                 resolvedDamageSourceAvailable: true,
                 damageAmountAtFatalHit: 1,
                 deathDirectionHintKind: DeathDirectionHintKind.AttackerReverse);
-        }
-
-        private static EntitySpawnPresentationSignal CreateRespawnSignal(int entityId)
-        {
-            return new EntitySpawnPresentationSignal(
-                entityId,
-                EntityPresentationKind.Player,
-                EntitySpawnPresentationReason.PlayerRespawn,
-                new SurfaceCell(FaceId.Floor, 0, 0),
-                new CubeTopologyState(FaceId.Floor),
-                Direction.Right,
-                sourceTileFeature: null);
         }
 
         private static TickResult CreateTick(

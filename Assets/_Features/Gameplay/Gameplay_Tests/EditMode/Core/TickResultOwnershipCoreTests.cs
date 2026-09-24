@@ -130,7 +130,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 TickPhase.Resolve,
                 TickPhase.Finalize,
                 TickPhase.Cleanup,
-                TickPhase.Respawn,
+                TickPhase.MoonBlockGeneration,
             };
         }
 

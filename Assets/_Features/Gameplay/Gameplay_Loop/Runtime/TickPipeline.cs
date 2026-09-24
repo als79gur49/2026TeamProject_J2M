@@ -41,23 +41,19 @@ namespace Game.Feature.Gameplay.Loop
         private readonly AttackInputNormalizer _attackInputNormalizer = new();
         private readonly AttackExpander _attackExpander;
         private readonly CleanupProcessor _cleanupProcessor = new();
-        private readonly RespawnProcessor _respawnProcessor = new();
         private readonly MoonBlockGeneratorRespawnProcessor _moonBlockGeneratorRespawnProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
         private readonly DeterminismHashBuilder _determinismHashBuilder = new();
         private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
         private readonly GravityFieldLockedBoxOneShotState _gravityFieldLockedBoxOneShotState = new();
-        private readonly List<EntityState> _playerRespawnTemplates;
         private readonly StageObjectiveTracker _objectiveTracker;
         private readonly int _moveOccupancyTicks;
         private readonly int _playerDamageCooldownTicks;
-        private readonly int _playerRespawnDelayTicks;
         private readonly int _gravityFieldChargeTicks;
         private readonly int _gravityFieldActiveTicks;
         private readonly UnitKinematicLocomotionTimingSnapshot _unitKinematicLocomotionTiming;
         private readonly PlayerContinuousLocomotionSnapshot _playerContinuousLocomotion;
-        private readonly bool _allowPlayerRespawn;
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
         private readonly IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions;
@@ -79,10 +75,8 @@ namespace Game.Feature.Gameplay.Loop
             ISnapshotEntityLogicProvider entityLogicProvider,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
-            bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
@@ -92,10 +86,8 @@ namespace Game.Feature.Gameplay.Loop
                 entityLogicProvider,
                 generalTimingProfile,
                 playerControlTiming,
-                playerRespawnDelayTicks,
                 objectiveDefinition,
                 enemySpawnDefaultsByArchetypeId,
-                allowPlayerRespawn,
                 runtimeFeatureFlags,
                 unitKinematicLocomotionTiming,
                 playerContinuousLocomotion,
@@ -110,10 +102,8 @@ namespace Game.Feature.Gameplay.Loop
             ISnapshotEntityLogicProvider entityLogicProvider,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks,
             StageObjectiveRuntimeDefinition objectiveDefinition,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId,
-            bool allowPlayerRespawn,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion,
@@ -135,17 +125,9 @@ namespace Game.Feature.Gameplay.Loop
             _enemySpawnDefaultsByArchetypeId = enemySpawnDefaultsByArchetypeId;
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
             var resolvedGeneralTimingProfile = generalTimingProfile ?? throw new ArgumentNullException(nameof(generalTimingProfile));
-            if (playerRespawnDelayTicks <= 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(playerRespawnDelayTicks),
-                    "Player respawn delay ticks must be greater than zero.");
-            }
-
             _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
             _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
-            _playerRespawnDelayTicks = playerRespawnDelayTicks;
             _gravityFieldChargeTicks = GameplayTimingProfile.SecondsToCeilTicks(
                 GravityFieldRuntimePolicy.ChargeDurationSeconds,
                 resolvedGeneralTimingProfile.SimulationTicksPerSecond);
@@ -169,12 +151,8 @@ namespace Game.Feature.Gameplay.Loop
                 ? Array.Empty<MoonBlockRespawnDefinition>()
                 : new List<MoonBlockRespawnDefinition>(moonBlockRespawnDefinitions).AsReadOnly();
             _tileEffectResolver = tileEffectResolver ?? TileFeatureEffectResolver.Instance;
-            _allowPlayerRespawn = allowPlayerRespawn;
             _runtimeFeatureFlags = runtimeFeatureFlags;
             _moveOccupancyTicks = resolvedGeneralTimingProfile.MoveOccupancyTicks;
-            _playerRespawnTemplates = BuildPlayerRespawnTemplates(
-                SnapshotBuilder.Create(_worldState),
-                _staticEntityLogics);
             _slidingStateTimerTicks = resolvedGeneralTimingProfile.BoxSlideStepIntervalTicks;
             _objectiveTracker = (objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled).CreateTracker();
         }
@@ -260,10 +238,8 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
             var postCleanupSnapshot = SnapshotBuilder.Create(_worldState);
-            var respawnPhaseResult = RunRespawnPhase(
-                initialSnapshot,
+            var moonBlockGenerationPhaseResult = RunMoonBlockGenerationPhase(
                 postCleanupSnapshot,
-                cleanupPhaseResult,
                 input.TickIndex,
                 writeContext,
                 completedPhases,
@@ -286,7 +262,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                respawnPhaseResult,
+                moonBlockGenerationPhaseResult,
                 input.TickIndex,
                 snapshotAfterEnemyAi,
                 input.PlayerCommand,
@@ -310,7 +286,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                respawnPhaseResult,
+                moonBlockGenerationPhaseResult,
                 objectiveResult,
                 presentationBuildContext);
             var determinismHash = ShouldEmitDeterminismHash()
@@ -327,7 +303,7 @@ namespace Game.Feature.Gameplay.Loop
                     resolvePhaseResult.PostMovementSnapshot,
                     attackPhaseResult,
                     cleanupPhaseResult,
-                    respawnPhaseResult,
+                    moonBlockGenerationPhaseResult,
                     finalAuthoritativeSnapshot,
                     tickResultData,
                     determinismHash)
@@ -1609,95 +1585,28 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult.RemovedUnitContinuousLocomotionPoses);
         }
 
-        private RespawnPhaseResult RunRespawnPhase(
-            WorldSnapshot tickStartSnapshot,
+        private MoonBlockGenerationPhaseResult RunMoonBlockGenerationPhase(
             WorldSnapshot postCleanupSnapshot,
-            CleanupPhaseResult cleanupPhaseResult,
             int tickIndex,
             IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
-            phaseTrace.Add("Respawn:Enter");
-            var respawnPhaseResult = _respawnProcessor.Process(
-                tickStartSnapshot,
-                postCleanupSnapshot,
-                cleanupPhaseResult,
-                _playerRespawnTemplates,
-                tickIndex,
-                _playerRespawnDelayTicks,
-                _allowPlayerRespawn,
-                writeContext);
+            phaseTrace.Add("MoonBlockGeneration:Enter");
             var moonBlockGeneratorResult = _moonBlockGeneratorRespawnProcessor.Process(
                 postCleanupSnapshot,
-                () => SnapshotBuilder.Create(_worldState),
-                respawnPhaseResult.RespawnedEntities.Count > 0 ||
-                respawnPhaseResult.TopologyResetRequest.HasValue,
                 _moonBlockRespawnDefinitions,
                 _tileFeatureDefinitions,
                 tickIndex,
                 writeContext);
-            if (moonBlockGeneratorResult.EventLogEntries.Count > 0 ||
-                moonBlockGeneratorResult.RespawnFacts.Count > 0 ||
-                moonBlockGeneratorResult.BlockedFacts.Count > 0)
-            {
-                var eventLogEntries = new List<string>(
-                    respawnPhaseResult.EventLogEntries.Count + moonBlockGeneratorResult.EventLogEntries.Count);
-                AddRange(eventLogEntries, respawnPhaseResult.EventLogEntries);
-                AddRange(eventLogEntries, moonBlockGeneratorResult.EventLogEntries);
-                var respawnFacts = new List<MoonBlockGeneratorRespawnFact>(
-                    respawnPhaseResult.MoonBlockGeneratorRespawnFacts.Count +
-                    moonBlockGeneratorResult.RespawnFacts.Count);
-                AddRange(respawnFacts, respawnPhaseResult.MoonBlockGeneratorRespawnFacts);
-                AddRange(respawnFacts, moonBlockGeneratorResult.RespawnFacts);
-                var blockedFacts = new List<MoonBlockGeneratorBlockedFact>(
-                    respawnPhaseResult.MoonBlockGeneratorBlockedFacts.Count +
-                    moonBlockGeneratorResult.BlockedFacts.Count);
-                AddRange(blockedFacts, respawnPhaseResult.MoonBlockGeneratorBlockedFacts);
-                AddRange(blockedFacts, moonBlockGeneratorResult.BlockedFacts);
-                respawnPhaseResult = new RespawnPhaseResult(
-                    respawnPhaseResult.RespawnedEntities,
-                    eventLogEntries,
-                    respawnPhaseResult.PlayerRespawnDelayRecords,
-                    respawnPhaseResult.RespawnPlacementRecords,
-                    respawnPhaseResult.TopologyResetRequest,
-                    respawnFacts,
-                    blockedFacts);
-            }
+            var moonBlockGenerationPhaseResult = new MoonBlockGenerationPhaseResult(
+                moonBlockGeneratorResult.EventLogEntries,
+                moonBlockGeneratorResult.RespawnFacts,
+                moonBlockGeneratorResult.BlockedFacts);
 
-            phaseTrace.Add("Respawn:Exit");
-            completedPhases.Add(TickPhase.Respawn);
-            return respawnPhaseResult;
-        }
-
-        private static List<EntityState> BuildPlayerRespawnTemplates(
-            WorldSnapshot snapshot,
-            IReadOnlyList<IEntityLogic> entityLogics)
-        {
-            var playerEntityIds = new HashSet<int>();
-            for (var i = 0; i < entityLogics.Count; i++)
-            {
-                if (entityLogics[i] is PlayerLogic &&
-                    entityLogics[i] is IEntityLogicSourceBinding binding)
-                {
-                    playerEntityIds.Add(binding.ControlledEntityId);
-                }
-            }
-
-            var templates = new List<EntityState>();
-            var entities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(entities);
-
-            for (var i = 0; i < entities.Count; i++)
-            {
-                if (entities[i].unitRole == UnitRole.Player ||
-                    playerEntityIds.Contains(entities[i].entityId))
-                {
-                    templates.Add(entities[i]);
-                }
-            }
-
-            return templates;
+            phaseTrace.Add("MoonBlockGeneration:Exit");
+            completedPhases.Add(TickPhase.MoonBlockGeneration);
+            return moonBlockGenerationPhaseResult;
         }
 
         private List<MoveIntent> BuildMovementIntents(List<RawMovementIntent> rawMovementIntents)

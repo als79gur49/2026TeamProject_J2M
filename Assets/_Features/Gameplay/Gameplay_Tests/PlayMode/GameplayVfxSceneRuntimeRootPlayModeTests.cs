@@ -1,4 +1,5 @@
 using System.Collections;
+using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx.Host;
 using Game.Feature.Stages;
@@ -17,6 +18,19 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     {
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string RuntimeRootPath = "GameplayVfxRuntimeRoot";
+
+        [UnityTearDown]
+        public IEnumerator CleanupAfterTest()
+        {
+            StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            if (GlobalAudioFlowRoot.Current != null)
+            {
+                Object.DestroyImmediate(GlobalAudioFlowRoot.Current.gameObject);
+            }
+
+            yield break;
+        }
 
         [UnityTest]
         [Category("Core")]
@@ -42,9 +56,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             try
             {
-                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-0-1"));
-                EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-0-1")));
+                CampaignStageSceneTestLaunch.Prime(StageId.CreateOrThrow("stage-0-1"));
                 yield return LoadScene(UIAudioScenePath);
 
                 var host = Object.FindFirstObjectByType<GameplaySceneHost>();
@@ -75,9 +87,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             try
             {
-                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-1-1"));
-                EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-1-1")));
+                CampaignStageSceneTestLaunch.Prime(StageId.CreateOrThrow("stage-1-1"));
                 yield return LoadScene(UIAudioScenePath);
 
                 var host = Object.FindFirstObjectByType<GameplaySceneHost>();
@@ -88,7 +98,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(runtime.IsHostDefaultMapConfigured, Is.True);
                 Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
                 Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.Zero);
-                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.IsRuntimeInitialized, Is.True);
             }
             finally
             {
@@ -103,9 +113,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             try
             {
-                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-0-1"));
-                EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-0-1")));
+                CampaignStageSceneTestLaunch.Prime(StageId.CreateOrThrow("stage-0-1"));
                 yield return LoadScene(UIAudioScenePath);
 
                 var host = Object.FindFirstObjectByType<GameplaySceneHost>();
@@ -129,8 +137,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             try
             {
-                StageLaunchContextStore.SetCurrent(stageId);
-                EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+                CampaignStageSceneTestLaunch.Prime(stageId);
                 yield return LoadScene(scenePath);
 
                 var host = Object.FindFirstObjectByType<GameplaySceneHost>();

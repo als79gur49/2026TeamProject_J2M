@@ -207,10 +207,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     timingProfile.SimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                playerRespawnDelayTicks: 1,
                 objectiveDefinition: null,
                 enemySpawnDefaultsByArchetypeId: null,
-                allowPlayerRespawn: true,
                 runtimeFeatureFlags: default,
                 unitKinematicLocomotionTiming: default,
                 playerContinuousLocomotion: default,

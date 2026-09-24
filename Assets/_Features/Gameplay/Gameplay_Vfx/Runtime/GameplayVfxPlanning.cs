@@ -1085,8 +1085,7 @@ namespace Game.Feature.Gameplay.Vfx
             out TileFeaturePresentationSource sourceTileFeature)
         {
             if (signal.EntityKind == EntityPresentationKind.Player &&
-                (signal.Reason == EntitySpawnPresentationReason.InitialStageStart ||
-                 signal.Reason == EntitySpawnPresentationReason.PlayerRespawn) &&
+                signal.Reason == EntitySpawnPresentationReason.InitialStageStart &&
                 signal.SourceTileFeature.HasValue &&
                 signal.SourceTileFeature.Value.FeatureKind == TileFeatureKind.Entrance)
             {

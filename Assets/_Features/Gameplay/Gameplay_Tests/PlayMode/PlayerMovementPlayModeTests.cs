@@ -667,88 +667,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator RespawnTopologyReset_UsesExistingTopologyTransitionInputLock()
-        {
-            var host = CreateHost(new[]
-            {
-                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 0, 0)),
-            },
-            playerRespawnDelaySeconds: 0f);
-
-            SetAuthoritativeTopology(host.WorldState, new CubeTopologyState(FaceId.Back));
-            ApplyAuthoritativeDamage(host.WorldState, entityId: 10, amount: 3);
-
-            var deathTick = host.InputHost.RunSingleTick();
-            var afterDeathSnapshot = CaptureAuthoritativeSnapshot(host);
-
-            Assert.That(deathTick, Is.Not.Null);
-            Assert.That(afterDeathSnapshot.TryGetEntity(10, out _), Is.False);
-            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
-
-            var firstResetTick = host.InputHost.RunSingleTick();
-
-            Assert.That(firstResetTick, Is.Not.Null);
-            Assert.That(firstResetTick.PresentationData.TopologyMotion.HasValue, Is.True);
-            Assert.That(firstResetTick.PresentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
-            Assert.That(firstResetTick.PresentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(
-                firstResetTick.PresentationData.VisibilityChanges.Any(change =>
-                    change.EntityId == 10 &&
-                    change.ChangeKind == TickVisibilityChangeKind.Spawn),
-                Is.False);
-            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.TopologyTransition));
-            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
-            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
-
-            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
-            Assert.That(
-                host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 6f),
-                Is.EqualTo(0));
-            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
-
-            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
-            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
-            Assert.That(host.Presenter.CurrentTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-
-            var secondResetTick = host.InputHost.RunSingleTick();
-
-            Assert.That(secondResetTick, Is.Not.Null);
-            Assert.That(secondResetTick.PresentationData.TopologyMotion.HasValue, Is.True);
-            Assert.That(secondResetTick.PresentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(secondResetTick.PresentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
-            Assert.That(
-                secondResetTick.PresentationData.VisibilityChanges.Any(change =>
-                    change.EntityId == 10 &&
-                    change.ChangeKind == TickVisibilityChangeKind.Spawn),
-                Is.False);
-            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.TopologyTransition));
-            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
-            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(4));
-
-            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
-            Assert.That(
-                host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 6f),
-                Is.EqualTo(0));
-            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(4));
-
-            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
-            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
-            Assert.That(host.Presenter.CurrentTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
-
-            var respawnTick = host.InputHost.RunSingleTick();
-            var afterRespawnSnapshot = CaptureAuthoritativeSnapshot(host);
-
-            Assert.That(respawnTick, Is.Not.Null);
-            Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(0,0)|Face=Front|Facing=Right|Tick=4"));
-            Assert.That(afterRespawnSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
-            Assert.That(afterRespawnSnapshot.TryGetEntity(10, out var respawnedPlayer), Is.True);
-            Assert.That(respawnedPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-
-            yield return DestroyHost(host);
-        }
-
-        [UnityTest]
-        [Category("Full")]
         public IEnumerator GameplayInputHost_TopologyTransition_CameraMotionBlurActivatesThenResets()
         {
             var outputCameraObject = new GameObject("PlayModeTopologyTransitionOutputCamera");
@@ -2643,7 +2561,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             float pushPresentationDurationSeconds = -1f,
             float flipPresentationDurationSeconds = -1f,
             PlayerControlTimingSettings playerControlTiming = null,
-            float playerRespawnDelaySeconds = -1f,
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = null,
             Camera viewCamera = null,
             GameplayEntityView playerViewPrefabOverride = null,
@@ -2669,7 +2586,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 pushPresentationDurationSeconds,
                 flipPresentationDurationSeconds,
                 playerControlTiming,
-                playerRespawnDelaySeconds,
                 topologyTransitionPostFxProfile,
                 viewCamera,
                 playerViewPrefabOverride,
@@ -2696,7 +2612,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             float pushPresentationDurationSeconds,
             float flipPresentationDurationSeconds,
             PlayerControlTimingSettings playerControlTiming,
-            float playerRespawnDelaySeconds,
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile,
             Camera viewCamera,
             GameplayEntityView playerViewPrefabOverride,
@@ -2773,14 +2688,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     : new PlayModePresentationTestViewFactory(hostObject.transform, playerViewPrefab, initialEntities),
                 GameplayCameraShakeProfile = gameplayCameraShakeProfile,
             };
-            if (playerRespawnDelaySeconds >= 0f)
-            {
-                configuration.PlayerRespawnTiming = new PlayerRespawnTimingSettings
-                {
-                    RespawnDelaySeconds = playerRespawnDelaySeconds,
-                };
-            }
-
             if (runtimeFeatureFlags.HasValue)
             {
                 configuration.ApplyRuntimeFeatureFlags(runtimeFeatureFlags.Value);

@@ -69,6 +69,19 @@ namespace Game.Feature.Stages
                 return Reject(error, logErrors);
             }
 
+            var campaignContent = Resources.Load<PlayerCaptureCampaignContent>(
+                "PlayerCaptureCampaignContent");
+            if (campaignContent == null ||
+                !campaignContent.TryGetLevelGroupId(options.StageId, out var levelGroupId, out error))
+            {
+                if (campaignContent == null)
+                {
+                    error = "Player capture Campaign content is unavailable.";
+                }
+
+                return Reject(error, logErrors);
+            }
+
             if (persistenceMode == PlayerCapturePersistenceMode.NormalCampaignSlot)
             {
                 var authorization = PlayerCapturePersistenceAuthorization.AuthorizeNormalSlot(
@@ -92,6 +105,7 @@ namespace Game.Feature.Stages
                 case PlayerCapturePersistenceMode.NormalCampaignSlot:
                     return PrimeNormalCampaignCapture(
                         options.StageId,
+                        levelGroupId,
                         persistenceFactory,
                         logErrors,
                         out error);
@@ -99,18 +113,26 @@ namespace Game.Feature.Stages
                 case PlayerCapturePersistenceMode.CampaignTempSlot:
                     return PrimeTempCampaignCapture(
                         options.StageId,
+                        levelGroupId,
                         remainingChances,
                         persistenceFactory,
                         logErrors,
                         out error);
 
                 default:
-                    return PrimeNonCampaignCapture(options.StageId, logErrors, out error);
+                    return PrimeTempCampaignCapture(
+                        options.StageId,
+                        levelGroupId,
+                        remainingChances,
+                        persistenceFactory,
+                        logErrors,
+                        out error);
             }
         }
 
         private static bool PrimeNormalCampaignCapture(
             StageId stageId,
+            string levelGroupId,
             IPlayerCapturePersistenceFactory persistenceFactory,
             bool logErrors,
             out string error)
@@ -132,7 +154,7 @@ namespace Game.Feature.Stages
                 SeedFixture(
                     persistenceFactory.CreateNormalCampaignSlot(),
                     stageId,
-                    "player-capture-bootstrap",
+                    levelGroupId,
                     CampaignSaveSlotPolicy.DefaultRemainingChances);
             }
             catch
@@ -150,6 +172,7 @@ namespace Game.Feature.Stages
 
         private static bool PrimeTempCampaignCapture(
             StageId stageId,
+            string levelGroupId,
             int remainingChances,
             IPlayerCapturePersistenceFactory persistenceFactory,
             bool logErrors,
@@ -167,7 +190,7 @@ namespace Game.Feature.Stages
                 SeedFixture(
                     persistenceFactory.CreateTempCampaignSlot(),
                     stageId,
-                    "level-01",
+                    levelGroupId,
                     remainingChances);
                 EditorDirectPlayContextStore.SetCurrent(
                     EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances));
@@ -182,25 +205,6 @@ namespace Game.Feature.Stages
             Debug.Log(
                 $"Player capture campaign temp-slot launch context primed with StageId " +
                 $"'{stageId.Value}' and remainingChances={remainingChances}.");
-            return true;
-        }
-
-        private static bool PrimeNonCampaignCapture(
-            StageId stageId,
-            bool logErrors,
-            out string error)
-        {
-            var launchContext = StageLaunchContext.CreateDirectPlay(stageId);
-            if (!StageLaunchContextStore.TrySetCurrent(launchContext))
-            {
-                error = "Player capture could not register the non-Campaign launch context.";
-                return Reject(error, logErrors);
-            }
-
-            EditorDirectPlayContextStore.SetCurrent(
-                EditorDirectPlayContext.CreateNonCampaign(stageId));
-            error = string.Empty;
-            Debug.Log($"Player capture launch context primed with StageId '{stageId.Value}'.");
             return true;
         }
 
@@ -283,10 +287,10 @@ namespace Game.Feature.Stages
                 return false;
             }
 
-            if (mode != PlayerCapturePersistenceMode.CampaignTempSlot)
+            if (mode == PlayerCapturePersistenceMode.NormalCampaignSlot)
             {
                 error =
-                    $"{CampaignTempSlotChancesArgument} requires {CampaignTempSlotArgument}.";
+                    $"{CampaignTempSlotChancesArgument} cannot be used with {CampaignNormalSlotArgument}.";
                 return false;
             }
 

@@ -116,15 +116,12 @@ namespace Game.Feature.Gameplay.Tests.Core
                 enemyRuntime.DefinitionsByArchetypeId,
                 enemyRuntime.HasDefaultDefinition);
             var bootstrapper = new GameplayBootstrapper(provider, enemyRuntime.SpawnDefaultsByArchetypeId);
-            var respawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var pipeline = bootstrapper.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 configuration.CreateTimingProfile(),
                 configuration.CreatePlayerControlTimingSnapshot(),
-                respawnTiming.RespawnDelayTicks,
                 build.ObjectiveRuntimeDefinition,
-                allowPlayerRespawn: true,
                 configuration.CreateRuntimeFeatureFlags(),
                 configuration.CreateUnitKinematicLocomotionTimingSnapshot(),
                 configuration.CreatePlayerContinuousLocomotionSnapshot(),
@@ -354,15 +351,12 @@ namespace Game.Feature.Gameplay.Tests.Core
                 enemyRuntime.DefinitionsByArchetypeId,
                 enemyRuntime.HasDefaultDefinition);
             var bootstrapper = new GameplayBootstrapper(provider, enemyRuntime.SpawnDefaultsByArchetypeId);
-            var respawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var pipeline = bootstrapper.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 configuration.CreateTimingProfile(),
                 configuration.CreatePlayerControlTimingSnapshot(),
-                respawnTiming.RespawnDelayTicks,
                 build.ObjectiveRuntimeDefinition,
-                allowPlayerRespawn: true,
                 configuration.CreateRuntimeFeatureFlags(),
                 configuration.CreateUnitKinematicLocomotionTimingSnapshot(),
                 configuration.CreatePlayerContinuousLocomotionSnapshot(),

@@ -4,6 +4,7 @@ using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using NUnit.Framework;
@@ -376,6 +377,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertMoonBlockGeneratedEvent(TickResult result, int moonBlockEntityId)
         {
+            Assert.That(result.CompletedAllPhases, Is.True);
+            Assert.That(result.CompletedPhases[4], Is.EqualTo(TickPhase.MoonBlockGeneration));
+            Assert.That(result.PhaseTrace, Does.Contain("MoonBlockGeneration:Exit"));
+            Assert.That(result.Trace.Text, Does.Contain("MoonBlockGeneration.Events"));
+            Assert.That(result.Trace.Text, Does.Contain("MoonBlockGeneratorRespawnCommitted"));
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             var tileEvent = result.PresentationData.TileEvents[0];
             Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.MoonBlockGenerated));
@@ -396,6 +402,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int blockerEntityId,
             MoonBlockGeneratorBlockedReason reason)
         {
+            Assert.That(result.CompletedAllPhases, Is.True);
+            Assert.That(result.CompletedPhases[4], Is.EqualTo(TickPhase.MoonBlockGeneration));
+            Assert.That(result.PhaseTrace, Does.Contain("MoonBlockGeneration:Exit"));
+            Assert.That(result.Trace.Text, Does.Contain("MoonBlockGeneration.Events"));
+            Assert.That(result.Trace.Text, Does.Contain("MoonBlockGeneratorRespawnDeferred"));
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             var tileEvent = result.PresentationData.TileEvents[0];
             Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.MoonBlockGeneratorBlocked));
@@ -471,9 +482,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                         timing.SimulationTicksPerSecond,
                         timing.RepeatedMoveIntervalSeconds),
-                    playerRespawnDelayTicks: 1,
                     objectiveDefinition: null,
-                    allowPlayerRespawn: true,
                     runtimeFeatureFlags: default,
                     unitKinematicLocomotionTiming: default,
                     playerContinuousLocomotion: default,

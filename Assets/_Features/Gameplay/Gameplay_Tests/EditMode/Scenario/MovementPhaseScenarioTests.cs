@@ -5518,7 +5518,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 entityLogics,
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                playerRespawnDelayTicks: 1,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None,
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
@@ -5537,10 +5536,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayEntityLogicProviderFactory.CreateDefault(),
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                playerRespawnDelayTicks: 1,
                 objectiveDefinition: null,
                 enemySpawnDefaultsByArchetypeId: null,
-                allowPlayerRespawn: true,
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 unitKinematicLocomotionTiming: default,
                 playerContinuousLocomotion: default,

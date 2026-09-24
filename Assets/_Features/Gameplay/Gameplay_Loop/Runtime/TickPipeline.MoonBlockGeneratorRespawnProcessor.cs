@@ -58,8 +58,6 @@ namespace Game.Feature.Gameplay.Loop
 
         public MoonBlockGeneratorRespawnProcessorResult Process(
             WorldSnapshot postCleanupSnapshot,
-            Func<WorldSnapshot> refreshedSnapshotFactory,
-            bool refreshAfterPriorRespawnMutation,
             IReadOnlyList<MoonBlockRespawnDefinition> respawnDefinitions,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             int tickIndex,
@@ -82,7 +80,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var snapshot = postCleanupSnapshot;
-            var didRefresh = false;
             var eventLogEntries = new List<string>();
             var respawnFacts = new List<MoonBlockGeneratorRespawnFact>();
             var blockedFacts = new List<MoonBlockGeneratorBlockedFact>();
@@ -94,22 +91,6 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     ClearBlockedMemory(definition.GeneratorTileId);
                     continue;
-                }
-
-                if (refreshAfterPriorRespawnMutation && !didRefresh)
-                {
-                    if (refreshedSnapshotFactory == null)
-                    {
-                        throw new ArgumentNullException(nameof(refreshedSnapshotFactory));
-                    }
-
-                    snapshot = refreshedSnapshotFactory();
-                    didRefresh = true;
-                    if (IsBoundMoonBlockAlive(snapshot, definition.MoonBlockEntityId))
-                    {
-                        ClearBlockedMemory(definition.GeneratorTileId);
-                        continue;
-                    }
                 }
 
                 if (!snapshot.TryGetTileFeature(definition.GeneratorTileId, out var generator) ||

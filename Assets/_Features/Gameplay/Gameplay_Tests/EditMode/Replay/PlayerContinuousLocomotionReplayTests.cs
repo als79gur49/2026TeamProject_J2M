@@ -381,9 +381,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[1].EventLogDump, Does.Contain("ContinuousLocomotionInterrupted|E=10"));
             Assert.That(firstReplay[1].EventLogDump, Does.Contain("ContinuousLocomotionPoseRemoved|E=10"));
-            Assert.That(firstReplay[1].EventLogDump, Does.Contain("PlayerRespawnDelayStarted|E=10"));
-            Assert.That(firstReplay[2].EventLogDump, Does.Contain("RespawnCommitted|E=10"));
-            Assert.That(firstReplay[2].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Not.Contain("E=10|"));
+            Assert.That(firstReplay[2].FinalEntitiesDump, Does.Not.Contain("E=10|"));
         }
 
         [Test]

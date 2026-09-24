@@ -1086,49 +1086,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Respawn_ConfiguredDelay_WaitsEligibleTickBeforeRespawning",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.PlayerRemovedInCleanup_DoesNotRespawnOrResetTopologyOnLaterTicks",
       "category": "Core",
       "contracts": [
-        "damage_affects_movement",
         "spawn_destroy_delayed_ordering",
         "cleanup_phase_scenario_contract"
       ],
-      "reason": "Locked Core coverage for damage_affects_movement in CleanupPhaseScenarioTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Respawn_PlayerControlState_IsResetWhenPlayerReturns",
-      "category": "Core",
-      "contracts": [
-        "interaction_push",
-        "interaction_flip",
-        "damage_affects_movement",
-        "spawn_destroy_delayed_ordering",
-        "cleanup_phase_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for interaction_push in CleanupPhaseScenarioTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.PlayerDiesOnInitialBottomFace_SameBottomRespawnUnchanged",
-      "category": "Core",
-      "contracts": [
-        "damage_affects_movement",
-        "spawn_destroy_delayed_ordering",
-        "cleanup_phase_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for damage_affects_movement in CleanupPhaseScenarioTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Respawn_SolidBlockerAtInitialSpawn_SkipsUntilBlockerIsRemoved",
-      "category": "Core",
-      "contracts": [
-        "damage_affects_movement",
-        "spawn_destroy_delayed_ordering",
-        "cleanup_phase_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for damage_affects_movement in CleanupPhaseScenarioTests.",
+      "reason": "Locked Core coverage that a removed player does not respawn or reset topology on later ticks.",
       "locked": true
     },
     {
@@ -1610,13 +1574,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.FinalizeNoRecheckArchitectureTests.RespawnProcessor_Process_UsesCanonicalAuthoritativePlacementLegality",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.FinalizeNoRecheckArchitectureTests.TickPipeline_CleanupMoonBlockGenerationDirectWritePath_IsDocumentedAndBounded",
       "category": "Core",
       "contracts": [
         "spawn_destroy_delayed_ordering",
         "finalize_no_recheck_architecture_contract"
       ],
-      "reason": "Locked Core coverage for authoritative respawn placement legality in FinalizeNoRecheckArchitectureTests.",
+      "reason": "Locked Core coverage that the remaining MoonBlock generation direct write path is documented and bounded.",
       "locked": true
     },
     {
@@ -1638,16 +1602,6 @@
         "reservation_read_model_contract"
       ],
       "reason": "Locked Core coverage for movement-to-attack impact handoff in ReservationReadModelContractTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.RespawnTopologyReset_EmitsTopologyMotionBeforeSpawnVisibility",
-      "category": "Core",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "world_snapshot_and_presentation_contract"
-      ],
-      "reason": "Locked Core coverage for respawn topology reset TickResult ordering in WorldSnapshotAndPresentationTests.",
       "locked": true
     },
     {
@@ -1850,13 +1804,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.InactiveFaceResidualUnitTests.RespawnPlacement_BoundaryTrace_IsSpawnRespawnPlacement",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.MoonBlockGeneratorRespawnTests.CleanupRemovedMoonBlock_RespawnsAfterCleanup",
       "category": "Core",
       "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "movement_boundary_v1"
+        "spawn_destroy_delayed_ordering"
       ],
-      "reason": "Locked Core coverage for respawn placement boundary trace classification.",
+      "reason": "Locked Core coverage that MoonBlock generation follows Cleanup removal.",
       "locked": true
     },
     {

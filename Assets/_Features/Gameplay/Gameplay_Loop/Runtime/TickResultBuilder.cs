@@ -21,7 +21,7 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
-            RespawnPhaseResult respawnPhaseResult,
+            MoonBlockGenerationPhaseResult moonBlockGenerationPhaseResult,
             StageObjectiveTickResult objectiveResult,
             in TickPresentationBuildContext presentationBuildContext)
         {
@@ -50,9 +50,9 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(cleanupPhaseResult));
             }
 
-            if (respawnPhaseResult == null)
+            if (moonBlockGenerationPhaseResult == null)
             {
-                throw new ArgumentNullException(nameof(respawnPhaseResult));
+                throw new ArgumentNullException(nameof(moonBlockGenerationPhaseResult));
             }
 
             if (objectiveResult == null)
@@ -73,7 +73,7 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult.TimerChanges.Count +
                 cleanupPhaseResult.StateTransitions.Count +
                 cleanupPhaseResult.EventLogEntries.Count +
-                respawnPhaseResult.EventLogEntries.Count);
+                moonBlockGenerationPhaseResult.EventLogEntries.Count);
 
             AddRange(eventLog, movementPhaseResult.CommitEvents);
             AddRange(eventLog, attackPhaseResult.EventLogEntries);
@@ -86,7 +86,7 @@ namespace Game.Feature.Gameplay.Loop
             AddRange(eventLog, cleanupPhaseResult.TimerChanges);
             AddRange(eventLog, cleanupPhaseResult.StateTransitions);
             AddRange(eventLog, cleanupPhaseResult.EventLogEntries);
-            AddRange(eventLog, respawnPhaseResult.EventLogEntries);
+            AddRange(eventLog, moonBlockGenerationPhaseResult.EventLogEntries);
 
             return TickResultData.CreateFromOwnedFinalEntities(
                 ownedFinalEntities,
@@ -239,112 +239,42 @@ namespace Game.Feature.Gameplay.Loop
         }
     }
 
-    internal readonly struct RespawnTopologyResetRequest
+    internal sealed class MoonBlockGenerationPhaseResult
     {
-        public RespawnTopologyResetRequest(
-            int entityId,
-            FaceId targetFace,
-            CubeTopologyState sourceTopology,
-            CubeTopologyState destinationTopology,
-            CubeRotationKind rotationKind)
-        {
-            EntityId = entityId;
-            TargetFace = targetFace;
-            SourceTopology = sourceTopology;
-            DestinationTopology = destinationTopology;
-            RotationKind = rotationKind;
-        }
-
-        public int EntityId { get; }
-
-        public FaceId TargetFace { get; }
-
-        public CubeTopologyState SourceTopology { get; }
-
-        public CubeTopologyState DestinationTopology { get; }
-
-        public CubeRotationKind RotationKind { get; }
-    }
-
-    internal sealed class RespawnPhaseResult
-    {
-        public static readonly RespawnPhaseResult Empty = new(
-            Array.Empty<EntityState>(),
+        public static readonly MoonBlockGenerationPhaseResult Empty = new(
             Array.Empty<string>(),
-            respawnPlacementRecords: Array.Empty<RespawnPlacementRecord>(),
-            moonBlockGeneratorRespawnFacts: Array.Empty<MoonBlockGeneratorRespawnFact>(),
-            moonBlockGeneratorBlockedFacts: Array.Empty<MoonBlockGeneratorBlockedFact>());
+            Array.Empty<MoonBlockGeneratorRespawnFact>(),
+            Array.Empty<MoonBlockGeneratorBlockedFact>());
 
         private readonly ReadOnlyCollection<string> _eventLogEntries;
         private readonly ReadOnlyCollection<MoonBlockGeneratorBlockedFact> _moonBlockGeneratorBlockedFacts;
-        private readonly ReadOnlyCollection<PlayerRespawnDelayRecord> _playerRespawnDelayRecords;
-        private readonly ReadOnlyCollection<RespawnPlacementRecord> _respawnPlacementRecords;
         private readonly ReadOnlyCollection<MoonBlockGeneratorRespawnFact> _moonBlockGeneratorRespawnFacts;
-        private readonly ReadOnlyCollection<EntityState> _respawnedEntities;
 
-        public RespawnPhaseResult(
-            IEnumerable<EntityState> respawnedEntities,
+        public MoonBlockGenerationPhaseResult(
             IEnumerable<string> eventLogEntries,
-            RespawnTopologyResetRequest? topologyResetRequest)
-            : this(
-                respawnedEntities,
-                eventLogEntries,
-                playerRespawnDelayRecords: null,
-                respawnPlacementRecords: null,
-                topologyResetRequest: topologyResetRequest,
-                moonBlockGeneratorRespawnFacts: null)
+            IEnumerable<MoonBlockGeneratorRespawnFact> moonBlockGeneratorRespawnFacts,
+            IEnumerable<MoonBlockGeneratorBlockedFact> moonBlockGeneratorBlockedFacts)
         {
-        }
-
-        public RespawnPhaseResult(
-            IEnumerable<EntityState> respawnedEntities,
-            IEnumerable<string> eventLogEntries,
-            IEnumerable<PlayerRespawnDelayRecord> playerRespawnDelayRecords = null,
-            IEnumerable<RespawnPlacementRecord> respawnPlacementRecords = null,
-            RespawnTopologyResetRequest? topologyResetRequest = null,
-            IEnumerable<MoonBlockGeneratorRespawnFact> moonBlockGeneratorRespawnFacts = null,
-            IEnumerable<MoonBlockGeneratorBlockedFact> moonBlockGeneratorBlockedFacts = null)
-        {
-            if (respawnedEntities == null)
-            {
-                throw new ArgumentNullException(nameof(respawnedEntities));
-            }
-
             if (eventLogEntries == null)
             {
                 throw new ArgumentNullException(nameof(eventLogEntries));
             }
 
-            _respawnedEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(respawnedEntities));
             _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries));
-            _playerRespawnDelayRecords = new ReadOnlyCollection<PlayerRespawnDelayRecord>(
-                new List<PlayerRespawnDelayRecord>(
-                    playerRespawnDelayRecords ?? Array.Empty<PlayerRespawnDelayRecord>()));
-            _respawnPlacementRecords = new ReadOnlyCollection<RespawnPlacementRecord>(
-                new List<RespawnPlacementRecord>(
-                    respawnPlacementRecords ?? Array.Empty<RespawnPlacementRecord>()));
             _moonBlockGeneratorRespawnFacts = new ReadOnlyCollection<MoonBlockGeneratorRespawnFact>(
                 new List<MoonBlockGeneratorRespawnFact>(
-                    moonBlockGeneratorRespawnFacts ?? Array.Empty<MoonBlockGeneratorRespawnFact>()));
+                    moonBlockGeneratorRespawnFacts ?? throw new ArgumentNullException(nameof(moonBlockGeneratorRespawnFacts))));
             _moonBlockGeneratorBlockedFacts = new ReadOnlyCollection<MoonBlockGeneratorBlockedFact>(
                 new List<MoonBlockGeneratorBlockedFact>(
-                    moonBlockGeneratorBlockedFacts ?? Array.Empty<MoonBlockGeneratorBlockedFact>()));
-            TopologyResetRequest = topologyResetRequest;
+                    moonBlockGeneratorBlockedFacts ?? throw new ArgumentNullException(nameof(moonBlockGeneratorBlockedFacts))));
         }
 
-        public IReadOnlyList<EntityState> RespawnedEntities => _respawnedEntities;
-
         public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
-
-        public IReadOnlyList<PlayerRespawnDelayRecord> PlayerRespawnDelayRecords => _playerRespawnDelayRecords;
-
-        public IReadOnlyList<RespawnPlacementRecord> RespawnPlacementRecords => _respawnPlacementRecords;
 
         public IReadOnlyList<MoonBlockGeneratorRespawnFact> MoonBlockGeneratorRespawnFacts => _moonBlockGeneratorRespawnFacts;
 
         public IReadOnlyList<MoonBlockGeneratorBlockedFact> MoonBlockGeneratorBlockedFacts => _moonBlockGeneratorBlockedFacts;
 
-        public RespawnTopologyResetRequest? TopologyResetRequest { get; }
     }
 
     internal readonly struct MoonBlockGeneratorRespawnFact
@@ -419,68 +349,6 @@ namespace Game.Feature.Gameplay.Loop
         public int TeamId { get; }
     }
 
-    internal readonly struct RespawnPlacementRecord
-    {
-        public RespawnPlacementRecord(
-            int entityId,
-            SurfaceCell placementCell,
-            MovementExecutionBoundaryKind boundaryKind,
-            string boundaryReason)
-        {
-            EntityId = entityId;
-            PlacementCell = placementCell;
-            BoundaryKind = boundaryKind;
-            BoundaryReason = boundaryReason ?? string.Empty;
-        }
-
-        public int EntityId { get; }
-
-        public SurfaceCell PlacementCell { get; }
-
-        public MovementExecutionBoundaryKind BoundaryKind { get; }
-
-        public string BoundaryReason { get; }
-    }
-
-    internal readonly struct PlayerRespawnDelayRecord
-    {
-        public PlayerRespawnDelayRecord(
-            int entityId,
-            int startTick,
-            int eligibleTick,
-            int delayTicks,
-            int currentTick,
-            bool startedThisTick,
-            bool elapsedThisTick)
-        {
-            EntityId = entityId;
-            StartTick = startTick;
-            EligibleTick = eligibleTick;
-            DelayTicks = delayTicks;
-            CurrentTick = currentTick;
-            StartedThisTick = startedThisTick;
-            ElapsedThisTick = elapsedThisTick;
-        }
-
-        public int EntityId { get; }
-
-        public int StartTick { get; }
-
-        public int EligibleTick { get; }
-
-        public int DelayTicks { get; }
-
-        public int CurrentTick { get; }
-
-        public bool StartedThisTick { get; }
-
-        public bool ElapsedThisTick { get; }
-
-        public int RemainingTicks => Math.Max(0, EligibleTick - CurrentTick);
-
-        public bool IsActive => CurrentTick < EligibleTick;
-    }
-
     internal readonly struct TickPresentationBuildContext
     {
         public TickPresentationBuildContext(
@@ -513,7 +381,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                RespawnPhaseResult.Empty,
+                MoonBlockGenerationPhaseResult.Empty,
                 currentTickIndex,
                 jumpBaselineSnapshot,
                 playerCommand,
@@ -539,7 +407,7 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
-            RespawnPhaseResult respawnPhaseResult,
+            MoonBlockGenerationPhaseResult moonBlockGenerationPhaseResult,
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
@@ -563,7 +431,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                respawnPhaseResult,
+                moonBlockGenerationPhaseResult,
                 currentTickIndex,
                 jumpBaselineSnapshot,
                 playerCommand,
@@ -613,7 +481,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                RespawnPhaseResult.Empty,
+                MoonBlockGenerationPhaseResult.Empty,
                 currentTickIndex,
                 jumpBaselineSnapshot,
                 playerCommand,
@@ -640,7 +508,7 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
-            RespawnPhaseResult respawnPhaseResult,
+            MoonBlockGenerationPhaseResult moonBlockGenerationPhaseResult,
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default,
@@ -666,7 +534,7 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
-            RespawnPhaseResult = respawnPhaseResult ?? throw new ArgumentNullException(nameof(respawnPhaseResult));
+            MoonBlockGenerationPhaseResult = moonBlockGenerationPhaseResult ?? throw new ArgumentNullException(nameof(moonBlockGenerationPhaseResult));
             FinalizationBatch = finalizationBatch ?? new FinalizationBatch();
             CurrentTickIndex = currentTickIndex;
             JumpBaselineSnapshot = jumpBaselineSnapshot ?? PreMovementSnapshot;
@@ -713,7 +581,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public CleanupPhaseResult CleanupPhaseResult { get; }
 
-        public RespawnPhaseResult RespawnPhaseResult { get; }
+        public MoonBlockGenerationPhaseResult MoonBlockGenerationPhaseResult { get; }
 
         public FinalizationBatch FinalizationBatch { get; }
 
@@ -855,13 +723,12 @@ namespace Game.Feature.Gameplay.Loop
             BuildContinuousLocomotionPresentation(context, continuousLocomotionTracks);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
-            BuildRespawnPresentation(context, visibilityChanges, entitySpawnSignals);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerFlipResultTurnPresentation(context, playerFlipResultTurnSignals);
             BuildPlayerActionAttemptPresentation(context, playerActionAttemptSignals);
             BuildPlayerDamagePresentation(context, playerDamageSignals);
             BuildPlayerDeathPresentation(context, playerDeathSignals);
-            BuildPlayerDeathHoldPresentation(context, playerDeathHoldSignals);
+            BuildPlayerDeathHoldPresentation(context, playerDeathSignals, playerDeathHoldSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildPlayerTopologyTransitionBlockedPresentation(
                 context,
@@ -1484,7 +1351,7 @@ namespace Game.Feature.Gameplay.Loop
                 tileEvents.Add(context.TileEvents[i]);
             }
 
-            var moonBlockGeneratorRespawnFacts = context.RespawnPhaseResult.MoonBlockGeneratorRespawnFacts;
+            var moonBlockGeneratorRespawnFacts = context.MoonBlockGenerationPhaseResult.MoonBlockGeneratorRespawnFacts;
             for (var i = 0; i < moonBlockGeneratorRespawnFacts.Count; i++)
             {
                 var fact = moonBlockGeneratorRespawnFacts[i];
@@ -1503,7 +1370,7 @@ namespace Game.Feature.Gameplay.Loop
                         spawnInteractionLockTicks: fact.SpawnInteractionLockTicks));
             }
 
-            var moonBlockGeneratorBlockedFacts = context.RespawnPhaseResult.MoonBlockGeneratorBlockedFacts;
+            var moonBlockGeneratorBlockedFacts = context.MoonBlockGenerationPhaseResult.MoonBlockGeneratorBlockedFacts;
             for (var i = 0; i < moonBlockGeneratorBlockedFacts.Count; i++)
             {
                 var fact = moonBlockGeneratorBlockedFacts[i];
@@ -2310,25 +2177,41 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void BuildPlayerDeathHoldPresentation(
             in TickPresentationBuildContext context,
+            IReadOnlyList<TickPlayerDeathPresentationSignal> playerDeathSignals,
             List<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals)
         {
-            var records = context.RespawnPhaseResult.PlayerRespawnDelayRecords;
-            for (var i = 0; i < records.Count; i++)
+            for (var i = 0; i < playerDeathSignals.Count; i++)
             {
-                var record = records[i];
-                if (!record.IsActive)
+                var signal = playerDeathSignals[i];
+                if (!signal.DidDieThisTick ||
+                    ContainsPlayerDeathHold(playerDeathHoldSignals, signal.EntityId))
                 {
                     continue;
                 }
 
                 playerDeathHoldSignals.Add(
                     new TickPlayerDeathHoldPresentationSignal(
-                        record.EntityId,
-                        record.StartTick,
-                        record.EligibleTick,
-                        record.RemainingTicks,
-                        record.StartedThisTick));
+                        signal.EntityId,
+                        context.CurrentTickIndex,
+                        context.CurrentTickIndex,
+                        remainingTicks: 0,
+                        startedThisTick: true));
             }
+        }
+
+        private static bool ContainsPlayerDeathHold(
+            IReadOnlyList<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals,
+            int entityId)
+        {
+            for (var i = 0; i < playerDeathHoldSignals.Count; i++)
+            {
+                if (playerDeathHoldSignals[i].EntityId == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void BuildEnemyUtilityWindupPresentation(
@@ -3761,60 +3644,6 @@ namespace Game.Feature.Gameplay.Loop
                     context.PostAttackSnapshot.Topology,
                     removedEntity.facing));
             }
-        }
-
-        private static void BuildRespawnPresentation(
-            in TickPresentationBuildContext context,
-            List<TickVisibilityChange> visibilityChanges,
-            List<EntitySpawnPresentationSignal> entitySpawnSignals)
-        {
-            var respawnedEntities = context.RespawnPhaseResult.RespawnedEntities;
-            var finalTopology = context.FinalAuthoritativeSnapshot.Topology;
-            var tileFeaturesAtCell = new List<TileFeatureState>();
-
-            for (var i = 0; i < respawnedEntities.Count; i++)
-            {
-                var entity = respawnedEntities[i];
-                visibilityChanges.Add(
-                    new TickVisibilityChange(
-                        entity.entityId,
-                        TickVisibilityChangeKind.Spawn,
-                        entity.position,
-                        finalTopology,
-                        entity.facing));
-
-                if (!EntityRolePolicy.IsPlayerUnit(entity))
-                {
-                    continue;
-                }
-
-                entitySpawnSignals.Add(
-                    new EntitySpawnPresentationSignal(
-                        entity.entityId,
-                        EntityPresentationKind.Player,
-                        EntitySpawnPresentationReason.PlayerRespawn,
-                        entity.position,
-                        finalTopology,
-                        entity.facing,
-                        TryResolveEntranceSource(
-                            context.FinalAuthoritativeSnapshot,
-                            entity.position,
-                            tileFeaturesAtCell)));
-            }
-        }
-
-        private static TileFeaturePresentationSource? TryResolveEntranceSource(
-            WorldSnapshot snapshot,
-            SurfaceCell cell,
-            List<TileFeatureState> tileFeaturesAtCell)
-        {
-            if (snapshot == null || tileFeaturesAtCell == null)
-            {
-                return null;
-            }
-
-            snapshot.EnumerateTileFeaturesAt(cell, tileFeaturesAtCell);
-            return EntitySpawnPresentationSourceResolver.TryResolveEntranceSource(cell, tileFeaturesAtCell);
         }
 
         private static void BuildSummonedEnemyPresentationBindings(
@@ -5386,15 +5215,6 @@ namespace Game.Feature.Gameplay.Loop
             if (sourceTopology.Equals(destinationTopology))
             {
                 return null;
-            }
-
-            if (context.RespawnPhaseResult.TopologyResetRequest.HasValue)
-            {
-                var topologyResetRequest = context.RespawnPhaseResult.TopologyResetRequest.Value;
-                return new TickTopologyMotion(
-                    topologyResetRequest.SourceTopology,
-                    topologyResetRequest.DestinationTopology,
-                    topologyResetRequest.RotationKind);
             }
 
             return new TickTopologyMotion(

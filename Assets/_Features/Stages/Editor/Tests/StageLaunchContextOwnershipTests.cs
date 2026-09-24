@@ -1,5 +1,7 @@
 using System;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 
 namespace Game.Feature.Stages.Editor.Tests
@@ -17,15 +19,78 @@ namespace Game.Feature.Stages.Editor.Tests
         [TearDown]
         public void TearDown()
         {
+            StageEditorDirectPlayLauncher.SaveScenePromptOverrideForTests = null;
+            StageEditorDirectPlayLauncher.EnterPlayModeOverrideForTests = null;
             StageLaunchContextStore.ResetForTests();
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayLaunchOwnershipStore.ResetForTests();
             CampaignLaunchHandoffSessionStore.ResetForTests();
         }
 
+        [Test]
+        public void CampaignTempLaunchAndReplayLast_UseEditorLaunchLifecycle()
+        {
+            var stageId = StageId.CreateOrThrow("stage-1-1");
+            var playModeEntryCount = 0;
+            StageEditorDirectPlayLauncher.SaveScenePromptOverrideForTests = () => true;
+            StageEditorDirectPlayLauncher.EnterPlayModeOverrideForTests =
+                () => playModeEntryCount++;
+            try
+            {
+                StageEditorDirectPlayLauncher.LaunchStage(
+                    stageId, EditorDirectPlayMode.CampaignTempSlot,
+                    CampaignSaveSlotPolicy.DefaultRemainingChances);
+                AssertCampaignTempEditorLaunch(stageId, playModeEntryCount);
+
+                StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                    PlayModeStateChange.ExitingPlayMode);
+                Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.True);
+                Assert.That(
+                    CampaignSaveCompositionProvider.CreateTemporaryProfileBacked()
+                        .LoadSlot(1).State.CurrentStageId,
+                    Is.EqualTo(stageId));
+                StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                    PlayModeStateChange.EnteredEditMode);
+                Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _),
+                    Is.False);
+                Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.False);
+                AssertTemporaryCampaignFilesCleared();
+
+                StageEditorDirectPlayLauncher.LaunchLastStage();
+                AssertCampaignTempEditorLaunch(stageId, playModeEntryCount);
+                Assert.That(playModeEntryCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                    PlayModeStateChange.ExitingPlayMode);
+                StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                    PlayModeStateChange.EnteredEditMode);
+                SessionState.EraseString("Game.Feature.Stages.LastEditorDirectPlayStageId");
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        private static void AssertCampaignTempEditorLaunch(StageId stageId, int playModeEntryCount)
+        {
+            Assert.That(playModeEntryCount, Is.GreaterThan(0));
+            Assert.That(SceneManager.GetActiveScene().path,
+                Is.EqualTo("Assets/Scenes/UIAudioScene.unity"));
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(
+                out var pendingStage), Is.True);
+            Assert.That(pendingStage, Is.EqualTo(stageId));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out var owner), Is.True);
+            Assert.That(owner.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
+            Assert.That(owner.StageId, Is.EqualTo(stageId));
+            var saveStore = CampaignSaveCompositionProvider.CreateTemporaryProfileBacked();
+            Assert.That(saveStore.LoadSlot(1).State.CurrentStageId, Is.EqualTo(stageId));
+            Assert.That(saveStore.LoadSlot(1).State.CurrentLevelGroupId, Is.EqualTo("level-1"));
+        }
+
         [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
         [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
-        [TestCase(EditorDirectPlayMode.NonCampaign)]
         public void DirectPlayPrime_SurvivesSubsystemRegistration(EditorDirectPlayMode mode)
         {
             var stageId = StageId.CreateOrThrow("stage-0-1");
@@ -37,6 +102,85 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var primedStageId), Is.True);
             Assert.That(primedStageId, Is.EqualTo(stageId));
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(mode));
+        }
+
+        [Test]
+        public void RetiredNonCampaignMode_RejectsPublicLaunchBeforeMutatingSession()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                StageEditorDirectPlayLauncher.LaunchStage(stageId,
+                    EditorDirectPlayMode.NonCampaign,
+                    CampaignSaveSlotPolicy.DefaultRemainingChances));
+
+            Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
+            Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _), Is.False);
+        }
+
+        [Test]
+        public void CampaignMode_CannotRestoreOrConstructSuppressedFlow()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            Assert.Throws<ArgumentException>(() => new EditorDirectPlayContext(
+                EditorDirectPlayMode.CampaignTempSlot, stageId, 2,
+                suppressCampaignFlow: true));
+            SessionState.SetString("Game.Feature.Stages.DirectPlay.Context",
+                "{\"SchemaVersion\":2,\"Mode\":2,\"StageId\":\"stage-0-1\",\"RemainingChances\":2,\"SuppressCampaignFlow\":true}");
+
+            Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
+            Assert.That(SessionState.GetString("Game.Feature.Stages.DirectPlay.Context", "x"),
+                Is.EqualTo("x"));
+        }
+
+        [Test]
+        public void ReplayLastStage_UnsupportedSavedStageRejectsBeforeSessionMutation()
+        {
+            SessionState.SetString("Game.Feature.Stages.LastEditorDirectPlayStageId",
+                "legacy-stage-5-1");
+            try
+            {
+                Assert.Throws<InvalidOperationException>(() =>
+                    StageEditorDirectPlayLauncher.LaunchLastStage());
+                Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+                Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _), Is.False);
+            }
+            finally
+            {
+                SessionState.EraseString("Game.Feature.Stages.LastEditorDirectPlayStageId");
+            }
+        }
+
+        [Test]
+        public void RetiredSessionContextAndOwner_AreClearedWithoutTouchingNewerLaunches()
+        {
+            var newerStage = StageId.CreateOrThrow("stage-1-1");
+            var newerRuntime = StageLaunchContext.CreateDirectPlay(newerStage);
+            Assert.That(StageLaunchContextStore.TrySetCurrent(newerRuntime), Is.True);
+            var newerPending = StageLaunchContextStore.PrimePendingEditorDirectPlay(newerStage);
+            var retiredToken = Guid.NewGuid();
+            SessionState.SetString("Game.Feature.Stages.DirectPlay.Context",
+                "{\"SchemaVersion\":2,\"Mode\":1,\"StageId\":\"stage-0-1\",\"RemainingChances\":0,\"SuppressCampaignFlow\":true}");
+            SessionState.SetInt("Game.Feature.Stages.DirectPlay.Ownership.Mode", 1);
+            SessionState.SetString("Game.Feature.Stages.DirectPlay.Ownership.StageId", "stage-0-1");
+            SessionState.SetString("Game.Feature.Stages.DirectPlay.Ownership.Token", retiredToken.ToString("N"));
+            SessionState.SetInt("Game.Feature.Stages.DirectPlay.Ownership.Slot", 0);
+            SessionState.SetInt("Game.Feature.Stages.DirectPlay.Ownership.Navigation",
+                (int)StageNavigationKind.Continue);
+            SessionState.SetString("Game.Feature.Stages.DirectPlay.Ownership.Source", "editor-direct-play");
+
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.False);
+            Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
+            Assert.That(SessionState.GetString("Game.Feature.Stages.DirectPlay.Context", "x"),
+                Is.EqualTo("x"));
+            Assert.That(SessionState.GetInt("Game.Feature.Stages.DirectPlay.Ownership.Mode", 0),
+                Is.Zero);
+            Assert.That(StageLaunchContextStore.IsCurrent(newerRuntime), Is.True);
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlayContext(
+                out var preservedPending), Is.True);
+            Assert.That(preservedPending, Is.EqualTo(newerPending));
         }
 
         [Test]
@@ -83,7 +227,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayConsumeThenExit_ClearsOwnedRuntimeContext()
         {
             BeginDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.True);
 
@@ -100,7 +244,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayConsumeThenExit_AllowsNextLaunch()
         {
             var first = BeginDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.True);
 
@@ -113,7 +257,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: false));
             var second = BeginDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             var duplicate = Assert.Throws<InvalidOperationException>(() =>
                 StageEditorDirectPlayLauncher.ThrowIfLaunchIsAlreadyInProgress(
@@ -137,7 +281,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void TempDirectPlay_AdvanceCarriesOwnershipAndExitClearsUpdatedContextAndTempSave()
+        public void TempDirectPlay_AdvanceCarriesOwnershipAndClearsAfterEditModeEntry()
         {
             var original = BeginConsumedDirectPlayOwnership(
                 EditorDirectPlayMode.CampaignTempSlot,
@@ -158,6 +302,13 @@ namespace Game.Feature.Stages.Editor.Tests
 
             StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
                 UnityEditor.PlayModeStateChange.ExitingPlayMode);
+
+            Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.True);
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.True);
+            AssertTemporaryCampaignFilesExist();
+
+            StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                UnityEditor.PlayModeStateChange.EnteredEditMode);
 
             Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
             Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.False);
@@ -206,16 +357,10 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void NonCampaignDirectPlay_Exit_AllowsRelaunch()
-        {
-            AssertModeAllowsRelaunch(EditorDirectPlayMode.NonCampaign);
-        }
-
-        [Test]
         public void DirectPlayExit_DoesNotClearNewerRuntimeContext()
         {
             var ownership = BeginConsumedDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             var newer = CreateContext(
                 Guid.NewGuid(),
@@ -225,7 +370,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "editor-direct-play");
             ReplaceRuntimeContext(ownership.ExpectedRuntimeContext, newer);
             EditorDirectPlayContextStore.SetCurrent(
-                EditorDirectPlayContext.CreateNonCampaign(newer.StageId));
+                CreateDirectPlayContext(EditorDirectPlayMode.CampaignProductionSlot, newer.StageId));
 
             var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
 
@@ -238,7 +383,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayExit_DoesNotClearSameStageDifferentToken()
         {
             var ownership = BeginConsumedDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             var newer = CreateContext(
                 Guid.NewGuid(),
@@ -301,7 +446,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayExit_DoesNotClearDifferentModeRuntimeContext()
         {
             var ownership = BeginConsumedDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             EditorDirectPlayContextStore.SetCurrent(
                 CreateDirectPlayContext(EditorDirectPlayMode.CampaignTempSlot, ownership.StageId));
@@ -317,7 +462,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayExit_DoesNotClearNormalCampaignPending()
         {
             var ownership = BeginDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             var campaignPending = BeginHandoff(
                 1,
@@ -341,7 +486,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayExit_DoesNotClearNormalCampaignStageLaunchContext()
         {
             var ownership = BeginConsumedDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             var handoff = BeginHandoff(
                 1,
@@ -362,7 +507,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayCancelledBeforeConsume_ClearsOnlyMatchingPrime()
         {
             var ownership = BeginDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
 
             var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
@@ -397,7 +542,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayExit_AfterPrimeAlreadyConsumed_DoesNotRecreatePrime()
         {
             var ownership = BeginConsumedDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
 
             StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
@@ -409,7 +554,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayExit_WithDifferentPrime_PreservesNewerPrime()
         {
             var ownership = BeginConsumedDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             Assert.That(
                 StageLaunchContextStore.TryClear(ownership.ExpectedRuntimeContext),
@@ -422,7 +567,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "editor-direct-play");
             StageLaunchContextStore.PrimePendingEditorDirectPlay(newerPrime);
             EditorDirectPlayContextStore.SetCurrent(
-                EditorDirectPlayContext.CreateNonCampaign(newerPrime.StageId));
+                CreateDirectPlayContext(EditorDirectPlayMode.CampaignProductionSlot, newerPrime.StageId));
 
             var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
 
@@ -443,7 +588,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 StageNavigationKind.Continue,
                 "normal-pending");
             EditorDirectPlayContextStore.SetCurrent(
-                EditorDirectPlayContext.CreateNonCampaign(pending.StageId));
+                CreateDirectPlayContext(EditorDirectPlayMode.CampaignProductionSlot, pending.StageId));
             StageLaunchContextStore.PrimePendingEditorDirectPlay(pending.StageId);
 
             EditorDirectPlayContextStore.Clear();
@@ -464,7 +609,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "runtime-owner");
             Assert.That(StageLaunchContextStore.TrySetCurrent(runtimeContext), Is.True);
             EditorDirectPlayContextStore.SetCurrent(
-                EditorDirectPlayContext.CreateNonCampaign(runtimeContext.StageId));
+                CreateDirectPlayContext(EditorDirectPlayMode.CampaignProductionSlot, runtimeContext.StageId));
 
             EditorDirectPlayContextStore.Clear();
 
@@ -476,7 +621,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayDuplicateGuard_PlayModeEntry_PreservesFirstPrimeAndContext()
         {
             var firstStage = StageId.CreateOrThrow("stage-0-1");
-            var firstContext = EditorDirectPlayContext.CreateNonCampaign(firstStage);
+            var firstContext = CreateDirectPlayContext(EditorDirectPlayMode.CampaignProductionSlot, firstStage);
             EditorDirectPlayContextStore.SetCurrent(firstContext);
             StageLaunchContextStore.PrimePendingEditorDirectPlay(firstStage);
 
@@ -520,14 +665,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 firstStage,
                 StageNavigationKind.Continue,
                 "editor-direct-play");
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(firstStage));
+            EditorDirectPlayContextStore.SetCurrent(CreateDirectPlayContext(EditorDirectPlayMode.CampaignProductionSlot, firstStage));
             Assert.That(StageLaunchContextStore.TrySetCurrent(firstContext), Is.True);
             var sceneBeforeDuplicate = SceneManager.GetActiveScene();
 
             var exception = Assert.Throws<InvalidOperationException>(() =>
                 StageEditorDirectPlayLauncher.LaunchStage(
                     StageId.CreateOrThrow("stage-1-1"),
-                    EditorDirectPlayMode.NonCampaign,
+                    EditorDirectPlayMode.CampaignProductionSlot,
                     CampaignSaveSlotPolicy.DefaultRemainingChances));
 
             Assert.That(exception?.Message, Does.Contain("rejected"));
@@ -541,7 +686,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void DirectPlayDuplicateGuard_EditorOwnershipRecord_RejectsUntilExitCleanup()
         {
             var ownership = BeginConsumedDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             Assert.That(StageLaunchContextStore.TryClear(ownership.ExpectedRuntimeContext), Is.True);
 
@@ -789,7 +934,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Func<EditorDirectPlayLaunchOwnershipRecord, StageLaunchContext> createNewer)
         {
             var ownership = BeginConsumedDirectPlayOwnership(
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignProductionSlot,
                 "stage-0-1");
             var newer = createNewer(ownership);
             ReplaceRuntimeContext(ownership.ExpectedRuntimeContext, newer);
@@ -882,8 +1027,6 @@ namespace Game.Feature.Stages.Editor.Tests
                     return EditorDirectPlayContext.CreateCampaignTempSlot(
                         stageId,
                         CampaignSaveSlotPolicy.DefaultRemainingChances);
-                case EditorDirectPlayMode.NonCampaign:
-                    return EditorDirectPlayContext.CreateNonCampaign(stageId);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported DirectPlay mode.");
             }
@@ -910,6 +1053,17 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 System.IO.File.Exists(pathProvider.GetSaveFilePath(CampaignLocalLaunchStateRepository.FileName)),
                 Is.False);
+        }
+
+        private static void AssertTemporaryCampaignFilesExist()
+        {
+            var pathProvider = new TemporaryCampaignSavePathProvider();
+            Assert.That(
+                System.IO.File.Exists(pathProvider.GetSaveFilePath(FileCampaignProfileRepository.ProfileFileName)),
+                Is.True);
+            Assert.That(
+                System.IO.File.Exists(pathProvider.GetSaveFilePath(CampaignLocalLaunchStateRepository.FileName)),
+                Is.True);
         }
 
         private sealed class RecordingHandoffStore : ICampaignLaunchHandoffStore

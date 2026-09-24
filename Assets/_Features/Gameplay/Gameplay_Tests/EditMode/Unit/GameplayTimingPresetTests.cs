@@ -24,14 +24,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 FlipExecuteDelaySeconds = 0.12f,
                 FlipInputLockDurationSeconds = 0.18f,
             };
-            var sourceRespawnTiming = new PlayerRespawnTimingSettings
-            {
-                RespawnDelaySeconds = 0.45f,
-            };
             var preset = CreateSimulationTimingPreset(
                 initialMoveDelaySeconds: 0f,
                 playerControlTiming: sourceTiming,
-                playerRespawnTiming: sourceRespawnTiming,
                 repeatedMoveIntervalSeconds: 0.6f,
                 boxSlideStepIntervalSeconds: 0.2f,
                 projectileStepIntervalSeconds: 0.2f);
@@ -42,7 +37,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     InitialMoveDelaySeconds = 0f,
                     PlayerControlTiming = sourceTiming.Clone(),
-                    PlayerRespawnTiming = sourceRespawnTiming.Clone(),
                     RepeatedMoveIntervalSeconds = 0.6f,
                     BoxSlideStepIntervalSeconds = 0.2f,
                     ProjectileStepIntervalSeconds = 0.2f,
@@ -53,8 +47,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(presetConfiguration.PlayerControlTiming, Is.Not.SameAs(sourceTiming));
                 Assert.That(presetConfiguration.PlayerControlTiming.DamageCooldownSeconds, Is.EqualTo(sourceTiming.DamageCooldownSeconds));
-                Assert.That(presetConfiguration.PlayerRespawnTiming, Is.Not.SameAs(sourceRespawnTiming));
-                Assert.That(presetConfiguration.PlayerRespawnTiming.RespawnDelaySeconds, Is.EqualTo(sourceRespawnTiming.RespawnDelaySeconds));
 
                 var legacyTimingProfile = legacyConfiguration.CreateTimingProfile();
                 var presetTimingProfile = presetConfiguration.CreateTimingProfile();
@@ -66,14 +58,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var legacySnapshot = legacyConfiguration.CreatePlayerControlTimingSnapshot();
                 var presetSnapshot = presetConfiguration.CreatePlayerControlTimingSnapshot();
                 AssertPlayerControlSnapshotsEqual(legacySnapshot, presetSnapshot);
-                Assert.That(
-                    presetConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks,
-                    Is.EqualTo(legacyConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks));
 
                 presetConfiguration.PlayerControlTiming.DamageCooldownSeconds = 9f;
                 Assert.That(sourceTiming.DamageCooldownSeconds, Is.EqualTo(0.25f));
-                presetConfiguration.PlayerRespawnTiming.RespawnDelaySeconds = 9f;
-                Assert.That(sourceRespawnTiming.RespawnDelaySeconds, Is.EqualTo(0.45f));
             }
             finally
             {
@@ -188,6 +175,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var preset = AssetDatabase.LoadAssetAtPath<GameplaySimulationTimingPreset>(presetPath);
 
             Assert.That(preset, Is.Not.Null, $"Missing preset at '{presetPath}'.");
+            Assert.That(new SerializedObject(preset).FindProperty("playerRespawnTiming"), Is.Null);
 
             var configuration = new GameplaySceneHostConfiguration();
             preset.ApplyTo(configuration);
@@ -205,7 +193,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float initialMoveDelaySeconds = 0f,
             PlayerControlTimingSettings playerControlTiming = null,
             UnitKinematicLocomotionTimingSettings unitKinematicLocomotionTiming = null,
-            PlayerRespawnTimingSettings playerRespawnTiming = null,
             float repeatedMoveIntervalSeconds = 0.6f,
             float boxSlideStepIntervalSeconds = 0.2f,
             float projectileStepIntervalSeconds = 0.2f)
@@ -214,7 +201,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(preset, "initialMoveDelaySeconds", initialMoveDelaySeconds);
             SetPrivateField(preset, "playerControlTiming", playerControlTiming ?? PlayerControlTimingSettings.CreateDefault());
             SetPrivateField(preset, "unitKinematicLocomotionTiming", unitKinematicLocomotionTiming ?? UnitKinematicLocomotionTimingSettings.CreateDefault());
-            SetPrivateField(preset, "playerRespawnTiming", playerRespawnTiming ?? PlayerRespawnTimingSettings.CreateDefault());
             SetPrivateField(preset, "repeatedMoveIntervalSeconds", repeatedMoveIntervalSeconds);
             SetPrivateField(preset, "boxSlideStepIntervalSeconds", boxSlideStepIntervalSeconds);
             SetPrivateField(preset, "projectileStepIntervalSeconds", projectileStepIntervalSeconds);
