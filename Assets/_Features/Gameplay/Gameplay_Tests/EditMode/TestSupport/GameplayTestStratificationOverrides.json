@@ -3598,14 +3598,14 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BlackEyeWindupProjectileRuntimeContractTests.BlackEye_ForwardCellProjectile_AttackModeSolidBlocked_FallsBackToChase",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BlackEyeWindupProjectileRuntimeContractTests.BlackEye_ForwardCellProjectile_AttackModeSolidBlocked_FallsBackToPatrol",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
         "forward_cell_projectile_runtime_contract",
         "enemy_ai_blocker_fallback"
       ],
-      "reason": "Locked Core representative coverage that same-face Solid blockers force Attack-mode BlackEye windup projectile enemies back to Chase without starting a projectile windup.",
+      "reason": "Locked Core representative coverage that same-face Solid blockers return Attack-mode BlackEye windup projectile enemies to Patrol without starting a projectile windup.",
       "locked": true
     },
     {
