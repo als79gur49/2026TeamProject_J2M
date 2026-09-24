@@ -47,17 +47,35 @@
 - Current four-locale representative layout-boundary rerun: green on 2026-09-22 KST, Windows UI build passed and Unity UI EditMode `1528 total / 0 failed`; the existing 12-capture Settings/Pause/Main Menu fixture now rejects localized TMP overflow, glyph meshes outside authored text rectangles beyond a bounded two-unit bearing tolerance, and glyph meshes outside the capture frame for en-US/ko-KR/ja-JP/zh-CN. The clean-revision `127bc453770f5fddb9ebbc11bc69b3c17f7bdfd5` visual lane passed 12 canonical captures, 16 M2B dynamic captures, and four Stage save-slot diagnostics at 1920x1080 with no guarded-asset mutation; evidence is `/mnt/d/J2M/evidence/typography-visual/CommandLine-20260922-042424`.
 - Current main-integration rerun: green on 2026-09-22 KST after the localization branch was merged with current `origin/main`; Windows UI build passed and the second Unity UI EditMode run passed `1609 total / 0 failed`. The first cold-worktree run completed package and asset import but reported `1609 total / 59 failed` because Unity Localization initialization had not completed; no source or guarded font asset mutation occurred, and the same worktree rerun closed that initialization-only failure.
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1609 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1609 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1615 total / 0 failed` (input reset cleanup follow-up, 2026-09-24; this slice adds/removes no UI tests)
+- Baseline test result: command `./run_tests.sh ui`, result `1615 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current visual result: automated `./run_tests.sh typography-visual` passed on clean revision `127bc453770f5fddb9ebbc11bc69b3c17f7bdfd5` on 2026-09-22 KST for four-locale representative 1920x1080 coverage; the prior user-performed manual visual validation remains the 2026-09-05 KST result and does not independently cover the later ja-JP/zh-CN addition
 - Current KBO interpretation: 19/19 ko-KR roles use KBO Dia Gothic Medium/Light with Normal style and authored sizing, managed glyph fallback is 0, and the Pause/audio/display layout contracts remain guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
-- Result XML: `TestResults/wsl-unity-ui-editmode.xml`
-- Unity log: `TestResults/wsl-unity-ui-editmode.log`
-- Build log: `TestResults/wsl-dotnet-ui.log`
+- Result XML: `/mnt/d/J2M/evidence/input-reset-cleanup-20260924-141032-f86c0f/ui-final/test-results/wsl-unity-ui-editmode.xml`
+- Unity log: `/mnt/d/J2M/evidence/input-reset-cleanup-20260924-141032-f86c0f/ui-final/test-results/wsl-unity-ui-editmode.log`
+- Build log: `/mnt/d/J2M/evidence/input-reset-cleanup-20260924-141032-f86c0f/ui-final/test-results/wsl-dotnet-ui.log`
 
 ## Structural Delta
+
+### Input reset cleanup follow-up (2026-09-24)
+
+- Removed the uncalled Escape bridge method; F10/BackQuote metadata and behavior remain. Gameplay UI clearing now delegates to one held-direction implementation, and redundant terminal/unbind resets were removed.
+- No UI tests were added, removed, renamed, merged, or split; no ownership or prefab migration occurred. Initial UI validation failed one documentation test because the preceding cleanup updated this baseline after validation while leaving two expected count literals at `1609`. Those assertions now match the measured `1615` baseline; runtime assertions are unchanged.
+- Final results: UI rerun `1615/0`; core EditMode `293/0`, PlayMode `108 passed / 4 graphics-related skips / 0 failed`; focused input-lifecycle EditMode `83/0`, PlayMode `1/0`. All Windows builds and SDF integrity guards passed. Initial failure and rerun evidence are retained under `/mnt/d/J2M/evidence/input-reset-cleanup-20260924-141032-f86c0f/`; warning and not-run limitations are recorded in the matching `Gameplay-Test-Automation-Guide.md` entry.
+
+### Input unused-surface cleanup (2026-09-24)
+
+- Removed the unconsumed movement display string from Shared/UI keyboard snapshots and updated production, NoOp, world-guide, preview, and test constructors. Removed the unused required-action arrays and service path forwarding properties; canonical action paths and binding persistence remain unchanged.
+- UI tests added/removed/renamed/merged/split: none. Removed five obsolete assertions for the retired display string and forwarding properties; canonical path, required-action, movement-scheme, rebind, and default-label assertions remain.
+- Gameplay companion: removed the ineffective direction-change delay option through scene/configuration/host wiring and three unused methods. Renamed the existing Flip-after-direction-change PlayMode test to describe its projected-view assertions, retaining its scenario and assertions.
+- Responsibility shifts and prefab migrations: none. Validation and warning evidence for this slice is recorded in `Gameplay-Test-Automation-Guide.md` under the matching cleanup entry.
+- Same-implementation result: UI Windows build and EditMode `1615/0` passed; core passed EditMode `293/0`, PlayMode `108 passed / 4 graphics-related skips / 0 failed`. PlayerMovement PlayMode escalation ran `83 total / 76 passed / 7 failed`: the seven camera visual cases require graphics/output arguments absent from the ordinary headless invocation. The renamed input case passed; fixture-wide green is not claimed. Dedicated visual lanes, broad unfiltered full, and manual smoke were not run.
+- Evidence root: `/mnt/d/J2M/evidence/input-unused-cleanup-20260924-135019-a7d26a/`; all invoked SDF guards reported `NO_MUTATION`. Source-category mismatch and untouched-code compiler warnings remain recorded in the logs.
+
+### Prior structural delta
+
 - Added tests:
   - four-locale representative layout-boundary coverage over the existing 12 Settings/Pause/Main Menu captures, including explicit ja-JP/zh-CN filename expectations and common localized TMP overflow, authored-rect glyph-mesh, and capture-frame glyph-mesh guards
   - approved-localization Apply rollback guard rejecting changed managed `.meta` bytes; existing rollback and directory-fence fixtures now also prove exact managed `.meta` restoration and Addressables root `.meta` restoration without widening production mutation ownership

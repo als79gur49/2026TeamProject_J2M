@@ -159,6 +159,23 @@
 - `Governance` automatically enforces test boundaries so placement rules do not depend on memory or team habit.
 
 ## UI baseline governance / UI baseline governance
+
+### Input reset cleanup follow-up (2026-09-24)
+
+- Removed the unused Escape bridge method while preserving the reflection metadata consumed by F10/BackQuote. UI pending-input clearing delegates to the existing held-direction clear method; terminal clearing relies on the existing player-input reset, and action unbinding no longer attempts to reset a disposed/null tracker. The pre-initialization-safe unbind lifecycle is preserved.
+- Test inventory is unchanged. Initial UI validation found one documentation assertion still pinned to the earlier `1609` count after the preceding cleanup recorded `1615`; both existing count assertions now match the measured baseline. Runtime behavior assertions are unchanged. This closes the prior post-validation documentation update mismatch rather than weakening the guard.
+- `core` passed Windows builds, EditMode `293/0`, and PlayMode `108 passed / 4 graphics-related skips / 0 failed`. Focused full selection for `GameplayUiAccessRuntimeTests`, `GameplayHostCommandAdmissionPolicyTests`, and `GameplayInputHost_Reenable_RebindsInputActions` passed the solution build, EditMode `83/0`, and PlayMode `1/0`. The UI rerun passed its Windows build and EditMode `1615/0` after the documentation guard correction; the initial `1614 passed / 1 failed` result is retained. Input runtime sources remained unchanged throughout all runs.
+- All invoked SDF guards reported `NO_MUTATION`; source-category mismatch and untouched-code compiler warnings remain in the logs. Separate `core-feature-gate`, broad unfiltered full, graphics evidence lanes, and manual Editor/Player smoke were not run for this bounded cleanup. Evidence: `/mnt/d/J2M/evidence/input-reset-cleanup-20260924-141032-f86c0f/validation-summary.md`.
+
+### Input unused-surface cleanup (2026-09-24)
+
+- Scope: retire the ineffective `directionChangeConsumesDelay` wiring and scene value, unused `ClearBefore`, `IsRawDirectionActive`, parameterless `ExitTerminalHold`, required-action arrays, keyboard snapshot movement display string, and service path forwarding properties.
+- UI test inventory is unchanged; only assertions for retired payload/API members and snapshot constructor arguments were removed. The existing gameplay PlayMode case is renamed to `GameplayInputHost_FlipAfterDirectionChange_PreservesProjectedViewState` with its behavior assertions preserved.
+- Same-implementation validation: `core` passed Windows builds, EditMode `293/0`, and PlayMode `112 total / 108 passed / 4 skipped / 0 failed`; the four skips require dedicated graphics/render evidence. Actual `UIAudioScene` bootstrap cases passed. `ui` passed the Windows build and EditMode `1615/0`.
+- `full --filter PlayerMovementPlayModeTests` passed the solution build, matched zero EditMode tests, and ran PlayMode `83 total / 76 passed / 7 failed`. All seven failures are camera visual-evidence entry preconditions: four require a graphics device and three require `-cameraShakeVisualOutput`, neither supplied by this ordinary headless command. They fail before the input scenario runs. The renamed Flip-after-direction-change case passed. The fixture run remains failed; it is not a full-lane pass.
+- Governance reported source-category mismatch warnings; build logs retain warnings in untouched test/vendor code. All invoked font integrity guards reported `NO_MUTATION`. Evidence, failure messages, source hashes, and preserved pre-existing-file hashes: `/mnt/d/J2M/evidence/input-unused-cleanup-20260924-135019-a7d26a/validation-summary.md`.
+- Not run: separate `core-feature-gate`, broad unfiltered `full`, dedicated camera visual lanes, and manual Editor/Player smoke. The executed lanes cover this deletion; broader graphics/manual validation is outside this slice. No full-regression claim is made.
+
 ### 한국어
 - UI baseline note는 단순 count bump 문서가 아니다.
 - Stage 9 이후에는 다음 항목을 함께 기록해야 한다.

@@ -4,6 +4,8 @@ This file is the external current-structure source for the completed UI cleanup 
 
 ## Canonical Runtime Structure
 
+- Keyboard settings snapshots carry `MovementScheme`, Push/Flip display names, and rebind state. Settings and world-guide movement presentation derive from the enum; the unused movement display string has been retired from both Shared and UI snapshots. The Shared-to-UI adapter and binding-store boundary remain the runtime owners.
+
 - Root shell layers:
   - `HudLayer`
   - `ScreenLayer`
