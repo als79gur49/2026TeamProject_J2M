@@ -160,6 +160,13 @@
 
 ## UI baseline governance / UI baseline governance
 
+### Demo hotkey keyboard bridge simplification (2026-09-25)
+
+- Replaced F10/BackQuote reflection reads with null-safe `Keyboard.current` access. Removed keyboard/key property metadata, including the Escape metadata used only to discover `wasPressedThisFrame`. Key selection, rebind/transition gates, panel toggling and the separate navigation utility are unchanged.
+- Added two UI input cases for the selected key, ignored alternate/Escape keys, press/hold/repress, missing keyboard and reconnection. They use the Input System package's isolated `InputTestFixture`; only the Editor UI test assembly adds `Unity.InputSystem.TestFramework`. No cases removed, renamed, merged or split; no prefab migration or product ownership shift. The diagnostics guard now checks the retained BackQuote entrypoint instead of the removed reflection field name.
+- Windows builds and UI EditMode passed `1622/0`; core EditMode passed `293/0`, PlayMode `108 passed / 4 graphics skips / 0 failed`. The initial UI run passed the existing 1620 cases but failed both new press-edge cases in the unisolated Editor input environment; the isolated rerun passed both. Core's runner detected and removed two generated InitTestScene files, then completed successfully. Existing category/compiler warnings remain; font guards reported `NO_MUTATION`.
+- Evidence: `/mnt/d/J2M/evidence/keyboard-bridge-20260925-012711/validation-summary.md`. Manual hardware/Player checks and broad full were not run; virtual-device input and existing UI flow coverage bound this change. Baseline count literals are synchronized after measurement and checked by the UI documentation filter.
+
 ### Player action and UI movement retirement (2026-09-25)
 
 - Removed seven unused Player actions and their 21 bindings while preserving all remaining action/binding IDs, the UI map and input asset meta. A fixed saved JSON fixture was captured through the production rebind service before deletion; both movement schemes restore it after import without clearing settings.

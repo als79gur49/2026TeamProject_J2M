@@ -22,6 +22,7 @@
     "Game.Shared.Input",
     "Unity.Cinemachine",
     "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework",
     "Unity.Splines",
     "Unity.TextMeshPro",
     "Unity.Localization",

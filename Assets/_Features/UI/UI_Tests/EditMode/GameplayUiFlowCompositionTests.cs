@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
+using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Stages;
@@ -14,11 +15,69 @@ using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiFlowCompositionTests
     {
+        [TestCase(DemoStageControlOpenKey.F10, Key.F10, Key.Backquote)]
+        [TestCase(DemoStageControlOpenKey.BackQuote, Key.Backquote, Key.F10)]
+        public void DemoStageControlHotkey_UsesSelectedPressEdge_AndHandlesKeyboardReconnect(
+            DemoStageControlOpenKey openKey, Key selectedKey, Key otherKey)
+        {
+            var input = new InputTestFixture();
+            input.Setup();
+            var root = new GameObject(nameof(DemoStageControlHotkey_UsesSelectedPressEdge_AndHandlesKeyboardReconnect));
+            Keyboard keyboard = null;
+            try
+            {
+                var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                typeof(GameplayUiFlowInstaller).GetField("_demoStageControlSettings", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(installer, new DemoStageControlSettings { OpenKey = openKey });
+                var readHotkey = typeof(GameplayUiFlowInstaller).GetMethod(
+                    "WasDemoStageControlOpenKeyPressed", BindingFlags.Instance | BindingFlags.NonPublic);
+                bool IsPressed() => (bool)readHotkey.Invoke(installer, null);
+
+                Assert.That(Keyboard.current, Is.Null);
+                Assert.That(IsPressed(), Is.False, "No keyboard must be a safe no-op.");
+
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                foreach (var ignoredKey in new[] { otherKey, Key.Escape })
+                {
+                    InputSystem.QueueStateEvent(keyboard, new KeyboardState(ignoredKey));
+                    InputSystem.Update();
+                    Assert.That(IsPressed(), Is.False, "Only the configured demo key may trigger.");
+                }
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(selectedKey));
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.True);
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.False, "Holding the key must not produce another press edge.");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.False);
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(selectedKey));
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.True, "A fresh press must be detected again.");
+
+                InputSystem.RemoveDevice(keyboard);
+                Assert.That(Keyboard.current, Is.Null);
+                Assert.That(IsPressed(), Is.False);
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(selectedKey));
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.True, "Query must use the current keyboard after reconnect.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                input.TearDown();
+            }
+        }
+
         [Test]
         public void GameplayUiFlowInstaller_RecreationDoesNotDisposeHostAdmissionLifetime()
         {
