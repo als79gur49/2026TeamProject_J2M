@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement;
+using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
@@ -84,6 +85,83 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(reaction.BlockerEntityId, Is.EqualTo(201));
             Assert.That(reaction.CreatedTick, Is.EqualTo(2));
             Assert.That(reaction.ExpireTick, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlockedEnemyKinematicContinuation_SameTickBoxPushIntoSourceAnchor_StopsAtOccupiedCell()
+        {
+            AssertBlockedEnemyKinematicContinuationStopsBoxPushIntoSourceAnchor(pushTick: 2);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlockedEnemyKinematicContinuation_NextTickBoxPushIntoSourceAnchor_StopsAtOccupiedCell()
+        {
+            AssertBlockedEnemyKinematicContinuationStopsBoxPushIntoSourceAnchor(pushTick: 3);
+        }
+
+        private static void AssertBlockedEnemyKinematicContinuationStopsBoxPushIntoSourceAnchor(int pushTick)
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var blockedTargetCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var approachingBoxCell = new SurfaceCell(FaceId.Floor, 10, 4);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 9, 4)),
+                    CreateEnemy(61, sourceCell, enemyLocomotionCooldownTicks: 3),
+                    CreateBox(201, blockedTargetCell),
+                    CreateBox(202, approachingBoxCell, BoxCapabilities.Push),
+                },
+                new BoardBounds(new Vector2Int(9, 4), new Vector2Int(13, 4)));
+            worldState.CreateWriteContext().SetUnitKinematicState(
+                61,
+                CreateCommitTickKinematicContinuationState());
+            var pipeline = CreatePipeline(
+                worldState,
+                GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
+                new IEntityLogic[] { new RightPushPlayerLogic(10) });
+
+            var blockedTick = pipeline.RunTick(new TickInput(
+                2,
+                pushTick == 2 ? PlayerTickCommand.Move(Direction.Right) : default));
+            Assert.That(
+                blockedTick.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("EnemyKinematicContinuationBlocked", StringComparison.Ordinal) &&
+                    reason.Contains("E=61", StringComparison.Ordinal)),
+                Is.True);
+
+            var pushResult = pushTick == 2
+                ? blockedTick
+                : pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(61, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(sourceCell));
+            Assert.That(enemy.hp, Is.GreaterThan(0));
+            Assert.That(snapshot.TryGetUnitKinematicPose(61, out var pose), Is.True);
+            Assert.That(pose.AnchorCell, Is.EqualTo(sourceCell));
+            Assert.That(pose.IsSettledAtAnchor, Is.True);
+            Assert.That(snapshot.TryGetEntity(201, out var targetBox), Is.True);
+            Assert.That(targetBox.position, Is.EqualTo(blockedTargetCell));
+            Assert.That(snapshot.TryGetEntity(202, out var approachingBox), Is.True);
+            Assert.That(approachingBox.position, Is.EqualTo(approachingBoxCell));
+            Assert.That(snapshot.TryGetPrimaryUnitAt(sourceCell, out var sourceUnit), Is.True);
+            Assert.That(sourceUnit.entityId, Is.EqualTo(61));
+            Assert.That(snapshot.TryGetSolidOccupantAt(sourceCell, out _), Is.False);
+            Assert.That(
+                pushResult.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("ImpactReservationCreated", StringComparison.Ordinal) &&
+                    entry.Contains("Source=202", StringComparison.Ordinal) &&
+                    entry.Contains("Target=61", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(
+                pushResult.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("MoveCommitted", StringComparison.Ordinal) &&
+                    entry.Contains("E=202", StringComparison.Ordinal) &&
+                    entry.Contains("To=Floor(11,4)", StringComparison.Ordinal)),
+                Is.False);
         }
 
         [Test]
@@ -558,7 +636,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TickPipeline CreatePipeline(
             WorldState worldState,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            IEntityLogic[] entityLogics = null)
         {
             var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
             var timingProfile = GameplayTimingProfile.CreateDefault();
@@ -566,7 +645,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                     worldState,
-                    Array.Empty<IEntityLogic>(),
+                    entityLogics ?? Array.Empty<IEntityLogic>(),
                     timingProfile,
                     PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                         timingProfile.SimulationTicksPerSecond,
@@ -733,7 +812,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
-        private static EntityState CreateBox(int entityId, SurfaceCell position)
+        private static EntityState CreateBox(
+            int entityId,
+            SurfaceCell position,
+            BoxCapabilities boxCapabilities = BoxCapabilities.None)
         {
             return new EntityState
             {
@@ -743,8 +825,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.Box,
+                boxCapabilities = boxCapabilities,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private sealed class RightPushPlayerLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            public RightPushPlayerLogic(int entityId)
+            {
+                ControlledEntityId = entityId;
+            }
+
+            public int ControlledEntityId { get; }
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (input.PlayerCommand.MoveDirection != Direction.Right ||
+                    !snapshot.TryGetEntity(ControlledEntityId, out var player))
+                {
+                    return;
+                }
+
+                buffer.Add(new RawMovementIntent(
+                    ControlledEntityId,
+                    priority: 100,
+                    player.position.PlanarPosition + Vector2Int.right,
+                    MovementCommandKind.Push));
+            }
         }
 
         private static UnitKinematicRuntimeState CreateCommitTickKinematicContinuationState()
