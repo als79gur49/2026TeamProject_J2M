@@ -739,23 +739,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var session = host.UiAccess.QueryFacade.Session.Read();
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
-                var moveAcceptance = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
+                host.InputHost.SetRawMoveInput(Vector2.right);
 
                 host.UiAccess.PauseService.Pause();
 
                 var pausedSession = host.UiAccess.QueryFacade.Session.Read();
                 var pausedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
-                var pausedMove = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up);
 
                 Assert.That(session.CanAcceptGameplayCommands, Is.True);
                 AssertNondefaultChances(playerHud);
-                Assert.That(moveAcceptance.Accepted, Is.True);
 
                 Assert.That(pausedSession.IsPaused, Is.True);
                 Assert.That(pausedSession.CanAcceptGameplayCommands, Is.False);
                 AssertNondefaultChances(pausedHud);
-                Assert.That(pausedMove.Accepted, Is.False);
-                Assert.That(pausedMove.RejectionReason, Is.EqualTo(GameplayCommandRejectionReason.Paused));
             }
             finally
             {
@@ -801,7 +797,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     transientHud = host.UiAccess.QueryFacade.PlayerHud.Read();
                 };
 
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.up);
                 var tickResult = host.InputHost.RunSingleTick();
 
                 var refreshedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
@@ -821,10 +817,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiAccess_PauseRejectsActionableCommands_AllowsClear_AndClearsPendingUiInput()
+        public void GameplayUiAccess_PauseBlocksTicksAndPresentation_ReleasedInputExpiresBeforeResume()
         {
-            var hostObject = new GameObject("GameplayUiAccess_PauseRejectsActionableCommands_AllowsClear_AndClearsPendingUiInput");
-
+            var hostObject = new GameObject(nameof(GameplayUiAccess_PauseBlocksTicksAndPresentation_ReleasedInputExpiresBeforeResume));
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -832,31 +827,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
                 }));
-
-                var commandGateway = host.UiAccess.CommandGateway;
+                var now = 0f;
+                host.InputHost.InputTimeProvider = () => now;
+                host.InputHost.SetRawMoveInput(Vector2.right);
                 var pauseService = host.UiAccess.PauseService;
-
-                Assert.That(commandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
-
                 pauseService.Pause();
-
-                var rejectedMove = commandGateway.SetHeldMoveDirection(GameplayUiDirection.Up);
-                var clearAcceptance = commandGateway.ClearHeldMoveDirection();
+                host.InputHost.SetRawMoveInput(Vector2.zero);
                 var pausedSession = host.UiAccess.QueryFacade.Session.Read();
-
-                Assert.That(rejectedMove.Accepted, Is.False);
-                Assert.That(rejectedMove.RejectionReason, Is.EqualTo(GameplayCommandRejectionReason.Paused));
-                Assert.That(clearAcceptance.Accepted, Is.True);
                 Assert.That(pausedSession.IsPaused, Is.True);
                 Assert.That(pausedSession.CanAcceptGameplayCommands, Is.False);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Null);
                 Assert.That(host.Presenter.IsPresentationPaused, Is.True);
 
+                now = 0.2f;
                 pauseService.Resume();
-
                 var resumedTick = host.InputHost.RunSingleTick();
                 var snapshotAfter = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
-
                 Assert.That(resumedTick, Is.Not.Null);
                 Assert.That(host.Presenter.IsPresentationPaused, Is.False);
                 Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
@@ -1047,10 +1033,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 host.UiAccess.PresentationFeed.FramePublished += frames.Add;
                 host.UiAccess.PresentationFeed.StateChanged += states.Add;
 
-                var acceptance = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up);
+                host.InputHost.SetRawMoveInput(Vector2.up);
                 var tickResult = host.InputHost.RunSingleTick();
 
-                Assert.That(acceptance.Accepted, Is.True);
                 Assert.That(tickResult, Is.Not.Null);
                 Assert.That(tickResult.PresentationData.TopologyMotion.HasValue, Is.True);
                 Assert.That(frames.Count, Is.EqualTo(1));
@@ -1095,10 +1080,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     frameCount++;
                 };
 
-                var acceptance = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
+                host.InputHost.SetRawMoveInput(Vector2.right);
                 var tickResult = host.InputHost.RunSingleTick();
 
-                Assert.That(acceptance.Accepted, Is.True);
                 Assert.That(tickResult, Is.Not.Null);
                 Assert.That(tickResult.PresentationData.PlayerLocomotionSignals.Count, Is.EqualTo(1));
                 Assert.That(tickResult.PresentationData.PlayerLocomotionSignals[0].ShouldPlayWalkLoop, Is.True);
@@ -1664,13 +1648,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [TestCase(0.124f, false)]
-        [TestCase(0.125f, false)]
-        [TestCase(0.126f, false)]
-        [TestCase(0.150f, false)]
-        [TestCase(0.150f, true)]
+        [TestCase(0.124f)]
+        [TestCase(0.125f)]
+        [TestCase(0.126f)]
+        [TestCase(0.150f)]
         [Category("Core")]
-        public void PlayerHudRead_CountDoesNotChangeReleasedInputCommand(float commandTime, bool uiHeld)
+        public void PlayerHudRead_CountDoesNotChangeReleasedInputCommand(float commandTime)
         {
             PlayerTickCommand? baseline = null;
             foreach (var queryCount in new[] { 0, 1, 5 })
@@ -1683,8 +1666,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     var now = 0f;
                     host.InputHost.InputTimeProvider = () => now;
                     host.InputHost.SetRawMoveInput(Vector2.right);
-                    if (uiHeld)
-                        Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up).Accepted, Is.True);
                     now = 0.05f;
                     AssertReadsPreserveInput(host, queryCount);
                     now = 0.06f;
@@ -1692,15 +1673,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     now = commandTime;
                     AssertReadsPreserveInput(host, queryCount);
                     var command = BuildInputCommand(host.InputHost);
-                    var expected = uiHeld ? Direction.Up : commandTime <= 0.125f ? Direction.Right : Direction.None;
+                    var expected = commandTime <= 0.125f ? Direction.Right : Direction.None;
                     Assert.That(command.MoveDirection, Is.EqualTo(expected));
-                    Assert.That(command.IsMoveBuffered, Is.EqualTo(!uiHeld && expected != Direction.None));
-                    Assert.That(command.HeldMoveDirection, Is.EqualTo(uiHeld ? Direction.Up : Direction.None));
+                    Assert.That(command.IsMoveBuffered, Is.EqualTo(expected != Direction.None));
+                    Assert.That(command.HeldMoveDirection, Is.EqualTo(Direction.None));
                     if (baseline.HasValue) Assert.That(command, Is.EqualTo(baseline.Value));
                     else baseline = command;
                 }
                 finally { UnityEngine.Object.DestroyImmediate(hostObject); }
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerHudRead_CountDoesNotChangePhysicalHeldInputCommand()
+        {
+            var hostObject = new GameObject(nameof(PlayerHudRead_CountDoesNotChangePhysicalHeldInputCommand));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) }));
+                var now = 0f;
+                host.InputHost.InputTimeProvider = () => now;
+                host.InputHost.SetRawMoveInput(Vector2.up);
+                now = 0.150f;
+                PlayerTickCommand? baseline = null;
+                foreach (var count in new[] { 0, 1, 5 })
+                {
+                    AssertReadsPreserveInput(host, count);
+                    var command = BuildInputCommand(host.InputHost);
+                    Assert.That(command.MoveDirection, Is.EqualTo(Direction.Up));
+                    Assert.That(command.HeldMoveDirection, Is.EqualTo(Direction.Up));
+                    Assert.That(command.IsMoveBuffered, Is.False);
+                    if (baseline.HasValue) Assert.That(command, Is.EqualTo(baseline.Value));
+                    else baseline = command;
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(hostObject); }
         }
 
         [TestCase(0)]

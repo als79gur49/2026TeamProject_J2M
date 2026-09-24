@@ -160,6 +160,14 @@
 
 ## UI baseline governance / UI baseline governance
 
+### Player action and UI movement retirement (2026-09-25)
+
+- Removed seven unused Player actions and their 21 bindings while preserving all remaining action/binding IDs, the UI map and input asset meta. A fixed saved JSON fixture was captured through the production rebind service before deletion; both movement schemes restore it after import without clearing settings.
+- Moved shared admission-policy disposal to the Host-owned UIAccess context, including repeated-dispose and failed-composition cleanup. Retired the UI movement gateway, held-direction override and unused acceptance DTO; retained query gates, snapshot windows, physical movement buffering and presentation direction DTOs. Pause does not acquire a new physical-input reset.
+- UI inventory: four production binding save/load cases and one installer recreation/lifetime case added; the obsolete HUD-to-gateway dependency test was renamed to a gateway-absence guard. No UI tests removed, merged or split; no prefab migration. Gameplay gateway-driven tests now exercise raw input/query contracts, one UI-held Core case was retired and a physical-held Extended case added, with new disposal and Pause characterization coverage. Four existing PlayMode cases now load the production input asset.
+- Executed: pre-removal binding capture `2/0`; post-removal keyboard fixture `22/0`; B1 ownership/Pause `14/0`; B2 query/lifecycle/campaign/architecture `184/0`; input selection EditMode `7/0`, PlayMode `38/0`; core EditMode `293/0`, PlayMode `108 passed / 4 graphics skips / 0 failed`; UI Windows build and EditMode `1620/0`. The B1/B2 filters selected zero PlayMode cases and do not establish PlayMode coverage.
+- Initial fixture-constant and PlayMode assembly-reference compile failures were corrected before successful reruns; logs are retained. All invoked font guards reported `NO_MUTATION`; existing category and untouched-code warnings remain. Manual Editor/Player interaction, broad unfiltered full and dedicated graphics evidence lanes were not run. Evidence: `/mnt/d/J2M/evidence/input-retirement-20260925-000826/validation-summary.md`.
+
 ### Input reset cleanup follow-up (2026-09-24)
 
 - Removed the unused Escape bridge method while preserving the reflection metadata consumed by F10/BackQuote. UI pending-input clearing delegates to the existing held-direction clear method; terminal clearing relies on the existing player-input reset, and action unbinding no longer attempts to reset a disposed/null tracker. The pre-initialization-safe unbind lifecycle is preserved.

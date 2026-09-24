@@ -19,6 +19,42 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiFlowCompositionTests
     {
+        [Test]
+        public void GameplayUiFlowInstaller_RecreationDoesNotDisposeHostAdmissionLifetime()
+        {
+            var lifetime = new RecordingAdmissionLifetime();
+            var query = new FakeGameplayQueryFacade(new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(), new GameplayObjectiveReadModel(false, false, false, false));
+            var feed = new FakeGameplayPresentationFeed();
+            var pause = new FakeGameplayPauseService();
+            using var context = new Game.Feature.Gameplay.Host.UIAccess.GameplayHostUiAccessContext(lifetime, query, feed, pause);
+            for (var cycle = 0; cycle < 2; cycle++)
+            {
+                var root = new GameObject(nameof(GameplayUiFlowInstaller_RecreationDoesNotDisposeHostAdmissionLifetime));
+                try
+                {
+                    var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                    UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                    installer.Install(UiTestPortFactory.CreatePorts(queryFacade: query, presentationFeed: feed, pauseService: pause));
+                    Assert.That(installer.HudView.IsVisible, Is.True);
+                }
+                finally
+                {
+                    Object.DestroyImmediate(root);
+                    DestroyEventSystemIfPresent();
+                }
+                Assert.That(lifetime.DisposeCount, Is.Zero);
+            }
+            context.Dispose();
+            Assert.That(lifetime.DisposeCount, Is.EqualTo(1));
+        }
+
+        private sealed class RecordingAdmissionLifetime : System.IDisposable
+        {
+            public int DisposeCount { get; private set; }
+            public void Dispose() { DisposeCount++; }
+        }
+
         [SetUp]
         public void ResetTransitionAuthorities()
         {

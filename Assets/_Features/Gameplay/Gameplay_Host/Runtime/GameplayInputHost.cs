@@ -47,7 +47,6 @@ namespace Game.Feature.Gameplay.Host
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
         private float _simulationTickIntervalSeconds;
-        private Direction _uiHeldMoveDirection;
         private Direction _heldDirectionBeforeInputUpdate;
 
         public event Action<TickResult> TickCompleted;
@@ -130,7 +129,6 @@ namespace Game.Feature.Gameplay.Host
             _bufferedPushDirection = Direction.None;
             _isPlayerActionInputLocked = false;
             _sampledMoveInput = Vector2.zero;
-            _uiHeldMoveDirection = Direction.None;
             _heldDirectionBeforeInputUpdate = Direction.None;
             _hasInputUpdateDirectionSnapshot = false;
             _isSimulationPaused = false;
@@ -248,7 +246,6 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
             _isTerminalHoldActive = true;
             ClearPendingPlayerInput();
-            ClearPendingUiInput();
             _accumulatedTime = 0f;
         }
 
@@ -271,7 +268,6 @@ namespace Game.Feature.Gameplay.Host
             _terminalHoldToken = token;
             _isTerminalHoldActive = true;
             ClearPendingPlayerInput();
-            ClearPendingUiInput();
             _accumulatedTime = 0f;
         }
 
@@ -358,33 +354,6 @@ namespace Game.Feature.Gameplay.Host
 
             _bufferedPushDirection = capturedDirection;
             _hasBufferedPush = true;
-        }
-
-        internal void SetUiHeldMoveDirection(Direction direction)
-        {
-            EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
-            {
-                return;
-            }
-
-            if (!IsOrthogonalDirection(direction))
-            {
-                throw new ArgumentOutOfRangeException(nameof(direction), direction, "UI-held move directions must be orthogonal.");
-            }
-
-            _uiHeldMoveDirection = direction;
-        }
-
-        internal void ClearUiHeldMoveDirection()
-        {
-            EnsureInitialized();
-            _uiHeldMoveDirection = Direction.None;
-        }
-
-        internal void ClearPendingUiInput()
-        {
-            ClearUiHeldMoveDirection();
         }
 
         private void Update()
@@ -547,7 +516,6 @@ namespace Game.Feature.Gameplay.Host
         private void ClearAllPendingInputForTerminalSession()
         {
             ClearPendingPlayerInput();
-            ClearPendingUiInput();
             _accumulatedTime = 0f;
         }
 
@@ -610,7 +578,6 @@ namespace Game.Feature.Gameplay.Host
             _areActionsBound = false;
             _isPlayerActionInputLocked = false;
             ClearPendingPlayerActionInput();
-            _uiHeldMoveDirection = Direction.None;
             _sampledMoveInput = Vector2.zero;
             _heldDirectionBeforeInputUpdate = Direction.None;
             _hasInputUpdateDirectionSnapshot = false;
@@ -747,7 +714,6 @@ namespace Game.Feature.Gameplay.Host
             if (_isPlayerRespawnDelayInputBlocked)
             {
                 ClearPendingPlayerInput();
-                ClearPendingUiInput();
                 return PlayerTickCommand.None;
             }
 
@@ -764,21 +730,8 @@ namespace Game.Feature.Gameplay.Host
             var sampledDirection = ResolveSampledMoveDirection();
             _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
 
-            var resolvedDirection = Direction.None;
-            var usesBufferedDirection = false;
-
-            if (_uiHeldMoveDirection != Direction.None)
-            {
-                resolvedDirection = _uiHeldMoveDirection;
-            }
-            else
-            {
-                resolvedDirection = _moveIntentBuffer.ResolveDirection(now, out usesBufferedDirection);
-            }
-
-            var heldMoveDirection = _uiHeldMoveDirection != Direction.None
-                ? _uiHeldMoveDirection
-                : _moveIntentBuffer.HeldDirection;
+            var resolvedDirection = _moveIntentBuffer.ResolveDirection(now, out var usesBufferedDirection);
+            var heldMoveDirection = _moveIntentBuffer.HeldDirection;
 
             var flipPressed = _hasBufferedFlip;
             var pushPressed = _hasBufferedPush;
@@ -890,9 +843,7 @@ namespace Game.Feature.Gameplay.Host
 
         private Direction ResolveHeldDirectionAtActionPress()
         {
-            return _uiHeldMoveDirection != Direction.None
-                ? _uiHeldMoveDirection
-                : ResolveSampledMoveDirection();
+            return ResolveSampledMoveDirection();
         }
 
         private Direction ResolveHeldDirectionBeforeInputUpdate()
@@ -945,7 +896,6 @@ namespace Game.Feature.Gameplay.Host
             }
 
             ClearPendingPlayerInput();
-            ClearPendingUiInput();
         }
 
         // Input sampling owns buffer time; UI queries must never sample or extend it.
@@ -1022,13 +972,6 @@ namespace Game.Feature.Gameplay.Host
             return Direction.None;
         }
 
-        private static bool IsOrthogonalDirection(Direction direction)
-        {
-            return direction == Direction.Up ||
-                   direction == Direction.Right ||
-                   direction == Direction.Down ||
-                   direction == Direction.Left;
-        }
     }
 
     internal sealed class KeyboardMoveOrderTracker : IDisposable

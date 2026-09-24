@@ -12,7 +12,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public GameplayHostUiAccessContext(
             IDisposable admissionPolicyLifetime,
-            IGameplayCommandGateway commandGateway,
             IGameplayQueryFacade queryFacade,
             IGameplayPresentationFeed presentationFeed,
             IGameplayPauseService pauseService,
@@ -21,7 +20,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             CampaignStageSequenceResolver campaignStageSequenceResolver = null)
         {
             _admissionPolicyLifetime = admissionPolicyLifetime ?? throw new ArgumentNullException(nameof(admissionPolicyLifetime));
-            CommandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             PresentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
             PauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
@@ -29,8 +27,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             DemoStageControlCompletionBridge = demoStageControlCompletionBridge;
             CampaignStageSequenceResolver = campaignStageSequenceResolver;
         }
-
-        public IGameplayCommandGateway CommandGateway { get; }
 
         public IGameplayQueryFacade QueryFacade { get; }
 

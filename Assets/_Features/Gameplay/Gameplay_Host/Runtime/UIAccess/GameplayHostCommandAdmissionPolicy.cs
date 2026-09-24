@@ -90,13 +90,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             return true;
         }
 
-        public GameplayCommandAcceptance EvaluateActionableRequest()
-        {
-            return CanAcceptActionableCommands(out var rejectionReason)
-                ? GameplayCommandAcceptance.Accept()
-                : GameplayCommandAcceptance.Reject(rejectionReason);
-        }
-
         public void Dispose()
         {
             _isDisposed = true;

@@ -279,7 +279,6 @@ namespace Game.Feature.Gameplay.Host
                     configuration.CampaignStageSequenceResolver);
                 uiAccess = new GameplayHostUiAccessContext(
                     admissionPolicy,
-                    new GameplayHostCommandGateway(inputHost, admissionPolicy),
                     new GameplayQueryFacade(
                         new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
                         new GameplayHostStageQuery(configuration.StageContentEntry),

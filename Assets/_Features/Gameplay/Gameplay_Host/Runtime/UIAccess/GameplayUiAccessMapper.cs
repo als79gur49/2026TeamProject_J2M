@@ -7,18 +7,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 {
     internal static class GameplayUiAccessMapper
     {
-        public static Direction ToGameplayDirection(GameplayUiDirection direction)
-        {
-            return direction switch
-            {
-                GameplayUiDirection.Up => Direction.Up,
-                GameplayUiDirection.Right => Direction.Right,
-                GameplayUiDirection.Down => Direction.Down,
-                GameplayUiDirection.Left => Direction.Left,
-                _ => Direction.None,
-            };
-        }
-
         public static GameplayUiDirection ToUiDirection(Direction direction)
         {
             return direction switch

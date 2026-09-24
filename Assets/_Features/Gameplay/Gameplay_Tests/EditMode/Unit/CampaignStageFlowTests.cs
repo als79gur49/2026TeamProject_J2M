@@ -468,7 +468,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     campaignStageSequenceResolver: resolver);
                 uiAccess = new GameplayHostUiAccessContext(
                     new NoOpLifetime(),
-                    new NoOpGameplayCommandGateway(),
                     new NoOpGameplayQueryFacade(),
                     feed,
                     new NoOpGameplayPauseService(),
@@ -3478,19 +3477,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class NoOpLifetime : IDisposable
         {
             public void Dispose() { }
-        }
-
-        private sealed class NoOpGameplayCommandGateway : IGameplayCommandGateway
-        {
-            public GameplayCommandAcceptance SetHeldMoveDirection(GameplayUiDirection direction)
-            {
-                return GameplayCommandAcceptance.Accept();
-            }
-
-            public GameplayCommandAcceptance ClearHeldMoveDirection()
-            {
-                return GameplayCommandAcceptance.Accept();
-            }
         }
 
         private sealed class NoOpGameplayQueryFacade : IGameplayQueryFacade

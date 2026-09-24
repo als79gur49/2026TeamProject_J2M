@@ -530,7 +530,6 @@ namespace Game.Feature.UI.Composition
                     sceneHost.UiAccess.PresentationFeed,
                     sceneHost.UiAccess.PauseService);
                 Install(new GameplayUiFlowPorts(
-                    sceneHost.UiAccess.CommandGateway,
                     sceneHost.UiAccess.QueryFacade,
                     presentationSource,
                     sceneHost.UiAccess.PauseService,

@@ -19,10 +19,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void AdmissionPolicy_TerminalSessionRejectsPublicCommandWithSameBlockingReasonUntilRevealCompletes()
+        public void AdmissionPolicy_TerminalSessionBlocksQueriesUntilRevealCompletes()
         {
             var hostObject = new GameObject(
-                "AdmissionPolicy_TerminalSessionRejectsPublicCommandWithSameBlockingReasonUntilRevealCompletes");
+                "AdmissionPolicy_TerminalSessionBlocksQueriesUntilRevealCompletes");
 
             try
             {
@@ -34,7 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }));
 
                 using var policy = CreatePolicy(host);
-                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.True);
+                Assert.That(policy.CanAcceptActionableCommands(), Is.True);
                 var authority = TerminalSessionRegistry.Authority;
                 var sourceGeneration = authority.CurrentSceneGeneration > 0
                     ? authority.CurrentSceneGeneration
@@ -45,25 +45,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     TerminalDestinationKind.ReloadedGameplay));
                 Assert.That(claim.Accepted, Is.True);
 
-                var policyResult = policy.EvaluateActionableRequest();
-                var gatewayResult =
-                    host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
-
-                Assert.That(policyResult.Accepted, Is.False);
-                Assert.That(
-                    policyResult.RejectionReason,
-                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
-                Assert.That(gatewayResult.Accepted, Is.False);
-                Assert.That(
-                    gatewayResult.RejectionReason,
-                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+                Assert.That(policy.CanAcceptActionableCommands(out var reason), Is.False);
+                Assert.That(reason, Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+                Assert.That(host.UiAccess.QueryFacade.Session.Read().CanAcceptGameplayCommands, Is.False);
 
                 Assert.That(TerminalSessionRegistry.TryAdvance(
                     claim.Token,
                     TerminalSessionPhase.Revealing), Is.True);
-                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.False);
+                Assert.That(policy.CanAcceptActionableCommands(), Is.False);
                 Assert.That(TerminalSessionRegistry.TryComplete(claim.Token), Is.True);
-                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.True);
+                Assert.That(policy.CanAcceptActionableCommands(), Is.True);
             }
             finally
             {
@@ -110,12 +101,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .GetValue(host.InputHost), Is.False);
                 Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedFlip", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .GetValue(host.InputHost), Is.False);
-                var publicResult =
-                    host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
-                Assert.That(publicResult.Accepted, Is.False);
-                Assert.That(
-                    publicResult.RejectionReason,
-                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+                Assert.That(host.UiAccess.QueryFacade.Session.Read().CanAcceptGameplayCommands, Is.False);
 
                 Assert.That(
                     authority.TryAdvancePhase(claim.Token, TerminalSessionPhase.Revealing),
@@ -263,7 +249,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 using var policy = CreatePolicy(host);
 
                 Assert.That(policy.TryCreateSnapshot(out var beforeTickSnapshot), Is.True);
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
                 Assert.That(policy.TryCreateSnapshot(out var afterTickSnapshot), Is.True);
 
@@ -305,7 +291,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(secondActor.entityId, Is.EqualTo(firstActor.entityId));
                 Assert.That(secondActor.position, Is.EqualTo(firstActor.position));
 
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
                 Assert.That(policy.TryGetCommittedControllableActor(out var refreshedActor), Is.True);
 
@@ -339,7 +325,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
 
                 var policy = CreatePolicy(host);
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
                 Assert.That(policy.TryCreateSnapshot(out var refreshedSnapshot), Is.True);
 
@@ -413,7 +399,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 host.Initialize(CreateConfiguration(new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) }));
                 var lifetime = new RecordingLifetime(throws);
                 var feed = new RecordingDisposableFeed();
-                var context = new GameplayHostUiAccessContext(lifetime, host.UiAccess.CommandGateway, host.UiAccess.QueryFacade, feed, host.UiAccess.PauseService);
+                var context = new GameplayHostUiAccessContext(lifetime, host.UiAccess.QueryFacade, feed, host.UiAccess.PauseService);
                 if (throws)
                     Assert.Throws<System.InvalidOperationException>(() => context.Dispose());
                 else
