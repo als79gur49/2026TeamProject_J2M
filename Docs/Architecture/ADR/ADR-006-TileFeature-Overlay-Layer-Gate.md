@@ -425,7 +425,7 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - TileEffect resolver does not directly mutate `WorldState`.
 - Resolve stage uses `ProjectedWorld` / `FinalizationBatch`.
 - Finalize applies authoritative `WorldState` mutation.
-- Respawn phase write path uses `IWorldWriteContext`.
+- MoonBlockGeneration stage write path uses `IWorldWriteContext`.
 - `TickPipeline` does not plan `TilePresentationRequest`.
 - `TickPipeline` does not execute visual/audio/UI.
 - `TickPipeline` only transports presentation facts where necessary.

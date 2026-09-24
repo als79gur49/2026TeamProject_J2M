@@ -14,16 +14,16 @@
   - `Movement`
   - `Attack`
   - `Cleanup`
-  - `Respawn`
+  - `MoonBlock generation`
 - Runtime stage vocabulary:
   - `Plan`
   - `Resolve`
   - `Finalize`
   - `Cleanup`
-  - `Respawn`
+  - `MoonBlockGeneration`
 - Canonical rule:
-  - `Movement / Attack / Cleanup / Respawn`는 gameplay flow 설명에 사용한다.
-  - `Plan / Resolve / Finalize / Cleanup / Respawn`는 pipeline execution stage 설명에만 사용한다.
+  - `Movement / Attack / Cleanup / MoonBlock generation`은 gameplay flow 설명에 사용한다.
+  - `Plan / Resolve / Finalize / Cleanup / MoonBlockGeneration`은 pipeline execution stage 설명에만 사용한다.
   - semantic axis와 execution-stage axis는 분리한다.
   - `TickPhase`는 현재 코드에서 runtime stage enum이다. gameplay phase의 대표 명칭으로 승격하지 않는다.
   - `MovementPhaseResult`와 `AttackPhaseResult`는 semantic result carrier다. `Plan / Resolve / Finalize` execution-stage vocabulary와 합쳐서 canonical phase list로 만들지 않는다.
@@ -208,18 +208,18 @@
 
 ## Stage Contract
 - `Plan`과 `Resolve`는 phase-entry snapshot과 published reservation read model만 읽는다.
-- 아래에 문서화된 Cleanup/Respawn bounded exception을 제외하면 `Finalize`만 `WorldState`를 mutate할 수 있다.
+- 아래에 문서화된 Cleanup/MoonBlockGeneration bounded exception을 제외하면 `Finalize`만 `WorldState`를 mutate할 수 있다.
 - `Finalize`는 legality를 재평가하거나 target을 다시 고르지 않는다.
 - `Finalize`는 `FinalizationBatch.ApplyTo` 기반 apply-only stage다. `CanPlace`, `CanTraverse`, `CanSettle`, placement/traversal/settlement policy evaluation, target picking 같은 legality recheck를 추가하지 않는다.
 - semantic slice handoff는 오직 두 가지다.
   - 이전 slice `Finalize` 이후의 새 snapshot
   - 이전 slice가 publish한 finalized reservation output
-- Cleanup/Respawn direct write path는 current bounded exception이다.
+- Cleanup/MoonBlockGeneration direct write path는 current bounded exception이다.
   - 허용된 Cleanup direct write entrypoint는 `CleanupProcessor.Process`, `ExpireBoxInteractionLocks`, `ExpireEnemyGravityFieldAuraFields`, `ExpirePendingEnemyBlockedReactions`다.
   - Cleanup direct write 호출 순서는 `CleanupProcessor.Process` -> `ExpireBoxInteractionLocks` -> `ExpireEnemyGravityFieldAuraFields` -> `ExpirePendingEnemyBlockedReactions`로 고정한다.
   - Cleanup은 post-Finalize snapshot을 읽고, 해당 tick에서 생성한 단일 write context를 사용한다.
   - 각 expiry entrypoint 내부의 대상 enumeration과 event emission은 entity/field ID 기준의 결정적 순서를 유지한다.
-  - 허용된 Respawn direct write entrypoint는 `RespawnProcessor.Process`, `MoonBlockGeneratorRespawnProcessor.Process`다.
+  - 허용된 MoonBlockGeneration direct write entrypoint는 `MoonBlockGeneratorRespawnProcessor.Process`다.
   - 이 예외는 current contract를 문서화한 것이며, 장기적으로 유지/삭제/`FinalizationBatch` 통합 여부는 별도 architecture decision 대상이다.
   - SRP 작업 중 몰래 `FinalizationBatch`로 옮기지 않는다. 이동은 ordering, event log, hash, presentation evidence를 동반한 별도 설계 변경으로만 다룬다.
 - phased ordering contract:
@@ -316,7 +316,7 @@
 - `ImportableState / ReplayableState / SaveableState`는 taxonomy에 포함되지만 이번 단계에서는 문서 contract만 가진다.
 
 ## Gameplay Flow
-- 상위 흐름은 `Input -> TickPipeline -> Movement -> Attack -> Cleanup -> Respawn`이다.
+- 상위 흐름은 `Input -> TickPipeline -> Movement -> Attack -> Cleanup -> MoonBlock generation`이다.
 - Movement:
   - raw movement intent를 수집한다.
   - execute tick에 push/flip을 재판정한다.
@@ -332,8 +332,8 @@
   - resolve는 current Push/Flip impact-disposition plan에서 `Stay / FollowThrough / DestroySelf` 중 하나를 닫는다.
 - Cleanup:
   - `hp <= 0` 또는 `markedForDeath` removal을 확정한다.
-- Respawn:
-  - cleanup 이후 respawn eligibility를 반영한다.
+- MoonBlock generation:
+  - Cleanup 이후 활성 generator와 점유 및 배치 합법성을 확인하고 해당 MoonBlock을 생성하거나 blocked fact를 발행한다.
 
 ## Push / Flip Impact Handoff Note
 - Push change is formalization, not a new framework.

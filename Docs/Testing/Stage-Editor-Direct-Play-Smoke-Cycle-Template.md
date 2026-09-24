@@ -14,11 +14,17 @@
 
 ## Stage Evidence Table
 
-| stage id | exact menu path | executor | execution date/time | launch result | observed warning/fail-fast | plain Play attempted | notes |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `stage-0-1` | `Tools/Stages/Direct Play/Launch Stage...` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
-| `stage-1-1` | `Tools/Stages/Direct Play/Launch Stage...` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
-| `<stage id>` | `Tools/Stages/Direct Play/Replay Last Stage` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
+| stage id | exact menu path | slot mode | level group | initial chances | death/chance/retry result | clear result | executor | execution date/time | launch result | observed warning/fail-fast | plain Play attempted | notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `stage-0-1` | `Tools/Stages/Direct Play/Launch Stage...` | `CampaignTempSlot` | `level-0` | `<count>` | `<one chance spent and same stage retried>` | `<result>` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
+| `stage-1-1` | `Tools/Stages/Direct Play/Launch Stage...` | `CampaignTempSlot` | `level-1` | `<count>` | `<one chance spent and same stage retried>` | `<result>` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
+| `<stage id>` | `Tools/Stages/Direct Play/Replay Last Stage` | `CampaignTempSlot` | `<group>` | `<count>` | `<result>` | `<result>` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
+
+Capture smoke records each of `--capture-stage <id>`, `--capture-stage=<id>`, and
+`-captureStage <id>` with the same slot, group, chance, death, retry, and clear
+fields. Record invalid-stage rejection and whether slot and launch context stayed
+unchanged. Record a plain stage-scene Play attempt as unsupported and verify
+the host rejects it before the first gameplay tick.
 
 ## Counter Summary
 
