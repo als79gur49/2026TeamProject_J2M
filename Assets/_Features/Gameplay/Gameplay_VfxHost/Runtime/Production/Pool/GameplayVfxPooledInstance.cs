@@ -921,6 +921,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 : Failed(failure);
         }
 
+        public static VfxSourceHierarchyPoseCapture CaptureForTopologyExit(Transform sourceRoot)
+        {
+            return VfxSourceHierarchyPoseSnapshot.TryCaptureForTopologyExit(
+                sourceRoot,
+                out var snapshot,
+                out var failure)
+                ? new VfxSourceHierarchyPoseCapture(true, snapshot, VfxSourceHierarchyPoseFailure.None)
+                : Failed(failure);
+        }
+
         public static VfxSourceHierarchyPoseCapture Failed(VfxSourceHierarchyPoseFailure failure)
         {
             if (failure == VfxSourceHierarchyPoseFailure.None)
@@ -946,6 +956,25 @@ namespace Game.Feature.Gameplay.Vfx.Host
             out VfxSourceHierarchyPoseSnapshot snapshot,
             out VfxSourceHierarchyPoseFailure failure)
         {
+            return TryCapture(sourceRoot, allowInactiveSource: false, out snapshot, out failure);
+        }
+
+        public static bool TryCaptureForTopologyExit(
+            Transform sourceRoot,
+            out VfxSourceHierarchyPoseSnapshot snapshot,
+            out VfxSourceHierarchyPoseFailure failure)
+        {
+            // Topology can hide the source View before the exit cue runs. Its stored transform
+            // hierarchy remains a valid final pose for a detached death clone.
+            return TryCapture(sourceRoot, allowInactiveSource: true, out snapshot, out failure);
+        }
+
+        private static bool TryCapture(
+            Transform sourceRoot,
+            bool allowInactiveSource,
+            out VfxSourceHierarchyPoseSnapshot snapshot,
+            out VfxSourceHierarchyPoseFailure failure)
+        {
             snapshot = null;
             if (sourceRoot == null)
             {
@@ -953,7 +982,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return false;
             }
 
-            if (!sourceRoot.gameObject.activeInHierarchy)
+            if (!allowInactiveSource && !sourceRoot.gameObject.activeInHierarchy)
             {
                 failure = VfxSourceHierarchyPoseFailure.InactiveSource;
                 return false;

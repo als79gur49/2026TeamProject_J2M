@@ -28,6 +28,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDeathMotion_Binding.asset";
         private const string EnemyOutOfBoundsExitBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyOutOfBoundsExit_Binding.asset";
+        private const string DrSaturnPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_DrSaturn.prefab";
         private const string CommandPath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyDeathMotionVfxCommandBuilder.cs";
         private const string ProductionRuntimePath =
@@ -200,6 +202,230 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TopologyDestroyTileDeath_UsesLegacyFlyOutInDestinationCameraFrame()
+        {
+            var fixture = CreateBuilderFixture();
+            try
+            {
+                var signal = CreateEnemyExitSignal(
+                    40,
+                    TickEntityExitCause.Killed,
+                    cell: new SurfaceCell(FaceId.Front, 1, 1),
+                    topology: new CubeTopologyState(FaceId.Floor));
+                var destinationCameraView = new GameplayCameraViewSnapshot(
+                    new Vector3(2f, 1f, -8f),
+                    Quaternion.Euler(8f, -18f, 0f),
+                    60f,
+                    16f / 9f,
+                    0.3f);
+                var resolver = new EnemyDeathMotionTargetResolver(
+                    fixture.LocalSpaceRoot.transform,
+                    fixture.Camera,
+                    fixture.StateStore,
+                    fixture.Projector.CellSize,
+                    destinationCameraView);
+
+                Assert.That(EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                    signal,
+                    fixture.TimingProfile,
+                    fixture.PoseResolver,
+                    fixture.Projector,
+                    resolver,
+                    out var command), Is.True);
+
+                var sourceInDestinationCamera = Quaternion.Inverse(destinationCameraView.WorldRotation) *
+                    (command.SourceLocalPosition - destinationCameraView.WorldPosition);
+                var targetInDestinationCamera = Quaternion.Inverse(destinationCameraView.WorldRotation) *
+                    (command.TargetLocalPosition - destinationCameraView.WorldPosition);
+                Assert.That(sourceInDestinationCamera.z, Is.GreaterThan(targetInDestinationCamera.z));
+                Assert.That(targetInDestinationCamera.z,
+                    Is.EqualTo(destinationCameraView.NearClipPlane + 0.12f).Within(0.0001f));
+
+                fixture.Camera.transform.SetPositionAndRotation(
+                    destinationCameraView.WorldPosition,
+                    destinationCameraView.WorldRotation);
+                fixture.Camera.fieldOfView = destinationCameraView.VerticalFieldOfViewDegrees;
+                fixture.Camera.aspect = destinationCameraView.Aspect;
+                fixture.Camera.nearClipPlane = destinationCameraView.NearClipPlane;
+                var legacyResolver = new EnemyDeathMotionTargetResolver(
+                    fixture.LocalSpaceRoot.transform,
+                    fixture.Camera,
+                    fixture.StateStore,
+                    fixture.Projector.CellSize);
+                Assert.That(EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                    signal,
+                    fixture.TimingProfile,
+                    fixture.PoseResolver,
+                    fixture.Projector,
+                    legacyResolver,
+                    out var legacyCommand), Is.True);
+                Assert.That(Vector3.Distance(command.TargetLocalPosition, legacyCommand.TargetLocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(Vector3.Distance(command.ArcLocalDirection, legacyCommand.ArcLocalDirection),
+                    Is.LessThan(0.0001f));
+                Assert.That(Vector3.Distance(command.SpinAxisLocal, legacyCommand.SpinAxisLocal),
+                    Is.LessThan(0.0001f));
+                Assert.That(command.ArcHeight, Is.EqualTo(legacyCommand.ArcHeight));
+                Assert.That(command.SpinDegrees, Is.EqualTo(legacyCommand.SpinDegrees));
+                var sampleTime = command.FlightDurationSeconds * 0.35f;
+                var topologySample = ParameterizedMotionVfxSampler.Sample(
+                    command.ToParameterizedMotionVfxCommand(), sampleTime);
+                var legacySample = ParameterizedMotionVfxSampler.Sample(
+                    legacyCommand.ToParameterizedMotionVfxCommand(), sampleTime);
+                Assert.That(Vector3.Distance(topologySample.LocalPosition, legacySample.LocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(Quaternion.Angle(topologySample.LocalRotation, legacySample.LocalRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(topologySample.FadeProgress, Is.EqualTo(legacySample.FadeProgress));
+
+                fixture.Camera.transform.SetPositionAndRotation(
+                    new Vector3(-15f, 9f, 4f),
+                    Quaternion.Euler(45f, 95f, 0f));
+                Assert.That(EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                    signal,
+                    fixture.TimingProfile,
+                    fixture.PoseResolver,
+                    fixture.Projector,
+                    resolver,
+                    out var afterCameraMoved), Is.True);
+                Assert.That(Vector3.Distance(command.TargetLocalPosition, afterCameraMoved.TargetLocalPosition),
+                    Is.LessThan(0.0001f));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyDeath_OffCenterSource_FliesBeyondDestinationCameraEdge()
+        {
+            var parent = new GameObject("TopologyDeathFlyOutRoot");
+            try
+            {
+                var destinationCameraView = new GameplayCameraViewSnapshot(
+                    Vector3.zero,
+                    Quaternion.identity,
+                    60f,
+                    16f / 9f,
+                    0.3f);
+                var plan = EnemyDeathExitEffectPlanBuilder.Build(
+                    parent.transform,
+                    new GameplayEntityPose(new Vector3(1f, 0f, 5f), Quaternion.identity),
+                    null,
+                    outputCamera: null,
+                    cellSize: 1f,
+                    presentationSeed: 9127,
+                    destinationCameraView: destinationCameraView);
+                var targetInDestinationCamera = Quaternion.Inverse(destinationCameraView.WorldRotation) *
+                    (plan.TargetLocalPosition - destinationCameraView.WorldPosition);
+                var halfWidth = targetInDestinationCamera.z *
+                    Mathf.Tan(destinationCameraView.VerticalFieldOfViewDegrees * Mathf.Deg2Rad * 0.5f) *
+                    destinationCameraView.Aspect;
+                var targetViewportX = 0.5f + targetInDestinationCamera.x / (2f * halfWidth);
+
+                Assert.That(targetViewportX, Is.GreaterThan(1f));
+                Assert.That(targetInDestinationCamera.z,
+                    Is.EqualTo(destinationCameraView.NearClipPlane + 0.12f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parent);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyContactDeath_TargetUsesDestinationCameraWhenViewIsRotated()
+        {
+            var fixture = CreateBuilderFixture();
+            try
+            {
+                var signal = CreateEnemyExitSignal(
+                    40,
+                    TickEntityExitCause.Killed,
+                    cell: new SurfaceCell(FaceId.Front, 1, 1),
+                    topology: new CubeTopologyState(FaceId.Floor),
+                    timing: EntityExitPresentationTiming.AtContactTime,
+                    visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime);
+                var rotatedSourcePose = new GameplayEntityPose(
+                    new Vector3(1f, 2f, 3f),
+                    Quaternion.Euler(37f, 83f, 19f));
+                var destinationCameraView = new GameplayCameraViewSnapshot(
+                    new Vector3(2f, 1f, -8f),
+                    Quaternion.Euler(8f, -18f, 0f),
+                    60f,
+                    16f / 9f,
+                    0.3f);
+                var resolver = new EnemyDeathMotionTargetResolver(
+                    fixture.LocalSpaceRoot.transform,
+                    fixture.Camera,
+                    fixture.StateStore,
+                    fixture.Projector.CellSize,
+                    destinationCameraView);
+
+                Assert.That(resolver.TryResolveDeathMotionTarget(
+                    signal,
+                    rotatedSourcePose,
+                    signal.PresentationSeed,
+                    out var target), Is.True);
+
+                var targetInDestinationCamera = Quaternion.Inverse(destinationCameraView.WorldRotation) *
+                    (target.TargetLocalPosition - destinationCameraView.WorldPosition);
+                Assert.That(targetInDestinationCamera.z,
+                    Is.EqualTo(destinationCameraView.NearClipPlane + 0.12f).Within(0.0001f));
+                var otherRotation = new GameplayEntityPose(rotatedSourcePose.Position, Quaternion.identity);
+                Assert.That(resolver.TryResolveDeathMotionTarget(
+                    signal,
+                    otherRotation,
+                    signal.PresentationSeed,
+                    out var otherTarget), Is.True);
+                Assert.That(Vector3.Distance(target.TargetLocalPosition, otherTarget.TargetLocalPosition),
+                    Is.LessThan(0.0001f));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyDeath_SourceBehindDestinationCamera_UsesVisibleCameraTarget()
+        {
+            var fixture = CreateBuilderFixture();
+            try
+            {
+                var destinationCameraView = new GameplayCameraViewSnapshot(
+                    new Vector3(0f, 0f, 8f),
+                    Quaternion.identity,
+                    60f,
+                    16f / 9f,
+                    0.3f);
+                var plan = EnemyDeathExitEffectPlanBuilder.Build(
+                    fixture.LocalSpaceRoot.transform,
+                    new GameplayEntityPose(new Vector3(1f, 2f, 3f), Quaternion.identity),
+                    null,
+                    fixture.Camera,
+                    fixture.Projector.CellSize,
+                    9127,
+                    destinationCameraView);
+                var targetInDestinationCamera = Quaternion.Inverse(destinationCameraView.WorldRotation) *
+                    (plan.TargetLocalPosition - destinationCameraView.WorldPosition);
+                Assert.That(targetInDestinationCamera.z,
+                    Is.EqualTo(destinationCameraView.NearClipPlane + 0.12f).Within(0.0001f));
+                Assert.That(targetInDestinationCamera.x, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(targetInDestinationCamera.y, Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyDeathMotionCommand_UsesPrefabWithSourceCloneAndDeathFade()
         {
@@ -311,6 +537,170 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 source.Destroy();
                 Destroy(cueMap, binding, prefab, cameraObject, owner);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyActivatedDestroyTile_FrontFaceInactiveEnemyDeathMotionPlaysDuringTransition()
+        {
+            var owner = new GameObject("TopologyActivatedDestroyTileEnemyDeath");
+            var cameraObject = CreateCameraObject("TopologyActivatedDestroyTileEnemyDeathCamera");
+            var prefab = CreateRuntimePrefab("TopologyActivatedDestroyTileEnemyDeathPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            InactiveSourceViewFixture source = default;
+            try
+            {
+                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
+
+                var signal = CreateEnemyExitSignal(40, TickEntityExitCause.Killed);
+                var initialContext = CreateExtensionContext(signal);
+                source = CreateInactiveSourceView(initialContext.StateStore, entityId: 40);
+                initialContext.StateStore.EnemyVisualSemanticStatesByEntityId[40] =
+                    new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var tileEvents = new[]
+                {
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileActivated,
+                        7, signal.SourceCell, TileFeatureKind.Destroy, 0, 0, 0),
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileTriggered,
+                        7, signal.SourceCell, TileFeatureKind.Destroy, 0, 0, 0, targetEntityId: 40),
+                };
+                var data = CreatePresentationData(
+                    new[] { signal },
+                    new TickTopologyMotion(
+                        initialContext.Topology, destinationTopology, CubeRotationKind.Forward),
+                    tileEvents);
+                var context = new GameplayTickPresentationExtensionContext(
+                    CreateResult(data, destinationTopology, Array.Empty<EntityState>()),
+                    destinationTopology,
+                    initialContext.StateStore,
+                    initialContext.Projector,
+                    timingProfile: GameplayTimingProfile.CreateDefault(),
+                    topologyTransitionEpoch: 1);
+
+                runtime.Present(context);
+
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)),
+                    Is.EqualTo(1));
+                Assert.That(FindParameterizedMotionClone(owner.transform), Is.Not.Null);
+                runtime.UpdatePresentation(0.05f);
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)),
+                    Is.EqualTo(1));
+
+                runtime.ReconcileTopologyTransitionCompleted(context);
+                var releaseCount = runtime.GetReleaseToPoolCount(
+                    GameplayVfxCueId.From(EnemyVfxCue.DeathMotion));
+                runtime.Present(context);
+                Assert.That(runtime.GetReleaseToPoolCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)),
+                    Is.EqualTo(releaseCount),
+                    "A repeated start for the completed tick must not clear the active death clone.");
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero,
+                    "Completion must not replay the exit from its original tick.");
+            }
+            finally
+            {
+                source.Destroy();
+                Destroy(cueMap, binding, prefab, cameraObject, owner);
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Core")]
+        public void TopologyActivatedDestroyTile_DrSaturnPrefabCreatesVisibleDeathClone(bool delayed)
+        {
+            var owner = new GameObject("TopologyActivatedDestroyTileDrSaturnDeath");
+            var cameraObject = CreateCameraObject("TopologyActivatedDestroyTileDrSaturnCamera");
+            GameObject sourceObject = null;
+            try
+            {
+                var sourcePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(DrSaturnPrefabPath);
+                var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+                Assert.That(sourcePrefab, Is.Not.Null);
+                Assert.That(cueMap, Is.Not.Null);
+                sourceObject = UnityEngine.Object.Instantiate(sourcePrefab);
+                var sourceView = sourceObject.GetComponent<GameplayEntityView>();
+                Assert.That(sourceView, Is.Not.Null);
+                sourceView.Initialize(40);
+
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var signal = CreateEnemyExitSignal(
+                    40,
+                    TickEntityExitCause.Killed,
+                    cell,
+                    timing: delayed
+                        ? EntityExitPresentationTiming.AtContactTime
+                        : EntityExitPresentationTiming.AfterEntityMotion,
+                    visualContactNormalizedTime: delayed
+                        ? GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime
+                        : 0f);
+                var initialContext = CreateExtensionContext(signal);
+                initialContext.StateStore.ViewsByEntityId[40] = sourceView;
+                initialContext.StateStore.EnemyVisualSemanticStatesByEntityId[40] =
+                    new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive);
+                sourceObject.SetActive(false);
+
+                var tileEvents = new[]
+                {
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileActivated,
+                        7, cell, TileFeatureKind.Destroy, 0, 0, 0),
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileTriggered,
+                        7, cell, TileFeatureKind.Destroy, 0, 0, 0, targetEntityId: 40),
+                };
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var context = new GameplayTickPresentationExtensionContext(
+                    CreateResult(
+                        CreatePresentationData(
+                            new[] { signal },
+                            new TickTopologyMotion(
+                                initialContext.Topology, destinationTopology, CubeRotationKind.Forward),
+                            tileEvents),
+                        destinationTopology,
+                        Array.Empty<EntityState>()),
+                    destinationTopology,
+                    initialContext.StateStore,
+                    initialContext.Projector,
+                    timingProfile: GameplayTimingProfile.CreateDefault(),
+                    topologyTransitionEpoch: 1);
+
+                runtime.Present(context);
+                if (delayed)
+                {
+                    var delaySeconds = context.TimingProfile.FlipMotionDurationSeconds *
+                                       signal.VisualContactNormalizedTime;
+                    runtime.UpdatePresentation(delaySeconds);
+                    runtime.RefreshPresentationMotionVfx(new GameplayPresentationMotionVfxContext(
+                        context.Result.TickIndex,
+                        new GameplayPresentationTrackState(),
+                        context.StateStore,
+                        context.Projector,
+                        context.TimingProfile));
+                }
+
+                var clone = FindParameterizedMotionClone(owner.transform);
+                Assert.That(clone, Is.Not.Null);
+                var renderers = clone.GetComponentsInChildren<Renderer>(includeInactive: true);
+                Assert.That(renderers, Is.Not.Empty);
+                Assert.That(renderers, Has.Some.Matches<Renderer>(renderer =>
+                    renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy));
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+            }
+            finally
+            {
+                Destroy(sourceObject, cameraObject, owner);
             }
         }
 
@@ -709,6 +1099,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void Coordinator_TopologyActivatedDestroyTile_PlaysEnemyDeathMotionBeforeViewCleanup()
+        {
+            var scenario = CreatePresenterScenario("TopologyActivatedDestroyTileEnemyCoordinator");
+            var cameraObject = CreateCameraObject("TopologyActivatedDestroyTileEnemyCoordinatorCamera");
+            var prefab = CreateRuntimePrefab("TopologyActivatedDestroyTileEnemyCoordinatorPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachOutputCamera(cameraObject.GetComponent<Camera>());
+                var cameraRig = scenario.Root.AddComponent<GameplayCameraRig>();
+                cameraRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+                cameraRig.Initialize(
+                    cameraObject.GetComponent<Camera>(),
+                    scenario.Root.transform,
+                    new Bounds(Vector3.zero, Vector3.one * 5f));
+                scenario.Presenter.AttachCameraRig(cameraRig);
+                var cameraViewRecorder = new TopologyCameraViewRecorder();
+                scenario.Presenter.AttachPresentationExtension(runtime);
+                scenario.Presenter.AttachPresentationExtension(cameraViewRecorder);
+                scenario.Presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                        CreateEnemyUnit(40, scenario.EnemyCell),
+                    },
+                    scenario.Topology);
+
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var tileEvents = new[]
+                {
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileActivated,
+                        7, scenario.EnemyCell, TileFeatureKind.Destroy, 0, 0, 0),
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.DestroyTileTriggered,
+                        7, scenario.EnemyCell, TileFeatureKind.Destroy, 0, 0, 0, targetEntityId: 40),
+                };
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(
+                        new[] { CreateEnemyExitSignal(40, TickEntityExitCause.Killed,
+                            scenario.EnemyCell, scenario.Topology) },
+                        new TickTopologyMotion(
+                            scenario.Topology, destinationTopology, CubeRotationKind.Forward),
+                        tileEvents),
+                    destinationTopology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)),
+                    Is.EqualTo(1));
+                Assert.That(cameraViewRecorder.DestinationCameraView.HasValue, Is.True);
+                Assert.That(cameraViewRecorder.DestinationCameraView.Value.IsValid, Is.True);
+                Assert.That(scenario.Registry.TryGetView(40, out var enemyView), Is.True);
+                Assert.That(enemyView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Destroy(cueMap, binding, prefab, cameraObject);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void SummonedEnemy_AtContactDeathMotion_ClonesOwnedViewBeforeExitCleanup()
         {
@@ -1027,11 +1485,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static TickPresentationData CreatePresentationData(
-            TickEntityExitPresentationSignal[] entityExitSignals = null)
+            TickEntityExitPresentationSignal[] entityExitSignals = null,
+            TickTopologyMotion? topologyMotion = null,
+            TilePresentationEvent[] tileEvents = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
-                topologyMotion: null,
+                topologyMotion: topologyMotion,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),
@@ -1042,7 +1502,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
                 entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
-                Array.Empty<FlipImpactPresentationSignal>());
+                Array.Empty<FlipImpactPresentationSignal>(),
+                tileEvents: tileEvents);
         }
 
         private static TickPresentationData CreatePresentationDataWithSummonedBindings(
@@ -1379,6 +1840,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 GameplayVfxEnemyDeathMotionPrefabWithSourceCloneTests.Destroy(CameraObject, LocalSpaceRoot);
             }
+        }
+
+        private sealed class TopologyCameraViewRecorder : IGameplayTickPresentationExtension
+        {
+            public GameplayCameraViewSnapshot? DestinationCameraView { get; private set; }
+
+            public void ResetSession() => DestinationCameraView = null;
+
+            public void Present(in GameplayTickPresentationExtensionContext context) =>
+                DestinationCameraView = context.TopologyDestinationCameraView;
+
+            public void UpdatePresentation(float deltaTime) { }
+
+            public void HardCleanup() => DestinationCameraView = null;
         }
 
         private readonly struct PresenterScenario
