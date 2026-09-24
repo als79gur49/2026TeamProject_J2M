@@ -1277,7 +1277,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_InputActionCallback_ProducesTickMove()
         {
-            var actions = CreateKeyboardMoveActions();
+            var actions = CloneProductionInputActions();
             var host = CreateHost(
                 new[]
                 {
@@ -1475,7 +1475,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator GameplayInputHost_PushKeyAlone_StartsAgainstFacingBox()
         {
-            var actions = CreateKeyboardMoveActions();
+            var actions = CloneProductionInputActions();
             var host = CreateHost(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
@@ -1500,7 +1500,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator GameplayInputHost_FlipKeyAlone_StartsAgainstFacingBox()
         {
-            var actions = CreateKeyboardMoveActions();
+            var actions = CloneProductionInputActions();
             var host = CreateHost(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
@@ -2613,7 +2613,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator GameplayInputHost_Reenable_RebindsInputActions()
         {
-            var actions = CreateKeyboardMoveActions();
+            var actions = CloneProductionInputActions();
             var host = CreateHost(
                 new[]
                 {
@@ -3908,6 +3908,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     mode = ContinuousLocomotionMode.Idle,
                     sequenceId = 1,
                 }.NormalizedForStorage());
+        }
+
+        private static InputActionAsset CloneProductionInputActions()
+        {
+            var production = AssetDatabase.LoadAssetAtPath<InputActionAsset>("Assets/InputSystem_Actions.inputactions");
+            Assert.That(production, Is.Not.Null);
+            return InputActionAsset.FromJson(production.ToJson());
         }
 
         private static InputActionAsset CreateKeyboardMoveActions(bool includeArrowKeys = false)
