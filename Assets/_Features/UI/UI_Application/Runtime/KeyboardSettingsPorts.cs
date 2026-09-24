@@ -7,14 +7,12 @@ namespace Game.Feature.UI.Application
     {
         public KeyboardBindingSettingsSnapshot(
             KeyboardMovementScheme movementScheme,
-            string movementDisplayName,
             string pushDisplayName,
             string flipDisplayName,
             bool isRebinding,
             KeyboardBindableAction? rebindingAction)
         {
             MovementScheme = movementScheme;
-            MovementDisplayName = movementDisplayName ?? string.Empty;
             PushDisplayName = pushDisplayName ?? string.Empty;
             FlipDisplayName = flipDisplayName ?? string.Empty;
             IsRebinding = isRebinding;
@@ -22,8 +20,6 @@ namespace Game.Feature.UI.Application
         }
 
         public KeyboardMovementScheme MovementScheme { get; }
-
-        public string MovementDisplayName { get; }
 
         public string PushDisplayName { get; }
 
@@ -99,7 +95,6 @@ namespace Game.Feature.UI.Application
 
         private static readonly KeyboardBindingSettingsSnapshot DefaultSnapshot = new(
             KeyboardMovementScheme.Wasd,
-            "WASD",
             "J",
             "K",
             false,

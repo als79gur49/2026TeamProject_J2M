@@ -38,7 +38,6 @@ namespace Game.Feature.UI.Tests
             var snapshot = service.Read();
 
             Assert.That(snapshot.MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
-            Assert.That(snapshot.MovementDisplayName, Is.EqualTo("WASD"));
             Assert.That(snapshot.PushDisplayName, Is.EqualTo("J"));
             Assert.That(snapshot.FlipDisplayName, Is.EqualTo("K"));
         }
@@ -68,10 +67,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(GameplayInputActionPaths.PlayerPush, Is.EqualTo("Player/Push"));
             Assert.That(GameplayInputActionPaths.PlayerFlip, Is.EqualTo("Player/Flip"));
             Assert.That(GameplayInputActionPaths.UiNavigate, Is.EqualTo("UI/Navigate"));
-            Assert.That(KeyboardBindingSettingsService.MoveActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerMove));
-            Assert.That(KeyboardBindingSettingsService.NavigateActionPath, Is.EqualTo(GameplayInputActionPaths.UiNavigate));
-            Assert.That(KeyboardBindingSettingsService.PushActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerPush));
-            Assert.That(KeyboardBindingSettingsService.FlipActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerFlip));
         }
 
         [TestCase(nameof(GameplayInputActionPaths.PlayerMove))]

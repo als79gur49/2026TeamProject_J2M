@@ -1700,7 +1700,6 @@ namespace Game.Feature.UI.Tests
             {
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
-                    "WASD",
                     "J",
                     "K",
                     _isRebinding,
@@ -1777,7 +1776,6 @@ namespace Game.Feature.UI.Tests
             {
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
-                    "WASD",
                     _pushDisplayName,
                     _flipDisplayName,
                     _isRebinding,
@@ -1865,7 +1863,6 @@ namespace Game.Feature.UI.Tests
             {
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
-                    "WASD",
                     "J",
                     "K",
                     false,

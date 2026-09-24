@@ -408,7 +408,6 @@ namespace Game.Feature.UI.Tests
             {
                 return new KeyboardBindingSettingsSnapshot(
                     movementScheme,
-                    movementScheme == KeyboardMovementScheme.ArrowKeys ? "Arrow Keys" : "WASD",
                     "J",
                     "K",
                     isRebinding,

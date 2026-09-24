@@ -2015,11 +2015,6 @@ namespace Game.Feature.UI.Composition
             private static readonly PropertyInfo WasPressedThisFrameProperty =
                 EscapeKeyProperty?.PropertyType.GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
 
-            public bool WasEscapePressedThisFrame()
-            {
-                return WasPressedThisFrame(EscapeKeyProperty);
-            }
-
             public bool WasF10PressedThisFrame()
             {
                 return WasPressedThisFrame(F10KeyProperty);

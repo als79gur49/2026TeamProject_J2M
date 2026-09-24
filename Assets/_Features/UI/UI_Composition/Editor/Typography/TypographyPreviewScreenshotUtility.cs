@@ -3077,7 +3077,6 @@ namespace Game.Feature.UI.Composition.Editor
             {
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
-                    "WASD",
                     "J",
                     "K",
                     isRebinding,
