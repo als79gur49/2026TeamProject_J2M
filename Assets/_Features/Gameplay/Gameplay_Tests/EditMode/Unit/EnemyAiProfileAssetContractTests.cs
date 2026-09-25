@@ -269,7 +269,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile, Is.Not.Null, StandardChargeExecutionProfilePath);
             Assert.That(
                 profile.Timing.WindupSeconds,
-                Is.EqualTo(0.4f).Within(0.0001f),
+                Is.EqualTo(0.6f).Within(0.0001f),
                 StandardChargeExecutionProfilePath);
             Assert.That(
                 profile.Timing.ActiveStepCooldownSeconds,
@@ -281,7 +281,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StandardChargeExecutionProfilePath);
 
             var timing = profile.Timing.ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-            Assert.That(timing.WindupTicks, Is.EqualTo(24), StandardChargeExecutionProfilePath);
+            Assert.That(timing.WindupTicks, Is.EqualTo(36), StandardChargeExecutionProfilePath);
             Assert.That(timing.ActiveStepCooldownTicks, Is.EqualTo(12), StandardChargeExecutionProfilePath);
             Assert.That(timing.RecoverTicks, Is.EqualTo(24), StandardChargeExecutionProfilePath);
         }

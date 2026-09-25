@@ -146,8 +146,8 @@ MonoBehaviour:
     primaryDispatchMode: 2
     targetName: Windup
     sustainedStateName: 
-    animatorDurationSeconds: 0.4
-    referenceClip: {fileID: 3060872287085348379, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}
+    animatorDurationSeconds: 0.6
+    referenceClip: {fileID: 7400000, guid: 756a198ed5d59c84d8eb288b427f4916, type: 2}
   - cue: 31
     primaryDispatchMode: 2
     targetName: Charge

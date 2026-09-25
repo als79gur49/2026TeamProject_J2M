@@ -21,7 +21,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains("moveMotionDurationSeconds: 0.85", prefabText);
             StringAssert.Contains("EntityMotionPresentationAuthoring", prefabText);
             AssertBinding(snapshot, EnemyAnimationCue.ChargeWindup,
-                EnemyAnimationDispatchMode.State, "Windup", 0.4f);
+                EnemyAnimationDispatchMode.State, "Windup", 0.6f);
+            Assert.That(snapshot.TryGetBinding(EnemyAnimationCue.ChargeWindup, out var windupBinding), Is.True);
+            var windupClip = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/3DM/7RF/Windup_Fix.anim");
+            Assert.That(windupClip, Is.Not.Null);
+            Assert.That(windupBinding.ReferenceClip, Is.SameAs(windupClip));
+            Assert.That(windupClip.length, Is.EqualTo(0.6f).Within(0.0001f));
             AssertBinding(snapshot, EnemyAnimationCue.ChargeActive,
                 EnemyAnimationDispatchMode.State, "Charge", -1f);
             AssertBinding(snapshot, EnemyAnimationCue.ChargeRecovery,

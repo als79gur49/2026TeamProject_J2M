@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: EnemyChargeExecutionProfile_Standard
   m_EditorClassIdentifier:
   timing:
-    windupSeconds: 0.4
+    windupSeconds: 0.6
     activeStepCooldownSeconds: 0.2
     recoverSeconds: 0.4
