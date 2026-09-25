@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
+using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Stages;
@@ -14,11 +15,150 @@ using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.UI;
 
 namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiFlowCompositionTests
     {
+        [Test]
+        public void UiEventSystemNavigationActionUtility_ReactivationKeepsPointerActionsAndClearsNavigationAgain()
+        {
+            var root = new GameObject(nameof(UiEventSystemNavigationActionUtility_ReactivationKeepsPointerActionsAndClearsNavigationAgain));
+            try
+            {
+                root.AddComponent<EventSystem>();
+                var module = root.AddComponent<InputSystemUIInputModule>();
+                var utilityType = typeof(GameplayUiFlowInstaller).Assembly.GetType(
+                    "Game.Feature.UI.Composition.UiEventSystemNavigationActionUtility");
+                Assert.That(utilityType, Is.Not.Null);
+                var disableNavigation = utilityType.GetMethod(
+                    "DisableNavigationActions", BindingFlags.Static | BindingFlags.NonPublic);
+                Assert.That(disableNavigation, Is.Not.Null);
+
+                for (var cycle = 0; cycle < 2; cycle++)
+                {
+                    if (cycle > 0)
+                    {
+                        module.enabled = false;
+                        module.enabled = true;
+                    }
+
+                    var point = module.point;
+                    var leftClick = module.leftClick;
+                    var scroll = module.scrollWheel;
+                    Assert.That(point, Is.Not.Null);
+                    Assert.That(leftClick, Is.Not.Null);
+                    Assert.That(scroll, Is.Not.Null);
+                    disableNavigation.Invoke(null, new object[] { module });
+                    Assert.That(module.move, Is.Null);
+                    Assert.That(module.submit, Is.Null);
+                    Assert.That(module.cancel, Is.Null);
+                    Assert.That(module.point, Is.SameAs(point));
+                    Assert.That(module.leftClick, Is.SameAs(leftClick));
+                    Assert.That(module.scrollWheel, Is.SameAs(scroll));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase(DemoStageControlOpenKey.F10, Key.F10, Key.Backquote)]
+        [TestCase(DemoStageControlOpenKey.BackQuote, Key.Backquote, Key.F10)]
+        public void DemoStageControlHotkey_UsesSelectedPressEdge_AndHandlesKeyboardReconnect(
+            DemoStageControlOpenKey openKey, Key selectedKey, Key otherKey)
+        {
+            var input = new InputTestFixture();
+            input.Setup();
+            var root = new GameObject(nameof(DemoStageControlHotkey_UsesSelectedPressEdge_AndHandlesKeyboardReconnect));
+            Keyboard keyboard = null;
+            try
+            {
+                var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                typeof(GameplayUiFlowInstaller).GetField("_demoStageControlSettings", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(installer, new DemoStageControlSettings { OpenKey = openKey });
+                var readHotkey = typeof(GameplayUiFlowInstaller).GetMethod(
+                    "WasDemoStageControlOpenKeyPressed", BindingFlags.Instance | BindingFlags.NonPublic);
+                bool IsPressed() => (bool)readHotkey.Invoke(installer, null);
+
+                Assert.That(Keyboard.current, Is.Null);
+                Assert.That(IsPressed(), Is.False, "No keyboard must be a safe no-op.");
+
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                foreach (var ignoredKey in new[] { otherKey, Key.Escape })
+                {
+                    InputSystem.QueueStateEvent(keyboard, new KeyboardState(ignoredKey));
+                    InputSystem.Update();
+                    Assert.That(IsPressed(), Is.False, "Only the configured demo key may trigger.");
+                }
+
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(selectedKey));
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.True);
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.False, "Holding the key must not produce another press edge.");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.False);
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(selectedKey));
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.True, "A fresh press must be detected again.");
+
+                InputSystem.RemoveDevice(keyboard);
+                Assert.That(Keyboard.current, Is.Null);
+                Assert.That(IsPressed(), Is.False);
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(selectedKey));
+                InputSystem.Update();
+                Assert.That(IsPressed(), Is.True, "Query must use the current keyboard after reconnect.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                input.TearDown();
+            }
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_RecreationDoesNotDisposeHostAdmissionLifetime()
+        {
+            var lifetime = new RecordingAdmissionLifetime();
+            var query = new FakeGameplayQueryFacade(new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(), new GameplayObjectiveReadModel(false, false, false, false));
+            var feed = new FakeGameplayPresentationFeed();
+            var pause = new FakeGameplayPauseService();
+            using var context = new Game.Feature.Gameplay.Host.UIAccess.GameplayHostUiAccessContext(lifetime, query, feed, pause);
+            for (var cycle = 0; cycle < 2; cycle++)
+            {
+                var root = new GameObject(nameof(GameplayUiFlowInstaller_RecreationDoesNotDisposeHostAdmissionLifetime));
+                try
+                {
+                    var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                    UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                    installer.Install(UiTestPortFactory.CreatePorts(queryFacade: query, presentationFeed: feed, pauseService: pause));
+                    Assert.That(installer.HudView.IsVisible, Is.True);
+                }
+                finally
+                {
+                    Object.DestroyImmediate(root);
+                    DestroyEventSystemIfPresent();
+                }
+                Assert.That(lifetime.DisposeCount, Is.Zero);
+            }
+            context.Dispose();
+            Assert.That(lifetime.DisposeCount, Is.EqualTo(1));
+        }
+
+        private sealed class RecordingAdmissionLifetime : System.IDisposable
+        {
+            public int DisposeCount { get; private set; }
+            public void Dispose() { DisposeCount++; }
+        }
+
         [SetUp]
         public void ResetTransitionAuthorities()
         {
@@ -206,7 +346,14 @@ namespace Game.Feature.UI.Tests
 
                 var eventSystem = Object.FindFirstObjectByType<EventSystem>();
                 Assert.That(eventSystem, Is.Not.Null);
-                Assert.That(eventSystem.GetComponent("InputSystemUIInputModule"), Is.Not.Null);
+                var inputModule = eventSystem.GetComponent<InputSystemUIInputModule>();
+                Assert.That(inputModule, Is.Not.Null);
+                Assert.That(inputModule.move, Is.Null);
+                Assert.That(inputModule.submit, Is.Null);
+                Assert.That(inputModule.cancel, Is.Null);
+                Assert.That(inputModule.point, Is.Not.Null);
+                Assert.That(inputModule.leftClick, Is.Not.Null);
+                Assert.That(inputModule.scrollWheel, Is.Not.Null);
                 Assert.That(eventSystem.GetComponent<StandaloneInputModule>(), Is.Null);
 
                 Assert.That(installer.RootView, Is.Not.Null);

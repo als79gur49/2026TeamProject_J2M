@@ -11,32 +11,6 @@ using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Tests
 {
-    internal sealed class FakeGameplayCommandGateway : IGameplayCommandGateway
-    {
-        public int ClearHeldMoveDirectionCallCount { get; private set; }
-
-        public int SetHeldMoveDirectionCallCount { get; private set; }
-
-        public Func<GameplayUiDirection, GameplayCommandAcceptance> OnSetHeldMoveDirection { get; set; } =
-            _ => GameplayCommandAcceptance.Accept();
-
-        public Func<GameplayCommandAcceptance> OnClearHeldMoveDirection { get; set; } =
-            () => GameplayCommandAcceptance.Accept();
-
-        public GameplayCommandAcceptance SetHeldMoveDirection(GameplayUiDirection direction)
-        {
-            SetHeldMoveDirectionCallCount++;
-            return OnSetHeldMoveDirection(direction);
-        }
-
-        public GameplayCommandAcceptance ClearHeldMoveDirection()
-        {
-            ClearHeldMoveDirectionCallCount++;
-            return OnClearHeldMoveDirection();
-        }
-
-    }
-
     internal sealed class FakeGameplayPauseService : IGameplayPauseService, IUiFlowPauseService
     {
         public event Action<bool> PauseChanged;
@@ -856,19 +830,16 @@ namespace Game.Feature.UI.Tests
     internal static class UiTestPortFactory
     {
         public static GameplayUiFlowPorts CreatePorts(
-            FakeGameplayCommandGateway commandGateway = null,
             FakeGameplayQueryFacade queryFacade = null,
             FakeGameplayPresentationFeed presentationFeed = null,
             FakeGameplayPauseService pauseService = null)
         {
-            commandGateway ??= new FakeGameplayCommandGateway();
             queryFacade ??= new FakeGameplayQueryFacade(
                 new GameplaySessionReadModel(1, false, true, false),
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                 new GameplayObjectiveReadModel(false, false, false, false));
             pauseService ??= new FakeGameplayPauseService();
             return new GameplayUiFlowPorts(
-                commandGateway,
                 queryFacade,
                 CreatePresentationSource(queryFacade, presentationFeed, pauseService),
                 pauseService);

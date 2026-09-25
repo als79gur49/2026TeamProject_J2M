@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
@@ -18,10 +19,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void AdmissionPolicy_TerminalSessionRejectsPublicCommandWithSameBlockingReasonUntilRevealCompletes()
+        public void AdmissionPolicy_TerminalSessionBlocksQueriesUntilRevealCompletes()
         {
             var hostObject = new GameObject(
-                "AdmissionPolicy_TerminalSessionRejectsPublicCommandWithSameBlockingReasonUntilRevealCompletes");
+                "AdmissionPolicy_TerminalSessionBlocksQueriesUntilRevealCompletes");
 
             try
             {
@@ -33,7 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }));
 
                 using var policy = CreatePolicy(host);
-                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.True);
+                Assert.That(policy.CanAcceptActionableCommands(), Is.True);
                 var authority = TerminalSessionRegistry.Authority;
                 var sourceGeneration = authority.CurrentSceneGeneration > 0
                     ? authority.CurrentSceneGeneration
@@ -44,25 +45,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     TerminalDestinationKind.ReloadedGameplay));
                 Assert.That(claim.Accepted, Is.True);
 
-                var policyResult = policy.EvaluateActionableRequest();
-                var gatewayResult =
-                    host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
-
-                Assert.That(policyResult.Accepted, Is.False);
-                Assert.That(
-                    policyResult.RejectionReason,
-                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
-                Assert.That(gatewayResult.Accepted, Is.False);
-                Assert.That(
-                    gatewayResult.RejectionReason,
-                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+                Assert.That(policy.CanAcceptActionableCommands(out var reason), Is.False);
+                Assert.That(reason, Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+                Assert.That(host.UiAccess.QueryFacade.Session.Read().CanAcceptGameplayCommands, Is.False);
 
                 Assert.That(TerminalSessionRegistry.TryAdvance(
                     claim.Token,
                     TerminalSessionPhase.Revealing), Is.True);
-                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.False);
+                Assert.That(policy.CanAcceptActionableCommands(), Is.False);
                 Assert.That(TerminalSessionRegistry.TryComplete(claim.Token), Is.True);
-                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.True);
+                Assert.That(policy.CanAcceptActionableCommands(), Is.True);
             }
             finally
             {
@@ -109,12 +101,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .GetValue(host.InputHost), Is.False);
                 Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedFlip", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .GetValue(host.InputHost), Is.False);
-                var publicResult =
-                    host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
-                Assert.That(publicResult.Accepted, Is.False);
-                Assert.That(
-                    publicResult.RejectionReason,
-                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+                Assert.That(host.UiAccess.QueryFacade.Session.Read().CanAcceptGameplayCommands, Is.False);
 
                 Assert.That(
                     authority.TryAdvancePhase(claim.Token, TerminalSessionPhase.Revealing),
@@ -262,7 +249,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 using var policy = CreatePolicy(host);
 
                 Assert.That(policy.TryCreateSnapshot(out var beforeTickSnapshot), Is.True);
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
                 Assert.That(policy.TryCreateSnapshot(out var afterTickSnapshot), Is.True);
 
@@ -304,7 +291,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(secondActor.entityId, Is.EqualTo(firstActor.entityId));
                 Assert.That(secondActor.position, Is.EqualTo(firstActor.position));
 
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
                 Assert.That(policy.TryGetCommittedControllableActor(out var refreshedActor), Is.True);
 
@@ -338,7 +325,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
 
                 var policy = CreatePolicy(host);
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
                 Assert.That(policy.TryCreateSnapshot(out var refreshedSnapshot), Is.True);
 
@@ -355,6 +342,131 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Object.DestroyImmediate(hostObject);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UiAccessContext_DisposeStopsProductionSubscriptions_AndRepeatedDisposeIsSafe()
+        {
+            var hostObject = new GameObject(nameof(UiAccessContext_DisposeStopsProductionSubscriptions_AndRepeatedDisposeIsSafe));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right),
+                }));
+                var context = host.UiAccess;
+                var policy = (GameplayHostCommandAdmissionPolicy)typeof(GameplayHostUiAccessContext)
+                    .GetField("_admissionPolicyLifetime", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(context);
+                foreach (var query in new object[] { context.QueryFacade.Session, context.QueryFacade.PlayerHud, context.QueryFacade.SurfaceButtonRemainders })
+                {
+                    Assert.That(query.GetType().GetField("_admissionPolicy", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                        .GetValue(query), Is.SameAs(policy));
+                }
+
+                Assert.That(policy.TryCreateSnapshot(out var initial), Is.True);
+                var frames = 0;
+                context.PresentationFeed.FramePublished += _ => frames++;
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                Assert.That(policy.TryCreateSnapshot(out var completed), Is.True);
+                Assert.That(completed, Is.Not.SameAs(initial));
+                Assert.That(frames, Is.EqualTo(1));
+
+                context.Dispose();
+                context.Dispose();
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                Assert.That(policy.TryCreateSnapshot(out var afterDispose), Is.True);
+                Assert.That(afterDispose, Is.SameAs(completed));
+                Assert.That(frames, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        [Category("Extended")]
+        public void UiAccessContext_DisposesEachOwnerOnce_EvenWhenPolicyDisposalThrows(bool throws)
+        {
+            var hostObject = new GameObject(nameof(UiAccessContext_DisposesEachOwnerOnce_EvenWhenPolicyDisposalThrows));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) }));
+                var lifetime = new RecordingLifetime(throws);
+                var feed = new RecordingDisposableFeed();
+                var context = new GameplayHostUiAccessContext(lifetime, host.UiAccess.QueryFacade, feed, host.UiAccess.PauseService);
+                if (throws)
+                    Assert.Throws<System.InvalidOperationException>(() => context.Dispose());
+                else
+                    context.Dispose();
+                context.Dispose();
+                Assert.That(lifetime.Count, Is.EqualTo(1));
+                Assert.That(feed.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UiAccessFactory_CompositionFailureReleasesPolicyAndFeedSubscriptions()
+        {
+            var hostObject = new GameObject(nameof(UiAccessFactory_CompositionFailureReleasesPolicyAndFeedSubscriptions));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                var configuration = CreateConfiguration(new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) });
+                var definition = new TileFeatureRuntimeDefinition(301, TileFeatureActivationRule.Always,
+                    Direction2D.None, TileFeatureBoxSelector.AnyPushableBox, boundEntityId: 0);
+                configuration.TileFeatureDefinitions = new[] { definition, definition };
+                var exception = Assert.Throws<System.InvalidOperationException>(() => host.Initialize(configuration));
+                Assert.That(exception.Message, Does.Contain("Duplicate TileFeatureRuntimeDefinition"));
+                Assert.That(host.UiAccess, Is.Null);
+                var input = hostObject.GetComponent<GameplayInputHost>();
+                var handlers = (System.Delegate)typeof(GameplayInputHost)
+                    .GetField("TickCompleted", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(input);
+                foreach (var handler in handlers?.GetInvocationList() ?? System.Array.Empty<System.Delegate>())
+                {
+                    Assert.That(handler.Target, Is.Not.InstanceOf<GameplayHostCommandAdmissionPolicy>());
+                    Assert.That(handler.Target, Is.Not.InstanceOf<GameplayHostPresentationFeed>());
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        private sealed class RecordingLifetime : System.IDisposable
+        {
+            private readonly bool _throws;
+            public RecordingLifetime(bool throws) { _throws = throws; }
+            public int Count { get; private set; }
+            public void Dispose()
+            {
+                Count++;
+                if (_throws) throw new System.InvalidOperationException("Disposal failure.");
+            }
+        }
+
+        private sealed class RecordingDisposableFeed : IGameplayPresentationFeed, System.IDisposable
+        {
+            public event System.Action<GameplayPresentationFrame> FramePublished { add { } remove { } }
+            public event System.Action<GameplayPresentationState> StateChanged { add { } remove { } }
+            public event System.Action<GameplayLevelFailedReadModel> LevelFailedCommitted { add { } remove { } }
+            public GameplayPresentationState CurrentState => default;
+            public MinimalStageCompletionReadModel CurrentMinimalStageCompletion => null;
+            public GameplayLevelFailedReadModel CurrentLevelFailed => default;
+            public bool HasPendingStageClearPresentation => false;
+            public int Count { get; private set; }
+            public void Dispose() { Count++; }
         }
 
         private static GameplayHostCommandAdmissionPolicy CreatePolicy(GameplaySceneHost host)

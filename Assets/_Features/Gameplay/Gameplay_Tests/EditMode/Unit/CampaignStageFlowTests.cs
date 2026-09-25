@@ -469,7 +469,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     entry,
                     campaignStageSequenceResolver: resolver);
                 uiAccess = new GameplayHostUiAccessContext(
-                    new NoOpGameplayCommandGateway(),
+                    new NoOpLifetime(),
                     new NoOpGameplayQueryFacade(),
                     feed,
                     new NoOpGameplayPauseService(),
@@ -2254,7 +2254,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(hostObject, 10, 3, presenter);
                 var feed = new GameplayHostPresentationFeed(host.InputHost, presenter);
                 uiAccess = new GameplayHostUiAccessContext(
-                    new NoOpGameplayCommandGateway(),
+                    new NoOpLifetime(),
                     new NoOpGameplayQueryFacade(),
                     feed,
                     new NoOpGameplayPauseService());
@@ -2271,6 +2271,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var deathTickCommand = (PlayerTickCommand)InvokeInstanceMethod(host.InputHost, "BuildPlayerCommand");
                 Assert.That(deathTickCommand.MoveDirection, Is.EqualTo(Direction.None));
                 Assert.That(deathTickCommand.PushPressed, Is.False);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
+                host.InputHost.BufferFlip();
+                Assert.That(host.InputHost.AdvanceTime(1f), Is.Zero);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                var afterDeathCommand = (PlayerTickCommand)InvokeInstanceMethod(host.InputHost, "BuildPlayerCommand");
+                Assert.That(afterDeathCommand.MoveDirection, Is.EqualTo(Direction.None));
+                Assert.That(afterDeathCommand.PushPressed, Is.False);
+                Assert.That(afterDeathCommand.FlipPressed, Is.False);
                 RaiseInputHostTickCompleted(host.InputHost, result);
                 RaiseInputHostTickCompleted(host.InputHost, result);
 
@@ -3565,17 +3574,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private sealed class NoOpGameplayCommandGateway : IGameplayCommandGateway
+        private sealed class NoOpLifetime : IDisposable
         {
-            public GameplayCommandAcceptance SetHeldMoveDirection(GameplayUiDirection direction)
-            {
-                return GameplayCommandAcceptance.Accept();
-            }
-
-            public GameplayCommandAcceptance ClearHeldMoveDirection()
-            {
-                return GameplayCommandAcceptance.Accept();
-            }
+            public void Dispose() { }
         }
 
         private sealed class NoOpGameplayQueryFacade : IGameplayQueryFacade

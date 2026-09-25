@@ -225,7 +225,6 @@ namespace Game.Feature.Gameplay.Tests
 
                 view.ApplyKeyboardBindings(new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.ArrowKeys,
-                    "Arrow Keys",
                     "J",
                     "K",
                     isRebinding: false,
@@ -236,7 +235,6 @@ namespace Game.Feature.Gameplay.Tests
 
                 view.ApplyKeyboardBindings(new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
-                    "WASD",
                     "J",
                     "K",
                     isRebinding: false,

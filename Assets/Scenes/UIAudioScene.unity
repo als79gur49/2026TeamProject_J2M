@@ -805,7 +805,6 @@ MonoBehaviour:
   autoCreateViews: 1
   cellSize: 1
   moveDeadzone: 0.5
-  directionChangeConsumesDelay: 0
   simulationTimingPreset: {fileID: 11400000, guid: 55db288ec57e4824b15be63c9a662c90, type: 2}
   presentationTimingPreset: {fileID: 11400000, guid: e74a2114beb347ca87939f8446ed7f5c, type: 2}
   boardSurfaceTexture: {fileID: 2800000, guid: bbcd0420d9696f54da16e6124742b53c, type: 3}

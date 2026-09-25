@@ -9,6 +9,7 @@ using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
@@ -1259,14 +1260,13 @@ namespace Game.Feature.UI.Composition
                 eventSystem = eventSystemObject.AddComponent<EventSystem>();
             }
 
-            var inputSystemUiModuleType = UiEventSystemNavigationActionUtility.RequireInputSystemUiModuleType();
-
-            if (eventSystem.GetComponent(inputSystemUiModuleType) == null)
+            var inputSystemUiModule = eventSystem.GetComponent<InputSystemUIInputModule>();
+            if (inputSystemUiModule == null)
             {
-                eventSystem.gameObject.AddComponent(inputSystemUiModuleType);
+                inputSystemUiModule = eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
             }
 
-            UiEventSystemNavigationActionUtility.DisableNavigationActions(eventSystem, inputSystemUiModuleType);
+            UiEventSystemNavigationActionUtility.DisableNavigationActions(inputSystemUiModule);
 
             var legacyModules = eventSystem.GetComponents<StandaloneInputModule>();
             foreach (var legacyModule in legacyModules)

@@ -30,14 +30,12 @@ namespace Game.Shared.Input
     {
         public KeyboardBindingSettingsSnapshot(
             KeyboardMovementScheme movementScheme,
-            string movementDisplayName,
             string pushDisplayName,
             string flipDisplayName,
             bool isRebinding,
             KeyboardBindableAction? rebindingAction)
         {
             MovementScheme = movementScheme;
-            MovementDisplayName = movementDisplayName ?? string.Empty;
             PushDisplayName = pushDisplayName ?? string.Empty;
             FlipDisplayName = flipDisplayName ?? string.Empty;
             IsRebinding = isRebinding;
@@ -45,8 +43,6 @@ namespace Game.Shared.Input
         }
 
         public KeyboardMovementScheme MovementScheme { get; }
-
-        public string MovementDisplayName { get; }
 
         public string PushDisplayName { get; }
 

@@ -31,7 +31,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return;
             }
 
-            _inputHost.ClearPendingUiInput();
             _inputHost.SetSimulationPaused(true);
             _presenter?.SetPresentationPaused(true);
             PauseChanged?.Invoke(true);

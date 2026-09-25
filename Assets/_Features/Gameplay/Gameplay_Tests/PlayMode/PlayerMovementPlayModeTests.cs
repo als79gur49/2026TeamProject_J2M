@@ -1195,7 +1195,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_InputActionCallback_ProducesTickMove()
         {
-            var actions = CreateKeyboardMoveActions();
+            var actions = CloneProductionInputActions();
             var host = CreateHost(
                 new[]
                 {
@@ -1362,6 +1362,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 1));
 
+            SetKeyboardState(_keyboard, Key.A);
             SetKeyboardState(_keyboard, Key.A, Key.J);
 
             var startTick = host.InputHost.RunSingleTick();
@@ -1385,6 +1386,427 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Release(_keyboard.jKey);
             Release(_keyboard.aKey);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_PushKeyAlone_StartsAgainstFacingBox()
+        {
+            var actions = CloneProductionInputActions();
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+            }, actions: actions);
+
+            SetKeyboardState(_keyboard, Key.J);
+            var result = host.InputHost.RunSingleTick();
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+
+            SetKeyboardState(_keyboard);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_FlipKeyAlone_StartsAgainstFacingBox()
+        {
+            var actions = CloneProductionInputActions();
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            }, actions: actions);
+
+            SetKeyboardState(_keyboard, Key.K);
+            var result = host.InputHost.RunSingleTick();
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+
+            SetKeyboardState(_keyboard);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_DirectionlessActionAtProductionBoxClamp_QueuesAssist(
+            [Values(Key.J, Key.K)] Key actionKey,
+            [Values(Key.D, Key.RightArrow)] Key approachKey,
+            [Values(Direction.Right, Direction.Left, Direction.Up)] Direction initialFacing,
+            [Values(false, true)] bool runIdleTickAfterRelease)
+        {
+            var actions = CloneProductionInputActions();
+            var capability = actionKey == Key.J ? BoxCapabilities.Push : BoxCapabilities.Flip;
+            var bindingStore = new PlayModeKeyboardBindingStore();
+            bindingStore.SaveMovementScheme(
+                approachKey == Key.RightArrow
+                    ? KeyboardMovementScheme.ArrowKeys
+                    : KeyboardMovementScheme.Wasd);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: initialFacing),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: capability),
+            },
+                actions: actions,
+                keyboardBindingStore: bindingStore,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
+                {
+                    CollisionRadiusCells = 0.28125f,
+                    ActionAssistSettleWindowCells = 0.421875f,
+                });
+
+            SetKeyboardState(_keyboard, approachKey);
+            for (var i = 0; i < 10; i++)
+            {
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            }
+
+            SetKeyboardState(_keyboard);
+            if (runIdleTickAfterRelease)
+            {
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            }
+
+            var clampedSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(clampedSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
+            Assert.That(clampedSnapshot.TryGetUnitContinuousLocomotionPose(10, out var pose), Is.True);
+            Assert.That(pose.LocalOffset.X.RawValue, Is.EqualTo(896));
+            Assert.That(UnitSpatialQuery.IsSettledAtAnchor(clampedSnapshot, 10), Is.False);
+
+            SetKeyboardState(_keyboard, actionKey);
+            var result = host.InputHost.RunSingleTick();
+            var queuedSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(result, Is.Not.Null);
+            Assert.That(queuedSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.True);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+
+            SetKeyboardState(_keyboard);
+            var started = false;
+            for (var i = 0; i < 30 && !started; i++)
+            {
+                var nextResult = host.InputHost.RunSingleTick();
+                Assert.That(nextResult, Is.Not.Null);
+                Assert.That(nextResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+                started = nextResult.PresentationData.PlayerActionSignals.Any(signal =>
+                    signal.StartedThisTick &&
+                    signal.TargetEntityId == 30 &&
+                    signal.Direction == Direction.Right);
+            }
+
+            Assert.That(started, Is.True);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_FlipKeyThenDown_PreservesFacingTargetAcrossInputUpdates()
+        {
+            var inputGapsSeconds = new[] { 0.005, 0.02, 0.05 };
+            foreach (var separateInputUpdates in new[] { false, true })
+            foreach (var inputGapSeconds in inputGapsSeconds)
+            {
+                var actions = CreateKeyboardMoveActions();
+                var host = CreateHost(new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+                },
+                    actions: actions,
+                    flipPresentationDurationSeconds: 0.5f,
+                    playerControlTiming: CreateFlipTimingSettings(
+                        flipExecuteDelayTicks: 1,
+                        flipInputLockDurationTicks: 1),
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+                QueueActionThenDownInputEvents(_keyboard, Key.K, inputGapSeconds, separateInputUpdates);
+
+                var startTick = host.InputHost.RunSingleTick();
+                Assert.That(startTick, Is.Not.Null, $"Gap={inputGapSeconds}s; SeparateUpdates={separateInputUpdates}");
+                Assert.That(startTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+                Assert.That(startTick.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
+                var startSignal = startTick.PresentationData.PlayerActionSignals[0];
+                Assert.That(startSignal.StartedThisTick, Is.True, $"Gap={inputGapSeconds}s; SeparateUpdates={separateInputUpdates}");
+                Assert.That(startSignal.Direction, Is.EqualTo(Direction.Right), $"Gap={inputGapSeconds}s; SeparateUpdates={separateInputUpdates}");
+                Assert.That(startSignal.TargetEntityId, Is.EqualTo(30), $"Gap={inputGapSeconds}s; SeparateUpdates={separateInputUpdates}");
+                host.Presenter.UpdatePresentation(0f);
+                AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Right);
+
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.True);
+                AssertAuthoritativePosition(host, entityId: 10, new SurfaceCell(FaceId.Floor, 0, 0));
+                AssertAuthoritativePosition(host, entityId: 30, new SurfaceCell(FaceId.Floor, -1, 0));
+
+                SetKeyboardState(_keyboard);
+                yield return DestroyHost(host, actions);
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_PlayerS1FlipStartedThenDown_KeepsRealTargetAndPlayback()
+        {
+            var inputGapsSeconds = new[] { 0.005f, 0.02f, 0.05f };
+            foreach (var inputGapSeconds in inputGapsSeconds)
+            {
+                var actions = CreateKeyboardMoveActions();
+                var host = CreateHost(new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+                },
+                    actions: actions,
+                    playerViewPrefabOverride: LoadPlayerS1ViewPrefab(),
+                    playerControlTiming: CreateFlipTimingSettings(
+                        flipExecuteDelayTicks: 1,
+                        flipInputLockDurationTicks: 1),
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+                SetKeyboardState(_keyboard, Key.K);
+                var startTick = host.InputHost.RunSingleTick();
+                Assert.That(startTick, Is.Not.Null, $"Gap={inputGapSeconds}s");
+                Assert.That(startTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+                Assert.That(startTick.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
+                Assert.That(startTick.PresentationData.PlayerActionSignals[0].StartedThisTick, Is.True);
+                Assert.That(startTick.PresentationData.PlayerActionSignals[0].Direction, Is.EqualTo(Direction.Right));
+                Assert.That(startTick.PresentationData.PlayerActionSignals[0].TargetEntityId, Is.EqualTo(30));
+                host.Presenter.UpdatePresentation(0f);
+
+                Assert.That(host.ViewRegistry.TryGetView(10, out var playerView), Is.True);
+                var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                var animator = playerView.GetComponentInChildren<Animator>();
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(animator, Is.Not.Null);
+                Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
+                Assert.That(playerView.ModelRoot, Is.Not.Null);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+                AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Right);
+
+                AdvanceInputAndPresentationTime(host, inputGapSeconds);
+
+                Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.True);
+                SetKeyboardState(_keyboard, Key.K, Key.S);
+                var downTick = host.InputHost.RunSingleTick();
+                Assert.That(downTick, Is.Not.Null, $"Gap={inputGapSeconds}s");
+                Assert.That(downTick.Trace.Text, Does.Not.Contain("Destination=(0,-1)|Command=Move"));
+                Assert.That(downTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+                Assert.That(driver.LastCrossFadedStateName, Does.StartWith("Flip_"));
+
+                for (var i = 0; i < 4; i++)
+                {
+                    var heldTick = host.InputHost.RunSingleTick();
+                    Assert.That(heldTick, Is.Not.Null);
+                    Assert.That(heldTick.Trace.Text, Does.Not.Contain("Destination=(0,-1)|Command=Move"));
+                    Assert.That(heldTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+                    host.Presenter.UpdatePresentation(0f);
+                }
+
+                AssertAuthoritativePosition(host, entityId: 10, new SurfaceCell(FaceId.Floor, 0, 0));
+                AssertAuthoritativePosition(host, entityId: 30, new SurfaceCell(FaceId.Floor, -1, 0));
+                Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.True);
+                AdvancePresentation(host, 2f);
+                Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.False);
+                AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Left);
+
+                SetKeyboardState(_keyboard);
+                yield return DestroyHost(host, actions);
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_PlayerS1PushStartedThenDown_KeepsModelFacingAndMovesBox()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+            },
+                actions: actions,
+                playerViewPrefabOverride: LoadPlayerS1ViewPrefab(),
+                playerControlTiming: CreatePushTimingSettings(
+                    pushExecuteDelayTicks: 1,
+                    pushInputLockDurationTicks: 1),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            SetKeyboardState(_keyboard, Key.J);
+            var startTick = host.InputHost.RunSingleTick();
+            Assert.That(startTick, Is.Not.Null);
+            Assert.That(startTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+            Assert.That(startTick.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
+            Assert.That(startTick.PresentationData.PlayerActionSignals[0].StartedThisTick, Is.True);
+            Assert.That(startTick.PresentationData.PlayerActionSignals[0].Direction, Is.EqualTo(Direction.Right));
+            Assert.That(startTick.PresentationData.PlayerActionSignals[0].TargetEntityId, Is.EqualTo(30));
+            host.Presenter.UpdatePresentation(0f);
+
+            Assert.That(host.ViewRegistry.TryGetView(10, out var playerView), Is.True);
+            var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+            Assert.That(driver, Is.Not.Null);
+            Assert.That(playerView.ModelRoot, Is.Not.Null);
+            AdvanceInputAndPresentationTime(host, 0.05f);
+            Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.True);
+            var modelRotationBeforeDown = playerView.ModelRoot.rotation;
+
+            SetKeyboardState(_keyboard, Key.J, Key.S);
+            var downTick = host.InputHost.RunSingleTick();
+            Assert.That(downTick, Is.Not.Null);
+            Assert.That(downTick.Trace.Text, Does.Not.Contain("Destination=(0,-1)|Command=Move"));
+            Assert.That(downTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+            host.Presenter.UpdatePresentation(0f);
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+            AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Right);
+            Assert.That(Quaternion.Angle(playerView.ModelRoot.rotation, modelRotationBeforeDown), Is.LessThan(0.1f));
+            AssertAuthoritativePosition(host, entityId: 30, new SurfaceCell(FaceId.Floor, 2, 0));
+
+            SetKeyboardState(_keyboard);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_PlayerS1FakeFlipStartedThenDown_KeepsFacingAndBlocksMove()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+            },
+                actions: actions,
+                playerViewPrefabOverride: LoadPlayerS1ViewPrefab(),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            SetKeyboardState(_keyboard, Key.K);
+            var attemptTick = host.InputHost.RunSingleTick();
+            Assert.That(attemptTick, Is.Not.Null);
+            Assert.That(attemptTick.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(attemptTick.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(attemptTick.PresentationData.PlayerActionAttemptSignals[0].Direction, Is.EqualTo(Direction.Right));
+            host.Presenter.UpdatePresentation(0f);
+
+            Assert.That(host.ViewRegistry.TryGetView(10, out var playerView), Is.True);
+            var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+            Assert.That(driver, Is.Not.Null);
+            Assert.That(playerView.ModelRoot, Is.Not.Null);
+            AdvanceInputAndPresentationTime(host, 0.05f);
+            Assert.That(host.Presenter.IsPlayerActionAttemptPlaybackActive(10), Is.True);
+            var modelRotationBeforeDown = playerView.ModelRoot.rotation;
+
+            SetKeyboardState(_keyboard, Key.K, Key.S);
+            var downTick = host.InputHost.RunSingleTick();
+            Assert.That(downTick, Is.Not.Null);
+            Assert.That(downTick.Trace.Text, Does.Not.Contain("Destination=(0,-1)|Command=Move"));
+            Assert.That(downTick.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(downTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+            host.Presenter.UpdatePresentation(0f);
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+            AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Right);
+            Assert.That(Quaternion.Angle(playerView.ModelRoot.rotation, modelRotationBeforeDown), Is.LessThan(0.1f));
+            Assert.That(host.Presenter.IsPlayerActionAttemptPlaybackActive(10), Is.True);
+            AssertAuthoritativePosition(host, entityId: 10, new SurfaceCell(FaceId.Floor, 0, 0));
+
+            SetKeyboardState(_keyboard);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_PushKeyThenDownInSameInputUpdate_PreservesFacingTarget()
+        {
+            var inputGapsSeconds = new[] { 0.005, 0.02, 0.05 };
+            foreach (var inputGapSeconds in inputGapsSeconds)
+            {
+                var actions = CreateKeyboardMoveActions();
+                var host = CreateHost(new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+                },
+                    actions: actions,
+                    pushPresentationDurationSeconds: 0.5f,
+                    playerControlTiming: CreatePushTimingSettings(
+                        pushExecuteDelayTicks: 1,
+                        pushInputLockDurationTicks: 1),
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+                QueueActionThenDownInputEvents(_keyboard, Key.J, inputGapSeconds, separateInputUpdates: false);
+
+                var startTick = host.InputHost.RunSingleTick();
+                Assert.That(startTick, Is.Not.Null, $"Gap={inputGapSeconds}s");
+                Assert.That(startTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+                Assert.That(startTick.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
+                var startSignal = startTick.PresentationData.PlayerActionSignals[0];
+                Assert.That(startSignal.StartedThisTick, Is.True, $"Gap={inputGapSeconds}s");
+                Assert.That(startSignal.Direction, Is.EqualTo(Direction.Right), $"Gap={inputGapSeconds}s");
+                Assert.That(startSignal.TargetEntityId, Is.EqualTo(30), $"Gap={inputGapSeconds}s");
+                host.Presenter.UpdatePresentation(0f);
+                AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Right);
+
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.True);
+                AssertAuthoritativePosition(host, entityId: 10, new SurfaceCell(FaceId.Floor, 0, 0));
+                AssertAuthoritativePosition(host, entityId: 30, new SurfaceCell(FaceId.Floor, 2, 0));
+
+                SetKeyboardState(_keyboard);
+                yield return DestroyHost(host, actions);
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_FailedFlipThenDownInSameInputUpdate_KeepsFakeFacing()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+            },
+                actions: actions,
+                flipPresentationDurationSeconds: 0.5f,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            QueueActionThenDownInputEvents(_keyboard, Key.K, 0.005, separateInputUpdates: false);
+
+            var attemptTick = host.InputHost.RunSingleTick();
+            Assert.That(attemptTick, Is.Not.Null);
+            Assert.That(attemptTick.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(attemptTick.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(attemptTick.PresentationData.PlayerActionAttemptSignals[0].Direction, Is.EqualTo(Direction.Right));
+            Assert.That(host.Presenter.IsPlayerActionAttemptPlaybackActive(10), Is.True);
+            host.Presenter.UpdatePresentation(0f);
+            AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Right);
+
+            var heldTick = host.InputHost.RunSingleTick();
+            Assert.That(heldTick, Is.Not.Null);
+            Assert.That(heldTick.Trace.Text, Does.Not.Contain("Destination=(0,-1)|Command=Move"));
+            host.Presenter.UpdatePresentation(0f);
+            AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Right);
+            AssertAuthoritativePosition(host, entityId: 10, new SurfaceCell(FaceId.Floor, 0, 0));
+
+            SetKeyboardState(_keyboard);
             yield return DestroyHost(host, actions);
         }
 
@@ -1848,14 +2270,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplayInputHost_FlipVisualHold_YieldsImmediatelyToNewWalkPresentation()
+        public IEnumerator GameplayInputHost_FlipVisualHold_BlocksMoveCommandUntilPlaybackCompletes()
         {
+            var actions = CreateKeyboardMoveActions();
             var host = CreateHost(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
                 },
+                actions: actions,
                 repeatedMoveIntervalSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 moveMotionDurationSeconds: 1f,
                 flipPresentationDurationSeconds: 0.5f,
@@ -1864,7 +2288,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     flipInputLockDurationTicks: 1),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
-            host.InputHost.SetRawMoveInput(Vector2.left);
+            SetKeyboardState(_keyboard, Key.A);
             host.InputHost.BufferFlip();
 
             var startTick = host.InputHost.RunSingleTick();
@@ -1891,18 +2315,47 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             var followupMoveTick = host.InputHost.RunSingleTick();
             Assert.That(followupMoveTick, Is.Not.Null);
+            Assert.That(followupMoveTick.Trace.Text, Does.Not.Contain("Destination=(-1,0)|Command=Move"));
             host.Presenter.UpdatePresentation(0f);
-            Assert.That(driver.CurrentState, Is.Not.EqualTo(PlayerViewAnimationState.Flip));
-            RunTicksAssertingNoBlockingPresentation(host, 9);
-
-            var snapshot = CaptureAuthoritativeSnapshot(host);
-            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+            Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.True);
+            AssertAuthoritativePosition(host, entityId: 10, new SurfaceCell(FaceId.Floor, 0, 0));
+            for (var i = 0; i < 9; i++)
+            {
+                Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+                var heldTick = host.InputHost.RunSingleTick();
+                Assert.That(heldTick, Is.Not.Null);
+                Assert.That(heldTick.Trace.Text, Does.Not.Contain("Destination=(-1,0)|Command=Move"));
+                Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+            }
+            AssertAuthoritativePosition(host, entityId: 10, new SurfaceCell(FaceId.Floor, 0, 0));
 
             host.Presenter.UpdatePresentation(0.5f);
+            Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.False);
+            var releasedTick = host.InputHost.RunSingleTick();
+            Assert.That(releasedTick, Is.Not.Null);
+            Assert.That(releasedTick.Trace.Text, Does.Contain("Destination=(-1,0)|Command=Move"));
+            host.Presenter.UpdatePresentation(0f);
             Assert.That(driver.CurrentState, Is.Not.EqualTo(PlayerViewAnimationState.Flip));
 
-            yield return DestroyHost(host);
+            var movedAfterPlayback = false;
+            for (var i = 0; i < 60; i++)
+            {
+                var tick = host.InputHost.RunSingleTick();
+                Assert.That(tick, Is.Not.Null);
+                host.Presenter.UpdatePresentation(host.TimingProfile.SimulationTickIntervalSeconds);
+                var snapshot = CaptureAuthoritativeSnapshot(host);
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                if (player.position == new SurfaceCell(FaceId.Floor, -1, 0))
+                {
+                    movedAfterPlayback = true;
+                    break;
+                }
+            }
+            Assert.That(movedAfterPlayback, Is.True, "Held direction never moved the player after Flip playback ended.");
+
+            SetKeyboardState(_keyboard);
+            yield return DestroyHost(host, actions);
         }
 
         [UnityTest]
@@ -1947,6 +2400,50 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             AssertViewMatchesProjectedState(host, entityId: 10);
             AssertViewMatchesProjectedState(host, entityId: 30);
             AssertViewMatchesProjectedState(host, entityId: 31);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayInputHost_OffCenterFailedFlip_TurnsViewAndContinuousFacing()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            InvokeWorldWriteContextMethod(
+                host.WorldState,
+                "SetUnitContinuousLocomotionState",
+                10,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new SimulationOffset2(SimulationFixed.FromRaw(512), SimulationFixed.Zero),
+                    velocity = SimulationVelocity2.Zero,
+                    facing = Direction.Right,
+                    lastMoveDirection = Direction.Right,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            host.InputHost.BufferFlip();
+            var result = host.InputHost.RunSingleTick();
+            var snapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].Direction, Is.EqualTo(Direction.Up));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.facing, Is.EqualTo(Direction.Up));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionPose(10, out var pose), Is.True);
+            Assert.That(pose.State.facing, Is.EqualTo(Direction.Up));
+            Assert.That(pose.LocalOffset.X.RawValue, Is.EqualTo(512));
+            Assert.That(host.Presenter.IsPlayerActionAttemptPlaybackActive(10), Is.True);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.SimulationTickIntervalSeconds);
+            AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Up);
 
             yield return DestroyHost(host);
         }
@@ -2010,6 +2507,18 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(releasedState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(releasedState.actionSequenceCounter, Is.EqualTo(1));
 
+            SetKeyboardState(_keyboard, Key.A);
+            SetKeyboardState(_keyboard, Key.A, Key.J);
+
+            var stillPlayingTick = host.InputHost.RunSingleTick();
+            Assert.That(stillPlayingTick, Is.Not.Null);
+            Assert.That(stillPlayingTick.PresentationData.PlayerActionSignals.Any(signal => signal.StartedThisTick), Is.False);
+            Assert.That(stillPlayingTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+            Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.True);
+
+            SetKeyboardState(_keyboard, Key.A);
+            AdvancePresentation(host, host.TimingProfile.PushMotionDurationSeconds + 1f);
+            Assert.That(host.Presenter.IsPlayerInteractionPlaybackActive(10), Is.False);
             SetKeyboardState(_keyboard, Key.A, Key.J);
 
             TickResult restartTick = null;
@@ -2052,7 +2561,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplayInputHost_FlipBufferedDuringDirectionChangeDelay_UsesSampledDirection()
+        public IEnumerator GameplayInputHost_FlipAfterDirectionChange_PreservesProjectedViewState()
         {
             var host = CreateHost(
                 new[]
@@ -2062,8 +2571,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 },
                 actions: null,
                 staticEntityLogics: null,
-                initialMoveDelaySeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
-                directionChangeConsumesDelay: true);
+                initialMoveDelaySeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
@@ -2096,7 +2604,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator GameplayInputHost_Reenable_RebindsInputActions()
         {
-            var actions = CreateKeyboardMoveActions();
+            var actions = CloneProductionInputActions();
             var host = CreateHost(
                 new[]
                 {
@@ -2554,7 +3062,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             IEntityLogic[] staticEntityLogics = null,
             float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
-            bool directionChangeConsumesDelay = false,
             float moveMotionDurationSeconds = 0.2f,
             float itemConsumeEffectDurationSeconds = -1f,
             float boxDestroyEffectDurationSeconds = -1f,
@@ -2571,7 +3078,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             EnemyAiProfile defaultEnemyAiProfile = null,
             IKeyboardBindingStore keyboardBindingStore = null,
             GameplayEntityView enemyViewPrefabOverride = null,
-            GameplayCameraShakeProfile gameplayCameraShakeProfile = null)
+            GameplayCameraShakeProfile gameplayCameraShakeProfile = null,
+            PlayerContinuousLocomotionSettings playerContinuousLocomotion = null)
         {
             return CreateHostCore(
                 initialEntities,
@@ -2579,7 +3087,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 staticEntityLogics,
                 initialMoveDelaySeconds,
                 repeatedMoveIntervalSeconds,
-                directionChangeConsumesDelay,
                 moveMotionDurationSeconds,
                 itemConsumeEffectDurationSeconds,
                 boxDestroyEffectDurationSeconds,
@@ -2596,7 +3103,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 defaultEnemyAiProfile,
                 keyboardBindingStore,
                 enemyViewPrefabOverride,
-                gameplayCameraShakeProfile);
+                gameplayCameraShakeProfile,
+                playerContinuousLocomotion);
         }
 
         private static GameplaySceneHost CreateHostCore(
@@ -2605,7 +3113,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             IEntityLogic[] staticEntityLogics,
             float initialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds,
-            bool directionChangeConsumesDelay,
             float moveMotionDurationSeconds,
             float itemConsumeEffectDurationSeconds,
             float boxDestroyEffectDurationSeconds,
@@ -2622,7 +3129,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             EnemyAiProfile defaultEnemyAiProfile,
             IKeyboardBindingStore keyboardBindingStore,
             GameplayEntityView enemyViewPrefabOverride,
-            GameplayCameraShakeProfile gameplayCameraShakeProfile)
+            GameplayCameraShakeProfile gameplayCameraShakeProfile,
+            PlayerContinuousLocomotionSettings playerContinuousLocomotion)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -2658,7 +3166,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 AutoCreateViews = true,
                 BoxSlideStepIntervalSeconds = 0.2f,
                 CellSize = 1f,
-                DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 FlipArcHeightInCells = 0.65f,
                 FlipMotionDurationSeconds = 0.2f,
                 InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
@@ -2674,6 +3181,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
                 PlayerEntityId = 10,
                 PlayerControlTiming = playerControlTiming ?? new PlayerControlTimingSettings(),
+                PlayerContinuousLocomotion = playerContinuousLocomotion ?? PlayerContinuousLocomotionSettings.CreateDefault(),
                 PlayerViewPrefab = playerViewPrefab,
                 PushMotionDurationSeconds = 0.2f,
                 RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
@@ -2801,6 +3309,37 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(pressedKeys));
             InputSystem.Update();
+        }
+
+        private void QueueActionThenDownInputEvents(
+            Keyboard keyboard,
+            Key actionKey,
+            double inputGapSeconds,
+            bool separateInputUpdates)
+        {
+            currentTime += 1.0;
+            var eventTime = currentTime - 0.1;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(actionKey), eventTime);
+            if (separateInputUpdates)
+            {
+                InputSystem.Update();
+            }
+
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(actionKey, Key.S), eventTime + inputGapSeconds);
+            InputSystem.Update();
+        }
+
+        private void AdvanceInputAndPresentationTime(GameplaySceneHost host, float durationSeconds)
+        {
+            var remainingSeconds = durationSeconds;
+            while (remainingSeconds > 0f)
+            {
+                var stepSeconds = Mathf.Min(host.TimingProfile.SimulationTickIntervalSeconds, remainingSeconds);
+                currentTime += stepSeconds;
+                host.InputHost.AdvanceTime(stepSeconds);
+                host.Presenter.UpdatePresentation(stepSeconds);
+                remainingSeconds -= stepSeconds;
+            }
         }
 
         private static EntityState CreateUnit(int entityId, Vector2Int position)
@@ -3353,6 +3892,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     mode = ContinuousLocomotionMode.Idle,
                     sequenceId = 1,
                 }.NormalizedForStorage());
+        }
+
+        private static InputActionAsset CloneProductionInputActions()
+        {
+            var production = AssetDatabase.LoadAssetAtPath<InputActionAsset>("Assets/InputSystem_Actions.inputactions");
+            Assert.That(production, Is.Not.Null);
+            return InputActionAsset.FromJson(production.ToJson());
         }
 
         private static InputActionAsset CreateKeyboardMoveActions(bool includeArrowKeys = false)

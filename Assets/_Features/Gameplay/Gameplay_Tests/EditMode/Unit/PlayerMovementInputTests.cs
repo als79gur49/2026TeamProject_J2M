@@ -1164,7 +1164,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_PushWithoutDirection_IsNoOp()
+        public void PlayerControlStateLogic_PushWithoutDirection_UsesCurrentFacing()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1183,8 +1183,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 transitions);
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
-            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(controlState.activeAction.direction, Is.EqualTo(Direction.Right));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.True);
         }
 
         [Test]

@@ -7,8 +7,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 {
     public sealed class GameplayHostUiAccessContext : IDisposable
     {
+        private readonly IDisposable _admissionPolicyLifetime;
+        private bool _isDisposed;
+
         public GameplayHostUiAccessContext(
-            IGameplayCommandGateway commandGateway,
+            IDisposable admissionPolicyLifetime,
             IGameplayQueryFacade queryFacade,
             IGameplayPresentationFeed presentationFeed,
             IGameplayPauseService pauseService,
@@ -16,7 +19,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             IDemoStageControlCompletionBridge demoStageControlCompletionBridge = null,
             CampaignStageSequenceResolver campaignStageSequenceResolver = null)
         {
-            CommandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
+            _admissionPolicyLifetime = admissionPolicyLifetime ?? throw new ArgumentNullException(nameof(admissionPolicyLifetime));
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             PresentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
             PauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
@@ -24,8 +27,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             DemoStageControlCompletionBridge = demoStageControlCompletionBridge;
             CampaignStageSequenceResolver = campaignStageSequenceResolver;
         }
-
-        public IGameplayCommandGateway CommandGateway { get; }
 
         public IGameplayQueryFacade QueryFacade { get; }
 
@@ -41,14 +42,19 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public void Dispose()
         {
-            if (CommandGateway is IDisposable disposableCommandGateway)
+            if (_isDisposed)
             {
-                disposableCommandGateway.Dispose();
+                return;
             }
 
-            if (PresentationFeed is IDisposable disposableFeed)
+            _isDisposed = true;
+            try
             {
-                disposableFeed.Dispose();
+                _admissionPolicyLifetime.Dispose();
+            }
+            finally
+            {
+                (PresentationFeed as IDisposable)?.Dispose();
             }
         }
     }

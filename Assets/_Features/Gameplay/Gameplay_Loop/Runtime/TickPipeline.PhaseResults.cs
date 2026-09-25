@@ -101,6 +101,14 @@ namespace Game.Feature.Gameplay.Loop
         public List<string> EventLogEntries { get; }
     }
 
+    internal enum PlayerActionAttemptFailureCause
+    {
+        General = 0,
+        TargetLocked = 1,
+        FlipLandingBlocked = 2,
+        InvalidDirection = 3,
+    }
+
     internal readonly struct PlayerActionAttemptResolution
     {
         public PlayerActionAttemptResolution(
@@ -110,6 +118,8 @@ namespace Game.Feature.Gameplay.Loop
             PlayerActionAttemptFeedbackKind feedbackKind,
             bool consumesMovement,
             bool emitsFakePresentation,
+            Direction resolvedActionDirection,
+            PlayerActionAttemptFailureCause failureCause,
             int targetEntityId = 0,
             bool hasTarget = false,
             bool emitsVisualFeedback = true)
@@ -120,6 +130,8 @@ namespace Game.Feature.Gameplay.Loop
             FeedbackKind = feedbackKind;
             ConsumesMovement = consumesMovement;
             EmitsFakePresentation = emitsFakePresentation;
+            ResolvedActionDirection = resolvedActionDirection;
+            FailureCause = failureCause;
             TargetEntityId = targetEntityId;
             HasTarget = hasTarget && targetEntityId > 0;
             EmitsVisualFeedback = emitsVisualFeedback;
@@ -132,6 +144,10 @@ namespace Game.Feature.Gameplay.Loop
         public PlayerActionKind ActionKind { get; }
 
         public Direction Direction { get; }
+
+        public Direction ResolvedActionDirection { get; }
+
+        public PlayerActionAttemptFailureCause FailureCause { get; }
 
         public PlayerActionAttemptFeedbackKind FeedbackKind { get; }
 

@@ -46,7 +46,6 @@ namespace Game.Feature.Gameplay.Host
         public bool AutoCreateViews = true;
         public float CellSize = 1f;
         public float FaceSeamGap = -1f;
-        public bool DirectionChangeConsumesDelay;
         public bool EnablePlayerFree2DActionAssist;
         public bool EnableEnemySameFaceContinuousLocomotion;
         public bool EnableEnemyChargeKinematicLocomotion;

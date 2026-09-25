@@ -835,24 +835,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(typeof(GameplayInputHost).GetField("_hasBufferedFlip", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(destinationHost.InputHost), Is.False);
             var uiAccess = (object)destinationHost.UiAccess;
-            var commandGateway = uiAccess
-                .GetType()
-                .GetProperty("CommandGateway")
-                .GetValue(uiAccess);
-            var setHeldMove = commandGateway.GetType().GetMethod("SetHeldMoveDirection");
-            Assert.That(setHeldMove, Is.Not.Null);
-            var directionType = setHeldMove.GetParameters().Single().ParameterType;
-            var publicAdmission = setHeldMove.Invoke(
-                commandGateway,
-                new[] { Enum.ToObject(directionType, 2) });
-            Assert.That(
-                (bool)publicAdmission.GetType().GetProperty("Accepted").GetValue(publicAdmission),
-                Is.False);
-            Assert.That(
-                Convert.ToInt32(
-                    publicAdmission.GetType().GetProperty("RejectionReason").GetValue(publicAdmission)),
-                Is.EqualTo(7),
-                "Public admission must return RejectedTerminalSession.");
+            var queryFacade = uiAccess.GetType().GetProperty("QueryFacade").GetValue(uiAccess);
+            var sessionQuery = queryFacade.GetType().GetProperty("Session").GetValue(queryFacade);
+            var sessionState = sessionQuery.GetType().GetMethod("Read").Invoke(sessionQuery, null);
+            Assert.That((bool)sessionState.GetType().GetProperty("CanAcceptGameplayCommands").GetValue(sessionState), Is.False);
             Assert.That(destinationHost.TickRunner.NextTickIndex, Is.EqualTo(nextTickBeforeReveal));
             Assert.That(tickCountBeforeReveal, Is.Zero);
             if (HasGraphicsDevice())

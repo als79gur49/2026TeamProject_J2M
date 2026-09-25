@@ -530,7 +530,6 @@ namespace Game.Feature.UI.Composition
                     sceneHost.UiAccess.PresentationFeed,
                     sceneHost.UiAccess.PauseService);
                 Install(new GameplayUiFlowPorts(
-                    sceneHost.UiAccess.CommandGateway,
                     sceneHost.UiAccess.QueryFacade,
                     presentationSource,
                     sceneHost.UiAccess.PauseService,
@@ -2004,52 +2003,16 @@ namespace Game.Feature.UI.Composition
             return null;
         }
 
-        // Resolve Input System keyboard state without relying on UnityEngine.Input.
         private sealed class InputSystemKeyboardBridge
         {
-            private static readonly Type KeyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
-            private static readonly PropertyInfo CurrentKeyboardProperty = KeyboardType?.GetProperty("current", BindingFlags.Public | BindingFlags.Static);
-            private static readonly PropertyInfo EscapeKeyProperty = KeyboardType?.GetProperty("escapeKey", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo F10KeyProperty = KeyboardType?.GetProperty("f10Key", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo BackQuoteKeyProperty = KeyboardType?.GetProperty("backquoteKey", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo WasPressedThisFrameProperty =
-                EscapeKeyProperty?.PropertyType.GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
-
-            public bool WasEscapePressedThisFrame()
-            {
-                return WasPressedThisFrame(EscapeKeyProperty);
-            }
-
             public bool WasF10PressedThisFrame()
             {
-                return WasPressedThisFrame(F10KeyProperty);
+                return Keyboard.current?.f10Key.wasPressedThisFrame == true;
             }
 
             public bool WasBackQuotePressedThisFrame()
             {
-                return WasPressedThisFrame(BackQuoteKeyProperty);
-            }
-
-            private static bool WasPressedThisFrame(PropertyInfo keyProperty)
-            {
-                if (CurrentKeyboardProperty == null || keyProperty == null || WasPressedThisFrameProperty == null)
-                {
-                    return false;
-                }
-
-                var keyboard = CurrentKeyboardProperty.GetValue(null);
-                if (keyboard == null)
-                {
-                    return false;
-                }
-
-                var keyControl = keyProperty.GetValue(keyboard);
-                if (keyControl == null)
-                {
-                    return false;
-                }
-
-                return WasPressedThisFrameProperty.GetValue(keyControl) is bool pressed && pressed;
+                return Keyboard.current?.backquoteKey.wasPressedThisFrame == true;
             }
         }
     }

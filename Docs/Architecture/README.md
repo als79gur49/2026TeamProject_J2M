@@ -66,6 +66,8 @@
   - current supporting truth for prefab-local enemy audio requirement policies/bindings, implicit disabled cue governance, and ChargeActiveLoop policy
 - [Gameplay-PushFlip-Fake-Attempt-Policy.md](./Gameplay-PushFlip-Fake-Attempt-Policy.md)
   - current supporting truth for Push/Flip fake attempt classification, movement consume, presentation playback hold, input gate, and known caution points
+- [Input-Player-Actions-And-Ui-Movement-Retirement-Plan.md](./Input-Player-Actions-And-Ui-Movement-Retirement-Plan.md)
+  - implementation and bounded validation record for removing seven unused Player actions and the UI movement gateway, preserving saved bindings and Host-owned admission-policy lifetime; manual interaction validation remains pending
 - [Gameplay-VFX-Governance.md](./Gameplay-VFX-Governance.md)
   - current supporting truth for presentation-only Gameplay VFX lane boundaries, family-specific planners, lifecycle vocabulary, persistent desired state, and existing presenter migration guardrails
 - [Gameplay-Death-Recovery-Lifecycle.md](./Gameplay-Death-Recovery-Lifecycle.md)

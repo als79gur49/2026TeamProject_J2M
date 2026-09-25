@@ -496,7 +496,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_DirectionlessFlipFakeAttempt_DoesNotMutateAuthoritativeState()
+        public void Replay_DirectionlessFlip_UsesFacingDeterministically()
         {
             var inputs = new[]
             {
@@ -521,10 +521,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             AssertReplayEqual(firstReplay, secondReplay);
-            Assert.That(firstReplay.All(frame => !frame.PlayerControlDump.Contains("Action=Flip")), Is.True);
+            Assert.That(firstReplay[0].PlayerControlDump, Does.Contain("Action=Flip"));
             Assert.That(firstReplay.All(frame => !frame.PlayerControlDump.Contains("QueuedFree2DAction=Flip")), Is.True);
-            Assert.That(firstReplay[firstReplay.Count - 1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
-            Assert.That(firstReplay[firstReplay.Count - 1].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=1"));
         }
 
         private static void AssertReplayEqual(

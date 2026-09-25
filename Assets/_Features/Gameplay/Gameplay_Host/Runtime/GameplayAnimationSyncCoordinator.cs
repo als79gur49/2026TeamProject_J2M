@@ -877,6 +877,14 @@ namespace Game.Feature.Gameplay.Host
                    holdState.IsActive;
         }
 
+        public bool IsPlayerInteractionHoldActive(int entityId)
+        {
+            return _playerVisualHoldStates.TryGetValue(entityId, out var holdState) &&
+                   holdState.IsActive &&
+                   (holdState.Source == PlayerVisualPresentationHoldSource.ActiveAction ||
+                    holdState.Source == PlayerVisualPresentationHoldSource.ActionAttempt);
+        }
+
         public void CacheDrivers(int entityId, GameplayEntityView view)
         {
             var drivers = ResolveDrivers(entityId, view);

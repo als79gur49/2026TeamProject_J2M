@@ -49,14 +49,6 @@ namespace Game.Shared.Input
 
         public static event Action<KeyboardBindingSettingsSnapshot> BindingsChanged;
 
-        public static string MoveActionPath => GameplayInputActionPaths.PlayerMove;
-
-        public static string NavigateActionPath => GameplayInputActionPaths.UiNavigate;
-
-        public static string PushActionPath => GameplayInputActionPaths.PlayerPush;
-
-        public static string FlipActionPath => GameplayInputActionPaths.PlayerFlip;
-
         public KeyboardBindingSettingsService(InputActionAsset actions, IKeyboardBindingStore store = null)
         {
             _actions = actions != null ? actions : throw new ArgumentNullException(nameof(actions));
@@ -88,7 +80,6 @@ namespace Game.Shared.Input
         {
             return new KeyboardBindingSettingsSnapshot(
                 _movementScheme,
-                _movementScheme == KeyboardMovementScheme.ArrowKeys ? "Arrow Keys" : "WASD",
                 ResolveDisplayName(KeyboardBindableAction.Push),
                 ResolveDisplayName(KeyboardBindableAction.Flip),
                 IsRebinding,
