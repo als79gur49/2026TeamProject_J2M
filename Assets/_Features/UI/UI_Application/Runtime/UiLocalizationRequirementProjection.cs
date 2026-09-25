@@ -18,6 +18,7 @@ namespace Game.Feature.UI.Application
             AddObjectiveHud(requirements);
             AddMainMenuStatic(requirements);
             AddPause(requirements);
+            AddCampaign(requirements);
             return requirements.AsReadOnly();
         }
 
@@ -107,6 +108,29 @@ namespace Game.Feature.UI.Application
             AddDescriptor(requirements, PauseStaticTextDescriptors.Settings, "Pause.Settings");
             AddDescriptor(requirements, PauseStaticTextDescriptors.Retry, "Pause.Retry");
             AddDescriptor(requirements, PauseStaticTextDescriptors.MainMenu, "Pause.MainMenu");
+        }
+
+        private static void AddCampaign(ICollection<LocalizationStringRequirement> requirements)
+        {
+            foreach (var key in new[]
+                     {
+                         "ui.campaign.mode.title",
+                         "ui.campaign.mode.casual",
+                         "ui.campaign.mode.hardcore",
+                         "ui.campaign.mode.casual_detail",
+                         "ui.campaign.mode.hardcore_detail",
+                         "ui.campaign.return.level",
+                         "ui.campaign.return.campaign",
+                         "ui.campaign.restart.campaign",
+                         "ui.campaign.save_error.title",
+                         "ui.campaign.save_error.detail",
+                     })
+            {
+                Add(requirements, "UI", key, false, PlaceholderSignature.Empty, "Campaign UI");
+            }
+
+            Add(requirements, "UI", "ui.campaign.hp", true,
+                PlaceholderSignature.FromSelectors(new[] { "0", "1" }), "Campaign HP HUD/slot card");
         }
 
         private static void AddDescriptor(

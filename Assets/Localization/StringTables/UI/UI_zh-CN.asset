@@ -557,6 +557,55 @@ MonoBehaviour:
     m_Localized: "\u5B58\u6863\u91CD\u7F6E\u672A\u5B8C\u6210\u3002\u8BF7\u91CD\u8BD5\u4EE5\u7EE7\u7EED\u91CD\u7F6E\u3002"
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693808
+    m_Localized: "\u9009\u62E9\u6A21\u5F0F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693809
+    m_Localized: "\u4F11\u95F2"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693810
+    m_Localized: "\u786C\u6838"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693811
+    m_Localized: "\u751F\u547D\u503C\u4E3A3\uFF0C\u53EF\u65E0\u9650\u6B21\u91CD\u8BD5\u3002\u6B7B\u4EA1\u540E\uFF0C\u5C06\u8FD4\u56DE\u5F53\u524D\u5173\u5361\u7EC4\u7684\u7B2C\u4E00\u5173\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693812
+    m_Localized: "\u5171\u67093\u6B21\u6311\u6218\u673A\u4F1A\u3002\u6B21\u6570\u7528\u5C3D\u540E\uFF0C\u5C06\u8FD4\u56DE\u6218\u5F79\u7684\u7B2C\u4E00\u5173\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693813
+    m_Localized: "\u751F\u547D\u503C {0}/{1}"
+    m_Metadata:
+      m_Items:
+      - rid: 1791114803372359681
+  - m_Id: 4971587610693814
+    m_Localized: "\u5C06\u8FD4\u56DE\u5F53\u524D\u5173\u5361\u7EC4\u7684\u7B2C\u4E00\u5173\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693815
+    m_Localized: "\u5C06\u8FD4\u56DE\u6218\u5F79\u7684\u7B2C\u4E00\u5173\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693816
+    m_Localized: "\u91CD\u65B0\u5F00\u59CB\u6218\u5F79"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693817
+    m_Localized: "\u65E0\u6CD5\u786E\u8BA4\u5B58\u6863\u72B6\u6001"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693818
+    m_Localized: "\u8BF7\u8FD4\u56DE\u4E3B\u83DC\u5355\u68C0\u67E5\u5B58\u6863\u72B6\u6001\u3002\u672A\u4FDD\u5B58\u7684\u8FDB\u5EA6\u53EF\u80FD\u4F1A\u4E22\u5931\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693819
+    m_Localized: "\u8FDB\u884C\u4E2D"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -585,3 +634,4 @@ MonoBehaviour:
         - id: 4971587610693678
         - id: 4971587610693682
         - id: 4971587610693699
+        - id: 4971587610693813

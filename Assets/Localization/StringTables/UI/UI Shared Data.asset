@@ -335,6 +335,10 @@ MonoBehaviour:
     m_Key: ui.main_menu.slot.new_game
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693819
+    m_Key: ui.main_menu.slot.status.in_progress
+    m_Metadata:
+      m_Items: []
   - m_Id: 4971587610693665
     m_Key: ui.main_menu.slot.completed
     m_Metadata:
@@ -525,6 +529,50 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4971587610693807
     m_Key: ui.main_menu.slot.error.recovery_pending.detail
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693808
+    m_Key: ui.campaign.mode.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693809
+    m_Key: ui.campaign.mode.casual
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693810
+    m_Key: ui.campaign.mode.hardcore
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693811
+    m_Key: ui.campaign.mode.casual_detail
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693812
+    m_Key: ui.campaign.mode.hardcore_detail
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693813
+    m_Key: ui.campaign.hp
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693814
+    m_Key: ui.campaign.return.level
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693815
+    m_Key: ui.campaign.return.campaign
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693816
+    m_Key: ui.campaign.restart.campaign
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693817
+    m_Key: ui.campaign.save_error.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693818
+    m_Key: ui.campaign.save_error.detail
     m_Metadata:
       m_Items: []
   m_Metadata:
