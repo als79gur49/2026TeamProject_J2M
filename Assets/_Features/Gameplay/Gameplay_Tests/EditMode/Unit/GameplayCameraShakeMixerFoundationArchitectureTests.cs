@@ -456,6 +456,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs",
                 "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs",
+                "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemySummonExecutor.cs",
                 "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiProfile.cs",
                 "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiConfig.cs",
             };
