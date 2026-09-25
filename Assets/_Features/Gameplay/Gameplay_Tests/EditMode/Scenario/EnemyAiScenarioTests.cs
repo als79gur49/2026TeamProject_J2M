@@ -5359,7 +5359,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
                     new ScriptedAttackLogic(10, 40));
+                var beforeHit = worldState.CreateSnapshot();
                 var result = pipeline.RunTick(new TickInput(1));
+                EnemyGlideCapture.Tick("G09", "kinematic-nonlethal", "hit-tick-1",
+                    beforeHit, result, worldState, 40);
                 var snapshot = worldState.CreateSnapshot();
 
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
@@ -5368,7 +5371,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(interrupted.mode, Is.EqualTo(MotionMode.Interrupted));
                 Assert.That(snapshot.TryGetEnemyGlideState(40, out var glideState), Is.True);
                 Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
+                Assert.That(glideState.RecoveryUntilTickExclusive,
+                    Is.EqualTo(1 + glideState.RecoveryTicks));
                 Assert.That(result.AttackPhaseResult.MotionInterruptRecords.Any(record => record.EntityId == 40), Is.True);
+                var interrupt = result.AttackPhaseResult.MotionInterruptRecords.Single(record => record.EntityId == 40);
+                Assert.That(interrupt.Policy, Is.EqualTo(MotionInterruptPolicy.FreezeCurrentPose));
+                Assert.That(interrupt.SourceEntityId, Is.EqualTo(10));
+                var orderedEvents = result.EventLog.ToList();
+                var recoveryEventIndex = orderedEvents.FindIndex(entry =>
+                    entry.Contains("EnemyGlideStateUpdated|E=40|Label=InterruptedToRecovery", StringComparison.Ordinal));
+                var interruptEventIndex = orderedEvents.FindIndex(entry =>
+                    entry.Contains("KinematicMotionInterrupted|E=40", StringComparison.Ordinal));
+                Assert.That(recoveryEventIndex, Is.GreaterThanOrEqualTo(0));
+                Assert.That(interruptEventIndex, Is.GreaterThan(recoveryEventIndex));
                 Assert.That(
                     result.PresentationData.KinematicMotionTracks.Any(track =>
                         track.EntityId == 40 &&
@@ -5381,7 +5396,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         !signal.IsTerminalZero),
                     Is.False);
 
+                var beforeClosure = worldState.CreateSnapshot();
                 var closureTick = pipeline.RunTick(new TickInput(2));
+                EnemyGlideCapture.Tick("G09", "kinematic-nonlethal", "closure-tick-2",
+                    beforeClosure, closureTick, worldState, 40);
                 Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out _), Is.False);
                 Assert.That(
                     closureTick.EventLog.Any(entry =>
@@ -5431,12 +5449,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     profile,
                     runtimeFeatureFlags,
                     new ScriptedAttackLogic(10, 40));
+                var beforeHit = worldState.CreateSnapshot();
                 var result = pipeline.RunTick(new TickInput(1));
+                EnemyGlideCapture.Tick("G09",
+                    runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion
+                        ? "default-death" : "kinematic-lethal",
+                    "hit-tick-1", beforeHit, result, worldState, 40);
                 var snapshot = worldState.CreateSnapshot();
 
                 Assert.That(snapshot.TryGetEntity(40, out _), Is.False);
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
                 Assert.That(snapshot.TryGetEnemyGlideState(40, out _), Is.False);
+                Assert.That(result.EventLog, Has.None.Contains("Label=InterruptedToRecovery"));
                 Assert.That(result.EventLog.Any(entry => entry.Contains("CleanupRemoved|E=40", StringComparison.Ordinal)), Is.True);
                 Assert.That(result.EventLog.Any(entry => entry.Contains("KinematicPoseRemoved|E=40", StringComparison.Ordinal)), Is.True);
                 Assert.That(result.PresentationData.PlayerDeathSignals, Is.Empty);
@@ -5487,13 +5511,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState,
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
+                var beforeContinuation = worldState.CreateSnapshot();
                 var result = pipeline.RunTick(new TickInput(2));
+                EnemyGlideCapture.Tick("G09", "arbitrary-voluntary", "tick-2",
+                    beforeContinuation, result, worldState, 40);
                 var snapshot = worldState.CreateSnapshot();
 
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
                 Assert.That(state.elapsedTicks, Is.EqualTo(1));
                 Assert.That(result.Trace.Text, Does.Not.Contain("EnemyGlideActiveKinematicContinuation"));
                 Assert.That(result.Trace.Text, Does.Not.Contain("GlideActiveKinematicAnchorCommit"));
+                Assert.That(result.EventLog, Has.None.Contains("Label=InterruptedToRecovery"));
                 Assert.That(
                     result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40),
                     Is.False);
