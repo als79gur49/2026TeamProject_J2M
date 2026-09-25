@@ -1440,6 +1440,79 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
+        public IEnumerator GameplayInputHost_DirectionlessActionAtProductionBoxClamp_QueuesAssist(
+            [Values(Key.J, Key.K)] Key actionKey,
+            [Values(Key.D, Key.RightArrow)] Key approachKey,
+            [Values(Direction.Right, Direction.Left, Direction.Up)] Direction initialFacing,
+            [Values(false, true)] bool runIdleTickAfterRelease)
+        {
+            var actions = CloneProductionInputActions();
+            var capability = actionKey == Key.J ? BoxCapabilities.Push : BoxCapabilities.Flip;
+            var bindingStore = new PlayModeKeyboardBindingStore();
+            bindingStore.SaveMovementScheme(
+                approachKey == Key.RightArrow
+                    ? KeyboardMovementScheme.ArrowKeys
+                    : KeyboardMovementScheme.Wasd);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: initialFacing),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: capability),
+            },
+                actions: actions,
+                keyboardBindingStore: bindingStore,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
+                {
+                    CollisionRadiusCells = 0.28125f,
+                    ActionAssistSettleWindowCells = 0.421875f,
+                });
+
+            SetKeyboardState(_keyboard, approachKey);
+            for (var i = 0; i < 10; i++)
+            {
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            }
+
+            SetKeyboardState(_keyboard);
+            if (runIdleTickAfterRelease)
+            {
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            }
+
+            var clampedSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(clampedSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
+            Assert.That(clampedSnapshot.TryGetUnitContinuousLocomotionPose(10, out var pose), Is.True);
+            Assert.That(pose.LocalOffset.X.RawValue, Is.EqualTo(896));
+            Assert.That(UnitSpatialQuery.IsSettledAtAnchor(clampedSnapshot, 10), Is.False);
+
+            SetKeyboardState(_keyboard, actionKey);
+            var result = host.InputHost.RunSingleTick();
+            var queuedSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(result, Is.Not.Null);
+            Assert.That(queuedSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.True);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+
+            SetKeyboardState(_keyboard);
+            var started = false;
+            for (var i = 0; i < 30 && !started; i++)
+            {
+                var nextResult = host.InputHost.RunSingleTick();
+                Assert.That(nextResult, Is.Not.Null);
+                Assert.That(nextResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+                started = nextResult.PresentationData.PlayerActionSignals.Any(signal =>
+                    signal.StartedThisTick &&
+                    signal.TargetEntityId == 30 &&
+                    signal.Direction == Direction.Right);
+            }
+
+            Assert.That(started, Is.True);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_FlipKeyThenDown_PreservesFacingTargetAcrossInputUpdates()
         {
             var inputGapsSeconds = new[] { 0.005, 0.02, 0.05 };
@@ -3005,7 +3078,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             EnemyAiProfile defaultEnemyAiProfile = null,
             IKeyboardBindingStore keyboardBindingStore = null,
             GameplayEntityView enemyViewPrefabOverride = null,
-            GameplayCameraShakeProfile gameplayCameraShakeProfile = null)
+            GameplayCameraShakeProfile gameplayCameraShakeProfile = null,
+            PlayerContinuousLocomotionSettings playerContinuousLocomotion = null)
         {
             return CreateHostCore(
                 initialEntities,
@@ -3029,7 +3103,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 defaultEnemyAiProfile,
                 keyboardBindingStore,
                 enemyViewPrefabOverride,
-                gameplayCameraShakeProfile);
+                gameplayCameraShakeProfile,
+                playerContinuousLocomotion);
         }
 
         private static GameplaySceneHost CreateHostCore(
@@ -3054,7 +3129,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             EnemyAiProfile defaultEnemyAiProfile,
             IKeyboardBindingStore keyboardBindingStore,
             GameplayEntityView enemyViewPrefabOverride,
-            GameplayCameraShakeProfile gameplayCameraShakeProfile)
+            GameplayCameraShakeProfile gameplayCameraShakeProfile,
+            PlayerContinuousLocomotionSettings playerContinuousLocomotion)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -3105,6 +3181,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
                 PlayerEntityId = 10,
                 PlayerControlTiming = playerControlTiming ?? new PlayerControlTimingSettings(),
+                PlayerContinuousLocomotion = playerContinuousLocomotion ?? PlayerContinuousLocomotionSettings.CreateDefault(),
                 PlayerViewPrefab = playerViewPrefab,
                 PushMotionDurationSeconds = 0.2f,
                 RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,

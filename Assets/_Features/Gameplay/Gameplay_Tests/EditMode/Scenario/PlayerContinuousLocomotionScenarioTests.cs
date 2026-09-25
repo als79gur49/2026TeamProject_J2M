@@ -2678,12 +2678,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(exclusiveResult.PresentationData.PlayerActionAttemptSignals[0].TargetEntityId, Is.EqualTo(20));
         }
 
-        [TestCase(PlayerActionKind.Push, BoxCapabilities.Push)]
-        [TestCase(PlayerActionKind.Flip, BoxCapabilities.Flip)]
+        [TestCase(PlayerActionKind.Push, BoxCapabilities.Push, false)]
+        [TestCase(PlayerActionKind.Flip, BoxCapabilities.Flip, false)]
+        [TestCase(PlayerActionKind.Push, BoxCapabilities.Push, true)]
+        [TestCase(PlayerActionKind.Flip, BoxCapabilities.Flip, true)]
         [Category("Extended")]
         public void ProductionFree2DActionAssist_CollisionClamp_QueuesAlignsAndExecutes(
             PlayerActionKind actionKind,
-            BoxCapabilities capability)
+            BoxCapabilities capability,
+            bool directionlessInput)
         {
             var worldState = CreateWorldState(
                 CreatePlayer(10),
@@ -2695,8 +2698,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(clampedSnapshot.TryGetUnitContinuousLocomotionState(10, out var clampedState), Is.True);
             Assert.That(clampedState.localOffset.X.RawValue, Is.EqualTo(ProductionBlockedClampUnits));
 
-            var queuedResult = pipeline.RunTick(
-                new TickInput(11, CreatePlayerActionCommand(actionKind, Direction.Right)));
+            Assert.That(clampedSnapshot.TryGetEntity(10, out var clampedPlayer), Is.True);
+            Assert.That(clampedPlayer.facing, Is.EqualTo(Direction.Right));
+
+            var command = directionlessInput
+                ? PlayerTickCommand.Create(
+                    Direction.None,
+                    pushPressed: actionKind == PlayerActionKind.Push,
+                    flipPressed: actionKind == PlayerActionKind.Flip,
+                    hasCapturedActionDirection: true,
+                    capturedActionDirection: Direction.None)
+                : CreatePlayerActionCommand(actionKind, Direction.Right);
+            var queuedResult = pipeline.RunTick(new TickInput(11, command));
             var queuedSnapshot = worldState.CreateSnapshot();
             Assert.That(queuedSnapshot.TryGetPlayerControlState(10, out var queuedControlState), Is.True);
             Assert.That(queuedControlState.queuedFree2DAction.IsQueued, Is.True);
@@ -2714,6 +2727,53 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeControlState.activeAction.kind, Is.EqualTo(actionKind));
             Assert.That(executeControlState.activeAction.targetEntityId, Is.EqualTo(20));
             Assert.That(executeResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionPushFlip_StraightApproach_UsesFacingWithoutDirection(
+            [Values(PlayerActionKind.Push, PlayerActionKind.Flip)] PlayerActionKind actionKind,
+            [Values(false, true)] bool unsettled,
+            [Values(false, true)] bool directionless)
+        {
+            var capability = actionKind == PlayerActionKind.Push ? BoxCapabilities.Push : BoxCapabilities.Flip;
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), capability));
+            var pipeline = CreateProductionActionAssistPipeline(worldState);
+            if (unsettled)
+            {
+                MoveRightToRadiusClamp(pipeline);
+            }
+
+            var before = worldState.CreateSnapshot();
+            Assert.That(before.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
+            Assert.That(UnitSpatialQuery.IsSettledAtAnchor(before, 10), Is.EqualTo(!unsettled));
+            if (unsettled)
+            {
+                Assert.That(before.TryGetUnitContinuousLocomotionState(10, out var pose), Is.True);
+                Assert.That(pose.localOffset.X.RawValue, Is.EqualTo(ProductionBlockedClampUnits));
+            }
+
+            var direction = directionless ? Direction.None : Direction.Right;
+            var command = PlayerTickCommand.Create(
+                direction,
+                pushPressed: actionKind == PlayerActionKind.Push,
+                flipPressed: actionKind == PlayerActionKind.Flip,
+                heldMoveDirection: direction);
+            var result = pipeline.RunTick(new TickInput(unsettled ? 11 : 1, command));
+            var after = worldState.CreateSnapshot();
+            Assert.That(after.TryGetPlayerControlState(10, out var state), Is.True);
+            TestContext.WriteLine($"Action={actionKind}|Unsettled={unsettled}|Directionless={directionless}|Facing={player.facing}|Queued={state.queuedFree2DAction.IsQueued}|Active={state.activeAction.kind}");
+            foreach (var attempt in result.PresentationData.PlayerActionAttemptSignals)
+            {
+                TestContext.WriteLine($"Attempt={attempt.FeedbackKind}|Target={attempt.TargetEntityId}|Direction={attempt.Direction}");
+            }
+
+            TestContext.WriteLine(string.Join("\n", result.MovementPhaseResult.RejectedReasons));
+            Assert.That(unsettled ? state.queuedFree2DAction.IsQueued : state.activeAction.kind == actionKind, Is.True);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Is.Empty);
         }
 
         [Test]
