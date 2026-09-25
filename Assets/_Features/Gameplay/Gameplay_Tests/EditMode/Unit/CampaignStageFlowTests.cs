@@ -2938,7 +2938,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new GameplayHostRuntimeContext(
                     null,
                     null,
-                    null,
                     inputHost,
                     presenter,
                     GameplayTimingProfile.CreateDefault(),
@@ -2966,7 +2965,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 host,
                 "_runtime",
                 new GameplayHostRuntimeContext(
-                    null,
                     null,
                     null,
                     host.InputHost,

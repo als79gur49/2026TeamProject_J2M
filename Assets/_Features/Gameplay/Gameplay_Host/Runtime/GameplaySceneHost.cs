@@ -16,8 +16,6 @@ namespace Game.Feature.Gameplay.Host
             ? _runtime.InputHost.PlayerEntityId
             : 0;
 
-        public TickInputBuffer InputBuffer => _runtime?.InputBuffer;
-
         public GameplayTickViewPresenter Presenter => _runtime?.Presenter;
 
         public TickRunner TickRunner => _runtime?.TickRunner;

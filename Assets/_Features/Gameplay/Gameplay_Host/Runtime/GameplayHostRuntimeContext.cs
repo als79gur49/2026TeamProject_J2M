@@ -12,7 +12,6 @@ namespace Game.Feature.Gameplay.Host
         public GameplayHostRuntimeContext(
             GameplayBoardRoot boardRoot,
             GameplayBoardSurfaceRenderer boardSurfaceRenderer,
-            TickInputBuffer inputBuffer,
             GameplayInputHost inputHost,
             GameplayTickViewPresenter presenter,
             GameplayTimingProfile timingProfile,
@@ -30,7 +29,6 @@ namespace Game.Feature.Gameplay.Host
         {
             BoardRoot = boardRoot;
             BoardSurfaceRenderer = boardSurfaceRenderer;
-            InputBuffer = inputBuffer;
             InputHost = inputHost;
             Presenter = presenter;
             TimingProfile = timingProfile;
@@ -50,8 +48,6 @@ namespace Game.Feature.Gameplay.Host
         public GameplayBoardRoot BoardRoot { get; }
 
         public GameplayBoardSurfaceRenderer BoardSurfaceRenderer { get; }
-
-        public TickInputBuffer InputBuffer { get; }
 
         public GameplayInputHost InputHost { get; }
 

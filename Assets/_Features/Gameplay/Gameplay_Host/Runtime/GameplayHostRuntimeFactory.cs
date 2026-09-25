@@ -294,7 +294,6 @@ namespace Game.Feature.Gameplay.Host
                 return new GameplayHostRuntimeContext(
                     boardRoot,
                     boardSurfaceRenderer,
-                    inputBuffer,
                     inputHost,
                     presenter,
                     generalTimingProfile,

@@ -1,7 +1,6 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
-using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Stages;
 using Game.Shared.Input;
@@ -50,8 +49,6 @@ namespace Game.Feature.Gameplay.Host
         private Direction _heldDirectionBeforeInputUpdate;
 
         public event Action<TickResult> TickCompleted;
-
-        public event Action<StageObjectiveTickResult> ObjectiveResultUpdated;
 
         internal int PlayerEntityId => _playerEntityId;
 
@@ -226,7 +223,6 @@ namespace Game.Feature.Gameplay.Host
             // Presentation-state queries can run during Present before completed-snapshot caches refresh on TickCompleted.
             _presenter.Present(result);
             TickCompleted?.Invoke(result);
-            ObjectiveResultUpdated?.Invoke(result.ObjectiveResult);
 
             return result;
         }
@@ -240,14 +236,6 @@ namespace Game.Feature.Gameplay.Host
         {
             EnsureInitialized();
             _isSimulationPaused = isSimulationPaused;
-        }
-
-        internal void EnterTerminalHold()
-        {
-            EnsureInitialized();
-            _isTerminalHoldActive = true;
-            ClearPendingPlayerInput();
-            _accumulatedTime = 0f;
         }
 
         internal void EnterTerminalHold(TerminalSessionToken token)

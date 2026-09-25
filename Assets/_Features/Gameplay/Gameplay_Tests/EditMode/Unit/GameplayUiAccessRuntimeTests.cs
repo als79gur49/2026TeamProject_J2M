@@ -39,7 +39,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
                 }, campaignChancesReadSource: new FixedChancesReadSource()));
-                if (terminal) host.InputHost.EnterTerminalHold();
+                if (terminal) host.InputHost.EnterTerminalHold(new TerminalSessionToken(1, 1));
                 else host.UiAccess.PauseService.Pause();
                 var query = surface ? (IGameplayHudRevisionProbe)host.UiAccess.QueryFacade.SurfaceButtonRemainders :
                     (IGameplayHudRevisionProbe)host.UiAccess.QueryFacade.PlayerHud;
