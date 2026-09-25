@@ -330,7 +330,20 @@ namespace Game.Feature.Gameplay.Entities
 
             if (HasGlideBehavior())
             {
-                CommitGlideState(snapshot, in input, source, writeContext, updates);
+                EnemyGlideExecutor.Commit(
+                    snapshot,
+                    in input,
+                    source,
+                    _entityId,
+                    _glideBehavior,
+                    _detectionStrategy,
+                    _chaseStrategy,
+                    _commonSettings,
+                    _detectionSettings,
+                    _chaseSettings,
+                    _tileFeatureDefinitions,
+                    writeContext,
+                    updates);
             }
 
             if (_utilityCapability != null)
@@ -635,7 +648,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             return ShouldSuppressMovementForJump(snapshot, tickIndex) ||
                    ShouldSuppressMovementForActivePhasedState(snapshot) ||
-                   ShouldSuppressMovementForGlide(snapshot) ||
+                   EnemyGlideExecutor.ShouldSuppressMovement(snapshot, _entityId, _glideBehavior) ||
                    ShouldSuppressMovementForUtility(snapshot, source, tickIndex) ||
                    ShouldSuppressMovementForImminentUtilityWindup(snapshot, source, tickIndex) ||
                    EnemySummonExecutor.ShouldSuppressActive(snapshot, source, _entityId, _summonBehavior, tickIndex) ||
@@ -833,217 +846,6 @@ namespace Game.Feature.Gameplay.Entities
             return _glideBehavior != null;
         }
 
-        private void CommitGlideState(
-            WorldSnapshot snapshot,
-            in TickInput input,
-            in EntityState source,
-            IPreMovementStateCommitContext writeContext,
-            List<string> updates)
-        {
-            var hasPreviousState = snapshot.TryGetEnemyGlideState(_entityId, out var previousState);
-            var nextState = hasPreviousState ? previousState : default;
-            var changed = false;
-
-            if (source.hp <= 0 ||
-                source.markedForDeath ||
-                source.aiMode == EnemyAiMode.Dead ||
-                source.boardPresence != EntityBoardPresence.Occupying)
-            {
-                if (hasPreviousState)
-                {
-                    nextState = EnemyGlideQueries.Clear();
-                    changed = true;
-                    AppendGlideUpdate(updates, _entityId, "ClearDead", nextState);
-                }
-
-                if (changed)
-                {
-                    writeContext.SetEnemyGlideState(_entityId, nextState);
-                }
-
-                return;
-            }
-
-            changed |= TryAdvanceGlideLifecycle(
-                snapshot,
-                in input,
-                source,
-                ref hasPreviousState,
-                ref nextState,
-                updates);
-
-            if (nextState.Phase == EnemyGlidePhase.Ready &&
-                (!nextState.InitialDelayInitialized || nextState.InitialDelayTicksRemaining > 0) &&
-                _glideBehavior.Timing.InitialDelayTicks > 0)
-            {
-                var delayedState = EnemyGlideQueries.TickInitialDelay(
-                    nextState,
-                    _glideBehavior.Timing.InitialDelayTicks);
-                if (!AreEqual(nextState, delayedState))
-                {
-                    nextState = delayedState;
-                    hasPreviousState = true;
-                    changed = true;
-                    AppendGlideUpdate(
-                        updates,
-                        _entityId,
-                        nextState.InitialDelayTicksRemaining > 0 ? "InitialDelayTick" : "InitialDelayReady",
-                        nextState);
-                }
-            }
-
-            var canStartGlide = source.aiMode == EnemyAiMode.Chase &&
-                                EnemyGlideQueries.CanStart(hasPreviousState, nextState, input.TickIndex);
-            if (canStartGlide &&
-                !HasUnsettledVoluntaryKinematicPose(snapshot, source.entityId) &&
-                _detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget) &&
-                TryResolveGlideStartLockedStep(snapshot, source, chaseTarget, out var lockedStep))
-            {
-                nextState = EnemyGlideQueries.Start(
-                    nextState,
-                    input.TickIndex,
-                    _glideBehavior.Timing,
-                    lockedStep,
-                    chaseTarget.entityId);
-                hasPreviousState = true;
-                changed = true;
-                AppendGlideUpdate(updates, _entityId, "Start", nextState);
-                changed |= TryAdvanceGlideLifecycle(
-                    snapshot,
-                    in input,
-                    source,
-                    ref hasPreviousState,
-                    ref nextState,
-                    updates);
-            }
-
-            if (changed)
-            {
-                writeContext.SetEnemyGlideState(_entityId, nextState);
-            }
-        }
-
-        private bool TryAdvanceGlideLifecycle(
-            WorldSnapshot snapshot,
-            in TickInput input,
-            in EntityState source,
-            ref bool hasPreviousState,
-            ref EnemyGlideRuntimeState nextState,
-            List<string> updates)
-        {
-            var changed = false;
-            for (var guard = 0; guard < 8; guard++)
-            {
-                switch (nextState.Phase)
-                {
-                    case EnemyGlidePhase.Windup:
-                        if (input.TickIndex < nextState.WindupUntilTickExclusive)
-                        {
-                            return changed;
-                        }
-
-                        var activeLockedStep = default(Vector2Int?);
-                        var activeLockedTargetEntityId = 0;
-                        if (TryResolveGlideActiveStartTarget(
-                                snapshot,
-                                source,
-                                out var activeTarget,
-                                out var activeStep))
-                        {
-                            activeLockedStep = activeStep;
-                            activeLockedTargetEntityId = activeTarget.entityId;
-                        }
-
-                        nextState = EnemyGlideQueries.BeginActive(
-                            nextState,
-                            input.TickIndex,
-                            activeLockedStep,
-                            activeLockedTargetEntityId);
-                        hasPreviousState = true;
-                        changed = true;
-                        AppendGlideUpdate(updates, _entityId, "EnterActive", nextState);
-                        continue;
-
-                    case EnemyGlidePhase.Active:
-                        if (input.TickIndex < nextState.ActiveUntilTickExclusive &&
-                            !nextState.WantsRecover)
-                        {
-                            return changed;
-                        }
-
-                        if (snapshot.TryGetSolidSemanticAt(source.position, out _))
-                        {
-                            if (!nextState.WantsRecover)
-                            {
-                                nextState = EnemyGlideQueries.MarkActiveWantsRecover(nextState);
-                                hasPreviousState = true;
-                                changed = true;
-                                AppendGlideUpdate(updates, _entityId, "WantsRecover", nextState);
-                            }
-
-                            return changed;
-                        }
-
-                        if (!nextState.WantsRecover)
-                        {
-                            nextState = EnemyGlideQueries.MarkActiveWantsRecover(nextState);
-                            hasPreviousState = true;
-                            changed = true;
-                            AppendGlideUpdate(updates, _entityId, "WantsRecover", nextState);
-                        }
-
-                        nextState = EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
-                        hasPreviousState = true;
-                        changed = true;
-                        AppendGlideUpdate(updates, _entityId, "EnterRecovery", nextState);
-                        continue;
-
-                    case EnemyGlidePhase.Recovery:
-                        if (input.TickIndex < nextState.RecoveryUntilTickExclusive)
-                        {
-                            return changed;
-                        }
-
-                        nextState = EnemyGlideQueries.EndRecoveryToCooldown(nextState, input.TickIndex);
-                        hasPreviousState = true;
-                        changed = true;
-                        AppendGlideUpdate(updates, _entityId, "EnterCooldown", nextState);
-                        continue;
-
-                    case EnemyGlidePhase.Cooldown:
-                        if (input.TickIndex >= nextState.CooldownUntilTickExclusive &&
-                            input.TickIndex > nextState.LastExitedTick &&
-                            source.aiMode != EnemyAiMode.Chase)
-                        {
-                            nextState = EnemyGlideQueries.ClearRuntimeActivityPreservingInitialDelay(nextState);
-                            hasPreviousState = nextState.HasAuthoritativeRecord;
-                            changed = true;
-                            AppendGlideUpdate(updates, _entityId, "Ready", nextState);
-                        }
-
-                        return changed;
-
-                    case EnemyGlidePhase.Ready:
-                    default:
-                        return changed;
-                }
-            }
-
-            return changed;
-        }
-
-        private bool ShouldSuppressMovementForGlide(WorldSnapshot snapshot)
-        {
-            if (!HasGlideBehavior() ||
-                !snapshot.TryGetEnemyGlideState(_entityId, out var glideState))
-            {
-                return false;
-            }
-
-            return glideState.Phase == EnemyGlidePhase.Windup ||
-                   glideState.Phase == EnemyGlidePhase.Recovery;
-        }
-
         private bool ShouldSuppressMovementForCharge(WorldSnapshot snapshot)
         {
             return TryGetChargeState(snapshot, out var chargeState) &&
@@ -1074,14 +876,6 @@ namespace Game.Feature.Gameplay.Entities
             return true;
         }
 
-        private static bool HasUnsettledVoluntaryKinematicPose(WorldSnapshot snapshot, int entityId)
-        {
-            return snapshot.TryGetUnitKinematicPose(entityId, out var pose) &&
-                   pose.HasAuthoritativeState &&
-                   !pose.IsSettledAtAnchor &&
-                   pose.Mode == MotionMode.Voluntary;
-        }
-
         private static bool IsGlideKinematicStartedDuringActiveWindow(
             in UnitKinematicRuntimeState state,
             in EnemyGlideRuntimeState glideState)
@@ -1103,134 +897,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             stepDirection = new Vector2Int(state.stepDirectionX, state.stepDirectionY);
             return Math.Abs(stepDirection.x) + Math.Abs(stepDirection.y) == 1;
-        }
-
-        private static bool TryGetLockedGlideStep(
-            in EnemyGlideRuntimeState state,
-            out Vector2Int lockedStep)
-        {
-            lockedStep = new Vector2Int(state.LockedStepX, state.LockedStepY);
-            return state.HasLockedStep &&
-                   Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) == 1;
-        }
-
-        private static bool TryResolveGlideLockedStep(
-            in EntityState source,
-            Vector2Int destination,
-            out Vector2Int lockedStep)
-        {
-            lockedStep = destination - source.position.PlanarPosition;
-            return Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) == 1;
-        }
-
-        private bool TryResolveGlideStartLockedStep(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EntityState target,
-            out Vector2Int lockedStep)
-        {
-            lockedStep = Vector2Int.zero;
-            if (_chaseStrategy.TryBuildMovementIntent(
-                    snapshot,
-                    source,
-                    target,
-                    _commonSettings,
-                    _chaseSettings,
-                    _tileFeatureDefinitions,
-                    out var chaseIntent) &&
-                TryResolveGlideLockedStep(source, chaseIntent.Destination, out lockedStep))
-            {
-                return true;
-            }
-
-            return TryResolveGlideLockedStepTowardTarget(source, target, _chaseSettings, out lockedStep);
-        }
-
-        private bool TryResolveGlideActiveStartTarget(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            out EntityState target,
-            out Vector2Int lockedStep)
-        {
-            target = default;
-            lockedStep = Vector2Int.zero;
-            if (!_detectionStrategy.TryFindTarget(
-                    snapshot,
-                    source,
-                    _detectionSettings,
-                    out target,
-                    new EnemyDetectionQueryOptions(LineOfSightSolidBlockerPolicy.IgnoreSolid)))
-            {
-                return false;
-            }
-
-            return TryResolveGlideStartLockedStep(snapshot, source, target, out lockedStep);
-        }
-
-        private static bool TryResolveGlideLockedStepTowardTarget(
-            in EntityState source,
-            in EntityState target,
-            in ChaseSettings settings,
-            out Vector2Int lockedStep)
-        {
-            lockedStep = Vector2Int.zero;
-            if (source.position.face != target.position.face)
-            {
-                return false;
-            }
-
-            var planarDelta = target.position - source.position;
-            settings.Validate(nameof(settings));
-            if (Math.Abs(planarDelta.x) + Math.Abs(planarDelta.y) <= settings.DesiredChaseDistance)
-            {
-                return false;
-            }
-
-            var horizontalStep = planarDelta.x == 0
-                ? (Vector2Int?)null
-                : new Vector2Int(Math.Sign(planarDelta.x), 0);
-            var verticalStep = planarDelta.y == 0
-                ? (Vector2Int?)null
-                : new Vector2Int(0, Math.Sign(planarDelta.y));
-            var tryHorizontalFirst = ShouldTryHorizontalGlideStepFirst(planarDelta, source.facing, settings.AxisPriority);
-            var selected = tryHorizontalFirst
-                ? horizontalStep ?? verticalStep
-                : verticalStep ?? horizontalStep;
-            if (!selected.HasValue)
-            {
-                return false;
-            }
-
-            lockedStep = selected.Value;
-            return Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) == 1;
-        }
-
-        private static bool ShouldTryHorizontalGlideStepFirst(
-            Vector2Int planarDelta,
-            Direction facing,
-            ChaseAxisPriorityMode axisPriority)
-        {
-            switch (axisPriority)
-            {
-                case ChaseAxisPriorityMode.HorizontalFirst:
-                    return true;
-
-                case ChaseAxisPriorityMode.VerticalFirst:
-                    return false;
-
-                case ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak:
-                default:
-                    var absX = Math.Abs(planarDelta.x);
-                    var absY = Math.Abs(planarDelta.y);
-                    if (absX != absY)
-                    {
-                        return absX > absY;
-                    }
-
-                    return facing == Direction.Left ||
-                           facing == Direction.Right ||
-                           planarDelta.x != 0;
-            }
         }
 
         private bool TryResolvePassiveContactTarget(
@@ -2180,54 +1846,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(builder.ToString());
-        }
-
-        private static void AppendGlideUpdate(
-            List<string> updates,
-            int entityId,
-            string label,
-            in EnemyGlideRuntimeState state)
-        {
-            if (updates == null)
-            {
-                throw new ArgumentNullException(nameof(updates));
-            }
-
-            updates.Add(
-                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|WantsRecover={(state.WantsRecover ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|GlideMoveTicks={state.GlideMoveTicks}|LastExited={state.LastExitedTick}|InitialDelayInitialized={(state.InitialDelayInitialized ? 1 : 0)}|InitialDelayRemaining={state.InitialDelayTicksRemaining}|LockedStep={FormatLockedGlideStep(state)}|LockedTarget={state.LockedTargetEntityId}");
-        }
-
-        private static bool AreEqual(
-            in EnemyGlideRuntimeState left,
-            in EnemyGlideRuntimeState right)
-        {
-            return left.Phase == right.Phase &&
-                   left.IsActive == right.IsActive &&
-                   left.Sequence == right.Sequence &&
-                   left.WindupUntilTickExclusive == right.WindupUntilTickExclusive &&
-                   left.ActiveUntilTickExclusive == right.ActiveUntilTickExclusive &&
-                   left.RecoveryUntilTickExclusive == right.RecoveryUntilTickExclusive &&
-                   left.CooldownUntilTickExclusive == right.CooldownUntilTickExclusive &&
-                   left.WindupTicks == right.WindupTicks &&
-                   left.DurationTicks == right.DurationTicks &&
-                   left.RecoveryTicks == right.RecoveryTicks &&
-                   left.CooldownTicks == right.CooldownTicks &&
-                   left.GlideMoveTicks == right.GlideMoveTicks &&
-                   left.LastExitedTick == right.LastExitedTick &&
-                   left.WantsRecover == right.WantsRecover &&
-                   left.InitialDelayInitialized == right.InitialDelayInitialized &&
-                   left.InitialDelayTicksRemaining == right.InitialDelayTicksRemaining &&
-                   left.HasLockedStep == right.HasLockedStep &&
-                   left.LockedStepX == right.LockedStepX &&
-                   left.LockedStepY == right.LockedStepY &&
-                   left.LockedTargetEntityId == right.LockedTargetEntityId;
-        }
-
-        private static string FormatLockedGlideStep(in EnemyGlideRuntimeState state)
-        {
-            return TryGetLockedGlideStep(state, out var lockedStep)
-                ? $"({lockedStep.x},{lockedStep.y})"
-                : "None";
         }
 
         private GroundLocomotionResolution ResolveBaselineGroundLocomotion(
