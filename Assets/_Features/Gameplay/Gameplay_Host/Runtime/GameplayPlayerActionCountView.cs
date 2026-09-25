@@ -59,7 +59,7 @@ namespace Game.Feature.Gameplay.Host
             if (_displayedCount != count)
             {
                 _displayedCount = count;
-                countLabel.text = string.Concat("×", count.ToString(CultureInfo.InvariantCulture));
+                countLabel.text = string.Concat("x", count.ToString(CultureInfo.InvariantCulture));
             }
 
             if (!gameObject.activeSelf)

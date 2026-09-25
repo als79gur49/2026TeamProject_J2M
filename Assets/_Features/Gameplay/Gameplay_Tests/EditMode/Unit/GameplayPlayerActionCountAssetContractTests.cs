@@ -20,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string ScenePath = "Assets/Scenes/UIAudioScene.unity";
 
         [Test]
-        public void Prefab_IsWorldSpaceNonInteractiveAndHasMultiplicationGlyph()
+        public void Prefab_IsWorldSpaceNonInteractiveAndHasLowercaseXGlyph()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             Assert.That(prefab, Is.Not.Null);
@@ -46,7 +46,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(label, Is.Not.Null);
             Assert.That(label.raycastTarget, Is.False);
             Assert.That(label.font, Is.Not.Null);
-            Assert.That(label.font.HasCharacter('×'), Is.True);
+            Assert.That(label.text, Is.EqualTo("x1"));
+            Assert.That(label.font.HasCharacter('x'), Is.True);
             Assert.That(label.transform.parent, Is.SameAs(motionRoot));
             Assert.That(label.material.shader.name, Is.Not.EqualTo(GameplayPlayerActionCountEffectDriver.AllIn1UiMaskShaderName));
             Assert.That(glowImage, Is.Not.Null);
@@ -55,6 +56,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(AssetDatabase.GetAssetPath(glowImage.sprite), Is.EqualTo(GlowPath));
             Assert.That(AssetDatabase.GetAssetPath(glowImage.material), Is.EqualTo(MaterialPath));
             Assert.That(glowImage.material.shader.name, Is.EqualTo(GameplayPlayerActionCountEffectDriver.AllIn1UiMaskShaderName));
+        }
+
+        [Test]
+        public void CounterView_FormatsCountWithLowercaseX()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            Assert.That(prefab, Is.Not.Null);
+            var instance = Object.Instantiate(prefab);
+            try
+            {
+                var view = instance.GetComponent<GameplayPlayerActionCountView>();
+                var label = instance.GetComponentInChildren<TMP_Text>(includeInactive: true);
+                view.ShowCount(12);
+                Assert.That(label.text, Is.EqualTo("x12"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
         }
 
         [Test]
