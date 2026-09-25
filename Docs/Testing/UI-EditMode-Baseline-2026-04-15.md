@@ -47,17 +47,23 @@
 - Current four-locale representative layout-boundary rerun: green on 2026-09-22 KST, Windows UI build passed and Unity UI EditMode `1528 total / 0 failed`; the existing 12-capture Settings/Pause/Main Menu fixture now rejects localized TMP overflow, glyph meshes outside authored text rectangles beyond a bounded two-unit bearing tolerance, and glyph meshes outside the capture frame for en-US/ko-KR/ja-JP/zh-CN. The clean-revision `127bc453770f5fddb9ebbc11bc69b3c17f7bdfd5` visual lane passed 12 canonical captures, 16 M2B dynamic captures, and four Stage save-slot diagnostics at 1920x1080 with no guarded-asset mutation; evidence is `/mnt/d/J2M/evidence/typography-visual/CommandLine-20260922-042424`.
 - Current main-integration rerun: green on 2026-09-22 KST after the localization branch was merged with current `origin/main`; Windows UI build passed and the second Unity UI EditMode run passed `1609 total / 0 failed`. The first cold-worktree run completed package and asset import but reported `1609 total / 59 failed` because Unity Localization initialization had not completed; no source or guarded font asset mutation occurred, and the same worktree rerun closed that initialization-only failure.
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1623 total / 0 failed` (EventSystem navigation action direct access, 2026-09-25; one UI lifecycle case added)
-- Baseline test result: command `./run_tests.sh ui`, result `1623 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1624 total / 0 failed` (ChanceLost production content, 2026-09-26; one UI presentation case added)
+- Baseline test result: command `./run_tests.sh ui`, result `1624 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current visual result: automated `./run_tests.sh typography-visual` passed on clean revision `127bc453770f5fddb9ebbc11bc69b3c17f7bdfd5` on 2026-09-22 KST for four-locale representative 1920x1080 coverage; the prior user-performed manual visual validation remains the 2026-09-05 KST result and does not independently cover the later ja-JP/zh-CN addition
 - Current KBO interpretation: 19/19 ko-KR roles use KBO Dia Gothic Medium/Light with Normal style and authored sizing, managed glyph fallback is 0, and the Pause/audio/display layout contracts remain guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
-- Result XML: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/ui/test-results/wsl-unity-ui-editmode.xml`
-- Unity log: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/ui/test-results/wsl-unity-ui-editmode.log`
-- Build log: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/ui/test-results/wsl-dotnet-ui.log`
+- Result XML: `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/test-results/wsl-unity-ui-editmode.xml`
+- Unity log: `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/test-results/wsl-unity-ui-editmode.log`
+- Build log: `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/test-results/wsl-dotnet-ui.log`
 
 ## Structural Delta
+
+### ChanceLost production fracture and debris (2026-09-26)
+
+- Added `ChanceLostProductionContent_CracksBeforeDebrisPreservesFramesAndRestoresOnRebind`, taking the UI EditMode inventory from `1623` to `1624`. It guards the authored three-slot prefab, crack-before-debris order, frame retention, icon fall, survivor pulse, material restoration, and rebind. No UI tests were removed, renamed, merged, or split.
+- The existing `CampaignLaunchHandoffPlayModeTests` graphics capture case was extended, not added. It checks the dedicated shader and captures 19 frames at each of four resolutions; the authored prefab and materials support this presentation only. UI/runtime ownership did not move between layers.
+- `./run_tests.sh ui` passed the Windows UI build and EditMode `1624/0`. Focused graphics `full --filter CampaignLaunchHandoffPlayModeTests` selected `0` EditMode and passed PlayMode `8/0`; it produced 76 PNGs. Evidence: `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/`, `playmode-pass/`, and `frames/20260925-175918/`. The first UI run exposed a stale 1623 documentation guard, and the first graphics run exposed missing WSL-to-Windows environment forwarding; both failed artifacts are preserved separately under `ui/` and `playmode/`. The PlayMode runner removed two generated `InitTestScene` artifacts after its passing run; no generated-scene residue remains. Core, unfiltered full, Player build, and manual campaign E2E were not run; the earlier user manual visual review found no issue.
 
 ### UI EventSystem navigation action direct access (2026-09-25)
 
@@ -269,6 +275,7 @@
   - presenter interaction tests
   - EditMode-composed UI hierarchy checks that can be driven directly
 - PlayMode escalation status:
+  - ChanceLost adds one UI EditMode production-content test and extends the existing graphics PlayMode capture case for shader compilation and four-aspect-ratio frames; it adds no new PlayMode test. Focused PlayMode `8/0` passed, while unfiltered full and manual campaign E2E remain unrun.
   - no additional UI PlayMode tests were added in Stage 9
   - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
   - the SurfaceBelt center remainder badge change required no additional PlayMode escalation because its prefab hierarchy, serialized references, remainder-state binding, active/inactive distinction, tween replay rules, disable cleanup, and isolated Shine material are covered by the canonical HUD and focused EditMode tests; manual in-game visual inspection remains not run

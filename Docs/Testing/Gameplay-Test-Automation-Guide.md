@@ -160,6 +160,20 @@
 
 ## UI baseline governance / UI baseline governance
 
+### PR #222 ChanceLost production fracture and debris (2026-09-26)
+
+- Added one UI EditMode case, `ChanceLostProductionContent_CracksBeforeDebrisPreservesFramesAndRestoresOnRebind`; no UI cases were removed, renamed, merged, or split. The existing graphics PlayMode case was expanded for the authored fracture shader, four resolutions, and 76 PNGs. No UI ownership moved between layers.
+- Same-worktree `CODEX_VALIDATION_ROOT=/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass ./run_tests.sh ui` passed the Windows UI build and EditMode `1624/0`. The focused graphics command below matched `0` EditMode and passed PlayMode `8/0`. `WSLENV` forwards the Windows-absolute frame path into Unity; `CODEX_VALIDATION_ROOT` stores runner output on D. Passing evidence is under `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/`, `playmode-pass/`, and `frames/20260925-175918/`; failed first attempts remain under `ui/` and `playmode/`.
+
+```bash
+CODEX_VALIDATION_ROOT=/mnt/d/J2M/evidence/pr222-followup-20260926/playmode-pass \
+WSLENV="${WSLENV:+$WSLENV:}J2M_TERMINAL_RENDER_EVIDENCE_ROOT" \
+J2M_TERMINAL_RENDER_EVIDENCE_ROOT="$(wslpath -w /mnt/d/J2M/evidence/pr222-followup-20260926/frames)" \
+UNITY_GRAPHICS=1 ./run_tests.sh full --filter CampaignLaunchHandoffPlayModeTests
+```
+
+- PlayMode escalation uses the existing graphics capture test; no new PlayMode test was added. The user reported manual visual review with no issue. Core, unfiltered full, Player build, and manual campaign E2E were not run; no broad-lane claim is made.
+
 ### PR #221 main integration: death input and Push/Flip ownership (2026-09-25)
 
 - Merged the main branch's permanent player-death input/tick block with the Push/Flip press-time direction capture and interaction-playback lock. The obsolete respawn-delay gate is retired; the Host-owned admission-policy/feed cleanup and deleted UI movement Gateway remain unchanged.
