@@ -302,6 +302,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
   - execution prompt for the initial mode implementation with confirmed P1–P4 rules, SlotInstanceId and stronger guarantees excluded, staged implementation and bounded validation; prompt only, not implementation evidence
 - [Campaign-Casual-Hardcore-Implementation-Report.md](./Campaign-Casual-Hardcore-Implementation-Report.md)
   - current implementation and validation record for the mode, save, gameplay, UI, localization, and remaining Player verification scope
+- [Campaign-Modes-Main-Integration-Plan.md](./Campaign-Modes-Main-Integration-Plan.md)
+  - planned main integration: pinned revisions and commit inventory, six conflict resolutions, auto-merge and policy-document repairs, sequential validation, and PR readiness gates; execution not started
 - [Campaign-Casual-Hardcore-Save-Error-Menu-Plan.md](./Campaign-Casual-Hardcore-Save-Error-Menu-Plan.md)
   - confirmed correction plan: replace dedicated Reload with Menu/Quit, existing Continue and Completed cards; concrete file changes, token/backup handling, case outcomes and trade-offs; runtime correction applied, final evidence and remaining validation tracked in the execution report
 - [Campaign-Save-Long-Term-Structural-Remediation.md](./Campaign-Save-Long-Term-Structural-Remediation.md)
