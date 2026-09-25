@@ -3,7 +3,7 @@
 ## 1. 상태와 결정
 
 - 작성일: 2026-09-25 KST.
-- 상태: **Summon 구현·동등성 검증 수행, 엄격한 core 전체 선택 목록 gate 미완료**. 실제 결과와 미완료 사유는 [Summon 추출 결과](./EnemyLogic-Summon-Extraction-Closeout.md)에 기록했다.
+- 상태: **Summon 구현·동등성 검증 및 그래픽 core 전체 선택 목록 gate 통과**. 초기 headless skip과 보충 그래픽 실패, 후속 보강 및 최종 검증은 [Summon 추출 결과](./EnemyLogic-Summon-Extraction-Closeout.md)에 구분해 기록했다.
 - 소스 검토 기준: `2f07eb44078d3d66ef0c5eb1be9781ff186d59d7`, `worktree/ui-audio-m1-continuation`.
 - 이 계획의 초안 작성 시작 시 working tree는 clean이었다. 이후 동일 HEAD의 원래 production으로 baseline을 확보하고 candidate를 검증했다.
 - 선택: 기존 프로필 조합을 유지하면서 행동별 실행 클래스를 추출한다. 첫 실행 범위는 **Summon 하나**다.
@@ -289,7 +289,7 @@ P2 반복 중에는 변경한 계약과 해당 소환 fixture만 실행하고, �
 - [x] 소환 phase/timing/취소/예측 정책의 중복 구현 없음.
 - [x] 지속 가변 상태·새 provider phase owner·직접 world write·presentation 호출 추가 없음. 기존 argument/null guard 보존, 실행기에서 coordinator 역참조 없음, 질의 API에 writer/log/sink 없음.
 - [x] 양측 capture의 49 case·97 record/Tick·하위 직렬화 field·case별 source 존재 조건과 공통 선택 테스트 95개의 완전성 통과 후 선택한 관측 범위의 before/after 차이 0. 비교하지 못한 범위는 결과 문서에 기록.
-- [ ] core, 공통 required targeted, candidate 전용 계약/구조 검사가 같은 candidate에서 실제 실행되어 통과. 공통 95개와 계약·구조 21개는 통과했으나 headless core PlayMode 4개 skip, 보충 그래픽 검증 1개 실패로 엄격한 전체 선택 목록 gate 미완료.
+- [x] core, 공통 required targeted, candidate 전용 계약/구조 검사가 같은 candidate에서 실제 실행되어 통과. 후속 v4에서 공통 95개, 계약·구조 21개, 그래픽 core EditMode 293개·PlayMode 113개가 모두 통과했고 skip은 0개. 같은 조건의 원래 production core도 293개·113개 통과. [v4 검증 요약](/mnt/d/J2M/evidence/enemy-summon-graphics-followup/validation-summary-v4.json).
 - [x] 새 `.meta`와 소스가 짝을 이루고 authoring/schema/에셋의 의도하지 않은 변경 없음.
 - [x] 실행/미실행 테스트와 이유, evidence 경로, 남은 위험을 [구현 결과](./EnemyLogic-Summon-Extraction-Closeout.md)에 기록.
 
@@ -305,7 +305,7 @@ P2 반복 중에는 변경한 계약과 해당 소환 fixture만 실행하고, �
 | 테스트 계획 재검토 | `reaudit_test_plan`: R01/R03/R04 수정 후 좁은 재검토 완료, 지적 항목 해소 확인 |
 | 실행 절차 재검토 | `reaudit_workflow_plan`: R01/R05 및 셸 실패 전파 보완 확인, 지적 항목 해소 확인 |
 | production 변경 | Summon 네 책임을 `EnemySummonExecutor`로 추출. 실제 diff·경계 검토는 결과 문서 참조 |
-| baseline/candidate Unity 검증 | 강화된 공통 95/95와 capture 49/97 동등, candidate 계약·구조 21/21. core PlayMode 4 skip과 그래픽 보충 1 실패; 엄격한 완료 gate 미충족 |
+| baseline/candidate Unity 검증 | 초기 v3는 공통 95/95와 capture 49/97 동등, candidate 계약·구조 21/21이었으나 core PlayMode 4 skip과 그래픽 보충 1 실패. 후속 v4에서 같은 공통·계약 검사를 재실행하고 baseline/candidate 그래픽 core의 PlayMode 113/113, skip 0을 확인해 Summon 범위의 엄격한 gate 충족 |
 | 문서 검증 | 초안 단계의 `git diff --check`, 상대 링크·index 검사와 현재 결과 문서 검증은 서로 다른 실행 기록. 현재 결과는 아래 연결 문서 참조 |
 
 2026-09-25 1차 병렬 검토 반영:

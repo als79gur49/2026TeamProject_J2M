@@ -91,9 +91,9 @@
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
 - [EnemyLogic-Behavior-Extraction-Implementation-Plan.md](./EnemyLogic-Behavior-Extraction-Implementation-Plan.md)
-  - Summon-first behavior execution extraction plan and validation gates; implementation and selected before/after comparison are recorded, with the strict core graphics gate still open
+  - Summon-first behavior execution extraction plan and validation gates; implementation, before/after comparison, and graphics-enabled core gate are recorded
 - [EnemyLogic-Summon-Extraction-Closeout.md](./EnemyLogic-Summon-Extraction-Closeout.md)
-  - actual Summon executor boundary, 49-case capture comparison, baseline/candidate identity and Unity evidence, review findings, and unresolved graphics validation
+  - actual Summon executor boundary, 49-case capture comparison, baseline/candidate identity and Unity evidence, review findings, and resolved graphics core validation
 - [UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md](./UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md)
   - proposed A/B/C split plan for test-tier remediation, strict-governance delta closure, original SHA preservation, sequential merge-commit integration, and same-revision PR evidence; execution requires the documented merge-method, deterministic-delta, and evidence-root preconditions
 - [UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md](./UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md)
