@@ -1601,10 +1601,15 @@ namespace Game.Feature.Gameplay.Loop
                 _tileFeatureDefinitions,
                 tickIndex,
                 writeContext);
-            var moonBlockGenerationPhaseResult = new MoonBlockGenerationPhaseResult(
-                moonBlockGeneratorResult.EventLogEntries,
-                moonBlockGeneratorResult.RespawnFacts,
-                moonBlockGeneratorResult.BlockedFacts);
+            var moonBlockGenerationPhaseResult =
+                moonBlockGeneratorResult.EventLogEntries.Count == 0 &&
+                moonBlockGeneratorResult.RespawnFacts.Count == 0 &&
+                moonBlockGeneratorResult.BlockedFacts.Count == 0
+                    ? MoonBlockGenerationPhaseResult.Empty
+                    : new MoonBlockGenerationPhaseResult(
+                        moonBlockGeneratorResult.EventLogEntries,
+                        moonBlockGeneratorResult.RespawnFacts,
+                        moonBlockGeneratorResult.BlockedFacts);
 
             phaseTrace.Add("MoonBlockGeneration:Exit");
             completedPhases.Add(TickPhase.MoonBlockGeneration);

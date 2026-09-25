@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -238,6 +239,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 blockerEntityId: 30,
                 MoonBlockGeneratorBlockedReason.UnitOccupant);
             AssertGeneratorDeferIsSilent(second, requestPlanner, audioPlanner);
+            Assert.That(first.EventLog, Does.Contain("MoonBlockGeneratorRespawnDeferred|TileId=100|E=20|Reason=UnitBlocked|Tick=1"));
+            Assert.That(second.EventLog, Does.Contain("MoonBlockGeneratorRespawnDeferred|TileId=100|E=20|Reason=UnitBlocked|Tick=2"));
             var snapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(snapshot.TryGetEntity(30, out var finalUnit), Is.True);
@@ -270,6 +273,151 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 blockedAgain,
                 blockerEntityId: 30,
                 MoonBlockGeneratorBlockedReason.UnitOccupant);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void UnitConflict_InactiveThenActive_EmitsBlockedAgainForSameBlocker()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var worldState = CreateWorld(new[] { CreatePlayer(), CreateEnemy(30, GeneratorCell) });
+            var pipeline = CreatePipeline(worldState, template);
+
+            var first = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+            var inactive = pipeline.RunTick(new TickInput(2));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+            var blockedAgain = pipeline.RunTick(new TickInput(3));
+
+            AssertMoonBlockGeneratorBlockedEvent(first, 30, MoonBlockGeneratorBlockedReason.UnitOccupant);
+            Assert.That(inactive.PresentationData.TileEvents, Is.Empty);
+            AssertMoonBlockGeneratorBlockedEvent(blockedAgain, 30, MoonBlockGeneratorBlockedReason.UnitOccupant);
+            Assert.That(blockedAgain.EventLog, Does.Contain("MoonBlockGeneratorRespawnDeferred|TileId=100|E=20|Reason=UnitBlocked|Tick=3"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void UnitConflict_AliveThenMissing_EmitsBlockedAgainForSameBlocker()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var worldState = CreateWorld(new[] { CreatePlayer(), CreateEnemy(30, GeneratorCell) });
+            var pipeline = CreatePipeline(worldState, template);
+
+            var first = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().SpawnEntity(template);
+            var alive = pipeline.RunTick(new TickInput(2));
+            worldState.CreateWriteContext().RemoveEntity(20);
+            var blockedAgain = pipeline.RunTick(new TickInput(3));
+
+            AssertMoonBlockGeneratorBlockedEvent(first, 30, MoonBlockGeneratorBlockedReason.UnitOccupant);
+            Assert.That(alive.PresentationData.TileEvents, Is.Empty);
+            AssertMoonBlockGeneratorBlockedEvent(blockedAgain, 30, MoonBlockGeneratorBlockedReason.UnitOccupant);
+            Assert.That(blockedAgain.EventLog, Does.Contain("MoonBlockGeneratorRespawnDeferred|TileId=100|E=20|Reason=UnitBlocked|Tick=3"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AliveFirstGenerator_DoesNotSkipLaterMissingMoonBlock()
+        {
+            var firstMoon = CreateMoonBlock(20, InitialMoonCell);
+            var secondCell = new SurfaceCell(FaceId.Floor, 3, 2);
+            var secondMoon = CreateMoonBlock(21, new SurfaceCell(FaceId.Floor, 4, 2));
+            var secondGenerator = new TileFeatureState(
+                101,
+                secondCell,
+                TileFeatureKind.MoonBlockGenerator,
+                TileFeatureFlags.None,
+                sourceEntityId: 101,
+                ownerEntityId: 102,
+                teamId: 7,
+                lifetimeTicks: 0,
+                charges: 0);
+            var worldState = GameplayCompositionRoot.CreateWorldState(
+                new[] { CreatePlayer(), firstMoon },
+                Bounds,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateGeneratorTileFeatureState(), secondGenerator });
+            var definitions = new[]
+            {
+                CreateRespawnDefinition(firstMoon),
+                new MoonBlockRespawnDefinition(101, 21, secondCell, secondMoon),
+            };
+            var tileDefinitions = new[]
+            {
+                CreateTileFeatureDefinitions()[0],
+                new TileFeatureRuntimeDefinition(
+                    101,
+                    TileFeatureActivationRule.BottomFaceOnly,
+                    Direction2D.None,
+                    TileFeatureBoxSelector.None,
+                    boundEntityId: 21),
+            };
+
+            var result = new MoonBlockGeneratorRespawnProcessor().Process(
+                GameplayCompositionRoot.CreateSnapshot(worldState),
+                definitions,
+                tileDefinitions,
+                tickIndex: 1,
+                worldState.CreateWriteContext());
+
+            Assert.That(result.RespawnFacts, Has.Count.EqualTo(1));
+            Assert.That(result.RespawnFacts[0].MoonBlockEntityId, Is.EqualTo(21));
+            Assert.That(result.EventLogEntries, Does.Contain("MoonBlockGeneratorRespawnCommitted|TileId=101|E=21|Pos=(3,2)|Face=Floor|Tick=1"));
+            var snapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.True);
+            Assert.That(snapshot.TryGetEntity(21, out var respawned), Is.True);
+            Assert.That(respawned.position, Is.EqualTo(secondCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MoonBlockPhaseResults_RemainStableAcrossLaterTicks()
+        {
+            var template = CreateMoonBlock(20, InitialMoonCell);
+            var worldState = CreateWorld(new[] { CreatePlayer(), template });
+            var pipeline = CreatePipeline(worldState, template);
+            var empty = RunMoonBlockPhase(pipeline, worldState, 1);
+
+            worldState.CreateWriteContext().RemoveEntity(20);
+            worldState.CreateWriteContext().SpawnEntity(CreateEnemy(30, GeneratorCell));
+            var blocked = RunMoonBlockPhase(pipeline, worldState, 2);
+            worldState.CreateWriteContext().RemoveEntity(30);
+            var generated = RunMoonBlockPhase(pipeline, worldState, 3);
+            RunMoonBlockPhase(pipeline, worldState, 4);
+
+            Assert.That(empty, Is.SameAs(MoonBlockGenerationPhaseResult.Empty));
+            Assert.That(empty.EventLogEntries, Is.Empty);
+            Assert.That(empty.MoonBlockGeneratorRespawnFacts, Is.Empty);
+            Assert.That(empty.MoonBlockGeneratorBlockedFacts, Is.Empty);
+            Assert.That(blocked.EventLogEntries, Is.EqualTo(new[]
+            {
+                "MoonBlockGeneratorRespawnDeferred|TileId=100|E=20|Reason=UnitBlocked|Tick=2",
+            }));
+            Assert.That(blocked.MoonBlockGeneratorRespawnFacts, Is.Empty);
+            Assert.That(blocked.MoonBlockGeneratorBlockedFacts, Has.Count.EqualTo(1));
+            Assert.That(blocked.MoonBlockGeneratorBlockedFacts[0].Payload.BlockingEntityId, Is.EqualTo(30));
+            Assert.That(generated.EventLogEntries, Does.Contain("MoonBlockGeneratorRespawnCommitted|TileId=100|E=20|Pos=(1,1)|Face=Floor|Tick=3"));
+            Assert.That(generated.MoonBlockGeneratorRespawnFacts, Has.Count.EqualTo(1));
+            Assert.That(generated.MoonBlockGeneratorBlockedFacts, Is.Empty);
+        }
+
+        private static MoonBlockGenerationPhaseResult RunMoonBlockPhase(TickPipeline pipeline, WorldState worldState, int tickIndex)
+        {
+            var method = typeof(TickPipeline).GetMethod("RunMoonBlockGenerationPhase", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            var completed = new List<TickPhase>();
+            var trace = new List<string>();
+            var result = (MoonBlockGenerationPhaseResult)method.Invoke(pipeline, new object[]
+            {
+                GameplayCompositionRoot.CreateSnapshot(worldState),
+                tickIndex,
+                worldState.CreateWriteContext(),
+                completed,
+                trace,
+            });
+            Assert.That(completed, Is.EqualTo(new[] { TickPhase.MoonBlockGeneration }));
+            Assert.That(trace, Is.EqualTo(new[] { "MoonBlockGeneration:Enter", "MoonBlockGeneration:Exit" }));
+            return result;
         }
 
         [Test]
