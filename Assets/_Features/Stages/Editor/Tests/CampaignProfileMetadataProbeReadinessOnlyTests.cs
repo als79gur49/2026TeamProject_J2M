@@ -105,6 +105,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             return new CampaignSlotDocument
             {
+                GameMode = GameMode.Hardcore,
                 SlotNumber = slotNumber,
                 StageId = stageId,
                 LevelGroupId = $"level-{slotNumber}",

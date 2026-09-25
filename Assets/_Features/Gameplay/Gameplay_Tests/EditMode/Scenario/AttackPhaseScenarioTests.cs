@@ -27,6 +27,55 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 {
     public sealed class AttackPhaseScenarioTests
     {
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [Category("Core")]
+        public void CampaignCasualDamage_UsesAttackAmountAndTwoSecondReceiverBoundary(int damage)
+        {
+            var world = CreateWorldState(new[]
+            {
+                CreateUnit(10, 1, Vector2Int.zero, 3, unitRole: UnitRole.Player),
+                CreateUnit(40, 2, Vector2Int.right, 3),
+            });
+            var first = new ActionGroup(1, 40, 5, ActionGroupKind.Attack);
+            first.AssignGroupId(1);
+            first.Damages.Add(new DamageAction(10, damage));
+            first.Destroys.Add(new DestroyAction(10));
+            var second = new ActionGroup(2, 40, 5, ActionGroupKind.Attack);
+            second.AssignGroupId(2);
+            second.Damages.Add(new DamageAction(10, 1));
+            var committer = new AttackCommitter(CreatePlayerControlTimingSnapshot(120, CreateTimingProfile(60)));
+            var resolutions = new List<DamageResolutionRecord>();
+            void Commit(int tick) => committer.Commit(CreateSnapshot(world), world.CreateWriteContext(), tick,
+                new DelayedAttackEffectQueue(), new[] { first, second }, resolutions, new List<string>(), new List<string>());
+            Commit(1);
+            Assert.That(GetEntityHp(CreateSnapshot(world), 10), Is.EqualTo(3 - damage));
+            Assert.That(resolutions.Count(item => item.Accepted), Is.EqualTo(1));
+            Assert.That(IsMarkedForDeath(CreateSnapshot(world), 10), Is.EqualTo(damage == 3));
+            if (damage == 3) return;
+            Commit(121);
+            Assert.That(resolutions.All(item => !item.Accepted), Is.True);
+            Assert.That(GetEntityHp(CreateSnapshot(world), 10), Is.EqualTo(3 - damage));
+            Commit(122);
+            Assert.That(resolutions.Count(item => item.Accepted), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CampaignCasualDamage_UnconditionalDestructionIgnoresReceiverCooldown()
+        {
+            var world = CreateWorldState(new[] { CreateUnit(10, 1, Vector2Int.zero, 3, unitRole: UnitRole.Player) });
+            world.CreateWriteContext().SetPlayerDamageState(10, new PlayerDamageState { nextDamageAllowedTick = 999 });
+            var destruction = new ActionGroup(1, 40, 5, ActionGroupKind.Attack);
+            destruction.AssignGroupId(1);
+            destruction.Destroys.Add(new DestroyAction(10, DestroyCondition.AlwaysMark));
+            new AttackCommitter(CreatePlayerControlTimingSnapshot(120)).Commit(CreateSnapshot(world), world.CreateWriteContext(), 1,
+                new DelayedAttackEffectQueue(), new[] { destruction }, new List<DamageResolutionRecord>(),
+                new List<string>(), new List<string>());
+            Assert.That(IsMarkedForDeath(CreateSnapshot(world), 10), Is.True);
+        }
+
         [Test]
         [Category("Core")]
         public void Attack_MoveCommit_BlocksSameTickAttackUntilExecutionUnlock()

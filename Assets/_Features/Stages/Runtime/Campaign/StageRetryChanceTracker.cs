@@ -7,6 +7,7 @@ namespace Game.Feature.Stages
         None = 0,
         RetrySameStage = 1,
         ReturnToLevelGroupFirstStage = 2,
+        ReturnToCampaignFirstStage = 3,
     }
 
     public readonly struct StageRetryRouteResult
@@ -49,28 +50,22 @@ namespace Game.Feature.Stages
                 throw new InvalidOperationException("Save slot does not contain a current campaign stage.");
             }
 
-            var remainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
-                slot.RemainingChances);
+            if (slot.CampaignCompleted)
+                throw new InvalidOperationException("Completed campaigns cannot accept a death.");
 
-            if (remainingChances > 1)
+            if (slot.GameMode == GameMode.Casual)
             {
-                return new StageRetryRouteResult(
-                    StageRetryRouteKind.RetrySameStage,
-                    slot.CurrentStageId,
-                    remainingChances - 1);
+                var group = _sequenceResolver.GetLevelGroupId(slot.CurrentStageId);
+                if (!_sequenceResolver.TryGetFirstStageInLevelGroup(group, out var first))
+                    throw new InvalidOperationException($"Campaign level group '{group}' has no first stage.");
+                return new StageRetryRouteResult(StageRetryRouteKind.ReturnToLevelGroupFirstStage, first, 0);
             }
 
-            var levelGroupId = _sequenceResolver.GetLevelGroupId(slot.CurrentStageId);
-            if (!_sequenceResolver.TryGetFirstStageInLevelGroup(levelGroupId, out var firstStageId))
-            {
-                throw new InvalidOperationException(
-                    $"Campaign level group '{levelGroupId}' does not have a first stage.");
-            }
-
-            return new StageRetryRouteResult(
-                StageRetryRouteKind.ReturnToLevelGroupFirstStage,
-                firstStageId,
-                CampaignSaveSlotPolicy.DefaultRemainingChances);
+            var remainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(slot.RemainingChances);
+            return remainingChances > 1
+                ? new StageRetryRouteResult(StageRetryRouteKind.RetrySameStage, slot.CurrentStageId, remainingChances - 1)
+                : new StageRetryRouteResult(StageRetryRouteKind.ReturnToCampaignFirstStage,
+                    _sequenceResolver.FirstStageId, CampaignSaveSlotPolicy.DefaultRemainingChances);
         }
     }
 
@@ -80,14 +75,20 @@ namespace Game.Feature.Stages
             StageId expectedCurrentStageId,
             int expectedRemainingChances,
             string persistedLevelGroupId,
-            StageRetryRouteResult route)
+            StageRetryRouteResult route,
+            GameMode expectedGameMode = GameMode.Hardcore,
+            int expectedResumeHp = 0)
         {
+            ExpectedGameMode = expectedGameMode;
+            ExpectedResumeHp = expectedResumeHp;
             ExpectedCurrentStageId = expectedCurrentStageId;
             ExpectedRemainingChances = expectedRemainingChances;
             PersistedLevelGroupId = persistedLevelGroupId ?? string.Empty;
             Route = route;
         }
 
+        public GameMode ExpectedGameMode { get; }
+        public int ExpectedResumeHp { get; }
         public StageId ExpectedCurrentStageId { get; }
 
         public int ExpectedRemainingChances { get; }
@@ -151,14 +152,13 @@ namespace Game.Feature.Stages
                 throw new ArgumentNullException(nameof(slot));
             }
 
-            var remainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
-                slot.RemainingChances);
+            var remainingChances = slot.RemainingChances;
             var route = _retryChanceTracker.ResolveDeathRoute(slot);
             return new CampaignDeathTransitionPlan(
                 slot.CurrentStageId,
                 remainingChances,
                 _sequenceResolver.GetLevelGroupId(route.NextStageId),
-                route);
+                route, slot.GameMode, slot.ResumeHp);
         }
 
         public CampaignStageClearTransitionPlan PlanStageClear(StageId completedStageId)

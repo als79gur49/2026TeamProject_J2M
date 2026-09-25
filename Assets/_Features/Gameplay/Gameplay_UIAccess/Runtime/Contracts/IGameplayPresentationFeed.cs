@@ -4,6 +4,12 @@ using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.UIAccess.Contracts
 {
+    public interface IGameplayCampaignFailureSource
+    {
+        event Action CampaignRunFailed;
+        bool HasCampaignRunFailure { get; }
+    }
+
     public interface IGameplayPresentationFeed
     {
         event Action<GameplayPresentationFrame> FramePublished;

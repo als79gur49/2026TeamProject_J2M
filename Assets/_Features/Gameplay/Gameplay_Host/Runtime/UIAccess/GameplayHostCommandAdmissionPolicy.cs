@@ -53,7 +53,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public bool CanAcceptActionableCommands(out GameplayCommandRejectionReason rejectionReason)
         {
-            if (_inputHost == null || _worldState == null)
+            if (_inputHost == null || _worldState == null || _inputHost.IsCampaignRunAbandoned)
             {
                 rejectionReason = GameplayCommandRejectionReason.GameplayInputUnavailable;
                 return false;

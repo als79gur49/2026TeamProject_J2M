@@ -5,6 +5,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 {
     internal sealed class GameplayHostCommandGateway : IGameplayCommandGateway, System.IDisposable
     {
+
         private readonly GameplayHostCommandAdmissionPolicy _admissionPolicy;
         private readonly GameplayInputHost _inputHost;
 

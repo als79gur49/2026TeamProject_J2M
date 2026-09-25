@@ -60,6 +60,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var testName = TestContext.CurrentContext.Test.Name;
             _usesSyntheticInput =
+                testName.Contains("CasualInputProbe") ||
                 testName.Contains("TerminalProductionStageResultInput") ||
                 testName.Contains("TerminalStageEntryOpening") ||
                 testName.Contains("TerminalGameClearPlayerE2E") ||
@@ -134,6 +135,238 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             ResultTransitionVisualSnapshotRegistry.ResetForTests();
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
             yield return null;
+        }
+
+        // Actual scene/input/save probe: contact placement is arranged; damage,
+        // survival saving, terminal presentation and pointer dispatch use production code.
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator CasualInputProbe_Continue_ContactThenDeath_RemainsInteractive() => RunCasualInputProbe(false);
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator CasualInputProbe_DemoRelaunch_ContactThenDeath_RemainsInteractive() => RunCasualInputProbe(true);
+
+        private static IEnumerator RunCasualInputProbe(bool demoRelaunch)
+        {
+            var evidence = Path.Combine(@"D:\J2M\evidence\campaign-modes-implementation\casual-input-probe-20260925",
+                DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + (demoRelaunch ? "-demo" : "-continue"));
+            Directory.CreateDirectory(evidence);
+            var facade = CampaignSaveFacadeFactory.Create(new CampaignSaveCompositionOptions
+            {
+                PathProvider = new CasualProbeSavePath(Path.Combine(evidence, "Saves")),
+                ProfileId = "isolated-casual-input-probe",
+            });
+            var saves = facade.CampaignSaveSlots;
+            var active = new LocalStateActiveSlotStorage(
+                new FileCampaignLocalLaunchStateRepository(new AtomicTextFileStore(Path.Combine(evidence, "Saves"))), saves);
+            CampaignSaveCompositionProvider.SetProductionCompositionForTests(saves, facade.ProfileServices.Recovery, active);
+            var stage = StageId.CreateOrThrow("stage-1-1");
+            saves.ImportSlotSeed(new CampaignSlotSeedImportRequest(1, stage, "level-1", 0,
+                DateTimeOffset.UtcNow.ToString("O"), GameMode.Casual, 3));
+            EditorDirectPlayContextStore.Clear();
+            StageLaunchContextStore.Clear();
+            saves.MarkIntroComicCompleted(1);
+            yield return LoadScene(MainMenuScenePath);
+            var menu = Object.FindFirstObjectByType<MainMenuUiFlowInstaller>();
+            Assert.That(menu, Is.Not.Null);
+            var menuDeadline = Time.realtimeSinceStartup + 15f;
+            while ((menu.Controller == null || MainMenuEntryPresentationRegistry.IsActive) && Time.realtimeSinceStartup < menuDeadline)
+                yield return null;
+            menu.Controller.Continue(1);
+            while (Object.FindFirstObjectByType<GameplaySceneHost>() == null && Time.realtimeSinceStartup < menuDeadline)
+                yield return null;
+            var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+            Assert.That(host, Is.Not.Null);
+            var ui = Object.FindFirstObjectByType<GameplayUiFlowInstaller>();
+            Assert.That(ui, Is.Not.Null);
+            var entryDeadline = Time.realtimeSinceStartup + 15f;
+            while ((host.InputHost == null || SceneEntryPresentationRegistry.IsActive) && Time.realtimeSinceStartup < entryDeadline)
+                yield return null;
+            if (demoRelaunch)
+            {
+                var sourceHost = host;
+                Assert.That((bool)typeof(GameplayUiFlowInstaller).GetMethod("TryToggleDemoStageControlPanel",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(ui, null), Is.True);
+                yield return null;
+                var panel = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
+                    .Single(view => view.GetType().Name == "DemoStageControlPanelView");
+                var startButton = (Button)panel.GetType().GetField("_startButton",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(panel);
+                var demoMouse = InputSystem.AddDevice<Mouse>();
+                try
+                {
+                    var point = RectTransformUtility.WorldToScreenPoint(null, startButton.transform.position);
+                    QueueMouseState(demoMouse, point, false);
+                    yield return null;
+                    QueueMouseState(demoMouse, point, true);
+                    yield return null;
+                    QueueMouseState(demoMouse, point, false);
+                    yield return null;
+                }
+                finally
+                {
+                    InputSystem.RemoveDevice(demoMouse);
+                }
+                entryDeadline = Time.realtimeSinceStartup + 20f;
+                do
+                {
+                    yield return null;
+                    host = Object.FindFirstObjectByType<GameplaySceneHost>();
+                } while ((host == null || host == sourceHost || host.InputHost == null || SceneEntryPresentationRegistry.IsActive) &&
+                         Time.realtimeSinceStartup < entryDeadline);
+                Assert.That(host, Is.Not.Null);
+                Assert.That(host, Is.Not.SameAs(sourceHost));
+                ui = Object.FindFirstObjectByType<GameplayUiFlowInstaller>();
+            }
+            var input = host.InputHost;
+            Assert.That(input.CampaignGameMode, Is.EqualTo(GameMode.Casual));
+            var tickCount = 0;
+            var lines = new List<string>();
+            EntityState Player() => CasualProbeEntities(host).Single(entity => entity.unitRole == UnitRole.Player);
+            void Record(string phase)
+            {
+                var player = CasualProbeEntities(host).FirstOrDefault(entity => entity.unitRole == UnitRole.Player);
+                var state = $"{phase}|time={Time.realtimeSinceStartup:F3}|ticks={tickCount}|hp={player.hp}|cell={player.position}" +
+                    $"|paused={ProbeInputField(input, "_isSimulationPaused")}|hold={ProbeInputField(input, "_isTerminalHoldActive")}" +
+                    $"|respawnBlocked={ProbeInputField(input, "_isPlayerRespawnDelayInputBlocked")}|bound={ProbeInputField(input, "_areActionsBound")}" +
+                    $"|raw={ProbeInputField(input, "_sampledMoveInput")}|presentation={host.Presenter.HasBlockingPresentation}" +
+                    $"|abandoned={input.IsCampaignRunAbandoned}|terminal={TerminalSessionRegistry.IsActive}" +
+                    $"|entry={SceneEntryPresentationRegistry.IsActive}|screen={ui.ScreenController.CurrentScreenId}" +
+                    $"|moveEnabled={input.Actions.FindAction("Player/Move").enabled}|moveValue={input.Actions.FindAction("Player/Move").ReadValue<Vector2>()}";
+                lines.Add(state);
+                File.WriteAllLines(Path.Combine(evidence, "probe.log"), lines);
+                TestContext.WriteLine(state);
+            }
+            input.TickCompleted += result =>
+            {
+                tickCount++;
+                if (tickCount < 5 || tickCount % 15 == 0)
+                    Record($"tick-{result.TickIndex}");
+            };
+            var deadline = Time.realtimeSinceStartup + 15f;
+            while (SceneEntryPresentationRegistry.IsActive && Time.realtimeSinceStartup < deadline) yield return null;
+            Record("loaded");
+            Assert.That(Player().hp, Is.EqualTo(3));
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+            var mouse = InputSystem.AddDevice<Mouse>();
+            try
+            {
+                File.WriteAllLines(Path.Combine(evidence, "move-bindings.txt"), input.Actions.FindAction("Player/Move").bindings
+                    .Select(binding => $"{binding.name}: {binding.effectivePath}"));
+                var initialPosition = Player().position;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S, Key.DownArrow));
+                var inputDeadline = Time.realtimeSinceStartup + 10f;
+                while (tickCount < 30 && Time.realtimeSinceStartup < inputDeadline) yield return null;
+                Record("before-contact-key-held");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return null;
+                Record($"before-contact-moved={!Player().position.Equals(initialPosition)}");
+                // Arrange contact with the authored enemy on the active face.
+                input.SetAutoAdvanceTicks(false);
+                var enemy = CasualProbeEntities(host).First(entity => entity.unitRole == UnitRole.Enemy &&
+                    entity.position.face == Player().position.face);
+                SetEntityViewScenarioState(host.WorldState, "MoveEntity", Player().entityId,
+                    new SurfaceCell(enemy.position.face, enemy.position.x, enemy.position.y - 1));
+                SetEntityViewScenarioState(host.WorldState, "SetUnitContinuousLocomotionState", Player().entityId,
+                    default(UnitContinuousLocomotionState));
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.W, Key.UpArrow));
+                input.SetAutoAdvanceTicks(true);
+                deadline = Time.realtimeSinceStartup + 8f;
+                while (Player().hp == 3 && Time.realtimeSinceStartup < deadline) yield return null;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                Record("after-contact");
+                Assert.That(Player().hp, Is.EqualTo(2), "Authored enemy contact must produce one surviving hit.");
+                Assert.That(saves.LoadSlot(1).State.ResumeHp, Is.EqualTo(2));
+                var beforeMove = Player().position;
+                var beforeMoveTick = tickCount;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S, Key.DownArrow));
+                inputDeadline = Time.realtimeSinceStartup + 10f;
+                while (tickCount < beforeMoveTick + 40 && Time.realtimeSinceStartup < inputDeadline) yield return null;
+                Record("after-contact-key-held");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                yield return null;
+                var movedAfterHit = !Player().position.Equals(beforeMove);
+                Record("after-move-input");
+                // Repeat contact through the real tick pipeline until death.
+                deadline = Time.realtimeSinceStartup + 12f;
+                while (!input.IsTerminalHoldActive && !input.IsCampaignRunAbandoned && Time.realtimeSinceStartup < deadline)
+                {
+                    enemy = CasualProbeEntities(host).First(entity => entity.entityId == enemy.entityId);
+                    SetEntityViewScenarioState(host.WorldState, "MoveEntity", Player().entityId, enemy.position);
+                    yield return null;
+                }
+                Record("death-or-timeout");
+                deadline = Time.realtimeSinceStartup + 10f;
+                while ((TerminalSessionRegistry.IsActive || ui.ScreenController.CurrentScreenId != ScreenId.LevelFailed) &&
+                       Time.realtimeSinceStartup < deadline) yield return null;
+                Record("terminal-settled-or-timeout");
+                Assert.That(saves.LoadSlot(1).State.ResumeHp, Is.EqualTo(3));
+                Assert.That(saves.LoadSlot(1).State.TotalDeaths, Is.EqualTo(1));
+                File.WriteAllText(Path.Combine(evidence, "terminal-trace.txt"), FormatTrace(TerminalRuntimeTrace.Snapshot));
+                var failed = Object.FindFirstObjectByType<LevelFailedScreenView>();
+                Assert.That(failed, Is.Not.Null);
+                var button = (Button)typeof(LevelFailedScreenView).GetField("_restartLevelButton",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(failed);
+                var point = RectTransformUtility.WorldToScreenPoint(null, button.transform.position);
+                var hits = new List<RaycastResult>();
+                EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = point }, hits);
+                File.WriteAllLines(Path.Combine(evidence, "click-raycasts.txt"), hits.Select(hit => hit.gameObject.name));
+                var clicked = false;
+                button.onClick.AddListener(() => clicked = true);
+                QueueMouseState(mouse, point, false);
+                yield return null;
+                QueueMouseState(mouse, point, true);
+                yield return null;
+                QueueMouseState(mouse, point, false);
+                yield return new WaitForSecondsRealtime(0.3f);
+                File.AppendAllText(Path.Combine(evidence, "probe.log"), $"\nRESULT movedAfterHit={movedAfterHit} pointerClicked={clicked}\n");
+                deadline = Time.realtimeSinceStartup + 15f;
+                while (Object.FindFirstObjectByType<GameplaySceneHost>() == host && Time.realtimeSinceStartup < deadline)
+                    yield return null;
+                var restarted = Object.FindFirstObjectByType<GameplaySceneHost>();
+                File.AppendAllText(Path.Combine(evidence, "probe.log"), $"RESTART newHost={restarted != null && restarted != host}\n");
+                Assert.That(restarted, Is.Not.Null);
+                deadline = Time.realtimeSinceStartup + 15f;
+                while (SceneEntryPresentationRegistry.IsActive && Time.realtimeSinceStartup < deadline) yield return null;
+                var restartInput = restarted.InputHost;
+                var restartTickCount = 0;
+                restartInput.TickCompleted += _ => restartTickCount++;
+                var restartPosition = CasualProbeEntities(restarted).Single(entity => entity.unitRole == UnitRole.Player).position;
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.S, Key.DownArrow));
+                deadline = Time.realtimeSinceStartup + 8f;
+                while (restartTickCount < 30 && Time.realtimeSinceStartup < deadline) yield return null;
+                var restartedPlayer = CasualProbeEntities(restarted).Single(entity => entity.unitRole == UnitRole.Player);
+                File.AppendAllText(Path.Combine(evidence, "probe.log"),
+                    $"RESTART-INPUT ticks={restartTickCount} hp={restartedPlayer.hp} cell={restartedPlayer.position} " +
+                    $"enabled={restartInput.Actions.FindAction("Player/Move").enabled} raw={ProbeInputField(restartInput, "_sampledMoveInput")}\n");
+                InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+                Assert.That(movedAfterHit, Is.True, "Surviving contact prevented movement; inspect probe.log.");
+                Assert.That(clicked, Is.True, "Death screen did not receive the real pointer click; inspect click-raycasts.txt.");
+                Assert.That(restartedPlayer.hp, Is.EqualTo(3));
+                Assert.That(restartedPlayer.position, Is.Not.EqualTo(restartPosition), "Restarted player did not move.");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+                InputSystem.RemoveDevice(mouse);
+                TestContext.WriteLine($"Probe evidence: {evidence}");
+            }
+        }
+
+        private static object ProbeInputField(GameplayInputHost input, string field) =>
+            typeof(GameplayInputHost).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(input);
+
+        private static List<EntityState> CasualProbeEntities(GameplaySceneHost host)
+        {
+            var entities = new List<EntityState>();
+            GameplayCompositionRoot.CreateSnapshot(host.WorldState).EnumerateEntitiesOrdered(entities);
+            return entities;
+        }
+
+        private sealed class CasualProbeSavePath : SavePathProviderBase
+        {
+            public CasualProbeSavePath(string root) : base(root) { }
         }
 
         [UnityTest]

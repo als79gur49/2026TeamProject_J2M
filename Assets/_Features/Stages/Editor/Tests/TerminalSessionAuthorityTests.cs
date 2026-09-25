@@ -7,6 +7,28 @@ namespace Game.Feature.Stages.Editor.Tests
     public sealed class TerminalSessionAuthorityTests
     {
         [Test]
+        public void FailedSave_AbortsOnlyMatchingUnboundClaim_AndAllowsNextSceneClaim()
+        {
+            var authority = new PersistentTerminalSessionAuthority();
+            var scene = authority.RegisterSceneBootstrap(101, "gameplay");
+            var claim = authority.TryClaim(new TerminalClaimRequest(TerminalTransitionKind.Defeat,
+                scene, TerminalDestinationKind.ReloadedGameplay));
+            var failure = new TerminalFailure("SaveFailed", "test");
+            Assert.That(authority.TryAbortClaimBeforeTransition(default, failure), Is.False);
+            Assert.That(authority.IsActive, Is.True);
+            Assert.That(authority.TryAbortClaimBeforeTransition(claim.Token, failure), Is.True);
+            Assert.That(authority.IsActive, Is.False);
+            scene = authority.RegisterSceneBootstrap(102, "new-gameplay");
+            var next = authority.TryClaim(new TerminalClaimRequest(TerminalTransitionKind.Victory,
+                scene, TerminalDestinationKind.SameSceneStageResult));
+            Assert.That(next.Accepted, Is.True);
+            Assert.That(authority.TryAbortClaimBeforeTransition(claim.Token, failure), Is.False);
+            authority.TryAdvancePhase(next.Token, TerminalSessionPhase.Iris);
+            Assert.That(authority.TryAbortClaimBeforeTransition(next.Token, failure), Is.False);
+            Assert.That(authority.ActiveToken, Is.EqualTo(next.Token));
+        }
+
+        [Test]
         public void ClaimsAcrossSceneGenerationsUseDifferentGloballyCorrelatedTokens()
         {
             var authority = new PersistentTerminalSessionAuthority(authorityGeneration: 41);

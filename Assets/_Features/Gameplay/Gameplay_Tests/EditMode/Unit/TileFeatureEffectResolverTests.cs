@@ -1860,6 +1860,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out _), Is.False);
         }
 
+        [TestCase(false, TestName = "DestroyTile_Pipeline_Hp3PlayerDuringReceiverCooldown_DiesWithoutRespawn")]
+        [TestCase(true, TestName = "DestroyTile_Pipeline_AfterSurvivingAttack_DiesDuringReceiverCooldownWithoutRespawn")]
+        [Category("Core")]
+        public void DestroyTile_Pipeline_PlayerDuringReceiverCooldown_DiesWithoutRespawn(bool receiveAttackFirst)
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var entities = new List<EntityState>
+            {
+                CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+            };
+            var logics = new List<IEntityLogic>
+            {
+                new ScriptedMovementLogic(
+                    new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Move),
+                    executeTick: 2),
+            };
+            if (receiveAttackFirst)
+            {
+                entities.Add(CreateEnemyUnit(30, new SurfaceCell(FaceId.Floor, 0, 1)));
+                logics.Add(new AttackIfPresentLogic(30, 10));
+            }
+
+            var worldState = CreateWorldState(
+                entities,
+                new[] { CreateTileFeature(100, destroyCell, TileFeatureKind.Destroy) });
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out var initialPlayer), Is.True);
+            Assert.That(initialPlayer.hp, Is.EqualTo(3));
+            Assert.That(initialPlayer.maxHp, Is.EqualTo(3));
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                logics,
+                allowPlayerRespawn: false,
+                damageCooldownSeconds: 2f);
+
+            if (receiveAttackFirst)
+            {
+                var attackTick = pipeline.RunTick(new TickInput(1));
+                Assert.That(attackTick.PresentationData.PlayerDeathSignals, Is.Empty);
+            }
+            else
+            {
+                worldState.CreateWriteContext().SetPlayerDamageState(
+                    10, new PlayerDamageState { nextDamageAllowedTick = 999 });
+            }
+
+            var beforeHazard = worldState.CreateSnapshot();
+            Assert.That(beforeHazard.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.hp, Is.EqualTo(receiveAttackFirst ? 2 : 3));
+            Assert.That(beforeHazard.TryGetPlayerDamageState(10, out var damageState), Is.True);
+            Assert.That(damageState.nextDamageAllowedTick, Is.GreaterThan(2));
+
+            var result = pipeline.RunTick(new TickInput(2));
+
+            var destroyEvent = result.PresentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered);
+            Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(10));
+            Assert.That(destroyEvent.Cell, Is.EqualTo(destroyCell));
+            Assert.That(result.PresentationData.PlayerDeathSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerDeathSignals[0].EntityId, Is.EqualTo(10));
+            Assert.That(result.PresentationData.PlayerDeathSignals[0].DidDieThisTick, Is.True);
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=10"));
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out _), Is.False);
+
+            var nextTick = pipeline.RunTick(new TickInput(3));
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out _), Is.False);
+            Assert.That(nextTick.PresentationData.PlayerDeathSignals, Is.Empty);
+        }
+
         [Test]
         [Category("Core")]
         public void DestroyTile_InactiveOrStationaryOrNonBoxTargets_DoNotDestroy()
@@ -5457,19 +5526,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPipeline CreatePipeline(
             WorldState worldState,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            IReadOnlyList<IEntityLogic> entityLogics)
+            IReadOnlyList<IEntityLogic> entityLogics,
+            bool allowPlayerRespawn = true,
+            float? damageCooldownSeconds = null)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault();
+            if (damageCooldownSeconds.HasValue)
+            {
+                playerControlTiming.DamageCooldownSeconds = damageCooldownSeconds.Value;
+            }
+
             return new TickPipeline(
                 worldState,
                 entityLogics,
                 GameplayEntityLogicProviderFactory.CreateDefault(),
                 timingProfile,
-                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
+                playerControlTiming.CreateAuthoritativeSnapshot(
+                    timingProfile.SimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds),
                 playerRespawnDelayTicks: 1,
                 objectiveDefinition: null,
                 enemySpawnDefaultsByArchetypeId: null,
-                allowPlayerRespawn: true,
+                allowPlayerRespawn: allowPlayerRespawn,
                 runtimeFeatureFlags: default,
                 unitKinematicLocomotionTiming: default,
                 playerContinuousLocomotion: default,

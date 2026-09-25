@@ -25,9 +25,89 @@ namespace Game.Feature.Stages.Editor.Tests
             new TransientCampaignSaveSlotStore(TransientNamespace).ClearAll();
         }
 
+        [Test]
+        public void Survival_UnchangedHpDoesNotWriteAndNestedMutationCannotReplaceCommittedSlot()
+        {
+            var seed = CreateFieldRichSlot("stage-1-1", "level-1", 0);
+            seed.GameMode = GameMode.Casual; seed.ResumeHp = 3;
+            var pair = CreatePair(seed);
+            pair.Production.CommitSurvival(1, new CampaignSurvivalCommitRequest(seed.CurrentStageId, 3, 3));
+            Assert.That(pair.Repository.SaveCount, Is.Zero);
+            var secondService = new CampaignSaveService(pair.Repository);
+            var rejected = false;
+            pair.Repository.BeforeSave = () =>
+            {
+                Assert.Throws<InvalidOperationException>(() => secondService.DeleteSlot(1));
+                rejected = true;
+            };
+            pair.Production.CommitSurvival(1, new CampaignSurvivalCommitRequest(seed.CurrentStageId, 3, 2));
+            Assert.That(rejected, Is.True);
+            Assert.That(pair.Repository.SaveCount, Is.EqualTo(1));
+            Assert.That(pair.Production.LoadSlot(1).State.ResumeHp, Is.EqualTo(2));
+        }
+
+        [TestCase("stage-1-1", false)]
+        [TestCase("stage-1-2", false)]
+        [TestCase("stage-4-3", false)]
+        [TestCase("stage-2-2", true)]
+        public void Casual_SurvivalThenClearOrDeathPreservesHistoryAndOtherSlots(string stage, bool death)
+        {
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
+            var planner = new CampaignProgressionTransitionPlanner(resolver);
+            var seed = CreateFieldRichSlot(stage, resolver.GetLevelGroupId(StageId.CreateOrThrow(stage)), 0);
+            seed.GameMode = GameMode.Casual;
+            seed.ResumeHp = 3;
+            var pair = CreatePair(seed);
+            var transient = new TransientCampaignSaveSlotStore(TransientNamespace);
+            transient.ImportSlotSeed(new CampaignSlotSeedImportRequest(1, seed.CurrentStageId,
+                seed.CurrentLevelGroupId, 0, SeedTimestampUtc, GameMode.Casual, 3));
+            var other = pair.Production.InitializeNewGame(2, resolver, SeedTimestampUtc, GameMode.Hardcore);
+            transient.InitializeNewGame(2, resolver, SeedTimestampUtc, GameMode.Hardcore);
+            pair.Repository.ResetAccessCounts();
+            var survival = new CampaignSurvivalCommitRequest(seed.CurrentStageId, 3, 2);
+            var productionHp = pair.Production.CommitSurvival(1, survival).Slot;
+            var transientHp = transient.CommitSurvival(1, survival).Slot;
+            Assert.That(productionHp.ResumeHp, Is.EqualTo(2));
+            Assert.That(transientHp.ResumeHp, Is.EqualTo(2));
+            // A fresh query/continue must retain the last committed HP.
+            Assert.That(pair.Production.PrepareContinue(new CampaignContinuePreparationCommand(1, seed.CurrentStageId,
+                seed.CurrentLevelGroupId, seed.CurrentLevelGroupId)).CommittedState.ResumeHp, Is.EqualTo(2));
+            CampaignSlotState committed;
+            CampaignSlotState transientCommitted;
+            if (death)
+            {
+                committed = pair.Production.CommitDeath(1, planner.PlanDeath(productionHp)).Slot;
+                transientCommitted = transient.CommitDeath(1, planner.PlanDeath(transientHp)).Slot;
+                Assert.That(committed.CurrentStageId, Is.EqualTo(resolver.GetFirstStageInLevelGroupOrNone(seed.CurrentLevelGroupId)));
+                Assert.That(committed.TotalDeaths, Is.EqualTo(seed.TotalDeaths + 1));
+            }
+            else
+            {
+                var request = new CampaignStageClearCommitRequest { Plan = planner.PlanStageClear(seed.CurrentStageId) };
+                var result = pair.Production.CommitStageClear(1, request);
+                committed = result.Slot;
+                transientCommitted = transient.CommitStageClear(1, request).Slot;
+                Assert.That(result.PreviousRemainingChances, Is.Null);
+                Assert.That(committed.CampaignCompleted, Is.EqualTo(resolver.IsFinal(seed.CurrentStageId)));
+                Assert.That(committed.TotalDeaths, Is.EqualTo(seed.TotalDeaths));
+            }
+            Assert.That(committed.ResumeHp, Is.EqualTo(3));
+            Assert.That(committed.RemainingChances, Is.Zero);
+            Assert.That(committed.GameMode, Is.EqualTo(GameMode.Casual));
+            Assert.That(transientCommitted.ResumeHp, Is.EqualTo(committed.ResumeHp));
+            Assert.That(transientCommitted.CurrentStageId, Is.EqualTo(committed.CurrentStageId));
+            Assert.That(committed.IntroComicCompleted, Is.True);
+            Assert.That(committed.OutroComicCompleted, Is.True);
+            Assert.That(committed.Receipt.Payload.StageRunId, Is.EqualTo(seed.NormalCampaignCompletionReceipt.StageRunId));
+            Assert.That(SnapshotFingerprint(CampaignSlotRawDataMapper.ToRaw(committed).StageClearProfileSnapshot),
+                Is.EqualTo(SnapshotFingerprint(seed.StageClearProfileSnapshot)));
+            Assert.That(pair.Production.LoadSlot(2).State.GameMode, Is.EqualTo(other.GameMode));
+            Assert.That(pair.Production.LoadSlot(2).State.RemainingChances, Is.EqualTo(3));
+        }
+
         [TestCase(3, 2, "stage-1-1", "stage-1-1", "level-1")]
         [TestCase(2, 1, "stage-1-1", "stage-1-1", "level-1")]
-        [TestCase(1, 3, "stage-2-2", "stage-2-1", "level-2")]
+        [TestCase(1, 3, "stage-2-2", "stage-0-1", "level-0")]
         public void Death_ProductionAndTransientPreserveTheChanceTruthTableAndUntouchedState(
             int initialChances,
             int expectedChances,
@@ -857,6 +937,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 return _state;
             }
 
+            public CampaignSurvivalCommitResult CommitSurvival(int slotNumber, CampaignSurvivalCommitRequest request) =>
+                throw new NotSupportedException();
+
             public CampaignDeathCommitResult CommitDeath(
                 int slotNumber,
                 CampaignDeathTransitionPlan plan)
@@ -924,7 +1007,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 _state = transition.Slot;
                 return new CampaignStageClearCommitResult(
                     _state,
-                    transition.PreviousRemainingChances.Value);
+                    transition.PreviousRemainingChances);
             }
         }
 
@@ -936,6 +1019,7 @@ namespace Game.Feature.Stages.Editor.Tests
             public int LoadCount { get; private set; }
 
             public int SaveCount { get; private set; }
+            public Action BeforeSave { get; set; }
 
             public void EnqueueLoadResult(CampaignProfileLoadResult result)
             {
@@ -968,6 +1052,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             public void Save(CampaignProfileDocument document)
             {
+                BeforeSave?.Invoke();
                 SaveCount++;
                 _document = document;
             }

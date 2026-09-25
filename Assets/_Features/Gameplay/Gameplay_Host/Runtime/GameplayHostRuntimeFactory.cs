@@ -252,6 +252,7 @@ namespace Game.Feature.Gameplay.Host
                 boardRoot.transform);
 
             presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology, initialPresentationData);
+            inputHost.CampaignGameMode = configuration.CampaignGameMode;
             inputHost.Initialize(
                 inputBuffer,
                 tickRunner,
@@ -290,6 +291,10 @@ namespace Game.Feature.Gameplay.Host
                 demoGameplayOverrideRuntime,
                 new GameplayHostDemoStageControlCompletionBridge(presentationFeed),
                 configuration.CampaignStageSequenceResolver);
+
+            if (configuration.CampaignGameMode == GameMode.Casual)
+                hostObject.AddComponent<CasualPlayerDamageBlink>().Initialize(
+                    inputHost, viewRegistry, worldState.CreateSnapshot, generalTimingProfile.SimulationTicksPerSecond);
 
             return new GameplayHostRuntimeContext(
                 boardRoot,

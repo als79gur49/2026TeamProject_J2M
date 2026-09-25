@@ -257,7 +257,9 @@ namespace Game.Feature.Stages
             IEnumerable<CampaignStagePerformanceState> normalStagePerformanceRecords,
             int totalDeaths,
             string lastPlayedAt,
-            CampaignStageClearProfileState stageClearProfile)
+            CampaignStageClearProfileState stageClearProfile,
+            GameMode gameMode = GameMode.Hardcore,
+            int resumeHp = 0)
         {
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             if (!currentStageId.IsValid)
@@ -267,7 +269,7 @@ namespace Game.Feature.Stages
                     nameof(currentStageId));
             }
 
-            CampaignSaveSlotPolicy.RequireValidRemainingChances(remainingChances);
+            CampaignSaveSlotPolicy.RequireValidSurvival(gameMode, resumeHp, remainingChances);
             if (totalDeaths < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(totalDeaths));
@@ -297,6 +299,8 @@ namespace Game.Feature.Stages
             SlotNumber = slotNumber;
             CurrentStageId = currentStageId;
             CurrentLevelGroupId = currentLevelGroupId ?? string.Empty;
+            GameMode = gameMode;
+            ResumeHp = resumeHp;
             RemainingChances = remainingChances;
             CampaignCompleted = campaignCompleted;
             Receipt = receipt ?? throw new ArgumentNullException(nameof(receipt));
@@ -315,6 +319,10 @@ namespace Game.Feature.Stages
         public StageId CurrentStageId { get; }
 
         public string CurrentLevelGroupId { get; }
+
+        public GameMode GameMode { get; }
+
+        public int ResumeHp { get; }
 
         public int RemainingChances { get; }
 
@@ -363,6 +371,10 @@ namespace Game.Feature.Stages
         public StageId CurrentStageId => RequireState().CurrentStageId;
 
         public string CurrentLevelGroupId => RequireState().CurrentLevelGroupId;
+
+        public GameMode GameMode => RequireState().GameMode;
+
+        public int ResumeHp => RequireState().ResumeHp;
 
         public int RemainingChances => RequireState().RemainingChances;
 
@@ -518,7 +530,8 @@ namespace Game.Feature.Stages
         public static CampaignSlotState CreateNewGame(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
-            string lastPlayedAt)
+            string lastPlayedAt,
+            GameMode gameMode = GameMode.Hardcore)
         {
             if (sequenceResolver == null)
             {
@@ -530,20 +543,21 @@ namespace Game.Feature.Stages
                 slotNumber,
                 firstStageId,
                 sequenceResolver.GetLevelGroupId(firstStageId),
-                lastPlayedAt);
+                lastPlayedAt, gameMode);
         }
 
         internal static CampaignSlotState CreateNewGame(
             int slotNumber,
             StageId firstStageId,
             string firstLevelGroupId,
-            string lastPlayedAt)
+            string lastPlayedAt,
+            GameMode gameMode = GameMode.Hardcore)
         {
             return new CampaignSlotState(
                 slotNumber,
                 firstStageId,
                 firstLevelGroupId,
-                CampaignSaveSlotPolicy.DefaultRemainingChances,
+                gameMode == GameMode.Casual ? 0 : CampaignSaveSlotPolicy.DefaultRemainingChances,
                 campaignCompleted: false,
                 CampaignReceiptState.Absent(),
                 introComicCompleted: false,
@@ -551,7 +565,8 @@ namespace Game.Feature.Stages
                 Array.Empty<CampaignStagePerformanceState>(),
                 totalDeaths: 0,
                 lastPlayedAt,
-                CreateEmptyStageClearProfile());
+                CreateEmptyStageClearProfile(), gameMode,
+                gameMode == GameMode.Casual ? CampaignSaveSlotPolicy.CasualMaxHp : 0);
         }
 
         internal static CampaignSlotState CreateImportedSeed(
@@ -574,7 +589,7 @@ namespace Game.Feature.Stages
                 Array.Empty<CampaignStagePerformanceState>(),
                 totalDeaths: 0,
                 request.LastPlayedAt,
-                CreateEmptyStageClearProfile());
+                CreateEmptyStageClearProfile(), request.GameMode, request.ResumeHp);
         }
 
         internal static CampaignSlotState WithLastPlayedAt(
@@ -598,7 +613,7 @@ namespace Game.Feature.Stages
                 current.NormalStagePerformanceRecords,
                 current.TotalDeaths,
                 lastPlayedAt,
-                current.StageClearProfile);
+                current.StageClearProfile, current.GameMode, current.ResumeHp);
         }
 
         internal static CampaignSlotState WithCurrentLevelGroup(
@@ -622,7 +637,7 @@ namespace Game.Feature.Stages
                 current.NormalStagePerformanceRecords,
                 current.TotalDeaths,
                 current.LastPlayedAt,
-                current.StageClearProfile);
+                current.StageClearProfile, current.GameMode, current.ResumeHp);
         }
 
         internal static CampaignSlotState SelectStageForDiagnostics(
@@ -680,7 +695,7 @@ namespace Game.Feature.Stages
                 current.NormalStagePerformanceRecords,
                 current.TotalDeaths,
                 committedAtUtc,
-                profile);
+                profile, current.GameMode, current.ResumeHp);
         }
 
         internal static CampaignSlotState FromValidatedDocument(
@@ -718,7 +733,8 @@ namespace Game.Feature.Stages
                 performanceRecords,
                 document.TotalDeaths,
                 document.LastPlayedAtUtc,
-                CreateStageClearProfile(document.StageClearProfileSnapshot));
+                CreateStageClearProfile(document.StageClearProfileSnapshot),
+                document.GameMode, document.ResumeHp);
         }
 
         private static CampaignReceiptState CreateReceipt(CampaignSlotDocument document)
@@ -796,6 +812,8 @@ namespace Game.Feature.Stages
                 SlotNumber = state.SlotNumber,
                 StageId = state.CurrentStageId.Value,
                 LevelGroupId = state.CurrentLevelGroupId,
+                GameMode = state.GameMode,
+                ResumeHp = state.ResumeHp,
                 RemainingChances = state.RemainingChances,
                 CampaignCompleted = state.CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =
@@ -900,6 +918,8 @@ namespace Game.Feature.Stages
                 SlotNumber = source.SlotNumber,
                 StageId = source.StageId,
                 LevelGroupId = source.LevelGroupId,
+                GameMode = source.GameMode,
+                ResumeHp = source.ResumeHp,
                 RemainingChances = source.RemainingChances,
                 CampaignCompleted = source.CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =

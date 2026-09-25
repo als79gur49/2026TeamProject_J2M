@@ -8,6 +8,8 @@ namespace Game.Feature.Stages
         public int SlotNumber;
         public string StageId;
         public string LevelGroupId;
+        public GameMode GameMode;
+        public int ResumeHp;
         public int RemainingChances;
         public bool CampaignCompleted;
         public bool HasNormalCampaignCompletionReceipt;

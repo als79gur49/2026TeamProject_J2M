@@ -915,7 +915,7 @@ namespace Game.Feature.UI.Tests
             public CampaignSlotState InitializeNewGame(
                 int slotNumber,
                 CampaignStageSequenceResolver sequenceResolver,
-                string lastPlayedAt)
+                string lastPlayedAt, GameMode gameMode = GameMode.Hardcore)
             {
                 InitializeNewGameCount++;
                 if (ThrowOnInitializeNewGame)
@@ -923,7 +923,7 @@ namespace Game.Feature.UI.Tests
                     throw new InvalidOperationException("Injected initialization failure.");
                 }
 
-                return _inner.InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt);
+                return _inner.InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt, gameMode);
             }
 
             public void DeleteSlot(int slotNumber)

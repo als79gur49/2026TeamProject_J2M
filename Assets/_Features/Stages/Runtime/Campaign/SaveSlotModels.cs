@@ -155,6 +155,10 @@ namespace Game.Feature.Stages
 
     public sealed class SaveSlotData
     {
+        public GameMode GameMode { get; set; } = GameMode.Hardcore;
+
+        public int ResumeHp { get; set; }
+
         public int SlotNumber { get; set; }
 
         public StageId CurrentStageId { get; set; }
@@ -191,6 +195,8 @@ namespace Game.Feature.Stages
                 SlotNumber = SlotNumber,
                 CurrentStageId = CurrentStageId,
                 CurrentLevelGroupId = CurrentLevelGroupId,
+                GameMode = GameMode,
+                ResumeHp = ResumeHp,
                 RemainingChances = RemainingChances,
                 CampaignCompleted = CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =
@@ -449,13 +455,15 @@ namespace Game.Feature.Stages
 
     public static class StandaloneCampaignSaveSeedImporter
     {
-        public const int SeedVersion = 1;
+        public const int SeedVersion = 2;
         public const string SeedFileName = "campaign-save-seed.json";
 
         public static string BuildSeedJson(
             StageId stageId,
             int slotNumber,
-            int remainingChances)
+            int remainingChances,
+            GameMode gameMode = GameMode.Hardcore,
+            int resumeHp = 0)
         {
             if (!stageId.IsValid)
             {
@@ -463,11 +471,11 @@ namespace Game.Feature.Stages
             }
 
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
-            if (!CampaignSaveSlotPolicy.IsValidRemainingChances(remainingChances))
+            if (!CampaignSaveSlotPolicy.IsValidSurvival(gameMode, resumeHp, remainingChances))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(remainingChances),
-                    $"Standalone campaign seed chances must be between 1 and {CampaignSaveSlotPolicy.MaxRemainingChances}.");
+                    $"Standalone campaign seed mode and survival values are invalid.");
             }
 
             return JsonUtility.ToJson(
@@ -477,6 +485,8 @@ namespace Game.Feature.Stages
                     SlotNumber = slotNumber,
                     StageId = stageId.Value,
                     RemainingChances = remainingChances,
+                    GameMode = gameMode,
+                    ResumeHp = resumeHp,
                 },
                 prettyPrint: true);
         }
@@ -603,12 +613,12 @@ namespace Game.Feature.Stages
                     return false;
                 }
 
-                if (!CampaignSaveSlotPolicy.IsValidRemainingChances(seed.RemainingChances))
+                if (!CampaignSaveSlotPolicy.IsValidSurvival(seed.GameMode, seed.ResumeHp, seed.RemainingChances))
                 {
                     result = Failure(
                         StandaloneCampaignSaveSeedImportStatus.InvalidRemainingChances,
                         seedPath,
-                        $"Seed remaining chances must be between 1 and {CampaignSaveSlotPolicy.MaxRemainingChances}.");
+                        "Seed mode and survival values are invalid.");
                     return false;
                 }
 
@@ -645,7 +655,7 @@ namespace Game.Feature.Stages
                     stageId,
                     sequenceResolver.GetLevelGroupId(stageId),
                     seed.RemainingChances,
-                    DateTimeOffset.UtcNow.ToString("O")));
+                    DateTimeOffset.UtcNow.ToString("O"), seed.GameMode, seed.ResumeHp));
                 activeSlotProvider.SetActiveSlot(seed.SlotNumber);
 
                 if (deleteAfterImport)
@@ -740,6 +750,8 @@ namespace Game.Feature.Stages
             public int SlotNumber;
             public string StageId;
             public int RemainingChances;
+            public GameMode GameMode;
+            public int ResumeHp;
         }
     }
 }

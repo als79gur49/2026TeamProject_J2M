@@ -13,6 +13,17 @@ namespace Game.Feature.Gameplay.Host
     {
         private const float DefaultMoveBufferDurationSeconds = 0.125f;
 
+        public GameMode CampaignGameMode { get; internal set; }
+        public bool IsCampaignRunAbandoned { get; private set; }
+
+        internal void AbandonCampaignRun()
+        {
+            IsCampaignRunAbandoned = true;
+            ClearAllPendingInputForTerminalSession();
+            UnbindActions();
+            _accumulatedTime = 0f;
+        }
+
         private InputActionAsset _actions;
         private float _accumulatedTime;
         private bool _areActionsBound;
@@ -123,6 +134,7 @@ namespace Game.Feature.Gameplay.Host
             _sampledMoveInput = Vector2.zero;
             _uiHeldMoveDirection = Direction.None;
             _isSimulationPaused = false;
+            IsCampaignRunAbandoned = false;
             _isTerminalHoldActive = false;
             _isPlayerRespawnDelayInputBlocked = false;
             _isInitialized = true;
@@ -148,7 +160,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            if (_isSimulationPaused || IsTerminalAdmissionBlocked())
+            if (IsCampaignRunAbandoned || _isSimulationPaused || IsTerminalAdmissionBlocked())
             {
                 return 0;
             }
@@ -165,7 +177,7 @@ namespace Game.Feature.Gameplay.Host
             while (_accumulatedTime >= _simulationTickIntervalSeconds &&
                    executedTickCount < _maxTicksPerFrame)
             {
-                if (IsPresentationLocked())
+                if (IsCampaignRunAbandoned || _isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
                 {
                     ClampAccumulatedTime();
                     break;
@@ -175,7 +187,7 @@ namespace Game.Feature.Gameplay.Host
                 RunSingleTickUnlocked();
                 executedTickCount++;
 
-                if (IsPresentationLocked())
+                if (IsCampaignRunAbandoned || _isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
                 {
                     ClampAccumulatedTime();
                     break;
@@ -194,7 +206,7 @@ namespace Game.Feature.Gameplay.Host
         public TickResult RunSingleTick()
         {
             EnsureInitialized();
-            if (_isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
+            if (IsCampaignRunAbandoned || _isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
             {
                 return null;
             }
@@ -429,6 +441,7 @@ namespace Game.Feature.Gameplay.Host
 
         private bool IsTerminalAdmissionBlocked()
         {
+            if (IsCampaignRunAbandoned) return true;
             return _isTerminalHoldActive ||
                    (_terminalSession?.IsActive ?? false) ||
                    (_sceneEntrySession?.IsActive ?? false) ||

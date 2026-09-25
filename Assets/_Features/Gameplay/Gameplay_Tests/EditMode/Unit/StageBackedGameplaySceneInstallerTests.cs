@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Gameplay.Tests;
 using Game.Feature.Stages;
@@ -43,6 +44,114 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string WallFollowerEnemyPresentationId = "sunwheel";
         private const string JumpChaserEnemyPresentationId = "astreton";
         private const string ChargeEnemyPresentationId = "rocket_face";
+
+        [TestCase(GameMode.Casual, 2)]
+        [TestCase(GameMode.Hardcore, 0)]
+        [TestCase(GameMode.Unknown, 0)]
+        [Category("Full")]
+        public void CampaignLaunch_PreparesPlayerHpBeforeFirstSnapshotAndAppliesCooldownAfterPreset(GameMode mode, int hp)
+        {
+            var owner = new GameObject("campaign-mode-launch");
+            var saveKey = CreateTransientNamespace("campaign-mode-launch");
+            var store = new TransientCampaignSaveSlotStore(saveKey);
+            var active = new ActiveSlotProvider(new TransientActiveSlotStorage(saveKey + ".active"));
+            var stage = StageId.CreateOrThrow(CombinedLaunchStageId);
+            var isCampaign = mode != GameMode.Unknown;
+            try
+            {
+                TerminalSessionRegistry.ResetForTests();
+                SceneEntryPresentationRegistry.ResetForTests();
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                store.ClearAll();
+                active.ClearActiveSlot();
+                if (isCampaign)
+                {
+                    store.ImportSlotSeed(new CampaignSlotSeedImportRequest(1, stage, "level-1",
+                        mode == GameMode.Casual ? 0 : 2, string.Empty, mode, hp));
+                    Assert.That(CampaignLaunchHandoffSessionStore.Instance.TryBegin(1, stage,
+                        StageNavigationKind.Continue, "mode-test", out _), Is.True);
+                }
+                var installer = owner.AddComponent<StageBackedGameplaySceneInstaller>();
+                AssignStageContentEntryForProductionLaunch(installer, stage);
+                AssignTimingPresets(installer);
+                AssignCampaignStores(installer, store, active);
+                if (!isCampaign) DisableCampaignFlow(installer);
+                foreach (var fieldName in new[] { "autoAdvanceTicks", "autoCreateViews" })
+                {
+                    var field = typeof(GameplayShowcaseSceneInstallerBase).GetField(
+                        fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+                    Assert.That(field, Is.Not.Null);
+                    field.SetValue(installer, false);
+                }
+
+                var preset = AssetDatabase.LoadAssetAtPath<GameplaySimulationTimingPreset>(
+                    DefaultSimulationTimingPresetAssetPath);
+                var presetBefore = EditorJsonUtility.ToJson(preset);
+                var timingField = typeof(GameplaySimulationTimingPreset).GetField(
+                    "playerControlTiming", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(timingField, Is.Not.Null);
+                var expectedTiming = ((PlayerControlTimingSettings)timingField.GetValue(preset)).Clone();
+                if (mode == GameMode.Casual) expectedTiming.DamageCooldownSeconds = 2f;
+
+                EntityState[] sourceEntities = null;
+                EntityState[] sourceBefore = null;
+                var configuration = BuildConfiguration(installer, entities =>
+                {
+                    sourceEntities = entities;
+                    sourceBefore = (EntityState[])entities.Clone();
+                });
+                var authoredPlayer = sourceBefore.Single(entity => entity.entityId == configuration.PlayerEntityId);
+                var expectedHp = mode == GameMode.Casual ? hp : authoredPlayer.hp;
+                var expectedMaxHp = mode == GameMode.Casual ? 3 : authoredPlayer.maxHp;
+                Assert.That(configuration.CampaignGameMode, Is.EqualTo(mode));
+                CollectionAssert.AreEqual(sourceBefore, sourceEntities, "Launch must preserve the authored entity array.");
+                CollectionAssert.AreEqual(
+                    sourceBefore.Where(entity => entity.entityId != configuration.PlayerEntityId),
+                    configuration.InitialEntities.Where(entity => entity.entityId != configuration.PlayerEntityId),
+                    "Preparing campaign HP must preserve every other entity.");
+                Assert.That(JsonUtility.ToJson(configuration.PlayerControlTiming), Is.EqualTo(JsonUtility.ToJson(expectedTiming)));
+                Assert.That(configuration.CreatePlayerControlTimingSnapshot().DamageCooldownTicks,
+                    Is.EqualTo(GameplayTimingProfile.SecondsToTicks(
+                        expectedTiming.DamageCooldownSeconds, configuration.SimulationTicksPerSecond, allowZero: true)));
+
+                var host = owner.AddComponent<GameplaySceneHost>();
+                host.Initialize(configuration);
+                var firstSnapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+                Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(1), "Read the initial state before any tick.");
+                Assert.That(firstSnapshot.TryGetEntity(configuration.PlayerEntityId, out var player), Is.True);
+                Assert.That(player.hp, Is.EqualTo(expectedHp));
+                Assert.That(player.maxHp, Is.EqualTo(expectedMaxHp));
+                var hud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                Assert.That(hud.HasHealth, Is.EqualTo(mode == GameMode.Casual));
+                Assert.That(hud.HasRemainingChances, Is.EqualTo(mode == GameMode.Hardcore));
+                if (mode == GameMode.Casual)
+                {
+                    Assert.That(hud.Hp, Is.EqualTo(2));
+                    Assert.That(hud.MaxHp, Is.EqualTo(3));
+                }
+                Assert.That(hud.RemainingChances, Is.EqualTo(mode == GameMode.Hardcore ? 2 : 0));
+                Assert.That(hud.MaxChances, Is.EqualTo(mode == GameMode.Hardcore ? 3 : 0));
+                Assert.That(active.HasActiveSlot, Is.EqualTo(isCampaign));
+                if (isCampaign)
+                {
+                    Assert.That(active.ActiveSlotNumber, Is.EqualTo(1));
+                    Assert.That(store.LoadSlot(1).State.ResumeHp, Is.EqualTo(hp));
+                }
+                CollectionAssert.AreEqual(sourceBefore, sourceEntities, "Host initialization must not mutate the source array.");
+                Assert.That(EditorJsonUtility.ToJson(preset), Is.EqualTo(presetBefore), "The shared timing preset must remain unchanged.");
+            }
+            finally
+            {
+                DestroyAssignedStageContent(owner);
+                Object.DestroyImmediate(owner);
+                TerminalSessionRegistry.ResetForTests();
+                SceneEntryPresentationRegistry.ResetForTests();
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                StageLaunchContextStore.Clear();
+                store.ClearAll();
+                active.ClearActiveSlot();
+            }
+        }
 
         [Test]
         [Category("Full")]
@@ -2290,7 +2399,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             field.SetValue(installer, value);
         }
 
-        private static GameplaySceneHostConfiguration BuildConfiguration(StageBackedGameplaySceneInstaller installer)
+        private static GameplaySceneHostConfiguration BuildConfiguration(
+            StageBackedGameplaySceneInstaller installer,
+            Action<EntityState[]> captureInitialEntities = null)
         {
             EnsureCameraTopologyAuthoring(installer);
             if (installer.GetComponent<TestTerminalSessionAuthorityProvider>() == null)
@@ -2299,6 +2410,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             var initialState = BuildInitialGameplayState(installer);
+            if (captureInitialEntities != null)
+            {
+                var entitiesProperty = initialState.GetType().GetProperty("InitialEntities");
+                Assert.That(entitiesProperty, Is.Not.Null);
+                captureInitialEntities((EntityState[])entitiesProperty.GetValue(initialState));
+            }
             var createConfigurationMethod = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
                 "CreateConfiguration",
                 BindingFlags.Instance | BindingFlags.NonPublic,

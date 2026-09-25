@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace Game.Feature.Stages
 {
@@ -44,8 +45,79 @@ namespace Game.Feature.Stages
         }
     }
 
-    internal sealed class CampaignHudReadStore
+    internal interface ICampaignRecoveryObservation
     {
+        event Action BackupRecovered;
+    }
+
+    internal sealed class CampaignHudReadStore : ICampaignRecoveryObservation
+    {
+        internal object SyncRoot { get; } = new();
+        private bool _mutationActive;
+        private bool _recoveryObserved;
+        private bool _dispatchingRecovery;
+        public event Action BackupRecovered;
+        // Read only while holding SyncRoot. Menu queries are never blocked by this flag.
+        internal bool HasUndeliveredRecovery => _recoveryObserved;
+
+        private Delegate[] TakeRecoveryNotification()
+        {
+            if (_operationDepth != 0 || _mutationActive || !_recoveryObserved || _dispatchingRecovery)
+                return null;
+            _dispatchingRecovery = true;
+            return BackupRecovered?.GetInvocationList() ?? Array.Empty<Delegate>();
+        }
+
+        private void NotifyRecovery(Delegate[] callbacks)
+        {
+            if (callbacks == null) return;
+            try
+            {
+                foreach (var callback in callbacks)
+                {
+                    // An observer must not change a durable command's result or skip other runs.
+                    try { ((Action)callback)(); }
+                    catch { }
+                }
+            }
+            finally
+            {
+                lock (SyncRoot)
+                {
+                    _recoveryObserved = false;
+                    _dispatchingRecovery = false;
+                }
+            }
+        }
+
+        internal IDisposable BeginMutation()
+        {
+            Monitor.Enter(SyncRoot);
+            if (_mutationActive)
+            {
+                Monitor.Exit(SyncRoot);
+                throw new InvalidOperationException("Nested campaign save mutations are not allowed.");
+            }
+            _mutationActive = true;
+            return new Mutation(this);
+        }
+
+        private sealed class Mutation : IDisposable
+        {
+            private CampaignHudReadStore _store;
+            internal Mutation(CampaignHudReadStore store) => _store = store;
+            public void Dispose()
+            {
+                if (_store == null) return;
+                var store = _store;
+                _store = null;
+                store._mutationActive = false;
+                var callbacks = store.TakeRecoveryNotification();
+                Monitor.Exit(store.SyncRoot);
+                store.NotifyRecovery(callbacks);
+            }
+        }
+
         private CampaignSlotEntry[] _entries;
         private CampaignSaveLoadReport _report;
         private Exception _failure;
@@ -66,6 +138,7 @@ namespace Game.Feature.Stages
 
         internal IDisposable BeginOperation()
         {
+            Monitor.Enter(SyncRoot);
             if (_operationDepth == 0) _operationId++;
             _operationDepth++;
             return new Operation(this);
@@ -78,8 +151,12 @@ namespace Game.Feature.Stages
             public void Dispose()
             {
                 if (_store == null) return;
-                _store._operationDepth--;
+                var store = _store;
                 _store = null;
+                store._operationDepth--;
+                var callbacks = store.TakeRecoveryNotification();
+                Monitor.Exit(store.SyncRoot);
+                store.NotifyRecovery(callbacks);
             }
         }
 
@@ -140,6 +217,9 @@ namespace Game.Feature.Stages
 
         internal void ObserveProfile(CampaignProfileLoadResult result)
         {
+            // Only actual profile loads observe recovery; cached Observe calls must not repeat it.
+            if (result.Status == CampaignProfileLoadStatus.BackupRecovered)
+                _recoveryObserved = true;
             // Observation must never turn a durable save into a failed command.
             try
             {

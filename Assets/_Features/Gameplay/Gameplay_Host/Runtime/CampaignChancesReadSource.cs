@@ -91,6 +91,12 @@ namespace Game.Feature.Gameplay.Host
         internal void ObserveBeforeMutation(CampaignSlotState state)
         {
             if (_hasFrozen || state == null) return;
+            if (state.GameMode == GameMode.Casual)
+            {
+                _frozen = default;
+                _hasFrozen = true;
+                return;
+            }
             _frozen = new GameplayPlayerHudReadModel(true,
                 CampaignSaveSlotPolicy.RequireValidRemainingChances(state.RemainingChances),
                 CampaignSaveSlotPolicy.DefaultRemainingChances);
@@ -232,6 +238,15 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var slot = entry.State;
+            if (slot.GameMode == GameMode.Casual)
+            {
+                maxChances = 0;
+                _lastDisplay = default;
+                _lastSavedRevision = Session?.Revision ?? -1;
+                _lastGeneration = Session?.Generation ?? -1;
+                RecordReadRevision();
+                return false;
+            }
             var launchStageId = StageLaunchContextStore.CurrentStageId;
             var validatedRemainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
                 slot.RemainingChances);

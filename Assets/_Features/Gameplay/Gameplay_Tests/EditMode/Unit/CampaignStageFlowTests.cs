@@ -41,6 +41,235 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TerminalSessionRegistry.ResetForTests();
         }
 
+        [TestCase(1, false, false)]
+        [TestCase(1, true, false)]
+        [TestCase(1, false, true)]
+        [TestCase(1, true, true)]
+        [TestCase(2, false, false)]
+        [TestCase(2, true, false)]
+        [Category("Extended")]
+        public void TerminalNotificationFailure_FinishesOutsideNotification_WithoutSavingOldOutcome(
+            int failingNotification, bool forcedClear, bool throwOnRead)
+        {
+            var root = Path.Combine(Path.GetTempPath(), "campaign-terminal-boundary-" + Guid.NewGuid().ToString("N"));
+            var owner = new GameObject("campaign-terminal-boundary");
+            var entry = CreateEntry("stage-0-1");
+            var definition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(definition, "displayNameKey", StageDisplayNameKeys.ForStage(entry.StageId));
+            entry.AssignPresentationDefinition(definition);
+            try
+            {
+                var store = new CampaignSaveSlotStoreAdapter(new CampaignSaveService(
+                    new FileCampaignProfileRepository(new AtomicTextFileStore(root))));
+                var resolver = CreateResolver();
+                store.InitializeNewGame(1, resolver, string.Empty, GameMode.Casual);
+                var saved = store.LoadSlot(1).State;
+                var file = Path.Combine(root, FileCampaignProfileRepository.ProfileFileName);
+                var before = File.ReadAllText(file);
+                File.WriteAllText(file + ".bak", before);
+                var presenter = owner.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var host = CreateHostWithInput(owner, 10, 3, presenter);
+                using var feed = new GameplayHostPresentationFeed(host.InputHost, presenter, entry,
+                    campaignStageSequenceResolver: resolver);
+                using var ui = new GameplayHostUiAccessContext(new NoOpGameplayCommandGateway(),
+                    new NoOpGameplayQueryFacade(), feed, new NoOpGameplayPauseService(),
+                    campaignStageSequenceResolver: resolver);
+                AttachUiAccess(host, presenter, ui, 3);
+                using var controller = new CampaignGameplayFlowController(host, store, store,
+                    new CampaignRunningSlotContext(1), resolver, new FakeStageLaunchRouter(), null,
+                    new FakeTerminalTransitionPort(), initialSlot: saved,
+                    recoveryObservation: ((ICampaignHudReadProvider)store).HudReadStore);
+                controller.Bind();
+                var notifications = 0;
+                var failureNotices = 0;
+                var popupVisible = false;
+                // Same read and ordering as the production diagnostic source followed by UIFlow.
+                TerminalSessionRegistry.Changed += snapshot =>
+                {
+                    if (!snapshot.IsActive || snapshot.Phase != TerminalSessionPhase.Claimed) return;
+                    if (++notifications == failingNotification)
+                    {
+                        if (throwOnRead) throw new IOException("terminal observer read failed");
+                        File.WriteAllText(file, "broken");
+                    }
+                    store.LoadSlot(1);
+                };
+                TerminalSessionRegistry.Changed += snapshot =>
+                {
+                    if (snapshot.IsActive) popupVisible = false;
+                };
+                feed.CampaignRunFailed += () => { failureNotices++; popupVisible = true; };
+
+                Assert.DoesNotThrow(() =>
+                {
+                    if (forcedClear) feed.ForceClearCurrentStage();
+                    else RaiseInputHostTickCompleted(host.InputHost,
+                        failingNotification == 1 ? CreateDeathTickResult(1, 4) : CreateObjectiveClearTickResult(1));
+                });
+                Assert.That(host.InputHost.IsCampaignRunAbandoned, Is.True);
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(failureNotices, Is.EqualTo(1));
+                Assert.That(popupVisible, Is.True, "Failure notice must survive the original active notification.");
+                Assert.That(feed.HasPendingStageClearPresentation, Is.False);
+                Assert.That(File.ReadAllText(file), Is.EqualTo(before));
+                Assert.That(feed.ForceClearCurrentStage(), Is.Null);
+                RaiseInputHostTickCompleted(host.InputHost, CreateDeathTickResult(2, 5));
+                Assert.That(failureNotices, Is.EqualTo(1));
+                Assert.That(File.ReadAllText(file), Is.EqualTo(before));
+            }
+            finally
+            {
+                TerminalSessionRegistry.ResetForTests();
+                UnityEngine.Object.DestroyImmediate(owner);
+                UnityEngine.Object.DestroyImmediate(entry);
+                UnityEngine.Object.DestroyImmediate(definition);
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        [Category("Extended")]
+        public void TerminalSaveFailure_EndsClaimWithoutReplay_EvenIfFinalCompletionWasWritten(bool finalClear, bool afterWrite)
+        {
+            var slot = CreateCampaignSlot(1, finalClear ? "stage-4-3" : "stage-2-2");
+            slot.CurrentLevelGroupId = finalClear ? "level-4" : "level-2";
+            var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
+            store.ThrowOnUpdate = !afterWrite;
+            store.ThrowAfterSave = afterWrite;
+            var owner = new GameObject("terminal-save-failure");
+            try
+            {
+                using var controller = CreateReceiptController(owner, store, 1);
+                if (finalClear) InvokeStageClear(controller, CreateMinimalStageCompletionReadModel("stage-4-3", 42));
+                else GetHandleTickCompletedMethod().Invoke(controller, new object[] { CreateDeathTickResult(42, 45) });
+                Assert.That(owner.GetComponent<GameplayInputHost>().IsCampaignRunAbandoned, Is.True);
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(store.UpdateCount, Is.EqualTo(1));
+                Assert.That(store.LoadSlot(1).CampaignCompleted, Is.EqualTo(finalClear && afterWrite));
+                Assert.That(store.LoadSlot(1).TotalDeaths, Is.EqualTo(!finalClear && afterWrite ? 1 : 0));
+                InvokeStageClear(controller, CreateMinimalStageCompletionReadModel("stage-4-3", 43));
+                GetHandleTickCompletedMethod().Invoke(controller, new object[] { CreateDeathTickResult(43, 46) });
+                Assert.That(store.UpdateCount, Is.EqualTo(1));
+                var authority = TerminalSessionRegistry.Authority;
+                var scene = authority.RegisterSceneBootstrap(987, "continued-gameplay");
+                Assert.That(authority.TryClaim(new TerminalClaimRequest(TerminalTransitionKind.Victory,
+                    scene, TerminalDestinationKind.SameSceneStageResult)).Accepted, Is.True);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(owner); }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BackupRecoveredByAnotherRead_AbandonsBoundFlowBeforeAnyOldOutcome_AndFreshBindUsesFile()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "campaign-live-recovery-" + Guid.NewGuid().ToString("N"));
+            var owner = new GameObject("campaign-live-recovery");
+            try
+            {
+                var repository = new FileCampaignProfileRepository(new AtomicTextFileStore(root));
+                var store = new CampaignSaveSlotStoreAdapter(new CampaignSaveService(repository));
+                var resolver = CreateResolver();
+                store.InitializeNewGame(1, resolver, string.Empty, GameMode.Casual);
+                var saved = store.LoadSlot(1).State;
+                var presenter = owner.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var host = CreateHostWithInput(owner, 10, 3, presenter);
+                using var feed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                using var ui = new GameplayHostUiAccessContext(new NoOpGameplayCommandGateway(),
+                    new NoOpGameplayQueryFacade(), feed, new NoOpGameplayPauseService(),
+                    campaignStageSequenceResolver: resolver);
+                AttachUiAccess(host, presenter, ui, 3);
+                using var controller = new CampaignGameplayFlowController(host, store, store,
+                    new CampaignRunningSlotContext(1), resolver, new FakeStageLaunchRouter(), null,
+                    new FakeTerminalTransitionPort(), initialSlot: saved,
+                    recoveryObservation: ((ICampaignHudReadProvider)store).HudReadStore);
+                controller.Bind();
+                var file = Path.Combine(root, FileCampaignProfileRepository.ProfileFileName);
+                var before = File.ReadAllText(file);
+                File.WriteAllText(file + ".bak", before);
+                File.WriteAllText(file, "broken");
+                Assert.That(store.LoadSlot(1).ResumeHp, Is.EqualTo(3));
+                Assert.That(host.InputHost.IsCampaignRunAbandoned, Is.True);
+                Assert.That(feed.HasCampaignRunFailure, Is.True);
+                GetHandleTickCompletedMethod().Invoke(controller, new object[] { CreateDeathTickResult(1, 4) });
+                InvokeStageClear(controller, CreateMinimalStageCompletionReadModel(saved.CurrentStageId.Value, 2));
+                Assert.That(File.ReadAllText(file), Is.EqualTo(before));
+                controller.Dispose();
+                var freshOwner = new GameObject("fresh-campaign-recovery");
+                try
+                {
+                    var fresh = CreateHostWithInput(freshOwner, 10, 3);
+                    using var freshFeed = new GameplayHostPresentationFeed(fresh.InputHost, presenter);
+                    using var freshUi = new GameplayHostUiAccessContext(new NoOpGameplayCommandGateway(),
+                        new NoOpGameplayQueryFacade(), freshFeed, new NoOpGameplayPauseService(),
+                        campaignStageSequenceResolver: resolver);
+                    AttachUiAccess(fresh, presenter, freshUi, 3);
+                    using var freshFlow = new CampaignGameplayFlowController(fresh, store, store,
+                        new CampaignRunningSlotContext(1), resolver, new FakeStageLaunchRouter(), null,
+                        new FakeTerminalTransitionPort(), initialSlot: store.LoadSlot(1).State,
+                        recoveryObservation: ((ICampaignHudReadProvider)store).HudReadStore);
+                    freshFlow.Bind();
+                    Assert.That(fresh.InputHost.IsCampaignRunAbandoned, Is.False);
+                }
+                finally { UnityEngine.Object.DestroyImmediate(freshOwner); }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [Category("Extended")]
+        public void CasualSurvival_SavesOnceAndAbandonsFailedRunWithoutReplaying(bool beforeWriteFailure, bool responseFailure)
+        {
+            var slot = CreateCampaignSlot(1, "stage-2-2");
+            slot.CurrentLevelGroupId = "level-2";
+            slot.GameMode = GameMode.Casual;
+            slot.ResumeHp = 3;
+            slot.RemainingChances = 0;
+            var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
+            store.ThrowOnUpdate = beforeWriteFailure;
+            store.ThrowAfterSave = responseFailure;
+            var owner = new GameObject("casual-survival");
+            try
+            {
+                var host = CreateHostWithInput(owner, 10, 3);
+                using var controller = new CampaignGameplayFlowController(host, store, store,
+                    new CampaignRunningSlotContext(1), CreateResolver(), new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null, terminalTransitionPort: new FakeTerminalTransitionPort(),
+                    initialSlot: CampaignSlotRawDataMapper.ToState(slot));
+                var tick = new TickResult(10, Array.Empty<TickPhase>(), Array.Empty<string>(),
+                    MovementPhaseResult.Empty, AttackPhaseResult.Empty,
+                    new[] { new EntityState { entityId = 10, type = EntityType.Unit, unitRole = UnitRole.Player, hp = 2, maxHp = 3 } },
+                    Array.Empty<string>(), new CubeTopologyState(FaceId.Floor), TickPresentationData.Empty,
+                    string.Empty, TickTrace.Empty, StageObjectiveTickResult.NoObjective);
+                InvokeInstanceMethod(controller, "HandleSurvivalTick", tick);
+                InvokeInstanceMethod(controller, "HandleSurvivalTick", tick);
+                Assert.That(store.UpdateCount, Is.EqualTo(1));
+                Assert.That(store.LoadSlot(1).ResumeHp, Is.EqualTo(beforeWriteFailure ? 3 : 2));
+                Assert.That(host.InputHost.IsCampaignRunAbandoned, Is.EqualTo(beforeWriteFailure || responseFailure));
+                if (beforeWriteFailure || responseFailure)
+                {
+                    Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                    InvokeStageClear(controller, CreateMinimalStageCompletionReadModel("stage-2-2", 11));
+                    GetHandleTickCompletedMethod().Invoke(controller, new object[] { CreateDeathTickResult(12, 15) });
+                    Assert.That(store.UpdateCount, Is.EqualTo(1), "Abandoned commands must never be reapplied.");
+                    Assert.That(store.LoadSlot(1).TotalDeaths, Is.Zero);
+
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(owner); }
+        }
+
         [Test]
         [Category("Extended")]
         public void SequenceResolver_UsesCanonicalOrderAndLevelGroups()
@@ -167,8 +396,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             slot.RemainingChances = 1;
             var last = tracker.ResolveDeathRoute(CampaignSlotRawDataMapper.ToState(slot));
-            Assert.That(last.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
-            Assert.That(last.NextStageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(last.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToCampaignFirstStage));
+            Assert.That(last.NextStageId, Is.EqualTo(resolver.FirstStageId));
             Assert.That(last.RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
         }
 
@@ -262,8 +491,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CurrentLevelGroupId = "group-b",
                     RemainingChances = 1,
                 }));
-                Assert.That(retryRoute.NextStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
-                Assert.That(retryRoute.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
+                Assert.That(retryRoute.NextStageId, Is.EqualTo(resolver.FirstStageId));
+                Assert.That(retryRoute.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToCampaignFirstStage));
             }
             finally
             {
@@ -317,12 +546,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
+        [TestCase(GameMode.Hardcore)]
+        [TestCase(GameMode.Casual)]
         [Category("Extended")]
-        public void NormalFinalObjectiveClear_CommitsCampaignCompletedAndReceiptInOneSlotUpdate()
+        public void NormalFinalObjectiveClear_CommitsCampaignCompletedAndReceiptInOneSlotUpdate(GameMode mode)
         {
-            var store = RecordingCampaignSaveSlotStore.WithSlot(
-                CreateCampaignSlot(1, "stage-4-3"));
+            var slot = CreateCampaignSlot(1, "stage-4-3");
+            slot.GameMode = mode;
+            slot.ResumeHp = mode == GameMode.Casual ? 2 : 0;
+            slot.RemainingChances = mode == GameMode.Casual ? 0 : 3;
+            var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
             var earningSink = new RecordingProductAchievementEarningSink(
                 AchievementEarnResult.EarnedNew,
                 () => store.SaveCount == 1);
@@ -550,12 +783,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     stageAchievementIntegration:
                         new CampaignStageAchievementIntegration(earningSink));
 
-                var exception = Assert.Throws<TargetInvocationException>(() =>
-                    InvokeStageClear(
-                        controller,
-                        CreateMinimalStageCompletionReadModel("stage-4-3", tickIndex: 102)));
-
-                Assert.That(exception?.InnerException, Is.TypeOf<IOException>());
+                Assert.DoesNotThrow(() => InvokeStageClear(controller,
+                    CreateMinimalStageCompletionReadModel("stage-4-3", tickIndex: 102)));
+                Assert.That(hostObject.GetComponent<GameplayInputHost>().IsCampaignRunAbandoned, Is.True);
                 Assert.That(store.UpdateCount, Is.EqualTo(1));
                 Assert.That(store.SaveCount, Is.Zero);
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.False);
@@ -657,7 +887,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ClearSource = 0,
             };
             var slot = CreateCampaignSlot(1, "stage-4-3");
-            slot.CampaignCompleted = true;
+            slot.CampaignCompleted = false;
             slot.HasNormalCampaignCompletionReceipt = true;
             slot.NormalCampaignCompletionReceipt = existing;
             var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
@@ -718,10 +948,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     stageAchievementIntegration:
                         new CampaignStageAchievementIntegration(earningSink));
 
-                Assert.Throws<TargetInvocationException>(() =>
-                    InvokeStageClear(
-                        controller,
-                        CreateMinimalStageCompletionReadModel("stage-4-3", tickIndex: 106)));
+                Assert.DoesNotThrow(() => InvokeStageClear(controller,
+                    CreateMinimalStageCompletionReadModel("stage-4-3", tickIndex: 106)));
+                Assert.That(hostObject.GetComponent<GameplayInputHost>().IsCampaignRunAbandoned, Is.True);
 
                 Assert.That(store.UpdateCount, Is.Zero);
                 Assert.That(store.SaveCount, Is.Zero);
@@ -1411,8 +1640,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RemainingChances = 1,
             }));
 
-            Assert.That(route.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
-            Assert.That(route.NextStageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(route.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToCampaignFirstStage));
+            Assert.That(route.NextStageId, Is.EqualTo(CreateResolver().FirstStageId));
             Assert.That(route.RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
         }
 
@@ -1628,7 +1857,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 terminalPort.Current.Advance(terminalPort.Current.Preset.BlackAt);
 
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
-                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId, Is.EqualTo(CreateResolver().FirstStageId));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Null);
                 presentationFeed.Dispose();
@@ -1683,8 +1912,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
                 Assert.That(
                     presentationFeed.CurrentLevelFailed.Reason,
-                    Is.EqualTo(GameplayLevelFailureReason.ChancesExhausted));
-                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+                    Is.EqualTo(GameplayLevelFailureReason.CampaignChancesExhausted));
+                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId, Is.EqualTo(CreateResolver().FirstStageId));
                 Assert.That(
                     presentationFeed.CurrentLevelFailed.RestartLevelRequest.NavigationKind,
                     Is.EqualTo(StageNavigationKind.Retry));
@@ -1869,9 +2098,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback()
+        public void CampaignDeath_IrisSetupThrow_AbandonsWithoutFallbackRoute()
         {
-            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback));
+            var saveKey = CreateTransientNamespace(nameof(CampaignDeath_IrisSetupThrow_AbandonsWithoutFallbackRoute));
             var activeKey = saveKey + ".active";
             var saveStore = new TransientCampaignSaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
@@ -1897,16 +2126,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     controller,
                     GetHandleTickCompletedMethod());
 
-                var thrown = Assert.Throws<InvalidOperationException>(
-                    () => handler(CreateDeathTickResult(50, eligibleTick: 53)));
-
-                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.DoesNotThrow(() => handler(CreateDeathTickResult(50, eligibleTick: 53)));
+                Assert.That(host.InputHost.IsCampaignRunAbandoned, Is.True);
                 Assert.That(TerminalSessionRegistry.IsActive, Is.False);
                 Assert.That(TerminalSessionRegistry.Current.Phase, Is.EqualTo(TerminalSessionPhase.FailedBeforeCover));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
-                Assert.That(router.LaunchCount, Is.EqualTo(1));
-                Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
-                Assert.That(router.LastRequest.TransitionHint.HasTerminalClaim, Is.False);
+                Assert.That(router.LaunchCount, Is.Zero);
+                Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(1));
             }
             finally
             {
@@ -1918,9 +2144,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback()
+        public void CampaignLevelFailed_IrisSetupThrow_AbandonsWithoutFallbackPresentation()
         {
-            var saveKey = CreateTransientNamespace(nameof(CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback));
+            var saveKey = CreateTransientNamespace(nameof(CampaignLevelFailed_IrisSetupThrow_AbandonsWithoutFallbackPresentation));
             var activeKey = saveKey + ".active";
             var saveStore = new TransientCampaignSaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
@@ -1953,16 +2179,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     controller,
                     GetHandleTickCompletedMethod());
 
-                var thrown = Assert.Throws<InvalidOperationException>(
-                    () => handler(CreateDeathTickResult(50, eligibleTick: 53)));
-
-                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.DoesNotThrow(() => handler(CreateDeathTickResult(50, eligibleTick: 53)));
+                Assert.That(host.InputHost.IsCampaignRunAbandoned, Is.True);
                 Assert.That(TerminalSessionRegistry.IsActive, Is.False);
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
-                Assert.That(feed.CurrentLevelFailed, Is.Not.Null);
-                Assert.That(
-                    feed.CurrentLevelFailed.RestartLevelRequest.StageId.Value,
-                    Is.EqualTo("stage-2-1"));
+                Assert.That(feed.CurrentLevelFailed, Is.Null);
+                Assert.That(feed.HasCampaignRunFailure, Is.True);
                 feed.Dispose();
             }
             finally
@@ -1975,9 +2197,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome()
+        public void CampaignVictory_IrisSetupThrow_DiscardsPresentationWithCommittedOutcome()
         {
-            var saveKey = CreateTransientNamespace(nameof(CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome));
+            var saveKey = CreateTransientNamespace(nameof(CampaignVictory_IrisSetupThrow_DiscardsPresentationWithCommittedOutcome));
             var activeKey = saveKey + ".active";
             var saveStore = new TransientCampaignSaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
@@ -2025,19 +2247,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var frames = new List<GameplayPresentationFrame>();
                 feed.FramePublished += frames.Add;
 
-                var thrown = Assert.Throws<InvalidOperationException>(
-                    () => feed.ForceClearCurrentStage());
-
-                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.DoesNotThrow(() => feed.ForceClearCurrentStage());
+                Assert.That(host.InputHost.IsCampaignRunAbandoned, Is.True);
                 Assert.That(TerminalSessionRegistry.IsActive, Is.False);
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
                 Assert.That(feed.CurrentMinimalStageCompletion, Is.Not.Null);
                 Assert.That(feed.HasPendingStageClearPresentation, Is.False);
-                Assert.That(frames, Has.Count.EqualTo(1));
-                Assert.That(frames[0].StageEvent.HasValue, Is.True);
-                Assert.That(
-                    frames[0].StageEvent.Value.EventKind,
-                    Is.EqualTo(GameplayStageEventKind.Cleared));
+                Assert.That(frames, Is.Empty);
+                Assert.That(feed.HasCampaignRunFailure, Is.True);
                 Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-1-2"));
                 feed.TerminalClaimAccepted -= acceptedHandler;
                 feed.Dispose();
@@ -2115,8 +2332,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new object[] { CreateEmptyTickResult(51), CreateMinimalStageCompletionReadModel("stage-2-2", tickIndex: 51) });
 
                 var pendingSlot = saveStore.LoadSlot(1);
-                Assert.That(pendingSlot.CurrentStageId.Value, Is.EqualTo("stage-2-1"));
-                Assert.That(pendingSlot.CurrentLevelGroupId, Is.EqualTo("level-2"));
+                Assert.That(pendingSlot.CurrentStageId, Is.EqualTo(CreateResolver().FirstStageId));
+                Assert.That(pendingSlot.CurrentLevelGroupId, Is.EqualTo(CreateResolver().GetLevelGroupId(CreateResolver().FirstStageId)));
                 Assert.That(pendingSlot.RemainingChances, Is.EqualTo(CampaignSaveSlotPolicy.DefaultRemainingChances));
                 Assert.That(pendingSlot.TotalDeaths, Is.EqualTo(1));
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Null);
@@ -2124,7 +2341,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 terminalPort.Current.Advance(terminalPort.Current.Preset.BlackAt);
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
-                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId, Is.EqualTo(CreateResolver().FirstStageId));
                 Assert.That(router.LaunchCount, Is.EqualTo(0));
                 presentationFeed.Dispose();
             }
@@ -2557,7 +2774,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RemainingChances = 1,
             }));
 
-            Assert.That(route.NextStageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(route.NextStageId, Is.EqualTo(CreateResolver().FirstStageId));
         }
 
         [Test]
@@ -3327,6 +3544,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 return slot.Clone();
             }
 
+            public bool ThrowAfterSave { get; set; }
+
+            public CampaignSurvivalCommitResult CommitSurvival(int slotNumber, CampaignSurvivalCommitRequest request)
+            {
+                var current = CreateEntry(LoadSlot(slotNumber)).State;
+                var transition = CampaignSlotTransitionEngine.ApplySurvival(current, request, current.LastPlayedAt);
+                if (!transition.Succeeded) throw new InvalidOperationException(transition.ReasonCode.ToString());
+                UpdateCount++;
+                if (ThrowOnUpdate) throw new IOException("Simulated atomic save failure.");
+                StoreCandidate(CampaignSlotRawDataMapper.ToRaw(transition.Slot));
+                if (ThrowAfterSave) throw new IOException("Simulated response failure after save.");
+                return new CampaignSurvivalCommitResult(transition.Slot);
+            }
+
             public CampaignDeathCommitResult CommitDeath(
                 int slotNumber,
                 CampaignDeathTransitionPlan plan)
@@ -3356,6 +3587,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var candidate = CampaignSlotRawDataMapper.FromDocument(
                     CampaignSlotStateDocumentMapper.ToDocument(transition.Slot));
                 StoreCandidate(candidate);
+                if (ThrowAfterSave) throw new IOException("Simulated response failure after save.");
                 return new CampaignDeathCommitResult(transition.Slot);
             }
 
@@ -3388,9 +3620,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var candidate = CampaignSlotRawDataMapper.FromDocument(
                     CampaignSlotStateDocumentMapper.ToDocument(transition.Slot));
                 StoreCandidate(candidate);
+                if (ThrowAfterSave) throw new IOException("Simulated response failure after save.");
                 return new CampaignStageClearCommitResult(
                     transition.Slot,
-                    transition.PreviousRemainingChances.Value);
+                    transition.PreviousRemainingChances);
             }
 
             public void DeleteSlot(int slotNumber)
@@ -3614,6 +3847,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private sealed class FakeTerminalTransitionPort : ITerminalTransitionPort
         {
+            public bool TryAbortSetup(TerminalSessionToken token, TerminalFailure failure)
+            {
+                if (!TerminalSessionRegistry.Authority.TryAbortIrisSetup(token, failure)) return false;
+                Current?.Dispose();
+                Current = null;
+                return true;
+            }
+
             private readonly Exception _setupException;
 
             internal FakeTerminalTransitionPort(Exception setupException = null)

@@ -480,6 +480,7 @@ namespace Game.Feature.Stages
         bool TryFail(TerminalSessionToken token, TerminalFailure failure);
 
         bool TryAbortIrisSetup(TerminalSessionToken token, TerminalFailure failure);
+        bool TryAbortClaimBeforeTransition(TerminalSessionToken token, TerminalFailure failure);
     }
 
     public interface ITerminalSessionAuthorityProvider
@@ -547,7 +548,10 @@ namespace Game.Feature.Stages
             return _currentSceneGeneration;
         }
 
-        public TerminalClaimResult TryClaim(TerminalClaimRequest request)
+        public TerminalClaimResult TryClaim(TerminalClaimRequest request) => TryClaim(request, null);
+
+        // The gameplay owner records its exact token before Changed can synchronously fail or recover a save.
+        internal TerminalClaimResult TryClaim(TerminalClaimRequest request, Action<TerminalClaimResult> acceptClaim)
         {
             if (_current.IsActive)
             {
@@ -566,6 +570,8 @@ namespace Game.Feature.Stages
             }
 
             var token = new TerminalSessionToken(AuthorityGeneration, ++_nextSequence);
+            var accepted = TerminalClaimResult.Accept(token, request.TerminalKind);
+            acceptClaim?.Invoke(accepted);
             Publish(
                 isActive: true,
                 token,
@@ -581,7 +587,7 @@ namespace Game.Feature.Stages
                 TerminalRuntimeTrace.Record(_current, TerminalTraceEvent.VictoryClaimAccepted);
             }
 
-            return TerminalClaimResult.Accept(token, request.TerminalKind);
+            return accepted;
         }
 
         public bool TryAdvancePhase(TerminalSessionToken token, TerminalSessionPhase next)
@@ -693,6 +699,17 @@ namespace Game.Feature.Stages
                 _current.SourceSceneGeneration,
                 _current.DestinationSceneGeneration,
                 _current.DestinationKind);
+            return true;
+        }
+
+        public bool TryAbortClaimBeforeTransition(TerminalSessionToken token, TerminalFailure failure)
+        {
+            if (!_current.IsActive || _current.Token != token ||
+                _current.Phase != TerminalSessionPhase.Claimed || _current.TransitionId != 0)
+                return false;
+            Publish(false, token, _current.TerminalKind, TerminalSessionPhase.FailedBeforeCover,
+                failure.Message, 0, _current.SourceSceneGeneration,
+                _current.DestinationSceneGeneration, _current.DestinationKind);
             return true;
         }
 
@@ -1071,6 +1088,7 @@ namespace Game.Feature.Stages
 
     public interface ITerminalTransitionPort
     {
+        bool TryAbortSetup(TerminalSessionToken token, TerminalFailure failure);
         bool TryBegin(
             TerminalTransitionRequest request,
             out TerminalTransitionPlayback playback);

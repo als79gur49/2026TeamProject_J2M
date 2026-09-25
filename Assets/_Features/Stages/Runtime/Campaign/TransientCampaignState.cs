@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace Game.Feature.Stages
 {
@@ -11,8 +12,8 @@ namespace Game.Feature.Stages
     {
         public const string DefaultDiagnosticsKey = "transient-campaign-state";
 
-        private static readonly object Gate = new();
-        private static readonly Dictionary<string, CampaignSlotEntry[]> EntriesByNamespace = new();
+        private object Gate => _hudReads.SyncRoot;
+        private static readonly ConcurrentDictionary<string, CampaignSlotEntry[]> EntriesByNamespace = new();
 
         private readonly string _diagnosticsKey;
         private readonly Func<string> _utcNowProvider;
@@ -99,6 +100,7 @@ namespace Game.Feature.Stages
         public CampaignContinuePreparationResult PrepareContinue(
             CampaignContinuePreparationCommand command)
         {
+            using var mutation = _hudReads.BeginMutation();
             if (command == null)
             {
                 throw new ArgumentNullException(nameof(command));
@@ -121,21 +123,22 @@ namespace Game.Feature.Stages
         public CampaignSlotState InitializeNewGame(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
-            string lastPlayedAt)
+            string lastPlayedAt, GameMode gameMode = GameMode.Hardcore)
         {
-            return InitializeNewGameState(slotNumber, sequenceResolver, lastPlayedAt);
+            return InitializeNewGameState(slotNumber, sequenceResolver, lastPlayedAt, gameMode);
         }
 
         private CampaignSlotState InitializeNewGameState(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
-            string lastPlayedAt)
+            string lastPlayedAt, GameMode gameMode = GameMode.Hardcore)
         {
+            using var mutation = _hudReads.BeginMutation();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             var state = CampaignSlotStateFactory.CreateNewGame(
                 slotNumber,
                 sequenceResolver,
-                lastPlayedAt);
+                lastPlayedAt, gameMode);
             lock (Gate)
             {
                 if (string.IsNullOrWhiteSpace(state.LastPlayedAt))
@@ -150,6 +153,7 @@ namespace Game.Feature.Stages
 
         public void MarkIntroComicCompleted(int slotNumber)
         {
+            using var mutation = _hudReads.BeginMutation();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             lock (Gate)
             {
@@ -169,6 +173,7 @@ namespace Game.Feature.Stages
 
         public void MarkOutroComicCompleted(int slotNumber)
         {
+            using var mutation = _hudReads.BeginMutation();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             lock (Gate)
             {
@@ -199,6 +204,7 @@ namespace Game.Feature.Stages
             StageId stageId,
             string levelGroupId)
         {
+            using var mutation = _hudReads.BeginMutation();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             if (!stageId.IsValid)
             {
@@ -219,6 +225,7 @@ namespace Game.Feature.Stages
 
         public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request)
         {
+            using var mutation = _hudReads.BeginMutation();
             var state = CampaignSlotStateFactory.CreateImportedSeed(
                 request ?? throw new ArgumentNullException(nameof(request)));
             lock (Gate)
@@ -233,10 +240,33 @@ namespace Game.Feature.Stages
             }
         }
 
+        public CampaignSurvivalCommitResult CommitSurvival(
+            int slotNumber,
+            CampaignSurvivalCommitRequest request)
+        {
+            using var mutation = _hudReads.BeginMutation();
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            lock (Gate)
+            {
+                var transition = CampaignSlotTransitionEngine.ApplySurvival(
+                    GetOccupiedState(slotNumber),
+                    request,
+                    Now());
+                if (!transition.Succeeded)
+                {
+                    throw CreateDeathTransitionException(transition);
+                }
+
+                StoreState(transition.Slot);
+                return new CampaignSurvivalCommitResult(transition.Slot);
+            }
+        }
+
         public CampaignDeathCommitResult CommitDeath(
             int slotNumber,
             CampaignDeathTransitionPlan plan)
         {
+            using var mutation = _hudReads.BeginMutation();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             lock (Gate)
             {
@@ -258,6 +288,7 @@ namespace Game.Feature.Stages
             int slotNumber,
             CampaignStageClearCommitRequest request)
         {
+            using var mutation = _hudReads.BeginMutation();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             lock (Gate)
             {
@@ -275,7 +306,7 @@ namespace Game.Feature.Stages
                 StoreState(transition.Slot);
                 return new CampaignStageClearCommitResult(
                     transition.Slot,
-                    transition.PreviousRemainingChances.Value);
+                    transition.PreviousRemainingChances);
             }
         }
 
@@ -347,6 +378,7 @@ namespace Game.Feature.Stages
 
         public void DeleteSlot(int slotNumber)
         {
+            using var mutation = _hudReads.BeginMutation();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             lock (Gate)
             {
@@ -358,9 +390,10 @@ namespace Game.Feature.Stages
 
         public void ClearAll()
         {
+            using var mutation = _hudReads.BeginMutation();
             lock (Gate)
             {
-                EntriesByNamespace.Remove(_diagnosticsKey);
+                EntriesByNamespace.TryRemove(_diagnosticsKey, out _);
                 _hudReads.Reset();
                 LoadAllWithReport();
             }
@@ -373,7 +406,7 @@ namespace Game.Feature.Stages
             if (!EntriesByNamespace.TryGetValue(_diagnosticsKey, out var entries))
             {
                 entries = CreateEmptyEntries();
-                EntriesByNamespace.Add(_diagnosticsKey, entries);
+                EntriesByNamespace.TryAdd(_diagnosticsKey, entries);
             }
 
             return entries;

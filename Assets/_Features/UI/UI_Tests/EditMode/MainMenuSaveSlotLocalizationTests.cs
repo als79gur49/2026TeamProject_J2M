@@ -727,7 +727,7 @@ namespace Game.Feature.UI.Tests
         CampaignSlotState ICampaignSlotLifecyclePort.InitializeNewGame(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
-            string lastPlayedAt) => CampaignSlotRawDataMapper.ToState(
+            string lastPlayedAt, GameMode gameMode) => CampaignSlotRawDataMapper.ToState(
                 InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt));
 
         public void DeleteSlot(int slotNumber)

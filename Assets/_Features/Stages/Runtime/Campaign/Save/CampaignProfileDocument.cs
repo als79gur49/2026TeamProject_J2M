@@ -6,7 +6,7 @@ namespace Game.Feature.Stages
     [Serializable]
     public sealed class CampaignProfileDocument
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         public int SchemaVersion;
         public string ProductVersion;
@@ -69,8 +69,8 @@ namespace Game.Feature.Stages
         {
             return slot != null &&
                    CampaignSaveSlotPolicy.IsValidSlotNumber(slot.SlotNumber) &&
-                   CampaignSaveSlotPolicy.IsValidRemainingChances(
-                       slot.RemainingChances) &&
+                   CampaignSaveSlotPolicy.IsValidSurvival(
+                       slot.GameMode, slot.ResumeHp, slot.RemainingChances) &&
                    slot.TotalDeaths >= 0 &&
                    IsCanonicalStageId(slot.StageId) &&
                    ValidateCompletionReceipt(

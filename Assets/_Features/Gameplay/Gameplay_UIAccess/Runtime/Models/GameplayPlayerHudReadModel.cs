@@ -12,8 +12,12 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool hasRemainingChances = false,
             int remainingChances = 0,
             int maxChances = 0,
-            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default,
+            bool hasHealth = false, int hp = 0, int maxHp = 0)
         {
+            HasHealth = hasHealth;
+            Hp = hp;
+            MaxHp = maxHp;
             HasRemainingChances = hasRemainingChances;
             RemainingChances = remainingChances;
             MaxChances = maxChances > 0
@@ -23,6 +27,10 @@ namespace Game.Feature.Gameplay.UIAccess.Models
                 ? chanceAudioPolicy
                 : GameplayChanceAudioPolicy.Default;
         }
+
+        public bool HasHealth { get; }
+        public int Hp { get; }
+        public int MaxHp { get; }
 
         public bool HasRemainingChances { get; }
 

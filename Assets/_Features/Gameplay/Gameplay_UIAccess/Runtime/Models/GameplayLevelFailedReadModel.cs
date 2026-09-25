@@ -7,6 +7,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
     {
         None = 0,
         ChancesExhausted = 1,
+        CasualDeath = 2,
+        CampaignChancesExhausted = 3,
     }
 
     public sealed class GameplayLevelFailedReadModel

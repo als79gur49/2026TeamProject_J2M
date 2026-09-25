@@ -56,6 +56,29 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
+        public IEnumerator CampaignSaveFailure_StopsCatchUpBeforeSecondTickAndSurvivesPauseRelease()
+        {
+            var host = CreateHost(new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)) });
+            var completed = 0;
+            host.InputHost.TickCompleted += _ =>
+            {
+                completed++;
+                typeof(GameplayInputHost).GetMethod("AbandonCampaignRun", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .Invoke(host.InputHost, null);
+            };
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 6f), Is.EqualTo(1));
+            Assert.That(completed, Is.EqualTo(1));
+            var next = host.TickRunner.NextTickIndex;
+            typeof(GameplayInputHost).GetMethod("SetSimulationPaused", BindingFlags.NonPublic | BindingFlags.Instance)
+                .Invoke(host.InputHost, new object[] { false });
+            Assert.That(host.InputHost.AdvanceTime(1f), Is.Zero);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(next));
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_PresentationLock_DuringTopologyTransitionPreventsTickAndBurst()
         {
             var host = CreateHost(new[]
