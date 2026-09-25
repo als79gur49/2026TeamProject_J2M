@@ -587,7 +587,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: ''
+  m_text:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 819507a38fa816a489de88dad2de2ce9, type: 2}
   m_sharedMaterial: {fileID: -6419728470944652023, guid: 819507a38fa816a489de88dad2de2ce9, type: 2}
@@ -614,7 +614,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 34
+  m_fontSize: 20
   m_fontSizeBase: 14
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -782,7 +782,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: ''
+  m_text:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 819507a38fa816a489de88dad2de2ce9, type: 2}
   m_sharedMaterial: {fileID: -6419728470944652023, guid: 819507a38fa816a489de88dad2de2ce9, type: 2}
@@ -809,7 +809,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 34
+  m_fontSize: 20
   m_fontSizeBase: 14
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -1256,6 +1256,7 @@ MonoBehaviour:
   _ease: 6
   _useUnscaledTime: 1
   _restoreOnDisable: 1
+  _scaleWhenSelected: 1
 --- !u!114 &5230033105923399677
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2320,6 +2321,7 @@ MonoBehaviour:
   _ease: 6
   _useUnscaledTime: 1
   _restoreOnDisable: 1
+  _scaleWhenSelected: 1
 --- !u!114 &9103625795915369781
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2347,11 +2349,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1990594193549166204, guid: 8a11b55b87e7a0744a606fdd43b07613, type: 3}
       propertyPath: m_text
-      value: ''
+      value:
       objectReference: {fileID: 0}
     - target: {fileID: 1990594193549166204, guid: 8a11b55b87e7a0744a606fdd43b07613, type: 3}
       propertyPath: m_fontSize
-      value: 175.4
+      value: 180
       objectReference: {fileID: 0}
     - target: {fileID: 1990594193549166204, guid: 8a11b55b87e7a0744a606fdd43b07613, type: 3}
       propertyPath: m_fontStyle

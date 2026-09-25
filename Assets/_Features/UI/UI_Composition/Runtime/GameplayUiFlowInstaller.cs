@@ -83,6 +83,7 @@ namespace Game.Feature.UI.Composition
         private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
         private DemoStageControlPresentationSource _demoStageControlPresentationSource;
         private bool _isDisposed;
+        private CampaignSaveFailurePresenter _campaignSaveFailurePresenter;
         private GameplayTerminalTransitionPort _terminalTransitionPort;
         private TerminalIrisMotionProfileResolver _terminalIrisMotionResolver;
         private GameplaySceneHost _installedSceneHost;
@@ -539,6 +540,13 @@ namespace Game.Feature.UI.Composition
                         presentationSource,
                         _campaignStageSequenceResolver)));
 
+                if (sceneHost.UiAccess.PresentationFeed is IGameplayCampaignFailureSource failureSource)
+                    _campaignSaveFailurePresenter = new CampaignSaveFailurePresenter(
+                        failureSource, new ConfirmPopupPortAdapter(PopupController),
+                        () => new ConfiguredMainMenuReturnRouter(_routeConfig)
+                            .ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu),
+                        new UnityApplicationQuitPort());
+
                 SignalTerminalDestinationReadyIfApplicable(sceneHost);
                 _sceneHost = null;
             }
@@ -712,13 +720,15 @@ namespace Game.Feature.UI.Composition
             objectiveTypographyBinding.Initialize(_localizedTextResolver);
             _rootView.HudView.ObjectiveHudView.ConfigureTypography(objectiveTypographyBinding);
             var chancePanelPresenter = new ChancePanelPresenter();
+            var healthPanelPresenter = new HealthPanelPresenter();
+            _rootView.HudView.ChancePanelView.BindHealth(healthPanelPresenter.ViewModel);
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
-                surfaceBeltIndicatorPresenter);
+                surfaceBeltIndicatorPresenter, healthPanelPresenter);
 
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
                 screenLayerView: _rootView.ScreenLayerView,
@@ -781,6 +791,7 @@ namespace Game.Feature.UI.Composition
             }
 
             _isDisposed = true;
+            _campaignSaveFailurePresenter?.Dispose();
             _gameplayWorldGuideLocalizationController?.Dispose();
             _gameplayWorldGuideLocalizationController = null;
             _gameplayHudLocalizationBinding?.Dispose();
@@ -997,7 +1008,8 @@ namespace Game.Feature.UI.Composition
                 saveSlotStore,
                 CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore),
                 EnsureComicSequenceFlowCoordinator(),
-                () => ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);
+                () => EditorDirectPlayContextStore.GetCurrentOrNone().Mode == EditorDirectPlayMode.None &&
+                      ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);
         }
 
         private ComicSequenceFlowCoordinator EnsureComicSequenceFlowCoordinator()

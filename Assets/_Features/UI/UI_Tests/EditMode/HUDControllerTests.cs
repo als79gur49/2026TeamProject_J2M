@@ -24,6 +24,98 @@ namespace Game.Feature.UI.Tests
     {
         private const string AllIn1UiMaskShaderName = "AllIn1SpriteShader/AllIn1SpriteShaderUiMask";
 
+        [Test]
+        public void CampaignCasualHud_ReusesAuthoredSlotsWithoutHpText()
+        {
+            var owner = new GameObject("casual-hud-prefab");
+            try
+            {
+                CreateCanonicalRootView(owner, out var hud);
+                var health = new HealthPanelViewModel();
+                var chance = new ChancePanelPresenter();
+                hud.ChancePanelView.Bind(chance.ViewModel);
+                hud.ChancePanelView.BindHealth(health);
+                health.SetHealth(true, 2, 3);
+                Assert.That(hud.ChancePanelView.GetComponentsInChildren<TMP_Text>(true)
+                    .Any(target => target.gameObject.name == "LabelText"), Is.False);
+                AssertHealthSlots(hud.ChancePanelView, 2, 3);
+                health.SetHealth(true, 1, 3);
+                AssertHealthSlots(hud.ChancePanelView, 1, 3);
+                health.SetHealth(true, 0, 3);
+                AssertHealthSlots(hud.ChancePanelView, 0, 3);
+                health.SetHealth(true, 3, 3);
+                AssertHealthSlots(hud.ChancePanelView, 3, 3);
+                health.SetHealth(false, 0, 0);
+                Assert.That(hud.ChancePanelView.SlotViews.All(slot => !slot.gameObject.activeInHierarchy), Is.True);
+            }
+            finally { DestroySupportObjects(owner); }
+        }
+
+        [Test]
+        public void CampaignCasualHud_FirstQuerySnapshotRendersTwoFilledSlotsAndRefreshesToThree()
+        {
+            using var fixture = new PlayerHudContractFixture(
+                new GameplayPlayerHudReadModel(hasHealth: true, hp: 2, maxHp: 3),
+                publishInitialFrame: false);
+
+            Assert.That(fixture.Source.CurrentSnapshot.Tick.LastReducedTickIndex,
+                Is.EqualTo(UIPresentationSnapshot.Empty.Tick.LastReducedTickIndex));
+            Assert.That(fixture.Source.CurrentSnapshot.Health.HasHealth, Is.True);
+            Assert.That(fixture.Source.CurrentSnapshot.Health.Hp, Is.EqualTo(2));
+            Assert.That(fixture.Source.CurrentSnapshot.Health.MaxHp, Is.EqualTo(3));
+            Assert.That(fixture.Source.CurrentSnapshot.Chance.HasChances, Is.False);
+            AssertHealthSlots(fixture.Hud.ChancePanelView, 2, 3);
+
+            fixture.Query.SetPlayerHud(new GameplayPlayerHudReadModel(hasHealth: true, hp: 3, maxHp: 3));
+            fixture.RefreshState();
+
+            Assert.That(fixture.Source.CurrentSnapshot.Health.Hp, Is.EqualTo(3));
+            Assert.That(fixture.Source.CurrentSnapshot.Health.MaxHp, Is.EqualTo(3));
+            Assert.That(fixture.SnapshotChanges, Is.EqualTo(1));
+            AssertHealthSlots(fixture.Hud.ChancePanelView, 3, 3);
+            Assert.That(fixture.Chance.ViewModel.HasChances, Is.False);
+        }
+
+        [Test]
+        public void CampaignHardcoreHud_FirstQuerySnapshotRendersChancesWithoutHealth()
+        {
+            using var fixture = new PlayerHudContractFixture(
+                new GameplayPlayerHudReadModel(hasRemainingChances: true, remainingChances: 2, maxChances: 3),
+                publishInitialFrame: false);
+
+            Assert.That(fixture.Source.CurrentSnapshot.Tick.LastReducedTickIndex,
+                Is.EqualTo(UIPresentationSnapshot.Empty.Tick.LastReducedTickIndex));
+            Assert.That(fixture.Source.CurrentSnapshot.Health.HasHealth, Is.False);
+            Assert.That(fixture.Source.CurrentSnapshot.Chance.HasChances, Is.True);
+            Assert.That(fixture.Source.CurrentSnapshot.Chance.RemainingChances, Is.EqualTo(2));
+            Assert.That(fixture.Source.CurrentSnapshot.Chance.MaxChances, Is.EqualTo(3));
+            Assert.That(fixture.Hud.ChancePanelView.SlotViews.Count, Is.EqualTo(3));
+            Assert.That(fixture.Hud.ChancePanelView.SlotViews.All(slot => slot.gameObject.activeInHierarchy), Is.True);
+            Assert.That(fixture.Chance.ViewModel.Slots.Select(slot => slot.IsFilled),
+                Is.EqualTo(new[] { true, true, false }));
+        }
+
+        private static void AssertHealthSlots(ChancePanelView panel, int hp, int maxHp)
+        {
+            Assert.That(panel.SlotViews.Count, Is.EqualTo(3));
+            for (var i = 0; i < panel.SlotViews.Count; i++)
+            {
+                var slot = panel.SlotViews[i];
+                Assert.That(slot.gameObject.activeInHierarchy, Is.EqualTo(i < maxHp), $"slot {i}");
+                if (i < maxHp)
+                {
+                    Assert.That(
+                        GetSerializedReference<Image>(slot, "_filledIcon").gameObject.activeSelf,
+                        Is.EqualTo(i < hp),
+                        $"filled icon {i}");
+                    Assert.That(
+                        GetSerializedReference<Image>(slot, "_emptyIcon").gameObject.activeSelf,
+                        Is.EqualTo(i >= hp),
+                        $"empty icon {i}");
+                }
+            }
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void PlayerHudContract_RepeatedFrameDoesNotNotifyOrResurrectCompletedRow(bool satisfied)
@@ -266,6 +358,7 @@ namespace Game.Feature.UI.Tests
             public readonly ProbeLocaleResolver Locale = new ProbeLocaleResolver();
             public readonly ObjectiveHudPresenter Objective;
             public readonly ChancePanelPresenter Chance = new ChancePanelPresenter();
+            public readonly HUDRootView Hud;
             public readonly ObjectiveHudView View;
             public int SnapshotChanges;
             public int ObjectiveChanges;
@@ -276,24 +369,30 @@ namespace Game.Feature.UI.Tests
                 .Where(child => child != _template && child.gameObject.activeSelf)
                 .Select(child => child.GetComponent<ObjectiveHudRowView>()).Where(row => row != null).ToArray();
 
-            public PlayerHudContractFixture()
+            public PlayerHudContractFixture(GameplayPlayerHudReadModel? initialPlayerHud = null, bool publishInitialFrame = true)
             {
                 Query = new FakeGameplayQueryFacade(new GameplaySessionReadModel(1, false, true, false),
-                    MakePlayer(), MakeObjective(false),
+                    initialPlayerHud ?? MakePlayer(), MakeObjective(false),
                     new GameplayStageReadModel(StageId.CreateOrThrow("stage-1-1"), "stage.stage-1-1.display_name"));
                 Source = new GameplayUiPresentationSource(Query, _feed, new FakeGameplayPauseService());
                 Objective = new ObjectiveHudPresenter(Locale);
                 var stage = new StageInfoPresenter(Locale);
                 var belt = new SurfaceBeltIndicatorPresenter();
-                _presenter = new HUDRootPresenter(Source, stage, Objective, Chance, belt);
-                _controller = new HUDController(_presenter.ViewModel, stage.ViewModel, Objective.ViewModel, Chance.ViewModel, belt.ViewModel);
                 CreateCanonicalRootView(_root, out var hud);
+                Hud = hud;
+                var health = new HealthPanelPresenter();
+                hud.ChancePanelView.BindHealth(health.ViewModel);
+                _presenter = new HUDRootPresenter(Source, stage, Objective, Chance, belt, health);
+                _controller = new HUDController(_presenter.ViewModel, stage.ViewModel, Objective.ViewModel, Chance.ViewModel, belt.ViewModel);
                 View = hud.ObjectiveHudView;
                 _list = GetSerializedReference<RectTransform>(View, "_objectiveListRoot");
                 _template = GetSerializedReference<RectTransform>(View, "_objectiveItemTemplate");
                 _controller.AttachView(hud);
-                Publish(1, false);
-                FinishEnter();
+                if (publishInitialFrame)
+                {
+                    Publish(1, false);
+                    FinishEnter();
+                }
                 Source.SnapshotChanged += _ => { SnapshotChanges++; Order.Add("snapshot"); };
                 Objective.ViewModel.Changed += () => ObjectiveChanges++;
                 Source.TickEventsApplied += batch =>
@@ -377,7 +476,10 @@ namespace Game.Feature.UI.Tests
         {
             public string CurrentLocaleCode { get; private set; } = "en-US";
             public event Action LocaleChanged;
-            public string Resolve(LocalizedTextDescriptor descriptor) => CurrentLocaleCode + ":" + descriptor.Key;
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                return CurrentLocaleCode + ":" + descriptor.Key;
+            }
             public void ChangeLocale(string locale)
             {
                 CurrentLocaleCode = locale;

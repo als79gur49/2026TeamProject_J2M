@@ -15,7 +15,8 @@ namespace Game.Feature.UI.Application
 
             return new LevelFailedScreenPayload(
                 readModel.RestartLevelRequest,
-                readModel.TerminalToken);
+                readModel.TerminalToken,
+                readModel.Reason == GameplayLevelFailureReason.CampaignChancesExhausted);
         }
     }
 }

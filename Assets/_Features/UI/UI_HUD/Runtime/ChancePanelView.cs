@@ -17,6 +17,15 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private RectTransform _floatingFeedbackRoot;
 
         private readonly List<ChanceSlotView> _runtimeSlots = new List<ChanceSlotView>();
+        private HealthPanelViewModel _health;
+        public void BindHealth(HealthPanelViewModel health)
+        {
+            if (_health != null) _health.Changed -= HandleViewModelChanged;
+            _health = health;
+            if (_health != null) _health.Changed += HandleViewModelChanged;
+            RefreshView();
+        }
+
         private ChancePanelViewModel _viewModel;
         private Sequence _panelSequence;
         private int _lastAnimationSequenceId;
@@ -89,6 +98,7 @@ namespace Game.Feature.UI.HUD
 
         private void OnDestroy()
         {
+            if (_health != null) _health.Changed -= HandleViewModelChanged;
             KillPanelSequence();
             if (_viewModel != null)
             {
@@ -104,7 +114,9 @@ namespace Game.Feature.UI.HUD
         private void RefreshView()
         {
             ValidateAuthoredStructureOrThrow();
-            var isVisible = _viewModel != null && _viewModel.HasChances;
+            var hasHealth = _health?.HasHealth == true;
+            var isVisible = hasHealth || (_viewModel != null && _viewModel.HasChances);
+            _slotContainer.gameObject.SetActive(isVisible);
             if (_root != null)
             {
                 _root.SetActive(isVisible);
@@ -113,6 +125,30 @@ namespace Game.Feature.UI.HUD
             if (!isVisible)
             {
                 KillPanelSequence();
+                return;
+            }
+
+            if (hasHealth)
+            {
+                KillPanelSequence();
+                if (_health.MaxHp > _runtimeSlots.Count)
+                {
+                    throw new InvalidOperationException(
+                        $"{nameof(ChancePanelView)} has {_runtimeSlots.Count} authored slots but received MaxHp {_health.MaxHp}.");
+                }
+
+                for (var i = 0; i < _runtimeSlots.Count; i++)
+                {
+                    var isHealthSlot = i < _health.MaxHp;
+                    _runtimeSlots[i].gameObject.SetActive(isHealthSlot);
+                    if (isHealthSlot)
+                    {
+                        _runtimeSlots[i].Bind(
+                            new ChanceSlotViewModel(i, i < _health.Hp, false),
+                            ChanceChangeAnimationHint.None,
+                            HudAnimationSettings.Default);
+                    }
+                }
                 return;
             }
 

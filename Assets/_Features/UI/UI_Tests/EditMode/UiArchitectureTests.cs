@@ -682,7 +682,7 @@ namespace Game.Feature.UI.Tests
             var constructors = typeof(HUDRootPresenter).GetConstructors(BindingFlags.Instance | BindingFlags.Public);
             Assert.That(constructors, Has.Length.EqualTo(1));
             var fullConstructor = constructors
-                .Single(constructor => constructor.GetParameters().Length == 5);
+                .Single(constructor => constructor.GetParameters().Length == 6);
             Assert.That(
                 fullConstructor.GetParameters().Select(parameter => parameter.ParameterType).ToArray(),
                 Is.EqualTo(new[]
@@ -692,6 +692,7 @@ namespace Game.Feature.UI.Tests
                     typeof(ObjectiveHudPresenter),
                     typeof(ChancePanelPresenter),
                     typeof(SurfaceBeltIndicatorPresenter),
+                    typeof(HealthPanelPresenter),
                 }));
 
             var forbiddenTypes = new[]

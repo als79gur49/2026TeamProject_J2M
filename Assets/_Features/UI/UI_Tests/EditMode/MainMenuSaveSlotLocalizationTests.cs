@@ -24,7 +24,7 @@ namespace Game.Feature.UI.Tests
         public void MainMenuContract_IsUniqueCompleteAndMatchesTablesBootstrapAndFallbacks()
         {
             var entries = MainMenuLocalizationContract.Entries;
-            Assert.That(entries, Has.Count.EqualTo(56));
+            Assert.That(entries, Has.Count.EqualTo(57));
             Assert.That(entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(entries.Count));
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.English)), Is.True);
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.Korean)), Is.True);
@@ -218,9 +218,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(english.SlotCards[0].TitleText, Is.EqualTo("Slot 1"));
             Assert.That(english.SlotCards[0].StatusText, Is.EqualTo("Empty"));
             Assert.That(english.SlotCards[0].PrimaryActionText, Is.EqualTo("New Game"));
-            Assert.That(english.SlotCards[1].StatusText, Is.EqualTo("Continue"));
-            Assert.That(english.SlotCards[1].StageText, Is.EqualTo("Stage Ward[A]-02"));
-            Assert.That(english.SlotCards[1].ChancesText, Is.EqualTo("Chances 2"));
+            Assert.That(english.SlotCards[1].StatusText, Is.EqualTo("In Progress"));
+            Assert.That(english.SlotCards[1].PrimaryActionText, Is.EqualTo("Continue"));
+            Assert.That(english.SlotCards[1].StageText, Is.EqualTo("Ward[A]-02"));
+            Assert.That(english.SlotCards[1].ModeText, Is.EqualTo("Hardcore"));
+            Assert.That(english.SlotCards[1].SurvivalText, Is.EqualTo("Chances 2"));
             Assert.That(english.SlotCards[1].DeathsText, Is.EqualTo("Deaths 3"));
             Assert.That(english.SlotCards[1].LastPlayedText, Is.EqualTo("Last Played: Jul 29, 2026"));
             Assert.That(english.SlotCards[1].DeleteActionText, Is.EqualTo("Delete"));
@@ -235,14 +237,40 @@ namespace Game.Feature.UI.Tests
             Assert.That(korean.SlotCards[0].TitleText, Is.EqualTo("슬롯 1"));
             Assert.That(korean.SlotCards[0].StatusText, Is.EqualTo("비어 있음"));
             Assert.That(korean.SlotCards[0].PrimaryActionText, Is.EqualTo("새 게임"));
-            Assert.That(korean.SlotCards[1].StatusText, Is.EqualTo("계속"));
-            Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("스테이지 A병동-02"));
-            Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("남은 목숨: 2"));
+            Assert.That(korean.SlotCards[1].StatusText, Is.EqualTo("진행 중"));
+            Assert.That(korean.SlotCards[1].PrimaryActionText, Is.EqualTo("이어하기"));
+            Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("A병동-02"));
+            Assert.That(korean.SlotCards[1].ModeText, Is.EqualTo("하드코어"));
+            Assert.That(korean.SlotCards[1].SurvivalText, Is.EqualTo("남은 목숨: 2"));
             Assert.That(korean.SlotCards[1].DeathsText, Is.EqualTo("사망 횟수: 3"));
             Assert.That(korean.SlotCards[1].LastPlayedText, Is.EqualTo("마지막 플레이: 2026. 7. 29."));
             Assert.That(korean.SlotCards[1].DeleteActionText, Is.EqualTo("삭제"));
             Assert.That(korean.SlotCards[2].StatusText, Is.EqualTo("완료"));
             Assert.That(korean.SlotCards[2].PrimaryActionText, Is.EqualTo("다시 시작"));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void SlotMapper_CasualModeAndHpAreSeparate_ForExistingAndCompletedSlots(bool completed)
+        {
+            var slot = CreateInProgressSlot(1, "stage-0-1", 0, 1);
+            slot.GameMode = GameMode.Casual;
+            slot.ResumeHp = 2;
+            slot.CampaignCompleted = completed;
+            using var resolver = CreateUnityResolver();
+            var model = MainMenuSlotViewModelMapper.Map(
+                CampaignStageSequenceTestAsset.BuildPresentationInputs(
+                    CampaignSlotRawDataMapper.ToEntries(new[]
+                    {
+                        slot, SaveSlotData.CreateEmpty(2), SaveSlotData.CreateEmpty(3),
+                    })), resolver);
+
+            Assert.That(model.SlotCards[0].State,
+                Is.EqualTo(completed ? SaveSlotCardState.Completed : SaveSlotCardState.Existing));
+            Assert.That(model.SlotCards[0].ModeText, Is.EqualTo("Casual"));
+            Assert.That(model.SlotCards[0].SurvivalText, Is.EqualTo("HP 2/3"));
+            Assert.That(model.SlotCards[1].ModeText, Is.Empty);
+            Assert.That(model.SlotCards[1].SurvivalText, Is.Empty);
         }
 
         [Test]
@@ -262,7 +290,7 @@ namespace Game.Feature.UI.Tests
                 resolver);
             Assert.That(
                 english.SlotCards.Select(card => card.StageText).ToArray(),
-                Is.EqualTo(new[] { "Stage Lab-01", "Stage Ward[A]-01", "Stage Morgue-01" }));
+                Is.EqualTo(new[] { "Lab-01", "Ward[A]-01", "Morgue-01" }));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
             var korean = MainMenuSlotViewModelMapper.Map(
@@ -271,12 +299,12 @@ namespace Game.Feature.UI.Tests
                 resolver);
             Assert.That(
                 korean.SlotCards.Select(card => card.StageText).ToArray(),
-                Is.EqualTo(new[] { "스테이지 연구실-01", "스테이지 A병동-01", "스테이지 영안실-01" }));
+                Is.EqualTo(new[] { "연구실-01", "A병동-01", "영안실-01" }));
             Assert.That(
                 korean.SlotCards.Select(card => card.SlotNumber).ToArray(),
                 Is.EqualTo(new[] { 1, 2, 3 }));
             Assert.That(
-                korean.SlotCards.Select(card => card.ChancesText).ToArray(),
+                korean.SlotCards.Select(card => card.SurvivalText).ToArray(),
                 Is.EqualTo(new[] { "남은 목숨: 3", "남은 목숨: 2", "남은 목숨: 1" }));
             Assert.That(
                 korean.SlotCards.Select(card => card.DeathsText).ToArray(),
@@ -312,7 +340,7 @@ namespace Game.Feature.UI.Tests
                     CampaignSlotActionPolicy.Evaluate(evaluation),
                     PackageFreeLocalizedTextResolver.CreateSettingsDefault());
 
-                Assert.That(card.StageText, Is.EqualTo("Stage Lab-01"));
+                Assert.That(card.StageText, Is.EqualTo("Lab-01"));
             }
             finally
             {
@@ -469,7 +497,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("ko-KR");
             Assert.That(refreshCount, Is.EqualTo(1));
             Assert.That(refreshed.SlotCards[0].TitleText, Is.EqualTo("슬롯 1"));
-            Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("스테이지 연구실-01"));
+            Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("연구실-01"));
 
             resolver.SetLocale("en-US");
             Assert.That(refreshCount, Is.EqualTo(2));

@@ -15,15 +15,16 @@ namespace Game.Feature.UI.Screens
 
     public sealed class SaveSlotCardView : MonoBehaviour
     {
-        internal const int TypographyTargetCount = 8;
+        internal const int TypographyTargetCount = 9;
 
         private const string MissingAuthoredStructureMessage =
-            "MainMenu save slot card is missing required authored UI references. Repair MainMenuScreen.prefab so each SaveSlotCardView owns its labels and action buttons.";
+            "MainMenu save slot card is missing required authored UI references. Repair SaveSlotCard.prefab so each SaveSlotCardView owns its labels and action buttons.";
 
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private TMP_Text _statusLabel;
         [SerializeField] private TMP_Text _stageLabel;
-        [SerializeField] private TMP_Text _chancesLabel;
+        [SerializeField] private TMP_Text _modeLabel;
+        [SerializeField] private TMP_Text _survivalLabel;
         [SerializeField] private TMP_Text _deathsLabel;
         [SerializeField] private TMP_Text _lastPlayedLabel;
         [SerializeField] private Button _primaryButton;
@@ -75,7 +76,8 @@ namespace Game.Feature.UI.Screens
             if (_titleLabel == null ||
                 _statusLabel == null ||
                 _stageLabel == null ||
-                _chancesLabel == null ||
+                _modeLabel == null ||
+                _survivalLabel == null ||
                 _deathsLabel == null ||
                 _lastPlayedLabel == null ||
                 _primaryButton == null ||
@@ -92,7 +94,8 @@ namespace Game.Feature.UI.Screens
             if (!IsOwnedByCard(_titleLabel.transform) ||
                 !IsOwnedByCard(_statusLabel.transform) ||
                 !IsOwnedByCard(_stageLabel.transform) ||
-                !IsOwnedByCard(_chancesLabel.transform) ||
+                !IsOwnedByCard(_modeLabel.transform) ||
+                !IsOwnedByCard(_survivalLabel.transform) ||
                 !IsOwnedByCard(_deathsLabel.transform) ||
                 !IsOwnedByCard(_lastPlayedLabel.transform) ||
                 !IsOwnedByCard(_primaryButton.transform) ||
@@ -113,7 +116,8 @@ namespace Game.Feature.UI.Screens
                 _titleLabel,
                 _statusLabel,
                 _stageLabel,
-                _chancesLabel,
+                _modeLabel,
+                _survivalLabel,
                 _deathsLabel,
                 _lastPlayedLabel,
                 _primaryButtonLabel,
@@ -277,7 +281,8 @@ namespace Game.Feature.UI.Screens
             }
 
             SetOptionalLabel(_stageLabel, _viewModel?.StageText);
-            SetOptionalLabel(_chancesLabel, _viewModel?.ChancesText);
+            SetOptionalLabel(_modeLabel, _viewModel?.ModeText);
+            SetOptionalLabel(_survivalLabel, _viewModel?.SurvivalText);
             SetOptionalLabel(_deathsLabel, _viewModel?.DeathsText);
             SetOptionalLabel(_lastPlayedLabel, _viewModel?.LastPlayedText);
 

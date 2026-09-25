@@ -3,6 +3,23 @@ using System.Collections.Generic;
 
 namespace Game.Feature.UI.HUD
 {
+    public sealed class HealthPanelViewModel
+    {
+        public event Action Changed;
+        public bool HasHealth { get; private set; }
+        public int Hp { get; private set; }
+        public int MaxHp { get; private set; }
+
+        public void SetHealth(bool hasHealth, int hp, int maxHp)
+        {
+            if (HasHealth == hasHealth && Hp == hp && MaxHp == maxHp) return;
+            HasHealth = hasHealth;
+            Hp = hp;
+            MaxHp = maxHp;
+            Changed?.Invoke();
+        }
+    }
+
     public enum ChanceChangeKind
     {
         None = 0,

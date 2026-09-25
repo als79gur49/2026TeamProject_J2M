@@ -32,10 +32,13 @@ namespace Game.Feature.UI.Application
     {
         public LevelFailedScreenPayload(
             StageNavigationRequest restartLevelRequest,
-            TerminalSessionToken terminalToken = default)
+            TerminalSessionToken terminalToken = default,
+            bool returnToCampaignStart = false)
         {
             TitleTextDescriptor = TerminalResultTextDescriptors.LevelFailedTitle;
-            RestartStageLabelDescriptor = TerminalResultTextDescriptors.RestartStage;
+            RestartStageLabelDescriptor = returnToCampaignStart
+                ? new LocalizedTextDescriptor("UI", "ui.campaign.restart.campaign", LocalizedTextRole.Button)
+                : TerminalResultTextDescriptors.RestartStage;
             MainMenuLabelDescriptor = TerminalResultTextDescriptors.MainMenu;
             RestartLevelRequest = restartLevelRequest;
             TerminalToken = terminalToken;

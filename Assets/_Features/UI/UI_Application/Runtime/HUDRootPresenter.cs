@@ -10,6 +10,7 @@ namespace Game.Feature.UI.Application
         private readonly StageInfoPresenter _stageInfoPresenter;
         private readonly ObjectiveHudPresenter _objectiveHudPresenter;
         private readonly ChancePanelPresenter _chancePanelPresenter;
+        private readonly HealthPanelPresenter _healthPanelPresenter;
         private readonly SurfaceBeltIndicatorPresenter _surfaceBeltIndicatorPresenter;
 
         public HUDRootPresenter(
@@ -17,7 +18,8 @@ namespace Game.Feature.UI.Application
             StageInfoPresenter stageInfoPresenter,
             ObjectiveHudPresenter objectiveHudPresenter,
             ChancePanelPresenter chancePanelPresenter,
-            SurfaceBeltIndicatorPresenter surfaceBeltIndicatorPresenter)
+            SurfaceBeltIndicatorPresenter surfaceBeltIndicatorPresenter,
+            HealthPanelPresenter healthPanelPresenter = null)
         {
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             _stageInfoPresenter = stageInfoPresenter ?? throw new ArgumentNullException(nameof(stageInfoPresenter));
@@ -25,6 +27,7 @@ namespace Game.Feature.UI.Application
             _chancePanelPresenter = chancePanelPresenter ?? throw new ArgumentNullException(nameof(chancePanelPresenter));
             _surfaceBeltIndicatorPresenter = surfaceBeltIndicatorPresenter ?? throw new ArgumentNullException(nameof(surfaceBeltIndicatorPresenter));
 
+            _healthPanelPresenter = healthPanelPresenter;
             ViewModel = new HUDRootViewModel();
             _presentationSource.SnapshotChanged += HandleSnapshotChanged;
 
@@ -57,7 +60,18 @@ namespace Game.Feature.UI.Application
             _stageInfoPresenter.Apply(snapshot.Stage);
             _objectiveHudPresenter.Apply(snapshot.Objective);
             _chancePanelPresenter.Apply(snapshot.Chance);
+            _healthPanelPresenter?.Apply(snapshot.Health);
             _surfaceBeltIndicatorPresenter.Apply(snapshot.SurfaceBelt);
+        }
+    }
+
+    public sealed class HealthPanelPresenter
+    {
+        public HealthPanelViewModel ViewModel { get; } = new();
+
+        public void Apply(UIHealthSlice health)
+        {
+            ViewModel.SetHealth(health.HasHealth, health.Hp, health.MaxHp);
         }
     }
 

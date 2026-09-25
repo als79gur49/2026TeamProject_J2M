@@ -7,6 +7,11 @@ using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
+    public interface ICampaignModeSelectionPort
+    {
+        void RequestMode(Action<GameMode?> completion);
+    }
+
     public interface IConfirmPopupPort
     {
         void Request(ConfirmPopupPayload payload, Action<bool> completion);
@@ -15,6 +20,7 @@ namespace Game.Feature.UI.Application
     public sealed class MainMenuController : IDisposable
     {
         private readonly IConfirmPopupPort _confirmPopupPort;
+        private readonly ICampaignModeSelectionPort _modeSelectionPort;
         private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
         private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly ICampaignSaveQuery _saveSlotStore;
@@ -40,7 +46,8 @@ namespace Game.Feature.UI.Application
             IConfirmPopupPort confirmPopupPort,
             ILocalizedTextResolver localizedTextResolver = null,
             IMainMenuSaveDiagnosticPort saveDiagnosticPort = null,
-            ICampaignSaveRecoveryPort saveRecoveryPort = null)
+            ICampaignSaveRecoveryPort saveRecoveryPort = null,
+            ICampaignModeSelectionPort modeSelectionPort = null)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
             _slotLifecyclePort = slotLifecyclePort ??
@@ -54,6 +61,7 @@ namespace Game.Feature.UI.Application
                 throw new ArgumentNullException(nameof(slotLaunchEvaluator));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _confirmPopupPort = confirmPopupPort ?? throw new ArgumentNullException(nameof(confirmPopupPort));
+            _modeSelectionPort = modeSelectionPort ?? confirmPopupPort as ICampaignModeSelectionPort;
             _localizedTextResolver = localizedTextResolver ??
                 InvariantSettingsLocalizedTextResolver.Instance;
             _saveDiagnosticPort = saveDiagnosticPort ??
@@ -363,10 +371,28 @@ namespace Game.Feature.UI.Application
                 });
         }
 
-        private void StartNewGame(
+        private void StartNewGame(int slotNumber, MainMenuLaunchOperationKind operationKind, bool confirmIfOccupied)
+        {
+            if (_isDisposed || IsCampaignAccessBlocked()) return;
+            // Headless consumers may omit the UI port; production always supplies the popup adapter.
+            if (_modeSelectionPort == null)
+            {
+                StartNewGameWithMode(slotNumber, operationKind, confirmIfOccupied, GameMode.Hardcore);
+                return;
+            }
+            var generation = BeginConfirmation();
+            _modeSelectionPort.RequestMode(mode =>
+            {
+                if (!TryClaimConfirmation(generation)) return;
+                if (mode != GameMode.Casual && mode != GameMode.Hardcore) return;
+                StartNewGameWithMode(slotNumber, operationKind, confirmIfOccupied, mode.Value);
+            });
+        }
+
+        private void StartNewGameWithMode(
             int slotNumber,
             MainMenuLaunchOperationKind operationKind,
-            bool confirmIfOccupied)
+            bool confirmIfOccupied, GameMode gameMode)
         {
             if (_isDisposed)
             {
@@ -393,7 +419,7 @@ namespace Game.Feature.UI.Application
             var candidate = CampaignSlotStateFactory.CreateNewGame(
                 slotNumber,
                 _sequenceResolver,
-                string.Empty);
+                string.Empty, gameMode);
             var candidateEvaluation = _slotLaunchEvaluator.Evaluate(candidate);
             var candidateActionPolicy = CampaignSlotActionPolicy.Evaluate(candidateEvaluation);
             if (!candidateActionPolicy.CanContinue)
@@ -417,19 +443,19 @@ namespace Game.Feature.UI.Application
                 (confirmIfOccupied && !existingEntry.IsEmpty);
             if (requiresConfirmation)
             {
-                RequestLaunchConfirmation(handoff, operationKind);
+                RequestLaunchConfirmation(handoff, operationKind, gameMode);
                 return;
             }
 
-            InitializeAndRouteNewGame(handoff);
+            InitializeAndRouteNewGame(handoff, gameMode);
         }
 
         private void RequestLaunchConfirmation(
             CampaignLaunchHandoff handoff,
-            MainMenuLaunchOperationKind operationKind)
+            MainMenuLaunchOperationKind operationKind, GameMode gameMode)
         {
             var confirmationGeneration = BeginConfirmation();
-            var operation = new LaunchConfirmationOperation(handoff, operationKind);
+            var operation = new LaunchConfirmationOperation(handoff, operationKind, gameMode);
             _currentLaunchConfirmation = operation;
             var payload = operationKind == MainMenuLaunchOperationKind.Restart
                 ? MainMenuLocalization.CreateConfirmationPayload(
@@ -489,10 +515,10 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            InitializeAndRouteNewGame(operation.Handoff);
+            InitializeAndRouteNewGame(operation.Handoff, operation.GameMode);
         }
 
-        private void InitializeAndRouteNewGame(CampaignLaunchHandoff handoff)
+        private void InitializeAndRouteNewGame(CampaignLaunchHandoff handoff, GameMode gameMode)
         {
             if (_isDisposed || !IsCurrentHandoff(handoff))
             {
@@ -504,7 +530,7 @@ namespace Game.Feature.UI.Application
                 _slotLifecyclePort.InitializeNewGame(
                     handoff.SlotNumber,
                     _sequenceResolver,
-                    DateTimeOffset.UtcNow.ToString("O"));
+                    DateTimeOffset.UtcNow.ToString("O"), gameMode);
                 var entry = _saveSlotStore.LoadSlot(handoff.SlotNumber);
                 var evaluation = _slotLaunchEvaluator.Evaluate(entry);
                 var actionPolicy = CampaignSlotActionPolicy.Evaluate(evaluation);
@@ -713,16 +739,19 @@ namespace Game.Feature.UI.Application
         {
             public LaunchConfirmationOperation(
                 CampaignLaunchHandoff handoff,
-                MainMenuLaunchOperationKind kind)
+                MainMenuLaunchOperationKind kind, GameMode gameMode)
             {
                 Handoff = handoff ?? throw new ArgumentNullException(nameof(handoff));
                 Kind = kind;
+                GameMode = gameMode;
                 SlotNumber = handoff.SlotNumber;
             }
 
             public CampaignLaunchHandoff Handoff { get; }
 
             public MainMenuLaunchOperationKind Kind { get; }
+
+            public GameMode GameMode { get; }
 
             public int SlotNumber { get; }
         }

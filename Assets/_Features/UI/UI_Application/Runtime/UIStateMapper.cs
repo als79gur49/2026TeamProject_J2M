@@ -30,8 +30,10 @@ namespace Game.Feature.UI.Application
             GameplayObjectiveReadModel objective = default,
             GameplayTopologyPresentationSlice? topologyPresentation = null,
             GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default,
-            IReadOnlyList<UISurfaceButtonRemainderInput> surfaceButtonRemainders = null)
+            IReadOnlyList<UISurfaceButtonRemainderInput> surfaceButtonRemainders = null,
+            UIHealthSlice health = default)
         {
+            Health = health;
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
             FinalTopology = finalTopology;
@@ -56,6 +58,8 @@ namespace Game.Feature.UI.Application
             TopologyPresentation = topologyPresentation;
             SurfaceButtonRemainders = CopySurfaceButtonRemainders(surfaceButtonRemainders);
         }
+
+        public UIHealthSlice Health { get; }
 
         public int TickIndex { get; }
 
@@ -214,7 +218,7 @@ namespace Game.Feature.UI.Application
                 next.Topology,
                 next.SurfaceBelt,
                 next.Player,
-                new UINotificationLedgerSlice(notifications));
+                new UINotificationLedgerSlice(notifications), next.Health);
 
             return new UIStateReductionResult(next, appliedEvents);
         }
@@ -260,7 +264,7 @@ namespace Game.Feature.UI.Application
                 topology,
                 surfaceBelt,
                 player,
-                previous.Notifications);
+                previous.Notifications, refreshInput.Health);
         }
 
         private static UIPresentationSnapshot ApplyTickEvent(
@@ -284,7 +288,7 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.TookDamageThisTick,
                             snapshot.Player.LastDamageAmount,
                             snapshot.Player.LastDamageTickIndex),
-                        snapshot.Notifications);
+                        snapshot.Notifications, snapshot.Health);
 
                 case UITickEventKind.PlayerDamaged:
                     return new UIPresentationSnapshot(
@@ -301,7 +305,7 @@ namespace Game.Feature.UI.Application
                             true,
                             tickEvent.DamageAmount,
                             tickEvent.TickIndex),
-                        snapshot.Notifications);
+                        snapshot.Notifications, snapshot.Health);
 
                 case UITickEventKind.StageCleared:
                     return new UIPresentationSnapshot(
@@ -323,7 +327,7 @@ namespace Game.Feature.UI.Application
                             snapshot.SurfaceBelt.TransitionSequenceId,
                             buttonRemainders: snapshot.SurfaceBelt.ButtonRemainders),
                         snapshot.Player,
-                        snapshot.Notifications);
+                        snapshot.Notifications, snapshot.Health);
 
                 default:
                     return snapshot;

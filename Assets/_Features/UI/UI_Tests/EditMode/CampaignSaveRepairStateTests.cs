@@ -147,7 +147,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(card.FailureKind, Is.EqualTo(SaveSlotFailurePresentationKind.NeedsRepair));
             Assert.That(card.StatusText, Is.EqualTo("Save Data Unavailable"));
             Assert.That(card.StageText, Is.EqualTo("This save cannot be used in its current state."));
-            Assert.That(card.ChancesText, Is.Empty);
+            Assert.That(card.ModeText, Is.Empty);
+            Assert.That(card.SurvivalText, Is.Empty);
             Assert.That(card.DeathsText, Is.Empty);
             Assert.That(card.LastPlayedText, Is.Empty);
             Assert.That(card.PrimaryActionText, Is.EqualTo("Restart"));

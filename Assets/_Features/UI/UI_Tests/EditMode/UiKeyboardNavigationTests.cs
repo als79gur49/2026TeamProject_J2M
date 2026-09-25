@@ -2692,7 +2692,8 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(card, "_titleLabel", CreateLabel("Title", headerRow));
             SetPrivateField(card, "_statusLabel", CreateLabel("Status", headerRow));
             SetPrivateField(card, "_stageLabel", CreateLabel("Stage", detailRow));
-            SetPrivateField(card, "_chancesLabel", CreateLabel("Chances", detailRow));
+            SetPrivateField(card, "_modeLabel", CreateLabel("Mode", detailRow));
+            SetPrivateField(card, "_survivalLabel", CreateLabel("Chances", detailRow));
             SetPrivateField(card, "_deathsLabel", CreateLabel("Deaths", metaRow));
             SetPrivateField(card, "_lastPlayedLabel", CreateLabel("LastPlayed", metaRow));
 

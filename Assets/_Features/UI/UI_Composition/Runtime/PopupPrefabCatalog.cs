@@ -11,12 +11,15 @@ namespace Game.Feature.UI.Composition
     {
         [SerializeField] private PausePopupView _pausePrefab;
         [SerializeField] private ConfirmPopupView _confirmPrefab;
+        [SerializeField] private ConfirmPopupView _campaignModeSelectPrefab;
         [SerializeField] private DemoStageControlPanelView _demoStageControlPrefab;
         [SerializeField] private GameplayUiTypographyTheme _typographyTheme;
 
         public PausePopupView PausePrefab => _pausePrefab;
 
         public ConfirmPopupView ConfirmPrefab => _confirmPrefab;
+
+        internal ConfirmPopupView CampaignModeSelectPrefab => _campaignModeSelectPrefab;
 
         public DemoStageControlPanelView DemoStageControlPrefab => _demoStageControlPrefab;
 

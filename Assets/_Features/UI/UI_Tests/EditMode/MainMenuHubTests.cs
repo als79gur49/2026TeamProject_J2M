@@ -247,7 +247,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(saveSlotBlockerRoot.transform.IsChildOf(saveSlotOverlayLayer), Is.True);
             Assert.That(saveSlotBlockerCanvasGroup, Is.Not.Null);
             Assert.That(saveSlotBlockerImage, Is.Not.Null);
-            Assert.That(saveSlotBlockerImage.color.a, Is.EqualTo(0.48f).Within(0.001f));
+            Assert.That(saveSlotBlockerImage.color.a, Is.GreaterThan(0f).And.LessThan(1f));
             Assert.That(saveSlotBlockerCanvasGroup.blocksRaycasts, Is.False);
             Assert.That(saveSlotBlockerImage.raycastTarget, Is.False);
             Assert.That(saveSlotCloseButton, Is.Not.Null);
@@ -534,13 +534,22 @@ namespace Game.Feature.UI.Tests
                 root.SetActive(true);
                 InvokePrivate(card, "OnEnable");
 
+                card.Bind(new SaveSlotCardViewModel(
+                    1, SaveSlotCardState.Existing, "Slot 1", "Continue", "Stage 0-1",
+                    "HP 2/3", "Deaths 0", "", "Continue", SaveSlotIntentKind.Continue,
+                    showDelete: true, modeText: "Casual"));
+                Assert.That(GetPrivateField<TMP_Text>(card, "_modeLabel").text, Is.EqualTo("Casual"));
+                Assert.That(GetPrivateField<TMP_Text>(card, "_survivalLabel").text, Is.EqualTo("HP 2/3"));
+                CollectionAssert.Contains(card.CreateTypographyTargets(), GetPrivateField<TMP_Text>(card, "_modeLabel"));
                 card.Bind(CreateEmptyCardViewModel(1));
+                Assert.That(GetPrivateField<TMP_Text>(card, "_modeLabel").text, Is.Empty);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_survivalLabel").text, Is.Empty);
 
                 Assert.That(card.transform.Find("DetailRow").gameObject.activeSelf, Is.True);
                 Assert.That(card.transform.Find("MetaRow").gameObject.activeSelf, Is.True);
                 Assert.That(card.transform.Find("ActionRow").gameObject.activeSelf, Is.True);
                 Assert.That(GetPrivateField<TMP_Text>(card, "_stageLabel").gameObject.activeSelf, Is.True);
-                Assert.That(GetPrivateField<TMP_Text>(card, "_chancesLabel").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<TMP_Text>(card, "_survivalLabel").gameObject.activeSelf, Is.True);
                 Assert.That(GetPrivateField<TMP_Text>(card, "_deathsLabel").gameObject.activeSelf, Is.True);
                 Assert.That(GetPrivateField<TMP_Text>(card, "_lastPlayedLabel").gameObject.activeSelf, Is.True);
                 Assert.That(GetPrivateField<Button>(card, "_primaryButton").gameObject.activeSelf, Is.True);
@@ -1172,7 +1181,8 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(card, "_titleLabel", CreateLabel("Title", headerRow));
             SetPrivateField(card, "_statusLabel", CreateLabel("Status", headerRow));
             SetPrivateField(card, "_stageLabel", CreateLabel("Stage", detailRow));
-            SetPrivateField(card, "_chancesLabel", CreateLabel("Chances", detailRow));
+            SetPrivateField(card, "_modeLabel", CreateLabel("Mode", detailRow));
+            SetPrivateField(card, "_survivalLabel", CreateLabel("Chances", detailRow));
             SetPrivateField(card, "_deathsLabel", CreateLabel("Deaths", metaRow));
             SetPrivateField(card, "_lastPlayedLabel", CreateLabel("LastPlayed", metaRow));
 

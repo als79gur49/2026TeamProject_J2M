@@ -437,7 +437,11 @@ namespace Game.Feature.UI.Composition
             var presenter = new ConfirmPopupPresenter(_localizedTextResolver);
             presenter.Apply(payload);
 
-            var view = InstantiatePopupPrefab(_popupPrefabCatalog.ConfirmPrefab, PopupId.Confirm);
+            var prefab = payload.IsCampaignModeSelection
+                ? _popupPrefabCatalog.CampaignModeSelectPrefab
+                : _popupPrefabCatalog.ConfirmPrefab;
+            var view = InstantiatePopupPrefab(prefab, PopupId.Confirm);
+            view.ConfigureAlternativeAction(payload.SecondaryIsAlternative);
             view.Bind(presenter.ViewModel);
             view.ConfigureActions(payload.ConfirmEnabled, payload.CancelEnabled, payload.ConsumeBack);
             var typographyBindings = ConfirmPopupProductionLocalizationComposer.Bind(
@@ -451,7 +455,7 @@ namespace Game.Feature.UI.Composition
                     PopupPolicyClass.ModalBlocking,
                     PopupLifetimeScope.CurrentScreen,
                     payload.ConsumeBack ? PopupBackAction.Consume : PopupBackAction.Cancel,
-                    PopupBackdropMode.Consume,
+                    payload.SecondaryIsAlternative ? PopupBackdropMode.CloseTop : PopupBackdropMode.Consume,
                     showsDim: true,
                     blocksLowerLayers: true),
                 new PopupRuntime<ConfirmPopupView>(view, () =>

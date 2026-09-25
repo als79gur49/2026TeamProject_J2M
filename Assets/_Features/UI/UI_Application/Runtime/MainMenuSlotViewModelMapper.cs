@@ -205,14 +205,15 @@ namespace Game.Feature.UI.Application
                     SaveSlotCardState.Completed,
                     title,
                     MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotCompleted),
-                    FormatStageText(localizedTextResolver, displayStage),
-                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotChances, state.RemainingChances),
+                    FormatStageText(displayStage),
+                    FormatSurvival(localizedTextResolver, state),
                     MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotDeaths, state.TotalDeaths),
                     FormatLastPlayedText(state.LastPlayedAt, localizedTextResolver),
                     MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotRestart),
                     SaveSlotIntentKind.Restart,
                     showDelete: action.CanDelete,
-                    deleteActionText: deleteAction);
+                    deleteActionText: deleteAction,
+                    modeText: FormatMode(localizedTextResolver, state));
             }
 
             if (!action.CanContinue)
@@ -246,27 +247,21 @@ namespace Game.Feature.UI.Application
                 entry.SlotNumber,
                 SaveSlotCardState.Existing,
                 title,
-                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotContinue),
-                FormatStageText(localizedTextResolver, displayStage),
-                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotChances, state.RemainingChances),
+                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotInProgress),
+                FormatStageText(displayStage),
+                FormatSurvival(localizedTextResolver, state),
                 MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotDeaths, state.TotalDeaths),
                 FormatLastPlayedText(state.LastPlayedAt, localizedTextResolver),
                 MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotContinue),
                 SaveSlotIntentKind.Continue,
                 showDelete: action.CanDelete,
-                deleteActionText: deleteAction);
+                deleteActionText: deleteAction,
+                modeText: FormatMode(localizedTextResolver, state));
         }
 
-        private static string FormatStageText(
-            ILocalizedTextResolver localizedTextResolver,
-            string displayStage)
+        private static string FormatStageText(string displayStage)
         {
-            return string.IsNullOrWhiteSpace(displayStage)
-                ? string.Empty
-                : MainMenuLocalization.Resolve(
-                    localizedTextResolver,
-                    MainMenuLocalizationEntryId.SlotStage,
-                    displayStage);
+            return displayStage ?? string.Empty;
         }
 
         private static string FormatLastPlayedText(
@@ -285,6 +280,19 @@ namespace Game.Feature.UI.Application
                 localizedTextResolver,
                 MainMenuLocalizationEntryId.SlotPlayed,
                 formattedDate);
+        }
+
+        private static string FormatMode(ILocalizedTextResolver resolver, CampaignSlotState state)
+        {
+            return resolver.Resolve(new LocalizedTextDescriptor("UI", state.GameMode == GameMode.Casual
+                ? "ui.campaign.mode.casual" : "ui.campaign.mode.hardcore"));
+        }
+
+        private static string FormatSurvival(ILocalizedTextResolver resolver, CampaignSlotState state)
+        {
+            return state.GameMode == GameMode.Casual
+                ? resolver.Resolve(new LocalizedTextDescriptor("UI", "ui.campaign.hp", arguments: new object[] { state.ResumeHp, 3 }))
+                : MainMenuLocalization.Resolve(resolver, MainMenuLocalizationEntryId.SlotChances, state.RemainingChances);
         }
 
         public static SaveSlotFailurePresentationKind MapFailureKind(

@@ -23,11 +23,15 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private TMP_Text _confirmButtonLabel;
         [SerializeField] private TMP_Text _cancelButtonLabel;
         [SerializeField] private Image _confirmButtonImage;
+        [SerializeField] private bool _preserveAuthoredConfirmColor;
+        [SerializeField] private bool _confirmActionOnLeft;
         [SerializeField] private UiSelectableButtonGroup _actionNavigationGroup = new UiSelectableButtonGroup();
 
         private bool _confirmEnabled = true;
         private bool _cancelEnabled = true;
         private bool _consumeBack;
+        private bool _secondaryIsAlternative;
+        public void ConfigureAlternativeAction(bool enabled) => _secondaryIsAlternative = enabled;
         public void ConfigureActions(bool confirmEnabled, bool cancelEnabled, bool consumeBack)
         {
             _confirmEnabled = confirmEnabled;
@@ -154,10 +158,12 @@ namespace Game.Feature.UI.Popups
             switch (command)
             {
                 case UiNavigationCommand.Left:
-                    return _actionNavigationGroup.SetSelectedIndex(CancelSelectionIndex);
+                    return _actionNavigationGroup.SetSelectedIndex(
+                        _confirmActionOnLeft ? ConfirmSelectionIndex : CancelSelectionIndex);
 
                 case UiNavigationCommand.Right:
-                    return _actionNavigationGroup.SetSelectedIndex(ConfirmSelectionIndex);
+                    return _actionNavigationGroup.SetSelectedIndex(
+                        _confirmActionOnLeft ? CancelSelectionIndex : ConfirmSelectionIndex);
 
                 default:
                     return false;
@@ -191,7 +197,7 @@ namespace Game.Feature.UI.Popups
                 return false;
             }
 
-            ClickCancel();
+            if (CanEmit()) CompletionRequested?.Invoke(PopupCompletionKind.Cancelled);
             return true;
         }
 
@@ -222,7 +228,7 @@ namespace Game.Feature.UI.Popups
                 return;
             }
 
-            CompletionRequested?.Invoke(PopupCompletionKind.Cancelled);
+            CompletionRequested?.Invoke(_secondaryIsAlternative ? PopupCompletionKind.AlternativeSelected : PopupCompletionKind.Cancelled);
         }
 
         private void OnDestroy()
@@ -291,7 +297,7 @@ namespace Game.Feature.UI.Popups
                 _cancelButtonLabel.text = _viewModel.CancelLabel;
             }
 
-            if (_confirmButtonImage != null)
+            if (_confirmButtonImage != null && !_preserveAuthoredConfirmColor)
             {
                 _confirmButtonImage.color = _viewModel.IsConfirmDestructive
                     ? new Color(0.62f, 0.21f, 0.21f, 1f)
@@ -306,7 +312,8 @@ namespace Game.Feature.UI.Popups
                 return;
             }
 
-            _actionNavigationGroup.SetSelectedIndexSilently(CancelSelectionIndex);
+            _actionNavigationGroup.SetSelectedIndexSilently(
+                _confirmActionOnLeft ? ConfirmSelectionIndex : CancelSelectionIndex);
             _actionNavigationGroup.HideAllFrames();
         }
 
