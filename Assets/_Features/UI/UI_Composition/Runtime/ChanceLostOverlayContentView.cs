@@ -13,6 +13,7 @@ namespace Game.Feature.UI.Composition
         ITransitionContentPlaybackProvider
     {
         private const string ChanceSlotNamePrefix = "ChanceSlotView";
+        private const string ImpactRootName = "LostChanceImpactRoot";
         private const string TweenRootName = "LostChanceTweenRoot";
         private const string FilledIconName = "FilledIcon";
         private const string EffectImageName = "Effect";
@@ -37,17 +38,28 @@ namespace Game.Feature.UI.Composition
         private static readonly int GreyscaleBlendId = Shader.PropertyToID("_GreyscaleBlend");
         private static readonly int GreyscaleTintColorId = Shader.PropertyToID("_GreyscaleTintColor");
         private static readonly int GreyscaleLuminosityId = Shader.PropertyToID("_GreyscaleLuminosity");
+        private static readonly int CrackRevealId = Shader.PropertyToID("_CrackReveal");
+        private static readonly int DecayId = Shader.PropertyToID("_Decay");
+        private static readonly int DetachId = Shader.PropertyToID("_Detach");
+        private static readonly int FragmentId = Shader.PropertyToID("_Fragment");
+        private static readonly int IconUvRectId = Shader.PropertyToID("_IconUvRect");
         private static readonly CrackShardSpec[] CrackShardSpecs =
         {
-            new(new Vector2(-64f, 4f), new Vector2(8f, 13f), -18f, -8f, 1f, 0.62f, 0f, 0.02f),
-            new(new Vector2(62f, -4f), new Vector2(9f, 11f), 22f, 7f, -1f, 0.58f, 0f, 0.16f),
-            new(new Vector2(-30f, -82f), new Vector2(10f, 8f), 8f, -5f, -1f, 0.46f, 0f, 0.17f),
-            new(new Vector2(66f, -26f), new Vector2(8f, 14f), -34f, 9f, 1f, 0.68f, 0f, 0.31f),
-            new(new Vector2(-60f, -38f), new Vector2(10f, 10f), 46f, -8f, 1f, 0.56f, 0f, 0.45f),
-            new(new Vector2(24f, -86f), new Vector2(8f, 12f), 4f, 4f, -1f, 0.42f, 0f, 0.46f),
-            new(new Vector2(58f, 8f), new Vector2(9f, 9f), -12f, 10f, 1f, 0.76f, 0f, 0.6f),
-            new(new Vector2(-66f, -14f), new Vector2(8f, 10f), 28f, -10f, -1f, 0.82f, 0f, 0.74f),
-            new(new Vector2(0f, -88f), new Vector2(12f, 8f), -6f, 3f, 1f, 0.5f, 0f, 0.88f),
+            new(new Vector2(-55f, 24f), new Vector2(28f, 32f), -18f, -18f, 1f, 0.72f, 1f, 0.02f),
+            new(new Vector2(51f, -9f), new Vector2(23f, 27f), 22f, 18f, -1f, 0.7f, 0.75f, 0.13f),
+            new(new Vector2(-26f, -55f), new Vector2(14f, 12f), 8f, -7f, -1f, 0.6f, 0f, 0.18f),
+            new(new Vector2(48f, 21f), new Vector2(13f, 17f), -34f, 13f, 1f, 0.72f, 0f, 0.23f),
+            new(new Vector2(-46f, -28f), new Vector2(14f, 14f), 46f, -12f, 1f, 0.62f, 0f, 0.29f),
+            new(new Vector2(23f, -50f), new Vector2(12f, 15f), 4f, 7f, -1f, 0.54f, 0f, 0.35f),
+            new(new Vector2(36f, 7f), new Vector2(10f, 9f), -12f, 11f, 1f, 0.76f, 0f, 0.41f),
+            new(new Vector2(-34f, -13f), new Vector2(9f, 11f), 28f, -10f, -1f, 0.82f, 0f, 0.47f),
+            new(new Vector2(15f, -54f), new Vector2(9f, 10f), -6f, 5f, 1f, 0.62f, 0f, 0.52f),
+        };
+        private static readonly Vector2[] ImpactShakeDirections =
+        {
+            new(0.8f, 0.55f), new(-1f, -0.35f), new(0.65f, -0.8f),
+            new(-0.5f, 0.75f), new(0.7f, 0.25f), new(-0.35f, -0.55f),
+            new(0.25f, 0.4f),
         };
 
         [Header("Localized Text")]
@@ -60,32 +72,36 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private RectTransform[] _chanceSlotRoots;
 
         [Header("Lost Slot Motion")]
-        [Tooltip("Seconds spent shaking the lost slot before it falls and fades. Runtime keeps a small minimum duration.")]
+        [Tooltip("Seconds spent in the damped two-axis impact shake before the icon falls.")]
         [Min(0f)]
-        [SerializeField] private float _lostShakeDurationSeconds = 0.44f;
+        [SerializeField] private float _lostShakeDurationSeconds = 0.36f;
 
-        [Tooltip("UI units of horizontal shake applied to the lost slot. 0 removes shake distance.")]
+        [Tooltip("Maximum horizontal UI distance of the impact shake.")]
         [Min(0f)]
-        [SerializeField] private float _lostShakeStrength = 20f;
+        [SerializeField] private float _lostShakeStrength = 13f;
 
-        [Tooltip("Number of shake steps for the lost slot. Higher values make the shake denser.")]
+        [Tooltip("Maximum vertical UI distance of the impact shake.")]
+        [Min(0f)]
+        [SerializeField] private float _lostShakeVerticalStrength = 5f;
+
+        [Tooltip("Number of irregular shake steps before returning to the authored position.")]
         [Min(1)]
-        [SerializeField] private int _lostShakeVibrato = 18;
+        [SerializeField] private int _lostShakeVibrato = 7;
 
         [Tooltip("UI distance the lost slot falls after impact. Larger values make the slot drop farther.")]
         [Min(0f)]
-        [SerializeField] private float _lostFallDistance = 190f;
+        [SerializeField] private float _lostFallDistance = 78f;
 
         [Tooltip("Seconds for the lost slot fall motion. Runtime keeps a small minimum duration.")]
         [Min(0f)]
-        [SerializeField] private float _lostFallDurationSeconds = 0.66f;
+        [SerializeField] private float _lostFallDurationSeconds = 0.92f;
 
-        [Tooltip("Seconds for the lost slot alpha fade during the fall. Runtime keeps a small minimum duration.")]
+        [Tooltip("Final seconds of the fall used to fade the icon. The frame remains visible.")]
         [Min(0f)]
-        [SerializeField] private float _lostFadeDurationSeconds = 0.5f;
+        [SerializeField] private float _lostFadeDurationSeconds = 0.22f;
 
         [Tooltip("Degrees of z rotation applied while the lost slot falls. Negative values rotate the opposite direction.")]
-        [SerializeField] private float _lostRotationDegrees = -22f;
+        [SerializeField] private float _lostRotationDegrees = -10f;
 
         [Tooltip("Seconds between each lost slot animation when multiple slots are lost. 0 starts them together.")]
         [Min(0f)]
@@ -104,13 +120,17 @@ namespace Game.Feature.UI.Composition
         [Min(0f)]
         [SerializeField] private float _lostImpactDurationSeconds = 0.24f;
 
+        [Tooltip("Visual-only pause between the impact and recoil. Does not change gameplay time scale.")]
+        [Min(0f)]
+        [SerializeField] private float _lostImpactHoldSeconds = 0.05f;
+
         [Tooltip("Target alpha for the lost slot impact flash. 0 uses only the authored alpha; 1 allows a full flash.")]
         [Range(0f, 1f)]
         [SerializeField] private float _lostImpactFlashAlpha = 0.9f;
 
-        [Tooltip("Seconds before remaining survivor slots pulse. 0 pulses immediately with the lost impact.")]
+        [Tooltip("Seconds after the last shard before remaining survivor slots pulse.")]
         [Min(0f)]
-        [SerializeField] private float _survivorPulseDelaySeconds = 0.08f;
+        [SerializeField] private float _survivorPulseDelaySeconds = 0.02f;
 
         [Tooltip("Scale punch applied to remaining survivor slots. 0 disables survivor pulse.")]
         [Min(0f)]
@@ -121,7 +141,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private float _survivorPulseDurationSeconds = 0.22f;
 
         [Header("AllIn1 Material Hit Effect")]
-        [Tooltip("Enables the optional AllIn1 material hit effect. If disabled, material hit and filled-icon shader effects are skipped.")]
+        [Tooltip("Enables the optional AllIn1 material hit effect. If disabled, AllIn1 effects are skipped; the authored fracture material is independent.")]
         [SerializeField] private bool _useAllIn1LostImpactEffect = true;
 
         [Tooltip("Optional AllIn1 UI mask material template. If null, the view tries the authored image material or shader fallback.")]
@@ -140,20 +160,27 @@ namespace Game.Feature.UI.Composition
 
         [Tooltip("Seconds for the AllIn1 impact distortion pulse. Runtime uses half this duration for each yoyo leg.")]
         [Min(0f)]
-        [SerializeField] private float _allIn1DistortDurationSeconds = 0.34f;
+        [SerializeField] private float _allIn1DistortDurationSeconds = 0.24f;
 
         [Tooltip("Texture scroll speed used by AllIn1 distortion. 0 keeps the distortion texture still.")]
         [Min(0f)]
         [SerializeField] private float _allIn1DistortTexSpeed = 4f;
 
         [Header("Lost Filled Icon Material")]
+        [Tooltip("Authored crack, corrosion and fragment material. AllIn1 remains the fallback for unconfigured views.")]
+        [SerializeField] private Material _filledIconFractureMaterial;
+
+        [Tooltip("Seconds after the icon starts falling before the corrosion spreads.")]
+        [Min(0f)]
+        [SerializeField] private float _lostCorrosionDelaySeconds = 0.1f;
+
         [Tooltip("Visible decay tint applied to the filled icon as a chance is lost. Alpha controls the target icon opacity.")]
         [ColorUsage(true, false)]
-        [SerializeField] private Color _lostFilledIconDecayColor = new(0.34f, 0.21f, 0.18f, 1f);
+        [SerializeField] private Color _lostFilledIconDecayColor = new(0.5f, 0.42f, 0.35f, 1f);
 
         [Tooltip("Burn edge color used by the filled icon material fade. Alpha controls the burn color opacity.")]
         [ColorUsage(true, false)]
-        [SerializeField] private Color _lostFilledIconBurnColor = new(0.9f, 0.17f, 0.1f, 1f);
+        [SerializeField] private Color _lostFilledIconBurnColor = new(0.74f, 0.62f, 0.51f, 1f);
 
         [Tooltip("AllIn1 fade amount for the filled icon lost-state material. -0.08 starts at the authored burn edge; 1 fully advances the fade.")]
         [Range(-0.08f, 1f)]
@@ -172,7 +199,7 @@ namespace Game.Feature.UI.Composition
         [ColorUsage(true, false)]
         [SerializeField] private Color _crackLineColor = new(0.08f, 0.02f, 0.015f, 0.78f);
 
-        [Tooltip("Seconds before crack lines begin revealing after the filled icon break starts. 0 reveals immediately.")]
+        [Tooltip("Seconds before crack lines begin revealing after the impact ends. 0 reveals immediately.")]
         [Min(0f)]
         [SerializeField] private float _crackLineRevealDelaySeconds = 0.04f;
 
@@ -181,13 +208,16 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private float _crackLineRevealDurationSeconds = 0.27f;
 
         [Header("Crack Shards")]
+        [Tooltip("Template material that selects matching pieces of the authored helmet sprite.")]
+        [SerializeField] private Material _crackShardMaterial;
+
         [Tooltip("Starting color for early crack shards. Alpha controls shard visibility before fade.")]
         [ColorUsage(true, false)]
-        [SerializeField] private Color _crackShardFreshColor = new(1f, 0.96f, 0.84f, 0.95f);
+        [SerializeField] private Color _crackShardFreshColor = Color.white;
 
         [Tooltip("Decay color blended into later crack shards. Alpha controls shard visibility before fade.")]
         [ColorUsage(true, false)]
-        [SerializeField] private Color _crackShardDecayColor = new(0.34f, 0.21f, 0.18f, 0.92f);
+        [SerializeField] private Color _crackShardDecayColor = new(0.78f, 0.77f, 0.74f, 0.96f);
 
         [Tooltip("Base seconds before crack shards spawn. Individual shards add their own offsets.")]
         [Min(0f)]
@@ -195,11 +225,11 @@ namespace Game.Feature.UI.Composition
 
         [Tooltip("Seconds for crack shard rise, fall, scale, and fade motion. Runtime keeps a small minimum duration.")]
         [Min(0f)]
-        [SerializeField] private float _crackShardDurationSeconds = 0.46f;
+        [SerializeField] private float _crackShardDurationSeconds = 0.54f;
 
         [Tooltip("UI distance crack shards fall after the initial rise. Larger values make shards drop farther.")]
         [Min(0f)]
-        [SerializeField] private float _crackShardFallDistance = 118f;
+        [SerializeField] private float _crackShardFallDistance = 52f;
 
         [Tooltip("Initial UI rise distance before crack shards fall. 0 skips the upward lift.")]
         [Min(0f)]
@@ -207,11 +237,11 @@ namespace Game.Feature.UI.Composition
 
         [Tooltip("Seconds before crack shards begin fading during their motion. Runtime clamps this within shard duration.")]
         [Min(0f)]
-        [SerializeField] private float _crackShardFadeDelaySeconds = 0.2f;
+        [SerializeField] private float _crackShardFadeDelaySeconds = 0.33f;
 
         [Tooltip("Degrees of shard rotation during the crack motion. 0 keeps authored shard rotation.")]
         [Range(0f, 360f)]
-        [SerializeField] private float _crackShardRotationDegrees = 120f;
+        [SerializeField] private float _crackShardRotationDegrees = 75f;
 
         [Header("Timing")]
         [Tooltip("Uses unscaled DOTween update for ChanceLost animation so overlay timing can ignore gameplay time scale.")]
@@ -425,6 +455,7 @@ namespace Game.Feature.UI.Composition
                 var isLostThisTransition = i >= currentRemaining && i < previousRemaining;
                 state.Rect.gameObject.SetActive(isInAuthoredChanceRange);
                 state.CanvasGroup.alpha = isCurrentlyFilled || isLostThisTransition ? state.Alpha : Mathf.Clamp01(_emptySlotAlpha);
+                state.IconCanvasGroup.alpha = isCurrentlyFilled || isLostThisTransition ? 1f : 0f;
             }
         }
 
@@ -481,8 +512,6 @@ namespace Game.Feature.UI.Composition
                 .SetUpdate(_useUnscaledTime)
                 .SetLink(gameObject, LinkBehaviour.KillOnDestroy);
 
-            InsertSurvivorPulseTweens(lostStart);
-
             for (var i = lostStart; i < lostEndExclusive; i++)
             {
                 var state = _slotStates[i];
@@ -491,46 +520,53 @@ namespace Game.Feature.UI.Composition
                 state.CanvasGroup.alpha = state.Alpha;
 
                 var slotDelay = (i - lostStart) * Mathf.Max(0f, _lostSlotStaggerSeconds);
-                var shakeStartTime = slotDelay + Mathf.Max(0.01f, _lostImpactDurationSeconds);
+                var impact = CreateLostImpactTween(state);
+                var impactEnd = slotDelay + impact.Duration(false);
+                var recoilStart = impactEnd + Mathf.Max(0f, _lostImpactHoldSeconds);
+                var shake = CreateImpactShakeTween(state);
+                var fallStart = recoilStart + shake.Duration(false);
                 var fallDuration = Mathf.Max(0.01f, _lostFallDurationSeconds);
+                var fadeDuration = Mathf.Clamp(_lostFadeDurationSeconds, 0.01f, fallDuration);
                 var slotSequence = DOTween.Sequence()
                     .SetUpdate(_useUnscaledTime)
-                    .AppendInterval(slotDelay)
-                    .Append(CreateLostImpactTween(state))
-                    .Append(CreateHorizontalShakeTween(state))
-                    .Append(CreateAnchorMoveTween(
+                    .Insert(slotDelay, impact)
+                    .Insert(impactEnd, CreateCrackRevealTween(state))
+                    .Insert(recoilStart, shake)
+                    .Insert(fallStart, CreateAnchorMoveTween(
                             state.TweenRect,
-                            new Vector2(
-                                state.TweenAnchoredPosition.x,
-                                state.TweenAnchoredPosition.y - Mathf.Max(0f, _lostFallDistance)),
+                            state.TweenAnchoredPosition + Vector2.down * Mathf.Max(0f, _lostFallDistance),
                             fallDuration)
                         .SetEase(Ease.InCubic))
-                    .Join(DOTween.To(
+                    // The icon stays opaque while corrosion spreads; only the late fade removes it.
+                    .Insert(fallStart + fallDuration - fadeDuration, DOTween.To(
+                            () => state.IconCanvasGroup.alpha,
+                            value => state.IconCanvasGroup.alpha = value,
+                            0f, fadeDuration).SetEase(Ease.InQuad))
+                    .Insert(fallStart, DOTween.To(
                             () => state.CanvasGroup.alpha,
                             value => state.CanvasGroup.alpha = value,
-                            0f,
-                            Mathf.Max(0.01f, _lostFadeDurationSeconds))
-                        .SetEase(Ease.InQuad))
-                    .Join(DOTween.To(
+                            Mathf.Clamp01(_emptySlotAlpha), fallDuration).SetEase(Ease.InOutQuad))
+                    .Insert(fallStart, DOTween.To(
                             () => state.TweenRect.localEulerAngles,
                             value => state.TweenRect.localEulerAngles = value,
-                            new Vector3(0f, 0f, _lostRotationDegrees),
-                            fallDuration)
-                        .SetEase(Ease.InQuad))
-                    .Join(CreateFilledIconBreakTween(state, fallDuration));
-                slotSequence.Insert(shakeStartTime, CreateCrackShardTween(state));
+                            state.TweenLocalRotation.eulerAngles + new Vector3(0f, 0f, _lostRotationDegrees),
+                            fallDuration).SetEase(Ease.InQuad))
+                    .Insert(fallStart, CreateFilledIconBreakTween(state, fallDuration))
+                    .Insert(fallStart, CreateCrackShardTween(state));
 
                 _lostChanceSequence.Join(slotSequence);
             }
 
+            // Capture the complete debris duration before adding the survivor acknowledgement.
+            InsertSurvivorPulseTweens(lostStart, _lostChanceSequence.Duration(false));
             _lostChanceSequence
                 .AppendInterval(Mathf.Max(0f, _postShatterSettleDurationSeconds))
                 .OnComplete(() => CompletePlayback(generation));
         }
 
-        private void InsertSurvivorPulseTweens(int survivorEndExclusive)
+        private void InsertSurvivorPulseTweens(int survivorEndExclusive, float shatterEnd)
         {
-            var delay = Mathf.Max(0f, _survivorPulseDelaySeconds);
+            var delay = shatterEnd + Mathf.Max(0f, _survivorPulseDelaySeconds);
             var duration = Mathf.Max(0.01f, _survivorPulseDurationSeconds);
             var scalePunch = Mathf.Max(0f, _survivorPulseScalePunch);
             if (scalePunch <= 0f)
@@ -559,10 +595,10 @@ namespace Game.Feature.UI.Composition
             var impact = DOTween.Sequence().SetUpdate(_useUnscaledTime);
             var duration = Mathf.Max(0.01f, _lostImpactDurationSeconds);
             var scalePunch = Mathf.Max(0f, _lostImpactScalePunch);
-            if (state.TweenRect != null && scalePunch > 0f)
+            if (state.ImpactRect != null && scalePunch > 0f)
             {
                 impact.Join(
-                    state.TweenRect
+                    state.ImpactRect
                         .DOPunchScale(Vector3.one * scalePunch, duration, 8, 0.7f)
                         .SetEase(Ease.OutQuad));
             }
@@ -641,6 +677,21 @@ namespace Game.Feature.UI.Composition
                     continue;
                 }
 
+                if (_filledIconFractureMaterial != null)
+                {
+                    var fractureMaterial = PrepareFractureMaterial(state, i);
+                    var delay = Mathf.Clamp(_lostCorrosionDelaySeconds, 0f, duration - 0.01f);
+                    sequence.Insert(delay, DOTween.To(
+                            () => fractureMaterial != null ? fractureMaterial.GetFloat(DecayId) : 0f,
+                            value => SetFloatIfPresent(fractureMaterial, DecayId, value),
+                            1f, duration - delay).SetEase(Ease.InQuad));
+                    sequence.Insert(0f, DOTween.To(
+                            () => fractureMaterial != null ? fractureMaterial.GetFloat(DetachId) : 0f,
+                            value => SetFloatIfPresent(fractureMaterial, DetachId, value),
+                            1f, duration).SetEase(Ease.Linear));
+                    continue;
+                }
+
                 sequence.Join(
                     DOTween.To(
                             () => image.color,
@@ -657,6 +708,29 @@ namespace Game.Feature.UI.Composition
                     PrepareAllIn1FilledIconMaterial(material);
                     sequence.Join(CreateFilledIconMaterialBreakTween(material, duration));
                 }
+            }
+
+            return sequence;
+        }
+
+        private Tween CreateCrackRevealTween(SlotState state)
+        {
+            var sequence = DOTween.Sequence().SetUpdate(_useUnscaledTime);
+            if (_filledIconFractureMaterial != null)
+            {
+                for (var i = 0; i < state.FilledImages.Count; i++)
+                {
+                    var material = PrepareFractureMaterial(state, i);
+                    if (material == null)
+                    {
+                        continue;
+                    }
+                    sequence.Insert(Mathf.Max(0f, _crackLineRevealDelaySeconds), DOTween.To(
+                        () => material != null ? material.GetFloat(CrackRevealId) : 0f,
+                        value => SetFloatIfPresent(material, CrackRevealId, value),
+                        1f, Mathf.Max(0.01f, _crackLineRevealDurationSeconds)).SetEase(Ease.OutQuad));
+                }
+                return sequence;
             }
 
             var crackDelay = Mathf.Max(0f, _crackLineRevealDelaySeconds);
@@ -696,6 +770,22 @@ namespace Game.Feature.UI.Composition
             return sequence;
         }
 
+        private Material PrepareFractureMaterial(SlotState state, int imageIndex)
+        {
+            var image = state.FilledImages[imageIndex];
+            var material = state.GetOrCreateFilledIconMaterial(
+                imageIndex, _filledIconFractureMaterial, _filledIconFractureMaterial.shader);
+            if (material != null && image != null)
+            {
+                // Sprite atlas UVs are normalized back into icon space by the shader.
+                var uv = image.sprite != null
+                    ? UnityEngine.Sprites.DataUtility.GetOuterUV(image.sprite)
+                    : new Vector4(0f, 0f, 1f, 1f);
+                material.SetVector(IconUvRectId, uv);
+            }
+            return material;
+        }
+
         private Tween CreateCrackShardTween(SlotState state)
         {
             var sequence = DOTween.Sequence().SetUpdate(_useUnscaledTime);
@@ -719,6 +809,15 @@ namespace Game.Feature.UI.Composition
 
                 var rect = image.rectTransform;
                 var spec = CrackShardSpecs[i % CrackShardSpecs.Length];
+                var material = state.GetOrCreateCrackShardMaterial(i, _crackShardMaterial);
+                if (material != null)
+                {
+                    material.SetFloat(FragmentId, i % CrackShardSpecs.Length + 1);
+                    var uv = image.sprite != null
+                        ? UnityEngine.Sprites.DataUtility.GetOuterUV(image.sprite)
+                        : new Vector4(0f, 0f, 1f, 1f);
+                    material.SetVector(IconUvRectId, uv);
+                }
                 var origin = state.CrackShardAnchoredPositions[i];
                 var delay = baseDelay + spec.DelaySeconds;
                 var visibleColor = EvaluateCrackShardVisibleColor(delay);
@@ -970,21 +1069,24 @@ namespace Game.Feature.UI.Composition
             slots.Sort(CompareChanceSlotNames);
         }
 
-        private Tween CreateHorizontalShakeTween(SlotState state)
+        private Tween CreateImpactShakeTween(SlotState state)
         {
             var shake = DOTween.Sequence();
             var vibrato = Mathf.Max(1, _lostShakeVibrato);
-            var stepDuration = Mathf.Max(0.01f, _lostShakeDurationSeconds) / vibrato;
-            var strength = Mathf.Max(0f, _lostShakeStrength);
+            var stepDuration = Mathf.Max(0.01f, _lostShakeDurationSeconds) / (vibrato + 1);
+            var horizontalStrength = Mathf.Max(0f, _lostShakeStrength);
+            var verticalStrength = Mathf.Max(0f, _lostShakeVerticalStrength);
             for (var i = 0; i < vibrato; i++)
             {
-                var direction = i % 2 == 0 ? 1f : -1f;
-                var falloff = 1f - (i / (float)vibrato);
-                var target = state.TweenAnchoredPosition + new Vector2(direction * strength * falloff, 0f);
-                shake.Append(CreateAnchorMoveTween(state.TweenRect, target, stepDuration).SetEase(Ease.OutQuad));
+                var direction = ImpactShakeDirections[i % ImpactShakeDirections.Length];
+                var falloff = 1f - 0.7f * (i / (float)vibrato);
+                var target = state.ImpactAnchoredPosition + new Vector2(
+                    direction.x * horizontalStrength * falloff,
+                    direction.y * verticalStrength * falloff);
+                shake.Append(CreateAnchorMoveTween(state.ImpactRect, target, stepDuration).SetEase(Ease.OutQuad));
             }
 
-            shake.Append(CreateAnchorMoveTween(state.TweenRect, state.TweenAnchoredPosition, stepDuration).SetEase(Ease.OutQuad));
+            shake.Append(CreateAnchorMoveTween(state.ImpactRect, state.ImpactAnchoredPosition, stepDuration).SetEase(Ease.OutQuad));
             return shake;
         }
 
@@ -1023,7 +1125,9 @@ namespace Game.Feature.UI.Composition
                     canvasGroup = rect.gameObject.AddComponent<CanvasGroup>();
                 }
 
-                _slotStates.Add(new SlotState(rect, ResolveTweenRoot(rect), canvasGroup));
+                var impactRoot = ResolveImpactRoot(rect);
+                var state = new SlotState(rect, impactRoot, ResolveTweenRoot(impactRoot), canvasGroup);
+                _slotStates.Add(state);
             }
         }
 
@@ -1042,6 +1146,13 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            if (state.ImpactRect != null)
+            {
+                state.ImpactRect.anchoredPosition = state.ImpactAnchoredPosition;
+                state.ImpactRect.localRotation = state.ImpactLocalRotation;
+                state.ImpactRect.localScale = state.ImpactLocalScale;
+            }
+
             if (state.TweenRect != null)
             {
                 state.TweenRect.anchoredPosition = state.TweenAnchoredPosition;
@@ -1052,6 +1163,7 @@ namespace Game.Feature.UI.Composition
             state.RestoreFlashImages();
 
             state.CanvasGroup.alpha = state.Alpha;
+            state.IconCanvasGroup.alpha = 1f;
             state.Rect.gameObject.SetActive(state.ActiveSelf);
         }
 
@@ -1136,9 +1248,9 @@ namespace Game.Feature.UI.Composition
                 : index;
         }
 
-        private static RectTransform ResolveTweenRoot(RectTransform slotRoot)
+        private static RectTransform ResolveImpactRoot(RectTransform slotRoot)
         {
-            var existing = slotRoot.Find(TweenRootName);
+            var existing = slotRoot.Find(ImpactRootName);
             if (existing is RectTransform existingRect)
             {
                 return existingRect;
@@ -1151,15 +1263,45 @@ namespace Game.Feature.UI.Composition
                 children[i] = slotRoot.GetChild(i);
             }
 
+            var impactRootObject = new GameObject(ImpactRootName, typeof(RectTransform));
+            var impactRoot = impactRootObject.GetComponent<RectTransform>();
+            impactRoot.SetParent(slotRoot, false);
+            Stretch(impactRoot);
+
+            for (var i = 0; i < children.Length; i++)
+            {
+                if (children[i] != null)
+                {
+                    children[i].SetParent(impactRoot, false);
+                }
+            }
+
+            return impactRoot;
+        }
+
+        private static RectTransform ResolveTweenRoot(RectTransform impactRoot)
+        {
+            var existing = impactRoot.Find(TweenRootName);
+            if (existing is RectTransform existingRect)
+            {
+                return existingRect;
+            }
+
+            var childCount = impactRoot.childCount;
+            var children = new Transform[childCount];
+            for (var i = 0; i < childCount; i++)
+            {
+                children[i] = impactRoot.GetChild(i);
+            }
+
             var tweenRootObject = new GameObject(TweenRootName, typeof(RectTransform));
             var tweenRoot = tweenRootObject.GetComponent<RectTransform>();
-            tweenRoot.SetParent(slotRoot, false);
-            tweenRoot.SetAsFirstSibling();
+            tweenRoot.SetParent(impactRoot, false);
             Stretch(tweenRoot);
 
             for (var i = 0; i < children.Length; i++)
             {
-                if (children[i] != null && children[i] != tweenRoot)
+                if (children[i] != null && children[i].name == FilledIconName)
                 {
                     children[i].SetParent(tweenRoot, false);
                 }
@@ -1181,11 +1323,23 @@ namespace Game.Feature.UI.Composition
 
         private sealed class SlotState
         {
-            public SlotState(RectTransform rect, RectTransform tweenRect, CanvasGroup canvasGroup)
+            public SlotState(RectTransform rect, RectTransform impactRect, RectTransform tweenRect, CanvasGroup canvasGroup)
             {
                 Rect = rect;
+                ImpactRect = impactRect;
                 TweenRect = tweenRect;
                 CanvasGroup = canvasGroup;
+                IconCanvasGroup = tweenRect.GetComponent<CanvasGroup>();
+                if (IconCanvasGroup == null)
+                {
+                    IconCanvasGroup = tweenRect.gameObject.AddComponent<CanvasGroup>();
+                }
+                IconCanvasGroup.interactable = false;
+                IconCanvasGroup.blocksRaycasts = false;
+                IconCanvasGroup.ignoreParentGroups = true;
+                ImpactAnchoredPosition = impactRect != null ? impactRect.anchoredPosition : Vector2.zero;
+                ImpactLocalRotation = impactRect != null ? impactRect.localRotation : Quaternion.identity;
+                ImpactLocalScale = impactRect != null ? impactRect.localScale : Vector3.one;
                 TweenAnchoredPosition = tweenRect != null ? tweenRect.anchoredPosition : Vector2.zero;
                 TweenLocalRotation = tweenRect != null ? tweenRect.localRotation : Quaternion.identity;
                 TweenLocalScale = tweenRect != null ? tweenRect.localScale : Vector3.one;
@@ -1202,18 +1356,30 @@ namespace Game.Feature.UI.Composition
                 CrackLineLocalScales = CaptureImageLocalScales(CrackLineImages);
                 CrackShardImages = ResolveCrackShardImages(tweenRect);
                 CrackShardColors = CaptureImageColors(CrackShardImages);
+                CrackShardMaterials = CaptureImageMaterials(CrackShardImages);
                 CrackShardAnchoredPositions = CaptureImageAnchoredPositions(CrackShardImages);
                 CrackShardLocalRotations = CaptureImageLocalRotations(CrackShardImages);
                 CrackShardLocalScales = CaptureImageLocalScales(CrackShardImages);
                 _allIn1RuntimeMaterials = new Material[FlashImages.Count];
                 _filledIconRuntimeMaterials = new Material[FilledImages.Count];
+                _crackShardRuntimeMaterials = new Material[CrackShardImages.Count];
             }
 
             public RectTransform Rect { get; }
 
+            public RectTransform ImpactRect { get; }
+
             public RectTransform TweenRect { get; }
 
             public CanvasGroup CanvasGroup { get; }
+
+            public CanvasGroup IconCanvasGroup { get; }
+
+            public Vector2 ImpactAnchoredPosition { get; }
+
+            public Quaternion ImpactLocalRotation { get; }
+
+            public Vector3 ImpactLocalScale { get; }
 
             public Vector2 TweenAnchoredPosition { get; }
 
@@ -1247,6 +1413,8 @@ namespace Game.Feature.UI.Composition
 
             public IReadOnlyList<Color> CrackShardColors { get; }
 
+            public IReadOnlyList<Material> CrackShardMaterials { get; }
+
             public IReadOnlyList<Vector2> CrackShardAnchoredPositions { get; }
 
             public IReadOnlyList<Quaternion> CrackShardLocalRotations { get; }
@@ -1256,6 +1424,31 @@ namespace Game.Feature.UI.Composition
             private Material[] _allIn1RuntimeMaterials { get; }
 
             private Material[] _filledIconRuntimeMaterials { get; }
+
+            private Material[] _crackShardRuntimeMaterials { get; }
+
+            public Material GetOrCreateCrackShardMaterial(int imageIndex, Material template)
+            {
+                if (template == null || imageIndex < 0 || imageIndex >= CrackShardImages.Count ||
+                    CrackShardImages[imageIndex] == null)
+                {
+                    return null;
+                }
+
+                if (_crackShardRuntimeMaterials[imageIndex] != null)
+                {
+                    return _crackShardRuntimeMaterials[imageIndex];
+                }
+
+                var material = new Material(template)
+                {
+                    name = $"{CrackShardImages[imageIndex].name} Runtime Fragment",
+                    hideFlags = HideFlags.DontSave,
+                };
+                _crackShardRuntimeMaterials[imageIndex] = material;
+                CrackShardImages[imageIndex].material = material;
+                return material;
+            }
 
             public Material GetOrCreateAllIn1Material(int imageIndex, Material template, Shader fallbackShader)
             {
@@ -1292,7 +1485,7 @@ namespace Game.Feature.UI.Composition
 
                 var sourceMaterial = ResolveAllIn1SourceMaterial(template, FilledImageMaterials[imageIndex], fallbackShader);
                 var material = sourceMaterial != null ? new Material(sourceMaterial) : new Material(fallbackShader);
-                material.name = $"{FilledImages[imageIndex].name} Runtime Break AllIn1";
+                material.name = $"{FilledImages[imageIndex].name} Runtime Fracture";
                 material.hideFlags = HideFlags.DontSave;
                 _filledIconRuntimeMaterials[imageIndex] = material;
                 FilledImages[imageIndex].material = material;
@@ -1345,6 +1538,8 @@ namespace Game.Feature.UI.Composition
                     }
 
                     CrackShardImages[i].color = CrackShardColors[i];
+                    CrackShardImages[i].material = CrackShardMaterials[i];
+                    DestroyCrackShardRuntimeMaterial(i);
                     if (CrackShardImages[i].rectTransform != null)
                     {
                         CrackShardImages[i].rectTransform.anchoredPosition = CrackShardAnchoredPositions[i];
@@ -1557,7 +1752,7 @@ namespace Game.Feature.UI.Composition
 
             private static Material ResolveAllIn1SourceMaterial(Material template, Material authoredMaterial, Shader fallbackShader)
             {
-                if (template != null && template.shader != null && template.shader.name == AllIn1UiMaskShaderName)
+                if (template != null && template.shader == fallbackShader)
                 {
                     return template;
                 }
@@ -1598,6 +1793,25 @@ namespace Game.Feature.UI.Composition
                 }
 
                 _filledIconRuntimeMaterials[imageIndex] = null;
+                if (UnityEngine.Application.isPlaying)
+                {
+                    UnityEngine.Object.Destroy(material);
+                }
+                else
+                {
+                    UnityEngine.Object.DestroyImmediate(material);
+                }
+            }
+
+            private void DestroyCrackShardRuntimeMaterial(int imageIndex)
+            {
+                var material = _crackShardRuntimeMaterials[imageIndex];
+                if (material == null)
+                {
+                    return;
+                }
+
+                _crackShardRuntimeMaterials[imageIndex] = null;
                 if (UnityEngine.Application.isPlaying)
                 {
                     UnityEngine.Object.Destroy(material);
