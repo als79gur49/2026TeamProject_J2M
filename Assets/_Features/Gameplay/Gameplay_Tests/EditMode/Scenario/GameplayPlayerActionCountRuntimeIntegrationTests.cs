@@ -71,6 +71,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void TickPipelinePushSlide_PresenterCoordinatorExtension_CountsOnceAndUsesBoundedMount()
         {
             using var harness = CreateHarness();
+            var viewChanges = new List<GameplayPlayerActionCountView>();
+            harness.Runtime.CounterViewChanged += viewChanges.Add;
             var pipeline = CreatePipeline(harness.WorldState);
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
@@ -105,6 +107,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(harness.Runtime.VisibleCount, Is.EqualTo(1));
             Assert.That(harness.Runtime.PendingRevealCount, Is.Zero);
             Assert.That(harness.Runtime.CounterView, Is.Not.Null);
+            Assert.That(viewChanges, Is.EqualTo(new[] { harness.Runtime.CounterView }));
             Assert.That(harness.Runtime.Mount.parent, Is.SameAs(harness.BoardRoot.transform));
             Assert.That(harness.Runtime.Mount, Is.Not.SameAs(harness.BoardRoot.EntityRoot));
             AssertEntityRootDirectChildrenAreViews(harness.BoardRoot.EntityRoot);
@@ -123,6 +126,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(effectDriver.DebugElapsedSeconds, Is.GreaterThan(elapsedBeforePause));
             harness.Presenter.UpdatePresentation(1.38f);
             Assert.That(harness.Runtime.IsVisible, Is.False);
+            harness.Runtime.ResetSession();
+            Assert.That(viewChanges, Is.EqualTo(new GameplayPlayerActionCountView[]
+            {
+                viewChanges[0],
+                null,
+            }));
         }
 
         [TestCase(

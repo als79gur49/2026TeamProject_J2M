@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Host
             effectDriver != null &&
             effectDriver.IsReady;
 
+        public TMP_Text CountLabel => countLabel;
+
         public void Bind(
             Transform target,
             float surfaceInsetDistance,

@@ -6,6 +6,13 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public interface IGameplayPlayerActionCountViewSource
+    {
+        GameplayPlayerActionCountView CurrentCounterView { get; }
+
+        event Action<GameplayPlayerActionCountView> CounterViewChanged;
+    }
+
     [DisallowMultipleComponent]
     public sealed class GameplayPlayerActionCountPresentationRuntime : MonoBehaviour,
         IGameplayTickPresentationExtension,
@@ -13,7 +20,8 @@ namespace Game.Feature.Gameplay.Host
         IGameplayOutputCameraPresentationExtension,
         IGameplayPlayerAnchoredPresentationExtension,
         IGameplayStageTerminalPresentationExtension,
-        IGameplayBootstrapReadiness
+        IGameplayBootstrapReadiness,
+        IGameplayPlayerActionCountViewSource
     {
         private const string MountName = "PlayerActionCountPresentationRoot";
 
@@ -36,7 +44,11 @@ namespace Game.Feature.Gameplay.Host
         private Transform _mount;
         private int _playerEntityId;
 
+        public event Action<GameplayPlayerActionCountView> CounterViewChanged;
+
         public GameplayPlayerActionCountView CounterViewPrefab => counterViewPrefab;
+
+        public GameplayPlayerActionCountView CurrentCounterView => _counterView;
 
         public float OpaqueDurationSeconds => opaqueDurationSeconds;
 
@@ -346,6 +358,7 @@ namespace Game.Feature.Gameplay.Host
             _counterView = Instantiate(counterViewPrefab, _mount, worldPositionStays: false);
             _counterView.name = counterViewPrefab.name;
             _counterView.Hide();
+            CounterViewChanged?.Invoke(_counterView);
         }
 
         private void EnsureMount()
@@ -362,7 +375,13 @@ namespace Game.Feature.Gameplay.Host
 
         private void DestroyMount()
         {
+            var hadCounterView = _counterView != null;
             _counterView = null;
+            if (hadCounterView)
+            {
+                CounterViewChanged?.Invoke(null);
+            }
+
             if (_mount == null)
             {
                 return;

@@ -69,6 +69,7 @@ namespace Game.Feature.UI.Composition
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private GameplayPauseAudioBridge _gameplayPauseAudioBridge;
         private GameplayHudLocalizationBinding _gameplayHudLocalizationBinding;
+        private GameplayPlayerActionCountTypographyController _playerActionCountTypographyController;
         private GameplayWorldGuideLocalizationController _gameplayWorldGuideLocalizationController;
         private GameplayWorldGuidePresenter _gameplayWorldGuidePresenter;
         private bool _isInstalled;
@@ -675,6 +676,16 @@ namespace Game.Feature.UI.Composition
             }
 
             _gameplayHudLocalizationBinding.Initialize(_localizedTextResolver);
+            var actionCountRuntime = GetComponent<GameplayPlayerActionCountPresentationRuntime>();
+            if (actionCountRuntime != null)
+            {
+                _playerActionCountTypographyController =
+                    new GameplayPlayerActionCountTypographyController(
+                        actionCountRuntime,
+                        _localizedTextResolver,
+                        _gameplayHudLocalizationBinding.Theme);
+            }
+
             if (_gameplayWorldGuidePresenter != null)
             {
                 _gameplayWorldGuideLocalizationController =
@@ -780,6 +791,8 @@ namespace Game.Feature.UI.Composition
             }
 
             _isDisposed = true;
+            _playerActionCountTypographyController?.Dispose();
+            _playerActionCountTypographyController = null;
             _gameplayWorldGuideLocalizationController?.Dispose();
             _gameplayWorldGuideLocalizationController = null;
             _gameplayHudLocalizationBinding?.Dispose();
