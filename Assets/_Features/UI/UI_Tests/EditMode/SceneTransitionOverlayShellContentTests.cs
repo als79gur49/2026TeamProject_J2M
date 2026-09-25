@@ -294,8 +294,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.ResolvedChanceSlotCountForTests, Is.EqualTo(3));
             Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.EqualTo(1));
             Assert.That(lostSlot.anchoredPosition, Is.EqualTo(startPosition));
-            Assert.That(lostSlot.Find("LostChanceTweenRoot"), Is.Not.Null);
-            var lostTweenRoot = (RectTransform)lostSlot.Find("LostChanceTweenRoot");
+            var lostImpactRoot = (RectTransform)lostSlot.Find("LostChanceImpactRoot");
+            Assert.That(lostImpactRoot, Is.Not.Null);
+            var lostTweenRoot = (RectTransform)lostImpactRoot.Find("LostChanceTweenRoot");
+            Assert.That(lostTweenRoot, Is.Not.Null);
             var allIn1Shader = Shader.Find("AllIn1SpriteShader/AllIn1SpriteShaderUiMask");
             if (allIn1Shader != null)
             {
@@ -307,6 +309,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.Zero);
             Assert.That(lostSlot.anchoredPosition, Is.EqualTo(startPosition));
+            Assert.That(lostImpactRoot.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(lostImpactRoot.localScale, Is.EqualTo(Vector3.one));
             Assert.That(lostTweenRoot.localScale, Is.EqualTo(Vector3.one));
             Assert.That(effectImage.color, Is.EqualTo(authoredEffectColor));
             Assert.That(effectImage.material, Is.SameAs(authoredEffectMaterial));
@@ -316,6 +320,91 @@ namespace Game.Feature.UI.Tests
             Assert.That(CountCrackShards(lostTweenRoot), Is.EqualTo(9));
             AssertCrackShardsRestored(lostTweenRoot);
             Assert.That(lostSlot.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void ChanceLostProductionContent_CracksBeforeDebrisPreservesFramesAndRestoresOnRebind()
+        {
+            var prefab = Resources.Load<ChanceLostOverlayContentView>("UI/Transitions/Contents/ChanceLostOverlayContent");
+            var view = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                Assert.That(view.GetComponentsInChildren<Image>(true)
+                    .Count(image => image.name.StartsWith("CrackShard", StringComparison.Ordinal)), Is.EqualTo(27),
+                    "All three production slots must contain their nine authored sprite fragments before Bind.");
+                var model = new SceneTransitionOverlayModel(
+                    StageTransitionKind.DeathRetryChanceLost, TransitionOverlayKind.ChanceLost,
+                    blockInput: true, showProgress: true, progress01: 0f, hasChanceLost: true,
+                    previousRemainingChances: 2, currentRemainingChances: 1, totalChances: 3, deathCount: 1);
+                view.Bind(model);
+                var slots = view.ResolvedChanceSlotsForTests;
+                var impactRoot = (RectTransform)slots[1].Find("LostChanceImpactRoot");
+                var body = (RectTransform)impactRoot.Find("LostChanceTweenRoot");
+                var survivor = (RectTransform)slots[0].Find("LostChanceImpactRoot/LostChanceTweenRoot");
+                var frame = (RectTransform)impactRoot.Find("Frame (1)");
+                Assert.That(frame.gameObject.activeSelf, Is.True, "The visible middle frame must follow impact motion.");
+                var framePosition = frame.anchoredPosition;
+                var frameRotation = frame.localRotation;
+                var frameWorldPosition = frame.position;
+                var icon = FindImage(body, "FilledIcon");
+                var authoredMaterial = icon.material;
+                var shards = body.GetComponentsInChildren<Image>(true)
+                    .Where(image => image.name.StartsWith("CrackShard", StringComparison.Ordinal)).ToArray();
+                Assert.That(shards, Has.Length.EqualTo(9));
+                Assert.That(shards.All(image => image.sprite == icon.sprite), Is.True,
+                    "Detached pieces must sample the original helmet sprite.");
+                Assert.That(slots[2].Find("LostChanceImpactRoot/LostChanceTweenRoot").GetComponent<CanvasGroup>().alpha, Is.Zero);
+
+                view.Show();
+                var duration = view.RootSequenceDurationSecondsForTests;
+                view.GotoRootSequenceForTests(0.33f);
+                Assert.That(icon.material.GetFloat("_CrackReveal"), Is.GreaterThan(0.3f));
+                Assert.That(shards.All(image => image.color.a == 0f), Is.True, "Cracks must precede debris.");
+                Assert.That(survivor.localScale, Is.EqualTo(Vector3.one), "Survivor acknowledgement belongs at the end.");
+                Assert.That(Mathf.Abs(impactRoot.anchoredPosition.y), Is.GreaterThan(0.1f),
+                    "The frame and icon must share the vertical impact shake.");
+                Assert.That(Vector3.Distance(frame.position, frameWorldPosition), Is.GreaterThan(0.1f));
+                Assert.That(body.anchoredPosition, Is.EqualTo(Vector2.zero),
+                    "The icon's fall root must remain centered during the shared impact.");
+
+                view.GotoRootSequenceForTests(1.15f);
+                Assert.That(icon.material.GetFloat("_Decay"), Is.GreaterThan(0.1f));
+                Assert.That(icon.material.GetFloat("_Detach"), Is.GreaterThan(0.1f));
+                for (var shardIndex = 0; shardIndex < shards.Length; shardIndex++)
+                {
+                    Assert.That(shards[shardIndex].material.GetFloat("_Fragment"),
+                        Is.EqualTo(shardIndex + 1).Within(0.001f));
+                }
+                Assert.That(body.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f), "The cracked icon must remain readable before the final fade.");
+                Assert.That(body.anchoredPosition.y, Is.LessThan(0f));
+                Assert.That(impactRoot.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(impactRoot.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(frame.position, Is.EqualTo(frameWorldPosition));
+                Assert.That(frame.anchoredPosition, Is.EqualTo(framePosition));
+                Assert.That(frame.localRotation, Is.EqualTo(frameRotation));
+                Assert.That(shards.Any(image => image.color.a > 0.1f), Is.True);
+
+                view.GotoRootSequenceForTests(1.79f);
+                Assert.That(survivor.localScale.x, Is.GreaterThan(1f));
+                view.GotoRootSequenceForTests(duration);
+                Assert.That(view.IsCompleted, Is.True);
+                Assert.That(body.GetComponent<CanvasGroup>().alpha, Is.Zero);
+                Assert.That(slots[1].GetComponent<CanvasGroup>().alpha,
+                    Is.EqualTo(slots[2].GetComponent<CanvasGroup>().alpha).Within(0.001f));
+
+                view.Bind(model);
+                Assert.That(impactRoot.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(impactRoot.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(body.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(body.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(body.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+                Assert.That(icon.material, Is.SameAs(authoredMaterial));
+                Assert.That(shards.All(image => image.color.a == 0f), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
         }
 
         [Test]
@@ -718,8 +807,7 @@ namespace Game.Feature.UI.Tests
         {
             var images = root.GetComponentsInChildren<Image>(true);
             var shardCount = 0;
-            var bottomShardCount = 0;
-            var sideShardCount = 0;
+            var largeShardCount = 0;
             for (var i = 0; i < images.Length; i++)
             {
                 if (!images[i].name.StartsWith("CrackShard", StringComparison.OrdinalIgnoreCase))
@@ -730,32 +818,25 @@ namespace Game.Feature.UI.Tests
                 shardCount++;
                 Assert.That(images[i].color.a, Is.EqualTo(0f));
                 Assert.That(images[i].raycastTarget, Is.False);
-                Assert.That(images[i].rectTransform.sizeDelta.x, Is.GreaterThanOrEqualTo(8f));
-                Assert.That(images[i].rectTransform.sizeDelta.y, Is.GreaterThanOrEqualTo(8f));
+                Assert.That(images[i].rectTransform.sizeDelta.x, Is.GreaterThanOrEqualTo(9f));
+                Assert.That(images[i].rectTransform.sizeDelta.y, Is.GreaterThanOrEqualTo(9f));
+                if (images[i].rectTransform.sizeDelta.x >= 20f &&
+                    images[i].rectTransform.sizeDelta.y >= 20f)
+                {
+                    largeShardCount++;
+                }
                 Assert.That(images[i].rectTransform.localScale, Is.EqualTo(Vector3.one));
                 Assert.That(images[i].GetComponent<CanvasGroup>(), Is.Not.Null);
                 Assert.That(images[i].GetComponent<CanvasGroup>().ignoreParentGroups, Is.True);
 
                 var anchoredPosition = images[i].rectTransform.anchoredPosition;
-                if (anchoredPosition.y <= -78f)
-                {
-                    bottomShardCount++;
-                }
-
-                if (Mathf.Abs(anchoredPosition.x) >= 56f)
-                {
-                    sideShardCount++;
-                }
-
-                Assert.That(
-                    anchoredPosition.y <= -78f || Mathf.Abs(anchoredPosition.x) >= 56f,
-                    Is.True,
-                    "Crack shards should start near the bottom or lower side area of the chance icon.");
+                Assert.That(Mathf.Abs(anchoredPosition.x), Is.LessThanOrEqualTo(100f));
+                Assert.That(Mathf.Abs(anchoredPosition.y), Is.LessThanOrEqualTo(100f));
             }
 
             Assert.That(shardCount, Is.EqualTo(9));
-            Assert.That(bottomShardCount, Is.GreaterThanOrEqualTo(3));
-            Assert.That(sideShardCount, Is.GreaterThanOrEqualTo(5));
+            Assert.That(largeShardCount, Is.GreaterThanOrEqualTo(2),
+                "The early fracture needs visible chunks, not only fine debris.");
         }
 
         private static CatalogEntrySpec Entry(
