@@ -1802,13 +1802,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     TerminalSessionRegistry.ResetForTests();
                     PrepareCampaignStage(StageId.CreateOrThrow("stage-1-1"));
                     yield return LoadScene(UIAudioScenePath);
-                    Assert.That(
-                        StageLaunchContextStore.TryPeek(out var directPlayBootstrapContext),
-                        Is.True);
-                    Assert.That(
-                        StageLaunchContextStore.TryConsume(directPlayBootstrapContext, out _),
-                        Is.True,
-                        "Production campaign bootstrap consumes its exact launch context.");
+                    Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False,
+                        "Production campaign bootstrap consumes its launch context while loading the scene.");
 
                     var host = Object.FindObjectsByType<GameplaySceneHost>(
                             FindObjectsInactive.Exclude,
