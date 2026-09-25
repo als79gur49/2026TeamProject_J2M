@@ -94,6 +94,12 @@
   - Summon-first behavior execution extraction plan and validation gates; implementation, before/after comparison, and graphics-enabled core gate are recorded
 - [EnemyLogic-Summon-Extraction-Closeout.md](./EnemyLogic-Summon-Extraction-Closeout.md)
   - actual Summon executor boundary, 49-case capture comparison, baseline/candidate identity and Unity evidence, review findings, and resolved graphics core validation
+- [EnemyLogic-Glide-Extraction-Implementation-Plan.md](./EnemyLogic-Glide-Extraction-Implementation-Plan.md)
+  - executed Glide executor boundary, helper inventory, characterization matrix, before/after evidence gates, and original plan review
+- [EnemyLogic-Glide-Extraction-Execution-Prompt.md](./EnemyLogic-Glide-Extraction-Execution-Prompt.md)
+  - execution handoff for Glide P0–P4, baseline preservation, scoped extraction, capture comparison, and graphics core gates
+- [EnemyLogic-Glide-Extraction-Closeout.md](./EnemyLogic-Glide-Extraction-Closeout.md)
+  - implemented boundary and sub-agent review, refreshed 66-variant/104-record zero-difference comparison, baseline/candidate identity, selected Unity results, and graphics core evidence
 - [UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md](./UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md)
   - proposed A/B/C split plan for test-tier remediation, strict-governance delta closure, original SHA preservation, sequential merge-commit integration, and same-revision PR evidence; execution requires the documented merge-method, deterministic-delta, and evidence-root preconditions
 - [UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md](./UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md)
