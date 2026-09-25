@@ -684,7 +684,7 @@ namespace Game.Feature.Stages
             }
         }
 
-        public static IReadOnlyList<string> EnumerateDefaultSeedPaths()
+        private static IReadOnlyList<string> EnumerateDefaultSeedPaths()
         {
             var paths = new List<string>();
             AddUnique(paths, Path.Combine(Application.persistentDataPath, SeedFileName));

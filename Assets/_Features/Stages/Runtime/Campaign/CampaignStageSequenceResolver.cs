@@ -85,11 +85,6 @@ namespace Game.Feature.Stages
             return stageId.IsValid && _indicesByStageId.ContainsKey(stageId);
         }
 
-        public bool IsFirst(StageId stageId)
-        {
-            return stageId.Equals(FirstStageId);
-        }
-
         public bool IsFinal(StageId stageId)
         {
             return stageId.Equals(FinalStageId);
