@@ -67,7 +67,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_MigratedSummonProfile_SummonedMetadataAndPlacementRemainDeterministic()
         {
-            var firstReplay = RunMigratedSummonReplaySequence();
+            var firstReplay = RunMigratedSummonReplaySequence(emitCapture: true);
             var secondReplay = RunMigratedSummonReplaySequence();
 
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
@@ -77,7 +77,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay.All(frame => !frame.Trace.Contains("Kind=SummonMinion")), Is.True);
             Assert.That(firstReplay.Any(frame => frame.SummonedDump.Contains("Source=40|Effect=0")), Is.True);
             Assert.That(firstReplay.Any(frame => frame.DefinitionBindingDump.Contains("Archetype=PassiveContactMinion")), Is.True);
-            Assert.That(firstReplay.Last().FinalEntitiesDump, Does.Contain("E=41|Cell=Floor:-1,0"));
+            Assert.That(firstReplay.First().FinalEntitiesDump, Does.Contain("E=41|Cell=Floor:-1,0"),
+                "The spawn placement belongs to the execution Tick; the child can move on the next Tick.");
             Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41")), Is.True);
         }
 
@@ -178,7 +179,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return frames;
         }
 
-        private static IReadOnlyList<ReplayCaptureFrame> RunMigratedSummonReplaySequence()
+        private static IReadOnlyList<ReplayCaptureFrame> RunMigratedSummonReplaySequence(bool emitCapture = false)
         {
             var worldState = CreateWorldState(
                 new[]
@@ -197,11 +198,20 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
 
             var pipeline = CreateJpeterPipeline(worldState);
-            var frames = new List<ReplayCaptureFrame>
+            var frames = new List<ReplayCaptureFrame>();
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            frames.Add(Capture(firstTick, worldState));
+            if (emitCapture)
             {
-                Capture(pipeline.RunTick(new TickInput(1)), worldState),
-                Capture(pipeline.RunTick(new TickInput(2)), worldState),
-            };
+                EnemySummonCapture.Tick("S07-production", "tick-1", firstTick, worldState, EnemyId);
+            }
+
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            frames.Add(Capture(secondTick, worldState));
+            if (emitCapture)
+            {
+                EnemySummonCapture.Tick("S07-production", "tick-2", secondTick, worldState, EnemyId);
+            }
 
             return frames;
         }

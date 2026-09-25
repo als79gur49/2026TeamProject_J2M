@@ -468,6 +468,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateFullyBlockedSummonWorld();
 
             var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
+            EnemySummonCapture.Tick("S07b", "blocked-tick-1", tick, worldState, 40);
 
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             Assert.That(GetSummonedStates(worldState), Is.Empty);

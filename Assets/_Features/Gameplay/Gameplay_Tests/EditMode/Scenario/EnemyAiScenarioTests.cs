@@ -717,39 +717,55 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
 
                 var firstTick = pipeline.RunTick(new TickInput(1));
+                EnemySummonCapture.Tick("S01", "tick-1", firstTick, worldState, 40);
                 var firstState = GetEnemySummonBehaviorState(worldState, 40);
                 Assert.That(firstState.cooldownTicksRemaining, Is.EqualTo(1));
                 Assert.That(firstState.phase, Is.EqualTo(EnemySummonBehaviorPhase.None));
                 Assert.That(firstTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
 
                 var secondTick = pipeline.RunTick(new TickInput(2));
+                EnemySummonCapture.Tick("S01", "tick-2", secondTick, worldState, 40);
                 var secondState = GetEnemySummonBehaviorState(worldState, 40);
                 Assert.That(secondState.cooldownTicksRemaining, Is.Zero);
                 Assert.That(secondState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
                 Assert.That(secondState.windupStartTick, Is.EqualTo(2));
                 Assert.That(secondState.windupEndTick, Is.EqualTo(3));
+                Assert.That(secondState.activationSequence, Is.EqualTo(1));
                 Assert.That(secondTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
 
                 var committedTick = pipeline.RunTick(new TickInput(3));
+                EnemySummonCapture.Tick("S01", "tick-3", committedTick, worldState, 40);
                 var committedState = GetEnemySummonBehaviorState(worldState, 40);
                 Assert.That(committedState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
                 Assert.That(committedState.cooldownTicksRemaining, Is.EqualTo(3));
                 Assert.That(committedState.recoverStartTick, Is.EqualTo(3));
                 Assert.That(committedState.recoverEndTickExclusive, Is.EqualTo(5));
+                Assert.That(committedState.activationSequence, Is.EqualTo(1));
                 Assert.That(committedTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41"));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out var child), Is.True);
                 Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
                 AssertSummonedChildMetadata(worldState.CreateSnapshot(), 41);
 
-                pipeline.RunTick(new TickInput(4));
+                var recoverHoldTick = pipeline.RunTick(new TickInput(4));
+                EnemySummonCapture.Tick("S01", "tick-4", recoverHoldTick, worldState, 40);
                 var recoverHoldState = GetEnemySummonBehaviorState(worldState, 40);
                 Assert.That(recoverHoldState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
                 Assert.That(recoverHoldState.cooldownTicksRemaining, Is.EqualTo(2));
 
-                pipeline.RunTick(new TickInput(5));
+                var recoverEndTick = pipeline.RunTick(new TickInput(5));
+                EnemySummonCapture.Tick("S01", "tick-5", recoverEndTick, worldState, 40);
                 var recoveredState = GetEnemySummonBehaviorState(worldState, 40);
                 Assert.That(recoveredState.phase, Is.EqualTo(EnemySummonBehaviorPhase.None));
                 Assert.That(recoveredState.cooldownTicksRemaining, Is.EqualTo(2));
+
+                var cooldownTick = pipeline.RunTick(new TickInput(6));
+                EnemySummonCapture.Tick("S01", "tick-6", cooldownTick, worldState, 40);
+                Assert.That(GetEnemySummonBehaviorState(worldState, 40).cooldownTicksRemaining, Is.EqualTo(1));
+                var nextStartTick = pipeline.RunTick(new TickInput(7));
+                EnemySummonCapture.Tick("S01", "tick-7", nextStartTick, worldState, 40);
+                var nextStartState = GetEnemySummonBehaviorState(worldState, 40);
+                Assert.That(nextStartState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
+                Assert.That(nextStartState.activationSequence, Is.EqualTo(2));
             }
             finally
             {
@@ -791,6 +807,142 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 var recoverHoldTick = pipeline.RunTick(new TickInput(4));
                 AssertSuppressedFacingTick(worldState, recoverHoldTick, Direction.Right);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [TestCase(true, true, 2, "S02a")]
+        [TestCase(true, false, 2, "S02b")]
+        [TestCase(false, true, 2, "S02c")]
+        [TestCase(false, false, 2, "S02d")]
+        [TestCase(true, true, 0, "S02e")]
+        [TestCase(true, false, 0, "S02f")]
+        [TestCase(false, true, 0, "S02g")]
+        [TestCase(false, false, 0, "S02h")]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_SuppressionOptionsIncludeFirstReleaseTick(
+            bool suppressWindup,
+            bool suppressRecover,
+            int recoveryTicks,
+            string caseId)
+        {
+            var profile = CreateBehaviorSummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 5,
+                windupTicks: 2,
+                recoveryTicks: recoveryTicks,
+                suppressMovementDuringWindup: suppressWindup,
+                suppressMovementDuringRecover: suppressRecover,
+                patrolStrategyKind: PatrolStrategyKind.Forward);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var world = CreateWorldState(new[]
+            {
+                CreateUnit(40, 2, new Vector2Int(0, 0), 3, EnemyAiMode.Patrol, Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, world, out defaultProfile, out archetypeCatalog);
+                for (var tickIndex = 1; tickIndex <= 5; tickIndex++)
+                {
+                    var before = GetEntity(world, 40);
+                    var tick = pipeline.RunTick(new TickInput(tickIndex));
+                    EnemySummonCapture.Tick(caseId, $"tick-{tickIndex}", tick, world, 40);
+                    var state = GetEnemySummonBehaviorState(world, 40);
+                    var expectedSuppression = tickIndex <= 3 && suppressWindup ||
+                                              recoveryTicks > 0 && suppressRecover && tickIndex >= 3 && tickIndex <= 4;
+                    Assert.That(tick.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40),
+                        Is.EqualTo(!expectedSuppression), $"{caseId} tick {tickIndex}: movement suppression");
+                    Assert.That(GetEntity(world, 40).facing, Is.EqualTo(Direction.Right),
+                        $"{caseId} tick {tickIndex}: patrol facing, including the first unsuppressed Tick");
+                    if (expectedSuppression)
+                    {
+                        Assert.That(GetEntity(world, 40).facing, Is.EqualTo(before.facing),
+                            $"{caseId} tick {tickIndex}: suppressed patrol facing");
+                    }
+
+                    if (tickIndex == 1)
+                    {
+                        Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
+                        Assert.That(state.windupStartTick, Is.EqualTo(1));
+                        Assert.That(state.windupEndTick, Is.EqualTo(3));
+                        Assert.That(state.activationSequence, Is.EqualTo(1));
+                        Assert.That(state.movementSuppressionUntilTickInclusive,
+                            Is.EqualTo(suppressWindup ? 3 : 0));
+                    }
+                    else if (tickIndex == 3)
+                    {
+                        Assert.That(state.phase,
+                            Is.EqualTo(recoveryTicks == 0 ? EnemySummonBehaviorPhase.None : EnemySummonBehaviorPhase.Recover));
+                        Assert.That(state.movementSuppressionUntilTickInclusive,
+                            Is.EqualTo(recoveryTicks > 0 && suppressRecover ? 4 : suppressWindup ? 3 : 0));
+                    }
+                    else if (tickIndex == 5)
+                    {
+                        Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.None));
+                    }
+
+                    // Keep the child from becoming an unrelated movement blocker on the release Tick.
+                    if (tickIndex >= 3 && world.CreateSnapshot().TryGetEntity(41, out _))
+                    {
+                        world.CreateWriteContext().RemoveEntity(41);
+                    }
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_MovingMaxAliveSourceStartsAfterChildRemoval()
+        {
+            var profile = CreateBehaviorSummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 5,
+                maxAliveChildren: 1,
+                windupTicks: 2,
+                suppressMovementDuringWindup: true,
+                patrolStrategyKind: PatrolStrategyKind.Forward);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var world = CreateWorldState(new[]
+            {
+                CreateUnit(40, 2, new Vector2Int(0, 0), 3, EnemyAiMode.Patrol, Direction.Right),
+                CreateUnit(50, 2, new Vector2Int(10, 0), 1, EnemyAiMode.Patrol, Direction.Right),
+            });
+            world.SetSummonedEntityState(50, new SummonedEntityState(40, 0));
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, world, out defaultProfile, out archetypeCatalog);
+                var blocked = pipeline.RunTick(new TickInput(1));
+                EnemySummonCapture.Tick("S03", "blocked-tick-1", blocked, world, 40);
+                Assert.That(GetEnemySummonBehaviorState(world, 40).phase, Is.EqualTo(EnemySummonBehaviorPhase.None));
+                Assert.That(blocked.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.True);
+                Assert.That(GetEntity(world, 40).facing, Is.EqualTo(Direction.Right),
+                    "At the child limit, imminent Summon suppression must not change patrol facing.");
+                Assert.That(blocked.PresentationData.SummonWindupWarnings, Is.Empty);
+
+                world.CreateWriteContext().RemoveEntity(50);
+                var started = pipeline.RunTick(new TickInput(2));
+                EnemySummonCapture.Tick("S03", "released-tick-2", started, world, 40);
+                var state = GetEnemySummonBehaviorState(world, 40);
+                Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
+                Assert.That(state.activationSequence, Is.EqualTo(1));
+                Assert.That(started.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.False);
+                Assert.That(GetEntity(world, 40).facing, Is.EqualTo(Direction.Right),
+                    "Starting Windup suppresses autonomous facing changes.");
             }
             finally
             {
@@ -870,9 +1022,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateSharedSummonBootstrapper(profile, out defaultProfile, out archetypeCatalog)
                     .CreateTickPipeline(worldState, new IEntityLogic[] { new ScriptedAttackLogic(10, 40) });
                 var warningTick = pipeline.RunTick(new TickInput(1));
+                EnemySummonCapture.Tick("S07c", "windup-tick-1", warningTick, worldState, 40);
                 Assert.That(warningTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
 
                 var tick = pipeline.RunTick(new TickInput(2));
+                EnemySummonCapture.Tick("S07c", "source-invalid-tick-2", tick, worldState, 40);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out _), Is.False);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
                 Assert.That(tick.EventLog, Has.Some.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=SourceInvalid"));
@@ -882,6 +1036,75 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 UnityEngine.Object.DestroyImmediate(archetypeCatalog);
                 DestroyProfile(defaultProfile);
                 DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_DifferentSourceStatesKeepCanonicalOrderAcrossInputPermutation()
+        {
+            string expectedHash = null;
+            string expectedEvents = null;
+            foreach (var reversed in new[] { false, true })
+            {
+                var profile = CreateBehaviorSummonProfile(0, 5, windupTicks: 1);
+                EnemyAiProfile defaultProfile = null;
+                EnemyUnitArchetypeCatalog archetypeCatalog = null;
+                var source40 = CreateUnit(40, 2, new Vector2Int(0, 0), 3, EnemyAiMode.Patrol, Direction.Right);
+                var source41 = CreateUnit(41, 2, new Vector2Int(3, 0), 3, EnemyAiMode.Patrol, Direction.Right);
+                var world = CreateWorldState(reversed
+                    ? new[] { source41, source40 }
+                    : new[] { source40, source41 });
+                world.CreateWriteContext().SetEnemySummonBehaviorState(40,
+                    new EnemySummonBehaviorRuntimeState
+                    {
+                        phase = EnemySummonBehaviorPhase.Windup,
+                        windupStartTick = 0,
+                        windupEndTick = 1,
+                        activationSequence = 2,
+                    });
+                world.CreateWriteContext().SetEnemySummonBehaviorState(41,
+                    new EnemySummonBehaviorRuntimeState
+                    {
+                        phase = EnemySummonBehaviorPhase.Windup,
+                        windupStartTick = 0,
+                        windupEndTick = 1,
+                        activationSequence = 5,
+                    });
+
+                try
+                {
+                    var pipeline = CreateSharedSummonTickPipeline(profile, world,
+                        out defaultProfile, out archetypeCatalog, summonerEntityIds: new[] { 40, 41 });
+                    var tick = pipeline.RunTick(new TickInput(1));
+                    var caseId = reversed ? "S06-reversed" : "S06-forward";
+                    EnemySummonCapture.Tick(caseId, "committed-tick-1", tick, world, 40, 41);
+                    var events = string.Join("\n", tick.EventLog);
+                    var source40Index = events.IndexOf("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=42", StringComparison.Ordinal);
+                    var source41Index = events.IndexOf("SummonCommitted|Source=41|Effect=0|SpawnIndex=0|Spawned=43", StringComparison.Ordinal);
+                    Assert.That(source40Index, Is.GreaterThanOrEqualTo(0));
+                    Assert.That(source41Index, Is.GreaterThan(source40Index));
+                    AssertSummonedChildMetadata(world.CreateSnapshot(), 42, sourceEntityId: 40);
+                    AssertSummonedChildMetadata(world.CreateSnapshot(), 43, sourceEntityId: 41);
+                    Assert.That(GetEnemySummonBehaviorState(world, 40).activationSequence, Is.EqualTo(2));
+                    Assert.That(GetEnemySummonBehaviorState(world, 41).activationSequence, Is.EqualTo(5));
+                    if (expectedHash == null)
+                    {
+                        expectedHash = tick.DeterminismHash;
+                        expectedEvents = events;
+                    }
+                    else
+                    {
+                        Assert.That(tick.DeterminismHash, Is.EqualTo(expectedHash));
+                        Assert.That(events, Is.EqualTo(expectedEvents));
+                    }
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                    DestroyProfile(defaultProfile);
+                    DestroyProfile(profile);
+                }
             }
         }
 
@@ -903,24 +1126,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
 
-                pipeline.RunTick(new TickInput(1));
+                var startTick = pipeline.RunTick(new TickInput(1));
+                EnemySummonCapture.Tick("S04a", "windup-tick-1", startTick, worldState, 40);
                 var firstState = GetEnemySummonBehaviorState(worldState, 40);
                 Assert.That(firstState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
                 Assert.That(firstState.windupEndTick, Is.EqualTo(3));
 
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                pipeline.RunTick(new TickInput(2));
+                var suspendedTick = pipeline.RunTick(new TickInput(2));
+                EnemySummonCapture.Tick("S04a", "suspended-tick-2", suspendedTick, worldState, 40);
                 var suspendedState = GetEnemySummonBehaviorState(worldState, 40);
                 Assert.That(suspendedState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
                 Assert.That(suspendedState.windupEndTick, Is.EqualTo(4));
+                Assert.That(suspendedState.windupStartTick, Is.EqualTo(firstState.windupStartTick));
+                Assert.That(suspendedState.activationSequence, Is.EqualTo(firstState.activationSequence));
+                Assert.That(suspendedState.cooldownTicksRemaining, Is.EqualTo(firstState.cooldownTicksRemaining));
 
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
-                pipeline.RunTick(new TickInput(3));
+                var resumedTick = pipeline.RunTick(new TickInput(3));
+                EnemySummonCapture.Tick("S04a", "resumed-tick-3", resumedTick, worldState, 40);
                 var resumedState = GetEnemySummonBehaviorState(worldState, 40);
                 Assert.That(resumedState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
                 Assert.That(resumedState.windupEndTick, Is.EqualTo(4));
 
                 var committedTick = pipeline.RunTick(new TickInput(4));
+                EnemySummonCapture.Tick("S04a", "committed-tick-4", committedTick, worldState, 40);
                 Assert.That(committedTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41"));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.True);
             }
@@ -979,6 +1209,437 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 UnityEngine.Object.DestroyImmediate(archetypeCatalog);
                 DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_RecoverTopologySuspendsAndResumesWithoutCooldownLoss()
+        {
+            var profile = CreateBehaviorSummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 5,
+                windupTicks: 1,
+                recoveryTicks: 2,
+                suppressMovementDuringWindup: true,
+                suppressMovementDuringRecover: true);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var world = CreateWorldState(
+                new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), 3, EnemyAiMode.Patrol, Direction.Right) },
+                new CubeTopologyState(FaceId.Floor));
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, world, out defaultProfile, out archetypeCatalog);
+                var windup = pipeline.RunTick(new TickInput(1));
+                EnemySummonCapture.Tick("S04b", "windup-tick-1", windup, world, 40);
+                var committed = pipeline.RunTick(new TickInput(2));
+                EnemySummonCapture.Tick("S04b", "recover-tick-2", committed, world, 40);
+                var beforeSuspend = GetEnemySummonBehaviorState(world, 40);
+                Assert.That(beforeSuspend.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
+                Assert.That(beforeSuspend.recoverEndTickExclusive, Is.EqualTo(4));
+
+                world.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
+                var suspended = pipeline.RunTick(new TickInput(3));
+                EnemySummonCapture.Tick("S04b", "suspended-tick-3", suspended, world, 40);
+                var suspendedState = GetEnemySummonBehaviorState(world, 40);
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
+                Assert.That(suspendedState.recoverEndTickExclusive, Is.EqualTo(5));
+                Assert.That(suspendedState.movementSuppressionUntilTickInclusive,
+                    Is.EqualTo(beforeSuspend.movementSuppressionUntilTickInclusive + 1));
+                Assert.That(suspendedState.cooldownTicksRemaining, Is.EqualTo(beforeSuspend.cooldownTicksRemaining));
+                Assert.That(suspendedState.recoverStartTick, Is.EqualTo(beforeSuspend.recoverStartTick));
+                Assert.That(suspendedState.activationSequence, Is.EqualTo(beforeSuspend.activationSequence));
+                Assert.That(suspended.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+
+                world.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
+                var resumed = pipeline.RunTick(new TickInput(4));
+                EnemySummonCapture.Tick("S04b", "resumed-tick-4", resumed, world, 40);
+                var resumedState = GetEnemySummonBehaviorState(world, 40);
+                Assert.That(resumedState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
+                Assert.That(resumedState.recoverEndTickExclusive, Is.EqualTo(5));
+                Assert.That(resumedState.cooldownTicksRemaining, Is.EqualTo(beforeSuspend.cooldownTicksRemaining - 1));
+                var ended = pipeline.RunTick(new TickInput(5));
+                EnemySummonCapture.Tick("S04b", "ended-tick-5", ended, world, 40);
+                Assert.That(GetEnemySummonBehaviorState(world, 40).cooldownTicksRemaining,
+                    Is.EqualTo(resumedState.cooldownTicksRemaining));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_UninitializedOffTopologySourceHasNoOutput()
+        {
+            var profile = CreateBehaviorSummonProfile(0, 5, windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var world = CreateWorldState(
+                new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Front, 0, 0), 3, EnemyAiMode.Patrol, Direction.Right) },
+                new CubeTopologyState(FaceId.Floor));
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, world, out defaultProfile, out archetypeCatalog);
+                var tick = pipeline.RunTick(new TickInput(1));
+                EnemySummonCapture.Tick("S04c", "tick-1", tick, world, 40);
+                Assert.That(world.CreateSnapshot().TryGetEnemySummonBehaviorState(40, out _), Is.False);
+                Assert.That(tick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+                Assert.That(tick.PresentationData.EnemySummonSignals, Is.Empty);
+                Assert.That(tick.PresentationData.SummonWindupWarnings, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [TestCase("Lookup")]
+        [TestCase("EntityAbsent")]
+        [TestCase("Detached")]
+        [TestCase("HpZero")]
+        [TestCase("MarkedForDeath")]
+        [TestCase("Dead")]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_InvalidSourceCancelDistinguishesMissingAndInactiveState(
+            string invalidation)
+        {
+            var profile = CreateBehaviorSummonProfile(0, 5, windupTicks: 2, recoveryTicks: 2,
+                suppressMovementDuringWindup: true, suppressMovementDuringRecover: true);
+            try
+            {
+                // WorldState.RemoveEntity also removes Summon state; only the absent-state
+                // combination is reachable when the entity itself is missing.
+                foreach (var stateKind in invalidation == "EntityAbsent"
+                    ? new[] { "Absent" }
+                    : new[] { "Absent", "Windup", "Recover", "Inactive" })
+                {
+                    var source = CreateUnit(40, 2, new Vector2Int(0, 0), 3, EnemyAiMode.Patrol, Direction.Right);
+                    switch (invalidation)
+                    {
+                        case "Lookup":
+                            source.aiMode = EnemyAiMode.None;
+                            break;
+                        case "Detached":
+                            source.boardPresence = EntityBoardPresence.Detached;
+                            break;
+                        case "HpZero":
+                            source.hp = 0;
+                            break;
+                        case "MarkedForDeath":
+                            source.markedForDeath = true;
+                            break;
+                        case "Dead":
+                            source.aiMode = EnemyAiMode.Dead;
+                            break;
+                    }
+
+                    var world = CreateWorldState(new[] { source });
+                    if (invalidation == "EntityAbsent")
+                    {
+                        world.CreateWriteContext().RemoveEntity(40);
+                    }
+                    if (stateKind != "Absent")
+                    {
+                        world.CreateWriteContext().SetEnemySummonBehaviorState(40,
+                            stateKind switch
+                            {
+                                "Windup" => new EnemySummonBehaviorRuntimeState
+                                {
+                                    phase = EnemySummonBehaviorPhase.Windup,
+                                    windupStartTick = 1,
+                                    windupEndTick = 5,
+                                    activationSequence = 2,
+                                    movementSuppressionUntilTickInclusive = 5,
+                                },
+                                "Recover" => new EnemySummonBehaviorRuntimeState
+                                {
+                                    phase = EnemySummonBehaviorPhase.Recover,
+                                    recoverStartTick = 1,
+                                    recoverEndTickExclusive = 5,
+                                    activationSequence = 2,
+                                    cooldownTicksRemaining = 3,
+                                    movementSuppressionUntilTickInclusive = 4,
+                                },
+                                _ => new EnemySummonBehaviorRuntimeState
+                                {
+                                    phase = EnemySummonBehaviorPhase.None,
+                                    cooldownTicksRemaining = 2,
+                                    activationSequence = 2,
+                                },
+                            });
+                    }
+
+                    var snapshot = world.CreateSnapshot();
+                    if (invalidation == "EntityAbsent")
+                    {
+                        Assert.That(snapshot.TryGetEntity(40, out _), Is.False);
+                        Assert.That(snapshot.TryGetEnemySummonBehaviorState(40, out _), Is.False);
+                    }
+                    var logic = new EnemyLogic(40, profile);
+                    var context = new SummonRecordingCommitContext();
+                    var updates = new List<string>();
+                    ((IPreMovementStateLogic)logic).CommitPreMovementState(
+                        snapshot, new TickInput(2), context, updates, new List<PlayerActionTransition>());
+                    var caseId = $"S05-{invalidation}-{stateKind}";
+                    EnemySummonCapture.Logic(caseId, "call-1", 2, snapshot, 40,
+                        context.Writes, context.Triggers, updates,
+                        postSnapshot: world.CreateSnapshot(),
+                        proposedState: context.HasSummonWrite ? context.LastSummonState : null);
+
+                    var shouldCancel = stateKind == "Windup" || stateKind == "Recover";
+                    Assert.That(context.HasSummonWrite, Is.EqualTo(shouldCancel), caseId);
+                    Assert.That(updates.Any(update => update.StartsWith("EnemySummonBehaviorWindupCanceled|", StringComparison.Ordinal)),
+                        Is.EqualTo(shouldCancel), caseId);
+                    Assert.That(context.Triggers, Is.Empty, caseId);
+                    if (shouldCancel)
+                    {
+                        Assert.That(context.LastSummonState.phase, Is.EqualTo(EnemySummonBehaviorPhase.None), caseId);
+                        Assert.That(context.LastSummonState.cooldownTicksRemaining, Is.EqualTo(5), caseId);
+                        Assert.That(context.LastSummonState.activationSequence, Is.EqualTo(2), caseId);
+                        Assert.That(context.LastSummonState.movementSuppressionUntilTickInclusive, Is.Zero, caseId);
+                    }
+                }
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_RepeatedPublicMovementQueryDoesNotWriteState()
+        {
+            var profile = CreateBehaviorSummonProfile(0, 5, windupTicks: 2,
+                suppressMovementDuringWindup: true, patrolStrategyKind: PatrolStrategyKind.Forward);
+            try
+            {
+                var world = CreateWorldState(new[]
+                {
+                    CreateUnit(40, 2, new Vector2Int(0, 0), 3, EnemyAiMode.Patrol, Direction.Right),
+                });
+                world.CreateWriteContext().SetEnemySummonBehaviorState(40,
+                    new EnemySummonBehaviorRuntimeState
+                    {
+                        phase = EnemySummonBehaviorPhase.Windup,
+                        windupStartTick = 1,
+                        windupEndTick = 3,
+                        activationSequence = 1,
+                        movementSuppressionUntilTickInclusive = 3,
+                    });
+                var snapshot = world.CreateSnapshot();
+                var logic = new EnemyLogic(40, profile);
+                var first = new List<RawMovementIntent>();
+                var second = new List<RawMovementIntent>();
+                logic.CollectMovementIntents(snapshot, new TickInput(2), first);
+                logic.CollectMovementIntents(snapshot, new TickInput(2), second);
+                Assert.That(first, Is.Empty);
+                Assert.That(second, Is.Empty);
+                Assert.That(snapshot.TryGetEnemySummonBehaviorState(40, out var state), Is.True);
+                Assert.That(world.CreateSnapshot().TryGetEnemySummonBehaviorState(40, out var after), Is.True);
+                Assert.That(after.phase, Is.EqualTo(state.phase));
+                Assert.That(after.windupEndTick, Is.EqualTo(state.windupEndTick));
+                Assert.That(after.activationSequence, Is.EqualTo(state.activationSequence));
+                EnemySummonCapture.Logic("S08a", "two-queries", 2, snapshot, 40,
+                    Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>(),
+                    new[] { $"Query1Intents={first.Count}", $"Query2Intents={second.Count}",
+                        $"StateAfterPhase={after.phase}", $"StateAfterEnd={after.windupEndTick}" });
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_MissingTriggerSinkStillAdvancesStateAndLog()
+        {
+            var profile = CreateBehaviorSummonProfile(0, 5, windupTicks: 1, recoveryTicks: 2);
+            try
+            {
+                var world = CreateWorldState(new[]
+                {
+                    CreateUnit(40, 2, new Vector2Int(0, 0), 3, EnemyAiMode.Patrol, Direction.Right),
+                });
+                world.CreateWriteContext().SetEnemySummonBehaviorState(40,
+                    new EnemySummonBehaviorRuntimeState
+                    {
+                        phase = EnemySummonBehaviorPhase.Windup,
+                        windupStartTick = 1,
+                        windupEndTick = 2,
+                        activationSequence = 1,
+                    });
+                var snapshot = world.CreateSnapshot();
+                var logic = new EnemyLogic(40, profile);
+                var context = new SummonRecordingCommitContext();
+                var updates = new List<string>();
+                ((IPreMovementStateLogic)logic).CommitPreMovementState(
+                    snapshot, new TickInput(2), context, updates, new List<PlayerActionTransition>());
+                EnemySummonCapture.Logic("S08b", "call-1", 2, snapshot, 40,
+                    context.Writes, context.Triggers, updates,
+                    postSnapshot: world.CreateSnapshot(),
+                    proposedState: context.HasSummonWrite ? context.LastSummonState : null);
+                Assert.That(context.HasSummonWrite, Is.True);
+                Assert.That(context.LastSummonState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
+                Assert.That(context.LastSummonState.recoverStartTick, Is.EqualTo(2));
+                Assert.That(context.Triggers, Is.Empty);
+                Assert.That(updates, Has.Some.StartsWith("EnemySummonBehaviorWindupCommitted|"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [TestCase(EnemyAiMode.Patrol, "Imminent", "S09a-Patrol")]
+        [TestCase(EnemyAiMode.Chase, "Imminent", "S09a-Chase")]
+        [TestCase(EnemyAiMode.Patrol, "Active", "S09b-Patrol")]
+        [TestCase(EnemyAiMode.Chase, "Active", "S09b-Chase")]
+        [TestCase(EnemyAiMode.Patrol, "Release", "S09c-Patrol")]
+        [TestCase(EnemyAiMode.Chase, "Release", "S09c-Chase")]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_PendingBlockedReactionWaitsForSuppressionRelease(
+            EnemyAiMode mode,
+            string window,
+            string caseId)
+        {
+            var profile = CreateBehaviorSummonProfile(0, 5, windupTicks: 2,
+                suppressMovementDuringWindup: true,
+                patrolStrategyKind: PatrolStrategyKind.Forward,
+                detectionStrategyKind: DetectionStrategyKind.NearestOpponent);
+            try
+            {
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var blockedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var world = CreateWorldState(new[]
+                {
+                    CreateUnit(10, 1, new Vector2Int(3, 1), 3),
+                    CreateUnit(40, 2, sourceCell, 3, mode, Direction.Right,
+                        enemyLocomotionCooldownTicks: 3),
+                });
+                world.CreateWriteContext().SetPendingEnemyBlockedReaction(40,
+                    new PendingEnemyBlockedReaction(
+                        40, EnemyBlockedReactionKind.KinematicContinuationTargetBlocked,
+                        mode, sourceCell, blockedCell, Direction.Right,
+                        LegalityBlockerKind.Solid, SolidKind.Box, EntityType.Box, 20,
+                        createdTick: 1, expireTick: 10));
+                if (window == "Active")
+                {
+                    world.CreateWriteContext().SetEnemySummonBehaviorState(40,
+                        new EnemySummonBehaviorRuntimeState
+                        {
+                            phase = EnemySummonBehaviorPhase.Windup,
+                            windupStartTick = 1,
+                            windupEndTick = 4,
+                            activationSequence = 1,
+                            movementSuppressionUntilTickInclusive = 4,
+                        });
+                }
+                else if (window == "Release")
+                {
+                    world.CreateWriteContext().SetEnemySummonBehaviorState(40,
+                        new EnemySummonBehaviorRuntimeState
+                        {
+                            phase = EnemySummonBehaviorPhase.None,
+                            cooldownTicksRemaining = 5,
+                            activationSequence = 1,
+                            movementSuppressionUntilTickInclusive = 1,
+                        });
+                }
+
+                var snapshot = world.CreateSnapshot();
+                var logic = new EnemyLogic(40, profile);
+                var context = new SummonRecordingCommitContext();
+                var updates = new List<string>();
+                ((IPreMovementStateLogic)logic).CommitPreMovementState(
+                    snapshot, new TickInput(2), context, updates, new List<PlayerActionTransition>());
+                var consumed = updates.Any(update => update.StartsWith("PendingEnemyBlockedReactionConsumed|", StringComparison.Ordinal));
+                Assert.That(consumed, Is.EqualTo(window == "Release"), caseId);
+                Assert.That(context.Writes.Contains("PendingClear|E=40"), Is.EqualTo(window == "Release"), caseId);
+                Assert.That(context.Writes.Contains("LocomotionCooldown|E=40|To=0"), Is.EqualTo(window == "Release"), caseId);
+                if (window != "Release")
+                {
+                    Assert.That(context.Writes.Contains("LocomotionCooldown|E=40|To=2"), Is.True, caseId);
+                }
+                if (window == "Release" && mode == EnemyAiMode.Patrol)
+                {
+                    Assert.That(context.Writes, Has.Some.EqualTo("Facing|E=40|To=Left"), caseId);
+                }
+
+                var observations = new List<string>
+                {
+                    $"PendingBefore={snapshot.TryGetPendingEnemyBlockedReaction(40, out _)}",
+                    $"Consumed={consumed}",
+                };
+                if (window == "Release" && mode == EnemyAiMode.Chase)
+                {
+                    ((IPreMovementStateCommitContext)world.CreateWriteContext()).SetEnemyLocomotionCooldown(40, 0);
+                    var chaseIntents = new List<RawMovementIntent>();
+                    logic.CollectMovementIntents(world.CreateSnapshot(), new TickInput(2), chaseIntents);
+                    Assert.That(chaseIntents.Any(intent => intent.Destination == blockedCell.PlanarPosition), Is.False,
+                        "The consumed reaction must exclude its blocked direction from the Chase decision.");
+                    observations.AddRange(chaseIntents.Select(intent => $"ChaseDestination={intent.Destination}"));
+                }
+                EnemySummonCapture.Logic(caseId, "call-1", 2, snapshot, 40,
+                    context.Writes, context.Triggers, updates, observations);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_Characterization_ProfileWithoutSummonKeepsOrdinaryPatrol()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Forward,
+            });
+            try
+            {
+                var world = CreateWorldState(new[]
+                {
+                    CreateUnit(40, 2, new Vector2Int(0, 0), 3, EnemyAiMode.Patrol, Direction.Right),
+                });
+                var snapshot = world.CreateSnapshot();
+                var logic = new EnemyLogic(40, profile);
+                var first = new List<RawMovementIntent>();
+                var second = new List<RawMovementIntent>();
+                logic.CollectMovementIntents(snapshot, new TickInput(1), first);
+                logic.CollectMovementIntents(snapshot, new TickInput(1), second);
+                Assert.That(first.Count, Is.EqualTo(1));
+                Assert.That(second.Count, Is.EqualTo(1));
+                Assert.That(first[0].Destination, Is.EqualTo(second[0].Destination));
+                var context = new SummonRecordingCommitContext();
+                var updates = new List<string>();
+                ((IPreMovementStateLogic)logic).CommitPreMovementState(
+                    snapshot, new TickInput(1), context, updates, new List<PlayerActionTransition>());
+                Assert.That(context.HasSummonWrite, Is.False);
+                Assert.That(context.Triggers, Is.Empty);
+                Assert.That(updates.Any(update => update.StartsWith("EnemySummonBehavior", StringComparison.Ordinal)), Is.False);
+                Assert.That(world.CreateSnapshot().TryGetEnemySummonBehaviorState(40, out _), Is.False);
+                EnemySummonCapture.Logic("S10", "call-1", 1, snapshot, 40,
+                    context.Writes, context.Triggers, updates,
+                    new[] { $"Query1Destination={first[0].Destination}",
+                        $"Query2Destination={second[0].Destination}" });
+            }
+            finally
+            {
                 DestroyProfile(profile);
             }
         }
@@ -2528,6 +3189,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                     unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
                 var tick = pipeline.RunTick(new TickInput(1));
+                EnemySummonCapture.Tick("S07a", "execute-tick-1", tick, worldState, 40);
                 var eventLogDump = string.Join("\n", tick.EventLog);
                 var movementDebug = string.Join(
                     "\n",
@@ -8672,6 +9334,72 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     buffer.Add(movementIntent);
                 }
             }
+        }
+
+        private class SummonRecordingCommitContext : IPreMovementStateCommitContext
+        {
+            public readonly List<string> Writes = new();
+            public readonly List<string> Triggers = new();
+            public EnemySummonBehaviorRuntimeState LastSummonState;
+            public bool HasSummonWrite;
+
+            public void SetPlayerControlState(int entityId, PlayerControlState state) =>
+                Writes.Add($"PlayerControl|E={entityId}");
+
+            public void SetFacing(int entityId, Direction facing) =>
+                Writes.Add($"Facing|E={entityId}|To={facing}");
+
+            public void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks) =>
+                Writes.Add($"LocomotionCooldown|E={entityId}|To={cooldownTicks}");
+
+            public void SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks) =>
+                Writes.Add($"AttackCooldown|E={entityId}|To={cooldownTicks}|Total={totalTicks}");
+
+            public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state) =>
+                Writes.Add($"Patrol|E={entityId}|Sequence={state.sequence}|Home={state.homeCell}|Direction={state.lastCommittedDirection}");
+
+            public void SetPendingEnemyBlockedReaction(int entityId, PendingEnemyBlockedReaction reaction) =>
+                Writes.Add($"PendingSet|E={entityId}|Created={reaction.CreatedTick}|Expire={reaction.ExpireTick}");
+
+            public void ClearPendingEnemyBlockedReaction(int entityId) =>
+                Writes.Add($"PendingClear|E={entityId}");
+
+            public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state) =>
+                Writes.Add($"Charge|E={entityId}|Phase={state.phase}");
+
+            public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state) =>
+                Writes.Add($"Jump|E={entityId}|Phase={state.phase}");
+
+            public void SetEnemyGlideState(int entityId, EnemyGlideRuntimeState state) =>
+                Writes.Add($"Glide|E={entityId}|Phase={state.Phase}");
+
+            public void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state) =>
+                Writes.Add($"Utility|E={entityId}");
+
+            public void SetEnemySummonBehaviorState(int entityId, EnemySummonBehaviorRuntimeState state)
+            {
+                HasSummonWrite = true;
+                LastSummonState = state;
+                Writes.Add($"Summon|E={entityId}|Phase={state.phase}|Cooldown={state.cooldownTicksRemaining}|WindupStart={state.windupStartTick}|WindupEnd={state.windupEndTick}|RecoverStart={state.recoverStartTick}|RecoverEnd={state.recoverEndTickExclusive}|Sequence={state.activationSequence}|SuppressUntil={state.movementSuppressionUntilTickInclusive}");
+            }
+
+            public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state) =>
+                Writes.Add($"BoxLock|E={entityId}");
+
+            public void SetEnemyGravityFieldAuraFieldState(int fieldId, EnemyGravityFieldAuraFieldState state) =>
+                Writes.Add($"GravityFieldAura|Id={fieldId}");
+
+            public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks) =>
+                Writes.Add($"GravityField|E={entityId}|Phase={phase}|Timer={timerTicks}");
+        }
+
+        private sealed class SummonRecordingTriggerContext : SummonRecordingCommitContext, IEnemyUtilityTriggerSink
+        {
+            public void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent) =>
+                Triggers.Add($"Utility|Source={intent.SourceEntityId}");
+
+            public void EmitEnemySummonBehaviorTriggerIntent(EnemySummonBehaviorTriggerIntent intent) =>
+                Triggers.Add($"Summon|Source={intent.SourceEntityId}|Effect={intent.SourceEffectIndex}|Tick={intent.TriggerTick}|Cell={intent.OriginCell}|Facing={intent.SourceFacing}|Team={intent.SourceTeamId}");
         }
 
         private sealed class ScriptedAttackLogic : IAttackEntityLogic
