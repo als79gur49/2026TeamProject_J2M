@@ -172,7 +172,7 @@ J2M_TERMINAL_RENDER_EVIDENCE_ROOT="$(wslpath -w /mnt/d/J2M/evidence/pr222-follow
 UNITY_GRAPHICS=1 ./run_tests.sh full --filter CampaignLaunchHandoffPlayModeTests
 ```
 
-- PlayMode escalation uses the existing graphics capture test; no new PlayMode test was added. The user reported manual visual review with no issue. Core, unfiltered full, Player build, and manual campaign E2E were not run; no broad-lane claim is made.
+- PlayMode escalation uses the existing graphics capture test; no new PlayMode test was added. The commit hook's `./run_tests.sh core` also passed EditMode `293/0` and PlayMode `113 total / 109 passed / 4 graphics skips / 0 failed`; evidence is under `/mnt/d/J2M/evidence/pr222-followup-20260926/core-final/`. The user reported manual visual review with no issue. Unfiltered full, Player build, and manual campaign E2E were not run; no broad-lane claim is made.
 
 ### PR #221 main integration: death input and Push/Flip ownership (2026-09-25)
 
