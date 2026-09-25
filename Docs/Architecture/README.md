@@ -90,6 +90,10 @@
   - historical pre-execution low-cost `stage-4-3` A/B directional diagnostic for the full 19-commit integration bundle, using the actual-PC highest-object-load, lowest-FPS observation and later Tick evidence as the workload rationale; also documents why `stage-1-1` is continuity-only, when `stage-4-2` becomes a separate fallback, and the original strict decision/non-claim rules; completed CPU-policy campaigns and limitations are recorded in the closeout
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
+- [EnemyLogic-Behavior-Extraction-Implementation-Plan.md](./EnemyLogic-Behavior-Extraction-Implementation-Plan.md)
+  - Summon-first behavior execution extraction plan and validation gates; implementation and selected before/after comparison are recorded, with the strict core graphics gate still open
+- [EnemyLogic-Summon-Extraction-Closeout.md](./EnemyLogic-Summon-Extraction-Closeout.md)
+  - actual Summon executor boundary, 49-case capture comparison, baseline/candidate identity and Unity evidence, review findings, and unresolved graphics validation
 - [UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md](./UI-Audio-M1-Continuation-Three-PR-Remediation-Plan.md)
   - proposed A/B/C split plan for test-tier remediation, strict-governance delta closure, original SHA preservation, sequential merge-commit integration, and same-revision PR evidence; execution requires the documented merge-method, deterministic-delta, and evidence-root preconditions
 - [UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md](./UI-Audio-M1-Continuation-Three-PR-Execution-Prompt.md)
