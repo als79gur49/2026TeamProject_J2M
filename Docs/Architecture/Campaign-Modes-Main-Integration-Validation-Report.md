@@ -1,6 +1,6 @@
 # Campaign modes → main 통합 검증 보고서
 
-기록: 2026-09-26 KST. 기준 branch `refactor/save-structure-redesign`, 병합 대상 `170e8dbbfb3b7ef38fa32e1ca7774ece0c78400c` (`origin/main`). 통합 merge commit은 `99c7a1845e62f614862ecb1d54a96516e0abcd7e`이며 부모는 계획서 선행 문서 commit `c588cf8f29e3d9f8efc643e85e1feea9ffbbb8a8`과 위 main이다. 검증한 staged tree와 merge commit tree는 모두 `8d6ce4aa5f049908f9dfec22c355e9e2af48a141`이다. 이 보고서만 담는 후속 문서 commit은 tree가 다르므로, 아래 Unity 결과를 그 문서 commit에서 새로 실행한 것으로 해석하지 않는다. 검증 worktree는 `/mnt/d/j2m/worktrees/save-structure-redesign`이고 runner의 Windows project path는 `D:\j2m\worktrees\save-structure-redesign`이다.
+기록: 2026-09-26 KST. 기준 branch `refactor/save-structure-redesign`, 병합 대상 `170e8dbbfb3b7ef38fa32e1ca7774ece0c78400c` (`origin/main`). 통합 merge commit은 `99c7a1845e62f614862ecb1d54a96516e0abcd7e`이며 부모는 계획서 선행 문서 commit `c588cf8f29e3d9f8efc643e85e1feea9ffbbb8a8`과 위 main이다. 검증한 staged tree와 merge commit tree는 모두 `8d6ce4aa5f049908f9dfec22c355e9e2af48a141`이다. 후속 문서 commit은 tree가 다르므로, 아래 Unity 결과를 그 문서 commit에서 새로 실행한 것으로 해석하지 않는다. 검증 worktree는 `/mnt/d/j2m/worktrees/save-structure-redesign`이고 runner의 Windows project path는 `D:\j2m\worktrees\save-structure-redesign`이다.
 
 증거 root: `/mnt/d/J2M/evidence/campaign-modes-main-integration-20260925T185553Z`. 빌드 root: `/mnt/d/J2M/builds/campaign-modes-main-integration-20260925T185553Z`. `validated-tree.txt`, `source-asset-sha256.txt`, `integration-staged.patch`, `validation-lanes.json`에 검증 입력과 XML 집계를 남겼다. source/asset manifest의 169개 파일 해시와 삭제 대상 5개 경로는 commit 전 재확인해 모두 일치했다. Unity 실행 중 SDF asset 변이와 unstaged diff는 runner가 없다고 확인했다.
 
@@ -28,6 +28,8 @@ graphics의 shader compile 오류 없음·지원 여부와 pixel assertion은 `T
 targeted의 14 skip은 삭제된 MechanicsShowcase stage 전용 fixture이고, 현행 campaign stage content 사례는 통과했다. core PlayMode의 4 skip은 그래픽 장치 또는 전용 graphics 실행을 요구한다. 그중 terminal render 4해상도 사례는 위 graphics 실행에서 선택되어 통과했으며, 나머지 세 graphics 전용 사례의 core skip을 통과로 바꾸어 세지 않는다.
 
 Player save-safety는 고유 product name `VectorQuake-P0Phase4Smoke-SaveSafety-20260926T044725Z`로 만든 Windows64 Mono Development Player이다. 빌드는 `/mnt/d/J2M/builds/campaign-modes-main-integration-20260925T185553Z/player-save-safety/20260926T044725Z`에 있다. 격리 save root는 `/mnt/c/Users/user/AppData/LocalLow/J2M/VectorQuake-P0Phase4Smoke-SaveSafety-20260926T044725Z/Saves`이며 사용자 일반 save를 건드리지 않았다. runner manifest의 `HEAD=c588cf8f...`는 merge commit 전 `git HEAD`를 읽은 값이다. 실제 빌드 입력은 위에 적은 staged tree였고, source/asset 해시가 commit까지 동일했다. 이 probe는 앱 재시작 HP 보존이나 저장 실패 popup을 검사하지 않는다.
+
+`player-runtime.log`는 의도한 normal-slot 요청 거부 뒤, launch context 없이 `UIAudioScene` 부팅을 계속 시도하면서 `StageRuntimeContentResolver`와 `GameplayUiFlowInstaller` 초기화 예외를 기록한다. runner의 PASS 조건은 거부 메시지와 sentinel 해시 불변에 한정된다. 이 실행을 정상 gameplay 부팅 또는 수동 Player 조작의 증거로 취급하지 않는다.
 
 첫 targeted 실행은 병합 후 갱신되지 않은 ignored Unity `.csproj`가 삭제된 `TickPipeline.RespawnProcessor.cs`를 참조해 `CS2001`로 중단됐고, 두 번째는 새 UI test assembly의 `Unity.InputSystem.TestFramework` 참조 누락으로 `CS0246`에서 중단됐다. generated project 입력만 현행 asmdef/source에 맞춰 로컬 재생성했으며 해시 전후는 `generated-project-reconciliation.txt`에 있다. 세 번째 실행의 무적 접촉 단언 실패는 위 main 비교를 거쳐 수정했다. 이 실패와 중단 기록은 `targeted`, `targeted-retry1`, `targeted-retry2`, `invincible-contract-retest`에 보존했다. 최종 성공은 `targeted-final`을 기준으로 한다.
 
