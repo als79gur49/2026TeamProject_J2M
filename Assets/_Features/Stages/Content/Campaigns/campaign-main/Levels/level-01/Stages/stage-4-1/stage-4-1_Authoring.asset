@@ -32,13 +32,13 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId:
+    PresentationId: 
   - StableGuid: fd937753d86f4d0fae85dc57df03c692
     DisplayName: Placement
     Kind: 3
@@ -49,7 +49,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -66,7 +66,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -83,7 +83,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -100,7 +100,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -117,7 +117,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -134,7 +134,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -151,7 +151,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -168,7 +168,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -185,7 +185,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -202,7 +202,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -219,7 +219,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -236,7 +236,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -253,7 +253,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -270,7 +270,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -287,7 +287,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -304,7 +304,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -321,7 +321,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -338,7 +338,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -355,7 +355,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -372,7 +372,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -389,7 +389,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -406,7 +406,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -423,7 +423,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -440,7 +440,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -457,7 +457,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -474,7 +474,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -491,7 +491,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -508,7 +508,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -525,7 +525,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -542,7 +542,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -559,7 +559,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -576,7 +576,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -593,7 +593,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -610,7 +610,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -627,7 +627,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -644,24 +644,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: dd2cb77493f4462eb655704e3c263396
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 1
-      x: 2
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -678,7 +661,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -695,7 +678,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -712,7 +695,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -729,7 +712,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -746,7 +729,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -763,7 +746,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -780,7 +763,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -797,7 +780,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -814,7 +797,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -831,24 +814,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 7f18b01f87f54d6dac790e0fbd87d26d
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 2
-      x: 9
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -865,7 +831,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -882,7 +848,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -899,7 +865,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -916,7 +882,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -933,7 +899,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -950,7 +916,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -967,7 +933,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -984,7 +950,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1001,7 +967,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1018,7 +984,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1035,7 +1001,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1052,7 +1018,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1069,7 +1035,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1086,7 +1052,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1103,7 +1069,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1120,7 +1086,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1137,7 +1103,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1154,7 +1120,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1171,7 +1137,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1188,7 +1154,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1205,7 +1171,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1222,7 +1188,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1239,7 +1205,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1256,7 +1222,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1273,7 +1239,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1290,7 +1256,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1307,7 +1273,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1324,24 +1290,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_grave
-  - StableGuid: 3d45c983adc84eb6b8f4512a76768944
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 1
-      x: 9
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1358,7 +1307,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1375,7 +1324,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1392,7 +1341,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1409,7 +1358,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1426,7 +1375,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1443,7 +1392,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1460,7 +1409,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1477,7 +1426,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1494,7 +1443,7 @@ MonoBehaviour:
     Facing: 1
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1511,7 +1460,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1528,7 +1477,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1545,7 +1494,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1562,7 +1511,7 @@ MonoBehaviour:
     Facing: 1
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1579,7 +1528,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1596,24 +1545,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_bed_tutorial
-  - StableGuid: 53a9d68dd4fd476da1c3b7c4274d7f74
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 1
-      x: 9
-      y: 7
-    Facing: 2
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1630,7 +1562,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1647,7 +1579,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1664,7 +1596,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1681,7 +1613,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1698,7 +1630,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1715,7 +1647,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1732,7 +1664,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1749,7 +1681,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1766,7 +1698,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1783,7 +1715,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1800,7 +1732,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1817,7 +1749,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1834,7 +1766,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1851,7 +1783,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1868,7 +1800,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1885,7 +1817,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1902,7 +1834,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1919,7 +1851,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1936,7 +1868,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1953,7 +1885,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1970,7 +1902,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -1987,7 +1919,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2004,7 +1936,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2021,7 +1953,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2038,7 +1970,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2055,7 +1987,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2072,7 +2004,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2089,7 +2021,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2106,7 +2038,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2123,7 +2055,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2140,7 +2072,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2157,7 +2089,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2174,7 +2106,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2191,7 +2123,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2208,7 +2140,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2225,7 +2157,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2242,7 +2174,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2259,7 +2191,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2276,7 +2208,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2293,7 +2225,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2310,7 +2242,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2327,7 +2259,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2344,7 +2276,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2361,7 +2293,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2378,7 +2310,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2395,7 +2327,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2412,7 +2344,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2429,7 +2361,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2446,7 +2378,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2463,7 +2395,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2480,7 +2412,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2497,7 +2429,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2514,7 +2446,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2531,7 +2463,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2548,7 +2480,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2565,7 +2497,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2582,7 +2514,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2599,7 +2531,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2616,7 +2548,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2633,7 +2565,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2650,7 +2582,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -2667,7 +2599,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
@@ -2684,7 +2616,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
@@ -2701,7 +2633,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
@@ -2718,7 +2650,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
@@ -2735,7 +2667,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
@@ -2752,7 +2684,7 @@ MonoBehaviour:
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
@@ -2769,7 +2701,7 @@ MonoBehaviour:
     Facing: 4
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 1
     EnemyAiMode: 0
@@ -2786,7 +2718,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2803,7 +2735,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2820,7 +2752,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2837,7 +2769,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2854,7 +2786,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2871,7 +2803,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2888,7 +2820,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2905,7 +2837,75 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup:
+    UnitStackGroup: 
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 7c69977ce85e4237819d5f0ed4135898
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 2
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 82fea33b47ca41ab8d78df4cedd2c226
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 9
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 3352237b85454741ba083be210a9efc4
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 9
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 0b9b7c17d05c4a1fbb939d7f3fdbe69e
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 9
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
@@ -3219,7 +3219,7 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: dd2cb77493f4462eb655704e3c263396
     EntityId: 38
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Placement
   - StableGuid: 57d34bed9cc24f32b559303880595f5a
     EntityId: 39
@@ -3263,7 +3263,7 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: 7f18b01f87f54d6dac790e0fbd87d26d
     EntityId: 49
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Placement
   - StableGuid: 485772fcc5ca4ab3870a588f09ede4a6
     EntityId: 50
@@ -3379,7 +3379,7 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: 3d45c983adc84eb6b8f4512a76768944
     EntityId: 78
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Placement
   - StableGuid: 8689f4d103bd4d4da0ea92bf7e8a2984
     EntityId: 79
@@ -3443,7 +3443,7 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: 53a9d68dd4fd476da1c3b7c4274d7f74
     EntityId: 94
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Placement
   - StableGuid: 38fbbb5c18854af0a3371e4a45204c30
     EntityId: 95
@@ -3747,6 +3747,22 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: f88c6c94b0d7478687f08c2116f9c7bb
     EntityId: 170
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7c69977ce85e4237819d5f0ed4135898
+    EntityId: 171
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 82fea33b47ca41ab8d78df4cedd2c226
+    EntityId: 172
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 3352237b85454741ba083be210a9efc4
+    EntityId: 173
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 0b9b7c17d05c4a1fbb939d7f3fdbe69e
+    EntityId: 174
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

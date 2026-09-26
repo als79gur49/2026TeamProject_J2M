@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
   m_Name: stage-3-3_Presentation
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   ownerEntry: {fileID: 11400000, guid: dedb1c0cfceeadf585ec253ebd3bd3a0, type: 2}
   ownerEntryGuid: dedb1c0cfceeadf585ec253ebd3bd3a0
   displayNameKey: stage.stage-3-3.display_name
@@ -429,13 +429,28 @@ MonoBehaviour:
     styleKey: board.paint.level3
   - cell:
       face: 1
+      x: 2
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
       x: 3
       y: 1
     styleKey: board.paint.level3
   - cell:
       face: 1
+      x: 3
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
       x: 4
       y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 4
+      y: 6
     styleKey: board.paint.level3
   - cell:
       face: 1
@@ -446,6 +461,11 @@ MonoBehaviour:
       face: 1
       x: 5
       y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 5
+      y: 6
     styleKey: board.paint.level3
   - cell:
       face: 1

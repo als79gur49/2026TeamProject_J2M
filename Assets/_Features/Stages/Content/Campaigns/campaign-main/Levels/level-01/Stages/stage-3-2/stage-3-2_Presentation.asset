@@ -863,9 +863,6 @@ MonoBehaviour:
   - TileId: 52
     PresentationKey: barricade.default
     VisualPrefab: {fileID: 0}
-  - TileId: 53
-    PresentationKey: barricade.default
-    VisualPrefab: {fileID: 0}
   - TileId: 54
     PresentationKey: destroy.front
     VisualPrefab: {fileID: 0}

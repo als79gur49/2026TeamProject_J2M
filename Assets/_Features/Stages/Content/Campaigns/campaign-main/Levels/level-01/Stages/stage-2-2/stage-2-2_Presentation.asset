@@ -137,8 +137,6 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 251
     PresentationId: box_tutorial
-  - EntityId: 252
-    PresentationId: box_tutorial
   - EntityId: 253
     PresentationId: box_tutorial
   - EntityId: 254
@@ -180,8 +178,6 @@ MonoBehaviour:
   - EntityId: 272
     PresentationId: box_tutorial
   - EntityId: 273
-    PresentationId: box_tutorial
-  - EntityId: 274
     PresentationId: box_tutorial
   - EntityId: 275
     PresentationId: box_tutorial
@@ -253,10 +249,6 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 312
     PresentationId: box_tutorial
-  - EntityId: 313
-    PresentationId: box_tutorial
-  - EntityId: 314
-    PresentationId: box_tutorial
   - EntityId: 315
     PresentationId: box_tutorial
   - EntityId: 316
@@ -283,8 +275,6 @@ MonoBehaviour:
     PresentationId: wall_spaceBed
   - EntityId: 327
     PresentationId: wall_chair
-  - EntityId: 333
-    PresentationId: wall_tutorial
   - EntityId: 334
     PresentationId: wall_tutorial
   - EntityId: 335
@@ -295,6 +285,10 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 338
     PresentationId: box_tutorial
+  - EntityId: 339
+    PresentationId: box_metal
+  - EntityId: 340
+    PresentationId: box_metal
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePaintOverrides:

@@ -339,88 +339,20 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 164
     PresentationId: box_tutorial
-  - EntityId: 170
-    PresentationId: wall_tutorial
-  - EntityId: 171
-    PresentationId: wall_tutorial
-  - EntityId: 172
-    PresentationId: wall_tutorial
-  - EntityId: 173
-    PresentationId: wall_tutorial
   - EntityId: 174
     PresentationId: wall_tutorial
   - EntityId: 175
     PresentationId: wall_tutorial
-  - EntityId: 176
-    PresentationId: wall_tutorial
-  - EntityId: 177
-    PresentationId: wall_tutorial
-  - EntityId: 178
-    PresentationId: wall_tutorial
-  - EntityId: 179
-    PresentationId: wall_tutorial
-  - EntityId: 180
-    PresentationId: wall_tutorial
-  - EntityId: 181
-    PresentationId: wall_tutorial
-  - EntityId: 182
-    PresentationId: wall_tutorial
-  - EntityId: 183
-    PresentationId: wall_tutorial
-  - EntityId: 184
-    PresentationId: wall_tutorial
-  - EntityId: 185
-    PresentationId: wall_tutorial
-  - EntityId: 186
-    PresentationId: wall_tutorial
-  - EntityId: 187
-    PresentationId: wall_tutorial
-  - EntityId: 188
-    PresentationId: wall_tutorial
-  - EntityId: 189
-    PresentationId: wall_tutorial
-  - EntityId: 190
-    PresentationId: wall_tutorial
   - EntityId: 191
-    PresentationId: wall_tutorial
-  - EntityId: 192
-    PresentationId: wall_tutorial
-  - EntityId: 193
-    PresentationId: wall_tutorial
-  - EntityId: 194
-    PresentationId: wall_tutorial
-  - EntityId: 195
-    PresentationId: wall_tutorial
-  - EntityId: 196
-    PresentationId: wall_tutorial
-  - EntityId: 197
-    PresentationId: wall_tutorial
-  - EntityId: 198
-    PresentationId: wall_tutorial
-  - EntityId: 199
-    PresentationId: wall_tutorial
-  - EntityId: 200
-    PresentationId: wall_tutorial
-  - EntityId: 201
     PresentationId: wall_tutorial
   - EntityId: 202
     PresentationId: wall_tutorial
   - EntityId: 203
     PresentationId: wall_tutorial
-  - EntityId: 204
-    PresentationId: wall_tutorial
   - EntityId: 205
     PresentationId: wall_tutorial
   - EntityId: 206
     PresentationId: wall_tutorial
-  - EntityId: 207
-    PresentationId: wall_tutorial
-  - EntityId: 208
-    PresentationId: box_metal
-  - EntityId: 209
-    PresentationId: box_metal
-  - EntityId: 210
-    PresentationId: box_metal
   - EntityId: 211
     PresentationId: box_tutorial
   - EntityId: 212
@@ -429,6 +361,38 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 214
     PresentationId: box_tutorial
+  - EntityId: 215
+    PresentationId: wall_tutorial
+  - EntityId: 216
+    PresentationId: wall_tutorial
+  - EntityId: 217
+    PresentationId: wall_tutorial
+  - EntityId: 218
+    PresentationId: wall_tutorial
+  - EntityId: 219
+    PresentationId: wall_tutorial
+  - EntityId: 220
+    PresentationId: wall_tutorial
+  - EntityId: 221
+    PresentationId: wall_tutorial
+  - EntityId: 222
+    PresentationId: wall_tutorial
+  - EntityId: 223
+    PresentationId: wall_tutorial
+  - EntityId: 224
+    PresentationId: wall_tutorial
+  - EntityId: 225
+    PresentationId: wall_tutorial
+  - EntityId: 226
+    PresentationId: wall_tutorial
+  - EntityId: 227
+    PresentationId: wall_tutorial
+  - EntityId: 228
+    PresentationId: wall_tutorial
+  - EntityId: 229
+    PresentationId: wall_tutorial
+  - EntityId: 230
+    PresentationId: wall_tutorial
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePaintOverrides: []
@@ -439,15 +403,6 @@ MonoBehaviour:
     VisualPrefab: {fileID: 0}
   - TileId: 2
     PresentationKey: entrance.default
-    VisualPrefab: {fileID: 0}
-  - TileId: 3
-    PresentationKey: button.default
-    VisualPrefab: {fileID: 0}
-  - TileId: 4
-    PresentationKey: button.default
-    VisualPrefab: {fileID: 0}
-  - TileId: 5
-    PresentationKey: button.default
     VisualPrefab: {fileID: 0}
   worldGuideCatalog: {fileID: 11400000, guid: 08d8c68580657b245b4ce44c983c7650, type: 2}
   worldGuideInstructions:

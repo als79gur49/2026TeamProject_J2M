@@ -107,8 +107,6 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 37
     PresentationId: wall_tutorial
-  - EntityId: 38
-    PresentationId: wall_tutorial
   - EntityId: 39
     PresentationId: wall_tutorial
   - EntityId: 40
@@ -128,8 +126,6 @@ MonoBehaviour:
   - EntityId: 47
     PresentationId: wall_tutorial
   - EntityId: 48
-    PresentationId: wall_tutorial
-  - EntityId: 49
     PresentationId: wall_tutorial
   - EntityId: 50
     PresentationId: wall_tutorial
@@ -187,8 +183,6 @@ MonoBehaviour:
     PresentationId: wall_grave
   - EntityId: 77
     PresentationId: wall_grave
-  - EntityId: 78
-    PresentationId: wall_grave
   - EntityId: 79
     PresentationId: wall_grave
   - EntityId: 80
@@ -218,8 +212,6 @@ MonoBehaviour:
   - EntityId: 92
     PresentationId: wall_bed_tutorial
   - EntityId: 93
-    PresentationId: wall_bed_tutorial
-  - EntityId: 94
     PresentationId: wall_bed_tutorial
   - EntityId: 95
     PresentationId: wall_grave
@@ -358,6 +350,14 @@ MonoBehaviour:
   - EntityId: 162
     PresentationId: box_moon
   - EntityId: 170
+    PresentationId: box_tutorial
+  - EntityId: 171
+    PresentationId: box_tutorial
+  - EntityId: 172
+    PresentationId: box_tutorial
+  - EntityId: 173
+    PresentationId: box_tutorial
+  - EntityId: 174
     PresentationId: box_tutorial
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}

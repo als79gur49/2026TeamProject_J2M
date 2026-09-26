@@ -1338,21 +1338,6 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
     UnitStackGroup: 
-  - EntityId: 334
-    Kind: 2
-    Cell:
-      face: 3
-      x: 14
-      y: 3
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    UnitStackGroup: 
   - EntityId: 335
     Kind: 2
     Cell:
@@ -1434,6 +1419,36 @@ MonoBehaviour:
       face: 2
       x: 8
       y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    UnitStackGroup: 
+  - EntityId: 353
+    Kind: 2
+    Cell:
+      face: 0
+      x: 2
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    UnitStackGroup: 
+  - EntityId: 354
+    Kind: 2
+    Cell:
+      face: 3
+      x: 14
+      y: 3
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
@@ -1751,21 +1766,6 @@ MonoBehaviour:
       face: 0
       x: 2
       y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    UnitStackGroup: 
-  - EntityId: 206
-    Kind: 3
-    Cell:
-      face: 0
-      x: 2
-      y: 2
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
@@ -2186,21 +2186,6 @@ MonoBehaviour:
       face: 3
       x: 1
       y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    UnitStackGroup: 
-  - EntityId: 343
-    Kind: 3
-    Cell:
-      face: 0
-      x: 10
-      y: 4
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0

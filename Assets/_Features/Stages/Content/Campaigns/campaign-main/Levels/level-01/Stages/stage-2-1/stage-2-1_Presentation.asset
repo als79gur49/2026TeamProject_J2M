@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
   m_Name: stage-2-1_Presentation
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   ownerEntry: {fileID: 11400000, guid: 2d624e0416aeae8041cad012849eeb3a, type: 2}
   ownerEntryGuid: 2d624e0416aeae8041cad012849eeb3a
   displayNameKey: stage.stage-2-1.display_name
@@ -62,8 +62,6 @@ MonoBehaviour:
   - EntityId: 204
     PresentationId: wall_tutorial
   - EntityId: 205
-    PresentationId: wall_tutorial
-  - EntityId: 206
     PresentationId: wall_tutorial
   - EntityId: 207
     PresentationId: box_tutorial
@@ -295,8 +293,6 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 333
     PresentationId: box_metal
-  - EntityId: 334
-    PresentationId: box_metal
   - EntityId: 335
     PresentationId: box_metal
   - EntityId: 336
@@ -305,8 +301,6 @@ MonoBehaviour:
     PresentationId: box_metal
   - EntityId: 340
     PresentationId: box_tutorial
-  - EntityId: 343
-    PresentationId: wall_tutorial
   - EntityId: 346
     PresentationId: wall_tutorial
   - EntityId: 347
@@ -317,6 +311,10 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 350
     PresentationId: wall_tutorial
+  - EntityId: 353
+    PresentationId: box_tutorial
+  - EntityId: 354
+    PresentationId: box_tutorial
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePaintOverrides:
@@ -790,7 +788,7 @@ MonoBehaviour:
     PresentationKey: button.default
     VisualPrefab: {fileID: 0}
   - TileId: 62
-    PresentationKey:
+    PresentationKey: 
     VisualPrefab: {fileID: 0}
   - TileId: 63
     PresentationKey: button.default

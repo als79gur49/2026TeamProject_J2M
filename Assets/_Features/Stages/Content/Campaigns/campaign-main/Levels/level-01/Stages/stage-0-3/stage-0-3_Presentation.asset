@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
   m_Name: stage-0-3_Presentation
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   ownerEntry: {fileID: 11400000, guid: 74ac0a90c946058a2dcb6680d1608464, type: 2}
   ownerEntryGuid: 74ac0a90c946058a2dcb6680d1608464
   displayNameKey: stage.stage-0-3.display_name
@@ -203,13 +203,9 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 87
     PresentationId: wall_tutorial
-  - EntityId: 88
-    PresentationId: box_tutorial
   - EntityId: 89
     PresentationId: box_tutorial
   - EntityId: 90
-    PresentationId: box_tutorial
-  - EntityId: 91
     PresentationId: box_tutorial
   - EntityId: 92
     PresentationId: box_tutorial
@@ -231,8 +227,6 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 101
     PresentationId: box_tutorial
-  - EntityId: 102
-    PresentationId: box_tutorial
   - EntityId: 103
     PresentationId: box_tutorial
   - EntityId: 104
@@ -245,15 +239,11 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 108
     PresentationId: box_tutorial
-  - EntityId: 109
-    PresentationId: box_tutorial
   - EntityId: 110
     PresentationId: box_tutorial
   - EntityId: 111
     PresentationId: box_tutorial
   - EntityId: 112
-    PresentationId: box_tutorial
-  - EntityId: 113
     PresentationId: box_tutorial
   - EntityId: 114
     PresentationId: box_tutorial
@@ -275,8 +265,6 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 123
     PresentationId: box_tutorial
-  - EntityId: 124
-    PresentationId: box_tutorial
   - EntityId: 125
     PresentationId: box_tutorial
   - EntityId: 126
@@ -292,10 +280,6 @@ MonoBehaviour:
   - EntityId: 131
     PresentationId: box_tutorial
   - EntityId: 132
-    PresentationId: box_tutorial
-  - EntityId: 133
-    PresentationId: box_tutorial
-  - EntityId: 134
     PresentationId: box_tutorial
   - EntityId: 135
     PresentationId: box_tutorial
@@ -321,6 +305,22 @@ MonoBehaviour:
     PresentationId: wall_bed_tutorial
   - EntityId: 146
     PresentationId: wall_bed_tutorial
+  - EntityId: 153
+    PresentationId: box_metal
+  - EntityId: 154
+    PresentationId: box_metal
+  - EntityId: 155
+    PresentationId: box_metal
+  - EntityId: 156
+    PresentationId: box_metal
+  - EntityId: 157
+    PresentationId: box_metal
+  - EntityId: 158
+    PresentationId: box_metal
+  - EntityId: 159
+    PresentationId: box_metal
+  - EntityId: 160
+    PresentationId: box_metal
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePaintOverrides: []

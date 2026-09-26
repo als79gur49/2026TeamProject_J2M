@@ -245,10 +245,6 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 267
     PresentationId: wall_tutorial
-  - EntityId: 268
-    PresentationId: wall_bed_tutorial
-  - EntityId: 269
-    PresentationId: wall_bed_tutorial
   - EntityId: 270
     PresentationId: wall_tutorial
   - EntityId: 271
@@ -258,10 +254,6 @@ MonoBehaviour:
   - EntityId: 273
     PresentationId: wall_bed_tutorial
   - EntityId: 274
-    PresentationId: wall_bed_tutorial
-  - EntityId: 275
-    PresentationId: wall_bed_tutorial
-  - EntityId: 276
     PresentationId: wall_bed_tutorial
   - EntityId: 277
     PresentationId: wall_tutorial
@@ -387,21 +379,9 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 342
     PresentationId: wall_tutorial
-  - EntityId: 343
-    PresentationId: wall_tutorial
-  - EntityId: 344
-    PresentationId: wall_tutorial
   - EntityId: 351
     PresentationId: wall_tutorial
-  - EntityId: 352
-    PresentationId: wall_tutorial
   - EntityId: 353
-    PresentationId: wall_tutorial
-  - EntityId: 354
-    PresentationId: wall_tutorial
-  - EntityId: 355
-    PresentationId: wall_tutorial
-  - EntityId: 356
     PresentationId: wall_tutorial
   - EntityId: 357
     PresentationId: wall_tutorial
@@ -413,28 +393,88 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 361
     PresentationId: box_tutorial
-  - EntityId: 362
+  - EntityId: 374
     PresentationId: wall_tutorial
-  - EntityId: 363
+  - EntityId: 375
     PresentationId: wall_tutorial
-  - EntityId: 364
+  - EntityId: 376
     PresentationId: wall_tutorial
-  - EntityId: 365
+  - EntityId: 377
     PresentationId: wall_tutorial
-  - EntityId: 366
+  - EntityId: 378
     PresentationId: wall_tutorial
-  - EntityId: 367
+  - EntityId: 379
     PresentationId: wall_tutorial
-  - EntityId: 368
+  - EntityId: 380
     PresentationId: wall_tutorial
-  - EntityId: 369
+  - EntityId: 381
     PresentationId: wall_tutorial
-  - EntityId: 370
+  - EntityId: 383
     PresentationId: wall_tutorial
-  - EntityId: 371
+  - EntityId: 384
     PresentationId: wall_tutorial
-  - EntityId: 372
+  - EntityId: 385
     PresentationId: wall_tutorial
+  - EntityId: 387
+    PresentationId: wall_tutorial
+  - EntityId: 388
+    PresentationId: wall_tutorial
+  - EntityId: 389
+    PresentationId: wall_tutorial
+  - EntityId: 390
+    PresentationId: wall_tutorial
+  - EntityId: 391
+    PresentationId: wall_tutorial
+  - EntityId: 393
+    PresentationId: wall_tutorial
+  - EntityId: 394
+    PresentationId: wall_tutorial
+  - EntityId: 395
+    PresentationId: wall_tutorial
+  - EntityId: 398
+    PresentationId: wall_tutorial
+  - EntityId: 399
+    PresentationId: wall_tutorial
+  - EntityId: 401
+    PresentationId: wall_tutorial
+  - EntityId: 405
+    PresentationId: wall_tutorial
+  - EntityId: 406
+    PresentationId: wall_tutorial
+  - EntityId: 408
+    PresentationId: wall_tutorial
+  - EntityId: 410
+    PresentationId: wall_tutorial
+  - EntityId: 411
+    PresentationId: wall_tutorial
+  - EntityId: 412
+    PresentationId: wall_tutorial
+  - EntityId: 413
+    PresentationId: wall_tutorial
+  - EntityId: 414
+    PresentationId: wall_tutorial
+  - EntityId: 415
+    PresentationId: wall_tutorial
+  - EntityId: 416
+    PresentationId: wall_tutorial
+  - EntityId: 417
+    PresentationId: wall_tutorial
+  - EntityId: 418
+    PresentationId: wall_tutorial
+  - EntityId: 419
+    PresentationId: wall_tutorial
+  - EntityId: 420
+    PresentationId: wall_tutorial
+  - EntityId: 421
+    PresentationId: wall_tutorial
+  - EntityId: 422
+    PresentationId: wall_tutorial
+  - EntityId: 423
+    PresentationId: box_tutorial
+  - EntityId: 424
+    PresentationId: box_metal
+  - EntityId: 425
+    PresentationId: box_metal
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePaintOverrides: []
@@ -445,6 +485,15 @@ MonoBehaviour:
     VisualPrefab: {fileID: 0}
   - TileId: 2
     PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 3
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 4
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 5
+    PresentationKey: button.default
     VisualPrefab: {fileID: 0}
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []
