@@ -1,8 +1,8 @@
 # Campaign modes → main 병합 준비 실행 계획
 
-작성: 2026-09-26 KST. 상태: **서브 에이전트 재검토 반영, 통합 실행 미착수**.
+작성: 2026-09-26 KST. 상태: **통합 실행 및 검증 완료, Draft PR 준비**. 실제 명령·결과와 남은 수동 항목은 [통합 검증 보고서](./Campaign-Modes-Main-Integration-Validation-Report.md)에 기록한다.
 
-목표는 Casual/Hardcore 저장·플레이 정책을 유지하면서 최신 main의 사망 수명주기, 입력 차단, UI 소유권 및 ChanceLost 연출을 통합하고, 검증 가능한 `main` 대상 PR을 준비하는 것이다. 아래 병합·커밋·push·PR 명령과 단계는 후속 실행 계획이다. 이번 문서 작성에서 실행한 것으로 해석하지 않는다.
+목표는 Casual/Hardcore 저장·플레이 정책을 유지하면서 최신 main의 사망 수명주기, 입력 차단, UI 소유권 및 ChanceLost 연출을 통합하고, 검증 가능한 `main` 대상 PR을 준비하는 것이다. 아래 revision 표와 명령은 작성 시점의 실행 계획이며, 실제 실행 여부와 결과는 통합 검증 보고서를 기준으로 한다.
 
 ## 1. 기준 revision과 함께 올라갈 변경
 
