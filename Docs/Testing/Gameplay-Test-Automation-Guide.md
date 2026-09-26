@@ -159,6 +159,64 @@
 - `Governance` automatically enforces test boundaries so placement rules do not depend on memory or team habit.
 
 ## UI baseline governance / UI baseline governance
+
+### PR #222 ChanceLost production fracture and debris (2026-09-26)
+
+- Added one UI EditMode case, `ChanceLostProductionContent_CracksBeforeDebrisPreservesFramesAndRestoresOnRebind`; no UI cases were removed, renamed, merged, or split. The existing graphics PlayMode case was expanded for the authored fracture shader, four resolutions, and 76 PNGs. No UI ownership moved between layers.
+- Same-worktree `CODEX_VALIDATION_ROOT=/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass ./run_tests.sh ui` passed the Windows UI build and EditMode `1624/0`. The focused graphics command below matched `0` EditMode and passed PlayMode `8/0`. `WSLENV` forwards the Windows-absolute frame path into Unity; `CODEX_VALIDATION_ROOT` stores runner output on D. Passing evidence is under `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/`, `playmode-pass/`, and `frames/20260925-175918/`; failed first attempts remain under `ui/` and `playmode/`.
+
+```bash
+CODEX_VALIDATION_ROOT=/mnt/d/J2M/evidence/pr222-followup-20260926/playmode-pass \
+WSLENV="${WSLENV:+$WSLENV:}J2M_TERMINAL_RENDER_EVIDENCE_ROOT" \
+J2M_TERMINAL_RENDER_EVIDENCE_ROOT="$(wslpath -w /mnt/d/J2M/evidence/pr222-followup-20260926/frames)" \
+UNITY_GRAPHICS=1 ./run_tests.sh full --filter CampaignLaunchHandoffPlayModeTests
+```
+
+- PlayMode escalation uses the existing graphics capture test; no new PlayMode test was added. The commit hook's `./run_tests.sh core` also passed EditMode `293/0` and PlayMode `113 total / 109 passed / 4 graphics skips / 0 failed`; evidence is under `/mnt/d/J2M/evidence/pr222-followup-20260926/core-final/`. The user reported manual visual review with no issue. Unfiltered full, Player build, and manual campaign E2E were not run; no broad-lane claim is made.
+
+### PR #221 main integration: death input and Push/Flip ownership (2026-09-25)
+
+- Merged the main branch's permanent player-death input/tick block with the Push/Flip press-time direction capture and interaction-playback lock. The obsolete respawn-delay gate is retired; the Host-owned admission-policy/feed cleanup and deleted UI movement Gateway remain unchanged.
+- Same integration working tree: `./run_tests.sh core` passed EditMode `293/0` and PlayMode `109 passed / 4 graphics skips / 0 failed`; focused death-flow `full` passed EditMode `1/0`; focused policy and Push/Flip `full` passed EditMode `11/0` and PlayMode `10/0`; `./run_tests.sh ui` passed the Windows build and EditMode `1623/0`. Evidence: `/mnt/d/J2M/evidence/pr221-main-integration-20260925/`.
+- The first Core attempt stopped on a stale Unity-generated project file referring to the removed RespawnProcessor; a runner cold-checkout import refreshed the generated project before the successful rerun. Manual Editor/Player input/death review, Player build, dedicated graphics evidence and unfiltered full were not run.
+
+### UI EventSystem navigation action direct access (2026-09-25)
+
+- The Main Menu and Gameplay EventSystem installers now obtain `InputSystemUIInputModule` directly and clear its public `move`, `submit`, and `cancel` action references. The nine reflection-name probes and module type lookup are removed. `UiNavigationInputRouter` still dispatches navigation while the Input System module retains pointer input.
+- One UI lifecycle case was added for module reactivation and reapplication; the existing Gameplay UI composition case now checks that navigation actions are null and point/left-click/scroll references remain connected. No tests were removed, renamed, merged or split; no prefab migration or new product ownership. The selected input actions and UI navigation router were not changed.
+- UI Windows build and EditMode passed `1623/0`. Navigation action cleanup is repeated when either installer ensures the EventSystem; the test verifies the module's default actions can return on reactivation and be cleared again without dropping pointer references. Evidence: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/validation-summary.md`. Manual Editor/Player interaction and broad full were not run.
+
+### Demo hotkey keyboard bridge simplification (2026-09-25)
+
+- Replaced F10/BackQuote reflection reads with null-safe `Keyboard.current` access. Removed keyboard/key property metadata, including the Escape metadata used only to discover `wasPressedThisFrame`. Key selection, rebind/transition gates, panel toggling and the separate navigation utility are unchanged.
+- Added two UI input cases for the selected key, ignored alternate/Escape keys, press/hold/repress, missing keyboard and reconnection. They use the Input System package's isolated `InputTestFixture`; only the Editor UI test assembly adds `Unity.InputSystem.TestFramework`. No cases removed, renamed, merged or split; no prefab migration or product ownership shift. The diagnostics guard now checks the retained BackQuote entrypoint instead of the removed reflection field name.
+- Windows builds and UI EditMode passed `1622/0`; core EditMode passed `293/0`, PlayMode `108 passed / 4 graphics skips / 0 failed`. The initial UI run passed the existing 1620 cases but failed both new press-edge cases in the unisolated Editor input environment; the isolated rerun passed both. Core's runner detected and removed two generated InitTestScene files, then completed successfully. Existing category/compiler warnings remain; font guards reported `NO_MUTATION`.
+- Evidence: `/mnt/d/J2M/evidence/keyboard-bridge-20260925-012711/validation-summary.md`. Manual hardware/Player checks and broad full were not run; virtual-device input and existing UI flow coverage bound this change. Baseline count literals are synchronized after measurement and checked by the UI documentation filter.
+
+### Player action and UI movement retirement (2026-09-25)
+
+- Removed seven unused Player actions and their 21 bindings while preserving all remaining action/binding IDs, the UI map and input asset meta. A fixed saved JSON fixture was captured through the production rebind service before deletion; both movement schemes restore it after import without clearing settings.
+- Moved shared admission-policy disposal to the Host-owned UIAccess context, including repeated-dispose and failed-composition cleanup. Retired the UI movement gateway, held-direction override and unused acceptance DTO; retained query gates, snapshot windows, physical movement buffering and presentation direction DTOs. Pause does not acquire a new physical-input reset.
+- UI inventory: four production binding save/load cases and one installer recreation/lifetime case added; the obsolete HUD-to-gateway dependency test was renamed to a gateway-absence guard. No UI tests removed, merged or split; no prefab migration. Gameplay gateway-driven tests now exercise raw input/query contracts, one UI-held Core case was retired and a physical-held Extended case added, with new disposal and Pause characterization coverage. Four existing PlayMode cases now load the production input asset.
+- Executed: pre-removal binding capture `2/0`; post-removal keyboard fixture `22/0`; B1 ownership/Pause `14/0`; B2 query/lifecycle/campaign/architecture `184/0`; input selection EditMode `7/0`, PlayMode `38/0`; core EditMode `293/0`, PlayMode `108 passed / 4 graphics skips / 0 failed`; UI Windows build and EditMode `1620/0`. The B1/B2 filters selected zero PlayMode cases and do not establish PlayMode coverage.
+- Initial fixture-constant and PlayMode assembly-reference compile failures were corrected before successful reruns; logs are retained. All invoked font guards reported `NO_MUTATION`; existing category and untouched-code warnings remain. Manual Editor/Player interaction, broad unfiltered full and dedicated graphics evidence lanes were not run. Evidence: `/mnt/d/J2M/evidence/input-retirement-20260925-000826/validation-summary.md`.
+
+### Input reset cleanup follow-up (2026-09-24)
+
+- Removed the unused Escape bridge method while preserving the reflection metadata consumed by F10/BackQuote. UI pending-input clearing delegates to the existing held-direction clear method; terminal clearing relies on the existing player-input reset, and action unbinding no longer attempts to reset a disposed/null tracker. The pre-initialization-safe unbind lifecycle is preserved.
+- Test inventory is unchanged. Initial UI validation found one documentation assertion still pinned to the earlier `1609` count after the preceding cleanup recorded `1615`; both existing count assertions now match the measured baseline. Runtime behavior assertions are unchanged. This closes the prior post-validation documentation update mismatch rather than weakening the guard.
+- `core` passed Windows builds, EditMode `293/0`, and PlayMode `108 passed / 4 graphics-related skips / 0 failed`. Focused full selection for `GameplayUiAccessRuntimeTests`, `GameplayHostCommandAdmissionPolicyTests`, and `GameplayInputHost_Reenable_RebindsInputActions` passed the solution build, EditMode `83/0`, and PlayMode `1/0`. The UI rerun passed its Windows build and EditMode `1615/0` after the documentation guard correction; the initial `1614 passed / 1 failed` result is retained. Input runtime sources remained unchanged throughout all runs.
+- All invoked SDF guards reported `NO_MUTATION`; source-category mismatch and untouched-code compiler warnings remain in the logs. Separate `core-feature-gate`, broad unfiltered full, graphics evidence lanes, and manual Editor/Player smoke were not run for this bounded cleanup. Evidence: `/mnt/d/J2M/evidence/input-reset-cleanup-20260924-141032-f86c0f/validation-summary.md`.
+
+### Input unused-surface cleanup (2026-09-24)
+
+- Scope: retire the ineffective `directionChangeConsumesDelay` wiring and scene value, unused `ClearBefore`, `IsRawDirectionActive`, parameterless `ExitTerminalHold`, required-action arrays, keyboard snapshot movement display string, and service path forwarding properties.
+- UI test inventory is unchanged; only assertions for retired payload/API members and snapshot constructor arguments were removed. The existing gameplay PlayMode case is renamed to `GameplayInputHost_FlipAfterDirectionChange_PreservesProjectedViewState` with its behavior assertions preserved.
+- Same-implementation validation: `core` passed Windows builds, EditMode `293/0`, and PlayMode `112 total / 108 passed / 4 skipped / 0 failed`; the four skips require dedicated graphics/render evidence. Actual `UIAudioScene` bootstrap cases passed. `ui` passed the Windows build and EditMode `1615/0`.
+- `full --filter PlayerMovementPlayModeTests` passed the solution build, matched zero EditMode tests, and ran PlayMode `83 total / 76 passed / 7 failed`. All seven failures are camera visual-evidence entry preconditions: four require a graphics device and three require `-cameraShakeVisualOutput`, neither supplied by this ordinary headless command. They fail before the input scenario runs. The renamed Flip-after-direction-change case passed. The fixture run remains failed; it is not a full-lane pass.
+- Governance reported source-category mismatch warnings; build logs retain warnings in untouched test/vendor code. All invoked font integrity guards reported `NO_MUTATION`. Evidence, failure messages, source hashes, and preserved pre-existing-file hashes: `/mnt/d/J2M/evidence/input-unused-cleanup-20260924-135019-a7d26a/validation-summary.md`.
+- Not run: separate `core-feature-gate`, broad unfiltered `full`, dedicated camera visual lanes, and manual Editor/Player smoke. The executed lanes cover this deletion; broader graphics/manual validation is outside this slice. No full-regression claim is made.
+
 ### 한국어
 - UI baseline note는 단순 count bump 문서가 아니다.
 - Stage 9 이후에는 다음 항목을 함께 기록해야 한다.

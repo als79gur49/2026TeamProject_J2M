@@ -4777,7 +4777,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(snapshot.TryGetEnemyGlideState(40, out _), Is.False);
                 Assert.That(result.EventLog.Any(entry => entry.Contains("CleanupRemoved|E=40", StringComparison.Ordinal)), Is.True);
                 Assert.That(result.EventLog.Any(entry => entry.Contains("KinematicPoseRemoved|E=40", StringComparison.Ordinal)), Is.True);
-                Assert.That(result.EventLog.Any(entry => entry.Contains("PlayerRespawnDelayStarted|E=40", StringComparison.Ordinal)), Is.False);
+                Assert.That(result.PresentationData.PlayerDeathSignals, Is.Empty);
                 Assert.That(result.PresentationData.EnemyGlideSignals.Any(signal => signal.EntityId == 40), Is.False);
                 Assert.That(
                     result.PresentationData.KinematicMotionTracks.Any(track =>
@@ -6127,7 +6127,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
                 Assert.That(result.EventLog.Any(entry => entry.Contains("CleanupRemoved|E=40", StringComparison.Ordinal)), Is.True);
                 Assert.That(result.EventLog.Any(entry => entry.Contains("KinematicPoseRemoved|E=40", StringComparison.Ordinal)), Is.True);
-                Assert.That(result.EventLog.Any(entry => entry.Contains("PlayerRespawnDelayStarted|E=40", StringComparison.Ordinal)), Is.False);
+                Assert.That(result.PresentationData.PlayerDeathSignals, Is.Empty);
                 Assert.That(
                     result.PresentationData.KinematicMotionTracks.Any(track =>
                         track.EntityId == 40 &&
@@ -6554,7 +6554,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void WallFollowPatrolStrategy_AllDirectionsBlocked_RotatesInPlaceWithoutMovementIntent()
+        public void WallFollowPatrolStrategy_AllDirectionsBlocked_KeepsFacingWithoutMovementIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -6573,7 +6573,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
                 Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
-                Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Right));
+                Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Up));
             }
             finally
             {
@@ -8225,27 +8225,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 unitKinematicLocomotionTiming: CreateOneTickKinematicTiming());
-        }
-
-        private static TickPipeline CreateEnemyPipelineWithRespawnDelay(
-            WorldState worldState,
-            EnemyAiProfile profile,
-            int playerRespawnDelayTicks,
-            params IEntityLogic[] entityLogics)
-        {
-            var timingProfile = GameplayTimingProfile.CreateDefault();
-            var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
-                timingProfile.SimulationTicksPerSecond,
-                timingProfile.RepeatedMoveIntervalSeconds);
-
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
-                worldState,
-                entityLogics ?? Array.Empty<IEntityLogic>(),
-                timingProfile,
-                playerTiming,
-                playerRespawnDelayTicks,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
         }
 
         private static TickPipeline CreateEnemyPipeline(

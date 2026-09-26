@@ -129,6 +129,15 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+#if UNITY_EDITOR
+            // Cinemachine Save During Play must not copy stage-specific runtime lens values
+            // into the reusable gameplay shell scene when Play Mode exits.
+            if (Application.isPlaying && cinemachineCamera.gameObject.hideFlags == HideFlags.None)
+            {
+                cinemachineCamera.gameObject.hideFlags = HideFlags.NotEditable;
+            }
+#endif
+
             var lens = cinemachineCamera.Lens;
             lens.FieldOfView = resolvedCameraSettings.PerspectiveFieldOfView;
             lens.NearClipPlane = resolvedCameraSettings.NearClipPlane;

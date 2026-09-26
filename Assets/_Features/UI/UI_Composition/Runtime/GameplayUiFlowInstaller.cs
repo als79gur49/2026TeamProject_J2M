@@ -69,6 +69,7 @@ namespace Game.Feature.UI.Composition
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private GameplayPauseAudioBridge _gameplayPauseAudioBridge;
         private GameplayHudLocalizationBinding _gameplayHudLocalizationBinding;
+        private GameplayPlayerActionCountTypographyController _playerActionCountTypographyController;
         private GameplayWorldGuideLocalizationController _gameplayWorldGuideLocalizationController;
         private GameplayWorldGuidePresenter _gameplayWorldGuidePresenter;
         private bool _isInstalled;
@@ -531,7 +532,6 @@ namespace Game.Feature.UI.Composition
                     sceneHost.UiAccess.PresentationFeed,
                     sceneHost.UiAccess.PauseService);
                 Install(new GameplayUiFlowPorts(
-                    sceneHost.UiAccess.CommandGateway,
                     sceneHost.UiAccess.QueryFacade,
                     presentationSource,
                     sceneHost.UiAccess.PauseService,
@@ -684,6 +684,16 @@ namespace Game.Feature.UI.Composition
             }
 
             _gameplayHudLocalizationBinding.Initialize(_localizedTextResolver);
+            var actionCountRuntime = GetComponent<GameplayPlayerActionCountPresentationRuntime>();
+            if (actionCountRuntime != null)
+            {
+                _playerActionCountTypographyController =
+                    new GameplayPlayerActionCountTypographyController(
+                        actionCountRuntime,
+                        _localizedTextResolver,
+                        _gameplayHudLocalizationBinding.Theme);
+            }
+
             if (_gameplayWorldGuidePresenter != null)
             {
                 _gameplayWorldGuideLocalizationController =
@@ -792,6 +802,9 @@ namespace Game.Feature.UI.Composition
 
             _isDisposed = true;
             _campaignSaveFailurePresenter?.Dispose();
+            _campaignSaveFailurePresenter = null;
+            _playerActionCountTypographyController?.Dispose();
+            _playerActionCountTypographyController = null;
             _gameplayWorldGuideLocalizationController?.Dispose();
             _gameplayWorldGuideLocalizationController = null;
             _gameplayHudLocalizationBinding?.Dispose();
@@ -2016,52 +2029,16 @@ namespace Game.Feature.UI.Composition
             return null;
         }
 
-        // Resolve Input System keyboard state without relying on UnityEngine.Input.
         private sealed class InputSystemKeyboardBridge
         {
-            private static readonly Type KeyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
-            private static readonly PropertyInfo CurrentKeyboardProperty = KeyboardType?.GetProperty("current", BindingFlags.Public | BindingFlags.Static);
-            private static readonly PropertyInfo EscapeKeyProperty = KeyboardType?.GetProperty("escapeKey", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo F10KeyProperty = KeyboardType?.GetProperty("f10Key", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo BackQuoteKeyProperty = KeyboardType?.GetProperty("backquoteKey", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo WasPressedThisFrameProperty =
-                EscapeKeyProperty?.PropertyType.GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
-
-            public bool WasEscapePressedThisFrame()
-            {
-                return WasPressedThisFrame(EscapeKeyProperty);
-            }
-
             public bool WasF10PressedThisFrame()
             {
-                return WasPressedThisFrame(F10KeyProperty);
+                return Keyboard.current?.f10Key.wasPressedThisFrame == true;
             }
 
             public bool WasBackQuotePressedThisFrame()
             {
-                return WasPressedThisFrame(BackQuoteKeyProperty);
-            }
-
-            private static bool WasPressedThisFrame(PropertyInfo keyProperty)
-            {
-                if (CurrentKeyboardProperty == null || keyProperty == null || WasPressedThisFrameProperty == null)
-                {
-                    return false;
-                }
-
-                var keyboard = CurrentKeyboardProperty.GetValue(null);
-                if (keyboard == null)
-                {
-                    return false;
-                }
-
-                var keyControl = keyProperty.GetValue(keyboard);
-                if (keyControl == null)
-                {
-                    return false;
-                }
-
-                return WasPressedThisFrameProperty.GetValue(keyControl) is bool pressed && pressed;
+                return Keyboard.current?.backquoteKey.wasPressedThisFrame == true;
             }
         }
     }

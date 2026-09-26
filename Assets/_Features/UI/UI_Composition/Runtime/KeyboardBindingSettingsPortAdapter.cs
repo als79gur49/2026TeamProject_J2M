@@ -59,7 +59,6 @@ namespace Game.Feature.UI.Composition
         {
             return new KeyboardBindingSettingsSnapshot(
                 ToUi(snapshot.MovementScheme),
-                snapshot.MovementDisplayName,
                 snapshot.PushDisplayName,
                 snapshot.FlipDisplayName,
                 snapshot.IsRebinding,

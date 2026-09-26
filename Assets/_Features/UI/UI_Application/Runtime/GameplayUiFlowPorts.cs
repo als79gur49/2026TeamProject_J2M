@@ -85,21 +85,17 @@ namespace Game.Feature.UI.Application
     public readonly struct GameplayUiFlowPorts
     {
         public GameplayUiFlowPorts(
-            IGameplayCommandGateway commandGateway,
             IGameplayQueryFacade queryFacade,
             IGameplayUiPresentationSource presentationSource,
             IGameplayPauseService pauseService,
             IPauseProgressionReadSource pauseProgressionReadSource = null)
         {
-            CommandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             PresentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             GameplayPauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
             PauseProgressionReadSource = pauseProgressionReadSource ?? EmptyPauseProgressionReadSource.Instance;
             PauseService = new UiFlowPauseServiceAdapter(GameplayPauseService);
         }
-
-        public IGameplayCommandGateway CommandGateway { get; }
 
         public IGameplayQueryFacade QueryFacade { get; }
 

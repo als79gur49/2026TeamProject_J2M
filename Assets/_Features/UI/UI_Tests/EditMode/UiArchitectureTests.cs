@@ -654,11 +654,10 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDRootPresenter_DoesNotDependOnGameplayCommandGateway()
+        public void GameplayUiAccess_RetiredMovementGatewayIsAbsent()
         {
-            Assert.That(
-                TypeDependsOn(typeof(HUDRootPresenter), typeof(IGameplayCommandGateway)),
-                Is.False);
+            Assert.That(typeof(IGameplayQueryFacade).Assembly.GetType("Game.Feature.Gameplay.UIAccess.Contracts.IGameplayCommandGateway"), Is.Null);
+            Assert.That(typeof(GameplayUiFlowPorts).GetProperty("CommandGateway"), Is.Null);
         }
 
         [Test]
@@ -697,7 +696,6 @@ namespace Game.Feature.UI.Tests
 
             var forbiddenTypes = new[]
             {
-                typeof(IGameplayCommandGateway),
                 typeof(IGameplayQueryFacade),
                 typeof(ScreenController),
                 typeof(PopupController),
@@ -894,7 +892,6 @@ namespace Game.Feature.UI.Tests
             var forbiddenTypes = new[]
             {
                 typeof(IGameplayQueryFacade),
-                typeof(IGameplayCommandGateway),
                 typeof(IGameplayUiPresentationSource),
                 typeof(UIFlowCoordinator),
                 typeof(ScreenController),
@@ -951,7 +948,6 @@ namespace Game.Feature.UI.Tests
             var forbiddenTypes = new[]
             {
                 typeof(IGameplayQueryFacade),
-                typeof(IGameplayCommandGateway),
                 typeof(IGameplayUiPresentationSource),
                 typeof(UIFlowCoordinator),
                 typeof(ScreenController),
@@ -1381,7 +1377,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ScreenAction),
                 typeof(PopupRequest),
                 typeof(IGameplayQueryFacade),
-                typeof(IGameplayCommandGateway),
             };
 
             foreach (var viewType in guardedViewTypes)
@@ -1440,7 +1435,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ScreenAction),
                 typeof(PopupRequest),
                 typeof(IGameplayQueryFacade),
-                typeof(IGameplayCommandGateway),
             };
 
             foreach (var viewType in guardedViewTypes)

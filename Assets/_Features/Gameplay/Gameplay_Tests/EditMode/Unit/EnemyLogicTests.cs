@@ -2881,7 +2881,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right);
             var strategy = WallFollowPatrolStrategy.Instance;
 
-            var facingChanged = ((IPatrolFacingStrategy)strategy).TryResolveFacing(snapshot, source, settings, out var facing);
             var builtIntent = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
@@ -2890,8 +2889,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
 
-            Assert.That(facingChanged, Is.False);
-            Assert.That(facing, Is.EqualTo(Direction.Left));
             Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.True);
             Assert.That(builtIntent, Is.True);
             Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(0, 0)));
@@ -3266,7 +3263,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right);
             var strategy = WallFollowPatrolStrategy.Instance;
 
-            var chosen = EnemyMovementStrategyShared.TryChooseWallFollowDirection(snapshot, source, settings, out var direction);
+            var outcome = EnemyMovementStrategyShared.ChooseWallFollowDirection(
+                snapshot, source, settings, Array.Empty<TileFeatureRuntimeDefinition>(), out var direction);
             var builtIntent = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
@@ -3275,7 +3273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
 
-            Assert.That(chosen, Is.True);
+            Assert.That(outcome, Is.EqualTo(EnemyMovementStrategyShared.WallFollowHandRuleOutcome.BuiltDirection));
             Assert.That(direction, Is.EqualTo(Direction.Left));
             Assert.That(builtIntent, Is.True);
             Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(0, 1)));
@@ -3297,7 +3295,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left);
             var strategy = WallFollowPatrolStrategy.Instance;
 
-            var facingChanged = ((IPatrolFacingStrategy)strategy).TryResolveFacing(snapshot, source, settings, out var facing);
             var builtIntent = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
@@ -3307,8 +3304,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out var intent);
 
             Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.False);
-            Assert.That(facingChanged, Is.True);
-            Assert.That(facing, Is.EqualTo(Direction.Left));
             Assert.That(builtIntent, Is.True);
             Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(0, 1)));
         }
@@ -3474,12 +3469,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)));
 
             Assert.That(
-                EnemyMovementStrategyShared.TryChooseWallFollowDirection(
+                EnemyMovementStrategyShared.ChooseWallFollowDirection(
                     worldState.CreateSnapshot(),
                     GetEntity(worldState, 40),
                     new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right),
+                    Array.Empty<TileFeatureRuntimeDefinition>(),
                     out var direction),
-                Is.True);
+                Is.EqualTo(EnemyMovementStrategyShared.WallFollowHandRuleOutcome.BuiltDirection));
             Assert.That(direction, Is.EqualTo(Direction.Up));
         }
 
@@ -3604,13 +3600,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 settings,
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out _);
-            var facingChanged = ((IPatrolFacingStrategy)strategy).TryResolveFacing(snapshot, source, settings, out var facing);
 
             Assert.That(outcome, Is.EqualTo(EnemyMovementStrategyShared.WallFollowHandRuleOutcome.NoLegalMove));
             Assert.That(direction, Is.EqualTo(Direction.None));
             Assert.That(builtIntent, Is.False);
-            Assert.That(facingChanged, Is.False);
-            Assert.That(facing, Is.EqualTo(Direction.Up));
         }
 
         [Test]
@@ -3687,28 +3680,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyMovementStrategyShared_WallFollowRotateOnlyFacing_UsesTurnPreferenceSymmetry()
-        {
-            Assert.That(
-                EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
-                    Direction.Up,
-                    WallFollowTurnPreference.Right,
-                    out var rightFacing),
-                Is.True);
-            Assert.That(rightFacing, Is.EqualTo(Direction.Right));
-
-            Assert.That(
-                EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
-                    Direction.Up,
-                    WallFollowTurnPreference.Left,
-                    out var leftFacing),
-                Is.True);
-            Assert.That(leftFacing, Is.EqualTo(Direction.Left));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_CommitsRotateOnlyFacing()
+        public void EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_KeepsFacing()
         {
             var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
             var worldState = CreateWorldState(new[]
@@ -3733,7 +3705,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var enemy = GetEntity(worldState, 40);
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Up));
                 Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             }
             finally

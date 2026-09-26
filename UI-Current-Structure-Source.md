@@ -4,6 +4,12 @@ This file is the external current-structure source for the completed UI cleanup 
 
 ## Canonical Runtime Structure
 
+- Main Menu and Gameplay EventSystem installers directly configure `InputSystemUIInputModule`: its `move`, `submit`, and `cancel` actions are cleared so `UiNavigationInputRouter` dispatches navigation once, while the module retains point, click and scroll input. The module type and navigation action slots no longer use reflection probing.
+- Demo stage-control F10/BackQuote hotkeys read `Keyboard.current` directly and return false without a keyboard. The keyboard bridge has no reflection metadata or Escape-key dependency; existing settings selection, rebind/transition gates and panel toggle ownership remain unchanged.
+- Keyboard settings snapshots carry `MovementScheme`, Push/Flip display names, and rebind state. Settings and world-guide movement presentation derive from the enum; the unused movement display string has been retired from both Shared and UI snapshots. The Shared-to-UI adapter and binding-store boundary remain the runtime owners.
+- The production Player action map contains Move, Push, and Flip. Its surviving action/binding IDs and the UI map are preserved; saved Push/Flip overrides retain the existing PlayerPrefs keys and JSON format.
+- UI no longer carries a gameplay held-movement command port. `GameplayHostUiAccessContext` owns disposal of the shared admission policy and presentation feed; UI flow ports carry queries, presentation, and pause services. Movement buffering, physical input ordering, and presentation direction DTOs remain in their existing owners.
+
 - Root shell layers:
   - `HudLayer`
   - `ScreenLayer`

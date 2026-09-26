@@ -28,7 +28,7 @@
 ## Architecture Guardrails
 - `WorldState` is the authoritative mutable gameplay state owner; `WorldSnapshot` is the read-only query seam.
 - Tick flow stays `GameplaySceneHost -> TickRunner -> TickPipeline -> TickResult -> Presenter`.
-- Do not mix semantic phases (`Movement`, `Attack`, `Cleanup`, `Respawn`) with execution stages (`Plan`, `Resolve`, `Finalize`, `Cleanup`, `Respawn`).
+- Do not mix semantic phases (`Movement`, `Attack`, `Cleanup`, `MoonBlockGeneration`) with execution stages (`Plan`, `Resolve`, `Finalize`, `Cleanup`, `MoonBlockGeneration`).
 - Authoritative writes should flow through `Finalize`, batch apply, or committer paths unless a documented exception applies.
 - Presentation, UI, audio, and topology visuals must not mutate authoritative simulation.
 - Tiles are canonical `SurfaceCell(face, x, y)`, not plain `(x, y)`.

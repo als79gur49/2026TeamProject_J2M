@@ -40,7 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Game.Feature.Gameplay.Loop.AttackPhaseResult",
                 "Game.Feature.Gameplay.Debug.TickTrace",
             };
-            var assembly = typeof(IGameplayCommandGateway).Assembly;
+            var assembly = typeof(IGameplayQueryFacade).Assembly;
             var leakedTypes = assembly
                 .GetExportedTypes()
                 .SelectMany(GetPublicSurfaceTypes)
@@ -60,7 +60,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplayUiAccess_Assembly_DoesNotReferenceGameplayAssembly()
         {
             var gameplayAssemblyName = typeof(WorldState).Assembly.GetName().Name;
-            var references = typeof(IGameplayCommandGateway).Assembly
+            var references = typeof(IGameplayQueryFacade).Assembly
                 .GetReferencedAssemblies()
                 .Select(reference => reference.Name)
                 .ToArray();
@@ -82,7 +82,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "InputBuffer",
                 "Host",
             };
-            var assembly = typeof(IGameplayCommandGateway).Assembly;
+            var assembly = typeof(IGameplayQueryFacade).Assembly;
             var leakedNames = assembly
                 .GetExportedTypes()
                 .SelectMany(type => GetPublicNames(type))

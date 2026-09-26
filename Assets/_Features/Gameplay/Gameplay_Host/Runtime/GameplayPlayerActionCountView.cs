@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Host
             effectDriver != null &&
             effectDriver.IsReady;
 
+        public TMP_Text CountLabel => countLabel;
+
         public void Bind(
             Transform target,
             float surfaceInsetDistance,
@@ -59,7 +61,7 @@ namespace Game.Feature.Gameplay.Host
             if (_displayedCount != count)
             {
                 _displayedCount = count;
-                countLabel.text = string.Concat("×", count.ToString(CultureInfo.InvariantCulture));
+                countLabel.text = string.Concat("x", count.ToString(CultureInfo.InvariantCulture));
             }
 
             if (!gameObject.activeSelf)

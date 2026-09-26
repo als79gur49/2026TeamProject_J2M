@@ -170,6 +170,87 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
+        public IEnumerator BoxSlideSameDestination_PlayMode_RejectedBoxStaysVisuallyStillUntilNextTickStop()
+        {
+            var leftCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var contestedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var rightCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var leftBox = CreateBox(BoxEntityId, leftCell);
+            leftBox.state = EntityPhaseState.Sliding;
+            leftBox.stateTimer = 0;
+            leftBox.facing = Direction.Right;
+            var rightBox = CreateBox(BoxEntityId + 1, rightCell);
+            rightBox.state = EntityPhaseState.Sliding;
+            rightBox.stateTimer = 0;
+            rightBox.facing = Direction.Left;
+            var context = CreateHostContext(
+                nameof(BoxSlideSameDestination_PlayMode_RejectedBoxStaysVisuallyStillUntilNextTickStop),
+                initialEntities: new[]
+                {
+                    CreateUnit(PlayerEntityId, new SurfaceCell(FaceId.Floor, -1, 0), UnitRole.Player),
+                    leftBox,
+                    rightBox,
+                });
+            try
+            {
+                var contestTick = context.Host.InputHost.RunSingleTick();
+                Assert.That(contestTick, Is.Not.Null);
+                Assert.That(contestTick.PresentationData.EntityMotions.Count(motion =>
+                    motion.MotionKind == TickEntityMotionKind.BoxSlide), Is.EqualTo(1));
+                Assert.That(contestTick.PresentationData.BoxSlideStopSignals, Is.Empty);
+
+                var winningMotion = contestTick.PresentationData.EntityMotions.Single(motion =>
+                    motion.MotionKind == TickEntityMotionKind.BoxSlide);
+                var winnerId = winningMotion.EntityId;
+                var loserId = winnerId == BoxEntityId ? BoxEntityId + 1 : BoxEntityId;
+                var winnerSource = winnerId == BoxEntityId ? leftCell : rightCell;
+                var loserSource = loserId == BoxEntityId ? leftCell : rightCell;
+                var winnerView = GetView(context.Host, winnerId);
+                var loserView = GetView(context.Host, loserId);
+                var winnerStartPosition = ProjectWorldPosition(context.Host, winnerSource, EntityType.Box);
+                var contestedPosition = ProjectWorldPosition(context.Host, contestedCell, EntityType.Box);
+                var loserPosition = ProjectWorldPosition(context.Host, loserSource, EntityType.Box);
+
+                Assert.That(winningMotion.DestinationCell, Is.EqualTo(contestedCell));
+                Assert.That(contestTick.FinalEntities.Single(entity => entity.entityId == loserId).state,
+                    Is.EqualTo(EntityPhaseState.Sliding));
+                AssertVectorClose(loserView.transform.position, loserPosition);
+                Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount,
+                    Is.EqualTo(1));
+
+                AdvancePresentation(context.Host, context.Host.TimingProfile.SimulationTickIntervalSeconds);
+                Assert.That(Vector3.Distance(winnerView.transform.position, winnerStartPosition),
+                    Is.GreaterThan(PositionTolerance));
+                Assert.That(Vector3.Distance(winnerView.transform.position, contestedPosition),
+                    Is.GreaterThan(PositionTolerance));
+                AssertVectorClose(loserView.transform.position, loserPosition);
+
+                var stopTick = context.Host.InputHost.RunSingleTick();
+                Assert.That(stopTick, Is.Not.Null);
+                Assert.That(stopTick.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
+                Assert.That(stopTick.PresentationData.BoxSlideStopSignals[0].BoxEntityId, Is.EqualTo(loserId));
+                Assert.That(stopTick.PresentationData.EntityMotions.Any(motion =>
+                    motion.EntityId == loserId && motion.MotionKind == TickEntityMotionKind.BoxSlide), Is.False);
+                Assert.That(stopTick.FinalEntities.Single(entity => entity.entityId == loserId).state,
+                    Is.EqualTo(EntityPhaseState.Idle));
+                Assert.That(Vector3.Distance(winnerView.transform.position, contestedPosition),
+                    Is.GreaterThan(PositionTolerance),
+                    "The stop signal arrives while the winning box view is still interpolating.");
+                AssertVectorClose(loserView.transform.position, loserPosition);
+
+                AdvancePresentation(context.Host, context.Host.TimingProfile.BoxSlideStepIntervalSeconds);
+                AssertVectorClose(winnerView.transform.position, contestedPosition);
+                AssertVectorClose(loserView.transform.position, loserPosition);
+                yield return null;
+            }
+            finally
+            {
+                context.Dispose();
+            }
+        }
+
+        [UnityTest]
+        [Category("Core")]
         public IEnumerator BoxMotionProductionDefault_PlayMode_FlipPoseAndVisualRootReset()
         {
             var context = CreateHostContext(
@@ -481,9 +562,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             string rootName,
             bool autoCreateViews = true,
             bool attachBoxDriver = true,
-            SurfaceCell? initialBoxCell = null)
+            SurfaceCell? initialBoxCell = null,
+            EntityState[] initialEntities = null)
         {
-            var initialEntities = CreateInitialEntities(initialBoxCell ?? SlideSourceCell);
+            initialEntities ??= CreateInitialEntities(initialBoxCell ?? SlideSourceCell);
             var hostObject = new GameObject(rootName);
             hostObject.SetActive(false);
             var host = hostObject.AddComponent<GameplaySceneHost>();

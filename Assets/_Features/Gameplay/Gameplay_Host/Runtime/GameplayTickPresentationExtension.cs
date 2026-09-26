@@ -31,7 +31,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
             int topologyTransitionEpoch = 0,
-            bool isTopologyTransitionCompletionReconcile = false)
+            bool isTopologyTransitionCompletionReconcile = false,
+            GameplayCameraViewSnapshot? topologyDestinationCameraView = null)
         {
             Result = result;
             Topology = topology;
@@ -43,6 +44,7 @@ namespace Game.Feature.Gameplay.Host
             TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? System.Array.Empty<TileFeatureVfxStyleBinding>();
             TopologyTransitionEpoch = topologyTransitionEpoch;
             IsTopologyTransitionCompletionReconcile = isTopologyTransitionCompletionReconcile;
+            TopologyDestinationCameraView = topologyDestinationCameraView;
         }
 
         public TickResult Result { get; }
@@ -65,6 +67,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionCompletionReconcile { get; }
 
+        public GameplayCameraViewSnapshot? TopologyDestinationCameraView { get; }
+
     }
 
     public interface IGameplayTickPresentationExtension
@@ -76,6 +80,11 @@ namespace Game.Feature.Gameplay.Host
         void UpdatePresentation(float deltaTime);
 
         void HardCleanup();
+    }
+
+    public interface IGameplayTopologyTransitionStartPresentationExtension
+    {
+        void PrepareTopologyTransitionStart(in GameplayTickPresentationExtensionContext context);
     }
 
     internal interface IGameplayMotionProgressPresentationExtension

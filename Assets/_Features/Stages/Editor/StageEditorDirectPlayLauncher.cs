@@ -50,6 +50,10 @@ namespace Game.Feature.Stages.Editor
         private const string Stage0_1StageId = "stage-0-1";
         private const string Stage1_1StageId = "stage-1-1";
 
+        internal static Func<bool> SaveScenePromptOverrideForTests { get; set; }
+
+        internal static Action EnterPlayModeOverrideForTests { get; set; }
+
         static StageEditorDirectPlayLauncher()
         {
             EditorApplication.playModeStateChanged += HandlePlayModeStateChanged;
@@ -82,7 +86,7 @@ namespace Game.Feature.Stages.Editor
                 throw new InvalidOperationException("No stage id has been launched yet in this editor session. Use Tools/Stages/Direct Play/Launch Stage... first.");
             }
 
-            LaunchStage(stageId, EditorDirectPlayMode.NonCampaign, CampaignSaveSlotPolicy.DefaultRemainingChances);
+            LaunchStage(stageId, EditorDirectPlayMode.CampaignTempSlot, CampaignSaveSlotPolicy.DefaultRemainingChances);
         }
 
         [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/stage-0-1")]
@@ -90,7 +94,7 @@ namespace Game.Feature.Stages.Editor
         {
             LaunchStage(
                 StageId.CreateOrThrow(Stage0_1StageId),
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignTempSlot,
                 CampaignSaveSlotPolicy.DefaultRemainingChances);
         }
 
@@ -99,7 +103,7 @@ namespace Game.Feature.Stages.Editor
         {
             LaunchStage(
                 StageId.CreateOrThrow(Stage1_1StageId),
-                EditorDirectPlayMode.NonCampaign,
+                EditorDirectPlayMode.CampaignTempSlot,
                 CampaignSaveSlotPolicy.DefaultRemainingChances);
         }
 
@@ -112,6 +116,13 @@ namespace Game.Feature.Stages.Editor
             if (!stageId.IsValid)
             {
                 throw new ArgumentException("Direct Play requires a valid StageId.", nameof(stageId));
+            }
+
+            if (mode != EditorDirectPlayMode.CampaignTempSlot &&
+                mode != EditorDirectPlayMode.CampaignProductionSlot)
+            {
+                throw new ArgumentOutOfRangeException(nameof(mode), mode,
+                    "Direct Play requires a Campaign slot.");
             }
 
             ThrowIfLaunchIsAlreadyInProgress(
@@ -127,13 +138,15 @@ namespace Game.Feature.Stages.Editor
 
             var stageCatalogProvider = LoadStageCatalogProviderOrThrow();
             var sequenceResolver = new CampaignStageSequenceResolver(LoadCampaignSequenceDefinition());
-            if (mode == EditorDirectPlayMode.CampaignTempSlot ||
-                mode == EditorDirectPlayMode.CampaignProductionSlot)
+            ValidateCampaignStage(stageId, stageCatalogProvider, sequenceResolver);
+            CampaignSaveSlotPolicy.RequireValidRemainingChances(remainingChances);
+            if (mode == EditorDirectPlayMode.CampaignProductionSlot)
             {
-                ValidateCampaignStage(stageId, stageCatalogProvider, sequenceResolver);
+                CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(productionSlotNumber);
             }
 
-            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            if (!(SaveScenePromptOverrideForTests?.Invoke() ??
+                  EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()))
             {
                 return;
             }
@@ -144,11 +157,6 @@ namespace Game.Feature.Stages.Editor
             {
                 switch (mode)
                 {
-                    case EditorDirectPlayMode.NonCampaign:
-                        EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
-                        ownsEditorContext = true;
-                        break;
-
                     case EditorDirectPlayMode.CampaignTempSlot:
                         PrimeCampaignTempSlot(stageId, sequenceResolver, remainingChances);
                         ownsEditorContext = true;
@@ -166,7 +174,14 @@ namespace Game.Feature.Stages.Editor
                 ownership = CaptureDirectPlayOwnership(mode, stageId);
                 EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
                 RememberLastStage(stageId);
-                EditorApplication.isPlaying = true;
+                if (EnterPlayModeOverrideForTests != null)
+                {
+                    EnterPlayModeOverrideForTests();
+                }
+                else
+                {
+                    EditorApplication.isPlaying = true;
+                }
             }
             catch
             {
@@ -207,19 +222,13 @@ namespace Game.Feature.Stages.Editor
 
         public static void ClearTemporaryCampaignState()
         {
-            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
-        }
-
-        public static void PrimeNonCampaignForTests(StageId stageId)
-        {
-            if (!stageId.IsValid)
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
-                throw new ArgumentException("Direct Play requires a valid StageId.", nameof(stageId));
+                throw new InvalidOperationException(
+                    "Temporary Campaign save cannot be cleared while Play Mode is active or changing state.");
             }
 
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
-            StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
-            RememberLastStage(stageId);
+            EditorDirectPlayContextStore.ClearTemporaryCampaignState();
         }
 
         public static bool ExportStandaloneCampaignSaveSeedWithSavePanel(
@@ -315,7 +324,13 @@ namespace Game.Feature.Stages.Editor
         {
             if (change == PlayModeStateChange.ExitingPlayMode)
             {
-                CleanupCurrentOwnedDirectPlay();
+                // Gameplay callbacks may still read the temporary slot until Edit Mode is entered.
+                if (!EditorDirectPlayLaunchOwnershipStore.TryPeek(out var ownership) ||
+                    ownership.Mode != EditorDirectPlayMode.CampaignTempSlot)
+                {
+                    CleanupCurrentOwnedDirectPlay();
+                }
+
                 return;
             }
 
@@ -558,6 +573,12 @@ namespace Game.Feature.Stages.Editor
             {
                 throw new InvalidOperationException(
                     $"Campaign Direct Play stage '{stageId.Value}' is not in the campaign sequence.");
+            }
+
+            if (string.IsNullOrWhiteSpace(sequenceResolver.GetLevelGroupId(stageId)))
+            {
+                throw new InvalidOperationException(
+                    $"Campaign Direct Play stage '{stageId.Value}' has no level group.");
             }
 
             var catalogResolver = new StageCatalogResolver(stageCatalogProvider);

@@ -168,6 +168,111 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(EditorDirectPlayMode.None));
         }
 
+        [TestCase("--capture-stage", false)]
+        [TestCase("--capture-stage=", true)]
+        [TestCase("-captureStage", false)]
+        public void BareCaptureStage_PrimesValidatedTemporaryCampaignSlot(
+            string argument, bool inline)
+        {
+            var factory = new RecordingPersistenceFactory();
+            var args = inline
+                ? new[] { "Game.exe", argument + "stage-3-2" }
+                : new[] { "Game.exe", argument, "stage-3-2" };
+
+            var primed = PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                args, logErrors: false,
+                CreateEnvironment(false, false, isolatedIdentity: false),
+                factory, out var error);
+
+            Assert.That(primed, Is.True, error);
+            Assert.That(factory.TempCreateCount, Is.EqualTo(1));
+            Assert.That(factory.NormalCreateCount, Is.Zero);
+            Assert.That(factory.Persistence.SavedSlots, Has.Count.EqualTo(1));
+            Assert.That(factory.Persistence.SavedSlots[0].LevelGroupId, Is.EqualTo("level-3"));
+            Assert.That(factory.Persistence.SavedSlots[0].RemainingChances, Is.EqualTo(2));
+            Assert.That(factory.Persistence.ActiveSlotNumber, Is.EqualTo(1));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().SuppressCampaignFlow,
+                Is.False);
+        }
+
+        [TestCase("--capture-stage", false)]
+        [TestCase("--capture-stage=", true)]
+        [TestCase("-captureStage", false)]
+        public void BareCaptureStage_AcceptsTemporarySlotChanceOverride(
+            string argument, bool inline)
+        {
+            var factory = new RecordingPersistenceFactory();
+            var args = inline
+                ? new[] { "Game.exe", argument + "stage-3-2",
+                    PlayerCaptureLaunchBootstrap.CampaignTempSlotChancesArgument, "1" }
+                : new[] { "Game.exe", argument, "stage-3-2",
+                    PlayerCaptureLaunchBootstrap.CampaignTempSlotChancesArgument, "1" };
+
+            var primed = PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                args, logErrors: false,
+                CreateEnvironment(false, false, isolatedIdentity: false),
+                factory, out var error);
+
+            Assert.That(primed, Is.True, error);
+            Assert.That(factory.Persistence.SavedSlots, Has.Count.EqualTo(1));
+            Assert.That(factory.Persistence.SavedSlots[0].RemainingChances, Is.EqualTo(1));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().RemainingChances,
+                Is.EqualTo(1));
+        }
+
+        [TestCase("--capture-stage", false)]
+        [TestCase("--capture-stage=", true)]
+        [TestCase("-captureStage", false)]
+        public void CaptureStageOutsideCampaign_RejectsBeforePersistenceMutation(
+            string argument, bool inline)
+        {
+            var factory = new RecordingPersistenceFactory();
+            var args = inline
+                ? new[] { "Game.exe", argument + "legacy-stage-5-1" }
+                : new[] { "Game.exe", argument, "legacy-stage-5-1" };
+
+            var primed = PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                args, logErrors: false,
+                CreateEnvironment(false, false, isolatedIdentity: false),
+                factory, out var error);
+
+            AssertRejectedWithoutMutation(primed, error, factory);
+            Assert.That(error, Does.Contain("Campaign catalog and sequence"));
+        }
+
+        [TestCase("--capture-stage", "stage-3-2", "--capture-stage", "legacy-stage-5-1")]
+        [TestCase("--capture-stage=stage-3-2", null, "-captureStage", "legacy-stage-5-1")]
+        [TestCase("-captureStage", "stage-3-2", "--capture-stage=legacy-stage-5-1", null)]
+        public void DuplicateCaptureStage_RejectsBeforePersistenceMutation(
+            string firstArgument,
+            string firstValue,
+            string secondArgument,
+            string secondValue)
+        {
+            var factory = new RecordingPersistenceFactory();
+            var args = new List<string> { "Game.exe", firstArgument };
+            if (firstValue != null)
+            {
+                args.Add(firstValue);
+            }
+
+            args.Add(secondArgument);
+            if (secondValue != null)
+            {
+                args.Add(secondValue);
+            }
+
+            var primed = PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                args.ToArray(), logErrors: false,
+                CreateEnvironment(false, false, isolatedIdentity: false),
+                factory, out var error);
+
+            AssertRejectedWithoutMutation(primed, error, factory);
+            Assert.That(error, Does.Contain("cannot be repeated"));
+        }
+
         [Test]
         public void UnrelatedVisualCaptureArguments_DoNotBypassNormalSlotAuthorization()
         {

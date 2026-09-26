@@ -26,7 +26,14 @@ namespace Game.Feature.Stages
             options = default;
             error = string.Empty;
 
-            if (!TryReadArgumentValue(args, CaptureStageArg, CaptureStageEditorArg, out var rawStageId, out var stageArgWasPresent))
+            if (!TryReadArgumentValue(
+                    args, CaptureStageArg, CaptureStageEditorArg,
+                    out var rawStageId, out var stageArgWasPresent, out error))
+            {
+                return false;
+            }
+
+            if (!stageArgWasPresent)
             {
                 return true;
             }
@@ -52,24 +59,34 @@ namespace Game.Feature.Stages
             string longName,
             string editorName,
             out string value,
-            out bool wasPresent)
+            out bool wasPresent,
+            out string error)
         {
             value = string.Empty;
             wasPresent = false;
+            error = string.Empty;
 
             if (args == null)
             {
-                return false;
+                return true;
             }
 
             for (var i = 0; i < args.Count; i++)
             {
                 var arg = args[i] ?? string.Empty;
-                if (TryReadInlineArgumentValue(arg, longName, out value) ||
-                    TryReadInlineArgumentValue(arg, editorName, out value))
+                var isInline = TryReadInlineArgumentValue(arg, longName, out var inlineValue) ||
+                               TryReadInlineArgumentValue(arg, editorName, out inlineValue);
+                if (isInline)
                 {
+                    if (wasPresent)
+                    {
+                        error = $"{longName} cannot be repeated.";
+                        return false;
+                    }
+
                     wasPresent = true;
-                    return true;
+                    value = inlineValue;
+                    continue;
                 }
 
                 if (!string.Equals(arg, longName, StringComparison.Ordinal) &&
@@ -78,16 +95,20 @@ namespace Game.Feature.Stages
                     continue;
                 }
 
+                if (wasPresent)
+                {
+                    error = $"{longName} cannot be repeated.";
+                    return false;
+                }
+
                 wasPresent = true;
                 if (i + 1 < args.Count)
                 {
                     value = args[i + 1] ?? string.Empty;
                 }
-
-                return true;
             }
 
-            return false;
+            return true;
         }
 
         private static bool TryReadInlineArgumentValue(string arg, string name, out string value)

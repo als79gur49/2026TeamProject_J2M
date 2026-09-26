@@ -32,7 +32,7 @@ namespace Game.Feature.Gameplay.Debug
                 s1Snapshot,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                RespawnPhaseResult.Empty,
+                MoonBlockGenerationPhaseResult.Empty,
                 finalSnapshot,
                 tickResultData,
                 determinismHash);
@@ -48,7 +48,7 @@ namespace Game.Feature.Gameplay.Debug
             WorldSnapshot s1Snapshot,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
-            RespawnPhaseResult respawnPhaseResult,
+            MoonBlockGenerationPhaseResult moonBlockGenerationPhaseResult,
             WorldSnapshot finalSnapshot,
             TickResultData tickResultData,
             string determinismHash)
@@ -93,9 +93,9 @@ namespace Game.Feature.Gameplay.Debug
                 throw new ArgumentNullException(nameof(cleanupPhaseResult));
             }
 
-            if (respawnPhaseResult == null)
+            if (moonBlockGenerationPhaseResult == null)
             {
-                throw new ArgumentNullException(nameof(respawnPhaseResult));
+                throw new ArgumentNullException(nameof(moonBlockGenerationPhaseResult));
             }
 
             if (finalSnapshot == null)
@@ -124,7 +124,7 @@ namespace Game.Feature.Gameplay.Debug
                     s1Snapshot,
                     attackPhaseResult,
                     cleanupPhaseResult,
-                    respawnPhaseResult,
+                    moonBlockGenerationPhaseResult,
                     finalSnapshot,
                     tickResultData,
                     determinismHash));

@@ -349,6 +349,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.ContactDelayedRetainedEntityIds.Remove(entityId);
             _trackState.DeferredExitRetainedEntityIds.Remove(entityId);
             _trackState.CompletedPresentationMotions.RemoveEntity(entityId);
+            _trackState.EnemyKinematicPresentationPoseOverrides.Remove(entityId);
             _pendingContactDelayedExits.Remove(entityId);
             _stateStore.CommittedLocalTargetPoses.Remove(entityId);
             _stateStore.CommittedFacesByEntityId.Remove(entityId);

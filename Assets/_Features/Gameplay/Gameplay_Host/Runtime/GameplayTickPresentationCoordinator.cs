@@ -355,6 +355,9 @@ namespace Game.Feature.Gameplay.Host
         public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
             _animationSync.IsPlayerActionAttemptHoldActive(entityId);
 
+        public bool IsPlayerInteractionPlaybackActive(int entityId) =>
+            _animationSync.IsPlayerInteractionHoldActive(entityId);
+
         public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
             _topologyTransitionController.CurrentVisualState;
 
@@ -908,6 +911,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector);
 
             _exitPresentationController.RefreshEntityExitPlan(result.PresentationData);
+            PrepareTopologyTransitionStartExtensions(result);
             _planner.RefreshPlayerLocomotionSignals(result.PresentationData);
             _playerLocomotionAudioPresentationController.RefreshSignals(
                 result,
@@ -1605,6 +1609,13 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            GameplayCameraViewSnapshot? topologyDestinationCameraView = null;
+            if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion) &&
+                _topologyTransitionController.TryResolveDestinationCameraView(out var destinationCameraView))
+            {
+                topologyDestinationCameraView = destinationCameraView;
+            }
+
             var context = new GameplayTickPresentationExtensionContext(
                 result,
                 _stateStore.CommittedTopology,
@@ -1615,10 +1626,37 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile,
                 _tileFeatureVfxStyleBindings,
                 _topologyTransitionEpoch,
-                isTopologyTransitionCompletionReconcile: false);
+                isTopologyTransitionCompletionReconcile: false,
+                topologyDestinationCameraView: topologyDestinationCameraView);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);
+            }
+        }
+
+        private void PrepareTopologyTransitionStartExtensions(TickResult result)
+        {
+            if (!IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
+            {
+                return;
+            }
+
+            var context = new GameplayTickPresentationExtensionContext(
+                result,
+                _stateStore.CommittedTopology,
+                _stateStore,
+                _projector,
+                _enemyPresentationCatalog,
+                _enemyPresentationBindings,
+                _timingProfile,
+                _tileFeatureVfxStyleBindings,
+                _topologyTransitionEpoch);
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayTopologyTransitionStartPresentationExtension extension)
+                {
+                    extension.PrepareTopologyTransitionStart(context);
+                }
             }
         }
 

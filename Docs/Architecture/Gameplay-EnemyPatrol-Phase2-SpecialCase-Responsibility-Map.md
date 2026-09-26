@@ -2,6 +2,8 @@
 
 이 문서는 active architecture supporting truth-source이며, entrypoint는 [README.md](./README.md)다.
 
+`WallFollow`의 `IPatrolFacingStrategy` 및 rotate-only 설명은 당시 Phase 2 범위의 기록이다. 현재 계약은 [Phase 4 WallFollow Decision](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)의 section 0을 따른다.
+
 ## 1. 단계 2 목표 요약
 
 단계 2의 목표는 `RandomWalk`가 아직 `EnemyLogic`에 남겨 둔 patrol special-case를 구현 변경 없이 책임 기준으로 고정하는 것이다.

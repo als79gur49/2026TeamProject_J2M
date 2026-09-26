@@ -346,7 +346,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var slots = view.ResolvedChanceSlotsForTests;
                 for (var slotIndex = 1; slotIndex < 3; slotIndex++)
                 {
-                    var tweenRoot = slots[slotIndex].Find("LostChanceTweenRoot");
+                    var tweenRoot = slots[slotIndex].Find("LostChanceImpactRoot/LostChanceTweenRoot");
                     Assert.That(tweenRoot, Is.Not.Null);
                     var images = tweenRoot.GetComponentsInChildren<Image>(includeInactive: true);
                     for (var imageIndex = 0; imageIndex < images.Length; imageIndex++)
@@ -533,19 +533,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 yield break;
             }
 
+            var evidenceRoot = Environment.GetEnvironmentVariable("J2M_TERMINAL_RENDER_EVIDENCE_ROOT");
+            Assert.That(string.IsNullOrWhiteSpace(evidenceRoot), Is.False,
+                "Set J2M_TERMINAL_RENDER_EVIDENCE_ROOT to an evidence directory before graphics capture.");
+            Assert.That(Path.IsPathRooted(evidenceRoot), Is.True,
+                "J2M_TERMINAL_RENDER_EVIDENCE_ROOT must be an absolute path.");
+
             // URP emits non-fatal transient RenderTexture.Create diagnostics for internal
             // camera-stack targets in Windows batchmode. The explicit target creation,
             // pixel assertions, and PNG count below remain the evidence gate.
             LogAssert.ignoreFailingMessages = true;
             TerminalDestinationReadiness.ResetForTests();
             TerminalSessionRegistry.ResetForTests();
-            var outputDirectory = Path.GetFullPath(Path.Combine(
-                UnityEngine.Application.dataPath,
-                "..",
-                "TestLogs",
-                "TerminalIris",
-                DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")));
+            var outputDirectory = Path.GetFullPath(Path.Combine(evidenceRoot, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")));
             Directory.CreateDirectory(outputDirectory);
+            const int framesPerResolution = 19;
             var resolutions = new[]
             {
                 new Vector2Int(1920, 1080),
@@ -643,8 +645,23 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Color.black,
                     allowTerminalContent: true);
 
+                var fractureShader = Shader.Find("UI/ChanceLostFracture");
+                Assert.That(fractureShader, Is.Not.Null);
+                Assert.That(fractureShader.isSupported, Is.True);
+#if UNITY_EDITOR
+                Assert.That(UnityEditor.ShaderUtil.ShaderHasError(fractureShader), Is.False,
+                    "ChanceLost render evidence must not accept a shader compilation error.");
+#endif
                 var duration = content.RootSequenceDurationSecondsForTests;
                 var settle = content.PostShatterSettleDurationSecondsForTests;
+                var fractureTimes = new[] { 0.12f, 0.34f, 0.78f, 1.10f, 1.40f, 1.65f };
+                for (var phase = 0; phase < fractureTimes.Length; phase++)
+                {
+                    content.GotoRootSequenceForTests(fractureTimes[phase]);
+                    CaptureRenderTexture(camera, target, outputDirectory,
+                        $"05{(char)('a' + phase)}-fracture-{fractureTimes[phase]:F2}-{suffix}.png",
+                        Color.black, allowTerminalContent: true);
+                }
                 content.GotoRootSequenceForTests(Mathf.Max(0f, duration - settle - 0.001f));
                 Assert.That(content.IsCompleted, Is.False);
                 CaptureRenderTexture(
@@ -732,10 +749,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Assert.That(
                 Directory.GetFiles(outputDirectory, "*.png", SearchOption.TopDirectoryOnly),
-                Has.Length.EqualTo(resolutions.Length * 13));
+                Has.Length.EqualTo(resolutions.Length * framesPerResolution));
             File.WriteAllText(
                 Path.Combine(outputDirectory, "manifest.txt"),
-                $"UTC={DateTime.UtcNow:O}\nFramesPerResolution=13\n" +
+                $"UTC={DateTime.UtcNow:O}\nFramesPerResolution={framesPerResolution}\n" +
                 "Lifecycle=source-close,opaque-hold,destination-closed-entry,cover-release,entry-opening\n" +
                 "Resolutions=1920x1080,1920x1200,2560x1080,3440x1440\n" +
                 "SameColorChannelTolerance=0/255\n" +
@@ -861,7 +878,20 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Color? expectedCorner = null,
             bool allowTerminalContent = false)
         {
+#if UNITY_EDITOR
+            var allowAsyncCompilation = UnityEditor.ShaderUtil.allowAsyncCompilation;
+            try
+            {
+                UnityEditor.ShaderUtil.allowAsyncCompilation = false;
+                camera.Render();
+            }
+            finally
+            {
+                UnityEditor.ShaderUtil.allowAsyncCompilation = allowAsyncCompilation;
+            }
+#else
             camera.Render();
+#endif
             var previous = RenderTexture.active;
             RenderTexture.active = target;
             var texture = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);

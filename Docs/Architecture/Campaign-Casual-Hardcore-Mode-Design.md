@@ -156,7 +156,7 @@ inactive 필드의 0은 새 형식의 예약 기본값이다. 캐주얼 런타�
 5. preset 이후 작은 default no-op 훅에서 검증한 캐주얼 cooldown만 적용한다. 초→tick은 기존 timing resolve 경로를 쓴다.
 6. 완성된 configuration으로 host를 초기화한다.
 
-HP를 위해 슬롯을 별도 재조회하지 않는다. 원본 entity 배열·공유 asset·적·상자 상태는 유지한다. Hardcore와 비캠페인은 authored HP와 기존 timing을 사용한다. camera-only 구성에 save·handoff 소비를 추가하지 않는다.
+HP를 위해 슬롯을 별도 재조회하지 않는다. 원본 entity 배열·공유 asset·적·상자 상태는 유지한다. Hardcore는 authored HP와 기존 timing을 사용한다. Stage gameplay 진입에는 유효한 campaign slot 또는 handoff가 필요하다. camera-only 구성에 save·handoff 소비를 추가하지 않는다.
 
 기존 previous-active 보상과 matching cleanup은 유지한다. launch 전체를 마지막 훅으로 이동하거나 preset/objective/camera/host 전체를 새 transaction으로 감싸는 작업은 초기 범위에서 제외한다. 기존에 없는 bootstrap 전체 rollback 보장을 약속하지 않는다.
 
@@ -261,7 +261,7 @@ tick 차단은 기존 InputHost admission을 확장하며 한 frame의 catch-up 
 | --- | --- | --- |
 | S0 | 관련 기존 테스트·현재 동작 확인 | baseline 실패와 변경 범위 분리 |
 | S1 | mode·schema/seed·typed 결과 연결 | parser/round-trip, 기존 기록·다른 슬롯 보존; P4 반영 |
-| S2 | 모드별 전환·초기 HP·무적·표현 | Casual/Hardcore 전환표와 비캠페인 보존 검증 |
+| S2 | 모드별 전환·초기 HP·무적·표현 | Casual/Hardcore 전환표와 camera-only 초기화 보존 검증 |
 | S3 | ResumeHp·피격 저장, 공통 실패 종료 | HP 재진입, 중복 차단, 오류 뒤 추가 tick 없음 |
 | S4 | 3슬롯 UI·terminal·주변 소비자 연결 | P3 반영, UI 및 Player 확인 |
 
@@ -276,7 +276,7 @@ tick 차단은 기존 InputHost admission을 확장하며 한 frame의 catch-up 
 | 하드코어 | HP·피해·timing, Chance 3→2→1, 같은/다음 레벨 및 최종 clear 유지. 마지막 소진 목적지만 전체 처음으로 변경 |
 | 데이터 | 사망 복귀 때 기록·코믹·다른 슬롯 불변, 성공한 death 한 건의 TotalDeaths+1 |
 | launch | 기존 active/pending/running 소유자, 실패 보상, 격리 root 유지 |
-| 비캠페인 | authored HP/timing/in-world respawn 유지 |
+| Stage 진입 | 유효한 campaign slot 또는 handoff를 요구하며, 사망 뒤 같은 Host에서 player를 부활시키지 않음 |
 | 표현 | 하드코어 Chance 연출 유지, 캐주얼 HP와 깜빡임 연결 |
 | 파일 | 기존 검증·atomic writer·backup 정책 유지 |
 
@@ -293,7 +293,7 @@ tick 차단은 기존 InputHost admission을 확장하며 한 frame의 catch-up 
 | flow/오류 | `CampaignStageFlowTests`, `CampaignChanceDisplayScopeTests`, 기존 service/factory 테스트 | 중복 결과·강제 clear, 실패 뒤 catch-up tick 차단, 성공 후 route/observer 실패 시 재저장 없음, 작은 gate의 중첩/공유 root 보호 |
 | UI/주변 | `CampaignProductionEntryTests`, `CampaignMainMenuAndAutoNextTests`, `HudChanceInvalidationTests`, `CampaignSaveRepairStateTests`, 기존 업적/seed 테스트 | 혼합 3슬롯, 생성 경로 전체·취소·기존 확인창 callback 검증, HP/Chance, 업적 제외·복구 한계, root 격리 |
 
-2026-09-25 테스트 보강에서는 실제 installer→host 초기화→첫 WorldSnapshot/HUD query와 별도의 read model→UI source/mapper/presenter→authored HP 라벨 경계를 검사한다. Casual/Hardcore/비캠페인의 초기 HP·timing·원본 배열·공유 preset 보존도 같은 fixture에서 검사한다. DestroyTile은 실제 이동 접촉과 topology 변경으로 점유 중 활성화되는 두 경로에 receiver cooldown을 결합하며, 실제 생존 공격으로 HP2와 무적이 생성된 다음 위험 타일에서 제거되는 사례를 포함한다. 이 검증을 실제 Player 화면이나 낙사·압사 전체의 증거로 확대하지 않는다. DestroyTile과 낙사의 authored 경로 대응, 플레이어 압사의 실제 생산 경로는 별도 확인이 남는다. 현재 확인된 Barricade/Jump crush는 Box 대상이다. 구체 실행 결과는 구현 보고서의 최신 테스트 보강 절을 따른다.
+2026-09-25의 feature 단독 테스트 보강에서는 실제 installer→host 초기화→첫 WorldSnapshot/HUD query와 별도의 read model→UI source/mapper/presenter→authored HP 라벨 경계를 검사했다. 당시 Casual/Hardcore/비캠페인 초기화 사례가 있었으나 main 통합 뒤 stage gameplay는 slot 없는 비캠페인 진입을 거절한다. 현행 fixture는 Casual/Hardcore의 초기 HP·timing·원본 배열·공유 preset 보존을 검사하고, slot 없는 stage 진입의 거절 사례와 camera-only 초기화 사례는 별도로 유지한다. DestroyTile은 실제 이동 접촉과 topology 변경으로 점유 중 활성화되는 두 경로에 receiver cooldown을 결합하며, 실제 생존 공격으로 HP2와 무적이 생성된 다음 위험 타일에서 제거되는 사례를 포함한다. 이 검증을 실제 Player 화면이나 낙사·압사 전체의 증거로 확대하지 않는다. DestroyTile과 낙사의 authored 경로 대응, 플레이어 압사의 실제 생산 경로는 별도 확인이 남는다. 현재 확인된 Barricade/Jump crush는 Box 대상이다. 구체 실행 결과는 구현 보고서의 최신 테스트 보강 절을 따른다.
 
 HP2에서 수동 재시작·메뉴·정상 재실행 유지, clear/death 후 HP3을 확인한다. 구버전 canonical이 있으면 유효한 새 버전 backup이 있어도 이를 덮어써 진행하지 않고, 빈 슬롯으로 표시하거나 자동 초기화하지 않는지 확인한다. 파일 실패는 기존 대역으로 다음 세 경우를 우선 검증한다.
 

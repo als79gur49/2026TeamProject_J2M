@@ -872,46 +872,21 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _trackState.PlayerDeathHoldSignalEntityIds.Clear();
+            // A campaign death enters terminal presentation on this tick, so its pose
+            // must be retained even when no respawn-delay record is produced.
+            for (var i = 0; i < presentationData.PlayerDeathSignals.Count; i++)
+            {
+                var signal = presentationData.PlayerDeathSignals[i];
+                if (signal.DidDieThisTick)
+                {
+                    CapturePlayerDeathHoldPose(signal.EntityId, previousCommittedLocalTargetPoses);
+                }
+            }
+
             for (var i = 0; i < presentationData.PlayerDeathHoldSignals.Count; i++)
             {
                 var signal = presentationData.PlayerDeathHoldSignals[i];
-                _trackState.PlayerDeathHoldSignalEntityIds.Add(signal.EntityId);
-
-                if (_trackState.PlayerContinuousLocomotionPresentationPoseOverrides.TryGetValue(
-                        signal.EntityId,
-                        out var continuousLocomotionPose))
-                {
-                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = continuousLocomotionPose.LocalPose;
-                    continue;
-                }
-
-                if (_trackState.PlayerDeathHoldPoses.ContainsKey(signal.EntityId))
-                {
-                    continue;
-                }
-
-                if (_stateStore.PresentedLocalPosesByEntityId.TryGetValue(signal.EntityId, out var presentedPose))
-                {
-                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = presentedPose;
-                    continue;
-                }
-
-                if (_stateStore.RetainedLocalTargetPoses.TryGetValue(signal.EntityId, out var retainedPose))
-                {
-                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = retainedPose;
-                    continue;
-                }
-
-                if (_stateStore.CommittedLocalTargetPoses.TryGetValue(signal.EntityId, out var committedPose))
-                {
-                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = committedPose;
-                    continue;
-                }
-
-                if (previousCommittedLocalTargetPoses.TryGetValue(signal.EntityId, out var previousCommittedPose))
-                {
-                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = previousCommittedPose;
-                }
+                CapturePlayerDeathHoldPose(signal.EntityId, previousCommittedLocalTargetPoses);
             }
 
             _trackState.CompletedMotionTrackIds.Clear();
@@ -929,6 +904,52 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.PlayerDeathHoldPoses.Remove(entityId);
                 _trackState.VisibilityTracks.Remove(entityId);
                 _stateStore.RetainedLocalTargetPoses.Remove(entityId);
+            }
+        }
+
+        private void CapturePlayerDeathHoldPose(
+            int entityId,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses)
+        {
+            if (!_trackState.PlayerDeathHoldSignalEntityIds.Add(entityId))
+            {
+                return;
+            }
+
+            if (_trackState.PlayerContinuousLocomotionPresentationPoseOverrides.TryGetValue(
+                    entityId,
+                    out var continuousLocomotionPose))
+            {
+                _trackState.PlayerDeathHoldPoses[entityId] = continuousLocomotionPose.LocalPose;
+                return;
+            }
+
+            if (_trackState.PlayerDeathHoldPoses.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            if (_stateStore.PresentedLocalPosesByEntityId.TryGetValue(entityId, out var presentedPose))
+            {
+                _trackState.PlayerDeathHoldPoses[entityId] = presentedPose;
+                return;
+            }
+
+            if (_stateStore.RetainedLocalTargetPoses.TryGetValue(entityId, out var retainedPose))
+            {
+                _trackState.PlayerDeathHoldPoses[entityId] = retainedPose;
+                return;
+            }
+
+            if (_stateStore.CommittedLocalTargetPoses.TryGetValue(entityId, out var committedPose))
+            {
+                _trackState.PlayerDeathHoldPoses[entityId] = committedPose;
+                return;
+            }
+
+            if (previousCommittedLocalTargetPoses.TryGetValue(entityId, out var previousCommittedPose))
+            {
+                _trackState.PlayerDeathHoldPoses[entityId] = previousCommittedPose;
             }
         }
 
@@ -1045,12 +1066,25 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var motionDurationSeconds = ResolveMotionDurationSeconds(presentationData, motion, timingProfile);
+            var clip = MotionClip.CreateWithSourceTick(
+                motion.MotionKind,
+                startLocalPose,
+                endLocalPose,
+                motionDurationSeconds,
+                IsTopologyTransitionPresentation(presentationData.TopologyMotion),
+                ResolveFlipPeakHeightWorld(
+                    presentationData,
+                    motion,
+                    startLocalPose,
+                    endLocalPose,
+                    projector,
+                    timingProfile),
+                sourceTickIndex,
+                sequenceOrActionPlanId);
             if (_moonBlockDestructionPresentationController != null &&
                 _moonBlockDestructionPresentationController.TryStartDestructionGhostMotion(
                     motion.EntityId,
-                    startLocalPose,
-                    endLocalPose,
-                    motionDurationSeconds))
+                    clip))
             {
                 return true;
             }
@@ -1061,22 +1095,7 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.LocalMotionTracks[motion.EntityId] = track;
             }
 
-            track.Append(
-                MotionClip.CreateWithSourceTick(
-                    motion.MotionKind,
-                    startLocalPose,
-                    endLocalPose,
-                    motionDurationSeconds,
-                    IsTopologyTransitionPresentation(presentationData.TopologyMotion),
-                    ResolveFlipPeakHeightWorld(
-                        presentationData,
-                        motion,
-                        startLocalPose,
-                        endLocalPose,
-                        projector,
-                        timingProfile),
-                    sourceTickIndex,
-                    sequenceOrActionPlanId));
+            track.Append(clip);
 
             if (!_stateStore.CommittedLocalTargetPoses.ContainsKey(motion.EntityId))
             {

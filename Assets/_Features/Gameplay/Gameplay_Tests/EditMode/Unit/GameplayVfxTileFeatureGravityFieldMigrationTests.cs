@@ -413,31 +413,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_PlayerRespawnEntranceSpawn_WithDefaultCueMap_ResolvesAndPlays()
-        {
-            var owner = new GameObject("RespawnEntranceSpawnRuntimeWithCueMap");
-            try
-            {
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.ConfigureHostDefaultMap(LoadHostDefaultCueMap());
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    entitySpawnSignals: new[] { CreateRespawnSpawnSignal() })));
-
-                var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.Zero);
-                Assert.That(runtime.MissingPrefabCount, Is.Zero);
-                Assert.That(runtime.GetActiveVfxInstanceCount(cueId), Is.EqualTo(1));
-            }
-            finally
-            {
-                Object.DestroyImmediate(owner);
-            }
-        }
-
-        [Test]
         [Category("Core")]
         public void ProductionRuntime_InitialEntranceSpawn_TileFeatureLaneDisabled_DoesNotPlan()
         {
@@ -1419,20 +1394,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Direction.Right,
                         new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, cell)),
                 });
-        }
-
-        private static EntitySpawnPresentationSignal CreateRespawnSpawnSignal()
-        {
-            var topology = new CubeTopologyState(FaceId.Floor);
-            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-            return new EntitySpawnPresentationSignal(
-                10,
-                EntityPresentationKind.Player,
-                EntitySpawnPresentationReason.PlayerRespawn,
-                cell,
-                topology,
-                Direction.Right,
-                new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, cell));
         }
 
         private static TickResult CreateResult(TickPresentationData presentationData, CubeTopologyState topology)

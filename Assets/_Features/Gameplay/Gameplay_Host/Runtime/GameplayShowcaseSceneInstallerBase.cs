@@ -124,7 +124,6 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private bool autoCreateViews = true;
         [SerializeField] private float cellSize = 1.15f;
         [SerializeField] private float moveDeadzone = 0.5f;
-        [SerializeField] private bool directionChangeConsumesDelay;
 
         [Header("Timing")]
         [SerializeField] private GameplaySimulationTimingPreset simulationTimingPreset;
@@ -360,7 +359,6 @@ namespace Game.Feature.Gameplay.Host
                 CellSize = cellSize,
                 FaceSeamGap = ResolveFaceSeamGap(),
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
-                DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
                 EnemyUnitArchetypeCatalog = ResolveConfiguredEnemyUnitArchetypeCatalog(initialState),
                 EnemyPresentationArchetypeCatalog = ResolveConfiguredEnemyPresentationArchetypeCatalog(initialState),

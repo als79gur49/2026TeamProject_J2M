@@ -63,7 +63,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         Unknown = 0,
         InitialStageStart = 1,
-        PlayerRespawn = 2,
+        ReservedFormerPlayerRespawn = 2,
         EnemySpawn = 3,
         EnemySummon = 4,
         BoxSpawn = 6,

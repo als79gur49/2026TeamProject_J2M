@@ -4,6 +4,43 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public readonly struct GameplayCameraViewSnapshot
+    {
+        public GameplayCameraViewSnapshot(
+            Vector3 worldPosition,
+            Quaternion worldRotation,
+            float verticalFieldOfViewDegrees,
+            float aspect,
+            float nearClipPlane)
+        {
+            WorldPosition = worldPosition;
+            WorldRotation = worldRotation;
+            VerticalFieldOfViewDegrees = verticalFieldOfViewDegrees;
+            Aspect = aspect;
+            NearClipPlane = nearClipPlane;
+        }
+
+        public Vector3 WorldPosition { get; }
+
+        public Quaternion WorldRotation { get; }
+
+        public float VerticalFieldOfViewDegrees { get; }
+
+        public float Aspect { get; }
+
+        public float NearClipPlane { get; }
+
+        public bool IsValid =>
+            VerticalFieldOfViewDegrees > 0f && VerticalFieldOfViewDegrees < 180f &&
+            Aspect > 0f && NearClipPlane > 0f &&
+            IsFinite(WorldPosition.x) && IsFinite(WorldPosition.y) && IsFinite(WorldPosition.z) &&
+            IsFinite(WorldRotation.x) && IsFinite(WorldRotation.y) &&
+            IsFinite(WorldRotation.z) && IsFinite(WorldRotation.w) &&
+            IsFinite(VerticalFieldOfViewDegrees) && IsFinite(Aspect) && IsFinite(NearClipPlane);
+
+        private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+    }
+
     public interface IGameplayCameraAdditivePosePort
     {
         void ApplyAdditivePose(Vector3 localPosition, Quaternion localRotation);
@@ -214,6 +251,28 @@ namespace Game.Feature.Gameplay.Host
             return IsFinite(viewportPoint);
         }
 
+        public bool TryResolveUnshakenViewForOrbit(
+            Quaternion orbitRotation,
+            out GameplayCameraViewSnapshot snapshot)
+        {
+            snapshot = default;
+            if (!_isInitialized || _target == null ||
+                !IsFinite(orbitRotation.x) || !IsFinite(orbitRotation.y) ||
+                !IsFinite(orbitRotation.z) || !IsFinite(orbitRotation.w))
+            {
+                return false;
+            }
+
+            var pose = ResolveUnshakenPoseForOrbit(orbitRotation);
+            snapshot = new GameplayCameraViewSnapshot(
+                pose.WorldPosition,
+                pose.WorldRotation,
+                perspectiveFieldOfView,
+                ResolveCameraAspect(),
+                nearClipPlane);
+            return snapshot.IsValid;
+        }
+
         public void RefreshVisibleCubeBounds(Bounds visibleCubeBounds)
         {
             _visibleCubeBounds = visibleCubeBounds;
@@ -398,14 +457,19 @@ namespace Game.Feature.Gameplay.Host
 
         private UnshakenCameraPose ResolveUnshakenPresentedPose()
         {
+            return ResolveUnshakenPoseForOrbit(_presentedTopologyOrbit);
+        }
+
+        private UnshakenCameraPose ResolveUnshakenPoseForOrbit(Quaternion orbitRotation)
+        {
             if (_useAuthoredSceneCameraPoseAsBaseline)
             {
-                return ResolveAuthoredSceneCameraBaselinePose();
+                return ResolveAuthoredSceneCameraBaselinePose(orbitRotation);
             }
 
             return ResolveOrbitDistanceCameraPose(
                 _target.position,
-                _presentedTopologyOrbit,
+                orbitRotation,
                 ResolveCameraAspect(),
                 _visibleCubeBounds,
                 pitchDegrees,
@@ -416,10 +480,10 @@ namespace Game.Feature.Gameplay.Host
                 perspectiveFieldOfView);
         }
 
-        private UnshakenCameraPose ResolveAuthoredSceneCameraBaselinePose()
+        private UnshakenCameraPose ResolveAuthoredSceneCameraBaselinePose(Quaternion orbitRotation)
         {
-            var worldRotation = _presentedTopologyOrbit * _authoredSceneCameraBaselineLocalRotation;
-            var worldPosition = _target.position + (_presentedTopologyOrbit * _authoredSceneCameraBaselineLocalPosition);
+            var worldRotation = orbitRotation * _authoredSceneCameraBaselineLocalRotation;
+            var worldPosition = _target.position + (orbitRotation * _authoredSceneCameraBaselineLocalPosition);
             return new UnshakenCameraPose(
                 _authoredSceneCameraBaselineLocalPosition,
                 _authoredSceneCameraBaselineLocalRotation,

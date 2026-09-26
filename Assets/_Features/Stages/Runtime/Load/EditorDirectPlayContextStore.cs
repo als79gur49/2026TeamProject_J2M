@@ -19,6 +19,20 @@ namespace Game.Feature.Stages
             int remainingChances,
             bool suppressCampaignFlow)
         {
+            if (mode != EditorDirectPlayMode.None &&
+                mode != EditorDirectPlayMode.CampaignTempSlot &&
+                mode != EditorDirectPlayMode.CampaignProductionSlot)
+            {
+                throw new ArgumentOutOfRangeException(nameof(mode), mode,
+                    "Direct Play requires a Campaign slot.");
+            }
+
+            if (suppressCampaignFlow)
+            {
+                throw new ArgumentException(
+                    "Direct Play cannot suppress Campaign flow.", nameof(suppressCampaignFlow));
+            }
+
             Mode = mode;
             StageId = stageId;
             RemainingChances = remainingChances;
@@ -78,15 +92,6 @@ namespace Game.Feature.Stages
         public static EditorDirectPlayContext None =>
             new(EditorDirectPlayMode.None, StageId.None, 0, suppressCampaignFlow: false);
 
-        public static EditorDirectPlayContext CreateNonCampaign(StageId stageId)
-        {
-            return new EditorDirectPlayContext(
-                EditorDirectPlayMode.NonCampaign,
-                stageId,
-                0,
-                suppressCampaignFlow: true);
-        }
-
         public static EditorDirectPlayContext CreateCampaignTempSlot(StageId stageId, int remainingChances)
         {
             return new EditorDirectPlayContext(
@@ -127,11 +132,31 @@ namespace Game.Feature.Stages
             var json = readCurrentJson != null ? readCurrentJson() : string.Empty;
             if (!string.IsNullOrWhiteSpace(json))
             {
-                var dto = JsonUtility.FromJson<EditorDirectPlayContextDto>(json);
+                EditorDirectPlayContextDto dto = null;
+                try
+                {
+                    dto = JsonUtility.FromJson<EditorDirectPlayContextDto>(json);
+                }
+                catch (ArgumentException)
+                {
+                    // A malformed editor session cannot authorize gameplay.
+                }
+
                 if (dto != null && dto.SchemaVersion == SchemaVersion)
                 {
                     context = FromDto(dto);
-                    return context.Mode != EditorDirectPlayMode.None;
+                    if (context.Mode != EditorDirectPlayMode.None)
+                    {
+                        return true;
+                    }
+                }
+
+                // Clear only the bytes just inspected; a newer launch may have
+                // replaced the editor session while this read was in progress.
+                if (readCurrentJson != null &&
+                    string.Equals(readCurrentJson(), json, StringComparison.Ordinal))
+                {
+                    Clear();
                 }
             }
 
@@ -141,6 +166,16 @@ namespace Game.Feature.Stages
 
         public static void SetCurrent(EditorDirectPlayContext context)
         {
+            if (context.Mode != EditorDirectPlayMode.None && !context.IsCampaignMode)
+            {
+                throw new ArgumentException("Direct Play requires a Campaign slot.", nameof(context));
+            }
+
+            if (context.SuppressCampaignFlow)
+            {
+                throw new ArgumentException("Direct Play cannot suppress Campaign flow.", nameof(context));
+            }
+
             unchecked
             {
                 ownershipGeneration++;
@@ -195,9 +230,21 @@ namespace Game.Feature.Stages
             var mode = Enum.IsDefined(typeof(EditorDirectPlayMode), dto.Mode)
                 ? (EditorDirectPlayMode)dto.Mode
                 : EditorDirectPlayMode.None;
+            if ((mode != EditorDirectPlayMode.CampaignTempSlot &&
+                 mode != EditorDirectPlayMode.CampaignProductionSlot) ||
+                dto.SuppressCampaignFlow)
+            {
+                return EditorDirectPlayContext.None;
+            }
+
             var stageId = StageId.TryCreate(dto.StageId, out var parsedStageId)
                 ? parsedStageId
                 : StageId.None;
+            if (!stageId.IsValid)
+            {
+                return EditorDirectPlayContext.None;
+            }
+
             return new EditorDirectPlayContext(
                 mode,
                 stageId,

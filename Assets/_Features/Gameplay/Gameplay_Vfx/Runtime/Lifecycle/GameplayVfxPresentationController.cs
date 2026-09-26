@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Vfx
         private IVfxBindingResolver bindingResolver;
         private GameplayVfxVisibilityContext visibilityContext;
         private bool topologyTransitionStartsSuppressed;
+        private Func<GameplayVfxRequest, bool> topologyTransitionExitAdmission;
         private bool stageTerminalSuppressed;
         private int topologyTransitionSuppressEpoch;
         private VfxPresentationSuspendReason stickySuspendReasons;
@@ -111,11 +112,21 @@ namespace Game.Feature.Gameplay.Vfx
         {
             topologyTransitionStartsSuppressed = suppressed;
             topologyTransitionSuppressEpoch = suppressed ? epoch : 0;
+            if (!suppressed)
+            {
+                topologyTransitionExitAdmission = null;
+            }
+        }
+
+        public void SetTopologyTransitionExitAdmission(Func<GameplayVfxRequest, bool> admission)
+        {
+            topologyTransitionExitAdmission = admission;
         }
 
         public void ClearForTopologyTransitionStart(int epoch)
         {
             delayedRequests.Clear();
+            topologyTransitionExitAdmission = null;
             topologyTransitionStartsSuppressed = true;
             topologyTransitionSuppressEpoch = epoch;
             persistentRegistry.ClearForTopologyTransitionStart(pool);
@@ -182,6 +193,7 @@ namespace Game.Feature.Gameplay.Vfx
         {
             delayedRequests.Clear();
             topologyTransitionStartsSuppressed = false;
+            topologyTransitionExitAdmission = null;
             stageTerminalSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
             stickySuspendReasons = VfxPresentationSuspendReason.None;
@@ -443,6 +455,7 @@ namespace Game.Feature.Gameplay.Vfx
             in GameplayVfxRefreshOptions options)
         {
             return (topologyTransitionStartsSuppressed || options.DeferNewTopologyTransitionStarts) &&
+                   !(topologyTransitionExitAdmission?.Invoke(request) ?? false) &&
                    !GameplayVfxTopologyHelperExemptionPolicy.AllowsSpawnExemption(
                        request.CueId,
                        request.TopologySpawnMode);

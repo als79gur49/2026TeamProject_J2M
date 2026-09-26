@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Stages;
 using Game.Shared.Input;
 using UnityEngine;
@@ -28,11 +29,16 @@ namespace Game.Feature.Gameplay.Host
         private float _accumulatedTime;
         private bool _areActionsBound;
         private bool _autoAdvanceTicks;
+        private bool _isPlayerActionInputLocked;
         private bool _hasBufferedFlip;
         private bool _hasBufferedPush;
+        private Direction _bufferedFlipDirection;
+        private Direction _bufferedPushDirection;
         private bool _isInitialized;
         private bool _isKeyboardMoveOrderTrackerActionChangeSubscribed;
-        private bool _isPlayerRespawnDelayInputBlocked;
+        private bool _isInputUpdateDirectionSubscribed;
+        private bool _hasInputUpdateDirectionSnapshot;
+        private bool _isPlayerDeathInputBlocked;
         private bool _isRebuildingKeyboardMoveOrderTracker;
         private bool _isSimulationPaused;
         private bool _isTerminalHoldActive;
@@ -52,7 +58,7 @@ namespace Game.Feature.Gameplay.Host
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
         private float _simulationTickIntervalSeconds;
-        private Direction _uiHeldMoveDirection;
+        private Direction _heldDirectionBeforeInputUpdate;
 
         public event Action<TickResult> TickCompleted;
 
@@ -74,7 +80,6 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile,
             int playerEntityId,
             float moveDeadzone,
-            bool directionChangeConsumesDelay,
             bool autoAdvanceTicks,
             ITerminalSessionReadModel terminalSession,
             ISceneEntryPresentationReadModel sceneEntrySession = null)
@@ -131,12 +136,16 @@ namespace Game.Feature.Gameplay.Host
             _accumulatedTime = 0f;
             _hasBufferedFlip = false;
             _hasBufferedPush = false;
+            _bufferedFlipDirection = Direction.None;
+            _bufferedPushDirection = Direction.None;
+            _isPlayerActionInputLocked = false;
             _sampledMoveInput = Vector2.zero;
-            _uiHeldMoveDirection = Direction.None;
+            _heldDirectionBeforeInputUpdate = Direction.None;
+            _hasInputUpdateDirectionSnapshot = false;
             _isSimulationPaused = false;
             IsCampaignRunAbandoned = false;
             _isTerminalHoldActive = false;
-            _isPlayerRespawnDelayInputBlocked = false;
+            _isPlayerDeathInputBlocked = false;
             _isInitialized = true;
 
             SubscribeTerminalSession();
@@ -160,7 +169,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            if (IsCampaignRunAbandoned || _isSimulationPaused || IsTerminalAdmissionBlocked())
+            if (_isSimulationPaused || IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked)
             {
                 return 0;
             }
@@ -177,7 +186,8 @@ namespace Game.Feature.Gameplay.Host
             while (_accumulatedTime >= _simulationTickIntervalSeconds &&
                    executedTickCount < _maxTicksPerFrame)
             {
-                if (IsCampaignRunAbandoned || _isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
+                if (_isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked() ||
+                    _isPlayerDeathInputBlocked)
                 {
                     ClampAccumulatedTime();
                     break;
@@ -187,7 +197,8 @@ namespace Game.Feature.Gameplay.Host
                 RunSingleTickUnlocked();
                 executedTickCount++;
 
-                if (IsCampaignRunAbandoned || _isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
+                if (_isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked() ||
+                    _isPlayerDeathInputBlocked)
                 {
                     ClampAccumulatedTime();
                     break;
@@ -206,7 +217,8 @@ namespace Game.Feature.Gameplay.Host
         public TickResult RunSingleTick()
         {
             EnsureInitialized();
-            if (IsCampaignRunAbandoned || _isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
+            if (_isSimulationPaused || IsTerminalAdmissionBlocked() ||
+                IsPresentationLocked() || _isPlayerDeathInputBlocked)
             {
                 return null;
             }
@@ -223,7 +235,8 @@ namespace Game.Feature.Gameplay.Host
 
             var result = _runner.RunNextTick();
             ApplyAcceptedBufferedInput(result);
-            RefreshPlayerRespawnDelayInputBlock(result);
+            UpdatePlayerActionInputLock(result);
+            BlockInputOnPlayerDeath(result);
             // Presentation-state queries can run during Present before completed-snapshot caches refresh on TickCompleted.
             _presenter.Present(result);
             TickCompleted?.Invoke(result);
@@ -248,7 +261,6 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
             _isTerminalHoldActive = true;
             ClearPendingPlayerInput();
-            ClearPendingUiInput();
             _accumulatedTime = 0f;
         }
 
@@ -271,15 +283,7 @@ namespace Game.Feature.Gameplay.Host
             _terminalHoldToken = token;
             _isTerminalHoldActive = true;
             ClearPendingPlayerInput();
-            ClearPendingUiInput();
             _accumulatedTime = 0f;
-        }
-
-        internal void ExitTerminalHold()
-        {
-            EnsureInitialized();
-            _isTerminalHoldActive = false;
-            _terminalHoldToken = default;
         }
 
         internal bool TryExitTerminalHold(TerminalSessionToken token)
@@ -300,9 +304,16 @@ namespace Game.Feature.Gameplay.Host
         public void SetRawMoveInput(Vector2 rawMoveInput)
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked)
             {
                 _sampledMoveInput = Vector2.zero;
+                _moveIntentBuffer?.Reset();
+                return;
+            }
+
+            if (IsPlayerInteractionInputLocked())
+            {
+                _sampledMoveInput = rawMoveInput;
                 _moveIntentBuffer?.Reset();
                 return;
             }
@@ -317,51 +328,47 @@ namespace Game.Feature.Gameplay.Host
         public void BufferFlip()
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            BufferFlip(ResolveHeldDirectionAtActionPress());
+        }
+
+        private void BufferFlip(Direction capturedDirection)
+        {
+            EnsureInitialized();
+            if (IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked || IsPlayerInteractionInputLocked())
             {
                 return;
             }
 
+            if (_hasBufferedFlip)
+            {
+                return;
+            }
+
+            _bufferedFlipDirection = capturedDirection;
             _hasBufferedFlip = true;
         }
 
         public void BufferPush()
         {
             EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
+            BufferPush(ResolveHeldDirectionAtActionPress());
+        }
+
+        private void BufferPush(Direction capturedDirection)
+        {
+            EnsureInitialized();
+            if (IsTerminalAdmissionBlocked() || _isPlayerDeathInputBlocked || IsPlayerInteractionInputLocked())
             {
                 return;
             }
 
+            if (_hasBufferedPush)
+            {
+                return;
+            }
+
+            _bufferedPushDirection = capturedDirection;
             _hasBufferedPush = true;
-        }
-
-        internal void SetUiHeldMoveDirection(Direction direction)
-        {
-            EnsureInitialized();
-            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
-            {
-                return;
-            }
-
-            if (!IsOrthogonalDirection(direction))
-            {
-                throw new ArgumentOutOfRangeException(nameof(direction), direction, "UI-held move directions must be orthogonal.");
-            }
-
-            _uiHeldMoveDirection = direction;
-        }
-
-        internal void ClearUiHeldMoveDirection()
-        {
-            EnsureInitialized();
-            _uiHeldMoveDirection = Direction.None;
-        }
-
-        internal void ClearPendingUiInput()
-        {
-            EnsureInitialized();
-            _uiHeldMoveDirection = Direction.None;
         }
 
         private void Update()
@@ -429,6 +436,7 @@ namespace Game.Feature.Gameplay.Host
             _areActionsBound = true;
             RebuildKeyboardMoveOrderTracker();
             SubscribeMoveActionChanges();
+            SubscribeInputUpdateDirection();
         }
 
         private void EnsureInitialized()
@@ -524,9 +532,6 @@ namespace Game.Feature.Gameplay.Host
         private void ClearAllPendingInputForTerminalSession()
         {
             ClearPendingPlayerInput();
-            ClearPendingUiInput();
-            _sampledMoveInput = Vector2.zero;
-            _keyboardMoveOrderTracker?.Reset();
             _accumulatedTime = 0f;
         }
 
@@ -542,21 +547,22 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnFlipPerformed(InputAction.CallbackContext context)
         {
-            BufferFlip();
+            BufferFlip(ResolveHeldDirectionBeforeInputUpdate());
         }
 
         private void OnFlipStarted(InputAction.CallbackContext context)
         {
-            BufferFlip();
+            BufferFlip(ResolveHeldDirectionBeforeInputUpdate());
         }
 
         private void OnPushStarted(InputAction.CallbackContext context)
         {
-            BufferPush();
+            BufferPush(ResolveHeldDirectionBeforeInputUpdate());
         }
 
         private void UnbindActions()
         {
+            UnsubscribeInputUpdateDirection();
             UnsubscribeMoveActionChanges();
 
             if (_moveAction != null)
@@ -586,12 +592,45 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _areActionsBound = false;
-            _hasBufferedFlip = false;
-            _hasBufferedPush = false;
-            _uiHeldMoveDirection = Direction.None;
+            _isPlayerActionInputLocked = false;
+            ClearPendingPlayerActionInput();
             _sampledMoveInput = Vector2.zero;
-            _keyboardMoveOrderTracker?.Reset();
+            _heldDirectionBeforeInputUpdate = Direction.None;
+            _hasInputUpdateDirectionSnapshot = false;
             _moveIntentBuffer?.Reset();
+        }
+
+        private void SubscribeInputUpdateDirection()
+        {
+            if (_isInputUpdateDirectionSubscribed)
+            {
+                return;
+            }
+
+            InputSystem.onBeforeUpdate += CaptureHeldDirectionBeforeInputUpdate;
+            _isInputUpdateDirectionSubscribed = true;
+        }
+
+        private void UnsubscribeInputUpdateDirection()
+        {
+            if (!_isInputUpdateDirectionSubscribed)
+            {
+                return;
+            }
+
+            InputSystem.onBeforeUpdate -= CaptureHeldDirectionBeforeInputUpdate;
+            _isInputUpdateDirectionSubscribed = false;
+        }
+
+        private void CaptureHeldDirectionBeforeInputUpdate()
+        {
+            if (!_areActionsBound)
+            {
+                return;
+            }
+
+            _heldDirectionBeforeInputUpdate = ResolveHeldDirectionAtActionPress();
+            _hasInputUpdateDirectionSnapshot = true;
         }
 
         private void SubscribeMoveActionChanges()
@@ -664,8 +703,8 @@ namespace Game.Feature.Gameplay.Host
         private void ClearPendingPlayerInput()
         {
             _sampledMoveInput = Vector2.zero;
-            _hasBufferedFlip = false;
-            _hasBufferedPush = false;
+            _isPlayerActionInputLocked = false;
+            ClearPendingPlayerActionInput();
             _keyboardMoveOrderTracker?.Reset();
             _moveIntentBuffer?.Reset();
         }
@@ -688,14 +727,13 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerTickCommand BuildPlayerCommand()
         {
-            if (_isPlayerRespawnDelayInputBlocked)
+            if (_isPlayerDeathInputBlocked)
             {
                 ClearPendingPlayerInput();
-                ClearPendingUiInput();
                 return PlayerTickCommand.None;
             }
 
-            if (IsPlayerActionAttemptPlaybackActive())
+            if (IsPlayerInteractionInputLocked())
             {
                 _moveIntentBuffer?.ClearBufferedDirection();
                 ClearPendingPlayerActionInput();
@@ -708,27 +746,15 @@ namespace Game.Feature.Gameplay.Host
             var sampledDirection = ResolveSampledMoveDirection();
             _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
 
-            var resolvedDirection = Direction.None;
-            var usesBufferedDirection = false;
-
-            if (_uiHeldMoveDirection != Direction.None)
-            {
-                resolvedDirection = _uiHeldMoveDirection;
-            }
-            else
-            {
-                resolvedDirection = _moveIntentBuffer.ResolveDirection(now, out usesBufferedDirection);
-            }
-
-            var heldMoveDirection = _uiHeldMoveDirection != Direction.None
-                ? _uiHeldMoveDirection
-                : _moveIntentBuffer.HeldDirection;
+            var resolvedDirection = _moveIntentBuffer.ResolveDirection(now, out var usesBufferedDirection);
+            var heldMoveDirection = _moveIntentBuffer.HeldDirection;
 
             var flipPressed = _hasBufferedFlip;
             var pushPressed = _hasBufferedPush;
+            var bufferedFlipDirection = _bufferedFlipDirection;
+            var bufferedPushDirection = _bufferedPushDirection;
 
-            _hasBufferedFlip = false;
-            _hasBufferedPush = false;
+            ClearPendingPlayerActionInput();
 
             if (pushPressed)
             {
@@ -736,7 +762,9 @@ namespace Game.Feature.Gameplay.Host
                     resolvedDirection,
                     pushPressed: true,
                     isMoveBuffered: usesBufferedDirection,
-                    heldMoveDirection: heldMoveDirection);
+                    heldMoveDirection: heldMoveDirection,
+                    hasCapturedActionDirection: true,
+                    capturedActionDirection: bufferedPushDirection);
             }
 
             if (flipPressed)
@@ -745,7 +773,9 @@ namespace Game.Feature.Gameplay.Host
                     resolvedDirection,
                     flipPressed: true,
                     isMoveBuffered: usesBufferedDirection,
-                    heldMoveDirection: heldMoveDirection);
+                    heldMoveDirection: heldMoveDirection,
+                    hasCapturedActionDirection: true,
+                    capturedActionDirection: bufferedFlipDirection);
             }
 
             if (resolvedDirection == Direction.None)
@@ -803,15 +833,48 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private bool IsPlayerActionAttemptPlaybackActive()
+        private void UpdatePlayerActionInputLock(TickResult result)
         {
-            return _presenter != null && _presenter.IsPlayerActionAttemptPlaybackActive(_playerEntityId);
+            var signals = result.PresentationData.PlayerActionSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId != _playerEntityId)
+                {
+                    continue;
+                }
+
+                _isPlayerActionInputLocked =
+                    signal.ActiveActionKind != PlayerActionKind.None &&
+                    !signal.CompletedThisTick &&
+                    !signal.CanceledThisTick;
+            }
+        }
+
+        private bool IsPlayerInteractionInputLocked()
+        {
+            return _isPlayerActionInputLocked ||
+                   (_presenter != null && _presenter.IsPlayerInteractionPlaybackActive(_playerEntityId));
+        }
+
+        private Direction ResolveHeldDirectionAtActionPress()
+        {
+            return ResolveSampledMoveDirection();
+        }
+
+        private Direction ResolveHeldDirectionBeforeInputUpdate()
+        {
+            return _hasInputUpdateDirectionSnapshot
+                ? _heldDirectionBeforeInputUpdate
+                : ResolveHeldDirectionAtActionPress();
         }
 
         private void ClearPendingPlayerActionInput()
         {
             _hasBufferedFlip = false;
             _hasBufferedPush = false;
+            _bufferedFlipDirection = Direction.None;
+            _bufferedPushDirection = Direction.None;
         }
 
         private void RefreshMoveInputFromAction()
@@ -824,16 +887,27 @@ namespace Game.Feature.Gameplay.Host
             SetRawMoveInput(_moveAction.ReadValue<Vector2>());
         }
 
-        private void RefreshPlayerRespawnDelayInputBlock(TickResult result)
+        private void BlockInputOnPlayerDeath(TickResult result)
         {
-            if (result == null)
+            if (result == null || _isPlayerDeathInputBlocked)
             {
                 return;
             }
 
             var shouldBlock = false;
+            var deathSignals = result.PresentationData.PlayerDeathSignals;
+            for (var i = 0; i < deathSignals.Count; i++)
+            {
+                if (deathSignals[i].EntityId == _playerEntityId &&
+                    deathSignals[i].DidDieThisTick)
+                {
+                    shouldBlock = true;
+                    break;
+                }
+            }
+
             var deathHoldSignals = result.PresentationData.PlayerDeathHoldSignals;
-            for (var i = 0; i < deathHoldSignals.Count; i++)
+            for (var i = 0; !shouldBlock && i < deathHoldSignals.Count; i++)
             {
                 if (deathHoldSignals[i].EntityId == _playerEntityId)
                 {
@@ -842,14 +916,13 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            _isPlayerRespawnDelayInputBlocked = shouldBlock;
             if (!shouldBlock)
             {
                 return;
             }
 
+            _isPlayerDeathInputBlocked = true;
             ClearPendingPlayerInput();
-            ClearPendingUiInput();
         }
 
         // Input sampling owns buffer time; UI queries must never sample or extend it.
@@ -926,13 +999,6 @@ namespace Game.Feature.Gameplay.Host
             return Direction.None;
         }
 
-        private static bool IsOrthogonalDirection(Direction direction)
-        {
-            return direction == Direction.Up ||
-                   direction == Direction.Right ||
-                   direction == Direction.Down ||
-                   direction == Direction.Left;
-        }
     }
 
     internal sealed class KeyboardMoveOrderTracker : IDisposable
@@ -1128,23 +1194,6 @@ namespace Game.Feature.Gameplay.Host
 
             keyboardPath = null;
             return false;
-        }
-
-        private static bool IsRawDirectionActive(Vector2 rawInput, Direction direction, float deadzone)
-        {
-            switch (direction)
-            {
-                case Direction.Up:
-                    return rawInput.y > deadzone;
-                case Direction.Right:
-                    return rawInput.x > deadzone;
-                case Direction.Down:
-                    return rawInput.y < -deadzone;
-                case Direction.Left:
-                    return rawInput.x < -deadzone;
-                default:
-                    return false;
-            }
         }
 
         private static Direction FromIndex(int index)

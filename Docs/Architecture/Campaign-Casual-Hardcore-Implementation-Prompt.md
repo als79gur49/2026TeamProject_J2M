@@ -91,7 +91,7 @@
 - 초기 entity 배열의 사본에서 캐주얼 Player만 변경하라. 새 준비 검증은 active write 이전 또는 기존 보상 범위 안에 두어라.
 - 기존 preset 순서를 유지하고, preset 이후 작은 훅에서 캐주얼 cooldown만 적용하라. 기존 timing resolve를 재사용하라.
 - 기존 `PlayerDamageState`와 authoritative 피해 경계를 재사용하고, 깜빡임은 View가 read-only 상태를 읽어 표현하게 하라.
-- Hardcore·비캠페인·camera-only의 기존 동작과 shared asset을 보존하라.
+- Hardcore의 authored HP/timing과 camera-only 초기화 및 shared asset을 보존하라. 현행 stage gameplay 진입에는 유효한 campaign slot 또는 handoff가 필요하며, player in-world respawn은 사용하지 않는다.
 
 ### S3. 동기 저장·실패 종료
 
@@ -122,7 +122,7 @@
 
 1. mode/survival 검증, 실제 JsonUtility round-trip, 기록·다른 슬롯 보존. 구버전 canonical은 UnsupportedVersion으로 차단하고 파일·backup 불변, 빈 슬롯 표시·자동 변환·초기화 없음.
 2. 두 모드의 사망·clear·레벨 경계·최종 stage와 Chance 3/2/1 전환.
-3. 첫 snapshot/HUD의 HP, preset 이후 무적 설정, 원본 배열 및 Hardcore/비캠페인 불변.
+3. 첫 snapshot/HUD의 HP, preset 이후 무적 설정, 원본 배열 및 Hardcore 불변. slot 없는 stage 진입 거절과 camera-only 초기화는 별도로 확인.
 4. 피해량 1/2/치명타, 무적 경계·다중 공격, 낙사/압사, death-over-clear.
 5. 중복 결과·강제 clear, 저장 실패 후 catch-up 차단, 저장 후 observer/route 실패 시 재저장 없음.
 6. 쓰기 전 실패·저장 후 응답 실패·지속 IO 실패에서 이전 명령을 재적용하지 않고 파일 기반으로 재진입하거나 오류 안내.

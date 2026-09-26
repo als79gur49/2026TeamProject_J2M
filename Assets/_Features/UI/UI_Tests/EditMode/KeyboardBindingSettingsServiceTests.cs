@@ -6,6 +6,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace Game.Feature.UI.Tests
 {
@@ -14,6 +15,9 @@ namespace Game.Feature.UI.Tests
         private const string ProductionActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string ProductionPushKeyboardBindingId = "1c04ea5f-b012-41d1-a6f7-02e963b52893";
         private const string ProductionFlipKeyboardBindingId = "f6403135-b3d4-4300-bf3e-9a0ae3dbec40";
+
+        // Captured via production StartRebind on c9b765235 before removing the seven Player actions.
+        private const string PreRemovalProductionOverridesJson = @"{""bindings"":[{""action"":""Player/Push"",""id"":""1c04ea5f-b012-41d1-a6f7-02e963b52893"",""path"":""<Keyboard>/r"",""interactions"":""null"",""processors"":""null""},{""action"":""Player/Flip"",""id"":""f6403135-b3d4-4300-bf3e-9a0ae3dbec40"",""path"":""<Keyboard>/t"",""interactions"":""null"",""processors"":""null""}]}";
 
         private readonly List<InputActionAsset> _createdActions = new List<InputActionAsset>();
 
@@ -38,7 +42,6 @@ namespace Game.Feature.UI.Tests
             var snapshot = service.Read();
 
             Assert.That(snapshot.MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
-            Assert.That(snapshot.MovementDisplayName, Is.EqualTo("WASD"));
             Assert.That(snapshot.PushDisplayName, Is.EqualTo("J"));
             Assert.That(snapshot.FlipDisplayName, Is.EqualTo("K"));
         }
@@ -68,10 +71,92 @@ namespace Game.Feature.UI.Tests
             Assert.That(GameplayInputActionPaths.PlayerPush, Is.EqualTo("Player/Push"));
             Assert.That(GameplayInputActionPaths.PlayerFlip, Is.EqualTo("Player/Flip"));
             Assert.That(GameplayInputActionPaths.UiNavigate, Is.EqualTo("UI/Navigate"));
-            Assert.That(KeyboardBindingSettingsService.MoveActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerMove));
-            Assert.That(KeyboardBindingSettingsService.NavigateActionPath, Is.EqualTo(GameplayInputActionPaths.UiNavigate));
-            Assert.That(KeyboardBindingSettingsService.PushActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerPush));
-            Assert.That(KeyboardBindingSettingsService.FlipActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerFlip));
+        }
+
+        [TestCase(KeyboardMovementScheme.Wasd)]
+        [TestCase(KeyboardMovementScheme.ArrowKeys)]
+        public void ProductionInputActions_RebindSaveRoundTrip_PreservesBothMovementSchemes(KeyboardMovementScheme scheme)
+        {
+            var production = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ProductionActionsPath);
+            Assert.That(production, Is.Not.Null);
+            var actions = CloneActions(production);
+            var store = new FakeKeyboardBindingStore { MovementScheme = scheme };
+            var keyboard = InputSystem.AddDevice<Keyboard>();
+            try
+            {
+                using (var service = new KeyboardBindingSettingsService(actions, store))
+                {
+                    Rebind(service, keyboard, KeyboardBindableAction.Push, Key.R);
+                    Rebind(service, keyboard, KeyboardBindableAction.Flip, Key.T);
+                }
+
+                TestContext.WriteLine("PRODUCTION_SAVED_BINDINGS " + scheme + " " + store.BindingOverridesJson);
+                var restored = CloneActions(production);
+                using var restoredService = new KeyboardBindingSettingsService(restored, store);
+                Assert.That(restoredService.Read().MovementScheme, Is.EqualTo(scheme));
+                Assert.That(HasEffectivePath(restored, GameplayInputActionPaths.PlayerPush, "<Keyboard>/r"), Is.True);
+                Assert.That(HasEffectivePath(restored, GameplayInputActionPaths.PlayerFlip, "<Keyboard>/t"), Is.True);
+                Assert.That(store.ClearCount, Is.Zero);
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+        }
+
+        private static void Rebind(KeyboardBindingSettingsService service, Keyboard keyboard, KeyboardBindableAction action, Key key)
+        {
+            KeyboardRebindResult? completed = null;
+            Assert.That(service.StartRebind(action, result => completed = result).Started, Is.True);
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(key));
+            InputSystem.Update();
+            // Interactive rebinding waits 50ms for competing controls; exercise that production path.
+            var timeout = System.Diagnostics.Stopwatch.StartNew();
+            while (!completed.HasValue && timeout.ElapsedMilliseconds < 2000)
+            {
+                System.Threading.Thread.Sleep(10);
+                InputSystem.Update();
+            }
+
+            Assert.That(completed.HasValue, Is.True, "Interactive rebind did not complete.");
+            Assert.That(completed.Value.Status, Is.EqualTo(KeyboardBindingValidationStatus.Success));
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState());
+            InputSystem.Update();
+        }
+
+        [TestCase(KeyboardMovementScheme.Wasd)]
+        [TestCase(KeyboardMovementScheme.ArrowKeys)]
+        public void ProductionInputActions_LoadsPreRemovalSavedBindings_WithoutResettingSettings(KeyboardMovementScheme scheme)
+        {
+            var actions = CloneActions(AssetDatabase.LoadAssetAtPath<InputActionAsset>(ProductionActionsPath));
+            var store = new FakeKeyboardBindingStore
+            {
+                MovementScheme = scheme,
+                BindingOverridesJson = PreRemovalProductionOverridesJson,
+            };
+            using var service = new KeyboardBindingSettingsService(actions, store);
+
+            Assert.That(actions.FindActionMap("Player").actions.Select(action => action.name),
+                Is.EqualTo(new[] { "Move", "Push", "Flip" }));
+            Assert.That(service.Read().MovementScheme, Is.EqualTo(scheme));
+            Assert.That(service.Read().PushDisplayName, Is.EqualTo("R"));
+            Assert.That(service.Read().FlipDisplayName, Is.EqualTo("T"));
+            Assert.That(HasEffectivePath(actions, GameplayInputActionPaths.PlayerPush, "<Keyboard>/r"), Is.True);
+            Assert.That(HasEffectivePath(actions, GameplayInputActionPaths.PlayerFlip, "<Keyboard>/t"), Is.True);
+            foreach (var path in new[] { GameplayInputActionPaths.PlayerMove, GameplayInputActionPaths.UiNavigate })
+            {
+                Assert.That(IsEffective(actions, path, "<Keyboard>/w"), Is.EqualTo(scheme == KeyboardMovementScheme.Wasd));
+                Assert.That(IsEffective(actions, path, "<Keyboard>/upArrow"), Is.EqualTo(scheme == KeyboardMovementScheme.ArrowKeys));
+            }
+            Assert.That(store.ClearCount, Is.Zero);
+            Assert.That(store.SaveCount, Is.Zero);
+            Assert.That(store.BindingOverridesJson, Is.EqualTo(PreRemovalProductionOverridesJson));
+
+            var defaults = service.ResetToDefaults();
+            Assert.That(defaults.MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
+            Assert.That(defaults.PushDisplayName, Is.EqualTo("J"));
+            Assert.That(defaults.FlipDisplayName, Is.EqualTo("K"));
+            Assert.That(store.BindingOverridesJson, Is.Null);
         }
 
         [TestCase(nameof(GameplayInputActionPaths.PlayerMove))]
@@ -438,6 +523,8 @@ namespace Game.Feature.UI.Tests
 
             public int SaveCount { get; private set; }
 
+            public int ClearCount { get; private set; }
+
             public bool TryLoadMovementScheme(out KeyboardMovementScheme scheme)
             {
                 scheme = MovementScheme ?? KeyboardMovementScheme.Wasd;
@@ -462,6 +549,7 @@ namespace Game.Feature.UI.Tests
 
             public void ClearBindingOverridesJson()
             {
+                ClearCount++;
                 BindingOverridesJson = null;
             }
 

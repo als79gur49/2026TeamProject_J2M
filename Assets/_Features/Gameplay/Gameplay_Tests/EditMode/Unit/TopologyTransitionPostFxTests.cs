@@ -422,8 +422,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTemporaryCampaignState();
             var stageId = StageId.CreateOrThrow(stageIdValue);
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            Assert.That(PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                new[] { "test", "--capture-stage", stageId.Value },
+                logErrors: false,
+                out var primeError), Is.True, primeError);
 
             try
             {

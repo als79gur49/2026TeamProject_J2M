@@ -276,8 +276,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
             var resultSection = ExtractMarkdownSection(baseline, "## Result");
             Assert.That(resultSection, Does.Contain("Current main-integration rerun: green on 2026-09-22 KST"));
-            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1609 total / 0 failed`"));
-            Assert.That(resultSection, Does.Contain("result `1609 total / 0 failed`, failed tests `none`, failure category `none`"));
+            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1624 total / 0 failed`"));
+            Assert.That(resultSection, Does.Contain("result `1624 total / 0 failed`, failed tests `none`, failure category `none`"));
             Assert.That(resultSection, Does.Contain("Phase 5 ordered-autonym option rerun"));
             Assert.That(resultSection, Does.Contain("Phase 6 unified persistence/fallback rerun"));
             Assert.That(resultSection, Does.Contain("explicitly approved the recorded tests-first chronology deviation"));

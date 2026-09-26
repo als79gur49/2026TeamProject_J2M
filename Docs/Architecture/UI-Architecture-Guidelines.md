@@ -388,6 +388,7 @@ HUD classification notes:
 - HUD is a display consumer of mapped UI presentation state. It is not a gameplay command owner.
 - HUD may raise bounded UI-owned requests such as pause flow, but it must not dispatch gameplay Push/Flip commands.
 - Push/Flip physical gameplay commands flow through the gameplay input route, not UI HUD command injection.
+- Player movement also flows through `GameplayInputHost`; the unused UI held-direction gateway has been removed. `GameplayHostUiAccessContext` owns the shared admission policy lifetime and releases its tick subscription with the Host. UI flow teardown does not own that lifetime. Session/HUD queries and presentation direction DTOs remain available.
 - `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
 - Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore.
 - The original ActionBar deletion retained readiness mapping. The later H03 retirement below removes that UI mapping; gameplay command ownership remains with InputHost/Tick.

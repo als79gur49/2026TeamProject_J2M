@@ -47,17 +47,62 @@
 - Current four-locale representative layout-boundary rerun: green on 2026-09-22 KST, Windows UI build passed and Unity UI EditMode `1528 total / 0 failed`; the existing 12-capture Settings/Pause/Main Menu fixture now rejects localized TMP overflow, glyph meshes outside authored text rectangles beyond a bounded two-unit bearing tolerance, and glyph meshes outside the capture frame for en-US/ko-KR/ja-JP/zh-CN. The clean-revision `127bc453770f5fddb9ebbc11bc69b3c17f7bdfd5` visual lane passed 12 canonical captures, 16 M2B dynamic captures, and four Stage save-slot diagnostics at 1920x1080 with no guarded-asset mutation; evidence is `/mnt/d/J2M/evidence/typography-visual/CommandLine-20260922-042424`.
 - Current main-integration rerun: green on 2026-09-22 KST after the localization branch was merged with current `origin/main`; Windows UI build passed and the second Unity UI EditMode run passed `1609 total / 0 failed`. The first cold-worktree run completed package and asset import but reported `1609 total / 59 failed` because Unity Localization initialization had not completed; no source or guarded font asset mutation occurred, and the same worktree rerun closed that initialization-only failure.
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1609 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1609 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1624 total / 0 failed` (ChanceLost production content, 2026-09-26; one UI presentation case added)
+- Baseline test result: command `./run_tests.sh ui`, result `1624 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current visual result: automated `./run_tests.sh typography-visual` passed on clean revision `127bc453770f5fddb9ebbc11bc69b3c17f7bdfd5` on 2026-09-22 KST for four-locale representative 1920x1080 coverage; the prior user-performed manual visual validation remains the 2026-09-05 KST result and does not independently cover the later ja-JP/zh-CN addition
 - Current KBO interpretation: 19/19 ko-KR roles use KBO Dia Gothic Medium/Light with Normal style and authored sizing, managed glyph fallback is 0, and the Pause/audio/display layout contracts remain guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
-- Result XML: `TestResults/wsl-unity-ui-editmode.xml`
-- Unity log: `TestResults/wsl-unity-ui-editmode.log`
-- Build log: `TestResults/wsl-dotnet-ui.log`
+- Result XML: `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/test-results/wsl-unity-ui-editmode.xml`
+- Unity log: `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/test-results/wsl-unity-ui-editmode.log`
+- Build log: `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/test-results/wsl-dotnet-ui.log`
 
 ## Structural Delta
+
+### ChanceLost production fracture and debris (2026-09-26)
+
+- Added `ChanceLostProductionContent_CracksBeforeDebrisPreservesFramesAndRestoresOnRebind`, taking the UI EditMode inventory from `1623` to `1624`. It guards the authored three-slot prefab, crack-before-debris order, frame retention, icon fall, survivor pulse, material restoration, and rebind. No UI tests were removed, renamed, merged, or split.
+- The existing `CampaignLaunchHandoffPlayModeTests` graphics capture case was extended, not added. It checks the dedicated shader and captures 19 frames at each of four resolutions; the authored prefab and materials support this presentation only. UI/runtime ownership did not move between layers.
+- `./run_tests.sh ui` passed the Windows UI build and EditMode `1624/0`. Focused graphics `full --filter CampaignLaunchHandoffPlayModeTests` selected `0` EditMode and passed PlayMode `8/0`; it produced 76 PNGs. The commit hook's `./run_tests.sh core` passed EditMode `293/0` and PlayMode `113 total / 109 passed / 4 graphics skips / 0 failed`. Evidence: `/mnt/d/J2M/evidence/pr222-followup-20260926/ui-pass/`, `playmode-pass/`, `core-final/`, and `frames/20260925-175918/`. The first UI run exposed a stale 1623 documentation guard, and the first graphics run exposed missing WSL-to-Windows environment forwarding; both failed artifacts are preserved separately under `ui/` and `playmode/`. The PlayMode runner removed two generated `InitTestScene` artifacts after its passing run; no generated-scene residue remains. Unfiltered full, Player build, and manual campaign E2E were not run; the earlier user manual visual review found no issue.
+
+### UI EventSystem navigation action direct access (2026-09-25)
+
+- The Main Menu and Gameplay EventSystem installers now obtain `InputSystemUIInputModule` directly and clear its public `move`, `submit`, and `cancel` action references. The nine reflection-name probes and module type lookup are removed. `UiNavigationInputRouter` still dispatches navigation while the Input System module retains pointer input.
+- One UI lifecycle case was added for module reactivation and reapplication; the existing Gameplay UI composition case now checks that navigation actions are null and point/left-click/scroll references remain connected. No tests were removed, renamed, merged or split; no prefab migration or new product ownership. The selected input actions and UI navigation router were not changed.
+- UI Windows build and EditMode passed `1623/0`. Navigation action cleanup is repeated when either installer ensures the EventSystem; the test verifies the module's default actions can return on reactivation and be cleared again without dropping pointer references. Evidence: `/mnt/d/J2M/evidence/ui-navigation-module-20260925-015324/validation-summary.md`. Manual Editor/Player interaction and broad full were not run.
+
+### Demo hotkey keyboard bridge simplification (2026-09-25)
+
+- Replaced F10/BackQuote reflection reads with null-safe `Keyboard.current` access. Removed keyboard/key property metadata, including the Escape metadata used only to discover `wasPressedThisFrame`. Key selection, rebind/transition gates, panel toggling and the separate navigation utility are unchanged.
+- Added two UI input cases for the selected key, ignored alternate/Escape keys, press/hold/repress, missing keyboard and reconnection. They use the Input System package's isolated `InputTestFixture`; only the Editor UI test assembly adds `Unity.InputSystem.TestFramework`. No cases removed, renamed, merged or split; no prefab migration or product ownership shift. The diagnostics guard now checks the retained BackQuote entrypoint instead of the removed reflection field name.
+- Windows builds and UI EditMode passed `1622/0`; core EditMode passed `293/0`, PlayMode `108 passed / 4 graphics skips / 0 failed`. The initial UI run passed the existing 1620 cases but failed both new press-edge cases in the unisolated Editor input environment; the isolated rerun passed both. Core's runner detected and removed two generated InitTestScene files, then completed successfully. Existing category/compiler warnings remain; font guards reported `NO_MUTATION`.
+- Evidence: `/mnt/d/J2M/evidence/keyboard-bridge-20260925-012711/validation-summary.md`. Manual hardware/Player checks and broad full were not run; virtual-device input and existing UI flow coverage bound this change. Baseline count literals are synchronized after measurement and checked by the UI documentation filter.
+
+### Player action and UI movement retirement (2026-09-25)
+
+- Removed seven unused Player actions and their 21 bindings while preserving all remaining action/binding IDs, the UI map and input asset meta. A fixed saved JSON fixture was captured through the production rebind service before deletion; both movement schemes restore it after import without clearing settings.
+- Moved shared admission-policy disposal to the Host-owned UIAccess context, including repeated-dispose and failed-composition cleanup. Retired the UI movement gateway, held-direction override and unused acceptance DTO; retained query gates, snapshot windows, physical movement buffering and presentation direction DTOs. Pause does not acquire a new physical-input reset.
+- UI inventory: four production binding save/load cases and one installer recreation/lifetime case added; the obsolete HUD-to-gateway dependency test was renamed to a gateway-absence guard. No UI tests removed, merged or split; no prefab migration. Gameplay gateway-driven tests now exercise raw input/query contracts, one UI-held Core case was retired and a physical-held Extended case added, with new disposal and Pause characterization coverage. Four existing PlayMode cases now load the production input asset.
+- Executed: pre-removal binding capture `2/0`; post-removal keyboard fixture `22/0`; B1 ownership/Pause `14/0`; B2 query/lifecycle/campaign/architecture `184/0`; input selection EditMode `7/0`, PlayMode `38/0`; core EditMode `293/0`, PlayMode `108 passed / 4 graphics skips / 0 failed`; UI Windows build and EditMode `1620/0`. The B1/B2 filters selected zero PlayMode cases and do not establish PlayMode coverage.
+- Initial fixture-constant and PlayMode assembly-reference compile failures were corrected before successful reruns; logs are retained. All invoked font guards reported `NO_MUTATION`; existing category and untouched-code warnings remain. Manual Editor/Player interaction, broad unfiltered full and dedicated graphics evidence lanes were not run. Evidence: `/mnt/d/J2M/evidence/input-retirement-20260925-000826/validation-summary.md`.
+
+### Input reset cleanup follow-up (2026-09-24)
+
+- Removed the uncalled Escape bridge method; F10/BackQuote metadata and behavior remain. Gameplay UI clearing now delegates to one held-direction implementation, and redundant terminal/unbind resets were removed.
+- No UI tests were added, removed, renamed, merged, or split; no ownership or prefab migration occurred. Initial UI validation failed one documentation test because the preceding cleanup updated this baseline after validation while leaving two expected count literals at `1609`. Those assertions now match the measured `1615` baseline; runtime assertions are unchanged.
+- Final results: UI rerun `1615/0`; core EditMode `293/0`, PlayMode `108 passed / 4 graphics-related skips / 0 failed`; focused input-lifecycle EditMode `83/0`, PlayMode `1/0`. All Windows builds and SDF integrity guards passed. Initial failure and rerun evidence are retained under `/mnt/d/J2M/evidence/input-reset-cleanup-20260924-141032-f86c0f/`; warning and not-run limitations are recorded in the matching `Gameplay-Test-Automation-Guide.md` entry.
+
+### Input unused-surface cleanup (2026-09-24)
+
+- Removed the unconsumed movement display string from Shared/UI keyboard snapshots and updated production, NoOp, world-guide, preview, and test constructors. Removed the unused required-action arrays and service path forwarding properties; canonical action paths and binding persistence remain unchanged.
+- UI tests added/removed/renamed/merged/split: none. Removed five obsolete assertions for the retired display string and forwarding properties; canonical path, required-action, movement-scheme, rebind, and default-label assertions remain.
+- Gameplay companion: removed the ineffective direction-change delay option through scene/configuration/host wiring and three unused methods. Renamed the existing Flip-after-direction-change PlayMode test to describe its projected-view assertions, retaining its scenario and assertions.
+- Responsibility shifts and prefab migrations: none. Validation and warning evidence for this slice is recorded in `Gameplay-Test-Automation-Guide.md` under the matching cleanup entry.
+- Same-implementation result: UI Windows build and EditMode `1615/0` passed; core passed EditMode `293/0`, PlayMode `108 passed / 4 graphics-related skips / 0 failed`. PlayerMovement PlayMode escalation ran `83 total / 76 passed / 7 failed`: the seven camera visual cases require graphics/output arguments absent from the ordinary headless invocation. The renamed input case passed; fixture-wide green is not claimed. Dedicated visual lanes, broad unfiltered full, and manual smoke were not run.
+- Evidence root: `/mnt/d/J2M/evidence/input-unused-cleanup-20260924-135019-a7d26a/`; all invoked SDF guards reported `NO_MUTATION`. Source-category mismatch and untouched-code compiler warnings remain recorded in the logs.
+
+### Prior structural delta
+
 - Added tests:
   - four-locale representative layout-boundary coverage over the existing 12 Settings/Pause/Main Menu captures, including explicit ja-JP/zh-CN filename expectations and common localized TMP overflow, authored-rect glyph-mesh, and capture-frame glyph-mesh guards
   - approved-localization Apply rollback guard rejecting changed managed `.meta` bytes; existing rollback and directory-fence fixtures now also prove exact managed `.meta` restoration and Addressables root `.meta` restoration without widening production mutation ownership
@@ -230,6 +275,7 @@
   - presenter interaction tests
   - EditMode-composed UI hierarchy checks that can be driven directly
 - PlayMode escalation status:
+  - ChanceLost adds one UI EditMode production-content test and extends the existing graphics PlayMode capture case for shader compilation and four-aspect-ratio frames; it adds no new PlayMode test. Focused PlayMode `8/0` passed, while unfiltered full and manual campaign E2E remain unrun.
   - no additional UI PlayMode tests were added in Stage 9
   - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
   - the SurfaceBelt center remainder badge change required no additional PlayMode escalation because its prefab hierarchy, serialized references, remainder-state binding, active/inactive distinction, tween replay rules, disable cleanup, and isolated Shine material are covered by the canonical HUD and focused EditMode tests; manual in-game visual inspection remains not run

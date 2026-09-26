@@ -102,7 +102,9 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var stageId = StageId.CreateOrThrow("stage-0-1");
 
-            StageEditorDirectPlayLauncher.PrimeNonCampaignForTests(stageId);
+            StageEditorDirectPlayLauncher.PrimeCampaignTempSlotForTests(
+                stageId, CampaignStageSequenceTestAsset.LoadProductionResolver(),
+                CampaignSaveSlotPolicy.DefaultRemainingChances);
 
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().StageId, Is.EqualTo(stageId));
             Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var pendingStageId), Is.True);
@@ -133,7 +135,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(primed, Is.True, error);
             Assert.That(StageLaunchContextStore.TryGetCurrent(out var current), Is.True);
             Assert.That(current.Value, Is.EqualTo("stage-0-1"));
-            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().SuppressCampaignFlow, Is.True);
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().SuppressCampaignFlow, Is.False);
         }
 
         [TestCase(3)]

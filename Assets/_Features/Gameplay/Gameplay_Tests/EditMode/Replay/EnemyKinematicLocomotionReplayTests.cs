@@ -161,7 +161,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=40|"));
                 Assert.That(firstReplay[0].EventLogDump, Does.Contain("KinematicPoseRemoved|E=40"));
                 Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=40"));
-                Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("PlayerRespawnDelayStarted|E=40"));
             }
             finally
             {

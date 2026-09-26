@@ -11,6 +11,8 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Movement;
+using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Contracts;
@@ -72,7 +74,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = CreateHostWithInput(owner, 10, 3, presenter);
                 using var feed = new GameplayHostPresentationFeed(host.InputHost, presenter, entry,
                     campaignStageSequenceResolver: resolver);
-                using var ui = new GameplayHostUiAccessContext(new NoOpGameplayCommandGateway(),
+                using var ui = new GameplayHostUiAccessContext(new NoOpLifetime(),
                     new NoOpGameplayQueryFacade(), feed, new NoOpGameplayPauseService(),
                     campaignStageSequenceResolver: resolver);
                 AttachUiAccess(host, presenter, ui, 3);
@@ -180,7 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var host = CreateHostWithInput(owner, 10, 3, presenter);
                 using var feed = new GameplayHostPresentationFeed(host.InputHost, presenter);
-                using var ui = new GameplayHostUiAccessContext(new NoOpGameplayCommandGateway(),
+                using var ui = new GameplayHostUiAccessContext(new NoOpLifetime(),
                     new NoOpGameplayQueryFacade(), feed, new NoOpGameplayPauseService(),
                     campaignStageSequenceResolver: resolver);
                 AttachUiAccess(host, presenter, ui, 3);
@@ -205,7 +207,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     var fresh = CreateHostWithInput(freshOwner, 10, 3);
                     using var freshFeed = new GameplayHostPresentationFeed(fresh.InputHost, presenter);
-                    using var freshUi = new GameplayHostUiAccessContext(new NoOpGameplayCommandGateway(),
+                    using var freshUi = new GameplayHostUiAccessContext(new NoOpLifetime(),
                         new NoOpGameplayQueryFacade(), freshFeed, new NoOpGameplayPauseService(),
                         campaignStageSequenceResolver: resolver);
                     AttachUiAccess(fresh, presenter, freshUi, 3);
@@ -268,6 +270,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
             }
             finally { UnityEngine.Object.DestroyImmediate(owner); }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CasualSurvival_ProductionSaveFailureFromHostTick_AbandonsBeforeCatchUp()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "campaign-host-save-failure-" + Guid.NewGuid().ToString("N"));
+            var owner = new GameObject("campaign-host-save-failure");
+            try
+            {
+                var faultStore = new FailNextProfileWriteStore(new AtomicTextFileStore(root));
+                var store = new CampaignSaveSlotStoreAdapter(new CampaignSaveService(
+                    new FileCampaignProfileRepository(faultStore)));
+                var resolver = CreateResolver();
+                var saved = store.InitializeNewGame(1, resolver, string.Empty, GameMode.Casual);
+                Assert.That(saved.ResumeHp, Is.EqualTo(3));
+
+                var host = owner.AddComponent<GameplaySceneHost>();
+                host.Initialize(new GameplaySceneHostConfiguration
+                {
+                    AutoAdvanceTicks = false,
+                    AutoCreateViews = false,
+                    InitialBoardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    InitialTopology = new CubeTopologyState(FaceId.Floor),
+                    InitialEntities = new[]
+                    {
+                        new EntityState
+                        {
+                            entityId = 10,
+                            position = new SurfaceCell(FaceId.Floor, 0, 0),
+                            hp = 2,
+                            maxHp = 3,
+                            teamId = 1,
+                            type = EntityType.Unit,
+                            unitRole = UnitRole.Player,
+                            state = EntityPhaseState.Idle,
+                            boardPresence = EntityBoardPresence.Occupying,
+                        },
+                    },
+                    PlayerEntityId = 10,
+                    CampaignGameMode = GameMode.Casual,
+                });
+                var feed = host.UiAccess.PresentationFeed as GameplayHostPresentationFeed;
+                Assert.That(feed, Is.Not.Null);
+                var failureNotices = 0;
+                feed.CampaignRunFailed += () => failureNotices++;
+                var router = new FakeStageLaunchRouter();
+                using var controller = new CampaignGameplayFlowController(
+                    host, store, store, new CampaignRunningSlotContext(1), resolver,
+                    router, null, new FakeTerminalTransitionPort(), initialSlot: saved);
+                controller.Bind();
+
+                faultStore.FailNextProfileWrite = true;
+                Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 6f), Is.EqualTo(1));
+                Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
+                Assert.That(faultStore.FailedProfileWriteCount, Is.EqualTo(1));
+                Assert.That(host.InputHost.IsCampaignRunAbandoned, Is.True);
+                Assert.That(feed.HasCampaignRunFailure, Is.True);
+                Assert.That(failureNotices, Is.EqualTo(1));
+                Assert.That(store.LoadSlot(1).State.ResumeHp, Is.EqualTo(3));
+                Assert.That(router.LaunchCount, Is.Zero);
+
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
+                host.InputHost.SetSimulationPaused(false);
+                Assert.That(host.InputHost.AdvanceTime(1f), Is.Zero);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
+                Assert.That(faultStore.FailedProfileWriteCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
         }
 
         [Test]
@@ -700,7 +777,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     entry,
                     campaignStageSequenceResolver: resolver);
                 uiAccess = new GameplayHostUiAccessContext(
-                    new NoOpGameplayCommandGateway(),
+                    new NoOpLifetime(),
                     new NoOpGameplayQueryFacade(),
                     feed,
                     new NoOpGameplayPauseService(),
@@ -834,7 +911,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [TestCase(EditorDirectPlayMode.NonCampaign)]
         [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
         [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
         [Category("Extended")]
@@ -1341,21 +1417,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RespawnProcessor_PlayerRespawnGateSuppressesSpawnBeforeWrite()
-        {
-            var source = File.ReadAllText(Path.Combine(
-                Application.dataPath,
-                "_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.RespawnProcessor.cs"));
-            var gateIndex = source.IndexOf("if (!allowRespawn)", StringComparison.Ordinal);
-            var spawnIndex = source.IndexOf("writeContext.SpawnEntity(respawnEntity)", StringComparison.Ordinal);
-
-            Assert.That(gateIndex, Is.GreaterThanOrEqualTo(0));
-            Assert.That(source, Does.Contain("RespawnSuppressed|E="));
-            Assert.That(gateIndex, Is.LessThan(spawnIndex));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void StageAudioRuntimeRequestSource_ProfileReturnsLifecycleLease()
         {
             var coordinator = new FakeBgmFlowCoordinator();
@@ -1574,28 +1635,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void NonCampaignDirectPlay_SuppressesCampaign_EvenWithStaleActiveSlot()
+        public void NonCampaignDirectPlay_CannotBeConstructed()
         {
-            var activeKey = CreateTransientNamespace(nameof(NonCampaignDirectPlay_SuppressesCampaign_EvenWithStaleActiveSlot));
-            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
-            try
-            {
-                activeSlotProvider.SetActiveSlot(1);
-                var context = EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-0-1"));
-
-                var activation = CampaignRuntimeActivationPolicy.Evaluate(
-                    enableCampaignFlow: true,
-                    activeSlotProvider,
-                    context);
-
-                Assert.That(activation.HasActiveSlot, Is.True);
-                Assert.That(activation.IsSuppressedByEditorDirectPlay, Is.True);
-                Assert.That(activation.IsActive, Is.False);
-            }
-            finally
-            {
-                activeSlotProvider.ClearActiveSlot();
-            }
+            Assert.Throws<ArgumentOutOfRangeException>(() => new EditorDirectPlayContext(
+                EditorDirectPlayMode.NonCampaign,
+                StageId.CreateOrThrow("stage-0-1"),
+                0,
+                suppressCampaignFlow: true));
         }
 
         [Test]
@@ -2417,6 +2463,137 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PipelineDestroyTileDeathAndObjectiveClear_FeedCommitsDefeatOnceAndBlocksInput()
+        {
+            var saveKey = CreateTransientNamespace(nameof(PipelineDestroyTileDeathAndObjectiveClear_FeedCommitsDefeatOnceAndBlocksInput));
+            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
+            var hostObject = new GameObject("pipeline-death-clear-feed-host");
+            CampaignGameplayFlowController controller = null;
+            GameplayHostUiAccessContext uiAccess = null;
+            try
+            {
+                saveStore.ClearAll();
+                ImportSeed(saveStore, 1, "stage-2-2", "level-2", 2);
+                var player = new EntityState
+                {
+                    entityId = 10,
+                    position = new SurfaceCell(FaceId.Floor, 0, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                    unitRole = UnitRole.Player,
+                    unitMobilityKind = UnitMobilityKind.Ground,
+                    state = EntityPhaseState.Idle,
+                    facing = Direction.Right,
+                    boardPresence = EntityBoardPresence.Occupying,
+                };
+                var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var destroyTile = new TileFeatureState(
+                    100, destroyCell, TileFeatureKind.Destroy, TileFeatureFlags.None,
+                    sourceEntityId: 0, ownerEntityId: 0, teamId: 0,
+                    lifetimeTicks: 0, charges: 0);
+                var world = GameplayCompositionRoot.CreateWorldState(
+                    new[] { player },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new[] { destroyTile });
+                var timing = GameplayTimingProfile.CreateDefault();
+                var objective = new StageObjectiveRuntimeDefinition(
+                    StageCompletionPolicy.RequireAllConditions,
+                    10,
+                    Array.Empty<StageZoneRuntimeDefinition>(),
+                    new[]
+                    {
+                        new StageObjectiveConditionRuntimeDefinitionEntry(
+                            new AlwaysSatisfiedObjectiveCondition(),
+                            required: true,
+                            StageObjectiveConditionRole.PrimaryGoal,
+                            "same-tick-clear"),
+                    });
+                var pipeline = new TickPipeline(
+                    world,
+                    new IEntityLogic[]
+                    {
+                        new SingleMoveLogic(10, new RawMovementIntent(
+                            10, 100, new Vector2Int(1, 0), MovementCommandKind.Move)),
+                    },
+                    GameplayEntityLogicProviderFactory.CreateDefault(),
+                    timing,
+                    PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                        timing.SimulationTicksPerSecond,
+                        timing.RepeatedMoveIntervalSeconds),
+                    objectiveDefinition: objective,
+                    enemySpawnDefaultsByArchetypeId: null,
+                    runtimeFeatureFlags: default,
+                    unitKinematicLocomotionTiming: default,
+                    playerContinuousLocomotion: default,
+                    tileFeatureDefinitions: new[]
+                    {
+                        new TileFeatureRuntimeDefinition(
+                            100, TileFeatureActivationRule.BottomFaceOnly,
+                            Direction2D.None, TileFeatureBoxSelector.AnyPushableBox,
+                            boundEntityId: 0),
+                    });
+                var result = pipeline.RunTick(new TickInput(7));
+                Assert.That(result.PresentationData.PlayerDeathSignals, Has.Count.EqualTo(1));
+                Assert.That(result.PresentationData.PlayerDeathHoldSignals, Has.Count.EqualTo(1));
+                Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
+                Assert.That(world.CreateSnapshot().TryGetEntity(10, out _), Is.False);
+
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var host = CreateHostWithInput(hostObject, 10, 3, presenter);
+                var feed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                uiAccess = new GameplayHostUiAccessContext(
+                    new NoOpLifetime(),
+                    new NoOpGameplayQueryFacade(),
+                    feed,
+                    new NoOpGameplayPauseService());
+                AttachUiAccess(host, presenter, uiAccess, 3);
+                var router = new FakeStageLaunchRouter();
+                controller = new CampaignGameplayFlowController(
+                    host, saveStore, saveStore, new CampaignRunningSlotContext(1),
+                    CreateResolver(), router, null, new FakeTerminalTransitionPort());
+                controller.Bind();
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
+                InvokeInstanceMethod(host.InputHost, "BlockInputOnPlayerDeath", result);
+                Assert.That(ReadPrivateField<bool>(host.InputHost, "_isPlayerDeathInputBlocked"), Is.True);
+                var deathTickCommand = (PlayerTickCommand)InvokeInstanceMethod(host.InputHost, "BuildPlayerCommand");
+                Assert.That(deathTickCommand.MoveDirection, Is.EqualTo(Direction.None));
+                Assert.That(deathTickCommand.PushPressed, Is.False);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
+                host.InputHost.BufferFlip();
+                Assert.That(host.InputHost.AdvanceTime(1f), Is.Zero);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                var afterDeathCommand = (PlayerTickCommand)InvokeInstanceMethod(host.InputHost, "BuildPlayerCommand");
+                Assert.That(afterDeathCommand.MoveDirection, Is.EqualTo(Direction.None));
+                Assert.That(afterDeathCommand.PushPressed, Is.False);
+                Assert.That(afterDeathCommand.FlipPressed, Is.False);
+                RaiseInputHostTickCompleted(host.InputHost, result);
+                RaiseInputHostTickCompleted(host.InputHost, result);
+
+                var slot = saveStore.LoadSlot(1);
+                Assert.That(slot.RemainingChances, Is.EqualTo(1));
+                Assert.That(slot.TotalDeaths, Is.EqualTo(1));
+                Assert.That(slot.HasNormalCampaignCompletionReceipt, Is.False);
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+            }
+            finally
+            {
+                controller?.Dispose();
+                uiAccess?.Dispose();
+                saveStore.ClearAll();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CampaignDeath_DuplicateSameTickSignal_DoesNotDuplicateRouteOrSave()
         {
             var saveKey = CreateTransientNamespace(nameof(CampaignDeath_DuplicateSameTickSignal_DoesNotDuplicateRouteOrSave));
@@ -2534,7 +2711,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     chanceDisplayOverride: null,
                     terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
-                var elapsedTick = CreateElapsedSuppressedTickResult(53);
+                var elapsedTick = CreateElapsedTickResult(53);
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
                 handleTickCompleted.Invoke(controller, new object[] { elapsedTick });
@@ -2561,7 +2738,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var inputHost = host.InputHost;
-                SetPrivateField(inputHost, "_isPlayerRespawnDelayInputBlocked", true);
+                SetPrivateField(inputHost, "_isPlayerDeathInputBlocked", true);
 
                 inputHost.SetRawMoveInput(Vector2.right);
                 inputHost.BufferPush();
@@ -2663,52 +2840,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(router.LaunchCount, Is.EqualTo(1));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Null);
-            }
-            finally
-            {
-                saveStore.ClearAll();
-                activeSlotProvider.ClearActiveSlot();
-                UnityEngine.Object.DestroyImmediate(hostObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void CampaignDeathElapsed_LaunchOccursAfterSuppressedElapsedResult()
-        {
-            var saveKey = CreateTransientNamespace(nameof(CampaignDeathElapsed_LaunchOccursAfterSuppressedElapsedResult));
-            var activeKey = saveKey + ".active";
-            var saveStore = new TransientCampaignSaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(new TransientActiveSlotStorage(activeKey));
-            var hostObject = new GameObject("campaign-death-suppressed-elapsed-host");
-            var router = new FakeStageLaunchRouter();
-
-            try
-            {
-                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
-                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
-                var controller = new CampaignGameplayFlowController(
-                    host,
-                    saveStore,
-                    saveStore,
-                    new CampaignRunningSlotContext(1),
-                    CreateResolver(),
-                    router,
-                    chanceDisplayOverride: null,
-                    terminalTransitionPort: new FakeTerminalTransitionPort());
-                var handleTickCompleted = GetHandleTickCompletedMethod();
-                var elapsedTick = CreateElapsedSuppressedTickResult(53);
-                var elapsedEventLog = elapsedTick.EventLog.ToList();
-
-                Assert.That(
-                    elapsedEventLog.IndexOf("PlayerRespawnDelayElapsed|E=10|StartTick=50|EligibleTick=53|Tick=53"),
-                    Is.LessThan(elapsedEventLog.IndexOf("RespawnSuppressed|E=10|Reason=PolicyDisabled|Tick=53")));
-
-                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
-                handleTickCompleted.Invoke(controller, new object[] { elapsedTick });
-
-                Assert.That(router.LaunchCount, Is.EqualTo(1));
-                Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
             }
             finally
             {
@@ -3113,8 +3244,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     null,
                     null,
                     null,
-                    null,
-                    respawnDelayTicks));
+                    null));
             return host;
         }
 
@@ -3144,8 +3274,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     null,
                     null,
                     null,
-                    uiAccess,
-                    respawnDelayTicks));
+                    uiAccess));
         }
 
         private static void RaiseInputHostTickCompleted(
@@ -3238,16 +3367,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return CreateTickResult(tickIndex, TickPresentationData.Empty);
         }
 
-        private static TickResult CreateElapsedSuppressedTickResult(int tickIndex)
+        private static TickResult CreateElapsedTickResult(int tickIndex)
         {
-            return CreateTickResult(
-                tickIndex,
-                TickPresentationData.Empty,
-                new[]
-                {
-                    "PlayerRespawnDelayElapsed|E=10|StartTick=50|EligibleTick=53|Tick=53",
-                    "RespawnSuppressed|E=10|Reason=PolicyDisabled|Tick=53",
-                });
+            return CreateTickResult(tickIndex, TickPresentationData.Empty);
         }
 
         private static TickResult CreateTickResult(int tickIndex, TickPresentationData presentationData)
@@ -3386,6 +3508,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string CreateTransientNamespace(string suffix)
         {
             return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
+        }
+
+        private sealed class SingleMoveLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly RawMovementIntent _intent;
+
+            public SingleMoveLogic(int entityId, RawMovementIntent intent)
+            {
+                ControlledEntityId = entityId;
+                _intent = intent;
+            }
+
+            public int ControlledEntityId { get; }
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                buffer.Add(_intent);
+            }
+        }
+
+        private sealed class AlwaysSatisfiedObjectiveCondition : StageConditionRuntimeDefinition
+        {
+            public AlwaysSatisfiedObjectiveCondition()
+                : base("same-tick-clear", "Same tick clear")
+            {
+            }
+
+            public override IStageConditionRuntime CreateRuntime()
+            {
+                return new AlwaysSatisfiedObjectiveRuntime();
+            }
+        }
+
+        private sealed class AlwaysSatisfiedObjectiveRuntime : IStageConditionRuntime
+        {
+            public bool IsSatisfied => true;
+
+            public void Reset()
+            {
+            }
+
+            public void Advance(WorldSnapshot finalSnapshot, in StageObjectiveTickFacts tickFacts)
+            {
+            }
+
+            public StageConditionStatus CreateStatus()
+            {
+                return new StageConditionStatus(
+                    "same-tick-clear", "Same tick clear", nameof(AlwaysSatisfiedObjectiveRuntime), true);
+            }
         }
 
         private static string ReadSaveProfileProductionSources()
@@ -3707,17 +3882,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private sealed class NoOpGameplayCommandGateway : IGameplayCommandGateway
+        private sealed class NoOpLifetime : IDisposable
         {
-            public GameplayCommandAcceptance SetHeldMoveDirection(GameplayUiDirection direction)
-            {
-                return GameplayCommandAcceptance.Accept();
-            }
-
-            public GameplayCommandAcceptance ClearHeldMoveDirection()
-            {
-                return GameplayCommandAcceptance.Accept();
-            }
+            public void Dispose() { }
         }
 
         private sealed class NoOpGameplayQueryFacade : IGameplayQueryFacade
@@ -3959,6 +4126,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     3f,
                     rimColor);
             }
+        }
+
+        private sealed class FailNextProfileWriteStore : IAtomicTextFileStore
+        {
+            private readonly IAtomicTextFileStore _inner;
+
+            public FailNextProfileWriteStore(IAtomicTextFileStore inner) => _inner = inner;
+
+            public bool FailNextProfileWrite { get; set; }
+            public int FailedProfileWriteCount { get; private set; }
+
+            public bool Exists(string fileName) => _inner.Exists(fileName);
+            public string ReadAllText(string fileName) => _inner.ReadAllText(fileName);
+
+            public void WriteAllTextAtomic(string fileName, string contents)
+            {
+                FailIfRequested(fileName);
+                _inner.WriteAllTextAtomic(fileName, contents);
+            }
+
+            public void WriteAllTextAtomicWithoutBackup(string fileName, string contents)
+            {
+                FailIfRequested(fileName);
+                _inner.WriteAllTextAtomicWithoutBackup(fileName, contents);
+            }
+
+            private void FailIfRequested(string fileName)
+            {
+                if (!FailNextProfileWrite || fileName != FileCampaignProfileRepository.ProfileFileName) return;
+                FailNextProfileWrite = false;
+                FailedProfileWriteCount++;
+                throw new IOException("Injected profile write failure from the production save port.");
+            }
+
+            public bool Delete(string fileName) => _inner.Delete(fileName);
+            public void EnsureDirectory() => _inner.EnsureDirectory();
+            public bool TryRestoreBackup(string fileName) => _inner.TryRestoreBackup(fileName);
+            public bool TryQuarantine(string fileName, out string quarantinePath) =>
+                _inner.TryQuarantine(fileName, out quarantinePath);
+            public bool TryQuarantine(string fileName, string suffix, out string quarantinePath) =>
+                _inner.TryQuarantine(fileName, suffix, out quarantinePath);
+            public void RecoverInterruptedWrite(string fileName) => _inner.RecoverInterruptedWrite(fileName);
+            public void CleanupTempFiles(string fileName) => _inner.CleanupTempFiles(fileName);
         }
 
         private sealed class RecordingTerminalPresentationExtension :

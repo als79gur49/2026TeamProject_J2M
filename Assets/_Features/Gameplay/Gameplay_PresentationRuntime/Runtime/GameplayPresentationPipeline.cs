@@ -543,7 +543,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             }
 
             if (motion.MotionKind == TickEntityMotionKind.Flip &&
-                IsBoxEntity(result, motion.EntityId))
+                IsBoxEntity(result, presentationData, motion.EntityId))
             {
                 TryResolveSettledFlipFloorImpactSignal(
                     presentationData.FlipFloorImpactSignals,
@@ -821,8 +821,20 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             return false;
         }
 
-        private static bool IsBoxEntity(TickResult result, int entityId)
+        private static bool IsBoxEntity(
+            TickResult result,
+            TickPresentationData presentationData,
+            int entityId)
         {
+            var exitSignals = presentationData.EntityExitSignals;
+            for (var i = 0; i < exitSignals.Count; i++)
+            {
+                if (exitSignals[i].ExitedEntityId == entityId)
+                {
+                    return exitSignals[i].EntityType == EntityType.Box;
+                }
+            }
+
             var finalEntities = result.FinalEntities;
             for (var i = 0; i < finalEntities.Count; i++)
             {

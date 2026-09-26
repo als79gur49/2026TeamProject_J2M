@@ -904,6 +904,34 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void FatalPassiveContact_RealPipelineEmitsOneSourcedDeathAndHold()
+        {
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 5);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Count(
+                resolution => resolution.TargetId == 10 && resolution.Accepted), Is.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerDeathSignals, Has.Count.EqualTo(1));
+            var death = result.PresentationData.PlayerDeathSignals[0];
+            Assert.That(death.EntityId, Is.EqualTo(10));
+            Assert.That(death.DidDieThisTick, Is.True);
+            Assert.That(death.SourceEntityId, Is.EqualTo(40));
+            Assert.That(death.ResolvedDamageSourceAvailable, Is.True);
+            Assert.That(death.DeathDirectionHintKind, Is.EqualTo(DeathDirectionHintKind.AttackerReverse));
+            Assert.That(result.PresentationData.PlayerDeathHoldSignals, Has.Count.EqualTo(1));
+            var hold = result.PresentationData.PlayerDeathHoldSignals[0];
+            Assert.That(hold.EntityId, Is.EqualTo(10));
+            Assert.That(hold.StartTick, Is.EqualTo(1));
+            Assert.That(hold.EligibleTick, Is.EqualTo(1));
+            Assert.That(hold.RemainingTicks, Is.Zero);
+            Assert.That(hold.StartedThisTick, Is.True);
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlayerInvincible_PassiveContactOverlap_ConsumesReceiverCooldown()
         {
             var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
@@ -935,12 +963,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 pipeline.RunTick(new TickInput(3), new DemoGameplayOverrideSnapshot(playerInvincible: true)));
 
             Assert.That(first.PlayerInvincibleRejectCount, Is.EqualTo(1));
-            Assert.That(first.EnemyActionExecutedSignalCount, Is.EqualTo(1));
+            Assert.That(first.PlayerTargetDamageActionCount, Is.EqualTo(1));
+            Assert.That(first.AcceptedDamageCount, Is.Zero);
+            Assert.That(first.EnemyActionExecutedSignalCount, Is.Zero);
             Assert.That(second.PlayerInvincibleRejectCount, Is.EqualTo(0));
+            Assert.That(second.PlayerTargetDamageActionCount, Is.EqualTo(1));
+            Assert.That(second.AcceptedDamageCount, Is.Zero);
             Assert.That(second.ReceiverCooldownRejectCount, Is.EqualTo(1));
             Assert.That(second.EnemyActionExecutedSignalCount, Is.EqualTo(0));
             Assert.That(third.PlayerInvincibleRejectCount, Is.EqualTo(1));
-            Assert.That(third.EnemyActionExecutedSignalCount, Is.EqualTo(1));
+            Assert.That(third.PlayerTargetDamageActionCount, Is.EqualTo(1));
+            Assert.That(third.AcceptedDamageCount, Is.Zero);
+            Assert.That(third.EnemyActionExecutedSignalCount, Is.Zero);
             Assert.That(GetEntityHp(CreateSnapshot(worldState), 10), Is.EqualTo(5));
         }
 

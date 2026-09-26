@@ -5,7 +5,7 @@ Archive documents that still mention `pushContactTicks`, contact accumulation, o
 
 ## Summary
 - Push starts only from an explicit `PushPressed` edge on the current tick.
-- The default keyboard path is `E + direction`.
+- The default keyboard binding is `J` for Push (`K` for Flip). Movement uses the selected WASD/arrow-key scheme.
 - `Move` input by itself never starts Push.
 - Push contact accumulation state and contact threshold timing are removed.
 
@@ -13,26 +13,22 @@ Archive documents that still mention `pushContactTicks`, contact accumulation, o
 - `PlayerTickCommand.PushPressed` means "fresh press on this tick".
 - Holding the Push button does not retrigger `PushPressed` on later ticks.
 - `GameplayInputHost` samples keyboard Push from the `Player/Push.started` edge.
-- UI-held movement merges into the input path, but UI Push action requests are not part of the current product surface.
-- Push direction comes from the resolved physical/held movement direction for the current tick.
+- Movement and Push/Flip use the physical gameplay input route. The unused UI-held movement gateway has been removed.
+- Push/Flip capture direction when the action starts, including the input-update ordering snapshot. A later direction change does not retarget the pending action; a key pressed without movement can use the player's facing direction.
 
 ## Runtime Rules
 - Priority is `Push > Flip > Move`.
-- `PushPressed` with no direction is a no-op.
-- `PushPressed` with a direction but no adjacent pushable target is a no-op.
+- No-target and blocked Push/Flip requests follow the [fake-attempt policy](./Gameplay-PushFlip-Fake-Attempt-Policy.md), including facing fallback and presentation-only failure feedback.
 - `Move` into a pushable box without `PushPressed` is a no-op.
-- `PushPressed` with a direction and an adjacent push-capable box that cannot start Push emits a `MovementRejected|Stage=PreMovement|...` reason.
+- Action legality and failure classification remain gameplay-owned; this input cleanup does not change them.
 - Push windup, execute tick, and recovery are unchanged.
 
 ## Buffering And Recovery
 - Move buffering remains move-only.
-- Push is never buffered.
+- A fresh Push edge and its captured direction can be held until the next eligible tick. Holding the key does not create another edge.
 - Push received during recovery or other action lock is consumed and dropped.
 - A new Push after recovery requires a fresh button press.
 
 ## HUD Contract
-- Mapped readiness data remains available:
-  - `CanStartAnyActionThisTick`
-  - `HasExplicitPushCandidateInCurrentDirection`
-- Push/Flip readiness, recovery, and outcome mapping remain unchanged.
-- `ActionBar` is retired HUD vocabulary. Current Push/Flip HUD state flows through `HUDRootPresenter`, `PlayerStatusPresenter`, `GameplayHostPlayerHudQuery`, `UIPresentationSnapshot`, and `UIPlayerActionSlice`; command requests, when present, flow through `GameplayHostCommandGateway` into `GameplayInputHost`.
+- `ActionBar` and the later H03 Push/Flip HUD readiness mapping are retired as described in [UI architecture](./UI-Architecture-Guidelines.md). Presentation direction DTOs remain in use by the gameplay presentation feed.
+- UI Session/HUD queries retain their shared admission policy and committed snapshot window. `GameplayHostUiAccessContext` owns that policy's lifetime; UI does not inject movement or Push/Flip commands.

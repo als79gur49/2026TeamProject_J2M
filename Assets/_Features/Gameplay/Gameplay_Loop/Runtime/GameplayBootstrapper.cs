@@ -37,13 +37,11 @@ namespace Game.Feature.Gameplay.Loop
             var generalTimingProfile = GameplayTimingProfile.CreateDefault();
             var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
             var unitKinematicLocomotionTiming = CreateDefaultUnitKinematicLocomotionTimingSnapshot(generalTimingProfile);
-            var playerRespawnDelayTicks = CreateDefaultPlayerRespawnDelayTicks(generalTimingProfile);
             return CreateTickPipeline(
                 worldState,
                 entityLogics,
                 generalTimingProfile,
                 playerControlTiming,
-                playerRespawnDelayTicks,
                 unitKinematicLocomotionTiming: unitKinematicLocomotionTiming);
         }
 
@@ -52,9 +50,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<IEntityLogic> entityLogics,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
@@ -67,10 +63,8 @@ namespace Game.Feature.Gameplay.Loop
                 _entityLogicProvider,
                 generalTimingProfile,
                 playerControlTiming,
-                playerRespawnDelayTicks,
                 objectiveDefinition,
                 _spawnDefaultsByArchetypeId,
-                allowPlayerRespawn,
                 runtimeFeatureFlags,
                 unitKinematicLocomotionTiming,
                 playerContinuousLocomotion,
@@ -96,14 +90,12 @@ namespace Game.Feature.Gameplay.Loop
             var generalTimingProfile = GameplayTimingProfile.CreateDefault();
             var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
             var unitKinematicLocomotionTiming = CreateDefaultUnitKinematicLocomotionTimingSnapshot(generalTimingProfile);
-            var playerRespawnDelayTicks = CreateDefaultPlayerRespawnDelayTicks(generalTimingProfile);
             return CreateTickRunner(
                 worldState,
                 entityLogics,
                 inputBuffer,
                 generalTimingProfile,
                 playerControlTiming,
-                playerRespawnDelayTicks,
                 objectiveDefinition: null,
                 startTickIndex: startTickIndex,
                 unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
@@ -116,10 +108,8 @@ namespace Game.Feature.Gameplay.Loop
             TickInputBuffer inputBuffer,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             int startTickIndex = 1,
-            bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
@@ -138,9 +128,7 @@ namespace Game.Feature.Gameplay.Loop
                     entityLogics,
                     generalTimingProfile,
                     playerControlTiming,
-                    playerRespawnDelayTicks,
                     objectiveDefinition,
-                    allowPlayerRespawn,
                     runtimeFeatureFlags,
                     unitKinematicLocomotionTiming,
                     playerContinuousLocomotion,
@@ -176,17 +164,5 @@ namespace Game.Feature.Gameplay.Loop
                 generalTimingProfile.SimulationTicksPerSecond);
         }
 
-        private static int CreateDefaultPlayerRespawnDelayTicks(
-            GameplayTimingProfile generalTimingProfile)
-        {
-            if (generalTimingProfile == null)
-            {
-                throw new ArgumentNullException(nameof(generalTimingProfile));
-            }
-
-            return GameplayTimingProfile.SecondsToCeilTicks(
-                GameplayTimingProfile.DefaultPlayerRespawnDelaySeconds,
-                generalTimingProfile.SimulationTicksPerSecond);
-        }
     }
 }

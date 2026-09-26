@@ -1853,8 +1853,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(10));
             Assert.That(result.PresentationData.PlayerDeathSignals, Has.Count.EqualTo(1));
-            Assert.That(result.PresentationData.PlayerDeathSignals[0].EntityId, Is.EqualTo(10));
-            Assert.That(result.PresentationData.PlayerDeathSignals[0].DidDieThisTick, Is.True);
+            var death = result.PresentationData.PlayerDeathSignals[0];
+            Assert.That(death.EntityId, Is.EqualTo(10));
+            Assert.That(death.DidDieThisTick, Is.True);
+            Assert.That(death.SourceEntityId, Is.Zero);
+            Assert.That(death.ResolvedDamageSourceAvailable, Is.False);
+            Assert.That(death.DeathDirectionHintKind, Is.EqualTo(DeathDirectionHintKind.FacingReverse));
+            Assert.That(result.PresentationData.PlayerDeathHoldSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerDeathHoldSignals[0].EntityId, Is.EqualTo(10));
+            Assert.That(result.PresentationData.PlayerDeathHoldSignals[0].StartedThisTick, Is.True);
             Assert.That(result.PresentationData.EntityExitSignals, Is.Empty);
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=10"));
             Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out _), Is.False);
@@ -1892,7 +1899,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
                 logics,
-                allowPlayerRespawn: false,
                 damageCooldownSeconds: 2f);
 
             if (receiveAttackFirst)
@@ -5527,7 +5533,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             WorldState worldState,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             IReadOnlyList<IEntityLogic> entityLogics,
-            bool allowPlayerRespawn = true,
             float? damageCooldownSeconds = null)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
@@ -5545,10 +5550,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 playerControlTiming.CreateAuthoritativeSnapshot(
                     timingProfile.SimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                playerRespawnDelayTicks: 1,
                 objectiveDefinition: null,
                 enemySpawnDefaultsByArchetypeId: null,
-                allowPlayerRespawn: allowPlayerRespawn,
                 runtimeFeatureFlags: default,
                 unitKinematicLocomotionTiming: default,
                 playerContinuousLocomotion: default,

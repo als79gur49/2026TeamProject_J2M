@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.Debug
             WorldSnapshot s1Snapshot,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
-            RespawnPhaseResult respawnPhaseResult,
+            MoonBlockGenerationPhaseResult moonBlockGenerationPhaseResult,
             WorldSnapshot finalSnapshot,
             TickResultData tickResultData,
             string determinismHash)
@@ -80,13 +80,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Cleanup.TimerChanges", cleanupPhaseResult.TimerChanges, FormatString);
             AppendSection(builder, "Cleanup.StateTransitions", cleanupPhaseResult.StateTransitions, FormatString);
             AppendSection(builder, "Cleanup.EventLogEntries", cleanupPhaseResult.EventLogEntries, FormatString);
-            AppendSection(builder, "Respawn.Events", respawnPhaseResult.EventLogEntries, FormatString);
-            AppendSection(builder, "Respawn.Placements", respawnPhaseResult.RespawnPlacementRecords, FormatRespawnPlacementRecord);
-            AppendSection(
-                builder,
-                "Respawn.Entities",
-                respawnPhaseResult.RespawnedEntities,
-                entity => FormatEntityState(finalSnapshot, entity));
+            AppendSection(builder, "MoonBlockGeneration.Events", moonBlockGenerationPhaseResult.EventLogEntries, FormatString);
 
             AppendSnapshotSections(builder, "Final", finalSnapshot);
             AppendSection(builder, "Final.PendingDelayedEffects", tickResultData.PendingDelayedAttackEffects, FormatDelayedAttackEffectRecord);
@@ -698,12 +692,6 @@ namespace Game.Feature.Gameplay.Debug
             }
 
             return builder.ToString();
-        }
-
-        private static string FormatRespawnPlacementRecord(RespawnPlacementRecord record)
-        {
-            return
-                $"E={record.EntityId}|Cell={FormatCell(record.PlacementCell)}|Boundary={record.BoundaryKind}|BoundaryReason={record.BoundaryReason}";
         }
 
         private static string FormatEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)

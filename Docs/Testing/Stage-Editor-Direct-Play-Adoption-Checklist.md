@@ -15,6 +15,7 @@
 ## Onboarding Checklist
 
 - `Tools/Stages/Direct Play/Launch Stage...`에서 stage id를 선택한다.
+- 기본 `Temporary Campaign Slot`이 생성되고 선택한 stage의 실제 레벨 그룹과 기회 수가 기록되는지 확인한다.
 - launcher가 `UIAudioScene` canonical gameplay shell을 열고 launch context를 주입하는지 확인한다.
 - 같은 editor session에서 반복 재현은 `Replay Last Stage`를 우선 사용한다.
 - plain Play는 supported workflow가 아니라 unsupported reference case로만 기록한다.
@@ -25,6 +26,8 @@
 - plain Play를 눌렀다면 warning/fail-fast guidance만 기록하고 success evidence로 취급하지 않는다.
 - supported stage id coverage는 direct-play catalog `100%`여야 한다.
 - smoke note는 stage id, canonical shell, used menu path, observed warning/fail-fast, result를 함께 적는다.
+- 사망 시 기회 차감과 terminal retry/level-failed, 클리어 진행, 플레이어 Death VFX를 확인한다.
+- 저장된 퇴역 모드 값 `1`과 시퀀스 밖 stage의 Replay Last Stage는 저장소나 새 실행 컨텍스트를 변경하지 않고 거부되는지 확인한다.
 
 ## Smoke Cycle Standard
 

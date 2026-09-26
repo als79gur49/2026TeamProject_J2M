@@ -79,19 +79,6 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
-        public bool TryReset(in EntitySpawnPresentationSignal signal)
-        {
-            if (signal.EntityId != _playerEntityId ||
-                signal.EntityKind != EntityPresentationKind.Player ||
-                signal.Reason != EntitySpawnPresentationReason.PlayerRespawn)
-            {
-                return false;
-            }
-
-            Reset();
-            return true;
-        }
-
         public void Advance(float deltaTime, float opaqueDurationSeconds, float fadeDurationSeconds)
         {
             if (deltaTime < 0f)
@@ -243,18 +230,6 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (deathSignals[i].EntityId == playerEntityId &&
                     deathSignals[i].DidDieThisTick)
-                {
-                    Reset();
-                    return;
-                }
-            }
-
-            var spawnSignals = presentationData.EntitySpawnSignals;
-            for (var i = 0; i < spawnSignals.Count; i++)
-            {
-                if (spawnSignals[i].EntityId == playerEntityId &&
-                    spawnSignals[i].EntityKind == EntityPresentationKind.Player &&
-                    spawnSignals[i].Reason == EntitySpawnPresentationReason.PlayerRespawn)
                 {
                     Reset();
                     return;

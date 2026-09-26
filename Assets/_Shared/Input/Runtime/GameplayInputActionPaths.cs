@@ -14,20 +14,5 @@ namespace Game.Shared.Input
         public const string PlayerPush = PlayerActionMap + "/" + PushAction;
         public const string PlayerFlip = PlayerActionMap + "/" + FlipAction;
         public const string UiNavigate = UiActionMap + "/" + NavigateAction;
-
-        public static readonly string[] RequiredGameplayActions =
-        {
-            PlayerMove,
-            PlayerPush,
-            PlayerFlip,
-        };
-
-        public static readonly string[] RequiredSettingsActions =
-        {
-            PlayerMove,
-            PlayerPush,
-            PlayerFlip,
-            UiNavigate,
-        };
     }
 }

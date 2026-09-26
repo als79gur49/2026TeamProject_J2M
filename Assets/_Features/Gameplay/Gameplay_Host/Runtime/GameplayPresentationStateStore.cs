@@ -67,6 +67,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, GameplayEntityPose> _retainedLocalTargetPoses = new();
         private readonly Dictionary<int, TransitionVisibilityState> _transitionVisibilityStates = new();
         private readonly Dictionary<int, GameplayEntityView> _viewsByEntityId = new();
+        private readonly Dictionary<int, float> _moonBlockDestructionMotionDurationSecondsByEntityId = new();
         private readonly Dictionary<GameplayVfxCloneSourceKey, UnityEngine.Transform> _vfxCloneSourceOverridesByKey = new();
 
         public Dictionary<int, GameplayEntityPose> CommittedLocalTargetPoses => _committedLocalTargetPoses;
@@ -104,6 +105,9 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, GameplayEntityView> ViewsByEntityId => _viewsByEntityId;
 
+        public Dictionary<int, float> MoonBlockDestructionMotionDurationSecondsByEntityId =>
+            _moonBlockDestructionMotionDurationSecondsByEntityId;
+
         public Dictionary<GameplayVfxCloneSourceKey, UnityEngine.Transform> VfxCloneSourceOverridesByKey =>
             _vfxCloneSourceOverridesByKey;
 
@@ -125,6 +129,7 @@ namespace Game.Feature.Gameplay.Host
             _retainedLocalTargetPoses.Clear();
             _transitionVisibilityStates.Clear();
             _viewsByEntityId.Clear();
+            _moonBlockDestructionMotionDurationSecondsByEntityId.Clear();
             _vfxCloneSourceOverridesByKey.Clear();
             _processingEntityIds.Clear();
             _processingEntityIdBuffer.Clear();
@@ -139,6 +144,7 @@ namespace Game.Feature.Gameplay.Host
             _committedProjectedSlotsByEntityId.Clear();
             _enemyVisualFactsByEntityId.Clear();
             _enemyVisualSemanticStatesByEntityId.Clear();
+            _moonBlockDestructionMotionDurationSecondsByEntityId.Clear();
         }
 
         public IReadOnlyList<int> BuildProcessingEntityIds()

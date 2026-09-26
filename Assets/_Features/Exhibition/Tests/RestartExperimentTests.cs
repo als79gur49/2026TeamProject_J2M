@@ -92,6 +92,7 @@ namespace Game.Exhibition.Tests
             foreach (var inner in aggregate.InnerExceptions) CollectFailures(inner, failures);
         }
 
+        [TestCase("original-wait", 0, 0)]
         [TestCase("command", 0, 0)]
         [TestCase("steam-exited", 0, 0)]
         [TestCase("game-prepare", 1, 1)]
@@ -99,7 +100,10 @@ namespace Game.Exhibition.Tests
         {
             var denied = new System.ComponentModel.Win32Exception(5);
             var fake = new CycleFake();
-            fake.Inspect = current => { if (current == stage) ThrowOrigin(denied); };
+            fake.Inspect = current => {
+                if (current == stage || (stage == "original-wait" && current == "original" && fake.Shutdowns > 0))
+                    ThrowOrigin(denied);
+            };
             Assert.That(Assert.Catch(() => Cycle.Run(fake, Trial.FullCycle)), Is.SameAs(denied));
             Assert.That(fake.Shutdowns, Is.EqualTo(1));
             Assert.That(fake.SteamStarts, Is.EqualTo(steamStarts));
@@ -183,6 +187,128 @@ namespace Game.Exhibition.Tests
             var fake = new CycleFake();
             fake.Probe = budget => { fake.OtherGame = manualGame; fake.ReplacedSteam = !manualGame; return true; };
             Assert.Throws<IOException>(() => Cycle.Run(fake, Trial.FullCycle)); Assert.That(fake.GameStarts, Is.Zero);
+        }
+
+        private sealed class ShutdownOwnershipFake : IShutdownCommandOwnership
+        {
+            public int Pid;
+            public bool OwnsProcessId(int candidatePid) { return candidatePid == Pid; }
+        }
+
+        private sealed class SteamProcessesFake : SteamProcessOperations
+        {
+            private readonly Dictionary<System.Diagnostics.Process, ProcessIdentity> identities =
+                new Dictionary<System.Diagnostics.Process, ProcessIdentity>();
+            private readonly List<System.Diagnostics.Process> processes = new List<System.Diagnostics.Process>();
+            public int ForbiddenPid;
+            public int SessionErrorCode;
+            public bool Exited;
+            public readonly System.ComponentModel.Win32Exception Denied = new System.ComponentModel.Win32Exception(5);
+            public void Add(ProcessIdentity identity)
+            {
+                var process = new System.Diagnostics.Process();
+                identities.Add(process, identity); processes.Add(process);
+            }
+            public override System.Diagnostics.Process[] Enumerate() { return processes.ToArray(); }
+            public override int Id(System.Diagnostics.Process process) { return identities[process].Pid; }
+            public override int Session(int pid)
+            {
+                if (SessionErrorCode != 0) throw new System.ComponentModel.Win32Exception(SessionErrorCode);
+                foreach (var identity in identities.Values) if (identity.Pid == pid) return identity.Session;
+                throw new InvalidOperationException("Unknown test PID");
+            }
+            public override bool HasExited(System.Diagnostics.Process process)
+            {
+                if (Id(process) == ForbiddenPid) throw Denied;
+                return Exited;
+            }
+            public override ProcessIdentity Capture(System.Diagnostics.Process process)
+            {
+                if (Id(process) == ForbiddenPid) throw Denied;
+                return identities[process];
+            }
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void SteamSelectionSkipsOwnedCommandOrOtherSessionBeforeDeniedObservation(bool ownedCommand)
+        {
+            var owner = Identity(); owner.Pid = 100;
+            var excluded = Identity(); excluded.Pid = 200;
+            if (!ownedCommand) excluded.Session++;
+            var operations = new SteamProcessesFake { ForbiddenPid = excluded.Pid };
+            operations.Add(excluded); operations.Add(owner);
+            IShutdownCommandOwnership ownership = ownedCommand ? new ShutdownOwnershipFake { Pid = excluded.Pid } : null;
+            Assert.That(WindowsIdentityCapture.Steam(owner, ownership, operations), Is.SameAs(owner));
+        }
+
+        [Test]
+        public void SteamSelectionPreservesAccessDeniedForUnownedSameSessionProcess()
+        {
+            var owner = Identity(); owner.Pid = 100;
+            var candidate = Identity(); candidate.Pid = 200;
+            var operations = new SteamProcessesFake { ForbiddenPid = candidate.Pid };
+            operations.Add(candidate);
+            using (var unstarted = new OwnedShutdownCommand())
+            {
+                Assert.That(unstarted.OwnsProcessId(candidate.Pid), Is.False);
+                var error = Assert.Throws<System.ComponentModel.Win32Exception>(() =>
+                    WindowsIdentityCapture.Steam(owner, unstarted, operations));
+                Assert.That(error, Is.SameAs(operations.Denied));
+                Assert.That(error.Data["NativeOperation"], Is.EqualTo("Process.HasExited"));
+                Assert.That(error.Data["TargetPid"], Is.EqualTo(candidate.Pid));
+            }
+        }
+
+        [TestCase(87, true, true)]
+        [TestCase(87, false, false)]
+        [TestCase(5, true, false)]
+        public void SteamSelectionOnlyIgnoresMissingSessionWhenExitIsConfirmed(int errorCode, bool exited, bool absent)
+        {
+            var owner = Identity();
+            var operations = new SteamProcessesFake { SessionErrorCode = errorCode, Exited = exited };
+            operations.Add(owner);
+            if (absent) Assert.That(WindowsIdentityCapture.Steam(owner, null, operations), Is.Null);
+            else Assert.That(Assert.Throws<System.ComponentModel.Win32Exception>(() =>
+                WindowsIdentityCapture.Steam(owner, null, operations)).NativeErrorCode, Is.EqualTo(errorCode));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void ShutdownOwnershipRequiresCompletedValidationAndRetainsExitedChildUntilDispose(bool validIdentity)
+        {
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows retained process handle contract");
+            var command = new OwnedShutdownCommand();
+            System.Diagnostics.Process child = null;
+            var start = new System.Diagnostics.ProcessStartInfo {
+                FileName = ExperimentFiles.PowerShell,
+                Arguments = "-NoProfile -Command \"[Console]::In.ReadLine() | Out-Null\"",
+                UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true
+            };
+            try
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                TestDelegate launch = () => command.Start(() => start,
+                    new Deadline(() => clock.ElapsedMilliseconds, 15000, "Test child startup timed out"),
+                    info => { child = System.Diagnostics.Process.Start(info); return child; },
+                    process => new ProcessIdentity { Pid = process.Id,
+                        StartTicks = process.StartTime.ToUniversalTime().Ticks + (validIdentity ? 0 : 1) });
+                if (validIdentity) launch(); else Assert.Throws<IOException>(launch);
+                int pid = child.Id;
+                Assert.That(command.OwnsProcessId(pid), Is.EqualTo(validIdentity));
+                Assert.That(command.OwnsProcessId(pid + 1), Is.False);
+                child.StandardInput.Close();
+                Assert.That(child.WaitForExit(15000), Is.True);
+                if (validIdentity) Assert.That(command.Alive(_ => { }), Is.False);
+                Assert.That(command.OwnsProcessId(pid), Is.EqualTo(validIdentity));
+                command.Dispose(); child = null;
+                Assert.That(command.OwnsProcessId(pid), Is.False);
+            }
+            finally
+            {
+                try { if (child != null && !child.HasExited) { child.Kill(); child.WaitForExit(5000); } }
+                finally { command.Dispose(); }
+            }
         }
 
         [Test]

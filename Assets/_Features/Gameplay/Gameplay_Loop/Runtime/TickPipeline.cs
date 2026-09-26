@@ -41,23 +41,19 @@ namespace Game.Feature.Gameplay.Loop
         private readonly AttackInputNormalizer _attackInputNormalizer = new();
         private readonly AttackExpander _attackExpander;
         private readonly CleanupProcessor _cleanupProcessor = new();
-        private readonly RespawnProcessor _respawnProcessor = new();
         private readonly MoonBlockGeneratorRespawnProcessor _moonBlockGeneratorRespawnProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
         private readonly DeterminismHashBuilder _determinismHashBuilder = new();
         private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
         private readonly GravityFieldLockedBoxOneShotState _gravityFieldLockedBoxOneShotState = new();
-        private readonly List<EntityState> _playerRespawnTemplates;
         private readonly StageObjectiveTracker _objectiveTracker;
         private readonly int _moveOccupancyTicks;
         private readonly int _playerDamageCooldownTicks;
-        private readonly int _playerRespawnDelayTicks;
         private readonly int _gravityFieldChargeTicks;
         private readonly int _gravityFieldActiveTicks;
         private readonly UnitKinematicLocomotionTimingSnapshot _unitKinematicLocomotionTiming;
         private readonly PlayerContinuousLocomotionSnapshot _playerContinuousLocomotion;
-        private readonly bool _allowPlayerRespawn;
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
         private readonly IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions;
@@ -79,10 +75,8 @@ namespace Game.Feature.Gameplay.Loop
             ISnapshotEntityLogicProvider entityLogicProvider,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
-            bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
@@ -92,10 +86,8 @@ namespace Game.Feature.Gameplay.Loop
                 entityLogicProvider,
                 generalTimingProfile,
                 playerControlTiming,
-                playerRespawnDelayTicks,
                 objectiveDefinition,
                 enemySpawnDefaultsByArchetypeId,
-                allowPlayerRespawn,
                 runtimeFeatureFlags,
                 unitKinematicLocomotionTiming,
                 playerContinuousLocomotion,
@@ -110,10 +102,8 @@ namespace Game.Feature.Gameplay.Loop
             ISnapshotEntityLogicProvider entityLogicProvider,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks,
             StageObjectiveRuntimeDefinition objectiveDefinition,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId,
-            bool allowPlayerRespawn,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion,
@@ -135,17 +125,9 @@ namespace Game.Feature.Gameplay.Loop
             _enemySpawnDefaultsByArchetypeId = enemySpawnDefaultsByArchetypeId;
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
             var resolvedGeneralTimingProfile = generalTimingProfile ?? throw new ArgumentNullException(nameof(generalTimingProfile));
-            if (playerRespawnDelayTicks <= 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(playerRespawnDelayTicks),
-                    "Player respawn delay ticks must be greater than zero.");
-            }
-
             _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
             _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
-            _playerRespawnDelayTicks = playerRespawnDelayTicks;
             _gravityFieldChargeTicks = GameplayTimingProfile.SecondsToCeilTicks(
                 GravityFieldRuntimePolicy.ChargeDurationSeconds,
                 resolvedGeneralTimingProfile.SimulationTicksPerSecond);
@@ -169,12 +151,8 @@ namespace Game.Feature.Gameplay.Loop
                 ? Array.Empty<MoonBlockRespawnDefinition>()
                 : new List<MoonBlockRespawnDefinition>(moonBlockRespawnDefinitions).AsReadOnly();
             _tileEffectResolver = tileEffectResolver ?? TileFeatureEffectResolver.Instance;
-            _allowPlayerRespawn = allowPlayerRespawn;
             _runtimeFeatureFlags = runtimeFeatureFlags;
             _moveOccupancyTicks = resolvedGeneralTimingProfile.MoveOccupancyTicks;
-            _playerRespawnTemplates = BuildPlayerRespawnTemplates(
-                SnapshotBuilder.Create(_worldState),
-                _staticEntityLogics);
             _slidingStateTimerTicks = resolvedGeneralTimingProfile.BoxSlideStepIntervalTicks;
             _objectiveTracker = (objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled).CreateTracker();
         }
@@ -260,10 +238,8 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
             var postCleanupSnapshot = SnapshotBuilder.Create(_worldState);
-            var respawnPhaseResult = RunRespawnPhase(
-                initialSnapshot,
+            var moonBlockGenerationPhaseResult = RunMoonBlockGenerationPhase(
                 postCleanupSnapshot,
-                cleanupPhaseResult,
                 input.TickIndex,
                 writeContext,
                 completedPhases,
@@ -286,7 +262,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                respawnPhaseResult,
+                moonBlockGenerationPhaseResult,
                 input.TickIndex,
                 snapshotAfterEnemyAi,
                 input.PlayerCommand,
@@ -310,7 +286,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                respawnPhaseResult,
+                moonBlockGenerationPhaseResult,
                 objectiveResult,
                 presentationBuildContext);
             var determinismHash = ShouldEmitDeterminismHash()
@@ -327,7 +303,7 @@ namespace Game.Feature.Gameplay.Loop
                     resolvePhaseResult.PostMovementSnapshot,
                     attackPhaseResult,
                     cleanupPhaseResult,
-                    respawnPhaseResult,
+                    moonBlockGenerationPhaseResult,
                     finalAuthoritativeSnapshot,
                     tickResultData,
                     determinismHash)
@@ -672,7 +648,9 @@ namespace Game.Feature.Gameplay.Loop
             var consumedPlayerActionAttemptEntityIds = new HashSet<int>();
             var playerActionAttemptBatch = new FinalizationBatch();
             CollectPreMovementPlayerActionAttemptResolutions(
+                snapshotAfterEnemyAi,
                 planSnapshot,
+                preMovementStateResult.PlayerActionTransitions,
                 input.PlayerCommand,
                 input.TickIndex,
                 rejectedReasons,
@@ -1609,95 +1587,28 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult.RemovedUnitContinuousLocomotionPoses);
         }
 
-        private RespawnPhaseResult RunRespawnPhase(
-            WorldSnapshot tickStartSnapshot,
+        private MoonBlockGenerationPhaseResult RunMoonBlockGenerationPhase(
             WorldSnapshot postCleanupSnapshot,
-            CleanupPhaseResult cleanupPhaseResult,
             int tickIndex,
             IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
-            phaseTrace.Add("Respawn:Enter");
-            var respawnPhaseResult = _respawnProcessor.Process(
-                tickStartSnapshot,
-                postCleanupSnapshot,
-                cleanupPhaseResult,
-                _playerRespawnTemplates,
-                tickIndex,
-                _playerRespawnDelayTicks,
-                _allowPlayerRespawn,
-                writeContext);
+            phaseTrace.Add("MoonBlockGeneration:Enter");
             var moonBlockGeneratorResult = _moonBlockGeneratorRespawnProcessor.Process(
                 postCleanupSnapshot,
-                () => SnapshotBuilder.Create(_worldState),
-                respawnPhaseResult.RespawnedEntities.Count > 0 ||
-                respawnPhaseResult.TopologyResetRequest.HasValue,
                 _moonBlockRespawnDefinitions,
                 _tileFeatureDefinitions,
                 tickIndex,
                 writeContext);
-            if (moonBlockGeneratorResult.EventLogEntries.Count > 0 ||
-                moonBlockGeneratorResult.RespawnFacts.Count > 0 ||
-                moonBlockGeneratorResult.BlockedFacts.Count > 0)
-            {
-                var eventLogEntries = new List<string>(
-                    respawnPhaseResult.EventLogEntries.Count + moonBlockGeneratorResult.EventLogEntries.Count);
-                AddRange(eventLogEntries, respawnPhaseResult.EventLogEntries);
-                AddRange(eventLogEntries, moonBlockGeneratorResult.EventLogEntries);
-                var respawnFacts = new List<MoonBlockGeneratorRespawnFact>(
-                    respawnPhaseResult.MoonBlockGeneratorRespawnFacts.Count +
-                    moonBlockGeneratorResult.RespawnFacts.Count);
-                AddRange(respawnFacts, respawnPhaseResult.MoonBlockGeneratorRespawnFacts);
-                AddRange(respawnFacts, moonBlockGeneratorResult.RespawnFacts);
-                var blockedFacts = new List<MoonBlockGeneratorBlockedFact>(
-                    respawnPhaseResult.MoonBlockGeneratorBlockedFacts.Count +
-                    moonBlockGeneratorResult.BlockedFacts.Count);
-                AddRange(blockedFacts, respawnPhaseResult.MoonBlockGeneratorBlockedFacts);
-                AddRange(blockedFacts, moonBlockGeneratorResult.BlockedFacts);
-                respawnPhaseResult = new RespawnPhaseResult(
-                    respawnPhaseResult.RespawnedEntities,
-                    eventLogEntries,
-                    respawnPhaseResult.PlayerRespawnDelayRecords,
-                    respawnPhaseResult.RespawnPlacementRecords,
-                    respawnPhaseResult.TopologyResetRequest,
-                    respawnFacts,
-                    blockedFacts);
-            }
+            var moonBlockGenerationPhaseResult = new MoonBlockGenerationPhaseResult(
+                moonBlockGeneratorResult.EventLogEntries,
+                moonBlockGeneratorResult.RespawnFacts,
+                moonBlockGeneratorResult.BlockedFacts);
 
-            phaseTrace.Add("Respawn:Exit");
-            completedPhases.Add(TickPhase.Respawn);
-            return respawnPhaseResult;
-        }
-
-        private static List<EntityState> BuildPlayerRespawnTemplates(
-            WorldSnapshot snapshot,
-            IReadOnlyList<IEntityLogic> entityLogics)
-        {
-            var playerEntityIds = new HashSet<int>();
-            for (var i = 0; i < entityLogics.Count; i++)
-            {
-                if (entityLogics[i] is PlayerLogic &&
-                    entityLogics[i] is IEntityLogicSourceBinding binding)
-                {
-                    playerEntityIds.Add(binding.ControlledEntityId);
-                }
-            }
-
-            var templates = new List<EntityState>();
-            var entities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(entities);
-
-            for (var i = 0; i < entities.Count; i++)
-            {
-                if (entities[i].unitRole == UnitRole.Player ||
-                    playerEntityIds.Contains(entities[i].entityId))
-                {
-                    templates.Add(entities[i]);
-                }
-            }
-
-            return templates;
+            phaseTrace.Add("MoonBlockGeneration:Exit");
+            completedPhases.Add(TickPhase.MoonBlockGeneration);
+            return moonBlockGenerationPhaseResult;
         }
 
         private List<MoveIntent> BuildMovementIntents(List<RawMovementIntent> rawMovementIntents)
@@ -2295,25 +2206,9 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private void CollectPreMovementPlayerActionAttemptResolutions(
+            WorldSnapshot preMovementSnapshot,
             WorldSnapshot snapshot,
-            PlayerTickCommand playerCommand,
-            int tickIndex,
-            List<string> rejectedReasons,
-            FinalizationBatch batch,
-            List<PlayerActionAttemptResolution> playerActionAttemptResolutions)
-        {
-            CollectPreMovementPlayerActionAttemptResolutions(
-                snapshot,
-                playerCommand,
-                tickIndex,
-                rejectedReasons,
-                batch,
-                playerActionAttemptResolutions,
-                consumedPlayerActionAttemptEntityIds: null);
-        }
-
-        private void CollectPreMovementPlayerActionAttemptResolutions(
-            WorldSnapshot snapshot,
+            IReadOnlyList<PlayerActionTransition> preMovementActionTransitions,
             PlayerTickCommand playerCommand,
             int tickIndex,
             List<string> rejectedReasons,
@@ -2371,10 +2266,91 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 AddPlayerActionAttemptResolution(playerActionAttemptResolutions, attemptResolution);
+                RecordFailedPlayerInteractionFacing(
+                    preMovementSnapshot,
+                    snapshot,
+                    preMovementActionTransitions,
+                    entity,
+                    attemptResolution,
+                    tickIndex,
+                    batch);
                 if (attemptResolution.ConsumesMovement)
                 {
                     consumedPlayerActionAttemptEntityIds?.Add(entity.entityId);
                 }
+            }
+        }
+
+        private static void RecordFailedPlayerInteractionFacing(
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot attemptSnapshot,
+            IReadOnlyList<PlayerActionTransition> preMovementActionTransitions,
+            in EntityState entity,
+            in PlayerActionAttemptResolution attempt,
+            int tickIndex,
+            FinalizationBatch batch)
+        {
+            var direction = attempt.ResolvedActionDirection;
+            if (!DirectionUtility.IsCardinal(direction) ||
+                attempt.FailureCause == PlayerActionAttemptFailureCause.TargetLocked ||
+                attempt.FailureCause == PlayerActionAttemptFailureCause.InvalidDirection)
+            {
+                return;
+            }
+
+            var hadPreMovementTransition = false;
+            for (var i = 0; i < preMovementActionTransitions.Count; i++)
+            {
+                var transition = preMovementActionTransitions[i];
+                if (transition.EntityId != entity.entityId)
+                {
+                    continue;
+                }
+
+                if (transition.PreviousKind != PlayerActionKind.None)
+                {
+                    return;
+                }
+
+                hadPreMovementTransition = true;
+                break;
+            }
+
+            if (!hadPreMovementTransition ||
+                !preMovementSnapshot.CanStartAction(entity.entityId, tickIndex))
+            {
+                return;
+            }
+
+            preMovementSnapshot.TryGetPlayerControlState(entity.entityId, out var preMovementControlState);
+            preMovementControlState = PlayerControlQueries.ClearExpiredExplicitActionGate(
+                preMovementControlState,
+                tickIndex);
+            if (!PlayerControlQueries.CanStartExplicitAction(preMovementControlState, tickIndex) ||
+                (attempt.FailureCause == PlayerActionAttemptFailureCause.FlipLandingBlocked &&
+                 !UnitSpatialQuery.IsSettledAtAnchor(preMovementSnapshot, entity.entityId)))
+            {
+                return;
+            }
+
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Plan,
+                ResolvedActionSemanticKind.None,
+                entity.entityId,
+                actionPlanId: 0,
+                boundaryReason: "PlayerFailedInteractionFacing");
+            if (entity.facing != direction)
+            {
+                batch.SetFacing(entity.entityId, direction, metadata);
+            }
+
+            if (attemptSnapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var pose) &&
+                pose.HasAuthoritativeState &&
+                pose.State.facing != direction)
+            {
+                var state = pose.State;
+                state.facing = direction;
+                batch.SetUnitContinuousLocomotionState(entity.entityId, state, metadata);
             }
         }
 
@@ -2395,17 +2371,19 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            var direction = ResolvePlayerActionAttemptFeedbackDirection(playerCommand, entity);
+            var direction = PlayerActionDirectionResolver.Resolve(playerCommand, entity.facing);
             var queuedActionKind = PlayerControlQueries.ToQueuedFree2DActionKind(actionKind);
             var feedbackKind = PlayerActionAttemptFeedbackKind.NoTarget;
             var targetEntityId = 0;
             var hasTarget = false;
             var emitsVisualFeedback = true;
+            var failureCause = PlayerActionAttemptFailureCause.General;
 
             if (queuedActionKind == PlayerQueuedFree2DActionKind.None ||
                 direction == Direction.None)
             {
                 feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
+                failureCause = PlayerActionAttemptFailureCause.InvalidDirection;
             }
             else
             {
@@ -2430,6 +2408,7 @@ namespace Game.Feature.Gameplay.Loop
                     hasTarget = true;
                     feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
                     emitsVisualFeedback = false;
+                    failureCause = PlayerActionAttemptFailureCause.TargetLocked;
                 }
                 else if (PlayerControlQueries.TryResolveFree2DActionAssistCandidate(
                         snapshot,
@@ -2469,16 +2448,19 @@ namespace Game.Feature.Gameplay.Loop
                     hasTarget = true;
                     feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
                     emitsVisualFeedback = false;
+                    failureCause = PlayerActionAttemptFailureCause.FlipLandingBlocked;
                 }
             }
 
             resolution = new PlayerActionAttemptResolution(
                 entity.entityId,
                 actionKind,
-                direction,
+                direction == Direction.None ? Direction.Up : direction,
                 feedbackKind,
                 consumesMovement: true,
                 emitsFakePresentation: true,
+                direction,
+                failureCause,
                 targetEntityId,
                 hasTarget,
                 emitsVisualFeedback);
@@ -2503,25 +2485,6 @@ namespace Game.Feature.Gameplay.Loop
 
             actionKind = PlayerActionKind.None;
             return false;
-        }
-
-        private static Direction ResolvePlayerActionAttemptFeedbackDirection(
-            PlayerTickCommand playerCommand,
-            in EntityState entity)
-        {
-            if (TryResolveDirectionDelta(playerCommand.MoveDirection, out _))
-            {
-                return playerCommand.MoveDirection;
-            }
-
-            if (TryResolveDirectionDelta(playerCommand.HeldMoveDirection, out _))
-            {
-                return playerCommand.HeldMoveDirection;
-            }
-
-            return TryResolveDirectionDelta(entity.facing, out _)
-                ? entity.facing
-                : Direction.Up;
         }
 
         private static void AddPlayerActionAttemptResolution(
@@ -2564,11 +2527,12 @@ namespace Game.Feature.Gameplay.Loop
             out PlayerControlState queuedPlayerControlState)
         {
             queuedPlayerControlState = playerControlState;
+            var actionDirection = PlayerActionDirectionResolver.Resolve(playerCommand, entity.facing);
             if (playerControlState.activeAction.IsActive ||
                 PlayerControlQueries.HasQueuedFree2DAction(playerControlState) ||
                 pose.State.localOffset.IsZero ||
                 !TryResolveQueuedFree2DActionKind(playerCommand, out var actionKind) ||
-                !TryResolveDirectionDelta(playerCommand.MoveDirection, out _))
+                actionDirection == Direction.None)
             {
                 return false;
             }
@@ -2576,7 +2540,7 @@ namespace Game.Feature.Gameplay.Loop
             if (!IsWithinFree2DActionAssistSettleWindow(pose.State.localOffset))
             {
                 rejectedReasons.Add(
-                    $"Free2DActionAssistRejected|Stage=Plan|Reason=OutsideSettleWindow|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Offset={pose.LocalOffset}|Window={_playerContinuousLocomotion.ActionAssistSettleWindowUnits}");
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=OutsideSettleWindow|Source={entity.entityId}|Kind={actionKind}|Direction={actionDirection}|Offset={pose.LocalOffset}|Window={_playerContinuousLocomotion.ActionAssistSettleWindowUnits}");
                 return false;
             }
 
@@ -2585,12 +2549,12 @@ namespace Game.Feature.Gameplay.Loop
                     entity,
                     pose.AnchorCell,
                     actionKind,
-                    playerCommand.MoveDirection,
+                    actionDirection,
                     tickIndex,
                     out var lockedTarget))
             {
                 rejectedReasons.Add(
-                    $"Free2DActionAssistRejected|Stage=Plan|Reason=BoxInteractionLocked|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Target={lockedTarget.TargetEntityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=BoxInteractionLocked|Source={entity.entityId}|Kind={actionKind}|Direction={actionDirection}|Target={lockedTarget.TargetEntityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
                 return false;
             }
 
@@ -2599,17 +2563,17 @@ namespace Game.Feature.Gameplay.Loop
                     entity,
                     pose.AnchorCell,
                     actionKind,
-                    playerCommand.MoveDirection))
+                    actionDirection))
             {
                 rejectedReasons.Add(
-                    $"Free2DActionAssistRejected|Stage=Plan|Reason=NoActionCandidate|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=NoActionCandidate|Source={entity.entityId}|Kind={actionKind}|Direction={actionDirection}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
                 return false;
             }
 
             queuedPlayerControlState = PlayerControlQueries.QueueFree2DAction(
                 playerControlState,
                 actionKind,
-                playerCommand.MoveDirection,
+                actionDirection,
                 tickIndex);
             batch.SetPlayerControlState(
                 entity.entityId,
@@ -2620,7 +2584,7 @@ namespace Game.Feature.Gameplay.Loop
                     entity.entityId,
                     actionPlanId: 0));
             rejectedReasons.Add(
-                $"Free2DActionAssistQueued|Stage=Plan|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|RequestedTick={tickIndex}|Anchor={FormatCell(entity.position)}|Offset={pose.LocalOffset}");
+                $"Free2DActionAssistQueued|Stage=Plan|Source={entity.entityId}|Kind={actionKind}|Direction={actionDirection}|RequestedTick={tickIndex}|Anchor={FormatCell(entity.position)}|Offset={pose.LocalOffset}");
             return true;
         }
 
