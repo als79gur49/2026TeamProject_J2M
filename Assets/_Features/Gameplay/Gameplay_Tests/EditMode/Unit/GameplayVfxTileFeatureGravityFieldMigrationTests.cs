@@ -29,6 +29,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_EntranceSpawn_Binding.asset";
         private const string EntranceSpawnPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeature_EntranceSpawn_Vfx.prefab";
+        private const string GravityFieldChargingBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ChargingArea_Binding.asset";
+        private const string GravityFieldChargingPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/GravityField_ChargingAreaVfx.prefab";
 
         [Test]
         [Category("Extended")]
@@ -1133,7 +1137,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), out _), Is.False);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), out _), Is.False);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), out _), Is.False);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn), out _), Is.True);
             Assert.That(
@@ -1149,6 +1153,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueMap.TryResolvePrefab(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn), out var resolvedPrefab),
                 Is.True);
             Assert.That(resolvedPrefab, Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GravityFieldChargingArea_BindsAdaptedBlackHoleLoopWithoutActiveTail()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(GravityFieldChargingBindingPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(GravityFieldChargingPrefabPath);
+
+            Assert.That(binding, Is.Not.Null, GravityFieldChargingBindingPath);
+            Assert.That(prefab, Is.Not.Null, GravityFieldChargingPrefabPath);
+            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea)));
+            Assert.That(binding.Prefab, Is.EqualTo(prefab));
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            Assert.That(binding.TailSeconds, Is.Zero);
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+            Assert.That(VfxPrefabValidationDiagnostics.ValidateModelRootContract(prefab).HasErrors, Is.False);
+            Assert.That(prefab.transform.Find("ModelRoot/GlowDark"), Is.Not.Null);
+            Assert.That(prefab.GetComponentsInChildren<ParticleSystem>(true), Has.Length.EqualTo(5));
         }
 
         [Test]
