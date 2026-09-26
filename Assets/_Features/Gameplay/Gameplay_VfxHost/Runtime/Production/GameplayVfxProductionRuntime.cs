@@ -187,6 +187,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 if (!value)
                 {
                     StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail), tail: true);
+                    StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow), tail: true);
                     StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop), tail: true);
                     StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop), tail: true);
                 }
@@ -1805,6 +1806,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return (CanonicalMigratedGameplayVfxEnabled && IsCanonicalMigratedCue(cueId)) ||
                    (enableGameplayVfxFlipImpactStayTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)) ||
+                   (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)) ||
                    (enableGameplayVfxChargeBoosterTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)) ||

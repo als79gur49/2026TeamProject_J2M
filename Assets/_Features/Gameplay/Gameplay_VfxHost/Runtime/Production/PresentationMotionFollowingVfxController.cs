@@ -23,6 +23,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly HashSet<AttachedVfxFollowerKey> missingExplicitAttachPointKeys = new();
         private readonly List<PresentationMotionInstanceKey> motionStopBuffer = new();
         private readonly List<AttachedVfxFollowerKey> attachedStopBuffer = new();
+        private readonly List<AttachedFollowerTail> attachedFollowerTails = new();
+
+        private readonly struct AttachedFollowerTail
+        {
+            public AttachedFollowerTail(AttachedVfxFollowerKey key, IVfxPlaybackHandle handle, Transform parent)
+            {
+                Key = key;
+                Handle = handle;
+                Parent = parent;
+            }
+
+            public AttachedVfxFollowerKey Key { get; }
+
+            public IVfxPlaybackHandle Handle { get; }
+
+            public Transform Parent { get; }
+        }
 
         public int ActiveHandleCount => activeMotionHandlesByKey.Count + activeAttachedHandlesByKey.Count;
 
@@ -72,6 +89,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             PlannedAttachCount = 0;
             ResetVisibilityResolveDiagnostics();
+            PruneAttachedFollowerTails(stateStore, attachedFollowersEnabled, visibilityContext);
 
             if (trackState == null || stateStore == null || pool == null || bindingResolver == null)
             {
@@ -119,6 +137,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void ResetSession()
         {
             StopAll(tail: false);
+            HardCleanupAttachedFollowerTails();
             MissingBindingCount = 0;
             MissingOwnerViewCount = 0;
             MotionMissingBindingCount = 0;
@@ -133,6 +152,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void HardCleanup()
         {
+            HardCleanupAttachedFollowerTails();
             foreach (var pair in activeMotionHandlesByKey)
             {
                 pair.Value?.HardCleanup();
@@ -158,6 +178,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 return;
             }
+
+            StopAttachedFollowerTailsForFamily(family);
 
             motionStopBuffer.Clear();
             foreach (var pair in activeMotionHandlesByKey)
@@ -206,6 +228,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void ClearForTopologyTransitionStart(GameplayVfxGameObjectPool pool)
         {
+            HardCleanupAttachedFollowerTails();
             foreach (var pair in activeMotionHandlesByKey)
             {
                 StopHandleForTopologyTransition(pair.Value, pool);
@@ -229,6 +252,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void StopAttachedFollowersForCue(GameplayVfxCueId cueId, bool tail)
         {
+            StopAttachedFollowerTailsForCue(cueId);
             attachedStopBuffer.Clear();
             foreach (var pair in activeAttachedHandlesByKey)
             {
@@ -625,7 +649,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             for (var i = 0; i < attachedStopBuffer.Count; i++)
             {
-                StopAttached(attachedStopBuffer[i], tail: true);
+                var key = attachedStopBuffer[i];
+                var keepAttachedTail = false;
+                if (activeAttachedPoliciesByKey.TryGetValue(key, out var policy) &&
+                    policy.StopPolicy == VfxStopPolicy.StopEmittingThenRelease &&
+                    activeAttachedHandlesByKey.TryGetValue(key, out var handle) &&
+                    TryResolveAttachParent(stateStore, key.SourceEntityId, key.AttachPointId, key, out var parent) &&
+                    parent != null &&
+                    GetInstanceTransform(handle) != null &&
+                    GetInstanceTransform(handle).parent == parent &&
+                    IsAttachedFollowerVisible(key, visibilityContext))
+                {
+                    keepAttachedTail = true;
+                }
+
+                StopAttached(key, tail: true, keepAttachedTail: keepAttachedTail);
             }
         }
 
@@ -675,7 +713,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             StopHandle(handle, tail);
         }
 
-        private void StopAttached(AttachedVfxFollowerKey key, bool tail)
+        private void StopAttached(AttachedVfxFollowerKey key, bool tail, bool keepAttachedTail = false)
         {
             if (!activeAttachedHandlesByKey.TryGetValue(key, out var handle))
             {
@@ -684,10 +722,107 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            activeAttachedPoliciesByKey.TryGetValue(key, out var policy);
             activeAttachedHandlesByKey.Remove(key);
             activeAttachedPoliciesByKey.Remove(key);
             activeAttachedRetentionPoliciesByKey.Remove(key);
+            if (policy.StopPolicy == VfxStopPolicy.StopEmittingThenRelease)
+            {
+                var instanceTransform = GetInstanceTransform(handle);
+                if (tail && keepAttachedTail && instanceTransform != null)
+                {
+                    var parent = instanceTransform.parent;
+                    handle.StopEmitting();
+                    handle.MarkTailPlaying();
+                    attachedFollowerTails.Add(new AttachedFollowerTail(key, handle, parent));
+                }
+                else
+                {
+                    handle.HardCleanup();
+                }
+
+                return;
+            }
+
             StopHandle(handle, tail);
+        }
+
+        private void PruneAttachedFollowerTails(
+            GameplayPresentationStateStore stateStore,
+            bool attachedFollowersEnabled,
+            GameplayVfxVisibilityContext visibilityContext)
+        {
+            for (var i = attachedFollowerTails.Count - 1; i >= 0; i--)
+            {
+                var tail = attachedFollowerTails[i];
+                if (tail.Handle == null ||
+                    tail.Handle.State == VfxLifetimeState.ReleasedToPool ||
+                    tail.Handle.State == VfxLifetimeState.HardCleanup)
+                {
+                    attachedFollowerTails.RemoveAt(i);
+                    continue;
+                }
+
+                if (!attachedFollowersEnabled ||
+                    !IsAttachedFollowerVisible(tail.Key, visibilityContext) ||
+                    tail.Parent == null ||
+                    GetInstanceTransform(tail.Handle) == null ||
+                    GetInstanceTransform(tail.Handle).parent != tail.Parent ||
+                    !TryResolveAttachParent(
+                        stateStore,
+                        tail.Key.SourceEntityId,
+                        tail.Key.AttachPointId,
+                        tail.Key,
+                        out var currentParent) ||
+                    currentParent != tail.Parent)
+                {
+                    tail.Handle.HardCleanup();
+                    attachedFollowerTails.RemoveAt(i);
+                }
+            }
+        }
+
+        private void HardCleanupAttachedFollowerTails()
+        {
+            for (var i = 0; i < attachedFollowerTails.Count; i++)
+            {
+                attachedFollowerTails[i].Handle?.HardCleanup();
+            }
+
+            attachedFollowerTails.Clear();
+        }
+
+        private void StopAttachedFollowerTailsForCue(GameplayVfxCueId cueId)
+        {
+            for (var i = attachedFollowerTails.Count - 1; i >= 0; i--)
+            {
+                if (attachedFollowerTails[i].Key.CueId != cueId)
+                {
+                    continue;
+                }
+
+                attachedFollowerTails[i].Handle?.HardCleanup();
+                attachedFollowerTails.RemoveAt(i);
+            }
+        }
+
+        private void StopAttachedFollowerTailsForFamily(GameplayVfxFamily family)
+        {
+            for (var i = attachedFollowerTails.Count - 1; i >= 0; i--)
+            {
+                if (attachedFollowerTails[i].Key.CueId.Family != family)
+                {
+                    continue;
+                }
+
+                attachedFollowerTails[i].Handle?.HardCleanup();
+                attachedFollowerTails.RemoveAt(i);
+            }
+        }
+
+        private static Transform GetInstanceTransform(IVfxPlaybackHandle handle)
+        {
+            return (handle as GameplayVfxPlaybackHandle)?.InstanceTransform;
         }
 
         private static void StopHandle(IVfxPlaybackHandle handle, bool tail)

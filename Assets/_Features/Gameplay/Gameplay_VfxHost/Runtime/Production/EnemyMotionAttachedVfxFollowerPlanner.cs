@@ -125,6 +125,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         signal.Sequence,
                         Vector3.zero,
                         Quaternion.identity));
+
+                if (signal.Phase == EnemyGlidePhase.Active)
+                {
+                    AddDesiredFollower(
+                        new AttachedVfxFollowerDesiredState(
+                            GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow),
+                            signal.EntityId,
+                            AttachedVfxFollowerStateKind.EnemyGlideMagicBlastFollow,
+                            signal.Sequence,
+                            Vector3.zero,
+                            Quaternion.identity));
+                }
             }
         }
 

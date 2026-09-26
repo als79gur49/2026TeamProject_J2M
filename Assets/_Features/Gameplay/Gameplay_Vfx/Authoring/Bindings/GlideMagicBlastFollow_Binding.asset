@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
+  m_Name: GlideMagicBlastFollow_Binding
+  m_EditorClassIdentifier:
+  family: 3
+  cueCode: 30
+  styleKey:
+    value:
+  prefab: {fileID: 100000, guid: efd121c648e1472a95c09d13c4e1be42, type: 3}
+  requirement: 1
+  missingAnchorPolicy: 2
+  playbackMode: 2
+  visualSourceMode: 0
+  hostRequirement: 0
+  stopPolicy: 2
+  visibilityMode: 0
+  defaultLifetimeSeconds: 0
+  tailSeconds: 2
+  initialPoolSize: 4
+  maxConcurrentInstances: 8
+  allowTopologyHelperExempt: 0

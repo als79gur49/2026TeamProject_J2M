@@ -95,6 +95,7 @@ namespace Game.Feature.Gameplay.Vfx
         GravityFieldAuraWindupArea = 27,
         GravityFieldAuraActiveArea = 28,
         GravityFieldAuraActiveStarted = 29,
+        GlideMagicBlastFollow = 30,
     }
 
     public enum TileFeatureVfxCue

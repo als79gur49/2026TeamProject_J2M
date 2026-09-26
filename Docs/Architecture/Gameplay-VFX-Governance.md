@@ -204,6 +204,7 @@ Default cue map references are through binding assets, not direct prefab GUIDs.
 | `Gameplay_Vfx/Prefabs/ForwardCellProjectileFlightVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | projectile flight visual |
 | `Gameplay_Vfx/Prefabs/GlideRecoverLoopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy follower visual |
 | `Gameplay_Vfx/Prefabs/GlideWindTrailVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy follower visual |
+| `Gameplay_Vfx/Prefabs/GlideMagicBlastFollowVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | glide burst that follows its owner through the tail |
 | `Gameplay_Vfx/Prefabs/GlideWindupLoopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy windup visual |
 | `Gameplay_Vfx/Prefabs/GravityField_ActiveAreaVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | gravity field visual |
 | `Gameplay_Vfx/Prefabs/JumperJumpStartVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | jumper visual |
@@ -483,6 +484,7 @@ Enemy motion-attached followers are Gameplay VFX lane instances parented under t
 First users:
 
 - `EnemyVfxCue.GlideWindTrail` follows `TickEnemyGlidePresentationSignal` while `EnemyGlidePhase.Active`, including Active + WantsRecover.
+- `EnemyVfxCue.GlideMagicBlastFollow` starts once per glide sequence while `EnemyGlidePhase.Active`. Its looping particle system stops emitting at the Active-to-Recovery boundary and the surviving particles remain attached to the owner through the tail.
 - `EnemyVfxCue.ChargeBoosterTrail` follows `TickEnemyChargePresentationSignal` while `EnemyChargePhase.Active`.
 - `EnemyGlidePhase.Windup`, `Recovery`, `Cooldown`, ordinary jump airborne, charge windup, and charge recover are excluded from GlideWindTrail unless a future visual policy changes that.
 
@@ -510,7 +512,8 @@ For controller-managed attached followers:
 - `defaultLifetimeSeconds = 0` on the binding does not mean immediate stop.
 - the VFX remains parented under `GameplayEntityView.ModelRoot`, falling back to the view transform, while the desired motion/state remains active.
 - stop triggers are desired state absent, motion complete/cancel/absent, active glide/charge state end, owner view missing, flag off, replacement key, session reset, and hard cleanup.
-- normal stop detaches the pooled instance to `TailRoot`, stops new emission, enters `TailPlaying`, and releases after `TailSeconds`.
+- `DetachThenStopEmittingThenRelease` detaches the pooled instance to `TailRoot`, stops new emission, enters `TailPlaying`, and releases after `TailSeconds`; existing glide wind, windup, recovery, and charge followers keep this policy.
+- `GlideMagicBlastFollow` uses `StopEmittingThenRelease`: on an ordinary phase end it stops new emission but stays parented to the owner during `TailSeconds`. Missing or replaced owner views, flag-off, topology cleanup, and other forced stops hard-clean this attached tail.
 - hard cleanup destroys or releases active follower instances without waiting for tail.
 - Gameplay VFX follows only by transform parenting and must not move, reset, scale, or otherwise own the original entity view transform.
 
@@ -1515,7 +1518,7 @@ TileFeatureAudio and GravityFieldAudio are not VFX. If those lanes are needed, t
 | canonical | `EnemyVfxCue.DeathMotion` | parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring |
 | canonical | `BoxVfxCue.FlipDestroySelfMotion` | parameterized clone motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring |
 | `EnableGameplayVfxFlipImpactStayTrail` | `BoxVfxCue.FlipImpactStayTrail` | Augmentation / MotionTrack-attached VFX | True | Tier 1 | Yes | targeted MotionTrack-following tests + visual spot check |
-| `EnableGameplayVfxGlideWindTrail` | `EnemyVfxCue.GlideWindTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
+| `EnableGameplayVfxGlideWindTrail` | `EnemyVfxCue.GlideWindTrail / GlideMagicBlastFollow` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxChargeBoosterTrail` | `EnemyVfxCue.ChargeBoosterTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxEnemyUtilityCooldownAura` | `EnemyVfxCue.UtilityCooldownAura` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxTileFeatureLane` | `TileFeatureVfxCue.*` | VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |

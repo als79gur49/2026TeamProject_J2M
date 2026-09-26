@@ -21,10 +21,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string GlidePrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/GlideWindTrailVfx.prefab";
+        private const string GlideMagicBlastPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/GlideMagicBlastFollowVfx.prefab";
         private const string ChargePrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ChargeBoosterTrailVfx.prefab";
         private const string GlideBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GlideWindTrail_Binding.asset";
+        private const string GlideMagicBlastBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GlideMagicBlastFollow_Binding.asset";
         private const string ChargeBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ChargeBoosterTrail_Binding.asset";
         private const string BoxSlideFollowBindingPath =
@@ -250,7 +254,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideActive_AttachesWindTrail()
+        public void GlideActive_AttachesWindTrailAndMagicBlast()
         {
             var planner = new EnemyMotionAttachedVfxFollowerPlanner();
             planner.Build(
@@ -261,8 +265,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enableBoxSlideFollowLoop: true,
                 enableEnemyJumpWindupLoop: true);
 
-            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(2));
             Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
+            Assert.That(planner.DesiredFollowers[1].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow)));
+            Assert.That(planner.DesiredFollowers[1].SequenceId, Is.EqualTo(9));
         }
 
         [Test]
@@ -308,13 +314,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enableBoxSlideFollowLoop: true,
                 enableEnemyJumpWindupLoop: true);
 
-            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(3));
+            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(5));
             Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
             Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideActive));
-            Assert.That(planner.DesiredFollowers[1].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
-            Assert.That(planner.DesiredFollowers[1].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideActive));
-            Assert.That(planner.DesiredFollowers[2].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)));
-            Assert.That(planner.DesiredFollowers[2].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideRecover));
+            Assert.That(planner.DesiredFollowers[1].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow)));
+            Assert.That(planner.DesiredFollowers[2].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
+            Assert.That(planner.DesiredFollowers[2].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideActive));
+            Assert.That(planner.DesiredFollowers[3].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow)));
+            Assert.That(planner.DesiredFollowers[4].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)));
+            Assert.That(planner.DesiredFollowers[4].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideRecover));
         }
 
         [Test]
@@ -1064,6 +1072,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GlideActiveToRecovery_OldTrailDetachesAndMagicBlastFollowsDuringTail()
+        {
+            var fixture = CreateFixture(tailSeconds: 0.5f);
+            try
+            {
+                fixture.RefreshAttached(DesiredGlide(), DesiredGlideMagicBlast());
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(2));
+                var magicBlast = fixture.View.ModelRoot.GetChild(1);
+                fixture.View.ModelRoot.position = new Vector3(0f, 3f, 0f);
+
+                fixture.RefreshAttached(DesiredGlideRecover());
+
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(2));
+                Assert.That(magicBlast.parent, Is.EqualTo(fixture.View.ModelRoot));
+                var beforeDescent = magicBlast.position.y;
+                var oldTrail = fixture.Root.TailRoot.GetChild(0);
+                var oldTrailHeight = oldTrail.position.y;
+
+                fixture.View.ModelRoot.position = new Vector3(0f, 1f, 0f);
+                Assert.That(magicBlast.position.y, Is.EqualTo(beforeDescent - 2f).Within(0.001f));
+                Assert.That(oldTrail.position.y, Is.EqualTo(oldTrailHeight).Within(0.001f));
+
+                fixture.TimeProvider.TimeSeconds = 0.51f;
+                fixture.Pool.Advance(0.51f);
+                Assert.That(fixture.Pool.GetActiveCount(GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow)), Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideMagicBlastTail_MissingOwnerHardCleans()
+        {
+            var fixture = CreateFixture(tailSeconds: 2f);
+            try
+            {
+                fixture.RefreshAttached(DesiredGlideMagicBlast());
+                fixture.RefreshAttached();
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
+
+                fixture.StateStore.ViewsByEntityId.Remove(40);
+                fixture.RefreshAttached();
+
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Pool.GetActiveCount(GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow)), Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Follower_DefaultLifetimeZero_DoesNotImmediateStopWhenControllerManaged()
         {
             var fixture = CreateFixture();
@@ -1325,6 +1391,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GlideMagicBlastPrefab_IsSeparateFromDetachingWindTrail()
+        {
+            AssertPrefabValid(GlideMagicBlastPrefabPath);
+            var windTrail = AssetDatabase.LoadAssetAtPath<GameObject>(GlidePrefabPath);
+            var magicBlast = AssetDatabase.LoadAssetAtPath<GameObject>(GlideMagicBlastPrefabPath);
+
+            Assert.That(windTrail.transform.Find("ModelRoot/FX_Wind_01"), Is.Not.Null);
+            Assert.That(windTrail.transform.Find("ModelRoot/FX_MagicBlast_01"), Is.Null);
+            Assert.That(magicBlast.transform.Find("ModelRoot/FX_Wind_01"), Is.Null);
+            Assert.That(magicBlast.transform.Find("ModelRoot/FX_MagicBlast_01"), Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ChargeBoosterTrailPrefab_PassesValidation()
         {
             AssertPrefabValid(ChargePrefabPath);
@@ -1340,6 +1420,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
             Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Follow));
             Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.DetachThenStopEmittingThenRelease));
+            Assert.That(binding.TailSeconds, Is.GreaterThan(0f));
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideMagicBlastBinding_StaysAttachedWhileTailPlays()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(GlideMagicBlastBindingPath);
+
+            Assert.That(binding, Is.Not.Null, GlideMagicBlastBindingPath);
+            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow)));
+            Assert.That(binding.Prefab, Is.EqualTo(AssetDatabase.LoadAssetAtPath<GameObject>(GlideMagicBlastPrefabPath)));
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Follow));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             Assert.That(binding.TailSeconds, Is.GreaterThan(0f));
             Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
         }
@@ -1367,6 +1462,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(composition.Succeeded, Is.True, string.Join("\n", composition.Validation.Messages));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail));
+            AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop));
             AssertDoesNotResolve(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop));
@@ -1684,6 +1780,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Quaternion.identity);
         }
 
+        private static AttachedVfxFollowerDesiredState DesiredGlideMagicBlast()
+        {
+            return new AttachedVfxFollowerDesiredState(
+                GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow),
+                40,
+                AttachedVfxFollowerStateKind.EnemyGlideMagicBlastFollow,
+                9,
+                Vector3.zero,
+                Quaternion.identity);
+        }
+
         private static AttachedVfxFollowerDesiredState DesiredBoxSlide()
         {
             return new AttachedVfxFollowerDesiredState(
@@ -1806,6 +1913,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail), tailSeconds),
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail), tailSeconds),
+                CreatePolicy(
+                    GameplayVfxCueId.From(EnemyVfxCue.GlideMagicBlastFollow),
+                    tailSeconds,
+                    VfxStopPolicy.StopEmittingThenRelease),
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop), tailSeconds),
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop), tailSeconds),
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura), tailSeconds),
@@ -1824,14 +1935,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new MultiPolicyResolver(resolveBinding, policies));
         }
 
-        private static VfxBindingRuntimePolicy CreatePolicy(GameplayVfxCueId cueId, float tailSeconds)
+        private static VfxBindingRuntimePolicy CreatePolicy(
+            GameplayVfxCueId cueId,
+            float tailSeconds,
+            VfxStopPolicy stopPolicy = VfxStopPolicy.DetachThenStopEmittingThenRelease)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
                 VfxBindingRequirement.DiagnosticIfMissing,
                 VfxMissingAnchorPolicy.ReportDiagnostic,
                 VfxPlaybackMode.Follow,
-                VfxStopPolicy.DetachThenStopEmittingThenRelease,
+                stopPolicy,
                 defaultLifetimeSeconds: 0f,
                 tailSeconds: tailSeconds,
                 maxConcurrentInstances: 8);
