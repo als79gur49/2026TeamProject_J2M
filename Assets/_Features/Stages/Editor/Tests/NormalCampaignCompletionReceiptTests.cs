@@ -128,7 +128,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
-                    $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"current-profile\",\"Slots\":[{{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"RemainingChances\":3,\"CampaignCompleted\":true}}]}}");
+                    $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"current-profile\",\"Slots\":[{{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"RemainingChances\":3,\"GameMode\":2,\"ResumeHp\":0,\"CampaignCompleted\":true}}]}}");
                 var repository = new FileCampaignProfileRepository(new AtomicTextFileStore(root));
 
                 var load = repository.Load();
@@ -153,7 +153,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
                     $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"v1-receipt-profile\",\"Slots\":[" +
-                    "{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"RemainingChances\":3,\"CampaignCompleted\":true," +
+                    "{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"RemainingChances\":3,\"GameMode\":2,\"ResumeHp\":0,\"CampaignCompleted\":true," +
                     "\"HasNormalCampaignCompletionReceipt\":true," +
                     "\"NormalCampaignCompletionReceipt\":{\"Version\":1,\"CompletedStageId\":\"stage-4-3\"," +
                     "\"StageRunId\":\"legacy-run\",\"ClearSource\":0}}]}");

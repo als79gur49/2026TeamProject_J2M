@@ -33,7 +33,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         internal StageAttemptMetricsSnapshot AttemptMetrics { get; }
     }
 
-    internal sealed class GameplayHostPresentationFeed : IGameplayPresentationFeed, IDisposable
+    internal sealed class GameplayHostPresentationFeed : IGameplayPresentationFeed, IGameplayCampaignFailureSource, IDisposable
     {
         private readonly GameplayInputHost _inputHost;
         private readonly GameplayHostStageCompletionRuntime _stageCompletionRuntime;
@@ -76,6 +76,22 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         internal event Action<TickResult, MinimalStageCompletionReadModel> StageClearCommitted;
 
+        internal event Action<TickResult> SurvivalTickReady;
+        public event Action CampaignRunFailed;
+        public bool HasCampaignRunFailure { get; private set; }
+        internal void PublishCampaignFailure()
+        {
+            HasCampaignRunFailure = true;
+            _pendingStageClearPresentation = default;
+            var handlers = CampaignRunFailed;
+            if (handlers == null) return;
+            foreach (Action handler in handlers.GetInvocationList())
+            {
+                try { handler(); }
+                catch (Exception exception) { UnityEngine.Debug.LogException(exception); }
+            }
+        }
+
         internal event Action<TerminalClaimAcceptedContext> TerminalClaimAccepted;
 
         internal event Action<TerminalClaimResult> TerminalClaimRejected;
@@ -92,6 +108,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         internal MinimalStageCompletionReadModel ForceClearCurrentStage()
         {
+            if (_inputHost.IsCampaignRunAbandoned) return null;
             if (!_terminalOutcomesEnabled)
             {
                 return _stageCompletionRuntime.ForceClearCurrentStage();
@@ -104,6 +121,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             }
 
             var claim = _terminalArbiter.ClaimVictory();
+            if (_inputHost.IsCampaignRunAbandoned) return null;
             if (!claim.Accepted)
             {
                 TerminalClaimRejected?.Invoke(claim);
@@ -114,12 +132,13 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _pendingStageClearPresentation = new PendingStageClearPresentation(
                 result: null,
                 claim.Token);
-            StageClearCommitted?.Invoke(null, readModel);
             TerminalClaimAccepted?.Invoke(new TerminalClaimAcceptedContext(
                 result: null,
                 readModel,
                 claim,
                 _stageAttemptMetrics.Snapshot));
+            if (_inputHost.IsCampaignRunAbandoned) return null;
+            StageClearCommitted?.Invoke(null, readModel);
             return readModel;
         }
 
@@ -217,7 +236,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         private void HandleTickCompleted(TickResult result)
         {
-            if (result == null)
+            if (result == null || _inputHost.IsCampaignRunAbandoned)
             {
                 return;
             }
@@ -238,6 +257,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             if (_terminalArbiter != null && (hasDeath || hasClear))
             {
                 var claim = _terminalArbiter.Arbitrate(result, _inputHost.PlayerEntityId);
+                if (_inputHost.IsCampaignRunAbandoned) return;
                 if (claim.Accepted)
                 {
                     MinimalStageCompletionReadModel stageCompletion = null;
@@ -247,7 +267,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                         _pendingStageClearPresentation = new PendingStageClearPresentation(
                             result,
                             claim.Token);
-                        StageClearCommitted?.Invoke(result, stageCompletion);
                     }
                     else if (hasClear)
                     {
@@ -260,6 +279,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                         stageCompletion,
                         claim,
                         _stageAttemptMetrics.Snapshot));
+                    if (_inputHost.IsCampaignRunAbandoned) return;
+                    if (stageCompletion != null) StageClearCommitted?.Invoke(result, stageCompletion);
                     FramePublished?.Invoke(CreateFrame(
                         result,
                         includeStageEvent: false));
@@ -280,6 +301,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                     "Uncorrelated StageCleared/LevelFailed fallback is disabled.");
             }
 
+            SurvivalTickReady?.Invoke(result);
+            if (_inputHost.IsCampaignRunAbandoned) return;
             FramePublished?.Invoke(CreateFrame(
                 result,
                 includeStageEvent: false));

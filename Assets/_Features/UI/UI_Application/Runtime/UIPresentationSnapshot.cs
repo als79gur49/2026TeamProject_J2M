@@ -49,6 +49,22 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    public readonly struct UIHealthSlice : IEquatable<UIHealthSlice>
+    {
+        public UIHealthSlice(bool hasHealth, int hp, int maxHp)
+        {
+            HasHealth = hasHealth;
+            Hp = hp;
+            MaxHp = maxHp;
+        }
+        public bool HasHealth { get; }
+        public int Hp { get; }
+        public int MaxHp { get; }
+        public bool Equals(UIHealthSlice other) => HasHealth == other.HasHealth && Hp == other.Hp && MaxHp == other.MaxHp;
+        public override bool Equals(object obj) => obj is UIHealthSlice other && Equals(other);
+        public override int GetHashCode() => HashCode.Combine(HasHealth, Hp, MaxHp);
+    }
+
     public readonly struct UIChanceSlice : IEquatable<UIChanceSlice>
     {
         public static readonly UIChanceSlice Empty = new(false, 0, 0);
@@ -877,7 +893,8 @@ namespace Game.Feature.UI.Application
             UIChanceSlice chance,
             UITopologySlice topology,
             UIPlayerActionSlice player,
-            UINotificationLedgerSlice notifications)
+            UINotificationLedgerSlice notifications,
+            UIHealthSlice health = default)
             : this(
                 tick,
                 interaction,
@@ -890,7 +907,7 @@ namespace Game.Feature.UI.Application
                     tick.IsTopologyTransitionActive,
                     0),
                 player,
-                notifications)
+                notifications, health)
         {
         }
 
@@ -903,7 +920,8 @@ namespace Game.Feature.UI.Application
             UITopologySlice topology,
             SurfaceBeltSnapshot surfaceBelt,
             UIPlayerActionSlice player,
-            UINotificationLedgerSlice notifications)
+            UINotificationLedgerSlice notifications,
+            UIHealthSlice health = default)
         {
             Tick = tick;
             Interaction = interaction;
@@ -914,6 +932,7 @@ namespace Game.Feature.UI.Application
             SurfaceBelt = surfaceBelt;
             Player = player;
             Notifications = notifications;
+            Health = health;
         }
 
         public UITickSlice Tick { get; }
@@ -925,6 +944,8 @@ namespace Game.Feature.UI.Application
         public UIObjectiveSlice Objective { get; }
 
         public UIChanceSlice Chance { get; }
+
+        public UIHealthSlice Health { get; }
 
         public UITopologySlice Topology { get; }
 
@@ -940,7 +961,7 @@ namespace Game.Feature.UI.Application
                    Interaction.Equals(other.Interaction) &&
                    Stage.Equals(other.Stage) &&
                    Objective.Equals(other.Objective) &&
-                   Chance.Equals(other.Chance) &&
+                   Chance.Equals(other.Chance) && Health.Equals(other.Health) &&
                    Topology.Equals(other.Topology) &&
                    SurfaceBelt.Equals(other.SurfaceBelt) &&
                    Player.Equals(other.Player) &&
@@ -956,7 +977,7 @@ namespace Game.Feature.UI.Application
         {
             var hash = HashCode.Combine(Tick, Interaction, Stage, Objective);
             hash = HashCode.Combine(hash, Chance, Topology, SurfaceBelt);
-            hash = HashCode.Combine(hash, Player);
+            hash = HashCode.Combine(hash, Player, Health);
             hash = HashCode.Combine(hash, Notifications);
             return hash;
         }

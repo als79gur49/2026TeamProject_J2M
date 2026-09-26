@@ -102,6 +102,8 @@ namespace Game.Feature.Stages
                 SlotNumber = slot.SlotNumber,
                 StageId = slot.CurrentStageId.Value,
                 LevelGroupId = slot.CurrentLevelGroupId,
+                GameMode = slot.GameMode,
+                ResumeHp = slot.ResumeHp,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =
@@ -202,8 +204,9 @@ namespace Game.Feature.Stages
                 SlotNumber = slot.SlotNumber,
                 CurrentStageId = stageId,
                 CurrentLevelGroupId = slot.LevelGroupId ?? string.Empty,
-                RemainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
-                    slot.RemainingChances),
+                GameMode = slot.GameMode,
+                ResumeHp = slot.ResumeHp,
+                RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =
                     slot.HasNormalCampaignCompletionReceipt,
@@ -287,7 +290,7 @@ namespace Game.Feature.Stages
                 rawSeed.CurrentStageId,
                 rawSeed.CurrentLevelGroupId,
                 rawSeed.RemainingChances,
-                rawSeed.LastPlayedAt);
+                rawSeed.LastPlayedAt, rawSeed.GameMode, rawSeed.ResumeHp);
         }
 
         public static CampaignSlotEntry[] ToEntries(IReadOnlyList<SaveSlotData> slots)
@@ -333,7 +336,8 @@ namespace Game.Feature.Stages
         {
             if (slot == null ||
                 !CampaignSaveSlotPolicy.IsValidSlotNumber(slot.SlotNumber) ||
-                !CampaignSaveSlotPolicy.IsValidRemainingChances(slot.RemainingChances) ||
+                (slot.GameMode != GameMode.Hardcore || slot.ResumeHp != 0 ||
+                 !CampaignSaveSlotPolicy.IsValidRemainingChances(slot.RemainingChances)) ||
                 slot.TotalDeaths != 0)
             {
                 return false;

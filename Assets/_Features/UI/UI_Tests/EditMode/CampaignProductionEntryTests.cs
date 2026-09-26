@@ -41,6 +41,131 @@ namespace Game.Feature.UI.Tests
         private const string DefaultPresentationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CampaignSaveFailure_ProductionPopup_DefaultSubmitReturnsMenu_ExplicitConfirmQuits(bool quit)
+        {
+            var root = new GameObject("campaign-save-error-popup");
+            var provider = CreateProvider("stage-0-1");
+            var saves = new TemporaryProductionSaveHarness();
+            try
+            {
+                saves.PrepareDefaultSlot(StageId.CreateOrThrow("stage-0-1"), 3);
+                CampaignSaveCompositionProvider.SetProductionCompositionForTests(
+                    saves.SaveStore, saves.RecoveryPort, saves.ActiveSlotStorage);
+                var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignComicSequenceOverlayPrefab(installer);
+                root.AddComponent<AudioRuntimeInstaller>();
+                root.AddComponent<DisplayRuntimeInstaller>();
+                SetPrivateField(installer, "_installOnStart", false);
+                SetPrivateField(installer, "_mainMenuScreenPrefab", AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath));
+                SetPrivateField(installer, "_screenPrefabCatalog", UiTestPrefabAssetUtility.LoadScreenCatalog());
+                SetPrivateField(installer, "_popupPrefabCatalog", AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath));
+                SetPrivateField(installer, "_uiAudioCueMap", AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath));
+                SetPrivateField(installer, "_routeConfig", AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath));
+                SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
+                SetPrivateField(installer, "_campaignStageSequenceDefinition", LoadProductionCampaignSequence());
+                installer.Install();
+                var source = new SaveFailureSource();
+                var quitPort = new SaveFailureQuitPort();
+                var menuCalls = 0;
+                using var presenter = new CampaignSaveFailurePresenter(source,
+                    new ConfirmPopupPortAdapter(installer.PopupController), () => menuCalls++, quitPort);
+                source.Fail();
+                var layer = GetPrivateField<PopupLayerView>(installer, "_popupLayerView");
+                var view = layer.FindPopupView<ConfirmPopupView>();
+                Assert.That(view, Is.Not.Null);
+                Assert.That(view.HandleCancel(), Is.True);
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1), "Back cannot dismiss the error.");
+                if (quit) view.HandleNavigate(Game.Feature.UI.ViewShared.UiNavigationCommand.Right);
+                Assert.That(view.HandleSubmit(), Is.True);
+                Assert.That(menuCalls, Is.EqualTo(quit ? 0 : 1));
+                Assert.That(quitPort.Calls, Is.EqualTo(quit ? 1 : 0));
+            }
+            finally
+            {
+                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
+                UnityEngine.Object.DestroyImmediate(root);
+                provider.Dispose();
+                saves.Dispose();
+            }
+        }
+
+        [Test]
+        public void CampaignSaveFailure_DismissalAndRejectedMenuAllowFreshChoice_StaleCallbackDoesNothing()
+        {
+            var source = new SaveFailureSource();
+            var dialog = new SaveFailureDialog();
+            var quit = new SaveFailureQuitPort();
+            var menuCalls = 0;
+            using var presenter = new CampaignSaveFailurePresenter(source, dialog,
+                () => { menuCalls++; throw new InvalidOperationException("route rejected"); }, quit);
+            source.Fail();
+            var dismissed = dialog.Completion;
+            dismissed(CampaignSaveFailureChoice.Dismissed);
+            source.Fail();
+            var old = dialog.Completion;
+            old(CampaignSaveFailureChoice.Menu);
+            Assert.That(dialog.Requests, Is.EqualTo(3));
+            Assert.That(menuCalls, Is.EqualTo(1));
+            old(CampaignSaveFailureChoice.Quit);
+            dismissed(CampaignSaveFailureChoice.Quit);
+            Assert.That(quit.Calls, Is.Zero);
+            dialog.Completion(CampaignSaveFailureChoice.Quit);
+            Assert.That(quit.Calls, Is.EqualTo(1));
+        }
+
+        [TestCase(PopupCloseReason.Programmatic)]
+        [TestCase(PopupCloseReason.ScreenTransition)]
+        public void CampaignSaveFailure_AdapterDismissesWithoutNavigationOrQuit(PopupCloseReason reason)
+        {
+            using var controller = new PopupController(new SaveFailureRuntimeFactory());
+            var source = new SaveFailureSource();
+            var quit = new SaveFailureQuitPort();
+            var menuCalls = 0;
+            using var presenter = new CampaignSaveFailurePresenter(source,
+                new ConfirmPopupPortAdapter(controller), () => menuCalls++, quit);
+            source.Fail();
+            controller.CloseAll(reason);
+            Assert.That(menuCalls, Is.Zero);
+            Assert.That(quit.Calls, Is.Zero);
+            source.Fail();
+            Assert.That(controller.PopupCount, Is.EqualTo(1));
+            controller.CloseTop(PopupCloseReason.UserAction, PopupCompletionKind.Cancelled);
+            Assert.That(menuCalls, Is.EqualTo(1));
+        }
+
+        private sealed class SaveFailureSource : Game.Feature.Gameplay.UIAccess.Contracts.IGameplayCampaignFailureSource
+        {
+            public bool HasCampaignRunFailure { get; private set; }
+            public event Action CampaignRunFailed;
+            internal void Fail() { HasCampaignRunFailure = true; CampaignRunFailed?.Invoke(); }
+        }
+        private sealed class SaveFailureQuitPort : IApplicationQuitPort
+        {
+            internal int Calls;
+            public void Quit() => Calls++;
+        }
+        private sealed class SaveFailureDialog : ICampaignSaveFailureDialogPort
+        {
+            internal int Requests;
+            internal Action<CampaignSaveFailureChoice> Completion;
+            public void Request(ConfirmPopupPayload payload, Action<CampaignSaveFailureChoice> completion)
+            { Requests++; Completion = completion; }
+        }
+        private sealed class SaveFailureRuntimeFactory : IPopupRuntimeFactory
+        {
+            public PopupRuntimeFactoryResult Create(PopupRequest request) => new(
+                new PopupPolicy(PopupPolicyClass.ModalBlocking, PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Consume, PopupBackdropMode.Consume, true, true), new Runtime());
+            private sealed class Runtime : IPopupRuntime
+            {
+                public event Action<PopupCompletionKind> CompletionRequested { add { } remove { } }
+                public void SetIsTopmost(bool value) { }
+                public void Dispose() { }
+            }
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -274,6 +399,11 @@ namespace Game.Feature.UI.Tests
                 var card = cards.GetArrayElementAtIndex(i).objectReferenceValue as SaveSlotCardView;
                 Assert.That(card, Is.Not.Null);
                 card.ValidateAuthoredStructureOrThrow();
+                Assert.That(PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(card.gameObject),
+                    Is.EqualTo("Assets/_Features/UI/UI_Screens/Prefabs/SaveSlotCard.prefab"));
+                Assert.That(card.name, Is.EqualTo($"SaveSlotCard{i + 1}"));
+                Assert.That(card.transform.Find("DetailRow").childCount, Is.EqualTo(3));
+                Assert.That(card.transform.Find("DetailRow/Mode").GetComponent<TMP_Text>(), Is.Not.Null);
                 Assert.That(card.GetComponent<Image>(), Is.Not.Null);
                 Assert.That(card.GetComponent<VerticalLayoutGroup>(), Is.Not.Null);
                 Assert.That(card.transform.Find("HeaderRow").GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
@@ -285,7 +415,8 @@ namespace Game.Feature.UI.Tests
                 AssertSerializedReference(serializedCard, "_titleLabel", typeof(TMP_Text));
                 AssertSerializedReference(serializedCard, "_statusLabel", typeof(TMP_Text));
                 AssertSerializedReference(serializedCard, "_stageLabel", typeof(TMP_Text));
-                AssertSerializedReference(serializedCard, "_chancesLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_modeLabel", typeof(TMP_Text));
+                AssertSerializedReference(serializedCard, "_survivalLabel", typeof(TMP_Text));
                 AssertSerializedReference(serializedCard, "_deathsLabel", typeof(TMP_Text));
                 AssertSerializedReference(serializedCard, "_lastPlayedLabel", typeof(TMP_Text));
                 AssertSerializedReference(serializedCard, "_primaryButton", typeof(Button));
@@ -1145,7 +1276,7 @@ namespace Game.Feature.UI.Tests
                     evaluation,
                     CampaignSlotActionPolicy.Evaluate(evaluation));
 
-                Assert.That(viewModel.StageText, Is.EqualTo("Stage Morgue-02"));
+                Assert.That(viewModel.StageText, Is.EqualTo("Morgue-02"));
             }
             finally
             {

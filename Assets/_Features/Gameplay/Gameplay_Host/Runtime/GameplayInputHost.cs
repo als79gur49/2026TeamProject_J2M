@@ -13,6 +13,17 @@ namespace Game.Feature.Gameplay.Host
     {
         private const float DefaultMoveBufferDurationSeconds = 0.125f;
 
+        public GameMode CampaignGameMode { get; internal set; }
+        public bool IsCampaignRunAbandoned { get; private set; }
+
+        internal void AbandonCampaignRun()
+        {
+            IsCampaignRunAbandoned = true;
+            ClearAllPendingInputForTerminalSession();
+            UnbindActions();
+            _accumulatedTime = 0f;
+        }
+
         private InputActionAsset _actions;
         private float _accumulatedTime;
         private bool _areActionsBound;
@@ -129,6 +140,7 @@ namespace Game.Feature.Gameplay.Host
             _heldDirectionBeforeInputUpdate = Direction.None;
             _hasInputUpdateDirectionSnapshot = false;
             _isSimulationPaused = false;
+            IsCampaignRunAbandoned = false;
             _isTerminalHoldActive = false;
             _isPlayerDeathInputBlocked = false;
             _isInitialized = true;
@@ -171,7 +183,8 @@ namespace Game.Feature.Gameplay.Host
             while (_accumulatedTime >= _simulationTickIntervalSeconds &&
                    executedTickCount < _maxTicksPerFrame)
             {
-                if (IsPresentationLocked() || _isPlayerDeathInputBlocked)
+                if (_isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked() ||
+                    _isPlayerDeathInputBlocked)
                 {
                     ClampAccumulatedTime();
                     break;
@@ -181,7 +194,8 @@ namespace Game.Feature.Gameplay.Host
                 RunSingleTickUnlocked();
                 executedTickCount++;
 
-                if (IsPresentationLocked() || _isPlayerDeathInputBlocked)
+                if (_isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked() ||
+                    _isPlayerDeathInputBlocked)
                 {
                     ClampAccumulatedTime();
                     break;
@@ -423,6 +437,7 @@ namespace Game.Feature.Gameplay.Host
 
         private bool IsTerminalAdmissionBlocked()
         {
+            if (IsCampaignRunAbandoned) return true;
             return _isTerminalHoldActive ||
                    (_terminalSession?.IsActive ?? false) ||
                    (_sceneEntrySession?.IsActive ?? false) ||

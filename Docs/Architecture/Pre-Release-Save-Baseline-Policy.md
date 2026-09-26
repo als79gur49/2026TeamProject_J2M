@@ -10,7 +10,7 @@ and does not create a prior-save compatibility obligation.
 ## First Public Save Contract
 
 - The first public canonical campaign progression document is
-  `Saves/profile.json`, using `CampaignProfileDocument.SchemaVersion = 2`.
+  `Saves/profile.json`, using `CampaignProfileDocument.SchemaVersion = 3`.
 - The first public canonical local session pointer is
   `Saves/local-launch-state.json`, using local-state schema version 1.
 - PlayerPrefs campaign progression import is unsupported.
@@ -25,11 +25,15 @@ and does not create a prior-save compatibility obligation.
 - Persisted current-schema slot data is validated before normalization. Negative
   persisted slot counters and invalid or duplicate nested performance and
   stage-clear records fail closed instead of being silently clamped, dropped,
-  or rewritten by an unrelated save. Remaining chances are always `1..3` in both
-  persisted and runtime slot state; zero has no sentinel meaning and fails closed.
-  Exhausting the final chance atomically commits the level-group first stage with
-  the default `3` chances and never persists an intermediate zero. DirectPlay
-  rejects invalid chances before writing profile, local launch, or context state.
+  or rewritten by an unrelated save. Schema 3 stores fixed `GameMode` and `ResumeHp` per occupied slot.
+  Casual requires HP `1..3` and reserved inactive Chance `0`; Hardcore requires
+  reserved HP `0` and Chance `1..3`. Unknown modes are invalid. Schema 1/2 profiles
+  return UnsupportedVersion without restoring backup, conversion, or initialization.
+  Casual death commits the current level-group first stage and HP 3; Hardcore's
+  last Chance commits the sequence first stage and Chance 3. Both preserve history
+  and increment TotalDeaths once per successful death commit. Clear restores Casual
+  HP 3; manual restart, menu, and relaunch retain saved HP. Hardcore retains authored
+  HP/timing and its existing clear Chance rules. DirectPlay validates survival before writes.
   `SaveSlotData.Clone()` and nested clones are exact deep copies retained only at
   the explicit raw DTO/diagnostic/test boundary: they preserve nulls, invalid
   values, null elements, duplicates, and order without validating or normalizing.
@@ -63,6 +67,16 @@ and does not create a prior-save compatibility obligation.
   business normalization. Achievement consumers receive immutable canonical
   slot/performance state directly; malformed persisted records fail at the
   profile/parser boundary and are never projected or repaired by achievement code.
+- Death, clear, and survival HP commits use ordinary Save. A small root-shared
+  synchronous gate covers load/validate/mutate/persist and rejects nested mutations.
+  Notifications run after the operation. Death wins over clear, which wins over HP.
+  Save failure or an unknown outcome abandons that scene's run, including catch-up
+  ticks and forced clear. The error popup offers Main Menu / Quit. Existing menu
+  Continue reads the persisted file for a fresh run, while a completed slot shows
+  its existing Completed card. This flow never reapplies the failed command. The latest unsaved result can be lost. No persistent
+  operation receipt, slot incarnation ID, or retry protocol is introduced.
+- Standalone QA seed JSON uses version 2 with explicit `GameMode` and `ResumeHp`;
+  old seed files are rejected, and capture/DirectPlay retain their isolated roots.
 - Ordinary Main Menu Continue never submits a complete replacement slot. It reserves
   a launch handoff, then sends the expected slot/stage/persisted-level-group and
   resolved target level-group through `ICampaignContinuePreparationPort`. The save

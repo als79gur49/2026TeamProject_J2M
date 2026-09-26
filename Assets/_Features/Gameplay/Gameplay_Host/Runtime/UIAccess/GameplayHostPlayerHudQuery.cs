@@ -72,11 +72,16 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         {
             if (_inputHost == null ||
                 _admissionPolicy == null ||
-                !_admissionPolicy.TryCreateSnapshot(out _))
+                !_admissionPolicy.TryCreateSnapshot(out var snapshot))
             {
                 return default;
             }
 
+            if (_inputHost.CampaignGameMode == GameMode.Casual)
+            {
+                var hp = snapshot.TryGetEntity(_inputHost.PlayerEntityId, out var player) ? player.hp : 0;
+                return new GameplayPlayerHudReadModel(hasHealth: true, hp: hp, maxHp: CampaignSaveSlotPolicy.CasualMaxHp);
+            }
             var remainingChances = 0;
             var maxChances = 0;
             var chanceAudioPolicy = GameplayChanceAudioPolicy.Default;

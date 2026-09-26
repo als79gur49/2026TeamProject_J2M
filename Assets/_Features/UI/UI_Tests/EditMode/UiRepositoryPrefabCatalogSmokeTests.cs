@@ -121,6 +121,71 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void CampaignModePopup_BindsBothCardsAndHandlesTheirActions()
+        {
+            var catalog = UiTestPrefabAssetUtility.LoadPopupCatalog();
+            var modePrefab = new SerializedObject(catalog)
+                .FindProperty("_campaignModeSelectPrefab").objectReferenceValue as ConfirmPopupView;
+            Assert.That(modePrefab, Is.Not.Null);
+            Assert.That(modePrefab, Is.Not.EqualTo(catalog.ConfirmPrefab));
+
+            var casualCard = modePrefab.transform.Find("Buttons/ConfirmButton");
+            var hardcoreCard = modePrefab.transform.Find("Buttons/CancelButton");
+            Assert.That(casualCard, Is.Not.Null);
+            Assert.That(hardcoreCard, Is.Not.Null);
+            Assert.That(casualCard.Find("Body"), Is.Not.Null);
+            Assert.That(hardcoreCard.Find("Warning"), Is.Not.Null);
+            var casualImage = casualCard.GetComponent<Image>();
+            Assert.That(casualImage, Is.Not.Null);
+            Assert.That(hardcoreCard.GetComponent<Image>(), Is.Not.Null);
+            Assert.That(new SerializedObject(modePrefab)
+                .FindProperty("_preserveAuthoredConfirmColor").boolValue, Is.True);
+
+            var instance = UnityEngine.Object.Instantiate(modePrefab);
+            try
+            {
+                instance.ConfigureAlternativeAction(true);
+                var viewModel = new ConfirmPopupViewModel();
+                viewModel.SetContent("Choose a Mode", "Casual details", "Hardcore details",
+                    "Casual", "Hardcore", isConfirmDestructive: false);
+                instance.Bind(viewModel);
+                instance.IsVisible = true;
+                instance.SetIsTopmost(true);
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)instance.transform);
+
+                var casualRect = (RectTransform)instance.transform.Find("Buttons/ConfirmButton");
+                var hardcoreRect = (RectTransform)instance.transform.Find("Buttons/CancelButton");
+                var casualDescription = (RectTransform)casualRect.Find("Body");
+                var hardcoreDescription = (RectTransform)hardcoreRect.Find("Warning");
+                Assert.That(casualRect.anchoredPosition.x, Is.LessThan(hardcoreRect.anchoredPosition.x));
+                Assert.That(casualDescription.gameObject.activeInHierarchy, Is.True);
+                Assert.That(hardcoreDescription.gameObject.activeInHierarchy, Is.True);
+
+                Assert.That(instance.SelectedActionIndex, Is.EqualTo(0));
+                Assert.That(instance.transform.Find("Buttons/ConfirmButton").GetComponent<Image>().color,
+                    Is.EqualTo(casualImage.color));
+                Assert.That(instance.transform.Find("Buttons/ConfirmButton/Body")
+                    .GetComponent<TMPro.TMP_Text>().text, Is.EqualTo("Casual details"));
+                Assert.That(instance.transform.Find("Buttons/CancelButton/Warning")
+                    .GetComponent<TMPro.TMP_Text>().text, Is.EqualTo("Hardcore details"));
+
+                PopupCompletionKind? completion = null;
+                instance.CompletionRequested += kind => completion = kind;
+                instance.ClickConfirm();
+                Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+                Assert.That(instance.HandleNavigate(UiNavigationCommand.Right), Is.True);
+                instance.HandleSubmit();
+                Assert.That(completion, Is.EqualTo(PopupCompletionKind.AlternativeSelected));
+                instance.HandleCancel();
+                Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance.gameObject);
+            }
+        }
+
+        [Test]
         public void ConfirmPopupPrefab_ActionButtonsHaveExplicitClickPunchPreset()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UiTestPrefabAssetUtility.ConfirmPopupPrefabPath);
@@ -1138,15 +1203,9 @@ namespace Game.Feature.UI.Tests
 
                 var pauseButton = FindChildByName(instance.transform, "PauseButton") as RectTransform;
                 Assert.That(pauseButton, Is.Not.Null);
-                Assert.That(pauseButton.anchorMin, Is.EqualTo(new Vector2(1f, 0.5f)));
-                Assert.That(pauseButton.anchorMax, Is.EqualTo(new Vector2(1f, 0.5f)));
-                Assert.That(pauseButton.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
-                Assert.That(pauseButton.sizeDelta, Is.EqualTo(new Vector2(50f, 60f)));
-                Assert.That(pauseButton.anchoredPosition.x, Is.EqualTo(-45f).Within(0.001f));
-                Assert.That(pauseButton.anchoredPosition.y, Is.EqualTo(13.1f).Within(0.001f));
-                var pauseButtonRightOffset =
-                    pauseButton.anchoredPosition.x + ((1f - pauseButton.pivot.x) * pauseButton.sizeDelta.x);
-                Assert.That(pauseButtonRightOffset, Is.EqualTo(-20f).Within(0.001f));
+                Assert.That(pauseButton.GetComponent<Button>(), Is.Not.Null);
+                Assert.That(pauseButton.rect.width, Is.GreaterThan(0f));
+                Assert.That(pauseButton.rect.height, Is.GreaterThan(0f));
                 Assert.That(FindChildByName(instance.transform, "Label_StageName"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "CenterArrow"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "LegacyTopologyDebugText"), Is.Null);

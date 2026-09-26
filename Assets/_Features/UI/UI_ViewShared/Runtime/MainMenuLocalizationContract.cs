@@ -15,6 +15,7 @@ namespace Game.Feature.UI.ViewShared
         SlotPlayed,
         SlotRestart,
         SlotContinue,
+        SlotInProgress,
         SlotDelete,
         DeleteTitle,
         DeleteBody,
@@ -128,6 +129,7 @@ namespace Game.Feature.UI.ViewShared
             public const string SlotPlayed = "ui.main_menu.slot.played";
             public const string SlotRestart = "ui.main_menu.slot.action.restart";
             public const string SlotContinue = "ui.main_menu.slot.action.continue";
+            public const string SlotInProgress = "ui.main_menu.slot.status.in_progress";
             public const string SlotDelete = "ui.main_menu.slot.action.delete";
             public const string DeleteTitle = "ui.main_menu.slot.confirm.delete.title";
             public const string DeleteBody = "ui.main_menu.slot.confirm.delete.body";
@@ -178,7 +180,8 @@ namespace Game.Feature.UI.ViewShared
                 Entry(MainMenuLocalizationEntryId.SlotDeaths, Keys.SlotDeaths, "Deaths {0}", "사망 횟수: {0}", LocalizedTextRole.Body, LocalizedTextWeight.Regular, true),
                 Entry(MainMenuLocalizationEntryId.SlotPlayed, Keys.SlotPlayed, "Last Played: {0}", "마지막 플레이: {0}", LocalizedTextRole.Body, LocalizedTextWeight.Regular, true),
                 Entry(MainMenuLocalizationEntryId.SlotRestart, Keys.SlotRestart, "Restart", "다시 시작", LocalizedTextRole.Button),
-                Entry(MainMenuLocalizationEntryId.SlotContinue, Keys.SlotContinue, "Continue", "계속", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.SlotContinue, Keys.SlotContinue, "Continue", "이어하기", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.SlotInProgress, Keys.SlotInProgress, "In Progress", "진행 중", LocalizedTextRole.Label),
                 Entry(MainMenuLocalizationEntryId.SlotDelete, Keys.SlotDelete, "Delete", "삭제", LocalizedTextRole.Button),
                 Entry(MainMenuLocalizationEntryId.DeleteTitle, Keys.DeleteTitle, "Delete Slot", "슬롯 삭제", LocalizedTextRole.Title, LocalizedTextWeight.Bold),
                 Entry(MainMenuLocalizationEntryId.DeleteBody, Keys.DeleteBody, "Delete slot {0}?", "{0}번 슬롯을 삭제할까요?", LocalizedTextRole.Body, LocalizedTextWeight.Regular, true),

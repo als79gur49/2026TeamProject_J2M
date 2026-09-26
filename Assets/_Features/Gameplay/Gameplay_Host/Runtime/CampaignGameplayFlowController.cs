@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using System;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Host.UIAccess;
@@ -11,10 +12,16 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly PersistentTerminalSessionAuthority _authority;
         private TerminalClaimResult? _acceptedClaim;
+        private readonly Action<Exception> _claimFailed;
+        private readonly Action _claimFinished;
+        internal bool IsClaiming { get; private set; }
 
-        public TerminalArbitrationOwner(PersistentTerminalSessionAuthority authority = null)
+        public TerminalArbitrationOwner(PersistentTerminalSessionAuthority authority = null,
+            Action<Exception> claimFailed = null, Action claimFinished = null)
         {
             _authority = authority ?? TerminalSessionRegistry.Authority;
+            _claimFailed = claimFailed;
+            _claimFinished = claimFinished;
         }
 
         public TerminalClaimResult? AcceptedClaim => _acceptedClaim;
@@ -49,14 +56,12 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var sourceSceneGeneration = EnsureSceneGeneration();
-            var accepted = _authority.TryClaim(new TerminalClaimRequest(
+            return Claim(new TerminalClaimRequest(
                 requestedKind,
                 sourceSceneGeneration,
                 requestedKind == TerminalTransitionKind.Victory
                     ? TerminalDestinationKind.SameSceneStageResult
                     : TerminalDestinationKind.ReloadedGameplay));
-            _acceptedClaim = accepted;
-            return accepted;
         }
 
         public TerminalClaimResult RejectSameTickVictory(TerminalClaimResult acceptedDefeat)
@@ -85,12 +90,32 @@ namespace Game.Feature.Gameplay.Host
                     _acceptedClaim.Value.Token);
             }
 
-            var accepted = _authority.TryClaim(new TerminalClaimRequest(
+            return Claim(new TerminalClaimRequest(
                 TerminalTransitionKind.Victory,
                 EnsureSceneGeneration(),
                 TerminalDestinationKind.SameSceneStageResult));
-            _acceptedClaim = accepted;
-            return accepted;
+        }
+
+        private TerminalClaimResult Claim(TerminalClaimRequest request)
+        {
+            IsClaiming = true;
+            try
+            {
+                var claim = _authority.TryClaim(request, accepted => _acceptedClaim = accepted);
+                _acceptedClaim = claim;
+                return claim;
+            }
+            catch (Exception exception)
+            {
+                if (_claimFailed == null) throw;
+                _claimFailed(exception);
+                return TerminalClaimResult.Reject(request.TerminalKind, TerminalClaimRejectionReason.InvalidRequest);
+            }
+            finally
+            {
+                IsClaiming = false;
+                _claimFinished?.Invoke();
+            }
         }
 
         private long EnsureSceneGeneration()
@@ -129,10 +154,19 @@ namespace Game.Feature.Gameplay.Host
         private readonly EditorDirectPlayContext _editorDirectPlayContext;
         private readonly ICampaignStageAchievementIntegration
             _campaignStageAchievementIntegration;
-        private readonly TerminalArbitrationOwner _terminalArbiter = new();
+        private readonly TerminalArbitrationOwner _terminalArbiter;
         private GameplayHostPresentationFeed _presentationFeed;
         private bool _handledClear;
         private bool _handledDeath;
+        private bool _disposed;
+        private bool _terminalSaveSucceeded;
+        private bool _handlingTerminal;
+        private Exception _runFailure;
+        private bool _failureReported;
+        private int _lastSurvivalTick = -1;
+        private CampaignSlotState _lastSavedSlot;
+        private readonly ICampaignRecoveryObservation _recoveryObservation;
+
 
         public CampaignGameplayFlowController(
             GameplaySceneHost host,
@@ -144,8 +178,14 @@ namespace Game.Feature.Gameplay.Host
             CampaignChanceDisplayOverride chanceDisplayOverride,
             ITerminalTransitionPort terminalTransitionPort,
             EditorDirectPlayContext? editorDirectPlayContext = null,
-            ICampaignStageAchievementIntegration campaignStageAchievementIntegration = null)
+            ICampaignStageAchievementIntegration campaignStageAchievementIntegration = null,
+            CampaignSlotState initialSlot = null,
+            ICampaignRecoveryObservation recoveryObservation = null)
         {
+            _terminalArbiter = new TerminalArbitrationOwner(
+                claimFailed: AbandonForRecovery, claimFinished: FinishAbandonment);
+            _lastSavedSlot = initialSlot;
+            _recoveryObservation = recoveryObservation;
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
             _progressionCommitter = progressionCommitter ??
@@ -180,17 +220,119 @@ namespace Game.Feature.Gameplay.Host
 
             _presentationFeed.ConfigureTerminalArbiter(_terminalArbiter);
             _presentationFeed.TerminalClaimAccepted += HandleTerminalClaimAccepted;
+            _presentationFeed.SurvivalTickReady += HandleSurvivalTick;
+            if (_recoveryObservation != null) _recoveryObservation.BackupRecovered += HandleBackupRecovered;
+            try { _lastSavedSlot ??= _saveSlotStore.LoadSlot(_runningSlotContext.SlotNumber)?.State; }
+            catch (Exception exception) { AbandonForRecovery(exception); }
         }
 
         public void Dispose()
         {
+            _disposed = true;
+            if (_recoveryObservation != null) _recoveryObservation.BackupRecovered -= HandleBackupRecovered;
             if (_presentationFeed != null)
             {
                 _presentationFeed.TerminalClaimAccepted -= HandleTerminalClaimAccepted;
+                _presentationFeed.SurvivalTickReady -= HandleSurvivalTick;
             }
         }
 
+        private void HandleSurvivalTick(TickResult result)
+        {
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned || _handledClear || _handledDeath ||
+                result == null || result.TickIndex <= _lastSurvivalTick || _lastSavedSlot?.GameMode != GameMode.Casual) return;
+            _lastSurvivalTick = result.TickIndex;
+            foreach (var entity in result.FinalEntities)
+            {
+                if (entity.entityId != _host.PlayerEntityId || entity.hp <= 0 || entity.markedForDeath) continue;
+                if (entity.hp == _lastSavedSlot.ResumeHp) return;
+                try
+                {
+                    var committed = _progressionCommitter.CommitSurvival(_runningSlotContext.SlotNumber,
+                        new CampaignSurvivalCommitRequest(_lastSavedSlot.CurrentStageId, _lastSavedSlot.ResumeHp, entity.hp));
+                    _lastSavedSlot = committed.Slot;
+                }
+                catch (Exception exception) { AbandonForRecovery(exception); }
+                return;
+            }
+        }
+
+        private void AbandonForRecovery(Exception exception)
+        {
+            if (_runFailure != null) return;
+            _runFailure = exception;
+            _host.InputHost.AbandonCampaignRun();
+            // An Iris candidate is owned before its phase notification, so it can stop before Show.
+            // Claimed cleanup and the failure popup wait until the original notification returns.
+            try
+            {
+                var claim = _terminalArbiter.AcceptedClaim;
+                if (claim.HasValue && claim.Value.Accepted)
+                    _terminalTransitionPort.TryAbortSetup(claim.Value.Token,
+                        new TerminalFailure("CampaignRunAbandoned", exception.Message));
+            }
+            catch (Exception cleanupException)
+            {
+                UnityEngine.Debug.LogWarning($"Campaign local Iris cleanup failed: {cleanupException.Message}");
+            }
+            finally { FinishAbandonment(); }
+        }
+
+        private void FinishAbandonment()
+        {
+            if (_runFailure == null || _failureReported || _terminalArbiter.IsClaiming || _handlingTerminal) return;
+            _failureReported = true;
+            var claim = _terminalArbiter.AcceptedClaim;
+            try
+            {
+                if (claim.HasValue && claim.Value.Accepted)
+                {
+                    var failure = new TerminalFailure("CampaignRunAbandoned", _runFailure.Message);
+                    _terminalTransitionPort.TryAbortSetup(claim.Value.Token, failure);
+                    TerminalSessionRegistry.Authority.TryAbortClaimBeforeTransition(claim.Value.Token, failure);
+                }
+            }
+            catch (Exception cleanupException)
+            {
+                UnityEngine.Debug.LogWarning($"Campaign terminal cleanup failed: {cleanupException.Message}");
+            }
+            finally
+            {
+                if (claim.HasValue && claim.Value.Accepted) _host.InputHost.TryExitTerminalHold(claim.Value.Token);
+                UnityEngine.Debug.LogWarning($"Campaign run stopped ({(_terminalSaveSucceeded ? "after commit" : "save outcome unavailable")}): {_runFailure.Message}");
+                if (!_disposed) _presentationFeed?.PublishCampaignFailure();
+            }
+        }
+
+        private void HandleBackupRecovered()
+        {
+            if (!_disposed)
+                AbandonForRecovery(new InvalidOperationException("Campaign save recovered from backup during gameplay."));
+        }
+
+        private CampaignSlotEntry LoadRunningSlot()
+        {
+            var loaded = _saveSlotStore.LoadAllWithReport();
+            CampaignSaveSlotStoreAdapter.ThrowIfCampaignAccessBlocked(loaded.Report);
+            if (loaded.Report.Status == CampaignSaveLoadStatus.BackupRecovered || _host.InputHost.IsCampaignRunAbandoned)
+                throw new InvalidOperationException("The campaign run cannot use a recovered save.");
+            return Array.Find(loaded.Slots, entry => entry.SlotNumber == _runningSlotContext.SlotNumber);
+        }
+
         private void HandleTerminalClaimAccepted(TerminalClaimAcceptedContext context)
+        {
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
+            _handlingTerminal = true;
+            try { HandleTerminalClaimAcceptedCore(context); }
+            catch (Exception exception) { AbandonForRecovery(exception); }
+            finally
+            {
+                _handlingTerminal = false;
+                FinishAbandonment();
+            }
+        }
+
+        private void HandleTerminalClaimAcceptedCore(TerminalClaimAcceptedContext context)
         {
             var result = context.Result;
             var readModel = context.StageCompletion;
@@ -257,11 +399,8 @@ namespace Game.Feature.Gameplay.Host
             var claim = _terminalArbiter.ClaimVictory();
             if (claim.Accepted)
             {
-                HandleAcceptedStageClear(
-                    result,
-                    readModel,
-                    claim,
-                    new StageAttemptMetricsSnapshot(0));
+                HandleTerminalClaimAccepted(new TerminalClaimAcceptedContext(
+                    result, readModel, claim, new StageAttemptMetricsSnapshot(0)));
             }
         }
 
@@ -271,7 +410,7 @@ namespace Game.Feature.Gameplay.Host
             using var chanceUpdate = _chanceDisplayOverride?.BeginUpdate();
 
             var runningSlotNumber = _runningSlotContext.SlotNumber;
-            var entry = _saveSlotStore.LoadSlot(runningSlotNumber);
+            var entry = LoadRunningSlot();
             if (entry == null || entry.IsEmpty)
             {
                 throw new InvalidOperationException(
@@ -284,17 +423,20 @@ namespace Game.Feature.Gameplay.Host
             var route = plan.Route;
             var previousRemainingChances = plan.ExpectedRemainingChances;
             var deathCount = slot.TotalDeaths + 1;
-            _progressionCommitter.CommitDeath(runningSlotNumber, plan);
+            _lastSavedSlot = _progressionCommitter.CommitDeath(runningSlotNumber, plan).Slot;
+            _terminalSaveSucceeded = true;
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
 
             _host.InputHost.EnterTerminalHold(claim.Token);
-            _chanceDisplayOverride?.Set(
-                route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage
+            if (slot.GameMode == GameMode.Hardcore) _chanceDisplayOverride?.Set(
+                route.RouteKind == StageRetryRouteKind.ReturnToCampaignFirstStage
                     ? 0
                     : route.RemainingChances,
                 CampaignSaveSlotPolicy.DefaultRemainingChances,
                 GameplayChanceAudioPolicy.SuppressChanceChangeCue);
             chanceUpdate?.Complete();
-            if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
+            if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage ||
+                route.RouteKind == StageRetryRouteKind.ReturnToCampaignFirstStage)
             {
                 _host.Presenter?.ApplyStageTerminalPresentation(
                     GameplayStageTerminalPresentationReason.LevelFailed,
@@ -320,6 +462,7 @@ namespace Game.Feature.Gameplay.Host
                     "campaign-death-retry")),
                 SceneTransitionIntent.DeathRetry,
                 _editorDirectPlayContext.ForStage(route.NextStageId));
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
             TerminalTransitionPlayback playback;
             try
             {
@@ -334,14 +477,10 @@ namespace Game.Feature.Gameplay.Host
             catch
             {
                 _host.Presenter?.CompleteStageTerminalCameraHandoff();
-                if (TryRecoverIrisSetupFailure(claim.Token))
-                {
-                    _stageLaunchRouter.Launch(request);
-                }
-
                 throw;
             }
 
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
             BindDefeatCameraHandoff(
                 playback,
                 claim.Token,
@@ -349,6 +488,7 @@ namespace Game.Feature.Gameplay.Host
 
             request = request.WithTransitionHint(
                 request.TransitionHint.WithTerminalClaim(claim.Token));
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
             _stageLaunchRouter.Launch(request);
         }
 
@@ -364,6 +504,7 @@ namespace Game.Feature.Gameplay.Host
                     $"Accepted terminal token {claim.Token} could not bind the LevelFailed destination.");
             }
 
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
             TerminalTransitionPlayback playback;
             try
             {
@@ -378,14 +519,10 @@ namespace Game.Feature.Gameplay.Host
             catch
             {
                 _host.Presenter?.CompleteStageTerminalCameraHandoff();
-                if (TryRecoverIrisSetupFailure(claim.Token))
-                {
-                    PublishLevelFailed(route, claim.Token);
-                }
-
                 throw;
             }
 
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
             BindDefeatCameraHandoff(
                 playback,
                 claim.Token,
@@ -394,7 +531,7 @@ namespace Game.Feature.Gameplay.Host
             void HandleBlackReached(TerminalTransitionPlayback completedPlayback)
             {
                 completedPlayback.BlackReached -= HandleBlackReached;
-                if (completedPlayback.Request.Token != claim.Token)
+                if (_disposed || _host.InputHost.IsCampaignRunAbandoned || completedPlayback.Request.Token != claim.Token)
                 {
                     return;
                 }
@@ -450,7 +587,9 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _presentationFeed.PublishLevelFailed(new GameplayLevelFailedReadModel(
-                GameplayLevelFailureReason.ChancesExhausted,
+                route.RouteKind == StageRetryRouteKind.ReturnToCampaignFirstStage
+                    ? GameplayLevelFailureReason.CampaignChancesExhausted
+                    : GameplayLevelFailureReason.CasualDeath,
                 new StageNavigationRequest(
                     route.NextStageId,
                     StageNavigationKind.Retry,
@@ -508,12 +647,15 @@ namespace Game.Feature.Gameplay.Host
                         $"Accepted terminal token {claim.Token} could not bind the GameClear destination.");
                 }
 
+                if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
                 var commit = _progressionCommitter.CommitStageClear(
                     runningSlotNumber,
                     CreateStageClearCommitRequest(
                         transitionPlan,
                         normalCompletion,
                         normalStageClear));
+                _terminalSaveSucceeded = true;
+                _lastSavedSlot = commit.Slot;
                 chanceUpdate?.Complete();
                 if (normalStageClear.HasValue)
                 {
@@ -530,16 +672,19 @@ namespace Game.Feature.Gameplay.Host
                         $"Accepted terminal token {claim.Token} could not bind the StageResult destination.");
                 }
 
+                if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
                 var commit = _progressionCommitter.CommitStageClear(
                     runningSlotNumber,
                     CreateStageClearCommitRequest(
                         transitionPlan,
                         normalCompletion,
                         normalStageClear));
-                if (transitionPlan.RestoresChances)
+                _terminalSaveSucceeded = true;
+                _lastSavedSlot = commit.Slot;
+                if (transitionPlan.RestoresChances && commit.PreviousRemainingChances.HasValue)
                 {
                     _chanceDisplayOverride?.Set(
-                        commit.PreviousRemainingChances,
+                        commit.PreviousRemainingChances.Value,
                         CampaignSaveSlotPolicy.DefaultRemainingChances,
                         GameplayChanceAudioPolicy.SuppressChanceChangeCue);
                 }
@@ -656,31 +801,19 @@ namespace Game.Feature.Gameplay.Host
 
         private void BeginVictoryTerminal(TerminalClaimResult claim)
         {
-            TerminalTransitionPlayback playback;
-            try
+            if (_disposed || _host.InputHost.IsCampaignRunAbandoned) return;
+            if (!_terminalTransitionPort.TryBegin(
+                    CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SameScene),
+                    out var playback))
             {
-                if (!_terminalTransitionPort.TryBegin(
-                        CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SameScene),
-                        out playback))
-                {
-                    throw new InvalidOperationException(
-                        $"Accepted terminal token {claim.Token} could not start the required Victory Iris.");
-                }
-            }
-            catch
-            {
-                if (TryRecoverIrisSetupFailure(claim.Token))
-                {
-                    _presentationFeed?.ReleaseStageClearTerminalGate(claim.Token);
-                }
-
-                throw;
+                throw new InvalidOperationException(
+                    $"Accepted terminal token {claim.Token} could not start the required Victory Iris.");
             }
 
             void HandleBlackReached(TerminalTransitionPlayback completedPlayback)
             {
                 completedPlayback.BlackReached -= HandleBlackReached;
-                if (completedPlayback.Request.Token != claim.Token)
+                if (_disposed || _host.InputHost.IsCampaignRunAbandoned || completedPlayback.Request.Token != claim.Token)
                 {
                     return;
                 }
@@ -714,18 +847,9 @@ namespace Game.Feature.Gameplay.Host
                 destinationMode);
         }
 
-        private bool TryRecoverIrisSetupFailure(TerminalSessionToken token)
-        {
-            var session = TerminalSessionRegistry.Current;
-            return !session.IsActive &&
-                   session.Token == token &&
-                   session.Phase == TerminalSessionPhase.FailedBeforeCover &&
-                   _host.InputHost.TryExitTerminalHold(token);
-        }
-
         private StageId ResolveCurrentSlotStageId()
         {
-            var entry = _saveSlotStore.LoadSlot(_runningSlotContext.SlotNumber);
+            var entry = LoadRunningSlot();
             return entry == null || entry.IsEmpty
                 ? StageId.None
                 : entry.State.CurrentStageId;

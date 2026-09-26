@@ -125,16 +125,16 @@ namespace Game.Feature.Stages
         public CampaignSlotState InitializeNewGame(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
-            string lastPlayedAt)
+            string lastPlayedAt, GameMode gameMode = GameMode.Hardcore)
         {
             using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
-            return InitializeNewGameState(slotNumber, sequenceResolver, lastPlayedAt);
+            return InitializeNewGameState(slotNumber, sequenceResolver, lastPlayedAt, gameMode);
         }
 
         private CampaignSlotState InitializeNewGameState(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
-            string lastPlayedAt)
+            string lastPlayedAt, GameMode gameMode = GameMode.Hardcore)
         {
             ThrowIfRecoveryPending();
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
@@ -147,6 +147,7 @@ namespace Game.Feature.Stages
             ThrowIfFailed(_campaignSaveService.InitializeNewGame(new CampaignNewGameRequest
             {
                 SlotNumber = slotNumber,
+                GameMode = gameMode,
                 InitialStageId = firstStageId.Value,
                 InitialLevelGroupId = sequenceResolver.GetLevelGroupId(firstStageId),
                 LastPlayedAtUtc = lastPlayedAt ?? string.Empty,
@@ -213,6 +214,18 @@ namespace Game.Feature.Stages
             return RequireOccupied(LoadEntry(request.SlotNumber));
         }
 
+        public CampaignSurvivalCommitResult CommitSurvival(
+            int slotNumber,
+            CampaignSurvivalCommitRequest request)
+        {
+            using var hudOperation = _campaignSaveService.HudReadStore.BeginOperation();
+            ThrowIfRecoveryPending();
+            CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
+            var result = _campaignSaveService.CommitSurvival(slotNumber, request);
+            ThrowIfFailed(result);
+            return new CampaignSurvivalCommitResult(ParseOccupied(result.Slot));
+        }
+
         public CampaignDeathCommitResult CommitDeath(
             int slotNumber,
             CampaignDeathTransitionPlan plan)
@@ -239,15 +252,9 @@ namespace Game.Feature.Stages
 
             var result = _campaignSaveService.CommitStageClear(slotNumber, request);
             ThrowIfFailed(result);
-            if (!result.PreviousRemainingChances.HasValue)
-            {
-                throw new InvalidOperationException(
-                    "Successful stage clear commit did not return the previous chance count.");
-            }
-
             return new CampaignStageClearCommitResult(
                 ParseOccupied(result.Slot),
-                result.PreviousRemainingChances.Value);
+                result.PreviousRemainingChances);
         }
 
         public void DeleteSlot(int slotNumber)
@@ -424,7 +431,7 @@ namespace Game.Feature.Stages
 
             if (!result.Succeeded)
             {
-                if (result.Status == CampaignSaveCommandStatus.LoadFailed)
+                if (result.Status == CampaignSaveCommandStatus.LoadFailed || result.HasProfileLoadStatus)
                 {
                     LastCampaignLoadReport = ToCampaignLoadReport(result);
                 }

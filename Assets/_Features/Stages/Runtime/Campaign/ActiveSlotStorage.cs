@@ -187,12 +187,12 @@ namespace Game.Feature.Stages
         public CampaignSlotState InitializeNewGame(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
-            string lastPlayedAt)
+            string lastPlayedAt, GameMode gameMode = GameMode.Hardcore)
         {
             return _inner.InitializeNewGame(
                 slotNumber,
                 sequenceResolver,
-                lastPlayedAt);
+                lastPlayedAt, gameMode);
         }
 
         public void MarkIntroComicCompleted(int slotNumber)
@@ -219,6 +219,11 @@ namespace Game.Feature.Stages
         public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request)
         {
             return _inner.ImportSlotSeed(request);
+        }
+
+        public CampaignSurvivalCommitResult CommitSurvival(int slotNumber, CampaignSurvivalCommitRequest request)
+        {
+            return _inner.CommitSurvival(slotNumber, request);
         }
 
         public CampaignDeathCommitResult CommitDeath(

@@ -255,13 +255,14 @@ namespace Game.Feature.UI.Screens
                 case 1:
                     return TypographyStyleTag.Status;
                 case 2:
-                    return TypographyStyleTag.Label;
                 case 3:
+                    return TypographyStyleTag.Label;
                 case 4:
                 case 5:
-                    return TypographyStyleTag.BodySmall;
                 case 6:
+                    return TypographyStyleTag.BodySmall;
                 case 7:
+                case 8:
                     return TypographyStyleTag.Button;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(targetIndex), targetIndex, null);

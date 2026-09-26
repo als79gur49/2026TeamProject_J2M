@@ -96,20 +96,42 @@ namespace Game.Feature.Stages
     {
         public CampaignStageClearCommitResult(
             CampaignSlotState slot,
-            int previousRemainingChances)
+            int? previousRemainingChances)
         {
             Slot = slot ?? throw new ArgumentNullException(nameof(slot));
-            PreviousRemainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
-                previousRemainingChances);
+            PreviousRemainingChances = previousRemainingChances.HasValue
+                ? CampaignSaveSlotPolicy.RequireValidRemainingChances(previousRemainingChances.Value) : null;
         }
 
         public CampaignSlotState Slot { get; }
 
-        public int PreviousRemainingChances { get; }
+        public int? PreviousRemainingChances { get; }
+    }
+
+    public sealed class CampaignSurvivalCommitRequest
+    {
+        public CampaignSurvivalCommitRequest(StageId expectedStageId, int expectedResumeHp, int resumeHp)
+        {
+            ExpectedStageId = expectedStageId;
+            ExpectedResumeHp = expectedResumeHp;
+            ResumeHp = resumeHp;
+        }
+
+        public StageId ExpectedStageId { get; }
+        public int ExpectedResumeHp { get; }
+        public int ResumeHp { get; }
+    }
+
+    public sealed class CampaignSurvivalCommitResult
+    {
+        public CampaignSurvivalCommitResult(CampaignSlotState slot) => Slot = slot ?? throw new ArgumentNullException(nameof(slot));
+        public CampaignSlotState Slot { get; }
     }
 
     public interface ICampaignProgressionCommitter
     {
+        CampaignSurvivalCommitResult CommitSurvival(int slotNumber, CampaignSurvivalCommitRequest request);
+
         CampaignDeathCommitResult CommitDeath(
             int slotNumber,
             CampaignDeathTransitionPlan plan);
@@ -271,7 +293,7 @@ namespace Game.Feature.Stages
         CampaignSlotState InitializeNewGame(
             int slotNumber,
             CampaignStageSequenceResolver sequenceResolver,
-            string lastPlayedAt);
+            string lastPlayedAt, GameMode gameMode = GameMode.Hardcore);
 
         void DeleteSlot(int slotNumber);
 
@@ -300,7 +322,9 @@ namespace Game.Feature.Stages
             StageId stageId,
             string levelGroupId,
             int remainingChances,
-            string lastPlayedAt)
+            string lastPlayedAt,
+            GameMode gameMode = GameMode.Hardcore,
+            int resumeHp = 0)
         {
             CampaignSaveSlotPolicy.ThrowIfInvalidSlotNumber(slotNumber);
             if (!stageId.IsValid)
@@ -313,8 +337,10 @@ namespace Game.Feature.Stages
             SlotNumber = slotNumber;
             StageId = stageId;
             LevelGroupId = levelGroupId ?? string.Empty;
-            RemainingChances = CampaignSaveSlotPolicy.RequireValidRemainingChances(
-                remainingChances);
+            CampaignSaveSlotPolicy.RequireValidSurvival(gameMode, resumeHp, remainingChances);
+            GameMode = gameMode;
+            ResumeHp = resumeHp;
+            RemainingChances = remainingChances;
             LastPlayedAt = lastPlayedAt ?? string.Empty;
         }
 
@@ -323,6 +349,10 @@ namespace Game.Feature.Stages
         public StageId StageId { get; }
 
         public string LevelGroupId { get; }
+
+        public GameMode GameMode { get; }
+
+        public int ResumeHp { get; }
 
         public int RemainingChances { get; }
 
@@ -438,6 +468,7 @@ namespace Game.Feature.Stages
 
         private CampaignSaveResetResult ResetBlockedProfileCore(CampaignSaveLoadStatus expectedStatus)
         {
+            using var mutation = HudReadStore?.BeginMutation();
             if ((CampaignSaveRecoveryPolicy.GetActions(expectedStatus) &
                  CampaignSaveRecoveryActions.ResetProfile) == 0)
             {
@@ -509,6 +540,7 @@ namespace Game.Feature.Stages
 
         private CampaignSaveResetResult ResumePendingResetCore()
         {
+            using var mutation = HudReadStore?.BeginMutation();
             if (!HasPendingReset)
             {
                 return CampaignSaveResetResult.NotAllowed;

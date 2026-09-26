@@ -388,7 +388,7 @@ namespace Game.Feature.Stages.Editor.Tests
             CampaignSlotState ICampaignSlotLifecyclePort.InitializeNewGame(
                 int slotNumber,
                 CampaignStageSequenceResolver sequenceResolver,
-                string lastPlayedAt) => throw new NotSupportedException();
+                string lastPlayedAt, GameMode gameMode) => throw new NotSupportedException();
 
             public void DeleteSlot(int slotNumber)
             {
@@ -421,6 +421,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 string levelGroupId) => throw new NotSupportedException();
 
             public CampaignSlotState ImportSlotSeed(CampaignSlotSeedImportRequest request) =>
+                throw new NotSupportedException();
+
+            public CampaignSurvivalCommitResult CommitSurvival(int slotNumber, CampaignSurvivalCommitRequest request) =>
                 throw new NotSupportedException();
 
             public CampaignDeathCommitResult CommitDeath(

@@ -138,6 +138,17 @@ namespace Game.Feature.UI.Composition
             return true;
         }
 
+        public bool TryAbortSetup(TerminalSessionToken token, TerminalFailure failure)
+        {
+            var current = _terminalAuthority.Current;
+            if (_disposed || !current.IsActive || current.Token != token ||
+                current.Phase != TerminalSessionPhase.Iris || current.TransitionId != 0 ||
+                _playback == null || _playback.Request.Token != token)
+                return false;
+            AbortFailedSetup(_playback, _playback.Request, new InvalidOperationException(failure.Message));
+            return !_terminalAuthority.IsActive;
+        }
+
         public bool TryBegin(
             TerminalTransitionRequest request,
             out TerminalTransitionPlayback playback)
@@ -221,15 +232,20 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            if (!_terminalAuthority.TryAdvancePhase(request.Token, TerminalSessionPhase.Iris))
-            {
-                candidate.Dispose();
-                return false;
-            }
-
             try
             {
+                // Recovery can synchronously cancel this exact candidate during the phase notification.
                 _playback = candidate;
+                var advanced = _terminalAuthority.TryAdvancePhase(request.Token, TerminalSessionPhase.Iris);
+                if (!ReferenceEquals(_playback, candidate)) return false;
+                if (!advanced || candidate.IsTerminal || !_terminalAuthority.IsActive ||
+                    _terminalAuthority.ActiveToken != request.Token ||
+                    _terminalAuthority.Phase != TerminalSessionPhase.Iris)
+                {
+                    AbortFailedSetup(candidate, request,
+                        new InvalidOperationException("Terminal Iris ownership changed during setup."));
+                    return false;
+                }
                 _playback.StateChanged += HandleStateChanged;
                 _playback.Cancelled += HandleCancelled;
                 _view.Show();

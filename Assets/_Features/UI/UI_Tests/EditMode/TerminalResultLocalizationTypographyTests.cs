@@ -189,6 +189,30 @@ namespace Game.Feature.UI.Tests
                 Is.Null);
         }
 
+        [TestCase(GameplayLevelFailureReason.CasualDeath, false)]
+        [TestCase(GameplayLevelFailureReason.CampaignChancesExhausted, true)]
+        public void CampaignLevelFailed_UsesShortTitleAndKeepsModeRestartButton(
+            GameplayLevelFailureReason reason,
+            bool restartsCampaign)
+        {
+            var request = new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-2-1"),
+                StageNavigationKind.Retry,
+                "campaign-death-retry");
+            var payload = LevelFailedPayloadMapper.Map(new GameplayLevelFailedReadModel(reason, request));
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+
+            Assert.That(resolver.Resolve(payload.TitleTextDescriptor), Is.EqualTo("Stage Failed"));
+            Assert.That(resolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
+            Assert.That(resolver.Resolve(payload.TitleTextDescriptor), Is.EqualTo("게임 오버"));
+            Assert.That(
+                payload.RestartStageLabelDescriptor.Key,
+                Is.EqualTo(restartsCampaign
+                    ? "ui.campaign.restart.campaign"
+                    : TerminalResultTextDescriptors.RestartStage.Key));
+            AssertNavigationEqual(request, payload.RestartLevelRequest);
+        }
+
         [Test]
         public void LevelFailedRuntime_ReentryUsesCurrentLocaleAndDisposesPriorProductionRuntime()
         {

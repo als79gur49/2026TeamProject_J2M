@@ -355,6 +355,10 @@ MonoBehaviour:
     m_Localized: New Game
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693819
+    m_Localized: In Progress
+    m_Metadata:
+      m_Items: []
   - m_Id: 4971587610693665
     m_Localized: Completed
     m_Metadata:
@@ -555,6 +559,50 @@ MonoBehaviour:
     m_Localized: The save reset did not finish. Retry to continue.
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693808
+    m_Localized: "Choose a Mode"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693809
+    m_Localized: "Casual"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693810
+    m_Localized: "Hardcore"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693811
+    m_Localized: "You have 3 HP and unlimited retries. If you die, you return to the first stage of the current level."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693812
+    m_Localized: "You start with 3 chances. When you run out, you return to the first stage of the campaign."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693813
+    m_Localized: "HP {0}/{1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693814
+    m_Localized: "You will return to the first stage of the current level."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693815
+    m_Localized: "You will return to the first stage of the campaign."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693816
+    m_Localized: "Restart Campaign"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693817
+    m_Localized: "Unable to Confirm Save Status"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693818
+    m_Localized: "Return to the main menu to check your save. Unsaved progress may be lost."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -563,6 +611,7 @@ MonoBehaviour:
       data:
         m_Entries:
         m_SharedEntries:
+        - id: 4971587610693813
         - id: 283195054972928
         - id: 283195096915968
         - id: 283195138859008

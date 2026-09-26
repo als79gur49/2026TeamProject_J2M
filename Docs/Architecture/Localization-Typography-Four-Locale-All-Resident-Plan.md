@@ -18,7 +18,7 @@ That package lifecycle is independent from font residency.
 - Japanese: Noto Sans JP Regular and Bold.
 - Simplified Chinese: Noto Sans SC Regular and Bold.
 - Korean: the existing KBO Dia Gothic Light/Medium pair remains in use. Both
-  assets carry the same 301-scalar exact corpus built from printable ASCII,
+  assets carry the same 313-scalar exact corpus (updated for the approved campaign strings on 2026-09-25) built from printable ASCII,
   the `한국어` autonym, current Korean UI/Stage tables, and U+25A1.
 - English: every font referenced by the Theme is Static and directly contains
   the governed English corpus plus the documented invariant ASCII and ellipsis

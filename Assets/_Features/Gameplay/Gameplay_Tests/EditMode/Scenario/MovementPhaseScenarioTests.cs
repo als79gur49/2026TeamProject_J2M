@@ -3809,6 +3809,50 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void DestroyTile_TopologyActivationUnderHp3PlayerDuringReceiverCooldown_DiesWithoutRespawn()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreatePlayerUnit(entityId: 20, position: destroyCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
+            worldState.CreateWriteContext().SetPlayerDamageState(
+                20, new PlayerDamageState { nextDamageAllowedTick = 999 });
+            var beforeHazard = CreateSnapshot(worldState);
+            Assert.That(beforeHazard.TryGetEntity(20, out var player), Is.True);
+            Assert.That(player.hp, Is.EqualTo(3));
+            Assert.That(player.maxHp, Is.EqualTo(3));
+            Assert.That(beforeHazard.TryGetPlayerDamageState(20, out var damageState), Is.True);
+            Assert.That(damageState.nextDamageAllowedTick, Is.GreaterThan(1));
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            Assert.That(CreateSnapshot(worldState).Topology, Is.Not.EqualTo(beforeHazard.Topology));
+            var destroyEvent = result.PresentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered);
+            Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(destroyEvent.Cell, Is.EqualTo(destroyCell));
+            Assert.That(result.PresentationData.PlayerDeathSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerDeathSignals[0].EntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.PlayerDeathSignals[0].DidDieThisTick, Is.True);
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
+
+            var nextTick = pipeline.RunTick(new TickInput(2));
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
+            Assert.That(nextTick.PresentationData.PlayerDeathSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTile_TopologyActivationUnderAirUnit_DoesNotDestroyUnit()
         {
             var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);

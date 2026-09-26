@@ -610,7 +610,7 @@ namespace Game.Feature.Stages.Editor.Tests
             public CampaignSlotState InitializeNewGame(
                 int slotNumber,
                 CampaignStageSequenceResolver sequenceResolver,
-                string lastPlayedAt)
+                string lastPlayedAt, GameMode gameMode = GameMode.Hardcore)
             {
                 var state = CampaignSlotStateFactory.CreateNewGame(
                     slotNumber,
@@ -656,6 +656,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 _slots[request.SlotNumber - 1] = CampaignSlotEntry.Occupied(state);
                 return state;
             }
+
+            public CampaignSurvivalCommitResult CommitSurvival(int slotNumber, CampaignSurvivalCommitRequest request) =>
+                throw new NotSupportedException();
 
             public CampaignDeathCommitResult CommitDeath(
                 int slotNumber,

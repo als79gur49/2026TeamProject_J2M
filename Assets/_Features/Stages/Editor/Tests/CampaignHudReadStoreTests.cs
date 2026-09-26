@@ -7,6 +7,117 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignHudReadStoreTests
     {
+        [TestCase("survival")]
+        [TestCase("death")]
+        [TestCase("clear")]
+        public void BackupRecovered_RejectsOldGameplayOutcomeEvenWhenSlotValuesMatch(string command)
+        {
+            var files = new Files();
+            var services = Create(files);
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
+            services.SlotStore.InitializeNewGame(1, resolver, string.Empty, GameMode.Casual);
+            var slot = services.SlotStore.LoadSlot(1).State;
+            var planner = new CampaignProgressionTransitionPlanner(resolver);
+            var before = files.Data[FileCampaignProfileRepository.ProfileFileName];
+            files.Data[FileCampaignProfileRepository.ProfileFileName + ".bak"] = before;
+            files.Data[FileCampaignProfileRepository.ProfileFileName] = "broken";
+            var writes = 0;
+            files.BeforeWrite = () => writes++;
+            var result = command == "survival"
+                ? services.Service.CommitSurvival(1, new CampaignSurvivalCommitRequest(slot.CurrentStageId, 3, 2))
+                : command == "death"
+                    ? services.Service.CommitDeath(1, planner.PlanDeath(slot))
+                    : services.Service.CommitStageClear(1, new CampaignStageClearCommitRequest
+                        { Plan = planner.PlanStageClear(slot.CurrentStageId) });
+            Assert.That(result.Status, Is.EqualTo(CampaignSaveCommandStatus.StalePrecondition));
+            Assert.That(result.ProfileLoadStatus, Is.EqualTo(CampaignProfileLoadStatus.BackupRecovered));
+            Assert.That(writes, Is.Zero);
+            Assert.That(files.Data[FileCampaignProfileRepository.ProfileFileName], Is.EqualTo(before));
+            Assert.That(services.SlotStore.LoadSlot(1).ResumeHp, Is.EqualTo(3), "Menu reads may use the restored file.");
+        }
+
+        [Test]
+        public void RecoveryNotification_IsOutsideGate_BlocksGameplayUntilAllHandlersFinish_AndCacheDoesNotRepeatIt()
+        {
+            var files = new Files();
+            var services = Create(files);
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
+            services.SlotStore.InitializeNewGame(1, resolver, string.Empty, GameMode.Casual);
+            files.Data[FileCampaignProfileRepository.ProfileFileName + ".bak"] = files.Data[FileCampaignProfileRepository.ProfileFileName];
+            files.Data[FileCampaignProfileRepository.ProfileFileName] = "broken";
+            var reads = services.Service.HudReadStore;
+            var firstCalls = 0;
+            var secondCalls = 0;
+            var underLock = true;
+            var querySucceeded = false;
+            CampaignSaveCommandStatus? competingStatus = null;
+            reads.BackupRecovered += () =>
+            {
+                firstCalls++;
+                underLock = System.Threading.Monitor.IsEntered(reads.SyncRoot);
+                querySucceeded = !services.SlotStore.LoadAllWithReport().Report.BlocksCampaignAccess; // Loaded now; no recursive notification.
+                var task = System.Threading.Tasks.Task.Run(() => services.Service.CommitSurvival(1,
+                    new CampaignSurvivalCommitRequest(resolver.FirstStageId, 3, 2)));
+                if (task.Wait(2000)) competingStatus = task.Result.Status;
+                throw new InvalidOperationException("observer failure must not skip another run");
+            };
+            reads.BackupRecovered += () => secondCalls++;
+            using var reader = Open(services);
+            Assert.That(reader.Read().ResumeHp, Is.EqualTo(3));
+            Assert.That(firstCalls, Is.EqualTo(1));
+            Assert.That(secondCalls, Is.EqualTo(1));
+            Assert.That(underLock, Is.False);
+            Assert.That(querySucceeded, Is.True);
+            Assert.That(competingStatus, Is.EqualTo(CampaignSaveCommandStatus.StalePrecondition));
+            Assert.That(services.Service.CommitSurvival(1,
+                new CampaignSurvivalCommitRequest(resolver.FirstStageId, 3, 2)).Succeeded, Is.True,
+                "A later fresh run is not blocked by a cached recovery report.");
+            Assert.That(reader.Read().ResumeHp, Is.EqualTo(2));
+            Assert.That(firstCalls, Is.EqualTo(1));
+        }
+
+        [TestCase("survival", false)]
+        [TestCase("survival", true)]
+        [TestCase("death", false)]
+        [TestCase("death", true)]
+        [TestCase("clear", false)]
+        [TestCase("clear", true)]
+        [TestCase("final", false)]
+        [TestCase("final", true)]
+        public void FailedResponse_FileReadDeterminesResumeWithoutReplayingCommand(string command, bool afterWrite)
+        {
+            var files = new Files();
+            var services = Create(files);
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
+            services.Service.InitializeNewGame(new CampaignNewGameRequest
+            {
+                SlotNumber = 1, GameMode = GameMode.Casual,
+                InitialStageId = command == "final" ? resolver.FinalStageId.Value : resolver.FirstStageId.Value,
+                InitialLevelGroupId = command == "final" ? "level-4" : "level-0",
+            });
+            var before = services.SlotStore.LoadSlot(1).State;
+            var planner = new CampaignProgressionTransitionPlanner(resolver);
+            var writes = 0;
+            files.BeforeWrite = () => { writes++; if (!afterWrite) throw new IOException("before write"); };
+            files.AfterWrite = () => { if (afterWrite) throw new IOException("response lost"); };
+            var result = command == "survival"
+                ? services.Service.CommitSurvival(1, new CampaignSurvivalCommitRequest(before.CurrentStageId, 3, 2))
+                : command == "death"
+                    ? services.Service.CommitDeath(1, planner.PlanDeath(before))
+                    : services.Service.CommitStageClear(1, new CampaignStageClearCommitRequest
+                        { Plan = planner.PlanStageClear(before.CurrentStageId) });
+            Assert.That(result.Status, Is.EqualTo(CampaignSaveCommandStatus.SaveFailed));
+            files.BeforeWrite = null;
+            files.AfterWrite = null;
+            var resumed = Create(files).SlotStore.LoadSlot(1).State;
+            Assert.That(writes, Is.EqualTo(1));
+            Assert.That(resumed.ResumeHp, Is.EqualTo(command == "survival" && afterWrite ? 2 : 3));
+            Assert.That(resumed.TotalDeaths, Is.EqualTo(command == "death" && afterWrite ? 1 : 0));
+            Assert.That(resumed.CampaignCompleted, Is.EqualTo(command == "final" && afterWrite));
+            if (command == "clear") Assert.That(resumed.CurrentStageId,
+                Is.EqualTo(afterWrite ? resolver.GetNextOrNone(before.CurrentStageId) : before.CurrentStageId));
+        }
+
         [Test]
         public void BindThenOneHundredReads_DoNotAccessFiles_ReloadDoes()
         {

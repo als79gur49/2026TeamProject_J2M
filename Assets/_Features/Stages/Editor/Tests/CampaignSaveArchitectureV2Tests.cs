@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
@@ -10,6 +11,53 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignSaveArchitectureV2Tests
     {
+        [Test]
+        public void MixedModeFile_ReloadKeepsHpAndDeathPreservesOtherSlotsAndHistory()
+        {
+            using var harness = CreateHarness();
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
+            var store = new CampaignSaveSlotStoreAdapter(new CampaignSaveService(harness.Repository));
+            store.InitializeNewGame(1, resolver, string.Empty, GameMode.Casual);
+            store.InitializeNewGame(2, resolver, string.Empty, GameMode.Hardcore);
+            store.InitializeNewGame(3, resolver, string.Empty, GameMode.Casual);
+            store.MarkIntroComicCompleted(1);
+            store.MarkOutroComicCompleted(1);
+            store.CommitSurvival(1, new CampaignSurvivalCommitRequest(resolver.FirstStageId, 3, 2));
+            var before = harness.Repository.Load().Document;
+            var other2 = JsonUtility.ToJson(before.Slots.Single(slot => slot.SlotNumber == 2));
+            var other3 = JsonUtility.ToJson(before.Slots.Single(slot => slot.SlotNumber == 3));
+            var reloadedStore = new CampaignSaveSlotStoreAdapter(new CampaignSaveService(new FileCampaignProfileRepository(
+                new AtomicTextFileStore(harness.SaveRootPath))));
+            var resumed = reloadedStore.LoadSlot(1).State;
+            Assert.That(resumed.ResumeHp, Is.EqualTo(2));
+            reloadedStore.CommitDeath(1, new CampaignProgressionTransitionPlanner(resolver).PlanDeath(resumed));
+            var after = harness.Repository.Load().Document;
+            var player = after.Slots.Single(slot => slot.SlotNumber == 1);
+            Assert.That(player.ResumeHp, Is.EqualTo(3));
+            Assert.That(player.TotalDeaths, Is.EqualTo(1));
+            Assert.That(player.IntroComicCompleted && player.OutroComicCompleted, Is.True);
+            Assert.That(JsonUtility.ToJson(after.Slots.Single(slot => slot.SlotNumber == 2)), Is.EqualTo(other2));
+            Assert.That(JsonUtility.ToJson(after.Slots.Single(slot => slot.SlotNumber == 3)), Is.EqualTo(other3));
+            Assert.That(after.SchemaVersion, Is.EqualTo(3));
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        public void OldCanonicalSchema_BlocksWithoutRestoringValidBackupOrChangingFiles(int schema)
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            var canonical = "{\"SchemaVersion\":" + schema + ",\"ProfileId\":\"old-profile\",\"Slots\":[]}";
+            var backup = JsonUtility.ToJson(CreateDocument("current-backup"));
+            File.WriteAllText(harness.ProfilePath, canonical);
+            File.WriteAllText(harness.BackupPath, backup);
+            var result = harness.Repository.Load();
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.UnsupportedVersion));
+            Assert.That(result.HasDocument, Is.False);
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(canonical));
+            Assert.That(File.ReadAllText(harness.BackupPath), Is.EqualTo(backup));
+        }
+
         [Test]
         public void CampaignProfileDocument_CanBeDefaultConstructed()
         {
@@ -34,6 +82,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 {
                     new CampaignSlotDocument
                     {
+                GameMode = GameMode.Hardcore,
                         SlotNumber = 2,
                         StageId = "stage-1-1",
                         LevelGroupId = "level-1",
@@ -98,6 +147,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var document = new CampaignSlotDocument
             {
+                GameMode = GameMode.Hardcore,
                 SlotNumber = 1,
                 StageId = "stage-2-1",
                 LevelGroupId = "level-2",
@@ -122,6 +172,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var document = new CampaignSlotDocument
             {
+                GameMode = GameMode.Hardcore,
                 SlotNumber = 1,
                 StageId = "stage-3-1",
                 StageClearProfileSnapshot = new CampaignStageClearProfileDocument
@@ -590,7 +641,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void CampaignProfileRepository_MissingCanonicalWithUnsupportedBackupFailsClosed()
         {
             using var harness = CreateHarness();
-            const string unsupported = "{\"SchemaVersion\":3,\"Slots\":[]}";
+            const string unsupported = "{\"SchemaVersion\":4,\"Slots\":[]}";
             Directory.CreateDirectory(harness.SaveRootPath);
             File.WriteAllText(harness.BackupPath, unsupported);
 
@@ -884,7 +935,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void CampaignProfileRepository_FutureSchemaWithoutProfileIdDoesNotRestoreOlderBackup()
         {
             using var harness = CreateHarness();
-            const string futureCanonical = "{\"SchemaVersion\":3,\"Slots\":[]}";
+            const string futureCanonical = "{\"SchemaVersion\":4,\"Slots\":[]}";
             Directory.CreateDirectory(harness.SaveRootPath);
             File.WriteAllText(harness.ProfilePath, futureCanonical);
             File.WriteAllText(
@@ -1515,7 +1566,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(section, Does.Contain("Saves/profile.json"));
             Assert.That(
                 section,
-                Does.Contain("`CampaignProfileDocument`의 `SchemaVersion = 2`"));
+                Does.Contain("`CampaignProfileDocument`의 `SchemaVersion = 3`"));
             Assert.That(section, Does.Contain("Records[]"));
             Assert.That(section, Does.Contain("PlayerPrefs progression import는 지원하지 않는다"));
             Assert.That(section, Does.Contain("<file>.rollback"));
@@ -2238,6 +2289,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 {
                     new CampaignSlotDocument
                     {
+                GameMode = GameMode.Hardcore,
                         SlotNumber = 1,
                         StageId = "stage-1-1",
                         LevelGroupId = "level-1",

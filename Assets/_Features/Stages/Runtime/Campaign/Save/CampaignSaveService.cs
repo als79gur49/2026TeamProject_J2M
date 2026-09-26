@@ -98,6 +98,8 @@ namespace Game.Feature.Stages
 
     public sealed class CampaignNewGameRequest
     {
+        public GameMode GameMode { get; set; } = GameMode.Hardcore;
+
         public int SlotNumber { get; set; }
 
         public string InitialStageId { get; set; }
@@ -247,7 +249,7 @@ namespace Game.Feature.Stages
                     request.SlotNumber,
                     initialStageId,
                     request.InitialLevelGroupId,
-                    lastPlayedAtUtc);
+                    lastPlayedAtUtc, request.GameMode);
                 var slot = CampaignSlotStateDocumentMapper.ToDocument(state);
 
                 UpsertSlot(document, slot);
@@ -293,6 +295,7 @@ namespace Game.Feature.Stages
         public CampaignSaveServiceResult PrepareContinue(
             CampaignContinuePreparationCommand command)
         {
+            using var mutationScope = HudReadStore.BeginMutation();
             using var hudOperation = HudReadStore.BeginOperation();
             if (command == null)
             {
@@ -402,6 +405,41 @@ namespace Game.Feature.Stages
             }, destructive: true);
         }
 
+        public CampaignSaveServiceResult CommitSurvival(int slotNumber, CampaignSurvivalCommitRequest request)
+        {
+            using var operation = HudReadStore.BeginOperation();
+            using var mutation = HudReadStore.BeginMutation();
+            if (!CampaignSaveSlotPolicy.IsValidSlotNumber(slotNumber))
+                return CampaignSaveServiceResult.Failure(CampaignSaveCommandStatus.InvalidSlotNumber,
+                    "Save slot number must be 1, 2, or 3.");
+            if (HudReadStore.HasUndeliveredRecovery) return RecoveredGameplayFailure();
+            if (!TryLoadProfile(out var document, out var failure, allowMissing: false)) return failure;
+            if (_lastProfileLoadStatus == CampaignProfileLoadStatus.BackupRecovered || HudReadStore.HasUndeliveredRecovery)
+                return RecoveredGameplayFailure();
+            if (!TryFindSlot(document, slotNumber, out var slot))
+                return CampaignSaveServiceResult.Failure(CampaignSaveCommandStatus.SlotNotFound,
+                    "Campaign slot does not exist.", document);
+            var parsed = CampaignSlotParser.ParseEntry(slotNumber, slot);
+            if (!parsed.IsSuccess || parsed.Entry.IsEmpty)
+                return CampaignSaveServiceResult.Failure(CampaignSaveCommandStatus.InvalidRequest,
+                    "Campaign survival state is invalid.", document);
+            var now = Now();
+            var current = parsed.Entry.State;
+            var transition = CampaignSlotTransitionEngine.ApplySurvival(current, request, now);
+            if (!transition.Succeeded)
+                return CampaignSaveServiceResult.Failure(
+                    transition.FailureKind == CampaignSlotTransitionFailureKind.StalePrecondition
+                        ? CampaignSaveCommandStatus.StalePrecondition : CampaignSaveCommandStatus.InvalidRequest,
+                    "Campaign survival request is invalid or its state has changed.", document);
+            if (ReferenceEquals(current, transition.Slot))
+                return CampaignSaveServiceResult.Success(document, CloneSlot(slot), message: "Campaign HP unchanged.");
+            var replacement = CampaignSlotStateDocumentMapper.ToDocument(transition.Slot);
+            UpsertSlot(document, replacement);
+            TouchProfile(document, now);
+            return Persist(document, CampaignSaveServiceResult.Success(document, CloneSlot(replacement),
+                message: "Campaign survival committed."), destructive: false);
+        }
+
         public CampaignSaveServiceResult CommitDeath(
             int slotNumber,
             CampaignDeathTransitionPlan plan)
@@ -451,7 +489,7 @@ namespace Game.Feature.Stages
                     document,
                     CloneSlot(replacement),
                     message: "Campaign death transition committed.");
-            });
+            }, gameplay: true);
         }
 
         public CampaignSaveServiceResult CommitStageClear(
@@ -505,7 +543,7 @@ namespace Game.Feature.Stages
                     CloneSlot(replacement),
                     message: "Campaign stage clear transition committed.",
                     previousRemainingChances: transition.PreviousRemainingChances);
-            });
+            }, gameplay: true);
         }
 
         public CampaignSaveServiceResult SetIntroComicCompleted(int slotNumber)
@@ -706,15 +744,26 @@ namespace Game.Feature.Stages
                 document);
         }
 
+        private static CampaignSaveServiceResult RecoveredGameplayFailure() =>
+            CampaignSaveServiceResult.Failure(CampaignSaveCommandStatus.StalePrecondition,
+                "Campaign gameplay must stop after backup recovery.", hasProfileLoadStatus: true,
+                profileLoadStatus: CampaignProfileLoadStatus.BackupRecovered);
+
         private CampaignSaveServiceResult Mutate(
             Func<CampaignProfileDocument, CampaignSaveServiceResult> mutation,
-            bool destructive = false)
+            bool destructive = false,
+            bool gameplay = false)
         {
+            using var mutationScope = HudReadStore.BeginMutation();
+            if (gameplay && HudReadStore.HasUndeliveredRecovery) return RecoveredGameplayFailure();
             if (!TryLoadProfile(out var document, out var failure, allowMissing: true))
             {
                 return failure;
             }
 
+            if (gameplay && (_lastProfileLoadStatus == CampaignProfileLoadStatus.BackupRecovered ||
+                             HudReadStore.HasUndeliveredRecovery))
+                return RecoveredGameplayFailure();
             var result = mutation(document);
             if (!result.Succeeded)
             {
@@ -956,6 +1005,8 @@ namespace Game.Feature.Stages
                 SlotNumber = slot.SlotNumber,
                 StageId = slot.StageId,
                 LevelGroupId = slot.LevelGroupId,
+                GameMode = slot.GameMode,
+                ResumeHp = slot.ResumeHp,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =

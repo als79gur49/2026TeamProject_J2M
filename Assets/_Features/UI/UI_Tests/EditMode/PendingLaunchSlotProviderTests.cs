@@ -29,6 +29,74 @@ namespace Game.Feature.UI.Tests
             CampaignChanceHudDiagnostics.Clear();
         }
 
+        private sealed class ModeChoice : ICampaignModeSelectionPort
+        {
+            public Action<GameMode?> Complete;
+            public int Requests;
+            public void RequestMode(Action<GameMode?> completion) { Requests++; Complete = completion; }
+        }
+
+        [Test]
+        public void CampaignModeSelection_MixedSlotsCancelAndContinuePreserveModeAndHp()
+        {
+            var store = new TransientCampaignSaveSlotStore(_saveNamespace);
+            var handoffs = new RecordingCampaignLaunchHandoffStore();
+            var router = new FakeStageLaunchRouter();
+            var confirmation = new FakeConfirmPopupPort();
+            var modes = new ModeChoice();
+            var resolver = CreateResolver();
+            using var controller = new MainMenuController(store, store, store, handoffs, resolver,
+                CampaignStageSequenceTestAsset.LoadProductionLaunchEvaluator(resolver), router,
+                confirmation, modeSelectionPort: modes);
+            controller.Continue(1); // Empty Continue is also creation.
+            modes.Complete(null);
+            Assert.That(store.LoadSlot(1).IsEmpty, Is.True);
+            Assert.That(router.Requests, Is.Empty);
+            var choices = new[] { GameMode.Casual, GameMode.Hardcore, GameMode.Casual };
+            for (var slot = 1; slot <= 3; slot++)
+            {
+                controller.HandleIntent(new SaveSlotIntent(slot, SaveSlotIntentKind.NewGame));
+                var callback = modes.Complete;
+                callback(choices[slot - 1]);
+                callback(GameMode.Hardcore); // A duplicate/stale choice cannot replace the slot.
+                Assert.That(store.LoadSlot(slot).State.GameMode, Is.EqualTo(choices[slot - 1]));
+                Assert.That(handoffs.TryPeek(out var handoff), Is.True);
+                handoffs.TryClear(handoff.Token);
+            }
+            store.CommitSurvival(1, new CampaignSurvivalCommitRequest(resolver.FirstStageId, 3, 2));
+            var choicesBeforeContinue = modes.Requests;
+            controller.Continue(1);
+            Assert.That(modes.Requests, Is.EqualTo(choicesBeforeContinue));
+            Assert.That(store.LoadSlot(1).State.ResumeHp, Is.EqualTo(2));
+            Assert.That(store.LoadSlot(1).State.GameMode, Is.EqualTo(GameMode.Casual));
+            Assert.That(store.LoadSlot(2).State.RemainingChances, Is.EqualTo(3));
+            Assert.That(store.LoadSlot(3).State.ResumeHp, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void CampaignModeSelection_OverwriteRequiresConfirmationAndUsesSelectedMode()
+        {
+            var store = new TransientCampaignSaveSlotStore(_saveNamespace);
+            var resolver = CreateResolver();
+            store.InitializeNewGame(1, resolver, string.Empty, GameMode.Hardcore);
+            var handoffs = new RecordingCampaignLaunchHandoffStore();
+            var confirmation = new FakeConfirmPopupPort();
+            var modes = new ModeChoice();
+            using var controller = new MainMenuController(store, store, store, handoffs, resolver,
+                CampaignStageSequenceTestAsset.LoadProductionLaunchEvaluator(resolver), new FakeStageLaunchRouter(),
+                confirmation, modeSelectionPort: modes);
+            controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
+            modes.Complete(GameMode.Casual);
+            Assert.That(store.LoadSlot(1).State.GameMode, Is.EqualTo(GameMode.Hardcore));
+            confirmation.Complete(false);
+            Assert.That(store.LoadSlot(1).State.GameMode, Is.EqualTo(GameMode.Hardcore));
+            controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
+            modes.Complete(GameMode.Casual);
+            confirmation.Complete(true);
+            Assert.That(store.LoadSlot(1).State.GameMode, Is.EqualTo(GameMode.Casual));
+            Assert.That(store.LoadSlot(1).State.ResumeHp, Is.EqualTo(3));
+        }
+
         [Test]
         public void MainMenu_NewGame_CreatesHandoffBeforeRouting()
         {
@@ -915,7 +983,7 @@ namespace Game.Feature.UI.Tests
             public CampaignSlotState InitializeNewGame(
                 int slotNumber,
                 CampaignStageSequenceResolver sequenceResolver,
-                string lastPlayedAt)
+                string lastPlayedAt, GameMode gameMode = GameMode.Hardcore)
             {
                 InitializeNewGameCount++;
                 if (ThrowOnInitializeNewGame)
@@ -923,7 +991,7 @@ namespace Game.Feature.UI.Tests
                     throw new InvalidOperationException("Injected initialization failure.");
                 }
 
-                return _inner.InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt);
+                return _inner.InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt, gameMode);
             }
 
             public void DeleteSlot(int slotNumber)

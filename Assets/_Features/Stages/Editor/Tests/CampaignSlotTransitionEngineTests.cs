@@ -12,7 +12,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
         [TestCase(3, 2, "stage-1-1", "stage-1-1", "level-1")]
         [TestCase(2, 1, "stage-1-1", "stage-1-1", "level-1")]
-        [TestCase(1, 3, "stage-2-2", "stage-2-1", "level-2")]
+        [TestCase(1, 3, "stage-2-2", "stage-0-1", "level-0")]
         public void ApplyDeath_UsesTheCompleteChanceTruthTable(
             int initialChances,
             int expectedChances,
@@ -422,7 +422,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 new StageRetryRouteResult(
                     nextChances == CampaignSaveSlotPolicy.DefaultRemainingChances &&
                     expectedChances == 1
-                        ? StageRetryRouteKind.ReturnToLevelGroupFirstStage
+                        ? StageRetryRouteKind.ReturnToCampaignFirstStage
                         : StageRetryRouteKind.RetrySameStage,
                     nextStageId,
                     nextChances));

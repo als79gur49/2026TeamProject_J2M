@@ -115,6 +115,8 @@ namespace Game.Feature.Gameplay.Host
         public ITerminalSessionReadModel TerminalSessionReadModel = TerminalSessionRegistry.ReadModel;
         public ISceneEntryPresentationReadModel SceneEntryPresentationReadModel = SceneEntryPresentationRegistry.ReadModel;
         public GameplayPresentationAudioConfig GameplayPresentationAudioConfig;
+        public GameMode CampaignGameMode;
+
         public ICampaignChancesReadSource CampaignChancesReadSource;
         public CampaignStageSequenceResolver CampaignStageSequenceResolver;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();

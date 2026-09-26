@@ -352,6 +352,10 @@ MonoBehaviour:
     m_Localized: 새 게임
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693819
+    m_Localized: 진행 중
+    m_Metadata:
+      m_Items: []
   - m_Id: 4971587610693665
     m_Localized: 완료
     m_Metadata:
@@ -381,7 +385,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693671
-    m_Localized: 계속
+    m_Localized: 이어하기
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693672
@@ -552,6 +556,50 @@ MonoBehaviour:
     m_Localized: 저장 데이터 초기화가 완료되지 않았습니다. 다시 시도하세요.
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693808
+    m_Localized: "모드 선택"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693809
+    m_Localized: "캐주얼"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693810
+    m_Localized: "하드코어"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693811
+    m_Localized: "HP는 3이며, 재도전 횟수에는 제한이 없습니다. 사망하면 현재 레벨의 첫 스테이지로 돌아갑니다."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693812
+    m_Localized: "목숨 3개로 시작합니다. 목숨을 모두 잃으면 캠페인의 첫 스테이지로 돌아갑니다."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693813
+    m_Localized: "HP {0}/{1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693814
+    m_Localized: "현재 레벨의 첫 스테이지로 돌아갑니다."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693815
+    m_Localized: "캠페인의 첫 스테이지로 돌아갑니다."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693816
+    m_Localized: "캠페인 처음부터"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693817
+    m_Localized: "저장 상태를 확인할 수 없습니다"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693818
+    m_Localized: "메인 메뉴로 돌아가 저장 상태를 확인하세요. 저장되지 않은 진행 상황은 사라질 수 있습니다."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -560,6 +608,7 @@ MonoBehaviour:
       data:
         m_Entries:
         m_SharedEntries:
+        - id: 4971587610693813
         - id: 283195054972928
         - id: 283195096915968
         - id: 283195138859008

@@ -350,7 +350,8 @@ namespace Game.Feature.UI.Application
                 objective,
                 frame.HasValue ? frame.Value.Topology : null,
                 playerHud.ChanceAudioPolicy,
-                MapSurfaceButtonRemainders(surfaceButtonRemainders));
+                MapSurfaceButtonRemainders(surfaceButtonRemainders),
+                new UIHealthSlice(playerHud.HasHealth, playerHud.Hp, playerHud.MaxHp));
         }
 
         private static UISurfaceButtonRemainderInput[] MapSurfaceButtonRemainders(

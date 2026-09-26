@@ -22,6 +22,8 @@ namespace Game.Feature.Stages
         DeathCounterOverflow = 6,
         StageClearRequestNull = 7,
         ComicCommandInvalid = 8,
+        SurvivalRequestInvalid = 9,
+        SurvivalPreconditionChanged = 10,
     }
 
     internal enum CampaignComicCompletionKind
@@ -127,7 +129,9 @@ namespace Game.Feature.Stages
                 return InvalidCurrentState();
             }
 
-            if (!current.CurrentStageId.Equals(plan.ExpectedCurrentStageId) ||
+            if (current.CampaignCompleted || current.GameMode != plan.ExpectedGameMode ||
+                current.ResumeHp != plan.ExpectedResumeHp ||
+                !current.CurrentStageId.Equals(plan.ExpectedCurrentStageId) ||
                 current.RemainingChances != plan.ExpectedRemainingChances)
             {
                 return CampaignSlotTransitionResult.Failure(
@@ -154,7 +158,8 @@ namespace Game.Feature.Stages
                 current.NormalStagePerformanceRecords,
                 current.TotalDeaths + 1,
                 committedAtUtc,
-                current.StageClearProfile);
+                current.StageClearProfile, current.GameMode,
+                current.GameMode == GameMode.Casual ? CampaignSaveSlotPolicy.CasualMaxHp : 0);
             return CampaignSlotTransitionResult.Success(next);
         }
 
@@ -182,15 +187,15 @@ namespace Game.Feature.Stages
                 return InvalidCurrentState();
             }
 
-            if (!current.CurrentStageId.Equals(request.Plan.CompletedStageId))
+            if (current.CampaignCompleted || !current.CurrentStageId.Equals(request.Plan.CompletedStageId))
             {
                 return CampaignSlotTransitionResult.Failure(
                     CampaignSlotTransitionFailureKind.StalePrecondition,
                     CampaignSlotTransitionReasonCode.StageClearPreconditionChanged);
             }
 
-            var previousRemainingChances = current.RemainingChances;
-            var remainingChances = request.Plan.RestoresChances
+            int? previousRemainingChances = current.GameMode == GameMode.Hardcore ? current.RemainingChances : null;
+            var remainingChances = current.GameMode == GameMode.Casual ? 0 : request.Plan.RestoresChances
                 ? CampaignSaveSlotPolicy.DefaultRemainingChances
                 : current.RemainingChances;
             var next = new CampaignSlotState(
@@ -207,10 +212,30 @@ namespace Game.Feature.Stages
                     request.PerformanceRecord),
                 current.TotalDeaths,
                 committedAtUtc,
-                current.StageClearProfile);
+                current.StageClearProfile, current.GameMode,
+                current.GameMode == GameMode.Casual ? CampaignSaveSlotPolicy.CasualMaxHp : 0);
             return CampaignSlotTransitionResult.Success(
                 next,
                 previousRemainingChances);
+        }
+
+        public static CampaignSlotTransitionResult ApplySurvival(
+            CampaignSlotState current, CampaignSurvivalCommitRequest request, string committedAtUtc)
+        {
+            if (request == null || !request.ExpectedStageId.IsValid ||
+                !CampaignSaveSlotPolicy.IsValidSurvival(GameMode.Casual, request.ResumeHp, 0))
+                return CampaignSlotTransitionResult.Failure(CampaignSlotTransitionFailureKind.InvalidPlan,
+                    CampaignSlotTransitionReasonCode.SurvivalRequestInvalid);
+            if (current == null || current.CampaignCompleted || current.GameMode != GameMode.Casual ||
+                !current.CurrentStageId.Equals(request.ExpectedStageId) || current.ResumeHp != request.ExpectedResumeHp)
+                return CampaignSlotTransitionResult.Failure(CampaignSlotTransitionFailureKind.StalePrecondition,
+                    CampaignSlotTransitionReasonCode.SurvivalPreconditionChanged);
+            if (current.ResumeHp == request.ResumeHp) return CampaignSlotTransitionResult.Success(current);
+            return CampaignSlotTransitionResult.Success(new CampaignSlotState(
+                current.SlotNumber, current.CurrentStageId, current.CurrentLevelGroupId, 0,
+                current.CampaignCompleted, current.Receipt, current.IntroComicCompleted,
+                current.OutroComicCompleted, current.NormalStagePerformanceRecords,
+                current.TotalDeaths, committedAtUtc, current.StageClearProfile, GameMode.Casual, request.ResumeHp));
         }
 
         public static CampaignSlotTransitionResult ApplyComicCompletion(
@@ -245,7 +270,7 @@ namespace Game.Feature.Stages
                 current.NormalStagePerformanceRecords,
                 current.TotalDeaths,
                 committedAtUtc,
-                current.StageClearProfile);
+                current.StageClearProfile, current.GameMode, current.ResumeHp);
             return CampaignSlotTransitionResult.Success(next);
         }
 
@@ -318,12 +343,12 @@ namespace Game.Feature.Stages
         private static bool IsValid(CampaignDeathTransitionPlan plan)
         {
             return plan.ExpectedCurrentStageId.IsValid &&
-                   CampaignSaveSlotPolicy.IsValidRemainingChances(
-                       plan.ExpectedRemainingChances) &&
+                   CampaignSaveSlotPolicy.IsValidSurvival(
+                       plan.ExpectedGameMode, plan.ExpectedResumeHp, plan.ExpectedRemainingChances) &&
                    plan.Route.NextStageId.IsValid &&
                    plan.Route.RouteKind != StageRetryRouteKind.None &&
-                   CampaignSaveSlotPolicy.IsValidRemainingChances(
-                       plan.Route.RemainingChances) &&
+                   CampaignSaveSlotPolicy.IsValidSurvival(
+                       plan.ExpectedGameMode, plan.ExpectedGameMode == GameMode.Casual ? CampaignSaveSlotPolicy.CasualMaxHp : 0, plan.Route.RemainingChances) &&
                    !string.IsNullOrWhiteSpace(plan.PersistedLevelGroupId);
         }
 

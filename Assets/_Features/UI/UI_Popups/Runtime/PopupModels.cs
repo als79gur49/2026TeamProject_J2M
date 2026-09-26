@@ -17,6 +17,7 @@ namespace Game.Feature.UI.Popups
         SettingsRequested = 5,
         RetryRequested = 7,
         MainMenuRequested = 8,
+        AlternativeSelected = 9,
     }
 
     public enum PopupBackdropMode
@@ -319,6 +320,8 @@ namespace Game.Feature.UI.Popups
         public LocalizedTextDescriptor CancelLabelDescriptor { get; }
 
         public bool IsConfirmDestructive { get; }
+        public bool SecondaryIsAlternative { get; set; }
+        public bool IsCampaignModeSelection { get; set; }
         public bool ConsumeBack { get; set; }
         public bool ConfirmEnabled { get; set; } = true;
         public bool CancelEnabled { get; set; } = true;

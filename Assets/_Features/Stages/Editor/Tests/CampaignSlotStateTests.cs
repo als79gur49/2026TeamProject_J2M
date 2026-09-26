@@ -8,6 +8,44 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignSlotStateTests
     {
+        [TestCase(GameMode.Casual, 1, 0, true)]
+        [TestCase(GameMode.Casual, 3, 0, true)]
+        [TestCase(GameMode.Casual, 0, 0, false)]
+        [TestCase(GameMode.Casual, 4, 0, false)]
+        [TestCase(GameMode.Casual, 2, 1, false)]
+        [TestCase(GameMode.Hardcore, 0, 1, true)]
+        [TestCase(GameMode.Hardcore, 0, 3, true)]
+        [TestCase(GameMode.Hardcore, 1, 3, false)]
+        [TestCase(GameMode.Hardcore, 0, 0, false)]
+        [TestCase(GameMode.Unknown, 0, 3, false)]
+        [TestCase((GameMode)99, 3, 0, false)]
+        public void Survival_JsonRoundTripStrictlyValidatesMode(GameMode mode, int hp, int chances, bool valid)
+        {
+            var document = CreateValidDocument();
+            document.GameMode = mode;
+            document.ResumeHp = hp;
+            document.RemainingChances = chances;
+            var reloaded = JsonUtility.FromJson<CampaignSlotDocument>(JsonUtility.ToJson(document));
+            var parsed = CampaignSlotParser.ParseEntry(1, reloaded);
+            Assert.That(parsed.IsSuccess, Is.EqualTo(valid));
+            if (!valid) return;
+            var clone = CampaignSlotStateDocumentMapper.ToDocument(parsed.Entry.State);
+            Assert.That(clone.GameMode, Is.EqualTo(mode));
+            Assert.That(clone.ResumeHp, Is.EqualTo(hp));
+            Assert.That(clone.RemainingChances, Is.EqualTo(chances));
+            Assert.That(JsonUtility.ToJson(clone.StageClearProfileSnapshot),
+                Is.EqualTo(JsonUtility.ToJson(document.StageClearProfileSnapshot)));
+            Assert.That(clone.TotalDeaths, Is.EqualTo(document.TotalDeaths));
+        }
+
+        [Test]
+        public void JsonMissingMode_IsInvalidRatherThanAssignedHardcore()
+        {
+            var document = JsonUtility.FromJson<CampaignSlotDocument>(
+                "{\"SlotNumber\":1,\"StageId\":\"stage-1-1\",\"RemainingChances\":3}");
+            Assert.That(CampaignSlotParser.ParseEntry(1, document).IsSuccess, Is.False);
+        }
+
         [Test]
         public void Parser_AbsentDocumentCreatesExplicitEmptyEntry()
         {
@@ -106,7 +144,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void JsonUtility_EmptyReceiptObjectMaterializesExactClrDefaultResidue()
         {
             const string json =
-                "{\"SlotNumber\":1,\"StageId\":\"stage-1-1\",\"RemainingChances\":3," +
+                "{\"SlotNumber\":1,\"StageId\":\"stage-1-1\",\"GameMode\":2,\"ResumeHp\":0,\"RemainingChances\":3," +
                 "\"HasNormalCampaignCompletionReceipt\":false," +
                 "\"NormalCampaignCompletionReceipt\":{}}";
 
@@ -127,7 +165,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void JsonUtility_MixedNullAndEmptyReceiptStringsCanonicalizeToEmptyStrings()
         {
             const string json =
-                "{\"SlotNumber\":1,\"StageId\":\"stage-1-1\",\"RemainingChances\":3," +
+                "{\"SlotNumber\":1,\"StageId\":\"stage-1-1\",\"GameMode\":2,\"ResumeHp\":0,\"RemainingChances\":3," +
                 "\"HasNormalCampaignCompletionReceipt\":false," +
                 "\"NormalCampaignCompletionReceipt\":{" +
                 "\"Version\":0,\"CompletedStageId\":\"\",\"StageRunId\":null," +
@@ -442,6 +480,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             return new CampaignSlotDocument
             {
+                GameMode = GameMode.Hardcore,
                 SlotNumber = 1,
                 StageId = "stage-1-1",
                 LevelGroupId = "level-1",

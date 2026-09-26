@@ -219,14 +219,15 @@ namespace Game.Feature.UI.Screens
             string titleText,
             string statusText,
             string stageText,
-            string chancesText,
+            string survivalText,
             string deathsText,
             string lastPlayedText,
             string primaryActionText,
             SaveSlotIntentKind primaryIntentKind,
             bool showDelete,
             string deleteActionText = "",
-            SaveSlotFailurePresentationKind failureKind = SaveSlotFailurePresentationKind.None)
+            SaveSlotFailurePresentationKind failureKind = SaveSlotFailurePresentationKind.None,
+            string modeText = "")
         {
             SlotNumber = slotNumber;
             State = state;
@@ -234,7 +235,8 @@ namespace Game.Feature.UI.Screens
             TitleText = titleText ?? string.Empty;
             StatusText = statusText ?? string.Empty;
             StageText = stageText ?? string.Empty;
-            ChancesText = chancesText ?? string.Empty;
+            ModeText = modeText ?? string.Empty;
+            SurvivalText = survivalText ?? string.Empty;
             DeathsText = deathsText ?? string.Empty;
             LastPlayedText = lastPlayedText ?? string.Empty;
             PrimaryActionText = primaryActionText ?? string.Empty;
@@ -255,7 +257,9 @@ namespace Game.Feature.UI.Screens
 
         public string StageText { get; }
 
-        public string ChancesText { get; }
+        public string ModeText { get; }
+
+        public string SurvivalText { get; }
 
         public string DeathsText { get; }
 

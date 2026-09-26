@@ -1,3 +1,5 @@
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Flow.Audio;
 using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.Host.UIAccess;
@@ -39,6 +41,7 @@ namespace Game.Feature.Gameplay.Host
         private CampaignStageSequenceResolver _campaignStageSequenceResolver;
         private bool _campaignRuntimeActive;
         private CampaignRunningSlotContext _runningSlotContext;
+        private CampaignSlotState _preparedCampaignSlot;
         private EditorDirectPlayContext _runtimeDirectPlayContext = EditorDirectPlayContext.None;
         private StagePresentationDefinition _resolvedPresentationDefinition;
         private ICampaignSaveRuntime _saveSlotStore;
@@ -239,7 +242,7 @@ namespace Game.Feature.Gameplay.Host
                     resolvedStageId,
                     directPlayContext,
                     hasPendingLaunch ? capturedHandoff : null,
-                    capturedContext);
+                    capturedContext, configuration);
                 _campaignChanceDisplayOverride = new CampaignChanceDisplayOverride();
                 _campaignChancesReadSource?.Dispose();
                 configuration.CampaignChancesReadSource = _campaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
@@ -349,7 +352,9 @@ namespace Game.Feature.Gameplay.Host
                     _campaignChanceDisplayOverride,
                     terminalTransitionPort,
                     _runtimeDirectPlayContext,
-                    CreateCampaignStageAchievementIntegration());
+                    CreateCampaignStageAchievementIntegration(),
+                    _preparedCampaignSlot,
+                    (_saveSlotStore as ICampaignHudReadProvider)?.HudReadStore);
                 _campaignFlowController.Bind();
             }
             catch
@@ -548,15 +553,48 @@ namespace Game.Feature.Gameplay.Host
             _activeSlotProvider ??= CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(_saveSlotStore);
         }
 
+        private void PrepareCampaignPlayer(GameplaySceneHostConfiguration configuration, CampaignSlotState slot)
+        {
+            var entities = configuration.InitialEntities;
+            if (slot.GameMode == GameMode.Casual)
+            {
+                var copy = (EntityState[])entities.Clone();
+                var found = false;
+                for (var i = 0; i < copy.Length; i++)
+                {
+                    if (copy[i].entityId != configuration.PlayerEntityId) continue;
+                    if (copy[i].type != EntityType.Unit || copy[i].unitRole != UnitRole.Player)
+                        throw new System.InvalidOperationException("Campaign player identity does not identify a Player.");
+                    copy[i].hp = slot.ResumeHp;
+                    copy[i].maxHp = CampaignSaveSlotPolicy.CasualMaxHp;
+                    found = true;
+                }
+                if (!found) throw new System.InvalidOperationException("Casual launch requires an initial Player.");
+                configuration.InitialEntities = copy;
+            }
+            configuration.CampaignGameMode = slot.GameMode;
+            _preparedCampaignSlot = slot;
+        }
+
+        protected override void ConfigureAfterTimingPresets(GameplaySceneHostConfiguration configuration)
+        {
+            if (configuration.CampaignGameMode != GameMode.Casual) return;
+            configuration.PlayerControlTiming = configuration.PlayerControlTiming.Clone();
+            configuration.PlayerControlTiming.DamageCooldownSeconds = CampaignSaveSlotPolicy.CasualDamageCooldownSeconds;
+        }
+
         private CampaignRunningSlotContext ResolveRunningSlotContext(
             StageId resolvedStageId,
             EditorDirectPlayContext directPlayContext,
             CampaignLaunchHandoff pendingHandoff,
-            StageLaunchContext launchContext)
+            StageLaunchContext launchContext,
+            GameplaySceneHostConfiguration configuration)
         {
             if (directPlayContext.Mode != EditorDirectPlayMode.None)
             {
-                var slotNumber = ValidateCommittedActiveSlotMatchesLaunchStage(resolvedStageId);
+                var slot = ValidateCommittedActiveSlotMatchesLaunchStage(resolvedStageId);
+                PrepareCampaignPlayer(configuration, slot);
+                var slotNumber = slot.SlotNumber;
                 if (launchContext != null &&
                     (launchContext.IsEditorDirectPlayBootstrap ||
                      launchContext.EditorDirectPlayContext.Mode != EditorDirectPlayMode.None))
@@ -590,13 +628,14 @@ namespace Game.Feature.Gameplay.Host
                 _activeSlotProvider,
                 CampaignLaunchHandoffSessionStore.Instance,
                 StaticStageLaunchContextCommitStore.Instance,
-                CampaignRunningSlotContextFactory.Instance);
+                CampaignRunningSlotContextFactory.Instance,
+                slot => PrepareCampaignPlayer(configuration, slot));
             return pendingHandoff != null
                 ? transaction.CommitPending(pendingHandoff, launchContext, resolvedStageId)
                 : transaction.CommitPendingless(launchContext, resolvedStageId);
         }
 
-        private int ValidateCommittedActiveSlotMatchesLaunchStage(StageId resolvedStageId)
+        private CampaignSlotState ValidateCommittedActiveSlotMatchesLaunchStage(StageId resolvedStageId)
         {
             if (_activeSlotProvider == null ||
                 !_activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber))
@@ -613,7 +652,7 @@ namespace Game.Feature.Gameplay.Host
                     $"Campaign active slot stage '{activeSlot.CurrentStageId.Value}' does not match resolved launch stage '{resolvedStageId.Value}'.");
             }
 
-            return activeSlotNumber;
+            return activeSlot;
         }
 
         private static void ValidateLaunchStageIds(
@@ -726,19 +765,22 @@ namespace Game.Feature.Gameplay.Host
         private readonly ICampaignLaunchHandoffStore _handoffStore;
         private readonly IStageLaunchContextCommitStore _contextStore;
         private readonly ICampaignRunningSlotContextFactory _runningFactory;
+        private readonly System.Action<CampaignSlotState> _prepareSlot;
 
         public CampaignLaunchCommitTransaction(
             ICampaignSaveQuery saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             ICampaignLaunchHandoffStore handoffStore,
             IStageLaunchContextCommitStore contextStore,
-            ICampaignRunningSlotContextFactory runningFactory)
+            ICampaignRunningSlotContextFactory runningFactory,
+            System.Action<CampaignSlotState> prepareSlot = null)
         {
             _saveSlotStore = saveSlotStore ?? throw new System.ArgumentNullException(nameof(saveSlotStore));
             _activeSlotProvider = activeSlotProvider ?? throw new System.ArgumentNullException(nameof(activeSlotProvider));
             _handoffStore = handoffStore ?? throw new System.ArgumentNullException(nameof(handoffStore));
             _contextStore = contextStore ?? throw new System.ArgumentNullException(nameof(contextStore));
             _runningFactory = runningFactory ?? throw new System.ArgumentNullException(nameof(runningFactory));
+            _prepareSlot = prepareSlot;
         }
 
         public CampaignRunningSlotContext CommitPending(
@@ -763,6 +805,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 ValidatePendingOwnership(expectedHandoff, expectedContext, resolvedStageId);
                 var slot = LoadValidatedSlot(expectedHandoff.SlotNumber, resolvedStageId);
+                _prepareSlot?.Invoke(slot);
                 hadPreviousActive = _activeSlotProvider.TryGetActiveSlotNumber(out previousActiveSlot);
 
                 activeWriteAttempted = true;
@@ -852,6 +895,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var slot = LoadValidatedSlot(activeSlotNumber, resolvedStageId);
+                _prepareSlot?.Invoke(slot);
                 var runningContext = _runningFactory.Create(slot.SlotNumber);
                 if (runningContext == null || runningContext.SlotNumber != slot.SlotNumber)
                 {

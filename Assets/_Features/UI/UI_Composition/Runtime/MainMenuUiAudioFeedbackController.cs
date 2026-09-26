@@ -86,7 +86,7 @@ namespace Game.Feature.UI.Composition
 
         internal void HandleSaveSlotIntentRequested(SaveSlotIntent intent)
         {
-            if (!IsNormalSaveSlotIntent(intent))
+            if (intent.IntentKind != SaveSlotIntentKind.Continue)
             {
                 return;
             }
@@ -119,6 +119,22 @@ namespace Game.Feature.UI.Composition
         {
             if (completedEvent.Entry.PopupId != PopupId.Confirm)
             {
+                return;
+            }
+
+            if (completedEvent.Entry.Payload is ConfirmPopupPayload modePayload &&
+                modePayload.IsCampaignModeSelection)
+            {
+                switch (completedEvent.Completion.CompletionKind)
+                {
+                    case PopupCompletionKind.Confirmed:
+                    case PopupCompletionKind.AlternativeSelected:
+                        Play(UiAudioCueId.StageLaunch);
+                        break;
+                    case PopupCompletionKind.Cancelled:
+                        Play(UiAudioCueId.Cancel);
+                        break;
+                }
                 return;
             }
 
@@ -181,19 +197,6 @@ namespace Game.Feature.UI.Composition
             _settingsOverlayController = null;
             _suppressNextConfirmPopupOpenedCue = false;
             _suppressNextSettingsOpenedCue = false;
-        }
-
-        private static bool IsNormalSaveSlotIntent(SaveSlotIntent intent)
-        {
-            switch (intent.IntentKind)
-            {
-                case SaveSlotIntentKind.NewGame:
-                case SaveSlotIntentKind.Continue:
-                    return true;
-
-                default:
-                    return false;
-            }
         }
 
         private void Play(UiAudioCueId cueId)

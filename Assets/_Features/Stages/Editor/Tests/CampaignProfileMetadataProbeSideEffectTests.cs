@@ -79,6 +79,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 {
                     new CampaignSlotDocument
                     {
+                GameMode = GameMode.Hardcore,
                         SlotNumber = 1,
                         StageId = "stage-1-1",
                         LevelGroupId = "level-1",
