@@ -457,7 +457,7 @@ Invoke-Case "missing and unknown distribution targets are rejected" {
         Assert-True $threw
     }
 }
-Invoke-Case "DirectWindows and SteamWindows output paths are separated" {
+Invoke-Case "DirectWindows and SteamWindows policy labels remain distinct" {
     $direct = Resolve-WindowsDistributionTargetPolicy "direct-windows"
     $steam = Resolve-WindowsDistributionTargetPolicy "steam-windows"
     Assert-False ($direct.ArtifactDirectoryName -ceq $steam.ArtifactDirectoryName)
@@ -480,7 +480,7 @@ Invoke-Case "unknown backend is rejected" {
     try { Resolve-StoreBackendPolicy "il2cpp" | Out-Null } catch { $threw = $true }
     Assert-True $threw
 }
-Invoke-Case "backend output paths are separated" {
+Invoke-Case "backend configuration identities remain distinct" {
     $root = "C:\release"
     $mono = Join-Path $root (
         Resolve-StoreBackendPolicy "Mono" "BackendComparison" "InternalRc").Configuration
@@ -736,6 +736,45 @@ Invoke-Case "legacy detached source root exceeds URP importer path budget" {
 Invoke-Case "default detached source root is short and deterministic" {
     Assert-Equal "C:\VQBuildSources" $BuildSourceRoot
 }
+Invoke-Case "default release output root is on D" {
+    Assert-Equal "D:\J2M\builds" $OutputRoot
+}
+Invoke-Case "release output uses source SHA and RunId without configuration folders" {
+    $sha = "a" * 40
+    $paths = Resolve-ReleaseOutputPaths -OutputRoot "D:\J2M\builds" `
+        -SourceSha $sha -RunId "20260926T095233405Z"
+    Assert-Equal "D:\J2M\builds\$sha\20260926T095233405Z" $paths.Final
+    Assert-Equal "D:\J2M\builds\$sha\.staging-20260926T095233405Z" `
+        $paths.Staging
+    Assert-Equal "D:\J2M\builds\$sha\.private\20260926T095233405Z" `
+        $paths.Private
+    Assert-Equal "D:\J2M\builds\$sha\failed\20260926T095233405Z" `
+        $paths.Failed
+    Assert-Equal 223 (Get-ReleaseOutputCriticalPathLength $paths.Final)
+    Assert-Equal 232 (Get-ReleaseOutputCriticalPathLength $paths.Staging)
+}
+Invoke-Case "release output critical path length 259 is accepted" {
+    $root = "C:\x"
+    do {
+        $paths = Resolve-ReleaseOutputPaths -OutputRoot $root `
+            -SourceSha ("a" * 40) -RunId "20260926T095233405Z"
+        if ((Get-ReleaseOutputCriticalPathLength $paths.Staging) -eq 259) { break }
+        $root += "x"
+    } while ((Get-ReleaseOutputCriticalPathLength $paths.Staging) -lt 259)
+    Assert-Equal 259 (Get-ReleaseOutputCriticalPathLength $paths.Staging)
+    Assert-True (Test-ReleaseOutputPathBudget $paths)
+}
+Invoke-Case "release output critical path length 260 is rejected" {
+    $root = "C:\x"
+    do {
+        $paths = Resolve-ReleaseOutputPaths -OutputRoot $root `
+            -SourceSha ("a" * 40) -RunId "20260926T095233405Z"
+        if ((Get-ReleaseOutputCriticalPathLength $paths.Staging) -eq 260) { break }
+        $root += "x"
+    } while ((Get-ReleaseOutputCriticalPathLength $paths.Staging) -lt 260)
+    Assert-Equal 260 (Get-ReleaseOutputCriticalPathLength $paths.Staging)
+    Assert-False (Test-ReleaseOutputPathBudget $paths)
+}
 Invoke-Case "prepared build source is reused without direct worktree creation" {
     $plan = Resolve-BuildSourcePlan `
         -BuildSourceRoot "C:\VQBuildSources" `
@@ -805,6 +844,23 @@ Invoke-Case "longest known critical importer suffix owns the path budget" {
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null
 try {
+    Invoke-Case "actual output path scan rejects a file beyond its budget" {
+        $root = Join-Path $temp "output-path-scan"
+        New-Item -ItemType Directory -Path $root -Force | Out-Null
+        $file = Join-Path $root "payload\VectorQuake.exe"
+        New-Item -ItemType Directory -Path (Split-Path $file -Parent) -Force |
+            Out-Null
+        [IO.File]::WriteAllText($file, "player")
+        $length = [IO.Path]::GetFullPath($file).Length
+        Assert-ReleaseOutputActualPathBudget -ArtifactRoot $root `
+            -MaximumLength $length
+        $rejected = $false
+        try {
+            Assert-ReleaseOutputActualPathBudget -ArtifactRoot $root `
+                -MaximumLength ($length - 1)
+        } catch { $rejected = $true }
+        Assert-True $rejected
+    }
     Invoke-Case "shared Library junction rejected" {
         $root = Join-Path $temp 'isolation'
         New-Item -ItemType Directory -Path "$root\build\Library", "$root\other" -Force | Out-Null
@@ -1447,6 +1503,76 @@ try {
         Add-Content -LiteralPath $destination -Value "tampered"
         Assert-False (Test-PayloadManifest $noticeStagingRoot)
     }
+    Invoke-Case "oversized output is rejected before private evidence is created" {
+        $pipelineRoot = Join-Path $temp "output-budget"
+        $repositoryRoot = Join-Path $pipelineRoot "repository"
+        $outputRoot = Join-Path $pipelineRoot "output"
+        $unityExe = Join-Path $pipelineRoot "Unity.exe"
+        New-Item -ItemType Directory -Path $repositoryRoot -Force | Out-Null
+        Set-Content -LiteralPath $unityExe -Value "synthetic" -NoNewline
+        $paths = Resolve-ReleaseOutputPaths -OutputRoot $outputRoot `
+            -SourceSha ("a" * 40) -RunId "oversized-run"
+        Assert-False (Test-ReleaseOutputPathBudget $paths)
+        $originalInvokeGitText = (Get-Command Invoke-GitText).ScriptBlock
+        try {
+            Set-Item Function:\Invoke-GitText {
+                param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
+                if ($Arguments -contains "HEAD^{tree}") { return "b" * 40 }
+                return "a" * 40
+            }
+            $exitCode = Invoke-WindowsReleasePipeline `
+                -RepositoryRoot $repositoryRoot -UnityExe $unityExe `
+                -OutputRoot $outputRoot -BuildSourceRoot $pipelineRoot `
+                -PreparedBuildSourceRoot $repositoryRoot `
+                -RunId "oversized-run" 2>$null
+            Assert-Equal 119 ([int]$exitCode)
+            Assert-False (Test-Path -LiteralPath $paths.Private)
+            Assert-False (Test-Path -LiteralPath $paths.Staging)
+        } finally {
+            Set-Item Function:\Invoke-GitText $originalInvokeGitText
+        }
+    }
+    Invoke-Case "existing private run evidence is preserved on output collision" {
+        $pipelineRoot = Join-Path $temp "output-collision"
+        $repositoryRoot = Join-Path $pipelineRoot "repository"
+        $outputRoot = Join-Path $pipelineRoot "output"
+        $unityExe = Join-Path $pipelineRoot "Unity.exe"
+        New-Item -ItemType Directory -Path $repositoryRoot -Force | Out-Null
+        Set-Content -LiteralPath $unityExe -Value "synthetic" -NoNewline
+        $sourceSha = "a" * 40
+        $runId = "existing-run"
+        $paths = Resolve-ReleaseOutputPaths -OutputRoot $outputRoot `
+            -SourceSha $sourceSha -RunId $runId
+        New-Item -ItemType Directory -Path $paths.Private -Force | Out-Null
+        $marker = Join-Path $paths.Private "keep.txt"
+        Set-Content -LiteralPath $marker -Value "preserve"
+        $originalInvokeGitText = (Get-Command Invoke-GitText).ScriptBlock
+        $originalTestReleaseOutputPathBudget =
+            (Get-Command Test-ReleaseOutputPathBudget).ScriptBlock
+        try {
+            Set-Item Function:\Invoke-GitText {
+                param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
+                if ($Arguments -contains "HEAD^{tree}") { return "b" * 40 }
+                return "a" * 40
+            }
+            Set-Item Function:\Test-ReleaseOutputPathBudget {
+                param($Paths)
+                return $true
+            }
+            $exitCode = Invoke-WindowsReleasePipeline `
+                -RepositoryRoot $repositoryRoot -UnityExe $unityExe `
+                -OutputRoot $outputRoot -BuildSourceRoot $pipelineRoot `
+                -PreparedBuildSourceRoot $repositoryRoot -RunId $runId 2>$null
+            Assert-Equal 103 ([int]$exitCode)
+            Assert-Equal "preserve" (Get-Content -LiteralPath $marker -Raw).Trim()
+            Assert-False (Test-Path -LiteralPath $paths.Staging)
+            Assert-False (Test-Path -LiteralPath $paths.Failed)
+        } finally {
+            Set-Item Function:\Invoke-GitText $originalInvokeGitText
+            Set-Item Function:\Test-ReleaseOutputPathBudget `
+                $originalTestReleaseOutputPathBudget
+        }
+    }
     Invoke-Case "pipeline public-notices preflight returns 117 and quarantines" {
         $pipelineRoot = Join-Path $temp "notice-pipeline"
         $repositoryRoot = Join-Path $pipelineRoot "repository"
@@ -1463,6 +1589,8 @@ try {
         $originalGetGitSnapshot = (Get-Command Get-GitSnapshot).ScriptBlock
         $originalTestBuildSourcePathBudget =
             (Get-Command Test-BuildSourcePathBudget).ScriptBlock
+        $originalTestReleaseOutputPathBudget =
+            (Get-Command Test-ReleaseOutputPathBudget).ScriptBlock
         $originalNoticeContract =
             (Get-Command Get-ThirdPartyNoticeSourceContract).ScriptBlock
         try {
@@ -1495,6 +1623,10 @@ try {
                 param([string]$Path)
                 return $true
             }
+            Set-Item Function:\Test-ReleaseOutputPathBudget {
+                param($Paths)
+                return $true
+            }
             Set-Item Function:\Get-ThirdPartyNoticeSourceContract {
                 param([string]$SourceRoot, [string]$SourceRevision)
                 throw "PUBLIC_NOTICE_SOURCE_MISSING: synthetic"
@@ -1509,21 +1641,22 @@ try {
                 -RunId $runId 2>$null
 
             Assert-Equal 117 ([int]$exitCode)
-            $configurationRoot = Join-Path `
-                (Join-Path $outputRoot $sourceSha) $script:ConfigurationPathName
-            $failedPath = Join-Path (Join-Path $configurationRoot "failed") $runId
+            $sourceRoot = Join-Path $outputRoot $sourceSha
+            $failedPath = Join-Path (Join-Path $sourceRoot "failed") $runId
             $failure = Get-Content (Join-Path $failedPath "FAILURE.json") `
                 -Raw | ConvertFrom-Json
             Assert-Equal "public-notices" $failure.failureStage
             Assert-Equal 117 ([int]$failure.exitCode)
             Assert-False $failure.deployable
             Assert-False (Test-Path -LiteralPath (
-                Join-Path $configurationRoot $runId))
+                Join-Path $sourceRoot $runId))
         } finally {
             Set-Item Function:\Invoke-GitText $originalInvokeGitText
             Set-Item Function:\Get-GitSnapshot $originalGetGitSnapshot
             Set-Item Function:\Test-BuildSourcePathBudget `
                 $originalTestBuildSourcePathBudget
+            Set-Item Function:\Test-ReleaseOutputPathBudget `
+                $originalTestReleaseOutputPathBudget
             Set-Item Function:\Get-ThirdPartyNoticeSourceContract `
                 $originalNoticeContract
             Remove-Item Function:\Get-CimInstance -ErrorAction SilentlyContinue

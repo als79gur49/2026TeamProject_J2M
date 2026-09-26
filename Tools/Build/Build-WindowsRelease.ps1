@@ -2,7 +2,7 @@
 param(
     [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
     [string]$UnityExe = "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe",
-    [string]$OutputRoot = "C:\Users\user\Documents\VectorQuake-Release-Builds",
+    [string]$OutputRoot = "D:\J2M\builds",
     [string]$BuildSourceRoot = "C:\VQBuildSources",
     [string]$PreparedBuildSourceRoot = "",
     [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")),
@@ -361,6 +361,7 @@ $script:ReleaseExitCodes = [ordered]@{
     UnsupportedConfiguration = 116
     PublicNoticeFailure = 117
     ForbiddenManagedAssemblyPresent = 118
+    OutputPathBudgetFailure = 119
 }
 try {
     $script:BackendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
@@ -373,15 +374,15 @@ try {
 }
 $script:ConfigurationName = [string]$script:BackendPolicy.Configuration
 $script:ExecutingWrapperSourcePath = $PSCommandPath
-$script:ConfigurationPathName = Join-Path `
-    ([string]$script:BackendPolicy.Configuration) `
-    ([string]$script:DistributionPolicy.ArtifactDirectoryName)
 $script:MetadataSchemaVersion = "4.0"
 $script:ReportSummarySchemaVersion = "4.0"
 $script:ReportDetailsSchemaVersion = "3.0"
 $script:ConfigurationSummarySchemaVersion = "2.0"
 $script:ProvenanceSchemaVersion = "4.0"
 $script:MaxLegacyWindowsPathLength = 259
+$script:CriticalOutputRelativePath = Join-Path `
+    "payload\VectorQuake_Data\StreamingAssets\aa\StandaloneWindows64" `
+    ("x" * 84)
 $script:CriticalImporterRelativePaths = @(
     (
         "Library\PackageCache\com.unity.collections@000000000000\" +
@@ -412,6 +413,50 @@ function Test-BuildSourcePathBudget {
     param([Parameter(Mandatory)][string]$DetachedSourcePath)
     return (Get-BuildSourceCriticalPathLength $DetachedSourcePath) -le
         $script:MaxLegacyWindowsPathLength
+}
+
+function Resolve-ReleaseOutputPaths {
+    param(
+        [Parameter(Mandatory)][string]$OutputRoot,
+        [Parameter(Mandatory)][string]$SourceSha,
+        [Parameter(Mandatory)][string]$RunId
+    )
+    $parent = Join-Path $OutputRoot $SourceSha
+    return [pscustomobject][ordered]@{
+        Parent = $parent
+        Staging = Join-Path $parent ".staging-$RunId"
+        Final = Join-Path $parent $RunId
+        Failed = Join-Path (Join-Path $parent "failed") $RunId
+        Private = Join-Path (Join-Path $parent ".private") $RunId
+    }
+}
+
+function Get-ReleaseOutputCriticalPathLength {
+    param([Parameter(Mandatory)][string]$ArtifactRoot)
+    return [IO.Path]::GetFullPath((Join-Path $ArtifactRoot `
+        $script:CriticalOutputRelativePath)).Length
+}
+
+function Test-ReleaseOutputPathBudget {
+    param([Parameter(Mandatory)]$Paths)
+    return (Get-ReleaseOutputCriticalPathLength $Paths.Staging) -le
+        $script:MaxLegacyWindowsPathLength -and
+        (Get-ReleaseOutputCriticalPathLength $Paths.Final) -le
+        $script:MaxLegacyWindowsPathLength
+}
+
+function Assert-ReleaseOutputActualPathBudget {
+    param(
+        [Parameter(Mandatory)][string]$ArtifactRoot,
+        [int]$MaximumLength = $script:MaxLegacyWindowsPathLength
+    )
+    foreach ($item in @(Get-ChildItem -LiteralPath $ArtifactRoot -Recurse -Force `
+                -ErrorAction Stop)) {
+        $length = [IO.Path]::GetFullPath($item.FullName).Length
+        if ($length -gt $MaximumLength) {
+            throw "Release output path exceeds $MaximumLength characters ($length): $($item.FullName)"
+        }
+    }
 }
 
 function Get-BuildSourceCriticalPathLength {
@@ -2734,6 +2779,8 @@ function Invoke-WindowsReleasePipeline {
     $sourceSha = ""
     $staging = ""
     $final = ""
+    $ownsStaging = $false
+    $ownsFinal = $false
     $privateLog = ""
     $processDiagnosticsPath = ""
     $wrapperLog = ""
@@ -2767,13 +2814,40 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.UnsupportedConfiguration
             throw "Backend comparison id contains unsupported characters."
         }
+        if ($RunId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or
+            $RunId -ceq '.' -or $RunId -ceq '..') {
+            $exitCode = $script:ReleaseExitCodes.UnsupportedConfiguration
+            throw "Release RunId contains unsupported characters."
+        }
         $artifactId = "$sourceSha-$RunId"
-        $parent = Join-Path (Join-Path $OutputRoot $sourceSha) $script:ConfigurationPathName
-        $privateRoot = Join-Path $parent ".private\$RunId"
+        $outputPaths = Resolve-ReleaseOutputPaths -OutputRoot $OutputRoot `
+            -SourceSha $sourceSha -RunId $RunId
+        if (-not (Test-ReleaseOutputPathBudget $outputPaths)) {
+            $exitCode = $script:ReleaseExitCodes.OutputPathBudgetFailure
+            throw "Release output path exceeds the Windows 259-character budget."
+        }
+        try {
+            $leases += Open-ReleaseLease (Join-Path $OutputRoot '.j2m-release-output.lock')
+        } catch {
+            $exitCode = $script:ReleaseExitCodes.ProcessGateFailure
+            throw "Release output already in use or not isolated: $($_.Exception.Message)"
+        }
+        if ((Test-Path -LiteralPath $outputPaths.Staging) -or
+            (Test-Path -LiteralPath $outputPaths.Final) -or
+            (Test-Path -LiteralPath $outputPaths.Failed) -or
+            (Test-Path -LiteralPath $outputPaths.Private) -or
+            [IO.Path]::GetPathRoot($outputPaths.Staging) -ne
+                [IO.Path]::GetPathRoot($outputPaths.Final)) {
+            $exitCode = $script:ReleaseExitCodes.OutputCollision
+            throw "Output collision or cross-volume promotion plan."
+        }
+        $privateRoot = $outputPaths.Private
+        New-Item -ItemType Directory -Path (Split-Path $privateRoot -Parent) -Force |
+            Out-Null
+        New-Item -ItemType Directory -Path $privateRoot | Out-Null
         $privateLog = Join-Path $privateRoot "UnityEditor.log"
         $wrapperLog = Join-Path $privateRoot "wrapper.log"
         $processDiagnosticsPath = Join-Path $privateRoot "process-preflight.json"
-        New-Item -ItemType Directory -Path $privateRoot -Force | Out-Null
         Write-WrapperLog $wrapperLog $stage "Pipeline started for $sourceSha."
         $canaries = @(
             "ProjectSettings/ProjectVersion.txt",
@@ -2819,23 +2893,19 @@ function Invoke-WindowsReleasePipeline {
             throw "Release isolation process gate failed."
         }
 
-        $staging = Join-Path $parent ".staging-$RunId"
-        $final = Join-Path $parent $RunId
-        $failed = Join-Path (Join-Path $parent "failed") $RunId
+        $staging = $outputPaths.Staging
+        $final = $outputPaths.Final
+        $failed = $outputPaths.Failed
         if (-not (Test-BuildSourcePathBudget $detached)) {
             $exitCode = $script:ReleaseExitCodes.BuildSourcePathBudgetFailure
             throw "Detached source path exceeds the URP importer path budget."
-        }
-        if ((Test-Path -LiteralPath $staging) -or (Test-Path -LiteralPath $final) -or
-            [IO.Path]::GetPathRoot($staging) -ne [IO.Path]::GetPathRoot($final)) {
-            $exitCode = $script:ReleaseExitCodes.OutputCollision
-            throw "Output collision or cross-volume promotion plan."
         }
         if ($buildSourcePlan.RequiresCreation -and (Test-Path -LiteralPath $detached)) {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source collision."
         }
-        New-Item -ItemType Directory -Path $staging -Force | Out-Null
+        New-Item -ItemType Directory -Path $staging | Out-Null
+        $ownsStaging = $true
         $stage = "detached-source"
         if ($buildSourcePlan.RequiresCreation) {
             New-Item -ItemType Directory -Path (Split-Path $detached -Parent) -Force |
@@ -2856,7 +2926,6 @@ function Invoke-WindowsReleasePipeline {
             foreach ($project in $protectedProjects) {
                 $leases += Open-ReleaseLease (Join-Path $project 'Library\.j2m-release.lock')
             }
-            $leases += Open-ReleaseLease (Join-Path $OutputRoot '.j2m-release-output.lock')
         } catch {
             $exitCode = $script:ReleaseExitCodes.ProcessGateFailure
             throw "Release project/output already in use or not isolated: $($_.Exception.Message)"
@@ -3134,6 +3203,10 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.ControlFileConsistencyFailure
             throw "SUCCESS control consistency failed."
         }
+        $stage = "output-path-budget"
+        $exitCode = $script:ReleaseExitCodes.OutputPathBudgetFailure
+        Assert-ReleaseOutputActualPathBudget -ArtifactRoot $staging
+        $exitCode = $script:ReleaseExitCodes.WrapperInternalError
 
         $stage = "promotion"
         if (Test-Path -LiteralPath $final) {
@@ -3141,6 +3214,8 @@ function Invoke-WindowsReleasePipeline {
             throw "Final artifact path already exists."
         }
         Move-Item -LiteralPath $staging -Destination $final
+        $ownsStaging = $false
+        $ownsFinal = $true
         if (-not (Test-SuccessControl -PayloadRoot $final `
                 -BuildReportDetailsPath $reportDetailsPath `
                 -Expectation $expectation) -or
@@ -3166,14 +3241,13 @@ function Invoke-WindowsReleasePipeline {
             -ErrorAction Continue
         Write-WrapperLog $wrapperLog $stage `
             "Pipeline failed with wrapper code ${exitCode}: $($_.Exception.Message)"
-        $quarantineCandidate = if (-not [string]::IsNullOrWhiteSpace($staging) -and
+        $quarantineCandidate = if ($ownsStaging -and
             (Test-Path -LiteralPath $staging)) { $staging } elseif (
-            $stage -eq "promotion" -and
-            -not [string]::IsNullOrWhiteSpace($final) -and
+            $ownsFinal -and $stage -eq "promotion" -and
             (Test-Path -LiteralPath $final)) { $final } else { "" }
         if (-not [string]::IsNullOrWhiteSpace($quarantineCandidate)) {
             try {
-                $failedPath = Join-Path (Join-Path (Split-Path $staging -Parent) "failed") $RunId
+                $failedPath = $outputPaths.Failed
                 if (-not (Test-Path -LiteralPath $failedPath)) {
                     Write-FailureEvidence -Path $quarantineCandidate -Stage $stage -ExitCode $exitCode `
                         -SourceSha $sourceSha -RunId $RunId -PrivateLogPath $privateLog `

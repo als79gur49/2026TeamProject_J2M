@@ -237,9 +237,10 @@ exact-revision worktree has been created through `j2m-worktree-add`:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File "Tools\Build\Build-WindowsRelease.ps1" `
-  -RepositoryRoot "C:\Users\user\2026TeamProject_J2M" `
+  -File "D:\J2M\worktrees\prepared-release\Tools\Build\Build-WindowsRelease.ps1" `
+  -RepositoryRoot "D:\J2M\worktrees\prepared-release" `
   -PreparedBuildSourceRoot "D:\J2M\worktrees\prepared-release" `
+  -OutputRoot "D:\J2M\builds" `
   -UnityExe "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe" `
   -BuildIntent "CanonicalStore" `
   -Backend "Mono" `
@@ -326,14 +327,32 @@ status is used for the exact untracked allowlist. This keeps byte-identical
 Unity rewrites from becoming timestamp-only false positives without permitting
 any content or canary drift.
 
-Output is written outside the repository:
+Output is written outside the repository. The default `OutputRoot` is
+`D:\J2M\builds`. The full source SHA and RunId own the physical path; the
+configuration, backend, and distribution target remain bound in
+`build-metadata.json`, `configuration-summary.json`, `artifact-provenance.json`,
+and `SUCCESS.json`. A RunId is unique across targets and backends for the same
+source SHA. An existing final, staging, failed, or private run path is rejected
+before any run evidence is written:
 
 ```text
-<OutputRoot>/<sourceSha>/Windows-x64-Store-Mono-LogOn/<DirectWindows|SteamWindows>/
+<OutputRoot>/<sourceSha>/
+  .private/<runId>/
   .staging-<runId>/
   failed/<runId>/
   <runId>/
 ```
+
+The wrapper checks the predicted longest known payload path in staging and the
+final directory against the 259-character legacy Windows budget before creating
+run evidence. It scans every generated staging item after the build and rejects
+any actual path above that budget before promotion. For source
+`2a8edd5352546ac1f9379c935283264015a0de50` and run
+`20260926T095233405Z` under the default output root, the previously longest
+MonoScript bundle path would be 232 characters in staging and 223 after
+promotion. Future bundle names remain subject to the actual-file scan.
+Existing artifacts under the former configuration/target directory structure
+remain immutable and are not moved or renamed.
 
 The staging directory contains `payload/`, `files.sha256`,
 `files.sha256.sha256`, `artifact-provenance.json`, and `SUCCESS.json`. Manifest
@@ -491,8 +510,8 @@ absolute private paths, operator identity, machine identity, save data, or
 PlayerPrefs values.
 
 `Player.log` and `Player-prev.log` are rejected by name anywhere in a
-`StoreDistributable` payload. Actual smoke logs belong only below the artifact's
-`.private/<runId>/smoke/` evidence root and the private
+`StoreDistributable` payload. Actual smoke logs belong only below the source
+SHA's sibling `.private/<runId>/smoke/` evidence root and the private
 `VectorQuake-QA-Telemetry` archive. See
 [`Docs/Support/Windows-Player-Log-Policy.md`](../Support/Windows-Player-Log-Policy.md)
 for user-facing location, submission, privacy, retention, and redaction policy.
