@@ -25,12 +25,15 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private Image _confirmButtonImage;
         [SerializeField] private bool _preserveAuthoredConfirmColor;
         [SerializeField] private bool _confirmActionOnLeft;
+        [SerializeField] private CanvasGroup _modeDescriptionPanel;
         [SerializeField] private UiSelectableButtonGroup _actionNavigationGroup = new UiSelectableButtonGroup();
 
         private bool _confirmEnabled = true;
         private bool _cancelEnabled = true;
         private bool _consumeBack;
         private bool _secondaryIsAlternative;
+        private bool _navigationFocusVisible;
+        private int _hoveredModeIndex = -1;
         public void ConfigureAlternativeAction(bool enabled) => _secondaryIsAlternative = enabled;
         public void ConfigureActions(bool confirmEnabled, bool cancelEnabled, bool consumeBack)
         {
@@ -69,6 +72,7 @@ namespace Game.Feature.UI.Popups
             {
                 _isVisible = value;
                 RefreshView();
+                WireModeHover(value);
             }
         }
 
@@ -103,6 +107,7 @@ namespace Game.Feature.UI.Popups
 
         private void OnEnable()
         {
+            WireModeHover(true);
             if (_confirmButton != null)
             {
                 _confirmButton.onClick.RemoveListener(ClickConfirm);
@@ -121,6 +126,10 @@ namespace Game.Feature.UI.Popups
 
         private void OnDisable()
         {
+            WireModeHover(false);
+            _hoveredModeIndex = -1;
+            _navigationFocusVisible = false;
+            RefreshModeDescription();
             StopRootEnterMotion();
             if (_confirmButton != null)
             {
@@ -155,19 +164,26 @@ namespace Game.Feature.UI.Popups
                 return false;
             }
 
+            bool changed;
             switch (command)
             {
                 case UiNavigationCommand.Left:
-                    return _actionNavigationGroup.SetSelectedIndex(
+                    changed = _actionNavigationGroup.SetSelectedIndex(
                         _confirmActionOnLeft ? ConfirmSelectionIndex : CancelSelectionIndex);
+                    break;
 
                 case UiNavigationCommand.Right:
-                    return _actionNavigationGroup.SetSelectedIndex(
+                    changed = _actionNavigationGroup.SetSelectedIndex(
                         _confirmActionOnLeft ? CancelSelectionIndex : ConfirmSelectionIndex);
+                    break;
 
                 default:
                     return false;
             }
+
+            _hoveredModeIndex = -1;
+            RefreshModeDescription();
+            return changed;
         }
 
         public bool HandleSubmit()
@@ -203,12 +219,16 @@ namespace Game.Feature.UI.Popups
 
         public void OnNavigationFocusGained()
         {
+            _navigationFocusVisible = true;
             _actionNavigationGroup?.RefreshVisuals();
+            RefreshModeDescription();
         }
 
         public void OnNavigationFocusLost()
         {
+            _navigationFocusVisible = false;
             _actionNavigationGroup?.HideAllFrames();
+            RefreshModeDescription();
         }
 
         public void ClickConfirm()
@@ -274,6 +294,7 @@ namespace Game.Feature.UI.Popups
 
             if (_viewModel == null)
             {
+                RefreshModeDescription();
                 return;
             }
 
@@ -303,10 +324,14 @@ namespace Game.Feature.UI.Popups
                     ? new Color(0.62f, 0.21f, 0.21f, 1f)
                     : new Color(0.20f, 0.25f, 0.34f, 1f);
             }
+
+            RefreshModeDescription();
         }
 
         private void ResetDefaultSelection()
         {
+            _hoveredModeIndex = -1;
+            _navigationFocusVisible = false;
             if (_actionNavigationGroup == null)
             {
                 return;
@@ -315,6 +340,89 @@ namespace Game.Feature.UI.Popups
             _actionNavigationGroup.SetSelectedIndexSilently(
                 _confirmActionOnLeft ? ConfirmSelectionIndex : CancelSelectionIndex);
             _actionNavigationGroup.HideAllFrames();
+        }
+
+        private void WireModeHover(bool subscribe)
+        {
+            if (_modeDescriptionPanel == null)
+            {
+                return;
+            }
+
+            WireModeHover(_confirmButton, subscribe);
+            WireModeHover(_cancelButton, subscribe);
+        }
+
+        private void WireModeHover(Button button, bool subscribe)
+        {
+            var relay = button != null ? button.GetComponent<ModeOptionHoverRelay>() : null;
+            if (relay == null)
+            {
+                return;
+            }
+
+            relay.HoverEntered -= HandleModeHoverEntered;
+            relay.HoverExited -= HandleModeHoverExited;
+            if (subscribe)
+            {
+                relay.HoverEntered += HandleModeHoverEntered;
+                relay.HoverExited += HandleModeHoverExited;
+            }
+        }
+
+        private void HandleModeHoverEntered(int index)
+        {
+            if (!CanHandleUiNavigation || _modeDescriptionPanel == null)
+            {
+                return;
+            }
+
+            _hoveredModeIndex = index;
+            _actionNavigationGroup?.SetSelectedIndexSilently(index);
+            if (_navigationFocusVisible)
+            {
+                _actionNavigationGroup?.RefreshVisuals();
+            }
+
+            RefreshModeDescription();
+        }
+
+        private void HandleModeHoverExited(int index)
+        {
+            if (_hoveredModeIndex != index)
+            {
+                return;
+            }
+
+            _hoveredModeIndex = -1;
+            RefreshModeDescription();
+        }
+
+        private void RefreshModeDescription()
+        {
+            if (_modeDescriptionPanel == null)
+            {
+                return;
+            }
+
+            var show = _viewModel != null && CanHandleUiNavigation &&
+                (_hoveredModeIndex >= 0 || _navigationFocusVisible);
+            var index = _hoveredModeIndex >= 0
+                ? _hoveredModeIndex
+                : _actionNavigationGroup != null ? _actionNavigationGroup.SelectedIndex : ConfirmSelectionIndex;
+            _modeDescriptionPanel.alpha = show ? 1f : 0f;
+            _modeDescriptionPanel.blocksRaycasts = false;
+            _modeDescriptionPanel.interactable = false;
+            if (_bodyLabel != null)
+            {
+                _bodyLabel.gameObject.SetActive(show && index == ConfirmSelectionIndex);
+            }
+
+            if (_warningLabel != null)
+            {
+                _warningLabel.gameObject.SetActive(show && index == CancelSelectionIndex &&
+                    !string.IsNullOrWhiteSpace(_warningLabel.text));
+            }
         }
 
         private void ApplyRootVisibility()

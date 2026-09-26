@@ -131,10 +131,14 @@ namespace Game.Feature.UI.Tests
 
             var casualCard = modePrefab.transform.Find("Buttons/ConfirmButton");
             var hardcoreCard = modePrefab.transform.Find("Buttons/CancelButton");
+            var descriptionPanel = modePrefab.transform.Find("ModeDescriptionPanel");
             Assert.That(casualCard, Is.Not.Null);
             Assert.That(hardcoreCard, Is.Not.Null);
-            Assert.That(casualCard.Find("Body"), Is.Not.Null);
-            Assert.That(hardcoreCard.Find("Warning"), Is.Not.Null);
+            Assert.That(descriptionPanel, Is.Not.Null);
+            Assert.That(casualCard.Find("Body"), Is.Null);
+            Assert.That(hardcoreCard.Find("Warning"), Is.Null);
+            Assert.That(descriptionPanel.Find("Body"), Is.Not.Null);
+            Assert.That(descriptionPanel.Find("Warning"), Is.Not.Null);
             var casualImage = casualCard.GetComponent<Image>();
             Assert.That(casualImage, Is.Not.Null);
             Assert.That(hardcoreCard.GetComponent<Image>(), Is.Not.Null);
@@ -155,24 +159,48 @@ namespace Game.Feature.UI.Tests
 
                 var casualRect = (RectTransform)instance.transform.Find("Buttons/ConfirmButton");
                 var hardcoreRect = (RectTransform)instance.transform.Find("Buttons/CancelButton");
-                var casualDescription = (RectTransform)casualRect.Find("Body");
-                var hardcoreDescription = (RectTransform)hardcoreRect.Find("Warning");
+                var panel = instance.transform.Find("ModeDescriptionPanel");
+                var panelGroup = panel.GetComponent<CanvasGroup>();
+                var casualDescription = panel.Find("Body");
+                var hardcoreDescription = panel.Find("Warning");
                 Assert.That(casualRect.anchoredPosition.x, Is.LessThan(hardcoreRect.anchoredPosition.x));
-                Assert.That(casualDescription.gameObject.activeInHierarchy, Is.True);
-                Assert.That(hardcoreDescription.gameObject.activeInHierarchy, Is.True);
+                Assert.That(panelGroup.blocksRaycasts, Is.False);
+                Assert.That(panelGroup.alpha, Is.Zero);
+                Assert.That(casualDescription.gameObject.activeSelf, Is.False);
+                Assert.That(hardcoreDescription.gameObject.activeSelf, Is.False);
 
                 Assert.That(instance.SelectedActionIndex, Is.EqualTo(0));
                 Assert.That(instance.transform.Find("Buttons/ConfirmButton").GetComponent<Image>().color,
                     Is.EqualTo(casualImage.color));
-                Assert.That(instance.transform.Find("Buttons/ConfirmButton/Body")
-                    .GetComponent<TMPro.TMP_Text>().text, Is.EqualTo("Casual details"));
-                Assert.That(instance.transform.Find("Buttons/CancelButton/Warning")
-                    .GetComponent<TMPro.TMP_Text>().text, Is.EqualTo("Hardcore details"));
+                Assert.That(casualDescription.GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("Casual details"));
+                Assert.That(hardcoreDescription.GetComponent<TMPro.TMP_Text>().text,
+                    Is.EqualTo("Hardcore details"));
+                casualRect.GetComponent<ModeOptionHoverRelay>().OnPointerEnter(null);
+                Assert.That(panelGroup.alpha, Is.EqualTo(1f));
+                Assert.That(casualDescription.gameObject.activeSelf, Is.True);
+                Assert.That(hardcoreDescription.gameObject.activeSelf, Is.False);
+                hardcoreRect.GetComponent<ModeOptionHoverRelay>().OnPointerEnter(null);
+                Assert.That(instance.SelectedActionIndex, Is.EqualTo(1));
+                Assert.That(casualDescription.gameObject.activeSelf, Is.False);
+                Assert.That(hardcoreDescription.gameObject.activeSelf, Is.True);
+                casualRect.GetComponent<ModeOptionHoverRelay>().OnPointerExit(null);
+                Assert.That(panelGroup.alpha, Is.EqualTo(1f), "Leaving the old card must not hide the new card's description.");
+                hardcoreRect.GetComponent<ModeOptionHoverRelay>().OnPointerExit(null);
+                Assert.That(panelGroup.alpha, Is.Zero);
+
+                instance.OnNavigationFocusGained();
+                Assert.That(hardcoreDescription.gameObject.activeSelf, Is.True);
+                Assert.That(instance.HandleNavigate(UiNavigationCommand.Left), Is.True);
+                Assert.That(casualDescription.gameObject.activeSelf, Is.True);
+                instance.OnNavigationFocusLost();
+                Assert.That(panelGroup.alpha, Is.Zero);
 
                 PopupCompletionKind? completion = null;
                 instance.CompletionRequested += kind => completion = kind;
                 instance.ClickConfirm();
                 Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+                instance.OnNavigationFocusGained();
                 Assert.That(instance.HandleNavigate(UiNavigationCommand.Right), Is.True);
                 instance.HandleSubmit();
                 Assert.That(completion, Is.EqualTo(PopupCompletionKind.AlternativeSelected));
