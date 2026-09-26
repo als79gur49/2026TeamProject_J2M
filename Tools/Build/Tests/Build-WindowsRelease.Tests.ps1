@@ -844,6 +844,47 @@ Invoke-Case "longest known critical importer suffix owns the path budget" {
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null
 try {
+    Invoke-Case "staging creation rejects and preserves an existing directory" {
+        $staging = Join-Path $temp "staging-create\.staging-run"
+        New-ReleaseStagingDirectory -Path $staging
+        $marker = Join-Path $staging "keep.txt"
+        Set-Content -LiteralPath $marker -Value "existing"
+        $rejected = $false
+        try { New-ReleaseStagingDirectory -Path $staging }
+        catch { $rejected = $true }
+        Assert-True $rejected
+        Assert-Equal "existing" (Get-Content -LiteralPath $marker -Raw).Trim()
+    }
+    Invoke-Case "promotion rejects an existing final directory without moving staging" {
+        $root = Join-Path $temp "promotion-collision"
+        $staging = Join-Path $root ".staging-run"
+        $final = Join-Path $root "run"
+        New-Item -ItemType Directory -Path $staging, $final -Force |
+            Out-Null
+        $stageMarker = Join-Path $staging "stage.txt"
+        $finalMarker = Join-Path $final "keep.txt"
+        Set-Content -LiteralPath $stageMarker -Value "stage"
+        Set-Content -LiteralPath $finalMarker -Value "existing"
+        $rejected = $false
+        try {
+            Promote-ReleaseStagingDirectory -Staging $staging -Final $final
+        } catch { $rejected = $true }
+        Assert-True $rejected
+        Assert-Equal "stage" (Get-Content -LiteralPath $stageMarker -Raw).Trim()
+        Assert-Equal "existing" (Get-Content -LiteralPath $finalMarker -Raw).Trim()
+        Assert-False (Test-Path -LiteralPath (Join-Path $final ".staging-run"))
+    }
+    Invoke-Case "promotion moves staging into a fresh final directory" {
+        $root = Join-Path $temp "promotion-success"
+        $staging = Join-Path $root ".staging-run"
+        $final = Join-Path $root "run"
+        New-Item -ItemType Directory -Path $staging -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $staging "stage.txt") -Value "stage"
+        Promote-ReleaseStagingDirectory -Staging $staging -Final $final
+        Assert-False (Test-Path -LiteralPath $staging)
+        Assert-Equal "stage" (Get-Content -LiteralPath `
+            (Join-Path $final "stage.txt") -Raw).Trim()
+    }
     Invoke-Case "actual output path scan rejects a file beyond its budget" {
         $root = Join-Path $temp "output-path-scan"
         New-Item -ItemType Directory -Path $root -Force | Out-Null

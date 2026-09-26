@@ -598,7 +598,7 @@ evidence.
 
 ## Exit ownership
 
-C# codes occupy `0..50`; wrapper codes occupy `100..115`. Both schemas are
+C# codes occupy `0..50`; wrapper codes occupy `100..119`. Both schemas are
 constants and uniqueness-tested. Failed staging content is moved, when possible,
 under `failed/<runId>` with a non-deployable `FAILURE.json`.
 

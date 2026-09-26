@@ -459,6 +459,19 @@ function Assert-ReleaseOutputActualPathBudget {
     }
 }
 
+function New-ReleaseStagingDirectory {
+    param([Parameter(Mandatory)][string]$Path)
+    New-Item -ItemType Directory -Path $Path -ErrorAction Stop | Out-Null
+}
+
+function Promote-ReleaseStagingDirectory {
+    param(
+        [Parameter(Mandatory)][string]$Staging,
+        [Parameter(Mandatory)][string]$Final
+    )
+    [IO.Directory]::Move($Staging, $Final)
+}
+
 function Get-BuildSourceCriticalPathLength {
     param([Parameter(Mandatory)][string]$DetachedSourcePath)
     return @($script:CriticalImporterRelativePaths | ForEach-Object {
@@ -2904,7 +2917,16 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source collision."
         }
-        New-Item -ItemType Directory -Path $staging | Out-Null
+        $stage = "staging-creation"
+        try {
+            New-ReleaseStagingDirectory -Path $staging
+        } catch {
+            if (Test-Path -LiteralPath $staging) {
+                $exitCode = $script:ReleaseExitCodes.OutputCollision
+                throw "Staging artifact path already exists."
+            }
+            throw
+        }
         $ownsStaging = $true
         $stage = "detached-source"
         if ($buildSourcePlan.RequiresCreation) {
@@ -3213,7 +3235,14 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.OutputCollision
             throw "Final artifact path already exists."
         }
-        Move-Item -LiteralPath $staging -Destination $final
+        try {
+            Promote-ReleaseStagingDirectory -Staging $staging -Final $final
+        } catch {
+            $exitCode = if (Test-Path -LiteralPath $final) {
+                $script:ReleaseExitCodes.OutputCollision
+            } else { $script:ReleaseExitCodes.PromotionFailure }
+            throw
+        }
         $ownsStaging = $false
         $ownsFinal = $true
         if (-not (Test-SuccessControl -PayloadRoot $final `
